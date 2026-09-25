@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepositoryRoot = dirname(dirname(scriptPath));
 const defaultSkillPath = join(defaultRepositoryRoot, ".agents", "skills", "veln-language", "SKILL.md");
+const catalogPath = join("tools", "veln-repo-language-reference", "generated", "language-reference-catalog-v1.json");
+const digestPath = join("tools", "veln-repo-language-reference", "generated", "language-reference-catalog-v1.sha256");
 
 const acceptance = new Map([
   ["language-match", { route: "language", finalStatus: "answered" }],
@@ -58,6 +60,91 @@ const fixtureLimits = {
   fixtureBytes: 1_000_000,
   skillDescriptionCharacters: 300,
 };
+
+function loadPublishedLanguageReference(repositoryRoot) {
+  const digest = readFileSync(join(repositoryRoot, digestPath), "utf8").trim();
+  assert.match(digest, /^[0-9a-f]{64}$/, "checked language-reference digest must be canonical");
+  const catalog = JSON.parse(readFileSync(join(repositoryRoot, catalogPath), "utf8"));
+  assert.ok(Array.isArray(catalog.topics), "checked language-reference catalog must contain topics");
+  return { digest, catalog };
+}
+
+function topicUri(digest, topicId) {
+  return `veln-doc:///language/snapshot/${digest}/topic/${topicId}`;
+}
+
+function renderTopic(topic, digest) {
+  let text = `# ${topic.title}\n\n${topic.summary}\n\n`;
+  for (const paragraph of topic.body) text += `${paragraph}\n\n`;
+  text += "## Grammar\n\n";
+  for (const grammar of topic.grammar) {
+    text += `### ${grammar.name}\n\n\`\`\`ebnf\n${grammar.text}\n\`\`\`\n\n`;
+  }
+  text += "## Examples\n\n";
+  for (const example of topic.examples) {
+    text += `### ${example.display_name}\n\n`;
+    for (const file of example.files) {
+      text += `#### ${file.path}\n\n\`\`\`veln\n${file.source}\n\`\`\`\n\n`;
+    }
+  }
+  text += "## Keywords\n\n";
+  for (const keyword of topic.keywords) text += `- ${keyword}\n`;
+  text += "\n## Related Topics\n\n";
+  for (const related of topic.related) text += `- [${related}](${topicUri(digest, related)})\n`;
+  return text;
+}
+
+function normalizeSearchText(text) {
+  return text.normalize("NFKC").toLocaleLowerCase("en-US").trim();
+}
+
+function excerpt(field) {
+  const scalars = [...field];
+  return {
+    excerpt: scalars.slice(0, 160).join(""),
+    prefix_truncated: false,
+    suffix_truncated: scalars.length > 160,
+  };
+}
+
+function expectedPublishedSearch(arguments_, published) {
+  const query = normalizeSearchText(arguments_.query);
+  const tokens = query.split(/\s+/u);
+  const matches = [];
+  for (const topic of published.catalog.topics) {
+    const tiers = [
+      [topic.id, topic.title],
+      [topic.id, topic.title],
+      [topic.title, ...topic.keywords],
+      [topic.summary],
+      [topic.body.join("\n\n")],
+    ];
+    for (const [index, fields] of tiers.entries()) {
+      const normalized = fields.map(normalizeSearchText);
+      const matched = index === 0
+        ? normalized.some((field) => field === query)
+        : index === 1
+          ? normalized.some((field) => field.startsWith(query))
+          : tokens.every((token) => normalized.some((field) => field.includes(token)));
+      if (!matched) continue;
+      const excerptField = fields.find((field) => tokens.some((token) => normalizeSearchText(field).includes(token)))
+        ?? fields[0];
+      matches.push({
+        rank: index + 1,
+        uri: topicUri(published.digest, topic.id),
+        title: topic.title,
+        summary: topic.summary,
+        ...excerpt(excerptField),
+      });
+      break;
+    }
+  }
+  matches.sort((left, right) => left.rank - right.rank || Buffer.compare(Buffer.from(left.uri), Buffer.from(right.uri)));
+  return {
+    scope: "language",
+    results: matches.slice(0, arguments_.limit ?? 10).map(({ rank: _rank, ...result }) => result),
+  };
+}
 const operativePrefix = `
 
 # Veln Language Routing
@@ -249,15 +336,15 @@ function expectedSelection(text, route, context) {
     assert.ok(subjects.length <= 1, `${context}: request contains ambiguous language subjects`);
     if (subjects[0]?.topic === "schemas") {
       return {
-        searchArguments: { query: /\bencode\b/u.test(lower) ? "schema encode" : "Veln schemas", scope: "language" },
+        searchArguments: { query: "schemas binary", scope: "language" },
         topic: "schemas",
       };
     }
     if (subjects[0]?.topic === "effects-handlers") {
-      return { searchArguments: { query: "Veln effects", scope: "language" }, topic: "effects-handlers" };
+      return { searchArguments: { query: "effects", scope: "language" }, topic: "effects-handlers" };
     }
     if (subjects[0]?.topic === "modules-imports-packages") {
-      return { searchArguments: { query: "Veln modules", scope: "language" }, topic: "modules-imports-packages" };
+      return { searchArguments: { query: "modules", scope: "language" }, topic: "modules-imports-packages" };
     }
     if (subjects.length === 1) {
       return { searchArguments: { query: "borrow checker", scope: "language" }, topic: undefined };
@@ -320,6 +407,12 @@ function validateClaims(answer, expectedSource, resourceText, context) {
     assert.ok(claim.trim().length > 0, `${context}: claims must not be empty`);
     assert.ok(evidence.has(claim), `${context}: claim must match unambiguous selected-resource evidence`);
   }
+}
+
+function snapshotDigest(uri, context) {
+  const match = uri.match(snapshotTopicUri);
+  assert.ok(match, `${context}: topic URI must contain a canonical snapshot digest`);
+  return uri.split("/")[5];
 }
 
 function validateSchema(value, schema, root, context) {
@@ -429,7 +522,7 @@ function validateFailure(answer, operation, artifactUri, previousResult, context
   assert.deepEqual(answer.retained_result, previousResult, `${context}: earlier result changed`);
 }
 
-function validateLanguageTurn(turn, previousResult, contract, schemas, context) {
+function validateLanguageTurn(turn, previousResult, contract, schemas, published, context) {
   const { events } = turn;
   assert.ok(turn.request.text.length <= fixtureLimits.requestCharacters, `${context}: request exceeds the fixture text limit`);
   for (const event of events) {
@@ -481,6 +574,14 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
     `${context}: search_docs result`,
   );
   const results = validateSearchResult(searchStructured, context);
+  const currentSearch = results.every((result) => snapshotDigest(result.uri, context) === published.digest);
+  if (currentSearch) {
+    assert.deepEqual(
+      searchStructured,
+      expectedPublishedSearch(events[0].arguments, published),
+      `${context}: recorded search_docs result differs from the checked language-reference artifact`,
+    );
+  }
   if (selection.topic === undefined) {
     assert.equal(results.length, 0, `${context}: request-selected topic absence must not replay a match`);
   } else if (results.length > 0) {
@@ -533,6 +634,21 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
     assert.equal(failure.code, "resource_not_found", `${context}: unsupported read_doc error`);
     assert.equal(failure.details?.uri, selectedUri, `${context}: stale error must identify the selected URI`);
     assert.equal(failure.text, undefined, `${context}: failed read must not contain partial document text`);
+    const staleDigest = snapshotDigest(selectedUri, context);
+    assert.notEqual(
+      staleDigest,
+      published.digest,
+      `${context}: stale snapshot URI must differ from the checked published snapshot digest`,
+    );
+    const currentResult = expectedPublishedSearch(events[0].arguments, published).results.find(
+      (result) => result.uri.endsWith(`/topic/${selection.topic}`),
+    );
+    assert.ok(currentResult, `${context}: stale topic is absent from the checked language-reference artifact`);
+    assert.deepEqual(
+      results.find((result) => result.uri === selectedUri),
+      { ...currentResult, uri: topicUri(staleDigest, selection.topic) },
+      `${context}: stale search recording differs from the checked topic contract`,
+    );
     assert.equal(answer.status, "stale_snapshot", `${context}: wrong stale-snapshot status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: stale-snapshot answer`);
     validateFailure(answer, "read_doc", selectedUri, previousResult, context);
@@ -546,6 +662,26 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
     `${context}: read_doc result`,
   );
   validateReadResult(readStructured, selectedUri, context);
+  assert.ok(
+    Buffer.byteLength(readStructured.text, "utf8") <= fixtureLimits.resourceTextBytes,
+    `${context}: selected resource exceeds the published byte limit`,
+  );
+  assert.equal(
+    snapshotDigest(selectedUri, context),
+    published.digest,
+    `${context}: successful read must use the checked published snapshot digest`,
+  );
+  const topicId = selectedUri.slice(selectedUri.lastIndexOf("/") + 1);
+  const topic = published.catalog.topics.find((candidate) => candidate.id === topicId);
+  assert.ok(topic, `${context}: selected topic is absent from the checked language-reference artifact`);
+  assert.deepEqual(readStructured, {
+    uri: selectedUri,
+    name: topic.id,
+    title: topic.title,
+    description: topic.summary,
+    mimeType: markdownMimeType,
+    text: renderTopic(topic, published.digest),
+  }, `${context}: recorded read_doc result differs from the checked language-reference artifact`);
   assert.equal(answer.status, "answered", `${context}: wrong successful status`);
   assertExactKeys(answer, ["type", "status", "claims", "source_uris"], `${context}: successful answer`);
   validateClaims(answer, selectedUri, readStructured.text, context);
@@ -672,6 +808,7 @@ export function validateScenarioDocument(document, options = {}) {
   const contract = loadSkillContract(options);
   const repositoryRoot = options.repositoryRoot ?? defaultRepositoryRoot;
   const schemas = loadToolSchemas(repositoryRoot);
+  const published = loadPublishedLanguageReference(repositoryRoot);
   for (const path of contract.maintenance) {
     checkedRepositoryPath(repositoryRoot, path, "veln-language maintenance contract");
   }
@@ -694,7 +831,7 @@ export function validateScenarioDocument(document, options = {}) {
       const route = routeRequest(turn.request?.text, contract, context);
       assert.equal(route, requirement.route, `${context}: request text selected the wrong route for ${scenario.covers}`);
       lastSuccessfulResult = route === "language"
-        ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, context)
+        ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, published, context)
         : validateRepositoryTurn(turn, lastSuccessfulResult, requirement, contract, repositoryRoot, context);
     }
     if (requirement.failure) {
@@ -709,7 +846,23 @@ export function validateScenarioDocument(document, options = {}) {
 export function readScenarioDocument(path) {
   assert.ok(statSync(path).size <= fixtureLimits.fixtureBytes, "scenario fixture exceeds the byte limit");
   const bytes = readFileSync(path);
-  return JSON.parse(bytes.toString("utf8"));
+  const document = JSON.parse(bytes.toString("utf8"));
+  if (document.recordings === undefined) return document;
+  assertExactKeys(document, ["schema_version", "recordings", "scenarios"], "scenario document");
+  assertExactKeys(document.recordings, ["schemas-binary-search", "schemas-read"], "scenario recordings");
+  for (const scenario of document.scenarios) {
+    for (const turn of scenario.turns) {
+      for (const event of turn.events) {
+        if (event.value_ref === undefined) continue;
+        assert.ok(Object.hasOwn(document.recordings, event.value_ref), `unknown scenario recording ${event.value_ref}`);
+        assertExactKeys(event, ["type", "tool", "value_ref"], "recorded result reference");
+        event.value = structuredClone(document.recordings[event.value_ref]);
+        delete event.value_ref;
+      }
+    }
+  }
+  delete document.recordings;
+  return document;
 }
 
 if (process.argv[1] === scriptPath) {
