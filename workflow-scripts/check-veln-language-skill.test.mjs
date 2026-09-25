@@ -301,6 +301,13 @@ test("routes a collective repository inspection request", () => {
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
+test("routes a non-leading repository inspection request", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Tell me whether you can inspect the compiler parser.";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
 test("keeps an embedded language inspection request on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "I need you to inspect how Veln schemas work.";
