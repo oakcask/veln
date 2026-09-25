@@ -967,6 +967,10 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
   while (cursor < source.length) {
     const labelStart = source.indexOf("[", cursor);
     if (labelStart === -1) break;
+    if (isBackslashEscaped(source, labelStart)) {
+      cursor = labelStart + 1;
+      continue;
+    }
     if (labelStart > 0 && source[labelStart - 1] === "!") {
       cursor = labelStart + 1;
       continue;
@@ -984,6 +988,14 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     if (joined.startsWith("docs/")) links.push(joined);
   }
   return links;
+}
+
+function isBackslashEscaped(source, index) {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && source[cursor] === "\\"; cursor -= 1) {
+    backslashes += 1;
+  }
+  return backslashes % 2 === 1;
 }
 
 function navigationalMarkdown(source) {
@@ -1019,6 +1031,8 @@ function navigationalMarkdown(source) {
       const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line);
       if (opening !== null) {
         fence = { character: opening[1][0], length: opening[1].length };
+        mask(lineStart, lineEnd);
+      } else if (/^(?: {4}|\t)/.test(line)) {
         mask(lineStart, lineEnd);
       }
     } else {
