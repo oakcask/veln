@@ -67,6 +67,9 @@ unchanged.
 
 Repository routing reads at most three distinct documentation files. It stops
 when the selected route ends and reports when no route covers the request.
+A documentation path contributes to a route only when it is the destination of
+an actual Markdown navigation link. Link-shaped text in code, comments,
+images, or escaped syntax does not make a path reachable.
 A terminal repository authority must be current. The skill rejects a terminal
 document whose lifecycle status marks it as closed or superseded.
 
