@@ -32,7 +32,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
 {
   "schema_version": 1,
   "request_selection": {
-    "repository_when": "The request asks to inspect or change the Veln repository, its implementation, or its proposal state.",
+    "repository_when": "The request asks to inspect, test, or change the Veln repository or makes the repository, codebase, source code, or proposal state its subject.",
     "language_otherwise": true
   },
   "language": {
@@ -223,6 +223,27 @@ test("rejects an inconsistent skill contract", () => {
   assert.throws(
     () => validateScenarioDocument(fixture(), { skillText: skillText.replace('"maximum_calls": 2', '"maximum_calls": 3') }),
     /language contract is inconsistent/,
+  );
+});
+
+test("rejects unknown top-level skill contract fields", () => {
+  assert.throws(
+    () => validateScenarioDocument(fixture(), {
+      skillText: skillText.replace('  "schema_version": 1,', '  "schema_version": 1,\n  "fallback": "published_language_reference",'),
+    }),
+    /skill contract: fields must match the closed shape/,
+  );
+});
+
+test("rejects unknown repository contract fields", () => {
+  assert.throws(
+    () => validateScenarioDocument(fixture(), {
+      skillText: skillText.replace(
+        '    "entry": "docs\/README.md",',
+        '    "entry": "docs\/README.md",\n    "fallback": "published_language_reference",',
+      ),
+    }),
+    /repository contract: fields must match the closed shape/,
   );
 });
 

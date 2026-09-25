@@ -73,11 +73,11 @@ when the selected route ends and reports when no route covers the request.
 repository results for the acceptance model. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
-closed result shapes, provenance, bounded failures, preserved results, routing,
-and input limits. Its request-selection evidence covers repository actions and
-language-question uses of every checked intent verb. Stress cases run in
-workers that the parent test terminates at their time bound. Stale search
-recordings are checked in full against archived catalog evidence whose snapshot
-digest is recalculated with the published catalog digest contract. The current
-published catalog bytes must also match their digest sidecar before the harness
-parses them.
+the closed operative-contract and result shapes, provenance, bounded failures,
+preserved results, routing, and input limits. Its request-selection evidence
+covers repository actions and language-question uses of every checked intent
+verb. Stress cases run in workers that the parent test terminates at their time
+bound. Stale search recordings are checked in full against archived catalog
+evidence whose snapshot digest is recalculated with the published catalog
+digest contract. The current published catalog bytes must also match their
+digest sidecar before the harness parses them.
