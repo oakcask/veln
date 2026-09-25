@@ -93,6 +93,13 @@ function parseSkillContract(skillText) {
     Array.isArray(contract.repository?.routing_terms) && contract.repository.routing_terms.length > 0,
     "skill must define recorded-request repository routing terms",
   );
+  assert.deepEqual(contract.repository?.path_prefixes, [
+    ".agents/",
+    ".github/",
+    "crates/",
+    "docs/",
+    "workflow-scripts/",
+  ], "skill must recognize repository paths without relying on generic action words");
   assert.deepEqual(contract.failure, {
     fallback: "forbidden",
     preserve_previous_result: true,
@@ -122,7 +129,7 @@ function routeRequest(text, contract, context) {
   const repository = contract.repository.routing_terms.some((term) => {
     const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`\\b${escaped}\\b`, "u").test(lower);
-  });
+  }) || contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
   return repository ? "repository" : "language";
 }
 
@@ -238,6 +245,23 @@ function validateReadResult(result, selectedUri, context) {
   assert.equal(result.mimeType, markdownMimeType, `${context}: read result mimeType is invalid`);
 }
 
+function validateToolEnvelope(value, schema, expectedIsError, context) {
+  assertExactKeys(value, ["content", "structuredContent", "isError"], `${context}: MCP tool envelope`);
+  assert.equal(value.isError, expectedIsError, `${context}: MCP tool envelope has the wrong error state`);
+  assert.ok(Array.isArray(value.content), `${context}: MCP tool content must be an array`);
+  assert.equal(value.content.length, 1, `${context}: MCP tool content must contain one text item`);
+  assertExactKeys(value.content[0], ["type", "text"], `${context}: MCP tool text content`);
+  assert.equal(value.content[0].type, "text", `${context}: MCP tool content must be text`);
+  assert.equal(typeof value.content[0].text, "string", `${context}: MCP tool text is required`);
+  assert.deepEqual(
+    JSON.parse(value.content[0].text),
+    value.structuredContent,
+    `${context}: MCP tool text must encode structuredContent`,
+  );
+  validateSchema(value.structuredContent, schema, schema, `${context}: structuredContent`);
+  return value.structuredContent;
+}
+
 function validateFailure(answer, operation, artifactUri, previousResult, context) {
   assert.deepEqual(answer.failure, { operation, artifact_uri: artifactUri }, `${context}: failure must identify the failed operation and artifact`);
   validateClaims(answer, undefined, undefined, context);
@@ -279,13 +303,22 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
     return previousResult;
   }
 
-  validateSchema(searchResult.value, schemas.searchResult, schemas.searchResult, `${context}: search_docs result`);
-  const results = validateSearchResult(searchResult.value ?? {}, context);
+  const searchStructured = validateToolEnvelope(
+    searchResult.value,
+    schemas.searchResult,
+    false,
+    `${context}: search_docs result`,
+  );
+  const results = validateSearchResult(searchStructured, context);
   if (results.length === 0) {
     assert.equal(events.length, 3, `${context}: no match must stop without retry or read`);
     assert.equal(answer.status, "no_match", `${context}: wrong no-match status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "message"], `${context}: no-match answer`);
-    assert.match(answer.message ?? "", /published.*no matching topic/i, `${context}: published-topic absence was not reported`);
+    assert.equal(
+      answer.message,
+      "The published Veln language reference has no matching topic.",
+      `${context}: no-match answer must only report the published-topic absence`,
+    );
     validateClaims(answer, undefined, undefined, context);
     return previousResult;
   }
@@ -308,21 +341,31 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
     return previousResult;
   }
   if (readResult.value?.isError === true) {
-    validateSchema(readResult.value.structuredContent, schemas.readResult, schemas.readResult, `${context}: read_doc failure result`);
-    assert.equal(readResult.value.structuredContent?.code, "resource_not_found", `${context}: unsupported read_doc error`);
-    assert.equal(readResult.value.structuredContent?.details?.uri, selectedUri, `${context}: stale error must identify the selected URI`);
-    assert.equal(readResult.value.text, undefined, `${context}: failed read must not contain partial document text`);
+    const failure = validateToolEnvelope(
+      readResult.value,
+      schemas.readResult,
+      true,
+      `${context}: read_doc failure result`,
+    );
+    assert.equal(failure.code, "resource_not_found", `${context}: unsupported read_doc error`);
+    assert.equal(failure.details?.uri, selectedUri, `${context}: stale error must identify the selected URI`);
+    assert.equal(failure.text, undefined, `${context}: failed read must not contain partial document text`);
     assert.equal(answer.status, "stale_snapshot", `${context}: wrong stale-snapshot status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: stale-snapshot answer`);
     validateFailure(answer, "read_doc", selectedUri, previousResult, context);
     return previousResult;
   }
 
-  validateSchema(readResult.value, schemas.readResult, schemas.readResult, `${context}: read_doc result`);
-  validateReadResult(readResult.value ?? {}, selectedUri, context);
+  const readStructured = validateToolEnvelope(
+    readResult.value,
+    schemas.readResult,
+    false,
+    `${context}: read_doc result`,
+  );
+  validateReadResult(readStructured, selectedUri, context);
   assert.equal(answer.status, "answered", `${context}: wrong successful status`);
   assertExactKeys(answer, ["type", "status", "claims", "source_uris"], `${context}: successful answer`);
-  validateClaims(answer, selectedUri, readResult.value.text, context);
+  validateClaims(answer, selectedUri, readStructured.text, context);
   assert.deepEqual(answer.claims, turn.expected.answer_claims, `${context}: answer claims must match the scenario expectation`);
   return retainedResult(answer);
 }
