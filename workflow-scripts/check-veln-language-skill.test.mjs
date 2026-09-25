@@ -182,6 +182,13 @@ test("routes an ordinary compiler change request without an incidental routing k
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
+test("canonical repository scenarios cover inspection and change requests", () => {
+  const document = fixture();
+  assert.match(scenario(document, "repository-current").turns[0].request.text, /^Inspect\b/u);
+  assert.match(scenario(document, "repository-change").turns[0].request.text, /^Fix\b/u);
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("routes a polite repository change request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
@@ -276,6 +283,14 @@ test("rejects an incomplete search result", () => {
   assert.throws(() => validateScenarioDocument(document, options), /missing schema field excerpt/);
 });
 
+test("rejects search metadata that drifts from the checked language-reference artifact", () => {
+  const document = fixture();
+  const event = matchingTurn(document).events[1];
+  structured(event).results[0].summary = "A shortened recording.";
+  syncEnvelope(event);
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked language-reference artifact/);
+});
+
 test("rejects incomplete read metadata", () => {
   const document = fixture();
   const event = matchingTurn(document).events[3];
@@ -317,7 +332,7 @@ test("rejects a claim that appears only inside a negated statement", () => {
   structured(event).text =
     "The reference does not establish this claim: Schemas describe format-neutral and binary fields.";
   syncEnvelope(event);
-  assert.throws(() => validateScenarioDocument(document, options), /unambiguous selected-resource evidence/);
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked language-reference artifact/);
 });
 
 test("rejects unsupported content in a successful answer", () => {
@@ -386,15 +401,15 @@ test("rejects a selected resource beyond the published byte limit", () => {
   assert.throws(() => validateScenarioDocument(document, options), /published byte limit/);
 });
 
-test("accepts many claims in linear evidence membership time", () => {
+test("rejects read text that drifts from the checked language-reference artifact", () => {
   const document = fixture();
   const turn = matchingTurn(document);
-  const statements = Array.from({ length: 16 }, (_, index) => `Schema evidence ${index}.`);
-  structured(turn.events[3]).text = statements.join(" ");
+  const statement = "A replacement recording.";
+  structured(turn.events[3]).text = statement;
   syncEnvelope(turn.events[3]);
-  turn.expected.answer_claims = statements;
-  turn.events[4].claims = statements;
-  assert.equal(validateScenarioDocument(document, options), 9);
+  turn.expected.answer_claims = [statement];
+  turn.events[4].claims = [statement];
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked language-reference artifact/);
 });
 
 test("rejects incomplete failure provenance", () => {
@@ -409,6 +424,23 @@ test("rejects a stale result without the schema-required message", () => {
   delete event.value.structuredContent.message;
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /value does not match exactly one published schema branch/);
+});
+
+test("rejects a stale-snapshot row that uses the current published digest", () => {
+  const document = fixture();
+  const turn = scenario(document, "stale-snapshot-uri").turns[1];
+  const staleUri = turn.events[2].arguments.uri;
+  const currentUri = staleUri.replace(
+    /snapshot\/[0-9a-f]{64}\//u,
+    "snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/",
+  );
+  structured(turn.events[1]).results[0].uri = currentUri;
+  syncEnvelope(turn.events[1]);
+  turn.events[2].arguments.uri = currentUri;
+  structured(turn.events[3]).details.uri = currentUri;
+  syncEnvelope(turn.events[3]);
+  turn.events[4].failure.artifact_uri = currentUri;
+  assert.throws(() => validateScenarioDocument(document, options), /stale snapshot URI must differ/);
 });
 
 test("rejects mutation of the earlier result after failure", () => {
