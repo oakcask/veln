@@ -13,6 +13,7 @@ on:
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run
+      - workflow-scripts/fixtures/veln-language/**
       - workflow-scripts/**/*.mjs
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run
+      - workflow-scripts/fixtures/veln-language/**
       - workflow-scripts/**/*.mjs
 
 permissions:
