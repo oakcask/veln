@@ -740,6 +740,7 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   assert.ok(events.length <= fixtureLimits.eventsPerTurn, `${context}: turn exceeds the event limit`);
   assert.ok(calls.length <= contract.language.maximum_calls, `${context}: language route exceeded its call bound`);
   assert.equal(events[0]?.type, "call", `${context}: language route must start with a call`);
+  assertExactKeys(events[0], ["type", "tool", "arguments"], `${context}: search call event`);
   assert.equal(events[0]?.tool, contract.language.search_tool, `${context}: language route must search first`);
   validateSchema(events[0]?.arguments, schemas.searchInput, schemas.searchInput, `${context}: search_docs input`);
   assert.equal(events[0]?.arguments?.scope, contract.language.search_scope, `${context}: search scope must be language`);
@@ -820,6 +821,7 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
 
   assert.equal(events.length, 5, `${context}: matching route must have one search and one read`);
   assert.equal(events[2]?.type, "call", `${context}: topic read must follow search result`);
+  assertExactKeys(events[2], ["type", "tool", "arguments"], `${context}: read call event`);
   assert.equal(events[2]?.tool, contract.language.read_tool, `${context}: matching route must use read_doc`);
   validateSchema(events[2]?.arguments, schemas.readInput, schemas.readInput, `${context}: read_doc input`);
   const selectedUri = events[2]?.arguments?.uri;
