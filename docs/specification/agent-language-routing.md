@@ -45,13 +45,15 @@ requested repository action in that form.
 A passive question that asks how a compiler or parser implementation is
 implemented uses the repository route. A request whose subject is the
 repository, codebase, source code, or proposal state uses the repository route
-without requiring an action verb. Questions about how Veln language features
-behave remain on the language route whether the Veln subject appears before or
-after the feature named in the question. Routing treats an intent or explicit
-repository target as repository work only when it is the requested action or
-subject. Merely mentioning one in a language question does not select the
-repository route. A request to explain a stated language question also remains
-on the language route.
+without requiring an action verb. This includes direct and indirect questions
+that put one of those explicit targets before or after the copula. Questions
+about how Veln language features behave remain on the language route when they
+request information rather than an inspection, test, or change action. Routing
+treats an intent or explicit repository target as repository work only when it
+is the requested action or subject. Merely mentioning one in a language
+question, or asking what the term means, does not select the repository route.
+A request to explain a stated language question also remains on the language
+route.
 
 ## Limits and failures
 

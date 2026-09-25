@@ -42,7 +42,15 @@
     { "id": "test-action", "intent": "test", "text": "Test how Veln schemas work.", "route": "repository" },
     { "id": "test-language", "intent": "test", "text": "What can I test in Veln schemas?", "route": "language" },
     { "id": "update-action", "intent": "update", "text": "Update the Veln compiler parser.", "route": "repository" },
-    { "id": "update-language", "intent": "update", "text": "Please update me on how Veln schemas work.", "route": "language" }
+    { "id": "update-language", "intent": "update", "text": "Please update me on how Veln schemas work.", "route": "language" },
+    { "id": "repository-subject", "target": "repository", "text": "Can you tell me what is in the Veln repository?", "route": "repository" },
+    { "id": "repository-incidental", "target": "repository", "text": "Does Veln have a repository schema?", "route": "language" },
+    { "id": "codebase-subject", "target": "codebase", "text": "Can you tell me what is in the Veln codebase?", "route": "repository" },
+    { "id": "codebase-incidental", "target": "codebase", "text": "Can Veln schemas describe a codebase identifier?", "route": "language" },
+    { "id": "source-code-subject", "target": "source code", "text": "Can you tell me what is in the Veln source code?", "route": "repository" },
+    { "id": "source-code-incidental", "target": "source code", "text": "Can Veln schemas encode source code text?", "route": "language" },
+    { "id": "proposal-state-subject", "target": "proposal state", "text": "Can you tell me what the Veln proposal state is?", "route": "repository" },
+    { "id": "proposal-state-incidental", "target": "proposal state", "text": "Can Veln schemas record proposal state values?", "route": "language" }
   ],
   "scenarios": [
     {
@@ -196,7 +204,7 @@
       "id": "repository-explicit-target-subject",
       "covers": "repository-explicit-target",
       "turns": [{
-        "request": { "text": "What is the Veln proposal state?" },
+        "request": { "text": "Can you tell me what the Veln proposal state is?" },
         "events": [
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/proposals/README.md" } },
           { "type": "read", "path": "docs/proposals/README.md", "value": { "authority": "docs/proposals/README.md" } },

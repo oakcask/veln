@@ -57,8 +57,9 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "authority_selection": "smallest_current_linked_authority",
     "no_route": "Stop and report that no repository documentation route covers the request.",
     "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
+    "explicit_target_selection": "An explicit repository target selects repository work only when it is the requested subject, including direct or indirect what or where questions. A term definition or incidental mention does not select repository work.",
     "intent_verbs": ["add", "change", "debug", "examine", "fix", "implement", "inspect", "investigate", "modify", "refactor", "remove", "review", "select", "test", "update"],
-    "intent_selection": "An inspection or change intent selects repository work regardless of its position unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
+    "intent_selection": "A requested inspection, test, or change action selects repository work regardless of its position. A word that names such an action does not select repository work when the request instead asks a language question or asks what the word means.",
     "language_complements": ["how", "what", "when", "where", "whether", "why"],
     "location_question_endings": ["defined", "handled", "implemented", "located"],
     "location_question_forms": ["where", "tell me where", "show me where"],
@@ -161,6 +162,15 @@ test("requires both routes for every checked intent verb", () => {
   assert.throws(
     () => validateScenarioDocument(document, options),
     /must cover both routes for every intent verb/,
+  );
+});
+
+test("requires subject and incidental evidence for every explicit repository target", () => {
+  const document = fixture();
+  document.request_selection = document.request_selection.filter((entry) => entry.id !== "codebase-incidental");
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /must cover subject and incidental uses for every explicit target/,
   );
 });
 
@@ -471,8 +481,18 @@ test("routes an explicit repository target used as the requested subject", () =>
   const document = fixture();
   assert.equal(
     scenario(document, "repository-explicit-target").turns[0].request.text,
-    "What is the Veln proposal state?",
+    "Can you tell me what the Veln proposal state is?",
   );
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("classifies every explicit repository target by requested subject rather than mention", () => {
+  const document = fixture();
+  const selection = new Map(document.request_selection.map((entry) => [entry.id, entry.route]));
+  for (const target of ["repository", "codebase", "source-code", "proposal-state"]) {
+    assert.equal(selection.get(`${target}-subject`), "repository");
+    assert.equal(selection.get(`${target}-incidental`), "language");
+  }
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
