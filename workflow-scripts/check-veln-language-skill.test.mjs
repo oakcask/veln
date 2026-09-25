@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,110 +19,19 @@ import {
   expectedPublishedSearch,
   loadCaseFoldMappings,
   loadPublishedLanguageReference,
+  loadSnapshotEvidence,
   readScenarioDocument,
   selectRequestRoute,
   shortestDocumentationRoute,
   validateScenarioDocument,
 } from "./check-veln-language-skill.mjs";
 
-const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "veln-language", "scenarios.json");
-const skillText = `---
-name: veln-language
-description: Use for Veln language questions and for inspecting or changing the Veln repository through its documentation authority.
----
-
-# Veln Language Routing
-
-The JSON contract below is the complete operative instruction set for this
-skill. Apply it exactly. Do not add a fallback from other instructions.
-
-<!-- veln-language-contract:start -->
-\`\`\`json
-{
-  "schema_version": 1,
-  "request_selection": {
-    "repository_when": "The request asks to inspect, test, or change the Veln repository or makes the repository, codebase, source code, or proposal state its subject.",
-    "language_otherwise": true
-  },
-  "language": {
-    "search_tool": "search_docs",
-    "search_scope": "language",
-    "read_tool": "read_doc",
-    "maximum_calls": 2,
-    "call_order": ["search_docs", "read_doc"],
-    "selection": "first_search_result",
-    "read_exact_search_result_uri": true,
-    "fallback": "forbidden",
-    "answer_source": "selected_resource_uri",
-    "report_selected_uri": true,
-    "no_match": "Report that the published Veln language reference has no matching topic. Do not use proposal text or model memory."
-  },
-  "repository": {
-    "entry": "docs/README.md",
-    "follow_selected_links": true,
-    "maximum_reads": 3,
-    "repeat_paths": "forbidden",
-    "published_reference_is_authority": false,
-    "authority_selection": "smallest_current_linked_authority",
-    "no_route": "Stop and report that no repository documentation route covers the request.",
-    "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
-    "explicit_target_selection": "An explicit repository target selects repository work only when it is the requested subject, including direct or indirect what or where questions. A term definition or incidental mention does not select repository work.",
-    "intent_verbs": ["add", "change", "debug", "examine", "fix", "implement", "inspect", "investigate", "modify", "refactor", "remove", "review", "select", "test", "update"],
-    "intent_selection": "A requested inspection, test, or change action selects repository work regardless of its position. A word that names such an action does not select repository work when the request instead asks a language question or asks what the word means.",
-    "language_complements": ["how", "what", "when", "where", "whether", "why"],
-    "location_question_endings": ["defined", "handled", "implemented", "located"],
-    "location_question_forms": ["where", "tell me where", "show me where"],
-    "path_prefixes": [".agents/", ".github/", "crates/", "docs/", "editors/", "examples/", "scripts/", "tools/", "workflow-scripts/"]
-  },
-  "failure": {
-    "fallback": "forbidden",
-    "preserve_previous_result": true,
-    "report_operation": true,
-    "report_selected_uri": true,
-    "search_unavailable": "Stop after search_docs and report that published language-reference search is unavailable.",
-    "topic_unavailable": "Stop after read_doc and report that the selected published topic is unavailable.",
-    "stale_snapshot": "When read_doc returns resource_not_found for the selected snapshot URI, stop and report that the URI is stale."
-  },
-  "maintenance": [
-    "docs/specification/language-reference-catalog.md",
-    "docs/specification/mcp.md",
-    "docs/README.md"
-  ]
-}
-\`\`\`
-<!-- veln-language-contract:end -->`;
-const options = { skillText };
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = join(scriptDirectory, "..");
+const fixturePath = join(scriptDirectory, "fixtures", "veln-language", "scenarios.json");
 const stressWorkerPath = new URL("./check-veln-language-skill.stress-worker.mjs", import.meta.url);
-
-function runStressTarget(target, data, timeout = 1_000) {
-  return new Promise((resolvePromise, rejectPromise) => {
-    const worker = new Worker(stressWorkerPath, { workerData: { target, data } });
-    let settled = false;
-    const finish = (callback, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      callback(value);
-    };
-    const timer = setTimeout(() => {
-      void worker.terminate();
-      finish(rejectPromise, new Error(`stress target ${target} exceeded ${timeout} ms`));
-    }, timeout);
-    worker.once("message", (message) => {
-      if (message.ok) {
-        finish(resolvePromise, message.value);
-      } else {
-        const error = new Error(message.message);
-        error.name = message.name;
-        finish(rejectPromise, error);
-      }
-    });
-    worker.once("error", (error) => finish(rejectPromise, error));
-    worker.once("exit", (code) => {
-      if (code !== 0) finish(rejectPromise, new Error(`stress target ${target} exited with code ${code}`));
-    });
-  });
-}
+const candidateOptions = {};
+const options = candidateOptions;
 
 function fixture() {
   return readScenarioDocument(fixturePath);
@@ -137,696 +53,282 @@ function syncEnvelope(event) {
   event.value.content[0].text = JSON.stringify(event.value.structuredContent);
 }
 
+function runStressTarget(target, data, timeout = 2_000) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const worker = new Worker(stressWorkerPath, { workerData: { target, data } });
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback(value);
+    };
+    const timer = setTimeout(() => {
+      void worker.terminate();
+      finish(rejectPromise, new Error(`stress target ${target} exceeded ${timeout} ms`));
+    }, timeout);
+    worker.once("message", (message) => {
+      if (message.ok) finish(resolvePromise, message.value);
+      else finish(rejectPromise, Object.assign(new Error(message.message), { name: message.name }));
+    });
+    worker.once("error", (error) => finish(rejectPromise, error));
+    worker.once("exit", (code) => {
+      if (code !== 0) finish(rejectPromise, new Error(`stress target ${target} exited with code ${code}`));
+    });
+  });
+}
+
+function digestCatalog(catalog) {
+  const bytes = Buffer.from(`${JSON.stringify(catalog)}\n`);
+  const length = Buffer.alloc(8);
+  length.writeBigUInt64BE(BigInt(bytes.length));
+  return createHash("sha256")
+    .update(Buffer.from("veln-language-reference/v1\0"))
+    .update(length)
+    .update(bytes)
+    .digest("hex");
+}
+
+function writeSnapshotEvidence(root, snapshots) {
+  const directory = join(root, "workflow-scripts", "fixtures", "veln-language");
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(
+    join(directory, "snapshot-catalogs.json"),
+    JSON.stringify({ schema_version: 1, snapshots }),
+  );
+}
+
 test("canonical veln-language skill replays every acceptance scenario", () => {
   assert.equal(validateScenarioDocument(fixture()), 11);
 });
 
-test("rejects a published catalog whose bytes do not match its digest sidecar", (context) => {
-  const root = mkdtempSync(join(tmpdir(), "veln-language-published-"));
+test("request selection uses annotated action and subject semantics", () => {
+  const document = fixture();
+  const cases = new Map(document.request_selection.map((entry) => [entry.text, entry]));
+  for (const [text, expected] of [
+    ["Please assess the Veln parser.", "repository"],
+    ["Audit the Veln lexer.", "repository"],
+    ["Assess how effects are handled in Veln.", "repository"],
+    ["How are effects handled in Veln?", "language"],
+    ["Explain how effects are handled in Veln.", "language"],
+  ]) {
+    const entry = cases.get(text);
+    assert.ok(entry, text);
+    assert.equal(
+      selectRequestRoute({ action: entry.action, subject: entry.subject }, candidateOptions),
+      expected,
+      text,
+    );
+  }
+});
+
+test("semantic routing is independent of a surface verb vocabulary", () => {
+  assert.equal(
+    selectRequestRoute({ action: "repository_action", subject: "implementation" }, candidateOptions),
+    "repository",
+  );
+  assert.equal(
+    selectRequestRoute({ action: "repository_action", subject: "language_behavior" }, candidateOptions),
+    "repository",
+  );
+  assert.equal(
+    selectRequestRoute({ action: "information", subject: "language_behavior" }, candidateOptions),
+    "language",
+  );
+  assert.equal(
+    selectRequestRoute({ action: "information", subject: "repository_material" }, candidateOptions),
+    "repository",
+  );
+});
+
+test("rejects missing or contradictory request semantics", () => {
+  assert.throws(() => selectRequestRoute({ action: "information" }, candidateOptions), /fields must match/);
+  assert.throws(
+    () => selectRequestRoute({ action: "guess", subject: "implementation" }, candidateOptions),
+    /unknown requested action class/,
+  );
+  const document = fixture();
+  document.request_selection.find((entry) => entry.id === "effects-passive-information").route = "repository";
+  assert.throws(() => validateScenarioDocument(document, candidateOptions), /request semantics selected the wrong route/);
+});
+
+test("requires semantic evidence for every replayed request", () => {
+  const document = fixture();
+  document.request_selection = document.request_selection.filter(
+    (entry) => entry.text !== scenario(document, "language-match").turns[0].request.text,
+  );
+  assert.throws(() => validateScenarioDocument(document, candidateOptions), /no independent semantic annotation/);
+});
+
+test("rejects changed text in every corpus row with unchanged claimed semantics", () => {
+  const document = fixture();
+  for (const [index, selection] of document.request_selection.entries()) {
+    const mutated = structuredClone(document);
+    mutated.request_selection[index].text = `${selection.text} changed`;
+    assert.throws(
+      () => validateScenarioDocument(mutated, candidateOptions),
+      /differ from the independent corpus oracle/,
+      selection.id,
+    );
+  }
+});
+
+test("rejects unsupported answer provenance and fallback", () => {
+  const unsupported = fixture();
+  scenario(unsupported, "language-match").turns[0].events.at(-1).claims = ["Model memory says otherwise."];
+  assert.throws(() => validateScenarioDocument(unsupported, candidateOptions), /selected-resource evidence/);
+
+  const fallback = fixture();
+  scenario(fallback, "language-no-match").turns[0].events.at(-1).fallback = "proposal";
+  assert.throws(() => validateScenarioDocument(fallback, candidateOptions), /fields must match/);
+});
+
+test("preserves an earlier successful result after bounded failure", () => {
+  const document = fixture();
+  scenario(document, "search-unavailable").turns[1].events.at(-1).retained_result.claims = [];
+  assert.throws(() => validateScenarioDocument(document, candidateOptions), /earlier result changed/);
+});
+
+test("derives the smallest repository documentation route", () => {
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/specification/mcp.md", repositoryRoot, 3),
+    ["docs/README.md", "docs/specification/mcp.md"],
+  );
+});
+
+test("terminates a nonresponsive stress worker", async () => {
+  await assert.rejects(runStressTarget("nontermination", {}, 100), /exceeded 100 ms/);
+});
+
+test("normalizes the largest accepted internal whitespace run with linear scaling", async () => {
+  const result = await runStressTarget("normalization-scaling", {
+    sizes: [65_536, 131_072, 262_144],
+    repetitions: 12,
+  });
+  assert.deepEqual(result.lengths, [65_538, 131_074, 262_146]);
+  assert.ok(result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 2, result.milliseconds);
+  assert.ok(result.milliseconds[2] <= result.milliseconds[1] * 3.5 + 2, result.milliseconds);
+});
+
+test("preserves Unicode whitespace trimming semantics", async () => {
+  const result = await runStressTarget("normalization-values", {
+    values: ["\u0085 schema \u3000", "a   b", "\u2003\u2003"],
+  });
+  assert.deepEqual(result, ["schema", "a   b", ""]);
+});
+
+test("rejects a published catalog beyond its byte limit before reading it", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-catalog-bytes-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
   const generated = join(root, "tools", "veln-repo-language-reference", "generated");
   mkdirSync(generated, { recursive: true });
-  writeFileSync(join(generated, "language-reference-catalog-v1.json"), "{\"topics\":[]}\n");
   writeFileSync(join(generated, "language-reference-catalog-v1.sha256"), `${"0".repeat(64)}\n`);
-  assert.throws(
-    () => loadPublishedLanguageReference(root),
-    /catalog digest must match its sidecar/,
-  );
+  writeFileSync(join(generated, "language-reference-catalog-v1.json"), " ".repeat(2_000_001));
+  assert.throws(() => loadPublishedLanguageReference(root), /catalog exceeds the byte limit/);
 });
 
-test("synthetic contract replays every veln-language acceptance scenario", () => {
-  assert.equal(validateScenarioDocument(fixture(), options), 11);
+test("rejects a published catalog beyond its topic limit", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-catalog-topics-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const generated = join(root, "tools", "veln-repo-language-reference", "generated");
+  mkdirSync(generated, { recursive: true });
+  const catalog = { topics: Array.from({ length: 513 }, (_, id) => ({ id })) };
+  writeFileSync(join(generated, "language-reference-catalog-v1.json"), `${JSON.stringify(catalog)}\n`);
+  writeFileSync(join(generated, "language-reference-catalog-v1.sha256"), `${digestCatalog(catalog)}\n`);
+  assert.throws(() => loadPublishedLanguageReference(root), /catalog exceeds the topic limit/);
 });
 
-test("requires both routes for every checked intent verb", () => {
-  const document = fixture();
-  document.request_selection = document.request_selection.filter((entry) => entry.id !== "add-language");
-  assert.throws(
-    () => validateScenarioDocument(document, options),
-    /must cover both routes for every intent verb/,
-  );
+test("rejects snapshot, override, and cross-product work beyond explicit limits", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-snapshot-limits-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const published = { digest: "0".repeat(64), catalog: { topics: [{ id: "topic" }] } };
+  const snapshot = {
+    base_digest: published.digest,
+    digest: "1".repeat(64),
+    topic_overrides: [],
+  };
+
+  writeSnapshotEvidence(root, Array.from({ length: 33 }, () => snapshot));
+  assert.throws(() => loadSnapshotEvidence(root, published), /snapshot limit/);
+
+  writeSnapshotEvidence(root, [{ ...snapshot, topic_overrides: Array.from({ length: 65 }, () => ({})) }]);
+  assert.throws(() => loadSnapshotEvidence(root, published), /overrides exceed the limit/);
+
+  writeSnapshotEvidence(root, Array.from({ length: 32 }, () => snapshot));
+  const widePublished = {
+    ...published,
+    catalog: { topics: Array.from({ length: 513 }, (_, id) => ({ id: `topic-${id}` })) },
+  };
+  assert.throws(() => loadSnapshotEvidence(root, widePublished), /snapshot-topic work limit/);
 });
 
-test("requires subject and incidental evidence for every explicit repository target", () => {
-  const document = fixture();
-  document.request_selection = document.request_selection.filter((entry) => entry.id !== "codebase-incidental");
-  assert.throws(
-    () => validateScenarioDocument(document, options),
-    /must cover subject and incidental uses for every explicit target/,
-  );
-});
-
-test("requires the canonical routing regressions", () => {
-  const document = fixture();
-  document.request_selection = document.request_selection.filter(
-    (entry) => entry.id !== "inspect-framed-curly-apostrophe",
-  );
-  assert.throws(
-    () => validateScenarioDocument(document, options),
-    /must include "I’d like you to inspect the Veln parser implementation\."/,
-  );
-});
-
-test("requires the canonical explicit-subject regression", () => {
-  const document = fixture();
-  document.request_selection = document.request_selection.filter(
-    (entry) => entry.id !== "source-code-where-subject",
-  );
-  assert.throws(
-    () => validateScenarioDocument(document, options),
-    /must include "Where in the Veln source code is schema parsing implemented\?"/,
-  );
-});
-
-test("routes ordinary embedded actions and explicit repository subjects", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(selections.get("Do you think you could inspect the parser?"), "repository");
-  assert.equal(selections.get("Why is the Veln repository so large?"), "repository");
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes ordinary modal and communicated repository actions", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(selections.get("Will you inspect Veln schemas?"), "repository");
-  assert.equal(selections.get("I ask you to inspect the Veln parser."), "repository");
-  assert.equal(selections.get("I ask you to please inspect the Veln parser."), "repository");
-  assert.equal(selections.get("I ask you to please explain what inspect means in Veln schemas."), "language");
-  assert.equal(selections.get("Please thoroughly inspect the Veln parser."), "repository");
-  assert.equal(selections.get("Please explain what inspect means in Veln schemas."), "language");
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("distinguishes described subjects from incidental target objects", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(selections.get("Describe the Veln repository architecture."), "repository");
-  assert.equal(selections.get("How broad is the Veln proposal state today?"), "repository");
-  assert.equal(selections.get("Can Veln schemas encode source code?"), "language");
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an auxiliary-led explicit repository subject independently of fixture labels", () => {
-  assert.equal(selectRequestRoute("Does the Veln repository use crates?", options), "repository");
-  assert.equal(selectRequestRoute("Does Veln have a repository schema?", options), "language");
-});
-
-test("routes which questions by their explicit repository subject", () => {
-  assert.equal(selectRequestRoute("Which crates are in the Veln repository?", options), "repository");
-  assert.equal(selectRequestRoute("Which repository schema does Veln use?", options), "language");
-});
-
-test("keeps an indirect language-information request independently of fixture labels", () => {
-  assert.equal(
-    selectRequestRoute("Can you show me how to review contracts in Veln?", options),
-    "language",
-  );
-  assert.equal(selectRequestRoute("Can you review contracts in Veln?", options), "repository");
-});
-
-test("classifies requested actions without relying on recorded sentence frames", () => {
-  for (const request of [
-    "Make sure to inspect the Veln parser.",
-    "Go ahead and inspect the Veln parser.",
-    "Before answering, I need you, if possible, to inspect the Veln parser.",
-  ]) {
-    assert.equal(selectRequestRoute(request, options), "repository", request);
-  }
-});
-
-test("keeps language how-to questions outside repository action routing", () => {
-  for (const request of [
-    "Tell me how I can test Veln schemas.",
-    "Explain how you can review contracts in Veln.",
-    "I want to know how Veln schemas change.",
-  ]) {
-    assert.equal(selectRequestRoute(request, options), "language", request);
-  }
-});
-
-test("distinguishes repository subjects from incidental compounds independently", () => {
-  for (const request of [
-    "Give me an overview of the Veln repository.",
-    "Outline the Veln codebase architecture.",
-    "I have a question about the Veln proposal state.",
-    "Tell me about the repository.",
-  ]) {
-    assert.equal(selectRequestRoute(request, options), "repository", request);
-  }
-  for (const request of [
-    "Why is the repository schema useful in Veln?",
-    "Does the repository schema in Veln support defaults?",
-    "Describe the repository schema in Veln.",
-    "How broad is the proposal state type in Veln?",
-    "Can Veln schemas encode a path in source code text?",
-  ]) {
-    assert.equal(selectRequestRoute(request, options), "language", request);
-  }
-});
-
-test("rejects a skill without the canonical name", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), { skillText: skillText.replace("name: veln-language", "name: other") }),
-    /canonical skill name/,
-  );
-});
-
-test("rejects missing skill discovery metadata", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), { skillText: skillText.replace(/^description:.*\n/m, "") }),
-    /one description/,
-  );
-});
-
-test("rejects empty skill discovery metadata", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), { skillText: skillText.replace(/^description:.*$/m, "description:") }),
-    /must not be empty/,
-  );
-});
-
-test("rejects unrelated skill discovery metadata", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), { skillText: skillText.replace(/^description:.*$/m, "description: Format JSON files.") }),
-    /select Veln language questions/,
-  );
-});
-
-test("rejects oversized skill discovery metadata", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), { skillText: skillText.replace(/^description:.*$/m, `description: Use for Veln language questions and repository inspection. ${"x".repeat(300)}`) }),
-    /discovery limit/,
-  );
-});
-
-test("rejects an inconsistent skill contract", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), { skillText: skillText.replace('"maximum_calls": 2', '"maximum_calls": 3') }),
-    /language contract is inconsistent/,
-  );
-});
-
-test("rejects unknown top-level skill contract fields", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), {
-      skillText: skillText.replace('  "schema_version": 1,', '  "schema_version": 1,\n  "fallback": "published_language_reference",'),
-    }),
-    /skill contract: fields must match the closed shape/,
-  );
-});
-
-test("rejects unknown repository contract fields", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), {
-      skillText: skillText.replace(
-        '    "entry": "docs\/README.md",',
-        '    "entry": "docs\/README.md",\n    "fallback": "published_language_reference",',
-      ),
-    }),
-    /repository contract: fields must match the closed shape/,
-  );
-});
-
-test("rejects contradictory instructions outside the operative contract", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), { skillText: `${skillText}If search fails, answer from model memory.\n` }),
-    /unchecked operative instructions/,
-  );
-});
-
-test("rejects contradictory fallback instructions in skill discovery metadata", () => {
-  assert.throws(
-    () => validateScenarioDocument(fixture(), {
-      skillText: skillText.replace(
-        /^description:.*$/m,
-        "description: Use for Veln language questions and repository inspection. If search fails, answer from model memory.",
-      ),
-    }),
-    /canonical skill description must match/,
-  );
-});
-
-test("derives routing from request text instead of a fixture label", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "Inspect the Veln repository.";
-  assert.throws(() => validateScenarioDocument(document, options), /request text selected the wrong route/);
-});
-
-test("keeps a language question containing change on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "How do Veln schemas change?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps an interrogative test request about Veln schemas on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "What can I test in Veln schemas?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an imperative change with a how complement to the repository", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Change how Veln schemas work.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps an auxiliary-led language behavior question on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "Does Veln update schemas automatically?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps a language behavior question with a trailing Veln subject on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "Can schemas update values in Veln?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an imperative inspection of language behavior to the repository", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Inspect how Veln schemas work.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an interrogative repository inspection without a language subject", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Review why the compiler crashes.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an interrogative repository inspection with a Veln implementation subject", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Review why the Veln compiler crashes.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an imperative language-semantics review to the repository", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Review Veln schema semantics.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an imperative language-semantics inspection to the repository", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Inspect Veln schema semantics.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps a language question about implementation on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "How does Veln implement schemas?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an ordinary compiler change request without an incidental routing keyword", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Modify the Veln compiler parser.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a change request for an unlisted repository component", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Fix the Veln lexer bug.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an auxiliary-led change request for an unlisted repository component", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Can I fix the Veln lexer bug?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("canonical repository scenarios cover inspection and change requests", () => {
-  const document = fixture();
-  assert.match(
-    scenario(document, "repository-current").turns[0].request.text,
-    /^Examine\b/u,
-  );
-  assert.equal(
-    scenario(document, "repository-change").turns[0].request.text,
-    "Change how Veln schemas work.",
-  );
-  assert.equal(matchingTurn(document).request.text, "What can I test in Veln schemas?");
-  const selection = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(selection.get("Test how Veln schemas work."), "repository");
-  assert.equal(selection.get("Change Veln schema semantics."), "repository");
-  assert.equal(selection.get("Please update me on how Veln schemas work."), "language");
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a polite repository change request", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Could you please fix Veln parser recovery?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a repository inspection intent that does not lead the request", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "I would like you to inspect the Veln parser implementation.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a polite repository request with intervening words", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Could you take a moment to inspect the Veln parser implementation?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an assisted repository action without a fixed component frame", () => {
-  const document = fixture();
-  const selection = document.request_selection.find((entry) => entry.id === "inspect-assisted-action");
-  assert.deepEqual(selection, {
-    id: "inspect-assisted-action",
-    intent: "inspect",
-    text: "Please help me inspect the Veln parser.",
-    route: "repository",
+test("bounds snapshot reconstruction at the largest accepted dimensions", async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-snapshot-scale-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const catalog = {
+    topics: Array.from({ length: 512 }, (_, index) => ({
+      id: `topic-${index}`,
+      title: `Topic ${index}`,
+      summary: `Summary ${index}`,
+      keywords: ["topic"],
+      body: [`Body ${index}`],
+    })),
+  };
+  const published = { digest: digestCatalog(catalog), catalog };
+  const snapshots = Array.from({ length: 32 }, (_, index) => {
+    const topic_overrides = [{
+      topic_id: "topic-0",
+      id: `archived-${index}`,
+      title: `Archived ${index}`,
+      summary: `Summary ${index}`,
+      keywords: ["archived"],
+      body: [`Body ${index}`],
+    }];
+    const archived = structuredClone(catalog);
+    archived.topics[0] = { ...archived.topics[0], ...topic_overrides[0] };
+    delete archived.topics[0].topic_id;
+    archived.topics.sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
+    return { base_digest: published.digest, digest: digestCatalog(archived), topic_overrides };
   });
-  assert.equal(validateScenarioDocument(document, options), 11);
+  writeSnapshotEvidence(root, snapshots);
+  const result = await runStressTarget("snapshot-evidence", { root, published });
+  assert.equal(result.size, 32);
+  assert.ok(result.hasCatalog.every((value) => value === false));
 });
 
-test("routes a varied indirect infinitive repository request", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Would you find a convenient time to inspect the Veln parser implementation?";
-  assert.equal(validateScenarioDocument(document, options), 11);
+test("bounds scenario fixture bytes before expansion", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-fixture-limit-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, "oversized.json");
+  writeFileSync(path, `{${" ".repeat(999_999)}}`);
+  assert.throws(() => readScenarioDocument(path), /scenario fixture exceeds the byte limit/);
 });
 
-test("routes a framed repository inspection with a typographic apostrophe", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "I’d like you to inspect the Veln parser implementation.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an embedded repository inspection request", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "I need you to inspect the Veln lexer bug.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an assigned repository inspection request", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Your task is to inspect the Veln parser implementation.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes repository actions requested through subordinate clauses", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(selections.get("I ask that you inspect the Veln parser."), "repository");
-  assert.equal(
-    selections.get("For this task, I ask that you test the Veln parser."),
-    "repository",
-  );
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a purpose-framed repository action", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(
-    selections.get("The purpose here is to inspect the Veln parser."),
-    "repository",
-  );
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps an explained intent in a nominal information request on the language route", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(
-    selections.get("What I need is an explanation of what inspect means in Veln schemas."),
-    "language",
-  );
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps explained intent words inside subordinate clauses on the language route", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(selections.get("I ask what inspect means in Veln schemas."), "language");
-  assert.equal(
-    selections.get("I ask that you explain what inspect means in Veln schemas."),
-    "language",
-  );
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a repository inspection request without an indirect object", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "I need to inspect the Veln lexer bug.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a collective repository inspection request", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "We should investigate the Veln parser recovery implementation.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a non-leading repository inspection request", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Tell me whether you can inspect the compiler parser.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an embedded imperative language inspection to the repository", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "I need you to inspect how Veln schemas work.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a repository intent after an unrestricted context clause", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "After reviewing the context, inspect the Veln compiler parser.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an interrogative repository location request", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Where is Veln parser recovery implemented?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a repository location request without a listed component subject", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Where is Veln schema parsing implemented?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a where question whose explicit repository subject precedes the copula", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Where in the Veln source code is schema parsing implemented?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an ordinary parser implementation question", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "How is the Veln parser implemented?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a passive implementation question whose implementation term is not final", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "How is schema parsing implemented in the compiler?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a non-leading inspection request about language behavior to the repository", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "I would like you to inspect how Veln schemas work.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps a framed language-behavior question on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "Review this question: how do Veln schemas work?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps a reviewed Veln term question on the language route", () => {
-  const document = fixture();
-  const selection = document.request_selection.find((entry) => entry.id === "review-language-question");
-  assert.deepEqual(selection, {
-    id: "review-language-question",
-    intent: "review",
-    text: "Can you review what contracts mean in Veln?",
-    route: "language",
-  });
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("does not treat a mentioned intent verb as a repository request", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "What does inspect mean for Veln schemas?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps a terminology question with a leading intent word on the language route", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(selections.get("In Veln terminology: inspect means what?"), "language");
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("does not treat a repository term in a language question as repository intent", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "Does Veln have a repository schema?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps a repository-target term definition on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "What does source code mean in Veln schemas?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an explicit repository target used as the requested subject", () => {
-  const document = fixture();
-  assert.equal(
-    scenario(document, "repository-explicit-target").turns[0].request.text,
-    "Can you tell me what the Veln proposal state is?",
-  );
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an explicit repository target as a copula question subject", () => {
-  const document = fixture();
-  assert.deepEqual(
-    document.request_selection.find((entry) => entry.id === "repository-copula-subject"),
-    {
-      id: "repository-copula-subject",
-      target: "repository",
-      text: "Is the Veln repository organized by crates?",
-      route: "repository",
-    },
-  );
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an explicit repository target requested with about", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(selections.get("Tell me about the Veln repository."), "repository");
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps an explicit repository target term definition on the language route", () => {
-  const document = fixture();
-  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
-  assert.equal(selections.get("Explain the word repository."), "language");
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps an explicit repository target in a language compound on the language route", () => {
-  const document = fixture();
-  assert.deepEqual(
-    document.request_selection.find((entry) => entry.id === "repository-compound-incidental"),
-    {
-      id: "repository-compound-incidental",
-      target: "repository",
-      text: "What is the repository schema in Veln?",
-      route: "language",
-    },
-  );
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("classifies every explicit repository target by requested subject rather than mention", () => {
-  const document = fixture();
-  const selection = new Map(document.request_selection.map((entry) => [entry.id, entry.route]));
-  for (const target of ["repository", "codebase", "source-code", "proposal-state"]) {
-    assert.equal(selection.get(`${target}-subject`), "repository");
-    assert.equal(selection.get(`${target}-incidental`), "language");
+test("deduplicates wide repository-route aliases", async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-route-aliases-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs", "shared"), { recursive: true });
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  const entryLinks = [];
+  const cycleLinks = ["[authority](../authority.md)"];
+  for (let index = 0; index < 1_000; index += 1) {
+    entryLinks.push(`[alias ${index}](alias-${index}/route.md)`);
+    cycleLinks.push(`[cycle ${index}](cycle-${index}.md)`);
+    symlinkSync("route.md", join(root, "docs", "shared", `cycle-${index}.md`));
+    symlinkSync("shared", join(root, "docs", `alias-${index}`));
   }
-  assert.equal(validateScenarioDocument(document, options), 11);
+  writeFileSync(join(root, "docs", "README.md"), entryLinks.join("\n"));
+  writeFileSync(join(root, "docs", "shared", "route.md"), cycleLinks.join("\n"));
+  assert.deepEqual(
+    await runStressTarget("shortest-route", {
+      entry: "docs/README.md",
+      authority: "docs/authority.md",
+      root,
+      maximumReads: 3,
+    }),
+    ["docs/README.md", "docs/alias-0/route.md", "docs/authority.md"],
+  );
 });
-
-test("routes a question that requests a repository change", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "What should we change in Veln schema parsing?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("does not treat an explained intent word as a requested action", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "Explain the word inspect in Veln schemas.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps language terminology containing an intent word on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "Explain Veln schema update expressions.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an ordinary repository inspection synonym", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Examine the Veln parser recovery implementation.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes every checked repository inspection synonym", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Investigate the Veln parser recovery implementation.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes an indirect polite repository location request", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Can you tell me where Veln parser recovery is implemented?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps an indirect polite language question on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "Can you tell me how Veln schemas work?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("keeps a language-surface location question on the language route", () => {
-  const document = fixture();
-  matchingTurn(document).request.text = "Where can Veln schema fields occur?";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
-test("routes a repository path request without a generic repository keyword", () => {
-  const document = fixture();
-  scenario(document, "repository-change").turns[0].request.text =
-    "Change crates/veln-mcp/src/server.rs.";
-  assert.equal(validateScenarioDocument(document, options), 11);
-});
-
 test("binds every acceptance row to its final outcome", () => {
   const document = fixture();
   scenario(document, "language-no-match").covers = "language-match";
@@ -901,6 +403,13 @@ test("rejects a search query unrelated to the scenario expectation", () => {
 test("accepts a deterministic selection for a multi-topic language question", () => {
   const document = fixture();
   matchingTurn(document).request.text = "How do Veln schemas and contracts interact?";
+  document.request_selection.push({
+    id: "schemas-contracts-information",
+    action: "information",
+    subject: "language_behavior",
+    text: matchingTurn(document).request.text,
+    route: "language",
+  });
   assert.match(matchingTurn(document).request.text, /\bschemas\b.*\bcontracts\b/u);
   assert.equal(validateScenarioDocument(document, options), 11);
 });
@@ -915,6 +424,13 @@ test("gives an explicit repository path precedence over a competing MCP subject"
   const document = fixture();
   scenario(document, "repository-current").turns[0].request.text =
     "Inspect MCP documentation search in docs/specification/types.md.";
+  document.request_selection.push({
+    id: "explicit-path-inspection",
+    action: "repository_action",
+    subject: "implementation",
+    text: scenario(document, "repository-current").turns[0].request.text,
+    route: "repository",
+  });
   assert.throws(() => validateScenarioDocument(document, options), /acceptance label does not match request-selected repository/);
 });
 

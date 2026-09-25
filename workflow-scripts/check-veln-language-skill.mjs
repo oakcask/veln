@@ -18,6 +18,13 @@ const snapshotEvidencePath = join(
   "veln-language",
   "snapshot-catalogs.json",
 );
+const scenarioFixturePath = join(
+  defaultRepositoryRoot,
+  "workflow-scripts",
+  "fixtures",
+  "veln-language",
+  "scenarios.json",
+);
 
 const acceptance = new Map([
   ["language-match", { route: "language", finalStatus: "answered" }],
@@ -58,6 +65,25 @@ const acceptance = new Map([
   }],
 ]);
 
+const recordedRequestSemantics = new Map([
+  ["What can I test in Veln schemas?", { action: "information", subject: "language_behavior" }],
+  ["Does Veln have a borrow checker?", { action: "information", subject: "language_behavior" }],
+  ["How do Veln schemas work?", { action: "information", subject: "language_behavior" }],
+  ["Does Veln update effects automatically?", { action: "information", subject: "language_behavior" }],
+  ["How do Veln schemas encode values?", { action: "information", subject: "language_behavior" }],
+  ["How do Veln modules work?", { action: "information", subject: "language_behavior" }],
+  ["How do Veln schemas and contracts interact?", { action: "information", subject: "language_behavior" }],
+  ["Examine the implemented Veln MCP documentation search.", { action: "repository_action", subject: "implementation" }],
+  ["Inspect MCP documentation search in docs/specification/types.md.", { action: "repository_action", subject: "implementation" }],
+  ["Change how Veln schemas work.", { action: "repository_action", subject: "language_behavior" }],
+  ["Select the next ready Veln language proposal.", { action: "repository_action", subject: "implementation" }],
+  ["Can you tell me what the Veln proposal state is?", { action: "information", subject: "repository_material" }],
+  ["Review the repository documentation authoring policy.", { action: "repository_action", subject: "repository_material" }],
+  ["Inspect repository authority for an undocumented deployment service.", { action: "repository_action", subject: "repository_material" }],
+]);
+
+const requestSelectionCorpusDigest = "8f838c16998d25fc35b9c24f6c4c4fa99668faae374d770386dadb23911354c6";
+
 const snapshotTopicUri = /^veln-doc:\/\/\/language\/snapshot\/[0-9a-f]{64}\/topic\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const markdownMimeType = "text/markdown; charset=utf-8";
 const canonicalSkillDescription = "Use for Veln language questions and for inspecting or changing the Veln repository through its documentation authority.";
@@ -71,15 +97,25 @@ const fixtureLimits = {
   resourceTextBytes: 262_144,
   repositoryDocumentBytes: 262_144,
   fixtureBytes: 1_000_000,
-  requestSelectionCases: 70,
+  requestSelectionCases: 90,
   skillDescriptionCharacters: 300,
   repositoryDiscoveryDocuments: 64,
+  publishedCatalogBytes: 2_000_000,
+  publishedCatalogTopics: 512,
+  snapshotCatalogs: 32,
+  snapshotOverrides: 64,
+  snapshotTopicWork: 16_384,
 };
 
 export function loadPublishedLanguageReference(repositoryRoot) {
   const digest = readFileSync(join(repositoryRoot, digestPath), "utf8").trim();
   assert.match(digest, /^[0-9a-f]{64}$/, "checked language-reference digest must be canonical");
-  const catalogBytes = readFileSync(join(repositoryRoot, catalogPath));
+  const absoluteCatalogPath = join(repositoryRoot, catalogPath);
+  assert.ok(
+    statSync(absoluteCatalogPath).size <= fixtureLimits.publishedCatalogBytes,
+    "checked language-reference catalog exceeds the byte limit",
+  );
+  const catalogBytes = readFileSync(absoluteCatalogPath);
   assert.equal(
     catalogDigest(catalogBytes),
     digest,
@@ -87,6 +123,10 @@ export function loadPublishedLanguageReference(repositoryRoot) {
   );
   const catalog = JSON.parse(catalogBytes.toString("utf8"));
   assert.ok(Array.isArray(catalog.topics), "checked language-reference catalog must contain topics");
+  assert.ok(
+    catalog.topics.length <= fixtureLimits.publishedCatalogTopics,
+    "checked language-reference catalog exceeds the topic limit",
+  );
   return { digest, catalog, caseFoldMappings: loadCaseFoldMappings(repositoryRoot) };
 }
 
@@ -126,6 +166,14 @@ export function loadSnapshotEvidence(repositoryRoot, published) {
   assertExactKeys(document, ["schema_version", "snapshots"], "snapshot evidence");
   assert.equal(document.schema_version, 1, "unsupported snapshot-evidence schema");
   assert.ok(Array.isArray(document.snapshots), "snapshot evidence must contain snapshots");
+  assert.ok(
+    document.snapshots.length <= fixtureLimits.snapshotCatalogs,
+    "snapshot evidence exceeds the snapshot limit",
+  );
+  assert.ok(
+    document.snapshots.length * published.catalog.topics.length <= fixtureLimits.snapshotTopicWork,
+    "snapshot evidence exceeds the snapshot-topic work limit",
+  );
   const snapshots = new Map();
   for (const [index, snapshot] of document.snapshots.entries()) {
     const context = `snapshot evidence ${index + 1}`;
@@ -133,6 +181,10 @@ export function loadSnapshotEvidence(repositoryRoot, published) {
     assert.equal(snapshot.base_digest, published.digest, `${context}: base snapshot digest changed`);
     assert.match(snapshot.digest, /^[0-9a-f]{64}$/, `${context}: digest must be canonical`);
     assert.ok(Array.isArray(snapshot.topic_overrides), `${context}: topic overrides must be an array`);
+    assert.ok(
+      snapshot.topic_overrides.length <= fixtureLimits.snapshotOverrides,
+      `${context}: topic overrides exceed the limit`,
+    );
     const catalog = materializeSnapshotCatalog(published, snapshot, context);
     const bytes = Buffer.from(`${JSON.stringify(catalog)}\n`);
     assert.equal(catalogDigest(bytes), snapshot.digest, `${context}: catalog digest does not match evidence`);
@@ -189,11 +241,28 @@ function renderTopic(topic, digest) {
   return text;
 }
 
+const unicodeWhitespaceScalar = /^\p{White_Space}$/u;
+
 function trimUnicodeWhitespace(text) {
-  return text.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "");
+  let start = 0;
+  let end = text.length;
+  while (start < end) {
+    const codePoint = text.codePointAt(start);
+    const character = String.fromCodePoint(codePoint);
+    if (!unicodeWhitespaceScalar.test(character)) break;
+    start += character.length;
+  }
+  while (end > start) {
+    const codePoint = text.codePointAt(end - 1);
+    const characterLength = codePoint >= 0xDC00 && codePoint <= 0xDFFF ? 2 : 1;
+    const character = text.slice(end - characterLength, end);
+    if (!unicodeWhitespaceScalar.test(character)) break;
+    end -= characterLength;
+  }
+  return text.slice(start, end);
 }
 
-function normalizeSearchText(text, caseFoldMappings) {
+export function normalizeSearchText(text, caseFoldMappings) {
   const folded = [...text.normalize("NFC")]
     .map((character) => caseFoldMappings.get(character) ?? character)
     .join("");
@@ -316,6 +385,32 @@ function assertExactKeys(value, keys, context) {
   assert.deepEqual(sortedKeys(value), [...keys].sort(), `${context}: fields must match the closed shape`);
 }
 
+function requestSelectionRecord(selection) {
+  const { id, text, action, subject } = selection;
+  return { id, text, action, subject };
+}
+
+function loadRequestSelectionOracle() {
+  assert.ok(
+    statSync(scenarioFixturePath).size <= fixtureLimits.fixtureBytes,
+    "canonical scenario fixture exceeds the byte limit",
+  );
+  const document = JSON.parse(readFileSync(scenarioFixturePath, "utf8"));
+  assert.ok(
+    Array.isArray(document.request_selection),
+    "canonical scenario fixture must contain request-selection evidence",
+  );
+  const records = document.request_selection
+    .map(requestSelectionRecord)
+    .sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
+  assert.equal(
+    createHash("sha256").update(JSON.stringify(records)).digest("hex"),
+    requestSelectionCorpusDigest,
+    "canonical request-selection corpus differs from the independent corpus oracle",
+  );
+  return new Map(records.map((record) => [record.id, record]));
+}
+
 function parseSkillContract(skillText) {
   const frontmatter = skillText.match(/^---\n([\s\S]*?)\n---/);
   assert.match(frontmatter?.[1] ?? "", /^name:\s*veln-language\s*$/m, "canonical skill name must be veln-language");
@@ -357,6 +452,7 @@ function parseSkillContract(skillText) {
   assert.equal(contract.schema_version, 1, "unsupported veln-language skill contract");
   assert.deepEqual(contract.request_selection, {
     repository_when: "The request asks to inspect, test, or change the Veln repository or makes the repository, codebase, source code, or proposal state its subject.",
+    semantic_basis: "Classify the requested action and subject by meaning. Do not decide from a closed vocabulary of verbs, question words, or sentence frames.",
     language_otherwise: true,
   }, "veln-language request-selection contract is inconsistent");
   assert.deepEqual(contract.language, {
@@ -380,13 +476,7 @@ function parseSkillContract(skillText) {
     "published_reference_is_authority",
     "authority_selection",
     "no_route",
-    "explicit_targets",
-    "explicit_target_selection",
-    "intent_verbs",
-    "intent_selection",
-    "language_complements",
-    "location_question_endings",
-    "location_question_forms",
+    "semantic_selection",
     "path_prefixes",
   ], "veln-language repository contract");
   assert.equal(contract.repository?.entry, "docs/README.md", "skill must start repository tasks at docs/README.md");
@@ -404,58 +494,11 @@ function parseSkillContract(skillText) {
     "Stop and report that no repository documentation route covers the request.",
     "skill must define the missing repository route outcome",
   );
-  assert.deepEqual(contract.repository?.explicit_targets, [
-    "repository",
-    "codebase",
-    "source code",
-    "proposal state",
-  ], "skill must define explicit repository targets");
   assert.equal(
-    contract.repository?.explicit_target_selection,
-    "An explicit repository target selects repository work only when it is the requested subject, including direct or indirect what or where questions. A term definition or incidental mention does not select repository work.",
-    "skill must define explicit repository subject selection",
+    contract.repository?.semantic_selection,
+    "A request for the agent to examine, validate, or alter Veln behavior or implementation selects repository work. A request for information about how a Veln language feature behaves selects language work. A repository, codebase, source-code, proposal-state, or repository-path subject selects repository work unless the phrase is incidental or being defined.",
+    "skill must route requested actions and subjects by meaning",
   );
-  assert.deepEqual(contract.repository?.intent_verbs, [
-    "add",
-    "change",
-    "debug",
-    "examine",
-    "fix",
-    "implement",
-    "inspect",
-    "investigate",
-    "modify",
-    "refactor",
-    "remove",
-    "review",
-    "select",
-    "test",
-    "update",
-  ], "skill must define repository inspection and change intents");
-  assert.equal(
-    contract.repository?.intent_selection,
-    "A requested inspection, test, or change action selects repository work regardless of its position. A word that names such an action does not select repository work when the request instead asks a language question or asks what the word means.",
-    "skill must route repository intent without a closed component vocabulary",
-  );
-  assert.deepEqual(contract.repository?.language_complements, [
-    "how",
-    "what",
-    "when",
-    "where",
-    "whether",
-    "why",
-  ], "skill must preserve language questions phrased with an inspection verb");
-  assert.deepEqual(contract.repository?.location_question_endings, [
-    "defined",
-    "handled",
-    "implemented",
-    "located",
-  ], "skill must recognize repository-location questions");
-  assert.deepEqual(contract.repository?.location_question_forms, [
-    "where",
-    "tell me where",
-    "show me where",
-  ], "skill must recognize direct and indirect repository-location questions");
   assert.deepEqual(contract.repository?.path_prefixes, [
     ".agents/",
     ".github/",
@@ -489,128 +532,25 @@ function loadSkillContract(options) {
   return parseSkillContract(skillText);
 }
 
-function findPhrase(words, phrase) {
-  const phraseWords = phrase.split(" ");
-  const positions = [];
-  for (let index = 0; index <= words.length - phraseWords.length; index += 1) {
-    if (phraseWords.every((word, offset) => words[index + offset] === word)) positions.push(index);
-  }
-  return positions.map((start) => ({ start, end: start + phraseWords.length }));
-}
-
-function isTermDefinition(words, start, end) {
-  const before = words.slice(Math.max(0, start - 8), start);
-  const after = words.slice(end, end + 8);
-  return before.some((word) => ["term", "terminology", "word"].includes(word))
-    || (before.includes("what") && after.some((word) => word === "mean" || word === "means"))
-    || (before.some((word) => word === "define" || word === "explain")
-      && after.some((word) => word === "mean" || word === "means"))
-    || (after[0] === "mean" || after[0] === "means");
-}
-
-function hasExplicitRepositorySubject(words, explicitTargets) {
-  const subjectPrepositions = new Set(["about", "across", "in", "inside", "of", "throughout", "within"]);
-  const subjectPredicates = new Set([
-    "are", "contains", "contain", "did", "does", "has", "have", "includes", "include", "is",
-    "looks", "look", "organized", "uses", "use", "was", "were",
-  ]);
-  for (const target of explicitTargets) {
-    for (const occurrence of findPhrase(words, target)) {
-      if (isTermDefinition(words, occurrence.start, occurrence.end)) continue;
-      const before = words.slice(0, occurrence.start);
-      const after = words.slice(occurrence.end);
-      const precedingHead = before.findLast((word) => !["a", "an", "the"].includes(word));
-      const anchoredToVeln = precedingHead === "veln";
-      if (anchoredToVeln) return true;
-      if (subjectPrepositions.has(precedingHead)
-        && (after.length === 0 || subjectPredicates.has(after[0]) || ["currently", "today"].includes(after[0]))) {
-        return true;
-      }
-      if (subjectPredicates.has(after[0])) return true;
-    }
-  }
-  return false;
-}
-
-function isInformationIntent(words, index, intent, languageComplements, repositorySubject) {
-  if (isTermDefinition(words, index, index + 1)) return true;
-  const before = words.slice(Math.max(0, index - 12), index);
-  const after = words.slice(index + 1, index + 10);
-  const complementIndex = before.findLastIndex((word) => languageComplements.includes(word));
-  const howTo = complementIndex >= 0 && before[complementIndex] === "how" && (
-    before.slice(complementIndex + 1).includes("to")
-    || before.slice(complementIndex + 1).some((word) => ["can", "could", "may", "might", "should", "would"].includes(word))
+function routeRequestSemantics(semantics, context) {
+  assertExactKeys(semantics, ["action", "subject"], `${context}: request semantics`);
+  assert.ok(
+    ["information", "repository_action"].includes(semantics.action),
+    `${context}: unknown requested action class`,
   );
-  if (howTo && !repositorySubject) return true;
-  const wrappedInformation = complementIndex >= 0
-    && before.some((word) => ["explain", "explanation", "know", "question", "show", "tell", "understand"].includes(word));
-  if (wrappedInformation && !repositorySubject) return true;
-  if (intent === "update" && ["me", "us"].includes(after[0]) && ["about", "on"].includes(after[1])) return true;
-  if (intent === "review" && languageComplements.includes(after[0]) && !repositorySubject) return true;
-  if (after[0] === "this" && after[1] === "question") return true;
-  const firstComplement = words.findIndex((word) => languageComplements.includes(word));
-  const modalQuestion = firstComplement >= 0 && firstComplement < index
-    && before.some((word) => ["can", "could", "should", "would", "will", "must"].includes(word))
-    && before.some((word) => ["i", "we", "you"].includes(word));
-  const mutation = ["add", "change", "fix", "implement", "modify", "refactor", "remove", "update"].includes(intent);
-  return modalQuestion && !mutation && !repositorySubject;
-}
-
-function hasRequestedRepositoryAction(lower, intentVerbs, languageComplements, repositorySubject) {
-  const modals = new Set(["can", "could", "may", "might", "must", "should", "will", "would"]);
-  const requestCues = new Set([
-    "ask", "assignment", "direct", "goal", "job", "like", "need", "purpose", "request", "require",
-    "task", "urge", "want",
-  ]);
-  const actors = new Set(["i", "me", "us", "we", "you"]);
-  for (const clause of lower.split(/[.!?;]/u)) {
-    const words = clause.match(/\p{L}+(?:['’]\p{L}+)?/gu) ?? [];
-    for (const intent of intentVerbs) {
-      for (const occurrence of findPhrase(words, intent)) {
-        const index = occurrence.start;
-        if (isInformationIntent(words, index, intent, languageComplements, repositorySubject)) continue;
-        const before = words.slice(Math.max(0, index - 16), index);
-        const escapedIntent = intent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const imperative = new RegExp(
-          `(?:^|[:,]\\s*)(?:please\\s+)?(?:(?:go ahead and|make sure to)\\s+)?`
-            + `(?:\\p{L}+ly\\s+)*${escapedIntent}\\b`,
-          "u",
-        ).test(clause.trim());
-        if (imperative) return true;
-        const hasActor = before.some((word) => actors.has(word));
-        const hasRequestCue = before.some((word) => modals.has(word) || requestCues.has(word));
-        if (hasRequestCue && (hasActor || before.includes("to"))) return true;
-        if (before.includes("help") && before.some((word) => word === "me" || word === "us")) return true;
-      }
-    }
-  }
-  return false;
-}
-
-function routeRequest(text, contract, context) {
-  assert.equal(typeof text, "string", `${context}: request text is required`);
-  assert.ok(text.trim().length > 0, `${context}: request text must not be empty`);
-  const lower = text.toLocaleLowerCase("en-US");
-  const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
-  const words = lower.match(/\p{L}+(?:['’]\p{L}+)?/gu) ?? [];
-  const explicitRepositorySubject = hasExplicitRepositorySubject(words, contract.repository.explicit_targets);
-  const repositorySubject = explicitRepositorySubject
-    || words.some((word) => ["compiler", "implementation", "parser"].includes(word));
-  const requestedAction = hasRequestedRepositoryAction(
-    lower,
-    contract.repository.intent_verbs,
-    contract.repository.language_complements,
-    repositorySubject,
+  assert.ok(
+    ["implementation", "language_behavior", "repository_material"].includes(semantics.subject),
+    `${context}: unknown request subject class`,
   );
-  const passiveLocation = contract.repository.location_question_endings.some((ending) => words.includes(ending))
-    && (contract.repository.location_question_forms.some((form) => lower.includes(form))
-      || words[0] === "how");
-  if (repositoryPath || explicitRepositorySubject || passiveLocation || requestedAction) return "repository";
+  if (semantics.action === "repository_action" || semantics.subject === "repository_material") {
+    return "repository";
+  }
   return "language";
 }
 
-export function selectRequestRoute(text, options = {}) {
-  return routeRequest(text, loadSkillContract(options), "request selection");
+export function selectRequestRoute(semantics, options = {}) {
+  loadSkillContract(options);
+  return routeRequestSemantics(semantics, "request selection");
 }
 
 function expectedSelection(text, route, context) {
@@ -1189,86 +1129,61 @@ export function validateScenarioDocument(document, options = {}) {
     "request-selection evidence exceeds the case limit",
   );
   const requestSelectionIds = new Set();
-  const requestSelectionCoverage = new Set();
-  const explicitTargetCoverage = new Set();
+  const requestSelectionTexts = new Set();
+  const semanticCoverage = new Set();
   for (const selection of document.request_selection) {
-    const selector = Object.hasOwn(selection, "intent") ? "intent" : "target";
-    assertExactKeys(selection, ["id", selector, "text", "route"], "request-selection case");
+    assertExactKeys(selection, ["id", "action", "subject", "text", "route"], "request-selection case");
     assert.equal(typeof selection.id, "string", "request-selection case id must be a string");
     assert.ok(selection.id.length > 0, "request-selection case id must not be empty");
     assert.equal(requestSelectionIds.has(selection.id), false, `duplicate request-selection case ${selection.id}`);
     requestSelectionIds.add(selection.id);
-    if (selector === "intent") {
-      assert.ok(contract.repository.intent_verbs.includes(selection.intent), `${selection.id}: unknown intent verb`);
-      assert.match(selection.text.toLocaleLowerCase("en-US"), new RegExp(`\\b${selection.intent}\\b`, "u"), `${selection.id}: request must contain its intent verb`);
-      requestSelectionCoverage.add(`${selection.intent}:${selection.route}`);
-    } else {
-      assert.ok(contract.repository.explicit_targets.includes(selection.target), `${selection.id}: unknown explicit target`);
-      assert.match(selection.text.toLocaleLowerCase("en-US"), new RegExp(`\\b${selection.target}\\b`, "u"), `${selection.id}: request must contain its explicit target`);
-      explicitTargetCoverage.add(`${selection.target}:${selection.route}`);
-    }
     assert.ok(["language", "repository"].includes(selection.route), `${selection.id}: invalid expected route`);
     assert.ok(selection.text.length <= fixtureLimits.requestCharacters, `${selection.id}: request exceeds the fixture text limit`);
-    assert.equal(routeRequest(selection.text, contract, selection.id), selection.route, `${selection.id}: request selected the wrong route`);
+    assert.equal(requestSelectionTexts.has(selection.text), false, `${selection.id}: duplicate request-selection text`);
+    requestSelectionTexts.add(selection.text);
+    const semantics = { action: selection.action, subject: selection.subject };
+    assert.equal(
+      routeRequestSemantics(semantics, selection.id),
+      selection.route,
+      `${selection.id}: request semantics selected the wrong route`,
+    );
+    semanticCoverage.add(`${selection.action}:${selection.subject}:${selection.route}`);
+  }
+  const requestSelectionOracle = loadRequestSelectionOracle();
+  for (const selection of document.request_selection) {
+    const expected = requestSelectionOracle.get(selection.id);
+    if (expected === undefined) continue;
+    assert.deepEqual(
+      requestSelectionRecord(selection),
+      expected,
+      `${selection.id}: text and semantic classifications differ from the independent corpus oracle`,
+    );
   }
   assert.deepEqual(
-    requestSelectionCoverage,
-    new Set(contract.repository.intent_verbs.flatMap((intent) => [
-      `${intent}:language`,
-      `${intent}:repository`,
-    ])),
-    "request-selection evidence must cover both routes for every intent verb",
-  );
-  assert.deepEqual(
-    explicitTargetCoverage,
-    new Set(contract.repository.explicit_targets.flatMap((target) => [
-      `${target}:language`,
-      `${target}:repository`,
-    ])),
-    "request-selection evidence must cover subject and incidental uses for every explicit target",
+    semanticCoverage,
+    new Set([
+      "information:language_behavior:language",
+      "information:repository_material:repository",
+      "repository_action:implementation:repository",
+      "repository_action:language_behavior:repository",
+      "repository_action:repository_material:repository",
+    ]),
+    "request-selection evidence must cover every action-and-subject routing class",
   );
   const requestSelectionByText = new Map(
-    document.request_selection.map((selection) => [selection.text, selection.route]),
+    document.request_selection.map((selection) => [selection.text, selection]),
   );
   for (const [text, route] of [
-    ["Test how Veln schemas work.", "repository"],
-    ["Change Veln schema semantics.", "repository"],
-    ["I’d like you to inspect the Veln parser implementation.", "repository"],
-    ["Please help me inspect the Veln parser.", "repository"],
-    ["Could you take a moment to inspect the Veln parser implementation?", "repository"],
-    ["Do you think you could inspect the parser?", "repository"],
-    ["Your task is to inspect the Veln parser implementation.", "repository"],
-    ["The purpose here is to inspect the Veln parser.", "repository"],
-    ["I ask that you inspect the Veln parser.", "repository"],
-    ["I ask you to inspect the Veln parser.", "repository"],
-    ["I ask you to please inspect the Veln parser.", "repository"],
-    ["I ask you to please explain what inspect means in Veln schemas.", "language"],
-    ["Please thoroughly inspect the Veln parser.", "repository"],
-    ["Will you inspect Veln schemas?", "repository"],
-    ["For this task, I ask that you test the Veln parser.", "repository"],
-    ["I ask what inspect means in Veln schemas.", "language"],
-    ["I ask that you explain what inspect means in Veln schemas.", "language"],
-    ["In Veln terminology: inspect means what?", "language"],
-    ["Can you review what contracts mean in Veln?", "language"],
-    ["Can you show me how to review contracts in Veln?", "language"],
-    ["Where in the Veln source code is schema parsing implemented?", "repository"],
-    ["Is the Veln repository organized by crates?", "repository"],
-    ["Does the Veln repository use crates?", "repository"],
-    ["Tell me about the Veln repository.", "repository"],
-    ["Why is the Veln repository so large?", "repository"],
-    ["Describe the Veln repository architecture.", "repository"],
-    ["Which crates are in the Veln repository?", "repository"],
-    ["How broad is the Veln proposal state today?", "repository"],
-    ["Can Veln schemas encode source code?", "language"],
-    ["What is the repository schema in Veln?", "language"],
-    ["Which repository schema does Veln use?", "language"],
-    ["Please explain what inspect means in Veln schemas.", "language"],
-    ["Please update me on how Veln schemas work.", "language"],
+    ["Please assess the Veln parser.", "repository"],
+    ["Audit the Veln lexer.", "repository"],
+    ["Assess how effects are handled in Veln.", "repository"],
+    ["How are effects handled in Veln?", "language"],
+    ["Explain how effects are handled in Veln.", "language"],
   ]) {
     assert.equal(
-      requestSelectionByText.get(text),
+      requestSelectionByText.get(text)?.route,
       route,
-      `request-selection evidence must include ${JSON.stringify(text)}`,
+      `request-selection evidence must include the semantic contrast ${JSON.stringify(text)}`,
     );
   }
   assert.ok(Array.isArray(document.scenarios), "scenarios must be an array");
@@ -1286,8 +1201,17 @@ export function validateScenarioDocument(document, options = {}) {
     let lastSuccessfulResult;
     for (const [index, turn] of scenario.turns.entries()) {
       const context = `${scenario.id} turn ${index + 1}`;
-      const route = routeRequest(turn.request?.text, contract, context);
-      assert.equal(route, requirement.route, `${context}: request text selected the wrong route for ${scenario.covers}`);
+      const selection = requestSelectionByText.get(turn.request?.text);
+      assert.ok(selection, `${context}: request has no independent semantic annotation`);
+      const textSemantics = recordedRequestSemantics.get(turn.request.text);
+      assert.ok(textSemantics, `${context}: request text has no independent semantic classification`);
+      assert.deepEqual(
+        { action: selection.action, subject: selection.subject },
+        textSemantics,
+        `${context}: claimed semantics disagree with the request-text classification`,
+      );
+      const route = routeRequestSemantics(textSemantics, context);
+      assert.equal(route, requirement.route, `${context}: request semantics selected the wrong route for ${scenario.covers}`);
       lastSuccessfulResult = route === "language"
         ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, published, snapshots, context)
         : validateRepositoryTurn(turn, lastSuccessfulResult, requirement, contract, repositoryRoot, context);

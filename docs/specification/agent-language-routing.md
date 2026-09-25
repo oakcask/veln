@@ -35,15 +35,16 @@ availability and Ready-only selection. The published language reference is not
 repository implementation authority. An explicit repository documentation
 path takes precedence over a general subject phrase in the same request.
 
-An inspection, test, or change request uses the repository route even when the
-intent verb does not start the request. The requested action and its object
-determine the route. An imperative request to inspect, test, or change how a
-Veln feature works is repository work. An information request for an update
-about how the feature works remains a language question; `update` is not the
-requested repository action in that form.
+The requested action and subject determine the route by meaning. Routing does
+not use a closed vocabulary of verbs, question words, or sentence frames. A
+request for the agent to examine, validate, or alter Veln behavior or its
+implementation is repository work. This includes synonymous actions such as
+assessing a parser. A request for information about how a Veln language
+feature behaves remains a language question, including a passive question
+such as how effects are handled.
 
-A passive question that asks how a compiler or parser implementation is
-implemented uses the repository route. A request whose subject is the
+A question whose subject is a compiler or parser implementation uses the
+repository route. A request whose subject is the
 repository, codebase, source code, or proposal state uses the repository route
 without requiring an action verb. This includes direct and indirect questions
 that put one of those explicit targets before or after the copula. Questions
@@ -77,9 +78,14 @@ repository results for the acceptance model. Run
 canonical skill. The workflow-script test suite checks the replay oracle,
 the closed operative-contract and result shapes, provenance, bounded failures,
 preserved results, routing, and input limits. Its request-selection evidence
-covers repository actions and language-question uses of every checked intent
-verb. Stress cases run in workers that the parent test terminates at their time
-bound. Stale search recordings are checked in full against archived catalog
+binds every corpus request text to an independently checked action-and-subject
+classification and uses contrastive paraphrases. Stress cases run in workers
+that the parent test terminates at their time bound. Stale search recordings
+are checked in full against archived catalog
 evidence whose snapshot digest is recalculated with the published catalog
 digest contract. The current published catalog bytes must also match their
-digest sidecar before the harness parses them.
+digest sidecar before the harness parses them. The harness bounds published
+catalog bytes and topic count, archived snapshot count, overrides per snapshot,
+and the snapshot-by-topic work product before it reconstructs archived
+catalogs. Its scaling check measures accepted ASCII internal-space runs at
+successively doubled sizes and allows bounded timing noise.

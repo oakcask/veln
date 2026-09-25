@@ -3,8 +3,14 @@ import { parentPort, workerData } from "node:worker_threads";
 import {
   linkedDocumentationPaths,
   loadSnapshotEvidence,
+  normalizeSearchText,
   shortestDocumentationRoute,
 } from "./check-veln-language-skill.mjs";
+
+function median(values) {
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.floor(sorted.length / 2)];
+}
 
 function runTarget(target, data) {
   if (target === "nontermination") {
@@ -41,6 +47,30 @@ function runTarget(target, data) {
     } finally {
       globalThis.structuredClone = originalStructuredClone;
     }
+  }
+  if (target === "normalization-values") {
+    return data.values.map((value) => normalizeSearchText(value, new Map()));
+  }
+  if (target === "normalization-scaling") {
+    const milliseconds = [];
+    const lengths = [];
+    for (const size of data.sizes) {
+      const value = `a${" ".repeat(size)}b`;
+      normalizeSearchText(value, new Map());
+      const samples = [];
+      for (let sample = 0; sample < 5; sample += 1) {
+        const start = performance.now();
+        for (let repetition = 0; repetition < data.repetitions; repetition += 1) {
+          lengths.push(normalizeSearchText(value, new Map()).length);
+        }
+        samples.push(performance.now() - start);
+      }
+      milliseconds.push(median(samples));
+    }
+    return {
+      lengths: data.sizes.map((_, index) => lengths[(index + 1) * data.repetitions * 5 - 1]),
+      milliseconds,
+    };
   }
   throw new Error(`unknown stress target: ${target}`);
 }
