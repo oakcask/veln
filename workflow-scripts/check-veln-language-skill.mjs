@@ -37,6 +37,11 @@ const acceptance = new Map([
     finalStatus: "repository_routed",
     authority: "docs/specification/mcp.md",
   }],
+  ["repository-implementation-location", {
+    route: "repository",
+    finalStatus: "repository_routed",
+    authority: "docs/specification/source-surface.md",
+  }],
   ["repository-change", {
     route: "repository",
     finalStatus: "repository_routed",
@@ -74,6 +79,7 @@ const recordedRequestSemantics = new Map([
   ["How do Veln modules work?", { action: "information", subject: "language_behavior" }],
   ["How do Veln schemas and contracts interact?", { action: "information", subject: "language_behavior" }],
   ["Examine the implemented Veln MCP documentation search.", { action: "repository_action", subject: "implementation" }],
+  ["Where is the Veln parser implemented?", { action: "information", subject: "implementation" }],
   ["Inspect MCP documentation search in docs/specification/types.md.", { action: "repository_action", subject: "implementation" }],
   ["Change how Veln schemas work.", { action: "repository_action", subject: "language_behavior" }],
   ["Select the next ready Veln language proposal.", { action: "repository_action", subject: "implementation" }],
@@ -82,7 +88,7 @@ const recordedRequestSemantics = new Map([
   ["Inspect repository authority for an undocumented deployment service.", { action: "repository_action", subject: "repository_material" }],
 ]);
 
-const requestSelectionCorpusDigest = "8f838c16998d25fc35b9c24f6c4c4fa99668faae374d770386dadb23911354c6";
+const requestSelectionCorpusDigest = "0ac872159d614ac989d9e71c9f18241569f743fcdf0e188eb452833fad382ffb";
 
 const snapshotTopicUri = /^veln-doc:\/\/\/language\/snapshot\/[0-9a-f]{64}\/topic\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const markdownMimeType = "text/markdown; charset=utf-8";
@@ -496,7 +502,7 @@ function parseSkillContract(skillText) {
   );
   assert.equal(
     contract.repository?.semantic_selection,
-    "A request for the agent to examine, validate, or alter Veln behavior or implementation selects repository work. A request for information about how a Veln language feature behaves selects language work. A repository, codebase, source-code, proposal-state, or repository-path subject selects repository work unless the phrase is incidental or being defined.",
+    "A request for the agent to examine, validate, or alter Veln behavior or implementation selects repository work. A question whose subject is a compiler or parser implementation also selects repository work. A request for information about how a Veln language feature behaves selects language work. A repository, codebase, source-code, proposal-state, or repository-path subject selects repository work unless the phrase is incidental or being defined.",
     "skill must route requested actions and subjects by meaning",
   );
   assert.deepEqual(contract.repository?.path_prefixes, [
@@ -542,7 +548,9 @@ function routeRequestSemantics(semantics, context) {
     ["implementation", "language_behavior", "repository_material"].includes(semantics.subject),
     `${context}: unknown request subject class`,
   );
-  if (semantics.action === "repository_action" || semantics.subject === "repository_material") {
+  if (semantics.action === "repository_action"
+    || semantics.subject === "implementation"
+    || semantics.subject === "repository_material") {
     return "repository";
   }
   return "language";
@@ -1163,6 +1171,7 @@ export function validateScenarioDocument(document, options = {}) {
     semanticCoverage,
     new Set([
       "information:language_behavior:language",
+      "information:implementation:repository",
       "information:repository_material:repository",
       "repository_action:implementation:repository",
       "repository_action:language_behavior:repository",
@@ -1179,6 +1188,7 @@ export function validateScenarioDocument(document, options = {}) {
     ["Assess how effects are handled in Veln.", "repository"],
     ["How are effects handled in Veln?", "language"],
     ["Explain how effects are handled in Veln.", "language"],
+    ["Where is the Veln parser implemented?", "repository"],
   ]) {
     assert.equal(
       requestSelectionByText.get(text)?.route,

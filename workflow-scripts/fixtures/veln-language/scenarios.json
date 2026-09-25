@@ -94,6 +94,7 @@
     { "id": "schemas-encode-information", "action": "information", "subject": "language_behavior", "text": "How do Veln schemas encode values?", "route": "language" },
     { "id": "modules-information", "action": "information", "subject": "language_behavior", "text": "How do Veln modules work?", "route": "language" },
     { "id": "mcp-inspection-action", "action": "repository_action", "subject": "implementation", "text": "Examine the implemented Veln MCP documentation search.", "route": "repository" },
+    { "id": "parser-implementation-location-information", "action": "information", "subject": "implementation", "text": "Where is the Veln parser implemented?", "route": "repository" },
     { "id": "schemas-change-action", "action": "repository_action", "subject": "language_behavior", "text": "Change how Veln schemas work.", "route": "repository" },
     { "id": "authoring-policy-review-action", "action": "repository_action", "subject": "repository_material", "text": "Review the repository documentation authoring policy.", "route": "repository" },
     { "id": "unknown-repository-inspection-action", "action": "repository_action", "subject": "repository_material", "text": "Inspect repository authority for an undocumented deployment service.", "route": "repository" }
@@ -226,6 +227,19 @@
       "covers": "repository-change",
       "turns": [{
         "request": { "text": "Change how Veln schemas work." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/topic-map.md" } },
+          { "type": "read", "path": "docs/specification/topic-map.md", "value": { "route": "docs/specification/source-surface.md" } },
+          { "type": "read", "path": "docs/specification/source-surface.md", "value": { "authority": "docs/specification/source-surface.md" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/source-surface.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-implementation-location-question",
+      "covers": "repository-implementation-location",
+      "turns": [{
+        "request": { "text": "Where is the Veln parser implemented?" },
         "events": [
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/topic-map.md" } },
           { "type": "read", "path": "docs/specification/topic-map.md", "value": { "route": "docs/specification/source-surface.md" } },
