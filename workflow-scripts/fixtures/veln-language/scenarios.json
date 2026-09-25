@@ -127,7 +127,7 @@
       "id": "repository-change-request",
       "covers": "repository-change",
       "turns": [{
-        "request": { "text": "Could you please fix Veln parser recovery?" },
+        "request": { "text": "Can you tell me where Veln parser recovery is implemented?" },
         "events": [
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/topic-map.md" } },
           { "type": "read", "path": "docs/specification/topic-map.md", "value": { "route": "docs/specification/source-surface.md" } },
