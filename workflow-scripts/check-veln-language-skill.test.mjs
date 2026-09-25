@@ -507,11 +507,11 @@ test("routes repository actions requested through subordinate clauses", () => {
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
-test("routes a repository action requested through an ordinary nominal frame", () => {
+test("routes a purpose-framed repository action", () => {
   const document = fixture();
   const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
   assert.equal(
-    selections.get("The thing I need from you is to inspect the parser."),
+    selections.get("The purpose here is to inspect the Veln parser."),
     "repository",
   );
   assert.equal(validateScenarioDocument(document, options), 11);
@@ -636,6 +636,13 @@ test("keeps a reviewed Veln term question on the language route", () => {
 test("does not treat a mentioned intent verb as a repository request", () => {
   const document = fixture();
   matchingTurn(document).request.text = "What does inspect mean for Veln schemas?";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("keeps a terminology question with a leading intent word on the language route", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(selections.get("In Veln terminology: inspect means what?"), "language");
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
