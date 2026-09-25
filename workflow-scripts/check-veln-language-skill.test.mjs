@@ -197,6 +197,14 @@ test("requires the canonical explicit-subject regression", () => {
   );
 });
 
+test("routes ordinary embedded actions and explicit repository subjects", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(selections.get("Do you think you could inspect the parser?"), "repository");
+  assert.equal(selections.get("Why is the Veln repository so large?"), "repository");
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
 test("rejects a skill without the canonical name", () => {
   assert.throws(
     () => validateScenarioDocument(fixture(), { skillText: skillText.replace("name: veln-language", "name: other") }),

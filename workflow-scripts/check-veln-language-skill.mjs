@@ -507,11 +507,15 @@ function routeRequest(text, contract, context) {
     `\\b${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
     "u",
   ).test(lower.trim());
+  const explicitTargetWhySubject = new RegExp(
+    `\\bwhy\\s+(?:is|are|was|were)\\s+${explicitTargetSubject}\\b`,
+    "u",
+  ).test(lower.trim());
   const explicitRepositorySubject = !explicitTargetDefinition && (explicitTargetAtEnd || [
     `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:is|are)\\s+(?:in\\s+)?${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
     `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:in\\s+)?${explicitTargetSubject}\\s+(?:is|are)\\b`,
     `^${requestLead}(?:is|are|was|were)\\s+${explicitTargetSubject}\\s+`,
-  ].some((pattern) => new RegExp(pattern, "u").test(lower.trim())));
+  ].some((pattern) => new RegExp(pattern, "u").test(lower.trim())) || explicitTargetWhySubject);
   const intentPattern = contract.repository.intent_verbs.join("|");
   const directRequest = new RegExp(
     `(?:^|[.!?;:,]\\s*)${requestLead}(?<intent>${intentPattern})\\b`,
@@ -533,6 +537,10 @@ function routeRequest(text, contract, context) {
     `\\b(?:how|what|when|where|why) (?:can|could|should|would|will|must) (?:i|we|you)\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
+  const actorModalRequest = new RegExp(
+    `\\b(?:i|we|you)\\s+(?:can|could|should|would|will|must)\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
   const embeddedInterrogativeRequest = new RegExp(
     `\\b(?:if|whether) you (?:can|could|will|would)\\s+(?<intent>${intentPattern})\\b`,
     "u",
@@ -550,7 +558,7 @@ function routeRequest(text, contract, context) {
     "u",
   ).exec(lower.trim());
   const intentRequest = directRequest ?? framedRequest ?? indirectInfinitiveRequest ?? collectiveRequest
-    ?? interrogativeRequest ?? embeddedInterrogativeRequest ?? assignedRequest ?? nominalRequest
+    ?? interrogativeRequest ?? actorModalRequest ?? embeddedInterrogativeRequest ?? assignedRequest ?? nominalRequest
     ?? communicatedRequest;
   const intentObject = intentRequest == null
     ? ""
@@ -1214,6 +1222,7 @@ export function validateScenarioDocument(document, options = {}) {
     ["Change Veln schema semantics.", "repository"],
     ["I’d like you to inspect the Veln parser implementation.", "repository"],
     ["Could you take a moment to inspect the Veln parser implementation?", "repository"],
+    ["Do you think you could inspect the parser?", "repository"],
     ["Your task is to inspect the Veln parser implementation.", "repository"],
     ["The thing I need from you is to inspect the parser.", "repository"],
     ["I ask that you inspect the Veln parser.", "repository"],
@@ -1223,6 +1232,7 @@ export function validateScenarioDocument(document, options = {}) {
     ["Where in the Veln source code is schema parsing implemented?", "repository"],
     ["Is the Veln repository organized by crates?", "repository"],
     ["Tell me about the Veln repository.", "repository"],
+    ["Why is the Veln repository so large?", "repository"],
     ["What is the repository schema in Veln?", "language"],
     ["Please update me on how Veln schemas work.", "language"],
   ]) {
