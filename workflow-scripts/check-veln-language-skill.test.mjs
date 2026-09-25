@@ -242,6 +242,13 @@ test("routes an interrogative repository location request", () => {
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
+test("routes an ordinary parser implementation question", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "How is the Veln parser implemented?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("routes an indirect polite repository location request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =

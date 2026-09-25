@@ -331,7 +331,15 @@ function routeRequest(text, contract, context) {
       `\\b${ending}\\b[?.!]*$`,
       "u",
     ).test(lower.trim()));
-  const repository = repositoryPath || explicitTarget || locationQuestion
+  const implementationQuestion = repositorySubject && new RegExp(
+    `^${requestLead}how\\s+${locationAuxiliary}\\b`,
+    "u",
+  ).test(lower.trim())
+    && contract.repository.location_question_endings.some((ending) => new RegExp(
+      `\\b${ending}\\b[?.!]*$`,
+      "u",
+    ).test(lower.trim()));
+  const repository = repositoryPath || explicitTarget || locationQuestion || implementationQuestion
     || (intent !== undefined && !languageComplement && !languageSemantics);
   return repository ? "repository" : "language";
 }
@@ -370,7 +378,7 @@ function expectedSelection(text, route, context) {
   if (/\bmcp\b.*\bdocumentation search\b/u.test(lower)) {
     return { authority: "docs/specification/mcp.md" };
   }
-  if (/\b(?:compiler crashes|lexer bug|parser recovery|compiler parser)\b/u.test(lower) || lower.includes("crates/veln-mcp/")) {
+  if (/\b(?:compiler crashes|lexer bug|parser recovery|compiler parser|parser implemented)\b/u.test(lower) || lower.includes("crates/veln-mcp/")) {
     return {
       authority: "docs/specification/source-surface.md",
     };

@@ -34,6 +34,10 @@ repository authority; the published language reference is not repository
 implementation authority. An explicit repository documentation path takes
 precedence over a general subject phrase in the same request.
 
+A passive question that asks how a compiler or parser implementation is
+implemented uses the repository route. Questions about how Veln language
+features behave remain on the language route.
+
 ## Limits and failures
 
 The language route makes at most one search and one read. When search returns
