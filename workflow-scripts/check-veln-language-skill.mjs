@@ -499,7 +499,7 @@ function routeRequest(text, contract, context) {
     .map((target) => target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
   const explicitRepositorySubject = new RegExp(
-    `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:(?:is|are)\\s+(?:in\\s+)?(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})\\b|(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})\\s+(?:is|are)\\b)`,
+    `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:(?:is|are)\\s+(?:in\\s+)?(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})\\b|(?:in\\s+)?(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})\\s+(?:is|are)\\b)`,
     "u",
   ).test(lower.trim());
   const intentPattern = contract.repository.intent_verbs.join("|");
@@ -508,7 +508,7 @@ function routeRequest(text, contract, context) {
     "u",
   ).exec(lower.trim());
   const framedRequest = new RegExp(
-    `\\b(?:i|we) (?:need|want|would like|'d like)(?: you)? to\\s+(?<intent>${intentPattern})\\b`,
+    `\\b(?:i|we)(?: (?:need|want|would like)|['’]d like)(?: you)? to\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
   const collectiveRequest = new RegExp(
@@ -1175,6 +1175,8 @@ export function validateScenarioDocument(document, options = {}) {
   for (const [text, route] of [
     ["Test how Veln schemas work.", "repository"],
     ["Change Veln schema semantics.", "repository"],
+    ["I’d like you to inspect the Veln parser implementation.", "repository"],
+    ["Where in the Veln source code is schema parsing implemented?", "repository"],
     ["Please update me on how Veln schemas work.", "language"],
   ]) {
     assert.equal(

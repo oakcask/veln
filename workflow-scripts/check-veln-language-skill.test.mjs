@@ -174,13 +174,25 @@ test("requires subject and incidental evidence for every explicit repository tar
   );
 });
 
-test("requires the canonical action-binding regressions", () => {
+test("requires the canonical routing regressions", () => {
   const document = fixture();
-  document.request_selection.find((entry) => entry.id === "test-action").text =
-    "Test the Veln compiler parser.";
+  document.request_selection = document.request_selection.filter(
+    (entry) => entry.id !== "inspect-framed-curly-apostrophe",
+  );
   assert.throws(
     () => validateScenarioDocument(document, options),
-    /must include "Test how Veln schemas work\."/,
+    /must include "I’d like you to inspect the Veln parser implementation\."/,
+  );
+});
+
+test("requires the canonical explicit-subject regression", () => {
+  const document = fixture();
+  document.request_selection = document.request_selection.filter(
+    (entry) => entry.id !== "source-code-where-subject",
+  );
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /must include "Where in the Veln source code is schema parsing implemented\?"/,
   );
 });
 
@@ -397,6 +409,13 @@ test("routes a repository inspection intent that does not lead the request", () 
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
+test("routes a framed repository inspection with a typographic apostrophe", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "I’d like you to inspect the Veln parser implementation.";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
 test("routes an embedded repository inspection request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
@@ -450,6 +469,13 @@ test("routes a repository location request without a listed component subject", 
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Where is Veln schema parsing implemented?";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("routes a where question whose explicit repository subject precedes the copula", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Where in the Veln source code is schema parsing implemented?";
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
