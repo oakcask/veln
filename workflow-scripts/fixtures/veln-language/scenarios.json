@@ -57,7 +57,7 @@
           ]
         },
         {
-          "request": { "text": "Review Veln effects semantics." },
+          "request": { "text": "Does Veln update effects automatically?" },
           "expected": { "search_arguments": { "query": "effects", "scope": "language" }, "answer_claims": [] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "effects", "scope": "language" } },
