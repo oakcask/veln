@@ -485,8 +485,13 @@ function routeRequest(text, contract, context) {
     `\\b(?:how|what|when|where|why) (?:can|could|should|would|will|must) (?:i|we|you)\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
+  const embeddedInterrogativeRequest = new RegExp(
+    `\\b(?:if|whether) you (?:can|could|will|would)\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
   const intent = directRequest?.groups.intent ?? framedRequest?.groups.intent
-    ?? collectiveRequest?.groups.intent ?? interrogativeRequest?.groups.intent;
+    ?? collectiveRequest?.groups.intent ?? interrogativeRequest?.groups.intent
+    ?? embeddedInterrogativeRequest?.groups.intent;
   const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
   const languageComplements = contract.repository.language_complements.join("|");
   const languageComplement = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
