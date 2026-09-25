@@ -10,6 +10,7 @@ on:
       - .github/actions/**/action.yaml
       - .github/workflows/*.yaml
       - AGENTS.md
+      - crates/veln-mcp/schemas/mcp/v1/*.json
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run
@@ -22,6 +23,7 @@ on:
       - .github/actions/**/action.yaml
       - .github/workflows/*.yaml
       - AGENTS.md
+      - crates/veln-mcp/schemas/mcp/v1/*.json
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run

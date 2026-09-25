@@ -42,7 +42,8 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "maximum_reads": 3,
     "repeat_paths": "forbidden",
     "published_reference_is_authority": false,
-    "routing_terms": ["repository", "implementation", "implemented", "proposal"]
+    "routing_terms": ["repository", "implementation", "implemented", "proposal"],
+    "path_prefixes": [".agents/", ".github/", "crates/", "docs/", "workflow-scripts/"]
   },
   "failure": {
     "fallback": "forbidden",
@@ -73,6 +74,14 @@ function scenario(document, coverage) {
 
 function matchingTurn(document) {
   return scenario(document, "language-match").turns[0];
+}
+
+function structured(event) {
+  return event.value.structuredContent;
+}
+
+function syncEnvelope(event) {
+  event.value.content[0].text = JSON.stringify(event.value.structuredContent);
 }
 
 test("canonical veln-language skill replays every acceptance scenario", () => {
@@ -122,6 +131,13 @@ test("keeps a language question containing inspect on the language route", () =>
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
+test("routes a repository path request without a generic repository keyword", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Change crates/veln-mcp/src/server.rs.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("binds every acceptance row to its final outcome", () => {
   const document = fixture();
   scenario(document, "language-no-match").covers = "language-match";
@@ -149,25 +165,33 @@ test("rejects a read before language search", () => {
 
 test("rejects a noncanonical snapshot URI", () => {
   const document = fixture();
-  matchingTurn(document).events[1].value.results[0].uri = "veln-doc:///language/snapshot/placeholder/topic/schemas";
+  const event = matchingTurn(document).events[1];
+  structured(event).results[0].uri = "veln-doc:///language/snapshot/placeholder/topic/schemas";
+  syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /canonical snapshot digest/);
 });
 
 test("rejects an incomplete search result", () => {
   const document = fixture();
-  delete matchingTurn(document).events[1].value.results[0].excerpt;
+  const event = matchingTurn(document).events[1];
+  delete structured(event).results[0].excerpt;
+  syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /missing schema field excerpt/);
 });
 
 test("rejects incomplete read metadata", () => {
   const document = fixture();
-  delete matchingTurn(document).events[3].value.mimeType;
+  const event = matchingTurn(document).events[3];
+  delete structured(event).mimeType;
+  syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /does not match exactly one published schema branch/);
 });
 
 test("rejects a search result outside the published schema", () => {
   const document = fixture();
-  matchingTurn(document).events[1].value.results[0].fallback = true;
+  const event = matchingTurn(document).events[1];
+  structured(event).results[0].fallback = true;
+  syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /unexpected schema field fallback/);
 });
 
@@ -192,8 +216,10 @@ test("rejects a claim absent from the selected topic", () => {
 
 test("rejects a claim that appears only inside a negated statement", () => {
   const document = fixture();
-  matchingTurn(document).events[3].value.text =
+  const event = matchingTurn(document).events[3];
+  structured(event).text =
     "The reference does not establish this claim: Schemas describe format-neutral and binary fields.";
+  syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /unambiguous selected-resource evidence/);
 });
 
@@ -216,6 +242,31 @@ test("rejects repository or model fallback after no match", () => {
   assert.throws(() => validateScenarioDocument(document, options), /forbidden fallback event read/);
 });
 
+test("rejects a model-memory claim appended to the no-match message", () => {
+  const document = fixture();
+  scenario(document, "language-no-match").turns[0].events[2].message +=
+    " Veln uses a borrow checker inferred from model memory.";
+  assert.throws(() => validateScenarioDocument(document, options), /must only report the published-topic absence/);
+});
+
+test("rejects a successful result without the published MCP envelope", () => {
+  const document = fixture();
+  delete matchingTurn(document).events[1].value.content;
+  assert.throws(() => validateScenarioDocument(document, options), /MCP tool envelope/);
+});
+
+test("rejects MCP text content that differs from structuredContent", () => {
+  const document = fixture();
+  matchingTurn(document).events[1].value.content[0].text = '{"scope":"language","results":[]}';
+  assert.throws(() => validateScenarioDocument(document, options), /must encode structuredContent/);
+});
+
+test("rejects a successful envelope marked as an error", () => {
+  const document = fixture();
+  matchingTurn(document).events[1].value.isError = true;
+  assert.throws(() => validateScenarioDocument(document, options), /wrong error state/);
+});
+
 test("rejects incomplete failure provenance", () => {
   const document = fixture();
   delete scenario(document, "topic-unreadable").turns[1].events[4].failure.artifact_uri;
@@ -224,7 +275,9 @@ test("rejects incomplete failure provenance", () => {
 
 test("rejects a stale result without the schema-required message", () => {
   const document = fixture();
-  delete scenario(document, "stale-snapshot-uri").turns[1].events[3].value.structuredContent.message;
+  const event = scenario(document, "stale-snapshot-uri").turns[1].events[3];
+  delete event.value.structuredContent.message;
+  syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /value does not match exactly one published schema branch/);
 });
 
