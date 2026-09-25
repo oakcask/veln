@@ -17,7 +17,7 @@
       "id": "language-topic-match",
       "covers": "language-match",
       "turns": [{
-        "request": { "text": "Can schemas update values in Veln?" },
+        "request": { "text": "What can I test in Veln schemas?" },
         "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
         "events": [
           { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
@@ -139,7 +139,7 @@
       "id": "repository-change-request",
       "covers": "repository-change",
       "turns": [{
-        "request": { "text": "Can I fix the Veln lexer bug?" },
+        "request": { "text": "Change how Veln schemas work." },
         "events": [
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/topic-map.md" } },
           { "type": "read", "path": "docs/specification/topic-map.md", "value": { "route": "docs/specification/source-surface.md" } },
