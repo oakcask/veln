@@ -377,6 +377,9 @@ function routeRequest(text, contract, context) {
       new RegExp(`\\b(?:${languageComplements})\\b[^.!?]*\\bveln\\b`, "u"),
       new RegExp(`\\b${intent}\\s+(?:${languageComplements})\\b`, "u"),
     ].some((pattern) => pattern.test(lower.trim()));
+  const languageBehaviorQuestion = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
+    && /(?:^|[.!?]\s*)\b(?:do|does|did|can|could|will|would|is|are|was|were|has|have)\s+veln\b/u
+      .test(lower.trim());
   const languageSemantics = intent !== undefined && /\b(?:language\s+)?semantics\b/u.test(lower);
   const locationForms = contract.repository.location_question_forms
     .filter((form) => form !== "where")
@@ -400,7 +403,7 @@ function routeRequest(text, contract, context) {
       "u",
     ).test(lower.trim()));
   const repository = repositoryPath || explicitTarget || locationQuestion || implementationQuestion
-    || (intent !== undefined && !languageComplement && !languageSemantics);
+    || (intent !== undefined && !languageComplement && !languageBehaviorQuestion && !languageSemantics);
   return repository ? "repository" : "language";
 }
 
@@ -1009,7 +1012,7 @@ export function readScenarioDocument(path) {
     }
   }
   for (const event of referencedEvents) {
-    event.value = structuredClone(document.recordings[event.value_ref]);
+    event.value = document.recordings[event.value_ref];
     delete event.value_ref;
   }
   delete document.recordings;

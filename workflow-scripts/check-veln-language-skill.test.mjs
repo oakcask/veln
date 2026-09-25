@@ -170,6 +170,12 @@ test("keeps a language question containing change on the language route", () => 
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
+test("keeps an auxiliary-led language behavior question on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "Does Veln update schemas automatically?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("keeps a language question containing inspect on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Inspect how Veln schemas work.";
@@ -844,6 +850,57 @@ test("rejects a scenario file before reading beyond the byte limit", (context) =
   const path = join(root, "oversized.json");
   writeFileSync(path, `{${" ".repeat(999_999)}}`);
   assert.throws(() => readScenarioDocument(path), /scenario fixture exceeds the byte limit/);
+});
+
+test("shares recordings at the largest accepted reference boundary", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-fixture-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const referenceEvent = () => ({
+    type: "result",
+    tool: "search_docs",
+    value_ref: "schemas-search",
+  });
+  const document = {
+    schema_version: 1,
+    recordings: {
+      "schemas-search": { content: "" },
+      "schemas-read": {},
+    },
+    scenarios: Array.from({ length: 9 }, (_, index) => ({
+      id: `reference-boundary-${index}`,
+      covers: "language-match",
+      turns: Array.from({ length: 2 }, () => ({
+        request: { text: "How do Veln schemas work?" },
+        events: Array.from({ length: 5 }, referenceEvent),
+      })),
+    })),
+  };
+  const emptyBytes = Buffer.byteLength(JSON.stringify(document));
+  document.recordings["schemas-search"].content = "x".repeat(1_000_000 - emptyBytes);
+  const serialized = JSON.stringify(document);
+  assert.equal(Buffer.byteLength(serialized), 1_000_000);
+  const path = join(root, "reference-boundary.json");
+  writeFileSync(path, serialized);
+
+  const originalStructuredClone = globalThis.structuredClone;
+  let cloneCalls = 0;
+  globalThis.structuredClone = (...arguments_) => {
+    cloneCalls += 1;
+    return originalStructuredClone(...arguments_);
+  };
+  let loaded;
+  try {
+    loaded = readScenarioDocument(path);
+  } finally {
+    globalThis.structuredClone = originalStructuredClone;
+  }
+
+  const values = loaded.scenarios.flatMap((scenario) => scenario.turns)
+    .flatMap((turn) => turn.events)
+    .map((event) => event.value);
+  assert.equal(values.length, 90);
+  assert.equal(cloneCalls, 0);
+  assert.ok(values.every((value) => value === values[0]));
 });
 
 test("checks every recording reference bound before expanding recordings", (context) => {
