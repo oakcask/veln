@@ -80,7 +80,7 @@ function catalogDigest(bytes) {
     .digest("hex");
 }
 
-function loadSnapshotEvidence(repositoryRoot, published) {
+export function loadSnapshotEvidence(repositoryRoot, published) {
   const path = join(repositoryRoot, snapshotEvidencePath);
   assert.ok(statSync(path).size <= fixtureLimits.fixtureBytes, "snapshot evidence exceeds the fixture byte limit");
   const document = JSON.parse(readFileSync(path, "utf8"));
@@ -94,29 +94,35 @@ function loadSnapshotEvidence(repositoryRoot, published) {
     assert.equal(snapshot.base_digest, published.digest, `${context}: base snapshot digest changed`);
     assert.match(snapshot.digest, /^[0-9a-f]{64}$/, `${context}: digest must be canonical`);
     assert.ok(Array.isArray(snapshot.topic_overrides), `${context}: topic overrides must be an array`);
-    const catalog = structuredClone(published.catalog);
-    const replaced = new Set();
-    for (const [overrideIndex, override] of snapshot.topic_overrides.entries()) {
-      const overrideContext = `${context} override ${overrideIndex + 1}`;
-      assertExactKeys(
-        override,
-        ["topic_id", "id", "title", "summary", "keywords", "body"],
-        overrideContext,
-      );
-      assert.equal(replaced.has(override.topic_id), false, `${overrideContext}: duplicate topic override`);
-      const topicIndex = catalog.topics.findIndex((topic) => topic.id === override.topic_id);
-      assert.notEqual(topicIndex, -1, `${overrideContext}: base topic does not exist`);
-      const { topic_id: _topicId, ...replacement } = override;
-      catalog.topics[topicIndex] = { ...catalog.topics[topicIndex], ...replacement };
-      replaced.add(override.topic_id);
-    }
-    catalog.topics.sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
+    const catalog = materializeSnapshotCatalog(published, snapshot, context);
     const bytes = Buffer.from(JSON.stringify(catalog));
     assert.equal(catalogDigest(bytes), snapshot.digest, `${context}: catalog digest does not match evidence`);
     assert.equal(snapshots.has(snapshot.digest), false, `${context}: duplicate snapshot digest`);
-    snapshots.set(snapshot.digest, { digest: snapshot.digest, catalog });
+    snapshots.set(snapshot.digest, snapshot);
   }
   return snapshots;
+}
+
+function materializeSnapshotCatalog(published, snapshot, context) {
+  const baseTopics = new Map(published.catalog.topics.map((topic) => [topic.id, topic]));
+  const replacements = new Map();
+  for (const [overrideIndex, override] of snapshot.topic_overrides.entries()) {
+    const overrideContext = `${context} override ${overrideIndex + 1}`;
+    assertExactKeys(
+      override,
+      ["topic_id", "id", "title", "summary", "keywords", "body"],
+      overrideContext,
+    );
+    assert.equal(replacements.has(override.topic_id), false, `${overrideContext}: duplicate topic override`);
+    const baseTopic = baseTopics.get(override.topic_id);
+    assert.ok(baseTopic, `${overrideContext}: base topic does not exist`);
+    const { topic_id: _topicId, ...replacement } = override;
+    replacements.set(override.topic_id, { ...baseTopic, ...replacement });
+  }
+  const topics = published.catalog.topics
+    .map((topic) => replacements.get(topic.id) ?? topic)
+    .sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
+  return { ...published.catalog, topics };
 }
 
 function topicUri(digest, topicId) {
@@ -368,7 +374,7 @@ function routeRequest(text, contract, context) {
   const languageComplements = contract.repository.language_complements.join("|");
   const languageComplement = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
     && [
-      new RegExp(`^${requestLead}(?:(?:tell|show) me\\s+)?(?:${languageComplements})\\b`, "u"),
+      new RegExp(`\\b(?:${languageComplements})\\b[^.!?]*\\bveln\\b`, "u"),
       new RegExp(`\\b${intent}\\s+(?:${languageComplements})\\b`, "u"),
     ].some((pattern) => pattern.test(lower.trim()));
   const languageSemantics = intent !== undefined && /\b(?:language\s+)?semantics\b/u.test(lower);
@@ -649,8 +655,15 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   const resultDigests = new Set(results.map((result) => snapshotDigest(result.uri, context)));
   assert.ok(resultDigests.size <= 1, `${context}: search results must belong to one snapshot`);
   const resultDigest = resultDigests.values().next().value ?? published.digest;
-  const searchEvidence = resultDigest === published.digest ? published : snapshots.get(resultDigest);
-  assert.ok(searchEvidence, `${context}: search results have no checked snapshot evidence`);
+  const snapshotEvidence = resultDigest === published.digest ? undefined : snapshots.get(resultDigest);
+  assert.ok(resultDigest === published.digest || snapshotEvidence,
+    `${context}: search results have no checked snapshot evidence`);
+  const searchEvidence = resultDigest === published.digest
+    ? published
+    : {
+      digest: resultDigest,
+      catalog: materializeSnapshotCatalog(published, snapshotEvidence, `${context}: checked snapshot`),
+    };
   assert.deepEqual(
     searchStructured,
     expectedPublishedSearch(events[0].arguments, searchEvidence),
