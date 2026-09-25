@@ -178,6 +178,28 @@ test("rejects changed text in every corpus row with unchanged claimed semantics"
   }
 });
 
+test("rejects missing and unknown request-selection corpus IDs", () => {
+  const missing = fixture();
+  missing.request_selection = missing.request_selection.filter((entry) => entry.id !== "add-action");
+  assert.throws(
+    () => validateScenarioDocument(missing, candidateOptions),
+    /update request-selection IDs to exactly match the canonical corpus/,
+  );
+
+  const unknown = fixture();
+  unknown.request_selection.push({
+    id: "fabricated-language-row",
+    action: "information",
+    subject: "language_behavior",
+    text: "Describe an invented Veln behavior.",
+    route: "language",
+  });
+  assert.throws(
+    () => validateScenarioDocument(unknown, candidateOptions),
+    /update request-selection IDs to exactly match the canonical corpus/,
+  );
+});
+
 test("rejects unsupported answer provenance and fallback", () => {
   const unsupported = fixture();
   scenario(unsupported, "language-match").turns[0].events.at(-1).claims = ["Model memory says otherwise."];
@@ -779,6 +801,33 @@ test("derives the shortest repository route from current documentation links", (
   assert.deepEqual(
     shortestDocumentationRoute("docs/README.md", "docs/specification/mcp.md", join(dirname(fixturePath), "../../.."), 3),
     ["docs/README.md", "docs/specification/mcp.md"],
+  );
+});
+
+test("rejects repository routes that appear only in non-navigational Markdown", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-route-examples-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  writeFileSync(join(root, "docs", "README.md"), [
+    "```markdown",
+    "[fenced example](authority.md)",
+    "```",
+    "",
+    "~~~markdown",
+    "[tilde-fenced example](authority.md)",
+    "~~~",
+    "",
+    "`[inline example](authority.md)`",
+    "",
+    "<!-- [comment example](authority.md) -->",
+    "",
+    "![image](authority.md)",
+  ].join("\n"));
+
+  assert.throws(
+    () => shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
+    /repository authority is not reachable/,
   );
 });
 
