@@ -438,6 +438,13 @@ test("routes an embedded repository inspection request", () => {
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
+test("routes an assigned repository inspection request", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Your task is to inspect the Veln parser implementation.";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
 test("routes a repository inspection request without an indirect object", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
@@ -544,6 +551,34 @@ test("routes an explicit repository target used as the requested subject", () =>
   assert.equal(
     scenario(document, "repository-explicit-target").turns[0].request.text,
     "Can you tell me what the Veln proposal state is?",
+  );
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("routes an explicit repository target as a copula question subject", () => {
+  const document = fixture();
+  assert.deepEqual(
+    document.request_selection.find((entry) => entry.id === "repository-copula-subject"),
+    {
+      id: "repository-copula-subject",
+      target: "repository",
+      text: "Is the Veln repository organized by crates?",
+      route: "repository",
+    },
+  );
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("keeps an explicit repository target in a language compound on the language route", () => {
+  const document = fixture();
+  assert.deepEqual(
+    document.request_selection.find((entry) => entry.id === "repository-compound-incidental"),
+    {
+      id: "repository-compound-incidental",
+      target: "repository",
+      text: "What is the repository schema in Veln?",
+      route: "language",
+    },
   );
   assert.equal(validateScenarioDocument(document, options), 11);
 });
