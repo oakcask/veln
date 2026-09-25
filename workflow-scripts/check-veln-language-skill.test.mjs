@@ -425,6 +425,18 @@ test("routes a polite repository request with intervening words", () => {
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
+test("routes an assisted repository action without a fixed component frame", () => {
+  const document = fixture();
+  const selection = document.request_selection.find((entry) => entry.id === "inspect-assisted-action");
+  assert.deepEqual(selection, {
+    id: "inspect-assisted-action",
+    intent: "inspect",
+    text: "Please help me inspect the Veln parser.",
+    route: "repository",
+  });
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
 test("routes a varied indirect infinitive repository request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
@@ -575,6 +587,18 @@ test("routes a non-leading inspection request about language behavior to the rep
 test("keeps a framed language-behavior question on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Review this question: how do Veln schemas work?";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("keeps a reviewed Veln term question on the language route", () => {
+  const document = fixture();
+  const selection = document.request_selection.find((entry) => entry.id === "review-language-question");
+  assert.deepEqual(selection, {
+    id: "review-language-question",
+    intent: "review",
+    text: "Can you review what contracts mean in Veln?",
+    route: "language",
+  });
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 

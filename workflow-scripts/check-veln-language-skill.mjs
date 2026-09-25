@@ -521,6 +521,10 @@ function routeRequest(text, contract, context) {
     `(?:^|[.!?;:,]\\s*)${requestLead}(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
+  const assistedRequest = new RegExp(
+    `(?:^|[.!?;:,]\\s*)${requestLead}help (?:me|us)(?: to)?\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
   const framedRequest = new RegExp(
     `\\b(?:i|we)(?: (?:need|want|would like)|['’]d like)(?: you)? to\\s+(?<intent>${intentPattern})\\b`,
     "u",
@@ -557,7 +561,7 @@ function routeRequest(text, contract, context) {
     `\\b(?:ask|direct|request|require|urge)\\s+(?:[\\p{L}'’.-]+\\s+){0,8}that\\s+(?:i|we|you)\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
-  const intentRequest = directRequest ?? framedRequest ?? indirectInfinitiveRequest ?? collectiveRequest
+  const intentRequest = directRequest ?? assistedRequest ?? framedRequest ?? indirectInfinitiveRequest ?? collectiveRequest
     ?? interrogativeRequest ?? actorModalRequest ?? embeddedInterrogativeRequest ?? assignedRequest ?? nominalRequest
     ?? communicatedRequest;
   const intentObject = intentRequest == null
@@ -570,6 +574,10 @@ function routeRequest(text, contract, context) {
   );
   const intent = informationalRequest ? undefined : intentRequest?.groups.intent;
   const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
+  const reviewedLanguageQuestion = intent === "review"
+    && /^\s+(?:how|what|when|where|whether|why)\b/u.test(intentObject)
+    && /\bveln\b/u.test(intentObject)
+    && !repositorySubject;
   const requestedMutation = intent !== undefined
     && /^(?:add|change|fix|implement|modify|refactor|remove|update)$/u.test(intent);
   const languageComplement = intent !== undefined && !requestedMutation
@@ -600,7 +608,7 @@ function routeRequest(text, contract, context) {
       "u",
     ).test(lower.trim()));
   const repository = repositoryPath || explicitRepositorySubject || locationQuestion || implementationQuestion
-    || (intent !== undefined && !languageComplement && !languageBehaviorQuestion)
+    || (intent !== undefined && !languageComplement && !languageBehaviorQuestion && !reviewedLanguageQuestion)
     || (intent !== undefined && repositorySubject);
   return repository ? "repository" : "language";
 }
@@ -1221,6 +1229,7 @@ export function validateScenarioDocument(document, options = {}) {
     ["Test how Veln schemas work.", "repository"],
     ["Change Veln schema semantics.", "repository"],
     ["I’d like you to inspect the Veln parser implementation.", "repository"],
+    ["Please help me inspect the Veln parser.", "repository"],
     ["Could you take a moment to inspect the Veln parser implementation?", "repository"],
     ["Do you think you could inspect the parser?", "repository"],
     ["Your task is to inspect the Veln parser implementation.", "repository"],
@@ -1229,6 +1238,7 @@ export function validateScenarioDocument(document, options = {}) {
     ["For this task, I ask that you test the Veln parser.", "repository"],
     ["I ask what inspect means in Veln schemas.", "language"],
     ["I ask that you explain what inspect means in Veln schemas.", "language"],
+    ["Can you review what contracts mean in Veln?", "language"],
     ["Where in the Veln source code is schema parsing implemented?", "repository"],
     ["Is the Veln repository organized by crates?", "repository"],
     ["Tell me about the Veln repository.", "repository"],
