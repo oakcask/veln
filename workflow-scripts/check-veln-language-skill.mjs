@@ -349,9 +349,14 @@ function parseSkillContract(skillText) {
   assert.equal(skillText.slice(bodyStart, contractStart), operativePrefix, "skill must use the checked operative instruction wrapper");
   assert.match(skillText.slice(contractEnd), /^\n?$/, "skill must not contain unchecked operative instructions");
   const contract = JSON.parse(match[1]);
+  assertExactKeys(
+    contract,
+    ["schema_version", "request_selection", "language", "repository", "failure", "maintenance"],
+    "veln-language skill contract",
+  );
   assert.equal(contract.schema_version, 1, "unsupported veln-language skill contract");
   assert.deepEqual(contract.request_selection, {
-    repository_when: "The request asks to inspect or change the Veln repository, its implementation, or its proposal state.",
+    repository_when: "The request asks to inspect, test, or change the Veln repository or makes the repository, codebase, source code, or proposal state its subject.",
     language_otherwise: true,
   }, "veln-language request-selection contract is inconsistent");
   assert.deepEqual(contract.language, {
@@ -367,6 +372,23 @@ function parseSkillContract(skillText) {
     report_selected_uri: true,
     no_match: "Report that the published Veln language reference has no matching topic. Do not use proposal text or model memory.",
   }, "veln-language skill language contract is inconsistent");
+  assertExactKeys(contract.repository, [
+    "entry",
+    "follow_selected_links",
+    "maximum_reads",
+    "repeat_paths",
+    "published_reference_is_authority",
+    "authority_selection",
+    "no_route",
+    "explicit_targets",
+    "explicit_target_selection",
+    "intent_verbs",
+    "intent_selection",
+    "language_complements",
+    "location_question_endings",
+    "location_question_forms",
+    "path_prefixes",
+  ], "veln-language repository contract");
   assert.equal(contract.repository?.entry, "docs/README.md", "skill must start repository tasks at docs/README.md");
   assert.equal(contract.repository?.follow_selected_links, true, "skill must follow repository documentation links");
   assert.equal(contract.repository?.maximum_reads, 3, "skill must bound repository documentation reads");
