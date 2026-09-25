@@ -99,7 +99,7 @@ function writeSnapshotEvidence(root, snapshots) {
 }
 
 test("canonical veln-language skill replays every acceptance scenario", () => {
-  assert.equal(validateScenarioDocument(fixture()), 11);
+  assert.equal(validateScenarioDocument(fixture()), 12);
 });
 
 test("request selection uses annotated action and subject semantics", () => {
@@ -111,6 +111,7 @@ test("request selection uses annotated action and subject semantics", () => {
     ["Assess how effects are handled in Veln.", "repository"],
     ["How are effects handled in Veln?", "language"],
     ["Explain how effects are handled in Veln.", "language"],
+    ["Where is the Veln parser implemented?", "repository"],
   ]) {
     const entry = cases.get(text);
     assert.ok(entry, text);
@@ -129,6 +130,10 @@ test("semantic routing is independent of a surface verb vocabulary", () => {
   );
   assert.equal(
     selectRequestRoute({ action: "repository_action", subject: "language_behavior" }, candidateOptions),
+    "repository",
+  );
+  assert.equal(
+    selectRequestRoute({ action: "information", subject: "implementation" }, candidateOptions),
     "repository",
   );
   assert.equal(
@@ -411,7 +416,7 @@ test("accepts a deterministic selection for a multi-topic language question", ()
     route: "language",
   });
   assert.match(matchingTurn(document).request.text, /\bschemas\b.*\bcontracts\b/u);
-  assert.equal(validateScenarioDocument(document, options), 11);
+  assert.equal(validateScenarioDocument(document, options), 12);
 });
 
 test("rejects a non-first topic from a multi-result language search", () => {
@@ -979,7 +984,7 @@ test("shares recordings at the largest accepted reference boundary", (context) =
       "schemas-read": {},
     },
     request_selection: [],
-    scenarios: Array.from({ length: 11 }, (_, index) => ({
+    scenarios: Array.from({ length: 12 }, (_, index) => ({
       id: `reference-boundary-${index}`,
       covers: "language-match",
       turns: Array.from({ length: 2 }, () => ({
@@ -1011,7 +1016,7 @@ test("shares recordings at the largest accepted reference boundary", (context) =
   const values = loaded.scenarios.flatMap((scenario) => scenario.turns)
     .flatMap((turn) => turn.events)
     .map((event) => event.value);
-  assert.equal(values.length, 110);
+  assert.equal(values.length, 120);
   assert.equal(cloneCalls, 0);
   assert.ok(values.every((value) => value === values[0]));
 });
@@ -1058,7 +1063,7 @@ test("checks every recording reference bound before expanding recordings", (cont
         "schemas-read": {},
       },
       request_selection: [],
-      scenarios: Array.from({ length: 11 }, scenario),
+      scenarios: Array.from({ length: 12 }, scenario),
     };
     if (fixtureCase.name === "turns") document.scenarios[0].turns.push(turn());
     if (fixtureCase.name === "events") {
