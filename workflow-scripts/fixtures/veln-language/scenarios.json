@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "recordings": {
-    "schemas-binary-search": {
-      "content": [{ "type": "text", "text": "{\"scope\":\"language\",\"results\":[{\"uri\":\"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas\",\"title\":\"Schemas\",\"summary\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\",\"excerpt\":\"Schemas\",\"prefix_truncated\":false,\"suffix_truncated\":false}]}" }],
-      "structuredContent": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.", "excerpt": "Schemas", "prefix_truncated": false, "suffix_truncated": false }] },
+    "schemas-search": {
+      "content": [{ "type": "text", "text": "{\"scope\":\"language\",\"results\":[{\"uri\":\"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas\",\"title\":\"Schemas\",\"summary\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\",\"excerpt\":\"schemas\",\"prefix_truncated\":false,\"suffix_truncated\":false},{\"uri\":\"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/contracts\",\"title\":\"Contracts\",\"summary\":\"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.\",\"excerpt\":\"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.\",\"prefix_truncated\":false,\"suffix_truncated\":false},{\"uri\":\"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/declarations-aliases\",\"title\":\"Declarations And Aliases\",\"summary\":\"Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.\",\"excerpt\":\"Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.\",\"prefix_truncated\":false,\"suffix_truncated\":false}]}" }],
+      "structuredContent": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.", "excerpt": "schemas", "prefix_truncated": false, "suffix_truncated": false }, { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/contracts", "title": "Contracts", "summary": "Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.", "excerpt": "Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.", "prefix_truncated": false, "suffix_truncated": false }, { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/declarations-aliases", "title": "Declarations And Aliases", "summary": "Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.", "excerpt": "Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.", "prefix_truncated": false, "suffix_truncated": false }] },
       "isError": false
     },
     "schemas-read": {
@@ -17,11 +17,11 @@
       "id": "language-topic-match",
       "covers": "language-match",
       "turns": [{
-        "request": { "text": "How do Veln schemas work?" },
-        "expected": { "search_arguments": { "query": "schemas binary", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+        "request": { "text": "How do Veln schemas and contracts interact?" },
+        "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
         "events": [
-          { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas binary", "scope": "language" } },
-          { "type": "result", "tool": "search_docs", "value_ref": "schemas-binary-search" },
+          { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+          { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
           { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
           { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
           { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
@@ -47,17 +47,17 @@
       "turns": [
         {
           "request": { "text": "How do Veln schemas work?" },
-          "expected": { "search_arguments": { "query": "schemas binary", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
           "events": [
-            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas binary", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value_ref": "schemas-binary-search" },
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
             { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
             { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
             { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
           ]
         },
         {
-          "request": { "text": "How do Veln effects work?" },
+          "request": { "text": "Review Veln effects semantics." },
           "expected": { "search_arguments": { "query": "effects", "scope": "language" }, "answer_claims": [] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "effects", "scope": "language" } },
@@ -73,10 +73,10 @@
       "turns": [
         {
           "request": { "text": "How do Veln schemas work?" },
-          "expected": { "search_arguments": { "query": "schemas binary", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
           "events": [
-            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas binary", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value_ref": "schemas-binary-search" },
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
             { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
             { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
             { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
@@ -84,10 +84,10 @@
         },
         {
           "request": { "text": "How do Veln schemas encode values?" },
-          "expected": { "search_arguments": { "query": "schemas binary", "scope": "language" }, "answer_claims": [] },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": [] },
           "events": [
-            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas binary", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value_ref": "schemas-binary-search" },
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
             { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
             { "type": "result", "tool": "read_doc", "error": { "code": "transport_unavailable" } },
             { "type": "answer", "status": "topic_unavailable", "claims": [], "source_uris": [], "failure": { "operation": "read_doc", "artifact_uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
@@ -101,10 +101,10 @@
       "turns": [
         {
           "request": { "text": "How do Veln schemas work?" },
-          "expected": { "search_arguments": { "query": "schemas binary", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
           "events": [
-            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas binary", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value_ref": "schemas-binary-search" },
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
             { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
             { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
             { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }

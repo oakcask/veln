@@ -23,8 +23,9 @@ repository documentation tree.
 
 For a language question, the skill first calls `search_docs` with
 `scope: "language"`. If a topic matches, it calls `read_doc` with the exact
-snapshot topic URI returned by search. The answer can contain only claims from
-that resource and reports that exact URI as its source.
+snapshot topic URI from the first search result. This makes selection
+deterministic when search returns multiple topics. The answer can contain only
+claims from that resource and reports that exact URI as its source.
 
 For repository inspection, changes, and proposal selection, the skill starts
 at `docs/README.md`. It follows the smallest linked repository documentation
@@ -44,9 +45,6 @@ unchanged.
 
 Repository routing reads at most three distinct documentation files. It stops
 when the selected route ends and reports when no route covers the request.
-Ambiguous language requests that name more than one independently checked
-topic are rejected by the scenario evidence instead of accepting partial
-coverage.
 
 ## Verification
 

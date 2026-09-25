@@ -21,23 +21,16 @@ const acceptance = new Map([
     route: "repository",
     finalStatus: "repository_routed",
     authority: "docs/specification/mcp.md",
-    paths: ["docs/README.md", "docs/specification/mcp.md"],
   }],
   ["repository-change", {
     route: "repository",
     finalStatus: "repository_routed",
     authority: "docs/specification/source-surface.md",
-    paths: [
-      "docs/README.md",
-      "docs/specification/topic-map.md",
-      "docs/specification/source-surface.md",
-    ],
   }],
   ["repository-proposal", {
     route: "repository",
     finalStatus: "repository_routed",
     authority: "docs/proposals/README.md",
-    paths: ["docs/README.md", "docs/proposals/README.md"],
   }],
   ["repository-unknown", {
     route: "repository",
@@ -202,6 +195,7 @@ function parseSkillContract(skillText) {
     read_tool: "read_doc",
     maximum_calls: 2,
     call_order: ["search_docs", "read_doc"],
+    selection: "first_search_result",
     read_exact_search_result_uri: true,
     fallback: "forbidden",
     answer_source: "selected_resource_uri",
@@ -213,12 +207,29 @@ function parseSkillContract(skillText) {
   assert.equal(contract.repository?.maximum_reads, 3, "skill must bound repository documentation reads");
   assert.equal(contract.repository?.repeat_paths, "forbidden", "skill must reject repository documentation cycles");
   assert.equal(contract.repository?.published_reference_is_authority, false, "skill must reject published-reference repository authority");
+  assert.equal(
+    contract.repository?.authority_selection,
+    "smallest_current_linked_authority",
+    "skill must select the smallest current linked repository authority",
+  );
+  assert.equal(
+    contract.repository?.no_route,
+    "Stop and report that no repository documentation route covers the request.",
+    "skill must define the missing repository route outcome",
+  );
   assert.deepEqual(contract.repository?.explicit_targets, [
     "repository",
     "codebase",
     "source code",
     "proposal state",
   ], "skill must define explicit repository targets");
+  assert.deepEqual(contract.repository?.intent_targets, [
+    "compiler",
+    "implementation",
+    "implemented",
+    "parser",
+    "proposal",
+  ], "skill must define repository targets that qualify intent verbs");
   assert.deepEqual(contract.repository?.intent_verbs, [
     "add",
     "change",
@@ -296,6 +307,7 @@ function routeRequest(text, contract, context) {
   };
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
   const explicitTarget = contract.repository.explicit_targets.some(containsTerm);
+  const intentTarget = contract.repository.intent_targets.some(containsTerm);
   const requestLead = "(?:(?:can|could|would) you\\s+)?(?:please\\s+)?";
   const intent = contract.repository.intent_verbs.find((verb) => new RegExp(
     `^${requestLead}${verb}\\b`,
@@ -320,7 +332,7 @@ function routeRequest(text, contract, context) {
       "u",
     ).test(lower.trim()));
   const repository = repositoryPath || explicitTarget || locationQuestion
-    || (intent !== undefined && !languageComplement);
+    || (intent !== undefined && intentTarget && !languageComplement);
   return repository ? "repository" : "language";
 }
 
@@ -328,26 +340,24 @@ function expectedSelection(text, route, context) {
   const lower = text.toLocaleLowerCase("en-US");
   if (route === "language") {
     const subjects = [
-      { matches: /\bschemas?\b/u.test(lower), topic: "schemas" },
-      { matches: /\beffects?\b/u.test(lower), topic: "effects-handlers" },
-      { matches: /\bmodules?\b/u.test(lower), topic: "modules-imports-packages" },
-      { matches: /\bborrow checker\b/u.test(lower), topic: undefined },
-    ].filter((subject) => subject.matches);
-    assert.ok(subjects.length <= 1, `${context}: request contains ambiguous language subjects`);
+      { match: /\bschemas?\b/u.exec(lower), topic: "schemas", query: "schemas" },
+      { match: /\bcontracts?\b/u.exec(lower), topic: "contracts", query: "contracts" },
+      { match: /\beffects?\b/u.exec(lower), topic: "effects-handlers", query: "effects" },
+      { match: /\bmodules?\b/u.exec(lower), topic: "modules-imports-packages", query: "modules" },
+      { match: /\bborrow checker\b/u.exec(lower), topic: undefined, query: "borrow checker" },
+    ].filter((subject) => subject.match !== null)
+      .sort((left, right) => left.match.index - right.match.index || left.query.localeCompare(right.query));
     if (subjects[0]?.topic === "schemas") {
       return {
-        searchArguments: { query: "schemas binary", scope: "language" },
+        searchArguments: { query: subjects[0].query, scope: "language" },
         topic: "schemas",
       };
     }
-    if (subjects[0]?.topic === "effects-handlers") {
-      return { searchArguments: { query: "effects", scope: "language" }, topic: "effects-handlers" };
-    }
-    if (subjects[0]?.topic === "modules-imports-packages") {
-      return { searchArguments: { query: "modules", scope: "language" }, topic: "modules-imports-packages" };
-    }
-    if (subjects.length === 1) {
-      return { searchArguments: { query: "borrow checker", scope: "language" }, topic: undefined };
+    if (subjects.length > 0) {
+      return {
+        searchArguments: { query: subjects[0].query, scope: "language" },
+        topic: subjects[0].topic,
+      };
     }
     assert.fail(`${context}: request has no independent language evidence selection rule`);
   }
@@ -355,20 +365,18 @@ function expectedSelection(text, route, context) {
   if (lower.includes("docs/specification/types.md")) {
     return {
       authority: "docs/specification/types.md",
-      paths: ["docs/README.md", "docs/specification/topic-map.md", "docs/specification/types.md"],
     };
   }
   if (/\bmcp\b.*\bdocumentation search\b/u.test(lower)) {
-    return { authority: "docs/specification/mcp.md", paths: ["docs/README.md", "docs/specification/mcp.md"] };
+    return { authority: "docs/specification/mcp.md" };
   }
   if (/\b(?:parser recovery|compiler parser)\b/u.test(lower) || lower.includes("crates/veln-mcp/")) {
     return {
       authority: "docs/specification/source-surface.md",
-      paths: ["docs/README.md", "docs/specification/topic-map.md", "docs/specification/source-surface.md"],
     };
   }
   if (/\b(?:next ready|proposal state)\b/u.test(lower)) {
-    return { authority: "docs/proposals/README.md", paths: ["docs/README.md", "docs/proposals/README.md"] };
+    return { authority: "docs/proposals/README.md" };
   }
   if (/\bundocumented deployment service\b/u.test(lower)) {
     return { paths: ["docs/README.md", "docs/navigation.md", "docs/navigation-full.md"] };
@@ -606,6 +614,7 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   validateSchema(events[2]?.arguments, schemas.readInput, schemas.readInput, `${context}: read_doc input`);
   const selectedUri = events[2]?.arguments?.uri;
   assert.ok(results.some((result) => result.uri === selectedUri), `${context}: read_doc URI must exactly match a search result`);
+  assert.equal(selectedUri, results[0].uri, `${context}: read_doc must deterministically select the first search result`);
   assert.equal(events[3]?.type, "result", `${context}: topic result must follow read call`);
   assert.equal(events[3]?.tool, contract.language.read_tool, `${context}: expected recorded read result`);
   const readResult = events[3];
@@ -731,6 +740,38 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
   return links;
 }
 
+export function shortestDocumentationRoute(entry, authority, repositoryRoot, maximumReads) {
+  const entryIdentity = realpathSync(checkedRepositoryPath(
+    repositoryRoot,
+    entry,
+    "repository route entry",
+  ));
+  const authorityIdentity = realpathSync(checkedRepositoryPath(
+    repositoryRoot,
+    authority,
+    "repository route authority",
+  ));
+  const queue = [{ paths: [entry], identity: entryIdentity }];
+  const visited = new Set([entryIdentity]);
+  while (queue.length > 0) {
+    const { paths, identity } = queue.shift();
+    const current = paths.at(-1);
+    if (identity === authorityIdentity) return paths;
+    if (paths.length >= maximumReads) continue;
+    for (const linked of linkedDocumentationPaths(current, repositoryRoot)) {
+      const linkedIdentity = realpathSync(checkedRepositoryPath(
+        repositoryRoot,
+        linked,
+        "repository route discovery",
+      ));
+      if (visited.has(linkedIdentity)) continue;
+      visited.add(linkedIdentity);
+      queue.push({ paths: [...paths, linked], identity: linkedIdentity });
+    }
+  }
+  assert.fail(`repository authority is not reachable within the read bound: ${authority}`);
+}
+
 function frontmatterRole(path) {
   const match = readFileSync(path, "utf8").match(/^---\n([\s\S]*?)\n---/);
   return match?.[1].match(/^role:\s*(\S+)\s*$/m)?.[1];
@@ -745,7 +786,6 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
   const reads = events.filter((event) => event.type === "read");
   assert.ok(events.length <= fixtureLimits.eventsPerTurn, `${context}: turn exceeds the event limit`);
   const selection = expectedSelection(turn.request.text, "repository", context);
-  assert.deepEqual(requirement.paths, selection.paths, `${context}: acceptance label does not match request-selected repository route`);
   assert.equal(requirement.authority, selection.authority, `${context}: acceptance label does not match request-selected repository authority`);
   assert.equal(reads[0]?.path, contract.repository.entry, `${context}: repository route must start at docs/README.md`);
   assert.equal(new Set(reads.map((read) => read.path)).size, reads.length, `${context}: repository route repeated a path`);
@@ -774,11 +814,16 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
       assert.ok(linkedDocumentationPaths(reads[index - 1].path, repositoryRoot).includes(read.path), `${context}: repository routing page does not select ${read.path}`);
     }
   }
-  assert.deepEqual(
-    reads.map((read) => read.path),
-    requirement.paths,
-    `${context}: repository route must use the smallest task-appropriate documentation path`,
-  );
+  const expectedPaths = requirement.authority === undefined
+    ? selection.paths
+    : shortestDocumentationRoute(
+      contract.repository.entry,
+      requirement.authority,
+      repositoryRoot,
+      contract.repository.maximum_reads,
+    );
+  assert.deepEqual(reads.map((read) => read.path), expectedPaths,
+    `${context}: repository route must use the smallest task-appropriate documentation path`);
   const answer = finalAnswer(events, context);
   validateClaims(answer, undefined, undefined, context);
 
@@ -849,7 +894,7 @@ export function readScenarioDocument(path) {
   const document = JSON.parse(bytes.toString("utf8"));
   if (document.recordings === undefined) return document;
   assertExactKeys(document, ["schema_version", "recordings", "scenarios"], "scenario document");
-  assertExactKeys(document.recordings, ["schemas-binary-search", "schemas-read"], "scenario recordings");
+  assertExactKeys(document.recordings, ["schemas-search", "schemas-read"], "scenario recordings");
   assert.ok(Array.isArray(document.scenarios), "scenarios must be an array");
   assert.ok(document.scenarios.length <= fixtureLimits.scenarios, "scenario document exceeds the scenario limit");
   const referencedEvents = [];
