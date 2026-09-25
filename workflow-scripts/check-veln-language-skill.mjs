@@ -71,6 +71,7 @@ const fixtureLimits = {
   resourceTextBytes: 262_144,
   repositoryDocumentBytes: 262_144,
   fixtureBytes: 1_000_000,
+  requestSelectionCases: 64,
   skillDescriptionCharacters: 300,
   repositoryDiscoveryDocuments: 64,
 };
@@ -495,23 +496,26 @@ function routeRequest(text, contract, context) {
     `\\b(?:if|whether) you (?:can|could|will|would)\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
-  const intent = directRequest?.groups.intent ?? framedRequest?.groups.intent
-    ?? collectiveRequest?.groups.intent ?? interrogativeRequest?.groups.intent
-    ?? embeddedInterrogativeRequest?.groups.intent;
+  const intentRequest = directRequest ?? framedRequest ?? collectiveRequest
+    ?? interrogativeRequest ?? embeddedInterrogativeRequest;
+  const intentObject = intentRequest == null
+    ? ""
+    : lower.trim().slice(intentRequest.index + intentRequest[0].length);
+  const informationalRequest = intentRequest === directRequest && (
+    (intentRequest?.groups.intent === "update"
+      && /^\s+(?:me|us)\s+(?:about|on)\b/u.test(intentObject))
+    || /^(?:\s+(?:this|the)\s+question\s*:)/u.test(intentObject)
+  );
+  const intent = informationalRequest ? undefined : intentRequest?.groups.intent;
   const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
   const requestedMutation = intent !== undefined
     && /^(?:add|change|fix|implement|modify|refactor|remove|update)$/u.test(intent);
-  const languageComplements = contract.repository.language_complements.join("|");
   const languageComplement = intent !== undefined && !requestedMutation
-    && /\bveln\b/u.test(lower) && !repositorySubject
-    && [
-      new RegExp(`\\b(?:${languageComplements})\\b[^.!?]*\\bveln\\b`, "u"),
-      new RegExp(`\\b${intent}\\s+(?:${languageComplements})\\b`, "u"),
-    ].some((pattern) => pattern.test(lower.trim()));
+    && interrogativeRequest !== null && intentRequest === interrogativeRequest
+    && /\bveln\b/u.test(lower) && !repositorySubject;
   const languageBehaviorQuestion = /\bveln\b/u.test(lower)
     && /(?:^|[.!?]\s*)\b(?:do|does|did|can|could|will|would|is|are|was|were|has|have)\s+(?!(?:i|we|you)\b)[^.!?]*\bveln\b/u
       .test(lower.trim());
-  const languageSemantics = intent !== undefined && /\b(?:language\s+)?semantics\b/u.test(lower);
   const locationForms = contract.repository.location_question_forms
     .filter((form) => form !== "where")
     .map((form) => form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
@@ -534,7 +538,7 @@ function routeRequest(text, contract, context) {
       "u",
     ).test(lower.trim()));
   const repository = repositoryPath || explicitRepositorySubject || locationQuestion || implementationQuestion
-    || (intent !== undefined && !languageComplement && !languageBehaviorQuestion && !languageSemantics)
+    || (intent !== undefined && !languageComplement && !languageBehaviorQuestion)
     || (intent !== undefined && repositorySubject);
   return repository ? "repository" : "language";
 }
@@ -575,7 +579,7 @@ function expectedSelection(text, route, context) {
   }
   if (/\b(?:compiler crashes|lexer bug|parser recovery|compiler parser|parser implemented|parser implementation)\b/u.test(lower)
     || /\bschema parsing\b/u.test(lower)
-    || /\bchange how veln schemas work\b/u.test(lower)
+    || /\b(?:add|change|debug|examine|fix|implement|inspect|investigate|modify|refactor|remove|review|select|test|update)\b[^.!?]*\bveln schemas?\b/u.test(lower)
     || lower.includes("crates/veln-mcp/")) {
     return {
       authority: "docs/specification/source-surface.md",
@@ -1094,6 +1098,48 @@ export function validateScenarioDocument(document, options = {}) {
     checkedRepositoryPath(repositoryRoot, path, "veln-language maintenance contract");
   }
   assert.equal(document.schema_version, 1, "unsupported veln-language scenario schema");
+  assert.ok(Array.isArray(document.request_selection), "request-selection evidence must be an array");
+  assert.ok(
+    document.request_selection.length <= fixtureLimits.requestSelectionCases,
+    "request-selection evidence exceeds the case limit",
+  );
+  const requestSelectionIds = new Set();
+  const requestSelectionCoverage = new Set();
+  for (const selection of document.request_selection) {
+    assertExactKeys(selection, ["id", "intent", "text", "route"], "request-selection case");
+    assert.equal(typeof selection.id, "string", "request-selection case id must be a string");
+    assert.ok(selection.id.length > 0, "request-selection case id must not be empty");
+    assert.equal(requestSelectionIds.has(selection.id), false, `duplicate request-selection case ${selection.id}`);
+    requestSelectionIds.add(selection.id);
+    assert.ok(contract.repository.intent_verbs.includes(selection.intent), `${selection.id}: unknown intent verb`);
+    assert.match(selection.text.toLocaleLowerCase("en-US"), new RegExp(`\\b${selection.intent}\\b`, "u"), `${selection.id}: request must contain its intent verb`);
+    assert.ok(["language", "repository"].includes(selection.route), `${selection.id}: invalid expected route`);
+    assert.ok(selection.text.length <= fixtureLimits.requestCharacters, `${selection.id}: request exceeds the fixture text limit`);
+    assert.equal(routeRequest(selection.text, contract, selection.id), selection.route, `${selection.id}: request selected the wrong route`);
+    requestSelectionCoverage.add(`${selection.intent}:${selection.route}`);
+  }
+  assert.deepEqual(
+    requestSelectionCoverage,
+    new Set(contract.repository.intent_verbs.flatMap((intent) => [
+      `${intent}:language`,
+      `${intent}:repository`,
+    ])),
+    "request-selection evidence must cover both routes for every intent verb",
+  );
+  const requestSelectionByText = new Map(
+    document.request_selection.map((selection) => [selection.text, selection.route]),
+  );
+  for (const [text, route] of [
+    ["Test how Veln schemas work.", "repository"],
+    ["Change Veln schema semantics.", "repository"],
+    ["Please update me on how Veln schemas work.", "language"],
+  ]) {
+    assert.equal(
+      requestSelectionByText.get(text),
+      route,
+      `request-selection evidence must include ${JSON.stringify(text)}`,
+    );
+  }
   assert.ok(Array.isArray(document.scenarios), "scenarios must be an array");
   assert.ok(document.scenarios.length <= fixtureLimits.scenarios, "scenario document exceeds the scenario limit");
   const coverage = new Set(document.scenarios.map((scenario) => scenario.covers));
@@ -1129,9 +1175,14 @@ export function readScenarioDocument(path) {
   const bytes = readFileSync(path);
   const document = JSON.parse(bytes.toString("utf8"));
   if (document.recordings === undefined) return document;
-  assertExactKeys(document, ["schema_version", "recordings", "scenarios"], "scenario document");
+  assertExactKeys(document, ["schema_version", "recordings", "request_selection", "scenarios"], "scenario document");
   assertExactKeys(document.recordings, ["schemas-search", "schemas-read"], "scenario recordings");
   assert.ok(Array.isArray(document.scenarios), "scenarios must be an array");
+  assert.ok(Array.isArray(document.request_selection), "request-selection evidence must be an array");
+  assert.ok(
+    document.request_selection.length <= fixtureLimits.requestSelectionCases,
+    "request-selection evidence exceeds the case limit",
+  );
   assert.ok(document.scenarios.length <= fixtureLimits.scenarios, "scenario document exceeds the scenario limit");
   const referencedEvents = [];
   for (const scenario of document.scenarios) {

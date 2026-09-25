@@ -35,16 +35,23 @@ availability and Ready-only selection. The published language reference is not
 repository implementation authority. An explicit repository documentation
 path takes precedence over a general subject phrase in the same request.
 
-An inspection or change request uses the repository route even when the intent
-verb does not start the request. A passive question that asks how a compiler or
-parser implementation is implemented also uses the repository route. A request
-whose subject is the repository, codebase, source code, or proposal state uses
-the repository route without requiring an action verb. Questions about how
-Veln language features behave remain on the language route whether the Veln
-subject appears before or after the feature named in the question. Routing
-treats an intent or explicit repository target as repository work only when it
-is the requested action or subject. Merely mentioning one in a language
-question does not select the repository route.
+An inspection, test, or change request uses the repository route even when the
+intent verb does not start the request. The requested action and its object
+determine the route. An imperative request to inspect, test, or change how a
+Veln feature works is repository work. An information request for an update
+about how the feature works remains a language question; `update` is not the
+requested repository action in that form.
+
+A passive question that asks how a compiler or parser implementation is
+implemented uses the repository route. A request whose subject is the
+repository, codebase, source code, or proposal state uses the repository route
+without requiring an action verb. Questions about how Veln language features
+behave remain on the language route whether the Veln subject appears before or
+after the feature named in the question. Routing treats an intent or explicit
+repository target as repository work only when it is the requested action or
+subject. Merely mentioning one in a language question does not select the
+repository route. A request to explain a stated language question also remains
+on the language route.
 
 ## Limits and failures
 
@@ -65,8 +72,10 @@ repository results for the acceptance model. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 closed result shapes, provenance, bounded failures, preserved results, routing,
-and input limits. Stress cases run in workers that the parent test terminates at
-their time bound. Stale search recordings are checked in full against archived
-catalog evidence whose snapshot digest is recalculated with the published
-catalog digest contract. The current published catalog bytes must also match
-their digest sidecar before the harness parses them.
+and input limits. Its request-selection evidence covers repository actions and
+language-question uses of every checked intent verb. Stress cases run in
+workers that the parent test terminates at their time bound. Stale search
+recordings are checked in full against archived catalog evidence whose snapshot
+digest is recalculated with the published catalog digest contract. The current
+published catalog bytes must also match their digest sidecar before the harness
+parses them.
