@@ -13,6 +13,7 @@ import {
   loadCaseFoldMappings,
   loadPublishedLanguageReference,
   readScenarioDocument,
+  selectRequestRoute,
   shortestDocumentationRoute,
   validateScenarioDocument,
 } from "./check-veln-language-skill.mjs";
@@ -220,6 +221,19 @@ test("distinguishes described subjects from incidental target objects", () => {
   assert.equal(selections.get("How broad is the Veln proposal state today?"), "repository");
   assert.equal(selections.get("Can Veln schemas encode source code?"), "language");
   assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("routes an auxiliary-led explicit repository subject independently of fixture labels", () => {
+  assert.equal(selectRequestRoute("Does the Veln repository use crates?", options), "repository");
+  assert.equal(selectRequestRoute("Does Veln have a repository schema?", options), "language");
+});
+
+test("keeps an indirect language-information request independently of fixture labels", () => {
+  assert.equal(
+    selectRequestRoute("Can you show me how to review contracts in Veln?", options),
+    "language",
+  );
+  assert.equal(selectRequestRoute("Can you review contracts in Veln?", options), "repository");
 });
 
 test("rejects a skill without the canonical name", () => {
