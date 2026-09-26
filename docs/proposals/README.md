@@ -16,9 +16,7 @@ also states it.
 
 ## Ready
 
-- [Agent language-reference skill routing](agent-language-reference-skill.md)
-  aligns the canonical skill's structured failure contract with its checked
-  scenario harness, then closes the implemented routing slice.
+No proposals are ready.
 
 ## Blocked
 
