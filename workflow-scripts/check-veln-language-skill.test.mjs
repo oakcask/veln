@@ -907,12 +907,27 @@ test("rejects repository routes that appear only in non-navigational Markdown", 
     "",
     "<!-- [comment example](authority.md) -->",
     "",
+    "<pre>[raw HTML example](authority.md)</pre>",
+    "",
     "![image](authority.md)",
   ].join("\n"));
 
   assert.throws(
     () => shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
     /repository authority is not reachable/,
+  );
+});
+
+test("discovers a repository route with a titled Markdown link", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-titled-link-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  writeFileSync(join(root, "docs", "README.md"), "[authority](authority.md \"Authority\")\n");
+
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
+    ["docs/README.md", "docs/authority.md"],
   );
 });
 
