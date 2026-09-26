@@ -1064,6 +1064,25 @@ test("discovers links in linear progress on malformed adjacent-size input", asyn
   assert.deepEqual(await runStressTarget("linked-paths", { path: "docs/README.md", root }), []);
 });
 
+test("parses escaped inline-link destinations with adjacent-size scaling", async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-links-escaped-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  const path = join(root, "docs", "README.md");
+  const result = await runStressTarget("escaped-destination", {
+    path,
+    repositoryPath: "docs/README.md",
+    root,
+    sizes: [131_072, 262_144],
+  }, 1_000);
+  assert.deepEqual(result.bytes, [131_072, 262_144]);
+  assert.deepEqual(result.linkCounts, [1, 1]);
+  assert.ok(
+    result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 20,
+    `escaped destination scaling regressed: ${result.milliseconds.join(" ms, ")} ms`,
+  );
+});
+
 test("masks mixed inline code and fenced comments at adjacent accepted sizes", async (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-links-masking-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
