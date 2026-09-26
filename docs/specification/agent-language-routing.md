@@ -29,12 +29,11 @@ the request wins; a longer mention wins a same-position tie, followed by the
 query in UTF-8 byte order. If no table entry matches and the request contains
 the standalone word `Veln`, the first later ASCII word that is not one of
 `a`, `an`, `are`, `did`, `do`, `does`, `has`, `have`, `is`, `the`, `was`, or
-`were` becomes the query. This bounded subject rule lets questions about
-published topics such as functions and handlers reach the catalog without a
-catalog-specific table entry. If neither rule selects a subject, the trimmed
-request text is the query when it contains from 1 through 256 Unicode scalar
-values. An empty or longer fallback request stops without a tool call because
-no bounded query can be derived. If a topic matches, the skill calls `read_doc` with the exact
+`were` becomes the query. If neither rule selects a subject, the request text
+is trimmed with the same Unicode whitespace rule as `search_docs`. The result
+is the query when it contains from 1 through 256 Unicode scalar values. An
+empty or longer fallback request stops without a tool call because no bounded
+query can be derived. If a topic matches, the skill calls `read_doc` with the exact
 snapshot topic URI from the first search result. This makes selection
 deterministic when search returns multiple topics. The answer can contain only
 claims from that resource and reports that exact URI as its source.
@@ -45,6 +44,8 @@ claims from that resource and reports that exact URI as its source.
 | `contract`, `contracts` | `contracts` |
 | `effect`, `effects` | `effects` |
 | `module`, `modules` | `modules` |
+| `function`, `functions` | `functions` |
+| `handler`, `handlers` | `handlers` |
 | `borrow checker` | `borrow checker` |
 
 For repository inspection, changes, and proposal selection, the skill starts

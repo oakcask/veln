@@ -19,6 +19,7 @@ import {
   currentRepositoryAuthority,
   deriveLanguageQuery,
   expectedPublishedSearch,
+  expectedSnapshotRead,
   linkedDocumentationPaths,
   loadCaseFoldMappings,
   loadPublishedLanguageReference,
@@ -34,7 +35,8 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = join(scriptDirectory, "..");
 const fixturePath = join(scriptDirectory, "fixtures", "veln-language", "scenarios.json");
 const stressWorkerPath = new URL("./check-veln-language-skill.stress-worker.mjs", import.meta.url);
-const candidateOptions = {};
+const candidateSkillPath = process.env.VELN_LANGUAGE_SKILL_PATH;
+const candidateOptions = candidateSkillPath === undefined ? {} : { skillPath: candidateSkillPath };
 const options = candidateOptions;
 
 function fixture() {
@@ -136,7 +138,7 @@ test("bounds unmatched language queries by Unicode scalar count", () => {
   assert.deepEqual(deriveLanguageQuery(rejected, contract, "257-scalar query"), { unbounded: true });
 });
 
-test("rejects an empty query after trimming unmatched request text", () => {
+test("uses the MCP Unicode whitespace rule for unmatched request text", () => {
   const contract = {
     language: {
       query_derivation: {
@@ -144,7 +146,8 @@ test("rejects an empty query after trimming unmatched request text", () => {
       },
     },
   };
-  assert.deepEqual(deriveLanguageQuery(" \t\n", contract, "empty trimmed query"), { unbounded: true });
+  assert.deepEqual(deriveLanguageQuery(" \t\n\u0085", contract, "empty trimmed query"), { unbounded: true });
+  assert.deepEqual(deriveLanguageQuery("\uFEFF", contract, "non-whitespace query"), { query: "\uFEFF" });
 });
 
 test("uses ASCII-only case folding and ASCII word boundaries for query mentions", () => {
@@ -160,19 +163,22 @@ test("uses ASCII-only case folding and ASCII word boundaries for query mentions"
   assert.deepEqual(deriveLanguageQuery("kschema", contract, "ASCII word boundary"), { query: "kschema" });
 });
 
-test("derives a bounded subject query beyond the recognized mention table", () => {
+test("derives topic-bearing queries for ordinary questions and possessives", () => {
   const contract = {
     language: {
       query_derivation: {
-        entries: [],
+        entries: [
+          { mentions: ["function", "functions"], query: "functions" },
+          { mentions: ["handler", "handlers"], query: "handlers" },
+        ],
         after_veln: {
           ignored_words: ["a", "an", "are", "did", "do", "does", "has", "have", "is", "the", "was", "were"],
         },
       },
     },
   };
-  assert.deepEqual(deriveLanguageQuery("How do Veln functions work?", contract, "functions query"), { query: "functions" });
-  assert.deepEqual(deriveLanguageQuery("How do Veln handlers work?", contract, "handlers query"), { query: "handlers" });
+  assert.deepEqual(deriveLanguageQuery("In Veln, how do functions work?", contract, "functions query"), { query: "functions" });
+  assert.deepEqual(deriveLanguageQuery("How does Veln’s handler work?", contract, "handler query"), { query: "handlers" });
 
   const published = loadPublishedLanguageReference(repositoryRoot);
   for (const query of ["functions", "handlers"]) {
@@ -181,6 +187,19 @@ test("derives a bounded subject query beyond the recognized mention table", () =
       `${query} must reach a published topic`,
     );
   }
+});
+
+test("accepts a successful read from the archived snapshot retained by search", () => {
+  const published = loadPublishedLanguageReference(repositoryRoot);
+  const snapshots = loadSnapshotEvidence(repositoryRoot, published);
+  const archivedDigest = [...snapshots.keys()][0];
+  const uri = `veln-doc:///language/snapshot/${archivedDigest}/topic/modules-legacy-layout`;
+  const read = expectedSnapshotRead(uri, published, snapshots);
+
+  assert.equal(read.uri, uri);
+  assert.equal(read.name, "modules-legacy-layout");
+  assert.match(read.text, /The archived snapshot described a module layout/);
+  assert.match(read.text, new RegExp(archivedDigest, "u"));
 });
 
 test("records the unbounded query outcome without a tool call or fallback", () => {
@@ -324,8 +343,11 @@ test("rejects invalid request semantics and contradictory corpus routes", () => 
     /unknown requested action class/,
   );
   const document = fixture();
-  document.request_selection.find((entry) => entry.id === "effects-passive-information").route = "repository";
-  assert.throws(() => validateScenarioDocument(document, candidateOptions), /request semantics selected the wrong route/);
+  document.request_selection.find((entry) => entry.id === "effects-passive-information").subject = "implementation";
+  assert.throws(
+    () => validateScenarioDocument(document, candidateOptions),
+    /replayed semantics selected the wrong observable route/,
+  );
 });
 
 test("requires semantic evidence for every replayed request", () => {
@@ -756,7 +778,7 @@ test("rejects a claim that appears only inside a negated statement", () => {
   structured(event).text =
     "The reference does not establish this claim: Schemas describe format-neutral and binary fields.";
   syncEnvelope(event);
-  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked language-reference artifact/);
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked search snapshot artifact/);
 });
 
 test("rejects unsupported content in a successful answer", () => {
@@ -941,7 +963,7 @@ test("rejects a selected resource beyond the published byte limit", () => {
   assert.throws(() => validateScenarioDocument(document, options), /published byte limit/);
 });
 
-test("rejects read text that drifts from the checked language-reference artifact", () => {
+test("rejects read text that drifts from the checked search snapshot artifact", () => {
   const document = fixture();
   const turn = matchingTurn(document);
   const statement = "A replacement recording.";
@@ -949,7 +971,7 @@ test("rejects read text that drifts from the checked language-reference artifact
   syncEnvelope(turn.events[3]);
   turn.expected.answer_claims = [statement];
   turn.events[4].claims = [statement];
-  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked language-reference artifact/);
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked search snapshot artifact/);
 });
 
 test("rejects incomplete failure provenance", () => {

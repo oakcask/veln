@@ -239,6 +239,29 @@ function renderTopic(topic, digest) {
   return text;
 }
 
+export function expectedSnapshotRead(uri, published, snapshots) {
+  const digest = snapshotDigest(uri, "snapshot read");
+  const snapshot = snapshots.get(digest);
+  assert.ok(digest === published.digest || snapshot, "snapshot read has no checked catalog evidence");
+  const evidence = digest === published.digest
+    ? published
+    : {
+      digest,
+      catalog: materializeSnapshotCatalog(published, snapshot, "snapshot read"),
+    };
+  const topicId = uri.slice(uri.lastIndexOf("/") + 1);
+  const topic = evidence.catalog.topics.find((candidate) => candidate.id === topicId);
+  assert.ok(topic, "snapshot read topic is absent from the checked catalog");
+  return {
+    uri,
+    name: topic.id,
+    title: topic.title,
+    description: topic.summary,
+    mimeType: markdownMimeType,
+    text: renderTopic(topic, digest),
+  };
+}
+
 const unicodeWhitespaceScalar = /^\p{White_Space}$/u;
 
 function trimUnicodeWhitespace(text) {
@@ -502,13 +525,15 @@ function parseSkillContract(skillText) {
         { mentions: ["contract", "contracts"], query: "contracts" },
         { mentions: ["effect", "effects"], query: "effects" },
         { mentions: ["module", "modules"], query: "modules" },
+        { mentions: ["function", "functions"], query: "functions" },
+        { mentions: ["handler", "handlers"], query: "handlers" },
         { mentions: ["borrow checker"], query: "borrow checker" },
       ],
       after_veln: {
         selection: "first_non_ignored_ascii_word_after_standalone_veln",
         ignored_words: ["a", "an", "are", "did", "do", "does", "has", "have", "is", "the", "was", "were"],
       },
-      no_match: "Use the trimmed request text as query when it contains from 1 through 256 Unicode scalar values; otherwise stop and report that no bounded query can be derived.",
+      no_match: "Use the Unicode-whitespace-trimmed request text as query when it contains from 1 through 256 Unicode scalar values; otherwise stop and report that no bounded query can be derived.",
     },
     selection: "first_search_result",
     read_exact_search_result_uri: true,
@@ -664,7 +689,7 @@ export function deriveLanguageQuery(text, contract, context) {
     const subject = words.slice(velnIndex + 1).find((match) => !ignored.has(match[0]));
     if (subject !== undefined) return { query: subject[0] };
   }
-  const fallback = text.trim();
+  const fallback = trimUnicodeWhitespace(text);
   const scalarLength = [...fallback].length;
   if (scalarLength === 0 || scalarLength > 256) return { unbounded: true };
   return { query: fallback };
@@ -1246,22 +1271,13 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     Buffer.byteLength(readStructured.text, "utf8") <= fixtureLimits.resourceTextBytes,
     `${context}: selected resource exceeds the published byte limit`,
   );
-  assert.equal(
-    snapshotDigest(selectedUri, context),
-    published.digest,
-    `${context}: successful read must use the checked published snapshot digest`,
+  assert.equal(snapshotDigest(selectedUri, context), searchEvidence.digest,
+    `${context}: successful read must use the snapshot retained by search`);
+  assert.deepEqual(
+    readStructured,
+    expectedSnapshotRead(selectedUri, published, snapshots),
+    `${context}: recorded read_doc result differs from the checked search snapshot artifact`,
   );
-  const topicId = selectedUri.slice(selectedUri.lastIndexOf("/") + 1);
-  const topic = published.catalog.topics.find((candidate) => candidate.id === topicId);
-  assert.ok(topic, `${context}: selected topic is absent from the checked language-reference artifact`);
-  assert.deepEqual(readStructured, {
-    uri: selectedUri,
-    name: topic.id,
-    title: topic.title,
-    description: topic.summary,
-    mimeType: markdownMimeType,
-    text: renderTopic(topic, published.digest),
-  }, `${context}: recorded read_doc result differs from the checked language-reference artifact`);
   assert.equal(answer.status, "answered", `${context}: wrong successful status`);
   assertExactKeys(answer, ["type", "status", "claims", "source_uris"], `${context}: successful answer`);
   validateClaims(answer, selectedUri, readStructured.text, context);
@@ -1849,7 +1865,7 @@ export function validateScenarioDocument(document, options = {}) {
       assert.ok(selection, `${context}: request has no independent semantic annotation`);
       const expected = requestSelectionOracle.get(selection.id);
       assert.equal(expected.text, turn.request.text, `${context}: recorded request differs from the independent corpus oracle`);
-      const route = routeRequestSemantics({ action: expected.action, subject: expected.subject }, context);
+      const route = routeRequestSemantics({ action: selection.action, subject: selection.subject }, context);
       assert.equal(route, selection.route, `${context}: reviewed request semantics selected a route inconsistent with its corpus row`);
       assert.equal(route, requirement.route, `${context}: reviewed request semantics selected the wrong route for ${scenario.covers}`);
       lastSuccessfulResult = route === "language"
