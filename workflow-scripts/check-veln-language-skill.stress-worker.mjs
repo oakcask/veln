@@ -83,6 +83,29 @@ function runTarget(target, data) {
     validateSchema(value, schema, schema, "branching schema DAG");
     return data.levels;
   }
+  if (target === "schema-failing-branching-dag") {
+    const schema = { $defs: {}, $ref: "#/$defs/level-0" };
+    let value = {};
+    for (let index = data.levels - 1; index >= 0; index -= 1) {
+      const reference = {
+        $ref: index === data.levels - 1
+          ? "#/$defs/terminal"
+          : `#/$defs/level-${index + 1}`,
+      };
+      const branch = (choice) => ({
+        type: "object",
+        properties: { next: reference, choice: { const: choice } },
+        required: ["next", "choice"],
+        additionalProperties: false,
+      });
+      schema.$defs[`level-${index}`] = {
+        oneOf: [branch("left"), branch("right")],
+      };
+      value = { next: value, choice: "left" };
+    }
+    schema.$defs.terminal = { const: "unreachable" };
+    validateSchema(value, schema, schema, "failing branching schema DAG");
+  }
   if (target === "schema-inline-depth") {
     let schema = { type: "string" };
     let value = "leaf";
