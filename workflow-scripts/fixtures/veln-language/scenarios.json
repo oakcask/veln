@@ -297,8 +297,7 @@
         "request": { "text": "Inspect repository authority for an undocumented deployment service." },
         "events": [
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/navigation.md" } },
-          { "type": "read", "path": "docs/navigation.md", "value": { "route": "docs/navigation-full.md" } },
-          { "type": "read", "path": "docs/navigation-full.md", "value": { "route": null } },
+          { "type": "read", "path": "docs/navigation.md", "value": { "route": null } },
           { "type": "answer", "status": "repository_no_route", "claims": [], "source_uris": [], "message": "No repository documentation route covers this topic." }
         ]
       }]

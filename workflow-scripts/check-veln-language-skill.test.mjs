@@ -1115,7 +1115,7 @@ test("rejects a repeated repository path", () => {
   turn.events.splice(2, 0, {
     type: "read",
     path: "docs/navigation.md",
-    value: { route: "docs/navigation-full.md" },
+    value: { route: null },
   });
   assert.throws(() => validateScenarioDocument(document, options), /repeated a path/);
 });
@@ -1123,9 +1123,14 @@ test("rejects a repeated repository path", () => {
 test("rejects a repository route beyond the read bound", () => {
   const document = fixture();
   const turn = scenario(document, "repository-unknown").turns[0];
-  turn.events.splice(3, 0, {
+  turn.events[1].value.route = "docs/specification/README.md";
+  turn.events.splice(2, 0, {
     type: "read",
     path: "docs/specification/README.md",
+    value: { route: "docs/specification/topic-map.md" },
+  }, {
+    type: "read",
+    path: "docs/specification/topic-map.md",
     value: { route: null },
   });
   assert.throws(() => validateScenarioDocument(document, options), /exceeded its read bound/);

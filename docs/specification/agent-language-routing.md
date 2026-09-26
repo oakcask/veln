@@ -70,11 +70,6 @@ when the selected route ends and reports when no route covers the request.
 A documentation path contributes to a route only when it is the destination of
 an actual Markdown navigation link. Link-shaped text in code, comments,
 images, or escaped syntax does not make a path reachable.
-Every repository document, including a terminal authority, is limited to
-`262144` bytes. The harness rejects an oversized document before it reads the
-document contents. A terminal repository authority must also be current. The
-skill rejects a terminal document whose lifecycle status marks it as closed or
-superseded.
 
 ## Verification
 
@@ -92,8 +87,11 @@ action-and-subject decision table. The corpus includes contrastive paraphrases,
 synonymous requested actions, and incidental uses of action and repository
 terms. It is finite evidence for the semantic instruction, not a general
 natural-language classifier. Stress cases run in workers that the parent test
-terminates at their time bound. Stale search recordings are checked in full
-against archived catalog
+terminates at their time bound. The offline harness rejects repository
+documents larger than `262144` bytes before parsing them, which bounds replay
+resource use. It also verifies that a terminal authority recorded as current
+does not declare a closed or superseded lifecycle. Stale search recordings are
+checked in full against archived catalog
 evidence whose snapshot digest is recalculated with the published catalog
 digest contract. The current published catalog bytes must also match their
 digest sidecar before the harness parses them. The harness bounds published
