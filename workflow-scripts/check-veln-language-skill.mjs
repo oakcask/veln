@@ -1313,7 +1313,7 @@ function navigationalMarkdown(source) {
           quoteDepth,
         };
         mask(lineStart, lineEnd);
-      } else if (quoteDepth === 0 && /^(?: {4}|\t)/.test(line)) {
+      } else if (/^(?: {4}|\t)/.test(line.slice(contentStart))) {
         mask(lineStart, lineEnd);
       }
     } else {
