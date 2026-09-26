@@ -407,8 +407,8 @@ function assertExactKeys(value, keys, context) {
 }
 
 function requestSelectionRecord(selection) {
-  const { id, text, action, subject } = selection;
-  return { id, text, action, subject };
+  const { id, text, route } = selection;
+  return { id, text, route };
 }
 
 function loadRequestSelectionOracle() {
@@ -428,7 +428,7 @@ function loadRequestSelectionOracle() {
   const texts = new Set();
   const records = document.records
     .map((record) => {
-      assertExactKeys(record, ["id", "text", "action", "subject"], "request-selection oracle record");
+      assertExactKeys(record, ["id", "text", "route"], "request-selection oracle record");
       assert.equal(typeof record.id, "string", "request-selection oracle ID must be a string");
       assert.ok(record.id.length > 0, "request-selection oracle ID must not be empty");
       assert.equal(ids.has(record.id), false, `duplicate request-selection oracle ID ${record.id}`);
@@ -437,7 +437,7 @@ function loadRequestSelectionOracle() {
       assert.ok(record.text.length <= fixtureLimits.requestCharacters, `${record.id}: oracle text exceeds the limit`);
       assert.equal(texts.has(record.text), false, `${record.id}: duplicate request-selection oracle text`);
       texts.add(record.text);
-      routeRequestSemantics({ action: record.action, subject: record.subject }, `${record.id}: oracle`);
+      assert.ok(["language", "repository"].includes(record.route), `${record.id}: oracle route is invalid`);
       return record;
     })
     .sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
@@ -504,6 +504,10 @@ function parseSkillContract(skillText) {
         { mentions: ["module", "modules"], query: "modules" },
         { mentions: ["borrow checker"], query: "borrow checker" },
       ],
+      after_veln: {
+        selection: "first_non_ignored_ascii_word_after_standalone_veln",
+        ignored_words: ["a", "an", "are", "did", "do", "does", "has", "have", "is", "the", "was", "were"],
+      },
       no_match: "Use the trimmed request text as query when it contains from 1 through 256 Unicode scalar values; otherwise stop and report that no bounded query can be derived.",
     },
     selection: "first_search_result",
@@ -652,6 +656,13 @@ export function deriveLanguageQuery(text, contract, context) {
       }
     }
     if (selected !== undefined) return { query: selected.query };
+  }
+  const words = [...folded.matchAll(/[a-z0-9_]+/g)];
+  const velnIndex = words.findIndex((match) => match[0] === "veln");
+  if (velnIndex !== -1 && derivation.after_veln !== undefined) {
+    const ignored = new Set(derivation.after_veln.ignored_words);
+    const subject = words.slice(velnIndex + 1).find((match) => !ignored.has(match[0]));
+    if (subject !== undefined) return { query: subject[0] };
   }
   const fallback = text.trim();
   const scalarLength = [...fallback].length;
@@ -1281,10 +1292,26 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
   );
   const source = navigationalMarkdown(readFileSync(absolute, "utf8"));
   const links = [];
+  const addTarget = (rawTarget) => {
+    const target = rawTarget.split("#", 1)[0];
+    if (target.length === 0 || target.includes("(") || target.includes("[")) return;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return;
+    const joined = posix.normalize(posix.join(posix.dirname(sourcePath), target));
+    if (joined.startsWith("docs/")) links.push(joined);
+  };
+  const normalizeReferenceLabel = (label) => label.trim().replace(/\s+/gu, " ").toLowerCase();
+  const definitions = new Map();
+  for (const line of source.split(/\r?\n/u)) {
+    const definition = /^ {0,3}\[([^\]\n]+)\]:[ \t]*(?:<([^>\n]+)>|([^\s]+))/u.exec(line);
+    if (definition === null) continue;
+    const label = normalizeReferenceLabel(definition[1]);
+    if (!definitions.has(label)) definitions.set(label, definition[2] ?? definition[3]);
+  }
   const openLabels = [];
   for (let cursor = 0; cursor < source.length; cursor += 1) {
     if (source[cursor] === "[" && !isBackslashEscaped(source, cursor)) {
       openLabels.push({
+        start: cursor,
         image: cursor > 0 && source[cursor - 1] === "!" && !isBackslashEscaped(source, cursor - 1),
         containsLink: false,
       });
@@ -1292,18 +1319,32 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     }
     if (source[cursor] !== "]" || isBackslashEscaped(source, cursor)) continue;
     const label = openLabels.pop();
-    if (source[cursor + 1] !== "(" || label === undefined) continue;
-    const destination = parseInlineLinkDestination(source, cursor + 2);
-    if (destination === undefined) continue;
-    const target = destination.target.split("#", 1)[0];
-    cursor = destination.end;
+    if (label === undefined) continue;
+    let target;
+    if (source[cursor + 1] === "(") {
+      const destination = parseInlineLinkDestination(source, cursor + 2);
+      if (destination === undefined) continue;
+      target = destination.target;
+      cursor = destination.end;
+    } else if (source[cursor + 1] === "[") {
+      const referenceEnd = source.indexOf("]", cursor + 2);
+      if (referenceEnd === -1 || isBackslashEscaped(source, referenceEnd)) continue;
+      const explicit = source.slice(cursor + 2, referenceEnd);
+      const reference = normalizeReferenceLabel(explicit.length === 0
+        ? source.slice(label.start + 1, cursor)
+        : explicit);
+      target = definitions.get(reference);
+      cursor = referenceEnd;
+      if (target === undefined) continue;
+    } else {
+      if (source[cursor + 1] === ":") continue;
+      target = definitions.get(normalizeReferenceLabel(source.slice(label.start + 1, cursor)));
+      if (target === undefined) continue;
+    }
     if (label.image) continue;
     if (openLabels.length > 0) openLabels[openLabels.length - 1].containsLink = true;
     if (label.containsLink) continue;
-    if (target.length === 0 || target.includes("(") || target.includes("[")) continue;
-    if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
-    const joined = posix.normalize(posix.join(posix.dirname(sourcePath), target));
-    if (joined.startsWith("docs/")) links.push(joined);
+    addTarget(target);
   }
   return links;
 }
@@ -1414,12 +1455,59 @@ function navigationalMarkdown(source) {
     };
   };
 
+  let fence;
+  let fenceLineStart = 0;
+  while (fenceLineStart < source.length) {
+    const newline = source.indexOf("\n", fenceLineStart);
+    const lineEnd = newline === -1 ? source.length : newline + 1;
+    const line = source.slice(fenceLineStart, lineEnd).replace(/[\r\n]+$/, "");
+    const quoteContentStarts = [0];
+    let quoteCursor = 0;
+    while (quoteCursor < line.length) {
+      const marker = /^ {0,3}>[ \t]?/u.exec(line.slice(quoteCursor));
+      if (marker === null) break;
+      quoteCursor += marker[0].length;
+      quoteContentStarts.push(quoteCursor);
+    }
+    const quoteDepth = quoteContentStarts.length - 1;
+    if (fence !== undefined
+      && quoteDepth < fence.quoteDepth
+      && line.trim().length > 0) {
+      fence = undefined;
+    }
+    if (fence === undefined) {
+      const contentStart = quoteContentStarts[quoteDepth];
+      const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line.slice(contentStart));
+      if (opening !== null) {
+        fence = {
+          character: opening[1][0],
+          length: opening[1].length,
+          quoteDepth,
+        };
+        mask(fenceLineStart, lineEnd);
+      } else if (/^(?: {4}|\t)/.test(line.slice(contentStart))) {
+        mask(fenceLineStart, lineEnd);
+      }
+    } else {
+      const contentStart = quoteContentStarts[fence.quoteDepth];
+      const closing = new RegExp(`^ {0,3}\\${fence.character}{${fence.length},}[ \\t]*$`);
+      mask(fenceLineStart, lineEnd);
+      if (closing.test(line.slice(contentStart))) fence = undefined;
+    }
+    fenceLineStart = lineEnd;
+  }
+
   let htmlBlock;
   let htmlLineStart = 0;
   while (htmlLineStart < source.length) {
     const newline = source.indexOf("\n", htmlLineStart);
     const lineEnd = newline === -1 ? source.length : newline + 1;
     const line = source.slice(htmlLineStart, lineEnd).replace(/[\r\n]+$/, "");
+    const visibleLine = masked.slice(htmlLineStart, lineEnd).join("").replace(/[\r\n]+$/, "");
+    if (visibleLine.trim().length === 0 && line.trim().length > 0) {
+      htmlLineStart = lineEnd;
+      continue;
+    }
     if (htmlBlock?.untilBlank === true) {
       if (/^\s*$/u.test(line)) htmlBlock = undefined;
       else mask(htmlLineStart, lineEnd);
@@ -1447,46 +1535,6 @@ function navigationalMarkdown(source) {
       }
     }
     htmlLineStart = lineEnd;
-  }
-
-  let fence;
-  let lineStart = 0;
-  while (lineStart < source.length) {
-    const newline = source.indexOf("\n", lineStart);
-    const lineEnd = newline === -1 ? source.length : newline + 1;
-    const line = source.slice(lineStart, lineEnd).replace(/[\r\n]+$/, "");
-    const quoteContentStarts = [0];
-    let quoteCursor = 0;
-    while (quoteCursor < line.length) {
-      const marker = /^ {0,3}>[ \t]?/u.exec(line.slice(quoteCursor));
-      if (marker === null) break;
-      quoteCursor += marker[0].length;
-      quoteContentStarts.push(quoteCursor);
-    }
-    const quoteDepth = quoteContentStarts.length - 1;
-    if (fence !== undefined && quoteDepth < fence.quoteDepth && line.trim().length > 0) {
-      fence = undefined;
-    }
-    if (fence === undefined) {
-      const contentStart = quoteContentStarts[quoteDepth];
-      const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line.slice(contentStart));
-      if (opening !== null) {
-        fence = {
-          character: opening[1][0],
-          length: opening[1].length,
-          quoteDepth,
-        };
-        mask(lineStart, lineEnd);
-      } else if (/^(?: {4}|\t)/.test(line.slice(contentStart))) {
-        mask(lineStart, lineEnd);
-      }
-    } else {
-      const contentStart = quoteContentStarts[fence.quoteDepth];
-      const closing = new RegExp(`^ {0,3}\\${fence.character}{${fence.length},}[ \\t]*$`);
-      mask(lineStart, lineEnd);
-      if (closing.test(line.slice(contentStart))) fence = undefined;
-    }
-    lineStart = lineEnd;
   }
 
   const findCommentStart = monotonicVisibleFinder("<!--");
@@ -1740,14 +1788,14 @@ export function validateScenarioDocument(document, options = {}) {
     assert.deepEqual(
       requestSelectionRecord(selection),
       expected,
-      `${selection.id}: text and semantic classifications differ from the independent corpus oracle`,
+      `${selection.id}: text or observable route differs from the independent corpus oracle`,
     );
     assert.equal(
-      routeRequestSemantics({ action: expected.action, subject: expected.subject }, selection.id),
-      selection.route,
-      `${selection.id}: request semantics selected the wrong route`,
+      routeRequestSemantics({ action: selection.action, subject: selection.subject }, selection.id),
+      expected.route,
+      `${selection.id}: replayed semantics selected the wrong observable route`,
     );
-    semanticCoverage.add(`${expected.action}:${expected.subject}:${selection.route}`);
+    semanticCoverage.add(`${selection.action}:${selection.subject}:${expected.route}`);
   }
   assert.deepEqual(
     semanticCoverage,

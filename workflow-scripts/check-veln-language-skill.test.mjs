@@ -160,6 +160,29 @@ test("uses ASCII-only case folding and ASCII word boundaries for query mentions"
   assert.deepEqual(deriveLanguageQuery("kschema", contract, "ASCII word boundary"), { query: "kschema" });
 });
 
+test("derives a bounded subject query beyond the recognized mention table", () => {
+  const contract = {
+    language: {
+      query_derivation: {
+        entries: [],
+        after_veln: {
+          ignored_words: ["a", "an", "are", "did", "do", "does", "has", "have", "is", "the", "was", "were"],
+        },
+      },
+    },
+  };
+  assert.deepEqual(deriveLanguageQuery("How do Veln functions work?", contract, "functions query"), { query: "functions" });
+  assert.deepEqual(deriveLanguageQuery("How do Veln handlers work?", contract, "handlers query"), { query: "handlers" });
+
+  const published = loadPublishedLanguageReference(repositoryRoot);
+  for (const query of ["functions", "handlers"]) {
+    assert.ok(
+      expectedPublishedSearch({ query, scope: "language" }, published).results.length > 0,
+      `${query} must reach a published topic`,
+    );
+  }
+});
+
 test("records the unbounded query outcome without a tool call or fallback", () => {
   const document = fixture();
   const turn = scenario(document, "language-query-unbounded").turns[1];
@@ -312,26 +335,18 @@ test("requires semantic evidence for every replayed request", () => {
   assert.throws(() => validateScenarioDocument(document, candidateOptions), /no independent semantic annotation/);
 });
 
-test("checks every corpus row against independent text and semantic labels", () => {
+test("checks every corpus row against independent text and observable routes", () => {
   const document = fixture();
   for (const [index, selection] of document.request_selection.entries()) {
     for (const [field, value] of [
       ["text", `${selection.text} changed`],
-      ["action", selection.action === "information" ? "repository_action" : "information"],
-      ["subject", selection.subject === "implementation" ? "language_behavior" : "implementation"],
+      ["route", selection.route === "language" ? "repository" : "language"],
     ]) {
       const mutated = structuredClone(document);
       mutated.request_selection[index][field] = value;
-      if (field !== "text") {
-        const semantics = mutated.request_selection[index];
-        semantics.route = semantics.action === "repository_action"
-          || semantics.subject !== "language_behavior"
-          ? "repository"
-          : "language";
-      }
       assert.throws(
         () => validateScenarioDocument(mutated, candidateOptions),
-        /differ from the independent corpus oracle/,
+        /differs from the independent corpus oracle/,
         `${selection.id} ${field}`,
       );
     }
@@ -1251,6 +1266,51 @@ test("ignores links in CommonMark closed HTML blocks and resumes navigation afte
   assert.deepEqual(
     linkedDocumentationPaths("docs/README.md", root),
     ["docs/authority.md"],
+  );
+});
+
+test("does not let HTML-looking fenced text hide a following route", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-fenced-html-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "fake.md"), "# Fake authority\n");
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  writeFileSync(join(root, "docs", "README.md"), [
+    "```markdown",
+    "<section>",
+    "[fake](fake.md)",
+    "```",
+    "[authority](authority.md)",
+  ].join("\n"));
+
+  assert.deepEqual(
+    linkedDocumentationPaths("docs/README.md", root),
+    ["docs/authority.md"],
+  );
+});
+
+test("discovers full, collapsed, and shortcut reference links", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-reference-links-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  for (const name of ["full.md", "collapsed.md", "shortcut.md", "inline.md"]) {
+    writeFileSync(join(root, "docs", name), `# ${name}\n`);
+  }
+  writeFileSync(join(root, "docs", "README.md"), [
+    "[full route][full]",
+    "[collapsed][]",
+    "[shortcut]",
+    "[inline](inline.md)",
+    "",
+    "[full]: full.md",
+    "[collapsed]: collapsed.md",
+    "[shortcut]: shortcut.md",
+    "[inline]: shortcut.md",
+  ].join("\n"));
+
+  assert.deepEqual(
+    linkedDocumentationPaths("docs/README.md", root),
+    ["docs/full.md", "docs/collapsed.md", "docs/shortcut.md", "docs/inline.md"],
   );
 });
 

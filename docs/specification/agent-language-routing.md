@@ -26,10 +26,15 @@ For a language question, the skill first calls `search_docs` with
 skill. Each table entry maps whole-word or whole-phrase mentions to one
 canonical query. Matching is ASCII-case-insensitive. The earliest mention in
 the request wins; a longer mention wins a same-position tie, followed by the
-query in UTF-8 byte order. If no subject mention matches, the trimmed request
-text is the query when it contains from 1 through 256 Unicode scalar values.
-An empty or longer fallback request stops without a tool call because no
-bounded query can be derived. If a topic matches, the skill calls `read_doc` with the exact
+query in UTF-8 byte order. If no table entry matches and the request contains
+the standalone word `Veln`, the first later ASCII word that is not one of
+`a`, `an`, `are`, `did`, `do`, `does`, `has`, `have`, `is`, `the`, `was`, or
+`were` becomes the query. This bounded subject rule lets questions about
+published topics such as functions and handlers reach the catalog without a
+catalog-specific table entry. If neither rule selects a subject, the trimmed
+request text is the query when it contains from 1 through 256 Unicode scalar
+values. An empty or longer fallback request stops without a tool call because
+no bounded query can be derived. If a topic matches, the skill calls `read_doc` with the exact
 snapshot topic URI from the first search result. This makes selection
 deterministic when search returns multiple topics. The answer can contain only
 claims from that resource and reports that exact URI as its source.
@@ -108,26 +113,27 @@ An explicit documentation path uses exactly two reads: `docs/README.md` and
 the named terminal authority. Routing stops when the selected route ends and
 reports when no route covers the request.
 Outside the explicit-path rule, a documentation path contributes to a route
-only when it is the destination of an actual Markdown navigation link.
-Link-shaped text in code, comments, images, or escaped syntax does not make a
-path reachable.
+only when it is the destination of an actual inline or reference-style
+Markdown navigation link. An inline destination takes precedence when a label
+also has a reference definition. Link-shaped text in code, comments, images,
+or escaped syntax does not make a path reachable.
 
 ## Verification
 
 `workflow-scripts/fixtures/veln-language/scenarios.json` records the tool and
 repository results for the acceptance model. The separate
-`request-selection-oracle.json` file records the reviewed request text and its
-expected action-and-subject classification. Run
+`request-selection-oracle.json` file records each reviewed raw request and its
+expected observable route. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 the closed operative-contract and result shapes, exact failure dispatch,
 provenance, bounded failures, preserved results, routing, and input limits. The
-reviewed oracle independently
-classifies the action and subject of each raw corpus request. The harness checks
-that every replayed request matches that oracle, then applies the skill's closed
-action-and-subject decision table. The corpus includes contrastive paraphrases,
-synonymous requested actions, and incidental uses of action and repository
-terms. It is finite evidence for the semantic instruction, not a general
+reviewed oracle is independent of the replay's action-and-subject labels. The
+harness checks that every replayed raw request matches the oracle route and
+that the replay labels select that route through the skill's closed decision
+table. The corpus includes contrastive paraphrases, synonymous requested
+actions, and incidental uses of action and repository terms. This is reviewed
+finite evidence for the semantic instruction, not an executable general
 natural-language classifier. Stress cases run in workers that the parent test
 terminates at their time bound. The offline harness rejects repository
 documents larger than `262144` bytes before parsing them, which bounds replay
