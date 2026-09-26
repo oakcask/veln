@@ -91,6 +91,7 @@ const fixtureLimits = {
   snapshotCatalogs: 32,
   snapshotOverrides: 64,
   snapshotTopicWork: 16_384,
+  schemaReferenceDepth: 64,
 };
 
 export function loadPublishedLanguageReference(repositoryRoot) {
@@ -646,17 +647,37 @@ function snapshotDigest(uri, context) {
   return uri.split("/")[5];
 }
 
-function validateSchema(value, schema, root, context) {
+export function validateSchema(value, schema, root, context, traversal = undefined) {
+  const state = traversal ?? { referenceDepth: 0, activeReferences: new Set() };
   if (schema.$ref !== undefined) {
     assert.match(schema.$ref, /^#\/\$defs\/[A-Za-z0-9_-]+$/, `${context}: unsupported schema reference`);
-    return validateSchema(value, root.$defs[schema.$ref.split("/").at(-1)], root, context);
+    assert.ok(
+      state.referenceDepth < fixtureLimits.schemaReferenceDepth,
+      `${context}: schema validation exceeded the ${fixtureLimits.schemaReferenceDepth}-reference depth bound`,
+    );
+    assert.equal(
+      state.activeReferences.has(schema.$ref),
+      false,
+      `${context}: schema reference cycle includes ${schema.$ref}`,
+    );
+    const definition = root.$defs?.[schema.$ref.split("/").at(-1)];
+    assert.notEqual(definition, undefined, `${context}: unresolved schema reference ${schema.$ref}`);
+    const activeReferences = new Set(state.activeReferences);
+    activeReferences.add(schema.$ref);
+    return validateSchema(value, definition, root, context, {
+      referenceDepth: state.referenceDepth + 1,
+      activeReferences,
+    });
   }
   if (schema.oneOf !== undefined) {
     const matches = schema.oneOf.filter((candidate) => {
       try {
-        validateSchema(value, candidate, root, context);
+        validateSchema(value, candidate, root, context, state);
         return true;
-      } catch {
+      } catch (error) {
+        if (/schema (?:reference cycle|validation exceeded)|(?:unresolved|unsupported) schema reference/.test(error.message)) {
+          throw error;
+        }
         return false;
       }
     });
@@ -672,13 +693,13 @@ function validateSchema(value, schema, root, context) {
       for (const field of Object.keys(value)) assert.ok(Object.hasOwn(schema.properties ?? {}, field), `${context}: unexpected schema field ${field}`);
     }
     for (const [field, fieldValue] of Object.entries(value)) {
-      if (schema.properties?.[field] !== undefined) validateSchema(fieldValue, schema.properties[field], root, `${context}.${field}`);
+      if (schema.properties?.[field] !== undefined) validateSchema(fieldValue, schema.properties[field], root, `${context}.${field}`, state);
     }
   } else if (schema.type === "array") {
     assert.ok(Array.isArray(value), `${context}: expected schema array`);
     if (schema.minItems !== undefined) assert.ok(value.length >= schema.minItems, `${context}: array is shorter than schema minimum`);
     if (schema.maxItems !== undefined) assert.ok(value.length <= schema.maxItems, `${context}: array is longer than schema maximum`);
-    for (const [index, item] of value.entries()) validateSchema(item, schema.items, root, `${context}[${index}]`);
+    for (const [index, item] of value.entries()) validateSchema(item, schema.items, root, `${context}[${index}]`, state);
   } else if (schema.type === "string") {
     assert.equal(typeof value, "string", `${context}: expected schema string`);
     if (schema.minLength !== undefined) assert.ok([...value].length >= schema.minLength, `${context}: string is shorter than schema minimum`);
@@ -955,25 +976,23 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
   );
   const source = navigationalMarkdown(readFileSync(absolute, "utf8"));
   const links = [];
-  let cursor = 0;
-  while (cursor < source.length) {
-    const labelStart = source.indexOf("[", cursor);
-    if (labelStart === -1) break;
-    if (isBackslashEscaped(source, labelStart)) {
-      cursor = labelStart + 1;
+  const openLabels = [];
+  for (let cursor = 0; cursor < source.length; cursor += 1) {
+    if (source[cursor] === "[" && !isBackslashEscaped(source, cursor)) {
+      openLabels.push({
+        image: cursor > 0 && source[cursor - 1] === "!" && !isBackslashEscaped(source, cursor - 1),
+      });
       continue;
     }
-    if (labelStart > 0 && source[labelStart - 1] === "!") {
-      cursor = labelStart + 1;
-      continue;
-    }
-    const labelEnd = source.indexOf("](", labelStart + 1);
-    if (labelEnd === -1) break;
-    const targetEnd = source.indexOf(")", labelEnd + 2);
-    if (targetEnd === -1) break;
-    const destination = source.slice(labelEnd + 2, targetEnd);
+    if (source[cursor] !== "]" || isBackslashEscaped(source, cursor)) continue;
+    const label = openLabels.pop();
+    if (source[cursor + 1] !== "(" || label === undefined) continue;
+    const targetEnd = source.indexOf(")", cursor + 2);
+    if (targetEnd === -1) continue;
+    const destination = source.slice(cursor + 2, targetEnd);
     const target = destination.split("#", 1)[0];
-    cursor = targetEnd + 1;
+    cursor = targetEnd;
+    if (label.image) continue;
     if (target.length === 0 || target.includes("(") || target.includes("[")) continue;
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
     const joined = posix.normalize(posix.join(posix.dirname(sourcePath), target));
