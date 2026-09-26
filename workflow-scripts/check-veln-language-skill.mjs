@@ -855,8 +855,11 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   if (searchResult.error !== undefined) {
     assert.equal(events.length, 3, `${context}: unavailable search must stop without retry or read`);
     assertExactKeys(searchResult.error, ["code"], `${context}: search transport error`);
-    assert.equal(typeof searchResult.error.code, "string", `${context}: search error code is required`);
-    assert.ok(searchResult.error.code.length > 0, `${context}: search error code must not be empty`);
+    assert.equal(
+      searchResult.error.code,
+      "tool_unavailable",
+      `${context}: unavailable search must use the recorded tool_unavailable error class`,
+    );
     assert.equal(answer.status, "search_unavailable", `${context}: wrong unavailable-search status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: search failure answer`);
     validateFailure(answer, "search_docs", null, previousResult, context);
@@ -933,6 +936,11 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
       readResult.error.code,
       "resource_not_found",
       `${context}: resource_not_found must use the checked stale-snapshot result path`,
+    );
+    assert.equal(
+      readResult.error.code,
+      "transport_unavailable",
+      `${context}: unreadable topic must use the recorded transport_unavailable error class`,
     );
     assert.equal(answer.status, "topic_unavailable", `${context}: wrong unreadable-topic status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: topic failure answer`);
