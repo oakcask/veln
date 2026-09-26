@@ -1266,18 +1266,36 @@ function navigationalMarkdown(source) {
     const newline = source.indexOf("\n", lineStart);
     const lineEnd = newline === -1 ? source.length : newline + 1;
     const line = source.slice(lineStart, lineEnd).replace(/[\r\n]+$/, "");
+    const quoteContentStarts = [0];
+    let quoteCursor = 0;
+    while (quoteCursor < line.length) {
+      const marker = /^ {0,3}>[ \t]?/u.exec(line.slice(quoteCursor));
+      if (marker === null) break;
+      quoteCursor += marker[0].length;
+      quoteContentStarts.push(quoteCursor);
+    }
+    const quoteDepth = quoteContentStarts.length - 1;
+    if (fence !== undefined && quoteDepth < fence.quoteDepth && line.trim().length > 0) {
+      fence = undefined;
+    }
     if (fence === undefined) {
-      const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+      const contentStart = quoteContentStarts[quoteDepth];
+      const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line.slice(contentStart));
       if (opening !== null) {
-        fence = { character: opening[1][0], length: opening[1].length };
+        fence = {
+          character: opening[1][0],
+          length: opening[1].length,
+          quoteDepth,
+        };
         mask(lineStart, lineEnd);
-      } else if (/^(?: {4}|\t)/.test(line)) {
+      } else if (quoteDepth === 0 && /^(?: {4}|\t)/.test(line)) {
         mask(lineStart, lineEnd);
       }
     } else {
+      const contentStart = quoteContentStarts[fence.quoteDepth];
       const closing = new RegExp(`^ {0,3}\\${fence.character}{${fence.length},}[ \\t]*$`);
       mask(lineStart, lineEnd);
-      if (closing.test(line)) fence = undefined;
+      if (closing.test(line.slice(contentStart))) fence = undefined;
     }
     lineStart = lineEnd;
   }

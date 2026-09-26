@@ -17,6 +17,7 @@ import { Worker } from "node:worker_threads";
 import {
   currentRepositoryAuthority,
   expectedPublishedSearch,
+  linkedDocumentationPaths,
   loadCaseFoldMappings,
   loadPublishedLanguageReference,
   loadSnapshotEvidence,
@@ -1029,6 +1030,28 @@ test("rejects repository routes that appear only in non-navigational Markdown", 
   assert.throws(
     () => shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
     /repository authority is not reachable/,
+  );
+});
+
+test("ignores links in block-quoted tilde fences and resumes navigation afterward", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-block-quote-fence-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "fake.md"), "# Fake authority\n");
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  writeFileSync(join(root, "docs", "README.md"), [
+    "> ~~~md",
+    "> [fake](fake.md)",
+    "> ~~~",
+    "",
+    "> ~~~md",
+    "> [also fake](fake.md)",
+    "[authority](authority.md)",
+  ].join("\n"));
+
+  assert.deepEqual(
+    linkedDocumentationPaths("docs/README.md", root),
+    ["docs/authority.md"],
   );
 });
 
