@@ -1030,11 +1030,10 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     if (source[cursor] !== "]" || isBackslashEscaped(source, cursor)) continue;
     const label = openLabels.pop();
     if (source[cursor + 1] !== "(" || label === undefined) continue;
-    const targetEnd = source.indexOf(")", cursor + 2);
-    if (targetEnd === -1) continue;
-    const destination = source.slice(cursor + 2, targetEnd);
-    const target = destination.split("#", 1)[0];
-    cursor = targetEnd;
+    const destination = parseInlineLinkDestination(source, cursor + 2);
+    if (destination === undefined) continue;
+    const target = destination.target.split("#", 1)[0];
+    cursor = destination.end;
     if (label.image) continue;
     if (target.length === 0 || target.includes("(") || target.includes("[")) continue;
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
@@ -1042,6 +1041,59 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     if (joined.startsWith("docs/")) links.push(joined);
   }
   return links;
+}
+
+function parseInlineLinkDestination(source, start) {
+  let cursor = start;
+  while (source[cursor] === " " || source[cursor] === "\t" || source[cursor] === "\n") cursor += 1;
+  const destinationStart = cursor;
+  let target;
+  if (source[cursor] === "<") {
+    cursor += 1;
+    const targetStart = cursor;
+    while (cursor < source.length && source[cursor] !== ">" && source[cursor] !== "\n") {
+      if (source[cursor] === "<" && !isBackslashEscaped(source, cursor)) return undefined;
+      cursor += 1;
+    }
+    if (source[cursor] !== ">") return undefined;
+    target = source.slice(targetStart, cursor);
+    cursor += 1;
+  } else {
+    let parentheses = 0;
+    while (cursor < source.length) {
+      const character = source[cursor];
+      if (!isBackslashEscaped(source, cursor)) {
+        if (character === "(") parentheses += 1;
+        if (character === ")") {
+          if (parentheses === 0) break;
+          parentheses -= 1;
+        }
+        if (/\s/u.test(character)) break;
+      }
+      cursor += 1;
+    }
+    if (parentheses !== 0) return undefined;
+    target = source.slice(destinationStart, cursor);
+  }
+  const destinationEnd = cursor;
+  while (source[cursor] === " " || source[cursor] === "\t" || source[cursor] === "\n") cursor += 1;
+  const separated = cursor > destinationEnd;
+  if (source[cursor] !== ")") {
+    if (!separated) return undefined;
+    const opener = source[cursor];
+    const closer = opener === "(" ? ")" : opener === "\"" ? "\"" : opener === "'" ? "'" : undefined;
+    if (closer === undefined) return undefined;
+    cursor += 1;
+    while (cursor < source.length && (source[cursor] !== closer || isBackslashEscaped(source, cursor))) {
+      if (source[cursor] === "\n") return undefined;
+      cursor += 1;
+    }
+    if (source[cursor] !== closer) return undefined;
+    cursor += 1;
+    while (source[cursor] === " " || source[cursor] === "\t" || source[cursor] === "\n") cursor += 1;
+  }
+  if (source[cursor] !== ")") return undefined;
+  return { target, end: cursor };
 }
 
 function isBackslashEscaped(source, index) {
@@ -1096,6 +1148,32 @@ function navigationalMarkdown(source) {
       return candidate;
     };
   };
+
+  let htmlBlock;
+  let htmlLineStart = 0;
+  while (htmlLineStart < source.length) {
+    const newline = source.indexOf("\n", htmlLineStart);
+    const lineEnd = newline === -1 ? source.length : newline + 1;
+    const line = source.slice(htmlLineStart, lineEnd).replace(/[\r\n]+$/, "");
+    if (htmlBlock?.untilBlank === true) {
+      if (/^\s*$/u.test(line)) htmlBlock = undefined;
+      else mask(htmlLineStart, lineEnd);
+    } else if (htmlBlock?.closing !== undefined) {
+      mask(htmlLineStart, lineEnd);
+      if (htmlBlock.closing.test(line)) htmlBlock = undefined;
+    } else {
+      const rawTag = /^ {0,3}<(script|pre|style|textarea)(?=[\t\r\n />])/iu.exec(line);
+      if (rawTag !== null) {
+        const closing = new RegExp(`</${rawTag[1]}\\s*>`, "iu");
+        mask(htmlLineStart, lineEnd);
+        if (!closing.test(line)) htmlBlock = { closing };
+      } else if (/^ {0,3}<\/?[A-Za-z][^>]*>/u.test(line)) {
+        mask(htmlLineStart, lineEnd);
+        htmlBlock = { untilBlank: true };
+      }
+    }
+    htmlLineStart = lineEnd;
+  }
 
   let fence;
   let lineStart = 0;
