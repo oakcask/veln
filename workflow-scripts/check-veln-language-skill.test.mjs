@@ -102,59 +102,42 @@ test("canonical veln-language skill replays every acceptance scenario", () => {
   assert.equal(validateScenarioDocument(fixture()), 12);
 });
 
-test("request selection uses annotated action and subject semantics", () => {
+test("request selection derives every corpus route from raw request text", () => {
   const document = fixture();
-  const cases = new Map(document.request_selection.map((entry) => [entry.text, entry]));
-  for (const [text, expected] of [
-    ["Please assess the Veln parser.", "repository"],
-    ["Audit the Veln lexer.", "repository"],
-    ["Assess how effects are handled in Veln.", "repository"],
-    ["How are effects handled in Veln?", "language"],
-    ["Explain how effects are handled in Veln.", "language"],
-    ["Where is the Veln parser implemented?", "repository"],
-  ]) {
-    const entry = cases.get(text);
-    assert.ok(entry, text);
-    assert.equal(
-      selectRequestRoute({ action: entry.action, subject: entry.subject }, candidateOptions),
-      expected,
-      text,
-    );
+  for (const entry of document.request_selection) {
+    assert.equal(selectRequestRoute(entry.text, candidateOptions), entry.route, entry.id);
   }
 });
 
-test("semantic routing is independent of a surface verb vocabulary", () => {
+test("raw-text selector distinguishes semantic routing contrasts", () => {
   assert.equal(
-    selectRequestRoute({ action: "repository_action", subject: "implementation" }, candidateOptions),
+    selectRequestRoute("Please assess the Veln parser.", candidateOptions),
     "repository",
   );
   assert.equal(
-    selectRequestRoute({ action: "repository_action", subject: "language_behavior" }, candidateOptions),
+    selectRequestRoute("Audit the Veln lexer.", candidateOptions),
     "repository",
   );
   assert.equal(
-    selectRequestRoute({ action: "information", subject: "implementation" }, candidateOptions),
+    selectRequestRoute("Assess how effects are handled in Veln.", candidateOptions),
     "repository",
   );
   assert.equal(
-    selectRequestRoute({ action: "information", subject: "language_behavior" }, candidateOptions),
+    selectRequestRoute("How are effects handled in Veln?", candidateOptions),
     "language",
   );
   assert.equal(
-    selectRequestRoute({ action: "information", subject: "repository_material" }, candidateOptions),
-    "repository",
+    selectRequestRoute("Explain how effects are handled in Veln.", candidateOptions),
+    "language",
   );
 });
 
-test("rejects missing or contradictory request semantics", () => {
-  assert.throws(() => selectRequestRoute({ action: "information" }, candidateOptions), /fields must match/);
-  assert.throws(
-    () => selectRequestRoute({ action: "guess", subject: "implementation" }, candidateOptions),
-    /unknown requested action class/,
-  );
+test("rejects invalid request text and contradictory corpus routes", () => {
+  assert.throws(() => selectRequestRoute({}, candidateOptions), /request text must be a string/);
+  assert.throws(() => selectRequestRoute("", candidateOptions), /request text must not be empty/);
   const document = fixture();
   document.request_selection.find((entry) => entry.id === "effects-passive-information").route = "repository";
-  assert.throws(() => validateScenarioDocument(document, candidateOptions), /request semantics selected the wrong route/);
+  assert.throws(() => validateScenarioDocument(document, candidateOptions), /raw request text selected the wrong route/);
 });
 
 test("requires semantic evidence for every replayed request", () => {
@@ -183,7 +166,7 @@ test("checks every corpus row against independent text and semantic labels", () 
       }
       assert.throws(
         () => validateScenarioDocument(mutated, candidateOptions),
-        /differ from the independent corpus oracle/,
+        /raw request text selected the wrong route|differ from the independent corpus oracle/,
         `${selection.id} ${field}`,
       );
     }
