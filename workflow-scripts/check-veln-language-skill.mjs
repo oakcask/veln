@@ -256,36 +256,43 @@ export function normalizeSearchText(text, caseFoldMappings) {
   return trimUnicodeWhitespace(folded);
 }
 
-function foldedScalarSpans(field, caseFoldMappings) {
+function foldedScalarByteEnds(field, caseFoldMappings) {
   const chunks = [];
-  const spans = [];
+  const byteEnds = [];
   let byteOffset = 0;
   for (const character of field) {
     const folded = normalizeSearchText(character, caseFoldMappings);
-    const start = byteOffset;
     byteOffset += Buffer.byteLength(folded);
     chunks.push(folded);
-    spans.push({ start, end: byteOffset });
+    byteEnds.push(byteOffset);
   }
-  return { bytes: Buffer.from(chunks.join("")), spans };
+  return { bytes: Buffer.from(chunks.join("")), byteEnds };
+}
+
+function firstIndexWhere(values, predicate) {
+  let start = 0;
+  let end = values.length;
+  while (start < end) {
+    const middle = start + Math.floor((end - start) / 2);
+    if (predicate(values[middle])) end = middle;
+    else start = middle + 1;
+  }
+  return start;
 }
 
 function firstTokenSpan(field, tokens, caseFoldMappings) {
-  const folded = foldedScalarSpans(field, caseFoldMappings);
+  const folded = foldedScalarByteEnds(field, caseFoldMappings);
   const candidates = [];
   for (const token of tokens) {
-    const start = folded.bytes.indexOf(Buffer.from(token));
+    const tokenBytes = Buffer.from(token);
+    const start = folded.bytes.indexOf(tokenBytes);
     if (start < 0) continue;
-    const end = start + Buffer.byteLength(token);
-    const first = folded.spans.findIndex((span) => span.end > start);
-    let last = -1;
-    for (let index = folded.spans.length - 1; index >= 0; index -= 1) {
-      if (folded.spans[index].start < end) {
-        last = index;
-        break;
-      }
+    const end = start + tokenBytes.length;
+    const first = firstIndexWhere(folded.byteEnds, (byteEnd) => byteEnd > start);
+    const last = firstIndexWhere(folded.byteEnds, (byteEnd) => byteEnd >= end);
+    if (first < folded.byteEnds.length && last >= first) {
+      candidates.push({ start: first, end: last + 1 });
     }
-    if (first >= 0 && last >= first) candidates.push({ start: first, end: last + 1 });
   }
   candidates.sort((left, right) => left.start - right.start);
   return candidates[0];
@@ -664,7 +671,8 @@ export function validateSchema(value, schema, root, context, traversal = undefin
       false,
       `${context}: schema reference cycle includes ${schema.$ref}`,
     );
-    if (state.validatedReferences.get(schema.$ref)?.has(value)) return;
+    const validatedDepth = state.validatedReferences.get(schema.$ref)?.get(value);
+    if (validatedDepth !== undefined && state.referenceDepth <= validatedDepth) return;
     const definition = root.$defs?.[schema.$ref.split("/").at(-1)];
     assert.notEqual(definition, undefined, `${context}: unresolved schema reference ${schema.$ref}`);
     const activeReferences = new Set(state.activeReferences);
@@ -674,8 +682,8 @@ export function validateSchema(value, schema, root, context, traversal = undefin
       activeReferences,
       validatedReferences: state.validatedReferences,
     });
-    const validatedValues = state.validatedReferences.get(schema.$ref) ?? new Set();
-    validatedValues.add(value);
+    const validatedValues = state.validatedReferences.get(schema.$ref) ?? new Map();
+    validatedValues.set(value, state.referenceDepth);
     state.validatedReferences.set(schema.$ref, validatedValues);
     return;
   }
