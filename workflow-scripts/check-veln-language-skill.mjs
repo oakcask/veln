@@ -1024,6 +1024,7 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     if (source[cursor] === "[" && !isBackslashEscaped(source, cursor)) {
       openLabels.push({
         image: cursor > 0 && source[cursor - 1] === "!" && !isBackslashEscaped(source, cursor - 1),
+        containsLink: false,
       });
       continue;
     }
@@ -1035,6 +1036,8 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     const target = destination.target.split("#", 1)[0];
     cursor = destination.end;
     if (label.image) continue;
+    if (openLabels.length > 0) openLabels[openLabels.length - 1].containsLink = true;
+    if (label.containsLink) continue;
     if (target.length === 0 || target.includes("(") || target.includes("[")) continue;
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
     const joined = posix.normalize(posix.join(posix.dirname(sourcePath), target));

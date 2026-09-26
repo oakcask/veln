@@ -944,6 +944,37 @@ test("does not combine an unmatched link label with a later image destination", 
   );
 });
 
+test("does not treat an outer nested Markdown link as navigation", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-nested-link-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "inner.md"), "# Inner\n");
+  writeFileSync(join(root, "docs", "outer.md"), "# Outer\n");
+  writeFileSync(join(root, "docs", "README.md"), "[[inner](inner.md)](outer.md)\n");
+
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/inner.md", root, 2),
+    ["docs/README.md", "docs/inner.md"],
+  );
+  assert.throws(
+    () => shortestDocumentationRoute("docs/README.md", "docs/outer.md", root, 2),
+    /repository authority is not reachable/,
+  );
+});
+
+test("retains a link whose label contains an image", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-image-label-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  writeFileSync(join(root, "docs", "README.md"), "[![icon](icon.png)](authority.md)\n");
+
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
+    ["docs/README.md", "docs/authority.md"],
+  );
+});
+
 test("does not close inline code with a different-length backtick run", (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-inline-delimiters-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
