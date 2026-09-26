@@ -1012,6 +1012,28 @@ function navigationalMarkdown(source) {
     }
     return -1;
   };
+  const monotonicVisibleFinder = (token) => {
+    let candidate;
+    let searchCursor = 0;
+    return (start) => {
+      if (candidate === -1) return -1;
+      if (candidate !== undefined && candidate >= start) {
+        let visible = true;
+        for (let offset = 0; offset < token.length; offset += 1) {
+          if (masked[candidate + offset] !== token[offset]) {
+            visible = false;
+            break;
+          }
+        }
+        if (visible) return candidate;
+        searchCursor = candidate + 1;
+      }
+      searchCursor = Math.max(searchCursor, start);
+      candidate = findVisible(token, searchCursor);
+      searchCursor = candidate === -1 ? source.length : candidate;
+      return candidate;
+    };
+  };
 
   let fence;
   let lineStart = 0;
@@ -1035,10 +1057,12 @@ function navigationalMarkdown(source) {
     lineStart = lineEnd;
   }
 
+  const findCommentStart = monotonicVisibleFinder("<!--");
+  const findTickStart = monotonicVisibleFinder("`");
   let cursor = 0;
   while (cursor < source.length) {
-    const commentStart = findVisible("<!--", cursor);
-    const tickStart = findVisible("`", cursor);
+    const commentStart = findCommentStart(cursor);
+    const tickStart = findTickStart(cursor);
     const start = commentStart === -1
       ? tickStart
       : tickStart === -1 ? commentStart : Math.min(commentStart, tickStart);

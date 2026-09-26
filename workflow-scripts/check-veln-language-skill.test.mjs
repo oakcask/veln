@@ -930,6 +930,27 @@ test("discovers links in linear progress on malformed adjacent-size input", asyn
   assert.deepEqual(await runStressTarget("linked-paths", { path: "docs/README.md", root }), []);
 });
 
+test("masks mixed inline code and fenced comments at adjacent accepted sizes", async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-links-masking-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  const sourceForSize = (size) => {
+    const visible = "`x` ".repeat(Math.floor(size / 8));
+    const fence = "\n```\n";
+    const suffix = "\n```\n";
+    const markers = "<!--x-->".repeat(Math.floor((size - visible.length - fence.length - suffix.length) / 8));
+    return `${visible}${fence}${markers}${suffix}`;
+  };
+  for (const size of [131_072, 262_144]) {
+    writeFileSync(join(root, "docs", "README.md"), sourceForSize(size));
+    assert.deepEqual(
+      await runStressTarget("linked-paths", { path: "docs/README.md", root }),
+      [],
+      `${size} bytes`,
+    );
+  }
+});
+
 test("retains snapshot overrides without bilinear catalog copies", async (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-snapshots-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
