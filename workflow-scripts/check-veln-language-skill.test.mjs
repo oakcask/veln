@@ -170,6 +170,15 @@ test("validates a branching schema DAG within the external time bound", async ()
   assert.equal(await runStressTarget("schema-branching-dag", { levels: 30 }, 3_000), 30);
 });
 
+test("rejects deeply nested inline schemas within the external time bound", async () => {
+  for (const kind of ["array", "object"]) {
+    await assert.rejects(
+      runStressTarget("schema-inline-depth", { kind, levels: 2_500 }, 3_000),
+      /schema validation exceeded the 128-traversal depth bound/,
+    );
+  }
+});
+
 test("request selection applies reviewed semantics for every raw corpus request", () => {
   const document = fixture();
   for (const entry of document.request_selection) {

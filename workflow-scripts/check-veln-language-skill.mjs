@@ -92,6 +92,7 @@ const fixtureLimits = {
   snapshotOverrides: 64,
   snapshotTopicWork: 16_384,
   schemaReferenceDepth: 64,
+  schemaTraversalDepth: 128,
 };
 
 export function loadPublishedLanguageReference(repositoryRoot) {
@@ -657,9 +658,18 @@ function snapshotDigest(uri, context) {
 export function validateSchema(value, schema, root, context, traversal = undefined) {
   const state = traversal ?? {
     referenceDepth: 0,
+    traversalDepth: 0,
     activeReferences: new Set(),
     validatedReferences: new Map(),
   };
+  assert.ok(
+    state.traversalDepth <= fixtureLimits.schemaTraversalDepth,
+    `${context}: schema validation exceeded the ${fixtureLimits.schemaTraversalDepth}-traversal depth bound`,
+  );
+  const descend = () => ({
+    ...state,
+    traversalDepth: state.traversalDepth + 1,
+  });
   if (schema.$ref !== undefined) {
     assert.match(schema.$ref, /^#\/\$defs\/[A-Za-z0-9_-]+$/, `${context}: unsupported schema reference`);
     assert.ok(
@@ -678,9 +688,9 @@ export function validateSchema(value, schema, root, context, traversal = undefin
     const activeReferences = new Set(state.activeReferences);
     activeReferences.add(schema.$ref);
     validateSchema(value, definition, root, context, {
+      ...descend(),
       referenceDepth: state.referenceDepth + 1,
       activeReferences,
-      validatedReferences: state.validatedReferences,
     });
     const validatedValues = state.validatedReferences.get(schema.$ref) ?? new Map();
     validatedValues.set(value, state.referenceDepth);
@@ -690,7 +700,7 @@ export function validateSchema(value, schema, root, context, traversal = undefin
   if (schema.oneOf !== undefined) {
     const matches = schema.oneOf.filter((candidate) => {
       try {
-        validateSchema(value, candidate, root, context, state);
+        validateSchema(value, candidate, root, context, descend());
         return true;
       } catch (error) {
         if (/schema (?:reference cycle|validation exceeded)|(?:unresolved|unsupported) schema reference/.test(error.message)) {
@@ -711,13 +721,17 @@ export function validateSchema(value, schema, root, context, traversal = undefin
       for (const field of Object.keys(value)) assert.ok(Object.hasOwn(schema.properties ?? {}, field), `${context}: unexpected schema field ${field}`);
     }
     for (const [field, fieldValue] of Object.entries(value)) {
-      if (schema.properties?.[field] !== undefined) validateSchema(fieldValue, schema.properties[field], root, `${context}.${field}`, state);
+      if (schema.properties?.[field] !== undefined) {
+        validateSchema(fieldValue, schema.properties[field], root, `${context}.${field}`, descend());
+      }
     }
   } else if (schema.type === "array") {
     assert.ok(Array.isArray(value), `${context}: expected schema array`);
     if (schema.minItems !== undefined) assert.ok(value.length >= schema.minItems, `${context}: array is shorter than schema minimum`);
     if (schema.maxItems !== undefined) assert.ok(value.length <= schema.maxItems, `${context}: array is longer than schema maximum`);
-    for (const [index, item] of value.entries()) validateSchema(item, schema.items, root, `${context}[${index}]`, state);
+    for (const [index, item] of value.entries()) {
+      validateSchema(item, schema.items, root, `${context}[${index}]`, descend());
+    }
   } else if (schema.type === "string") {
     assert.equal(typeof value, "string", `${context}: expected schema string`);
     if (schema.minLength !== undefined) assert.ok([...value].length >= schema.minLength, `${context}: string is shorter than schema minimum`);

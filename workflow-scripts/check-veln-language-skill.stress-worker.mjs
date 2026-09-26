@@ -63,6 +63,25 @@ function runTarget(target, data) {
     validateSchema(value, schema, schema, "branching schema DAG");
     return data.levels;
   }
+  if (target === "schema-inline-depth") {
+    let schema = { type: "string" };
+    let value = "leaf";
+    for (let index = 0; index < data.levels; index += 1) {
+      if (data.kind === "array") {
+        schema = { type: "array", items: schema };
+        value = [value];
+      } else {
+        schema = {
+          type: "object",
+          properties: { next: schema },
+          required: ["next"],
+          additionalProperties: false,
+        };
+        value = { next: value };
+      }
+    }
+    validateSchema(value, schema, schema, `deep inline ${data.kind} schema`);
+  }
   if (target === "snapshot-evidence") {
     const originalStructuredClone = globalThis.structuredClone;
     let cloneCalls = 0;
