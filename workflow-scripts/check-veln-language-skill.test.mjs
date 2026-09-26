@@ -128,6 +128,37 @@ test("bounds local schema reference traversal", () => {
   );
 });
 
+test("rejects over-depth schema references in either JSON property order", () => {
+  const schema = {
+    type: "object",
+    required: ["shallow", "deep"],
+    additionalProperties: false,
+    properties: {
+      shallow: { $ref: "#/$defs/shared" },
+      deep: { $ref: "#/$defs/level-0" },
+    },
+    $defs: {
+      shared: { $ref: "#/$defs/overflow" },
+      overflow: { type: "string" },
+    },
+  };
+  for (let index = 0; index < 63; index += 1) {
+    schema.$defs[`level-${index}`] = index === 62
+      ? { $ref: "#/$defs/shared" }
+      : { $ref: `#/$defs/level-${index + 1}` };
+  }
+
+  for (const value of [
+    JSON.parse('{"shallow":"same","deep":"same"}'),
+    JSON.parse('{"deep":"same","shallow":"same"}'),
+  ]) {
+    assert.throws(
+      () => validateSchema(value, schema, schema, "ordered schema"),
+      /schema validation exceeded the 64-reference depth bound/,
+    );
+  }
+});
+
 test("rejects a branching schema reference cycle within the external time bound", async () => {
   await assert.rejects(
     runStressTarget("schema-branching-cycle", {}, 3_000),
@@ -274,6 +305,15 @@ test("normalizes the largest accepted internal whitespace run with linear scalin
   assert.deepEqual(result.lengths, [65_538, 131_074, 262_146]);
   assert.ok(result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 2, result.milliseconds);
   assert.ok(result.milliseconds[2] <= result.milliseconds[1] * 3.5 + 2, result.milliseconds);
+});
+
+test("scales published search excerpts near the accepted field and query limits", async () => {
+  const result = await runStressTarget("published-search-scaling", {
+    sizes: [900_000, 1_800_000],
+    tokenCounts: [250, 500],
+  }, 10_000);
+  assert.deepEqual(result.excerptLengths, [160, 160]);
+  assert.ok(result.milliseconds[1] <= result.milliseconds[0] * 3.25 + 20, result.milliseconds);
 });
 
 test("preserves Unicode whitespace trimming semantics", async () => {

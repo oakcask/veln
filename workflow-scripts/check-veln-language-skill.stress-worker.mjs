@@ -1,7 +1,9 @@
 import { parentPort, workerData } from "node:worker_threads";
 
 import {
+  expectedPublishedSearch,
   linkedDocumentationPaths,
+  loadCaseFoldMappings,
   loadSnapshotEvidence,
   normalizeSearchText,
   shortestDocumentationRoute,
@@ -104,6 +106,33 @@ function runTarget(target, data) {
       lengths: data.sizes.map((_, index) => lengths[(index + 1) * data.repetitions * 5 - 1]),
       milliseconds,
     };
+  }
+  if (target === "published-search-scaling") {
+    const caseFoldMappings = loadCaseFoldMappings();
+    const milliseconds = [];
+    const excerptLengths = [];
+    for (let index = 0; index < data.sizes.length; index += 1) {
+      const body = `a${"x".repeat(data.sizes[index])}`;
+      const query = `${"a ".repeat(data.tokenCounts[index] - 1)}a`;
+      const published = {
+        digest: "1".repeat(64),
+        caseFoldMappings,
+        catalog: {
+          topics: [{ id: "topic", title: "Topic", summary: "None", keywords: [], body: [body] }],
+        },
+      };
+      expectedPublishedSearch({ query, scope: "language" }, published);
+      const samples = [];
+      let result;
+      for (let sample = 0; sample < 3; sample += 1) {
+        const start = performance.now();
+        result = expectedPublishedSearch({ query, scope: "language" }, published);
+        samples.push(performance.now() - start);
+      }
+      milliseconds.push(median(samples));
+      excerptLengths.push([...result.results[0].excerpt].length);
+    }
+    return { excerptLengths, milliseconds };
   }
   throw new Error(`unknown stress target: ${target}`);
 }
