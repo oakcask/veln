@@ -19,6 +19,8 @@ question.
 - Checking whether proposal text is current behavior: start with
   [specification/README.md](specification/README.md), then compare the chosen
   proposal with the matching specification page.
+- Checking agent routing between published language topics and repository work:
+  [specification/agent-language-routing.md](specification/agent-language-routing.md).
 
 ## Proposal Work
 
