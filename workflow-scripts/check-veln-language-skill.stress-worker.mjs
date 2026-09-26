@@ -51,6 +51,23 @@ function runTarget(target, data) {
     }
     return { bytes, milliseconds };
   }
+  if (target === "escaped-destination") {
+    const milliseconds = [];
+    const bytes = [];
+    const linkCounts = [];
+    for (const size of data.sizes) {
+      const prefix = "[route](";
+      const suffix = "authority.md)";
+      const source = `${prefix}${"\\".repeat(size - prefix.length - suffix.length)}${suffix}`;
+      writeFileSync(data.path, source);
+      const start = performance.now();
+      const links = linkedDocumentationPaths(data.repositoryPath, data.root);
+      milliseconds.push(performance.now() - start);
+      bytes.push(Buffer.byteLength(source));
+      linkCounts.push(links.length);
+    }
+    return { bytes, linkCounts, milliseconds };
+  }
   if (target === "schema-branching-cycle") {
     const reference = { $ref: "#/$defs/loop" };
     const schema = {
