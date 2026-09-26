@@ -532,6 +532,19 @@ test("replays a long excerpt from the first matching source scalar", () => {
   assert.equal(result.suffix_truncated, true);
 });
 
+test("maps a long decomposed canonical match into the returned excerpt", () => {
+  const title = `${"x".repeat(180)}Cafe\u0301`;
+  const results = expectedPublishedSearch(
+    { query: "Café", scope: "language" },
+    syntheticPublished(syntheticTopic({ title })),
+  ).results;
+  assert.equal(results.length, 1);
+  assert.equal([...results[0].excerpt].length, 160);
+  assert.equal(results[0].excerpt.endsWith("Cafe\u0301"), true);
+  assert.equal(results[0].prefix_truncated, true);
+  assert.equal(results[0].suffix_truncated, false);
+});
+
 test("rejects a search query unrelated to the scenario expectation", () => {
   const document = fixture();
   matchingTurn(document).events[0].arguments.query = "Veln effects";

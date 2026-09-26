@@ -250,24 +250,38 @@ function trimUnicodeWhitespace(text) {
   return text.slice(start, end);
 }
 
-export function normalizeSearchText(text, caseFoldMappings) {
-  const folded = [...text.normalize("NFC")]
+function foldSearchText(text, caseFoldMappings) {
+  return [...text.normalize("NFC")]
     .map((character) => caseFoldMappings.get(character) ?? character)
     .join("");
-  return trimUnicodeWhitespace(folded);
 }
 
-function foldedScalarByteEnds(field, caseFoldMappings) {
+export function normalizeSearchText(text, caseFoldMappings) {
+  return trimUnicodeWhitespace(foldSearchText(text, caseFoldMappings));
+}
+
+const searchGraphemeSegmenter = new Intl.Segmenter("und", { granularity: "grapheme" });
+
+function foldedSourceRanges(field, caseFoldMappings) {
   const chunks = [];
-  const byteEnds = [];
+  const ranges = [];
   let byteOffset = 0;
-  for (const character of field) {
-    const folded = normalizeSearchText(character, caseFoldMappings);
+  let scalarOffset = 0;
+  for (const { segment } of searchGraphemeSegmenter.segment(field)) {
+    const folded = foldSearchText(segment, caseFoldMappings);
+    const scalarEnd = scalarOffset + [...segment].length;
     byteOffset += Buffer.byteLength(folded);
     chunks.push(folded);
-    byteEnds.push(byteOffset);
+    ranges.push({ start: scalarOffset, end: scalarEnd, byteEnd: byteOffset });
+    scalarOffset = scalarEnd;
   }
-  return { bytes: Buffer.from(chunks.join("")), byteEnds };
+  const joined = chunks.join("");
+  const wholeField = foldSearchText(field, caseFoldMappings);
+  assert.equal(joined, wholeField, "grapheme folding must preserve whole-field NFC normalization");
+  const trimmed = trimUnicodeWhitespace(wholeField);
+  const trimmedStart = wholeField.indexOf(trimmed);
+  const leadingBytes = Buffer.byteLength(wholeField.slice(0, trimmedStart));
+  return { bytes: Buffer.from(trimmed), leadingBytes, ranges };
 }
 
 function firstIndexWhere(values, predicate) {
@@ -282,17 +296,19 @@ function firstIndexWhere(values, predicate) {
 }
 
 function firstTokenSpan(field, tokens, caseFoldMappings) {
-  const folded = foldedScalarByteEnds(field, caseFoldMappings);
+  const folded = foldedSourceRanges(field, caseFoldMappings);
   const candidates = [];
   for (const token of tokens) {
     const tokenBytes = Buffer.from(token);
     const start = folded.bytes.indexOf(tokenBytes);
     if (start < 0) continue;
     const end = start + tokenBytes.length;
-    const first = firstIndexWhere(folded.byteEnds, (byteEnd) => byteEnd > start);
-    const last = firstIndexWhere(folded.byteEnds, (byteEnd) => byteEnd >= end);
-    if (first < folded.byteEnds.length && last >= first) {
-      candidates.push({ start: first, end: last + 1 });
+    const sourceStart = start + folded.leadingBytes;
+    const sourceEnd = end + folded.leadingBytes;
+    const first = firstIndexWhere(folded.ranges, (range) => range.byteEnd > sourceStart);
+    const last = firstIndexWhere(folded.ranges, (range) => range.byteEnd >= sourceEnd);
+    if (first < folded.ranges.length && last >= first) {
+      candidates.push({ start: folded.ranges[first].start, end: folded.ranges[last].end });
     }
   }
   candidates.sort((left, right) => left.start - right.start);
