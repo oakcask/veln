@@ -16,7 +16,8 @@ also states it.
 
 ## Ready
 
-No proposals are ready.
+- Agent language-reference skill routing:
+  [agent-language-reference-skill.md](agent-language-reference-skill.md).
 
 ## Blocked
 
