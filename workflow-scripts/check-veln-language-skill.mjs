@@ -18,12 +18,12 @@ const snapshotEvidencePath = join(
   "veln-language",
   "snapshot-catalogs.json",
 );
-const scenarioFixturePath = join(
+const requestSelectionOraclePath = join(
   defaultRepositoryRoot,
   "workflow-scripts",
   "fixtures",
   "veln-language",
-  "scenarios.json",
+  "request-selection-oracle.json",
 );
 
 const acceptance = new Map([
@@ -87,8 +87,6 @@ const recordedRequestSemantics = new Map([
   ["Review the repository documentation authoring policy.", { action: "repository_action", subject: "repository_material" }],
   ["Inspect repository authority for an undocumented deployment service.", { action: "repository_action", subject: "repository_material" }],
 ]);
-
-const requestSelectionCorpusDigest = "150e8cf6a744f70f678fcb1940316a0ca763cd81d644e20c49cc9cab7a97f89c";
 
 const snapshotTopicUri = /^veln-doc:\/\/\/language\/snapshot\/[0-9a-f]{64}\/topic\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const markdownMimeType = "text/markdown; charset=utf-8";
@@ -398,22 +396,34 @@ function requestSelectionRecord(selection) {
 
 function loadRequestSelectionOracle() {
   assert.ok(
-    statSync(scenarioFixturePath).size <= fixtureLimits.fixtureBytes,
-    "canonical scenario fixture exceeds the byte limit",
+    statSync(requestSelectionOraclePath).size <= fixtureLimits.fixtureBytes,
+    "request-selection oracle exceeds the byte limit",
   );
-  const document = JSON.parse(readFileSync(scenarioFixturePath, "utf8"));
+  const document = JSON.parse(readFileSync(requestSelectionOraclePath, "utf8"));
+  assertExactKeys(document, ["schema_version", "records"], "request-selection oracle");
+  assert.equal(document.schema_version, 1, "unsupported request-selection oracle schema");
+  assert.ok(Array.isArray(document.records), "request-selection oracle must contain records");
   assert.ok(
-    Array.isArray(document.request_selection),
-    "canonical scenario fixture must contain request-selection evidence",
+    document.records.length <= fixtureLimits.requestSelectionCases,
+    "request-selection oracle exceeds the case limit",
   );
-  const records = document.request_selection
-    .map(requestSelectionRecord)
+  const ids = new Set();
+  const texts = new Set();
+  const records = document.records
+    .map((record) => {
+      assertExactKeys(record, ["id", "text", "action", "subject"], "request-selection oracle record");
+      assert.equal(typeof record.id, "string", "request-selection oracle ID must be a string");
+      assert.ok(record.id.length > 0, "request-selection oracle ID must not be empty");
+      assert.equal(ids.has(record.id), false, `duplicate request-selection oracle ID ${record.id}`);
+      ids.add(record.id);
+      assert.equal(typeof record.text, "string", `${record.id}: oracle text must be a string`);
+      assert.ok(record.text.length <= fixtureLimits.requestCharacters, `${record.id}: oracle text exceeds the limit`);
+      assert.equal(texts.has(record.text), false, `${record.id}: duplicate request-selection oracle text`);
+      texts.add(record.text);
+      routeRequestSemantics({ action: record.action, subject: record.subject }, `${record.id}: oracle`);
+      return record;
+    })
     .sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
-  assert.equal(
-    createHash("sha256").update(JSON.stringify(records)).digest("hex"),
-    requestSelectionCorpusDigest,
-    "canonical request-selection corpus differs from the independent corpus oracle",
-  );
   return new Map(records.map((record) => [record.id, record]));
 }
 

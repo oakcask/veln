@@ -164,16 +164,29 @@ test("requires semantic evidence for every replayed request", () => {
   assert.throws(() => validateScenarioDocument(document, candidateOptions), /no independent semantic annotation/);
 });
 
-test("rejects changed text in every corpus row with unchanged claimed semantics", () => {
+test("checks every corpus row against independent text and semantic labels", () => {
   const document = fixture();
   for (const [index, selection] of document.request_selection.entries()) {
-    const mutated = structuredClone(document);
-    mutated.request_selection[index].text = `${selection.text} changed`;
-    assert.throws(
-      () => validateScenarioDocument(mutated, candidateOptions),
-      /differ from the independent corpus oracle/,
-      selection.id,
-    );
+    for (const [field, value] of [
+      ["text", `${selection.text} changed`],
+      ["action", selection.action === "information" ? "repository_action" : "information"],
+      ["subject", selection.subject === "implementation" ? "language_behavior" : "implementation"],
+    ]) {
+      const mutated = structuredClone(document);
+      mutated.request_selection[index][field] = value;
+      if (field !== "text") {
+        const semantics = mutated.request_selection[index];
+        semantics.route = semantics.action === "repository_action"
+          || semantics.subject !== "language_behavior"
+          ? "repository"
+          : "language";
+      }
+      assert.throws(
+        () => validateScenarioDocument(mutated, candidateOptions),
+        /differ from the independent corpus oracle/,
+        `${selection.id} ${field}`,
+      );
+    }
   }
 });
 

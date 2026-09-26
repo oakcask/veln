@@ -1,0 +1,527 @@
+{
+  "schema_version": 1,
+  "records": [
+    {
+      "id": "add-action",
+      "text": "Add a rule to the Veln compiler parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "add-language",
+      "text": "What does add mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "change-action",
+      "text": "Change Veln schema semantics.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "change-language",
+      "text": "How do Veln schemas change?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "debug-action",
+      "text": "Debug the Veln compiler parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "debug-language",
+      "text": "What does debug mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "examine-action",
+      "text": "Examine the Veln compiler parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "examine-language",
+      "text": "What does examine mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "fix-action",
+      "text": "Could you please fix the Veln compiler parser?",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "fix-language",
+      "text": "What does fix mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "implement-action",
+      "text": "Implement the Veln compiler parser change.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "implement-language",
+      "text": "How does Veln implement schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "inspect-action",
+      "text": "I need you to inspect how Veln schemas work.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-assisted-action",
+      "text": "Please help me inspect the Veln parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-polite-intervening",
+      "text": "Could you take a moment to inspect the Veln parser implementation?",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-modal-embedded",
+      "text": "Do you think you could inspect the parser?",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-framed-curly-apostrophe",
+      "text": "I’d like you to inspect the Veln parser implementation.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-assigned-action",
+      "text": "Your task is to inspect the Veln parser implementation.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-nominal-action",
+      "text": "The purpose here is to inspect the Veln parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-nominal-definition",
+      "text": "What I need is an explanation of what inspect means in Veln schemas.",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "inspect-communicated-action",
+      "text": "I ask that you inspect the Veln parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-communicated-infinitive",
+      "text": "I ask you to inspect the Veln parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-communicated-polite-infinitive",
+      "text": "I ask you to please inspect the Veln parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-communicated-polite-definition",
+      "text": "I ask you to please explain what inspect means in Veln schemas.",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "inspect-modified-action",
+      "text": "Please thoroughly inspect the Veln parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-modal-question",
+      "text": "Will you inspect Veln schemas?",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "inspect-communicated-definition",
+      "text": "I ask what inspect means in Veln schemas.",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "inspect-communicated-explanation",
+      "text": "I ask that you explain what inspect means in Veln schemas.",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "inspect-language",
+      "text": "In Veln terminology: inspect means what?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "inspect-polite-term-definition",
+      "text": "Could you take a moment to explain what inspect means in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "inspect-direct-term-definition",
+      "text": "Please explain what inspect means in Veln schemas.",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "investigate-action",
+      "text": "We should investigate the Veln compiler parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "investigate-language",
+      "text": "What does investigate mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "modify-action",
+      "text": "Modify the Veln compiler parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "modify-language",
+      "text": "What does modify mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "refactor-action",
+      "text": "Refactor the Veln compiler parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "refactor-language",
+      "text": "What does refactor mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "remove-action",
+      "text": "Remove a rule from the Veln compiler parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "remove-language",
+      "text": "What does remove mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "review-action",
+      "text": "Tell me whether you can review the Veln compiler parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "review-language-question",
+      "text": "Can you review what contracts mean in Veln?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "review-indirect-language-question",
+      "text": "Can you show me how to review contracts in Veln?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "review-language",
+      "text": "Review this question: how do Veln schemas work?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "select-action",
+      "text": "Select the next ready Veln language proposal.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "select-language",
+      "text": "What does select mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "test-action",
+      "text": "Test how Veln schemas work.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "test-communicated-action",
+      "text": "For this task, I ask that you test the Veln parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "test-language",
+      "text": "What can I test in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "update-action",
+      "text": "Update the Veln compiler parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "update-language",
+      "text": "Please update me on how Veln schemas work.",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "repository-subject",
+      "text": "Can you tell me what is in the Veln repository?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "repository-copula-subject",
+      "text": "Is the Veln repository organized by crates?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "repository-auxiliary-subject",
+      "text": "Does the Veln repository use crates?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "repository-about-subject",
+      "text": "Tell me about the Veln repository.",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "repository-why-subject",
+      "text": "Why is the Veln repository so large?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "repository-described-subject",
+      "text": "Describe the Veln repository architecture.",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "repository-which-subject",
+      "text": "Which crates are in the Veln repository?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "repository-word-definition",
+      "text": "Explain the word repository.",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "repository-incidental",
+      "text": "Does Veln have a repository schema?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "repository-compound-incidental",
+      "text": "What is the repository schema in Veln?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "repository-which-incidental",
+      "text": "Which repository schema does Veln use?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "codebase-subject",
+      "text": "Can you tell me what is in the Veln codebase?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "codebase-incidental",
+      "text": "Can Veln schemas describe a codebase identifier?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "source-code-subject",
+      "text": "Can you tell me what is in the Veln source code?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "source-code-where-subject",
+      "text": "Where in the Veln source code is schema parsing implemented?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "source-code-incidental",
+      "text": "Can Veln schemas encode source code text?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "source-code-object-incidental",
+      "text": "Can Veln schemas encode source code?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "proposal-state-subject",
+      "text": "Can you tell me what the Veln proposal state is?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "proposal-state-attribute-subject",
+      "text": "How broad is the Veln proposal state today?",
+      "action": "information",
+      "subject": "repository_material"
+    },
+    {
+      "id": "proposal-state-incidental",
+      "text": "Can Veln schemas record proposal state values?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "assess-parser-action",
+      "text": "Please assess the Veln parser.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "audit-lexer-action",
+      "text": "Audit the Veln lexer.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "assess-effects-action",
+      "text": "Assess how effects are handled in Veln.",
+      "action": "repository_action",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "effects-passive-information",
+      "text": "How are effects handled in Veln?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "effects-explained-information",
+      "text": "Explain how effects are handled in Veln.",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "borrow-checker-information",
+      "text": "Does Veln have a borrow checker?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "schemas-information",
+      "text": "How do Veln schemas work?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "schemas-contracts-information",
+      "text": "How do Veln schemas and contracts interact?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "effects-update-information",
+      "text": "Does Veln update effects automatically?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "schemas-encode-information",
+      "text": "How do Veln schemas encode values?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "modules-information",
+      "text": "How do Veln modules work?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "mcp-inspection-action",
+      "text": "Examine the implemented Veln MCP documentation search.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "explicit-path-inspection",
+      "text": "Inspect MCP documentation search in docs/specification/types.md.",
+      "action": "repository_action",
+      "subject": "implementation"
+    },
+    {
+      "id": "parser-implementation-location-information",
+      "text": "Where is the Veln parser implemented?",
+      "action": "information",
+      "subject": "implementation"
+    },
+    {
+      "id": "schemas-change-action",
+      "text": "Change how Veln schemas work.",
+      "action": "repository_action",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "authoring-policy-review-action",
+      "text": "Review the repository documentation authoring policy.",
+      "action": "repository_action",
+      "subject": "repository_material"
+    },
+    {
+      "id": "unknown-repository-inspection-action",
+      "text": "Inspect repository authority for an undocumented deployment service.",
+      "action": "repository_action",
+      "subject": "repository_material"
+    }
+  ]
+}
