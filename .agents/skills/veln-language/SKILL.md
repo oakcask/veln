@@ -46,9 +46,21 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "preserve_previous_result": true,
     "report_operation": true,
     "report_selected_uri": true,
-    "search_unavailable": "Stop after search_docs and report that published language-reference search is unavailable.",
-    "topic_unavailable": "Stop after read_doc and report that the selected published topic is unavailable.",
-    "stale_snapshot": "When read_doc returns resource_not_found for the selected snapshot URI, stop and report that the URI is stale."
+    "search_unavailable": {
+      "operation": "search_docs",
+      "result": { "kind": "transport_error", "code": "tool_unavailable" },
+      "instruction": "Stop after search_docs and report that published language-reference search is unavailable."
+    },
+    "topic_unavailable": {
+      "operation": "read_doc",
+      "result": { "kind": "transport_error", "code": "transport_unavailable" },
+      "instruction": "Stop after read_doc and report that the selected published topic is unavailable."
+    },
+    "stale_snapshot": {
+      "operation": "read_doc",
+      "result": { "kind": "tool_error", "code": "resource_not_found", "selected_uri_must_match": true },
+      "instruction": "Stop after read_doc and report that the selected snapshot URI is stale."
+    }
   },
   "maintenance": [
     "docs/specification/language-reference-catalog.md",
