@@ -679,11 +679,29 @@ test("rejects a search result with both error and value", () => {
   assert.throws(() => validateScenarioDocument(document, options), /exactly one of error or value/);
 });
 
+test("rejects invalid arguments as an unavailable-search transport failure", () => {
+  const document = fixture();
+  scenario(document, "search-unavailable").turns[1].events[1].error.code = "invalid_arguments";
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /unavailable search must use the recorded tool_unavailable error class/,
+  );
+});
+
 test("rejects a read result with both error and value", () => {
   const document = fixture();
   scenario(document, "topic-unreadable").turns[1].events[3].value =
     matchingTurn(document).events[3].value;
   assert.throws(() => validateScenarioDocument(document, options), /exactly one of error or value/);
+});
+
+test("rejects invalid arguments as an unreadable-topic transport failure", () => {
+  const document = fixture();
+  scenario(document, "topic-unreadable").turns[1].events[3].error.code = "invalid_arguments";
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /unreadable topic must use the recorded transport_unavailable error class/,
+  );
 });
 
 test("rejects resource_not_found as a generic unreadable-topic transport failure", () => {
