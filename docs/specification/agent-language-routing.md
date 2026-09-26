@@ -82,10 +82,12 @@ expected action-and-subject classification. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 the closed operative-contract and result shapes, provenance, bounded failures,
-preserved results, routing, and input limits. The harness compares every corpus
-row with the separate oracle, including its text and both semantic labels, and
-uses contrastive paraphrases. Stress cases run in workers
-that the parent test terminates at their time bound. Stale search recordings
+preserved results, routing, and input limits. The harness derives a route from
+the raw text of every corpus row and replayed request before it checks the
+recorded tool events. It does not use the supplied action-and-subject labels as
+selector input. It separately compares those labels and the request text with
+the reviewed oracle and uses contrastive paraphrases. Stress cases run in
+workers that the parent test terminates at their time bound. Stale search recordings
 are checked in full against archived catalog
 evidence whose snapshot digest is recalculated with the published catalog
 digest contract. The current published catalog bytes must also match their
