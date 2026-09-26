@@ -648,7 +648,11 @@ function snapshotDigest(uri, context) {
 }
 
 export function validateSchema(value, schema, root, context, traversal = undefined) {
-  const state = traversal ?? { referenceDepth: 0, activeReferences: new Set() };
+  const state = traversal ?? {
+    referenceDepth: 0,
+    activeReferences: new Set(),
+    validatedReferences: new Map(),
+  };
   if (schema.$ref !== undefined) {
     assert.match(schema.$ref, /^#\/\$defs\/[A-Za-z0-9_-]+$/, `${context}: unsupported schema reference`);
     assert.ok(
@@ -660,14 +664,20 @@ export function validateSchema(value, schema, root, context, traversal = undefin
       false,
       `${context}: schema reference cycle includes ${schema.$ref}`,
     );
+    if (state.validatedReferences.get(schema.$ref)?.has(value)) return;
     const definition = root.$defs?.[schema.$ref.split("/").at(-1)];
     assert.notEqual(definition, undefined, `${context}: unresolved schema reference ${schema.$ref}`);
     const activeReferences = new Set(state.activeReferences);
     activeReferences.add(schema.$ref);
-    return validateSchema(value, definition, root, context, {
+    validateSchema(value, definition, root, context, {
       referenceDepth: state.referenceDepth + 1,
       activeReferences,
+      validatedReferences: state.validatedReferences,
     });
+    const validatedValues = state.validatedReferences.get(schema.$ref) ?? new Set();
+    validatedValues.add(value);
+    state.validatedReferences.set(schema.$ref, validatedValues);
+    return;
   }
   if (schema.oneOf !== undefined) {
     const matches = schema.oneOf.filter((candidate) => {
