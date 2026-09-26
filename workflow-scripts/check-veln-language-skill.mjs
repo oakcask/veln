@@ -66,7 +66,7 @@ const acceptance = new Map([
   ["repository-unknown", {
     route: "repository",
     finalStatus: "repository_no_route",
-    paths: ["docs/README.md", "docs/navigation.md", "docs/navigation-full.md"],
+    paths: ["docs/README.md", "docs/navigation.md"],
   }],
 ]);
 
@@ -611,7 +611,7 @@ function expectedSelection(text, route, context) {
     return { authority: "docs/reference/documentation-authoring.md" };
   }
   if (/\bundocumented deployment service\b/u.test(lower)) {
-    return { paths: ["docs/README.md", "docs/navigation.md", "docs/navigation-full.md"] };
+    return { paths: ["docs/README.md", "docs/navigation.md"] };
   }
   assert.fail(`${context}: request has no independent repository authority selection rule`);
 }
