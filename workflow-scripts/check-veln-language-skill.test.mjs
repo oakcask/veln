@@ -860,6 +860,34 @@ test("rejects closed and superseded terminal repository authorities", (context) 
   }
 });
 
+test("accepts a terminal repository authority at the document byte limit", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-authority-boundary-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const authority = join(root, "authority.md");
+  const frontmatter = "---\nrole: reference\nauthority: supporting\n---\n";
+  writeFileSync(authority, frontmatter.padEnd(262_144, "x"));
+  assert.equal(currentRepositoryAuthority(authority), "reference");
+});
+
+test("rejects an oversized directly linked terminal repository authority", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-authority-oversized-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "README.md"), "[authority](authority.md)\n");
+  const authority = join(root, "docs", "authority.md");
+  const frontmatter = "---\nrole: reference\nauthority: supporting\n---\n";
+  writeFileSync(authority, frontmatter.padEnd(262_145, "x"));
+
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 3),
+    ["docs/README.md", "docs/authority.md"],
+  );
+  assert.throws(
+    () => currentRepositoryAuthority(authority),
+    /repository document exceeds the byte limit/,
+  );
+});
+
 test("rejects extra fields in a terminal repository read", () => {
   const document = fixture();
   scenario(document, "repository-current").turns[0].events[1].value.fallback = true;
