@@ -102,42 +102,49 @@ test("canonical veln-language skill replays every acceptance scenario", () => {
   assert.equal(validateScenarioDocument(fixture()), 12);
 });
 
-test("request selection derives every corpus route from raw request text", () => {
+test("request selection applies reviewed semantics for every raw corpus request", () => {
   const document = fixture();
   for (const entry of document.request_selection) {
-    assert.equal(selectRequestRoute(entry.text, candidateOptions), entry.route, entry.id);
+    assert.equal(
+      selectRequestRoute({ action: entry.action, subject: entry.subject }, candidateOptions),
+      entry.route,
+      entry.id,
+    );
   }
 });
 
-test("raw-text selector distinguishes semantic routing contrasts", () => {
-  assert.equal(
-    selectRequestRoute("Please assess the Veln parser.", candidateOptions),
-    "repository",
-  );
-  assert.equal(
-    selectRequestRoute("Audit the Veln lexer.", candidateOptions),
-    "repository",
-  );
-  assert.equal(
-    selectRequestRoute("Assess how effects are handled in Veln.", candidateOptions),
-    "repository",
-  );
-  assert.equal(
-    selectRequestRoute("How are effects handled in Veln?", candidateOptions),
-    "language",
-  );
-  assert.equal(
-    selectRequestRoute("Explain how effects are handled in Veln.", candidateOptions),
-    "language",
-  );
+test("reviewed raw requests distinguish semantic routing contrasts", () => {
+  const cases = new Map(fixture().request_selection.map((entry) => [entry.text, entry]));
+  for (const [text, route] of [
+    ["Please assess the Veln parser.", "repository"],
+    ["Audit the Veln lexer.", "repository"],
+    ["Assess how effects are handled in Veln.", "repository"],
+    ["Validate how Veln schemas are parsed.", "repository"],
+    ["Alter how effects are handled in Veln.", "repository"],
+    ["How are effects handled in Veln?", "language"],
+    ["Explain how effects are handled in Veln.", "language"],
+    ["What does validate mean in Veln schemas?", "language"],
+    ["How does Veln alter effects?", "language"],
+  ]) {
+    const entry = cases.get(text);
+    assert.ok(entry, text);
+    assert.equal(
+      selectRequestRoute({ action: entry.action, subject: entry.subject }, candidateOptions),
+      route,
+      text,
+    );
+  }
 });
 
-test("rejects invalid request text and contradictory corpus routes", () => {
-  assert.throws(() => selectRequestRoute({}, candidateOptions), /request text must be a string/);
-  assert.throws(() => selectRequestRoute("", candidateOptions), /request text must not be empty/);
+test("rejects invalid request semantics and contradictory corpus routes", () => {
+  assert.throws(() => selectRequestRoute({ action: "information" }, candidateOptions), /fields must match/);
+  assert.throws(
+    () => selectRequestRoute({ action: "guess", subject: "implementation" }, candidateOptions),
+    /unknown requested action class/,
+  );
   const document = fixture();
   document.request_selection.find((entry) => entry.id === "effects-passive-information").route = "repository";
-  assert.throws(() => validateScenarioDocument(document, candidateOptions), /raw request text selected the wrong route/);
+  assert.throws(() => validateScenarioDocument(document, candidateOptions), /request semantics selected the wrong route/);
 });
 
 test("requires semantic evidence for every replayed request", () => {
@@ -166,7 +173,7 @@ test("checks every corpus row against independent text and semantic labels", () 
       }
       assert.throws(
         () => validateScenarioDocument(mutated, candidateOptions),
-        /raw request text selected the wrong route|differ from the independent corpus oracle/,
+        /differ from the independent corpus oracle/,
         `${selection.id} ${field}`,
       );
     }

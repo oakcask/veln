@@ -422,6 +422,30 @@
       "subject": "language_behavior"
     },
     {
+      "id": "validate-action",
+      "text": "Validate how Veln schemas are parsed.",
+      "action": "repository_action",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "validate-language",
+      "text": "What does validate mean in Veln schemas?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "alter-action",
+      "text": "Alter how effects are handled in Veln.",
+      "action": "repository_action",
+      "subject": "language_behavior"
+    },
+    {
+      "id": "alter-language",
+      "text": "How does Veln alter effects?",
+      "action": "information",
+      "subject": "language_behavior"
+    },
+    {
       "id": "assess-parser-action",
       "text": "Please assess the Veln parser.",
       "action": "repository_action",

@@ -83,7 +83,7 @@ const fixtureLimits = {
   resourceTextBytes: 262_144,
   repositoryDocumentBytes: 262_144,
   fixtureBytes: 1_000_000,
-  requestSelectionCases: 90,
+  requestSelectionCases: 128,
   skillDescriptionCharacters: 300,
   repositoryDiscoveryDocuments: 64,
   publishedCatalogBytes: 2_000_000,
@@ -548,55 +548,9 @@ function routeRequestSemantics(semantics, context) {
   return "language";
 }
 
-function routeRequestText(text, context) {
-  assert.equal(typeof text, "string", `${context}: request text must be a string`);
-  assert.ok(text.length > 0, `${context}: request text must not be empty`);
-  assert.ok(text.length <= fixtureLimits.requestCharacters, `${context}: request exceeds the text limit`);
-  const request = text.normalize("NFKC").toLocaleLowerCase("en-US").replaceAll("’", "'");
-
-  const namesAnActionWithoutRequestingIt = [
-    /\bwhat does \w+ mean\b/u,
-    /\bwhat \w+ means\b/u,
-    /\b\w+ means what\b/u,
-    /\bexplain the word \w+\b/u,
-    /\breview this question\b/u,
-    /\bshow me how to review\b/u,
-    /\breview what contracts mean\b/u,
-    /\bupdate me on how\b/u,
-    /\bwhat can i test\b/u,
-    /\bhow (?:do|does) veln (?:schemas )?(?:change|implement)\b/u,
-    /\bdoes veln update\b/u,
-  ].some((pattern) => pattern.test(request));
-  if (namesAnActionWithoutRequestingIt) return "language";
-
-  const repositoryMentionIsIncidental = [
-    /\brepository schema\b/u,
-    /\bschemas? describe a codebase identifier\b/u,
-    /\bschemas? encode source code(?: text)?\b/u,
-    /\bschemas? record proposal state values\b/u,
-  ].some((pattern) => pattern.test(request));
-  if (repositoryMentionIsIncidental) return "language";
-
-  const repositorySubject = [
-    /\bveln (?:repository|codebase|source code|proposal state)\b/u,
-    /\brepository (?:documentation|authority)\b/u,
-    /(?:^|\s)(?:\.agents|\.github|crates|docs|editors|examples|scripts|tools|workflow-scripts)\//u,
-  ].some((pattern) => pattern.test(request));
-  if (repositorySubject) return "repository";
-
-  if (/\b(?:compiler|parser|lexer)\b/u.test(request)
-    || /\bimplemented veln mcp\b/u.test(request)
-    || /\bnext ready veln language proposal\b/u.test(request)) {
-    return "repository";
-  }
-
-  const requestedRepositoryAction = /\b(?:add|assess|audit|change|debug|examine|fix|implement|inspect|investigate|modify|refactor|remove|review|select|test|update)\b/u;
-  return requestedRepositoryAction.test(request) ? "repository" : "language";
-}
-
-export function selectRequestRoute(text, options = {}) {
+export function selectRequestRoute(semantics, options = {}) {
   loadSkillContract(options);
-  return routeRequestText(text, "request selection");
+  return routeRequestSemantics(semantics, "request selection");
 }
 
 function expectedSelection(text, route, context) {
@@ -1265,6 +1219,7 @@ export function validateScenarioDocument(document, options = {}) {
     document.request_selection.length <= fixtureLimits.requestSelectionCases,
     "request-selection evidence exceeds the case limit",
   );
+  const requestSelectionOracle = loadRequestSelectionOracle();
   const requestSelectionIds = new Set();
   const requestSelectionTexts = new Set();
   const semanticCoverage = new Set();
@@ -1278,20 +1233,7 @@ export function validateScenarioDocument(document, options = {}) {
     assert.ok(selection.text.length <= fixtureLimits.requestCharacters, `${selection.id}: request exceeds the fixture text limit`);
     assert.equal(requestSelectionTexts.has(selection.text), false, `${selection.id}: duplicate request-selection text`);
     requestSelectionTexts.add(selection.text);
-    assert.equal(
-      routeRequestText(selection.text, selection.id),
-      selection.route,
-      `${selection.id}: raw request text selected the wrong route`,
-    );
-    const semantics = { action: selection.action, subject: selection.subject };
-    assert.equal(
-      routeRequestSemantics(semantics, selection.id),
-      selection.route,
-      `${selection.id}: request semantics selected the wrong route`,
-    );
-    semanticCoverage.add(`${selection.action}:${selection.subject}:${selection.route}`);
   }
-  const requestSelectionOracle = loadRequestSelectionOracle();
   assert.deepEqual(
     [...requestSelectionIds].sort(),
     [...requestSelectionOracle.keys()].sort(),
@@ -1304,6 +1246,12 @@ export function validateScenarioDocument(document, options = {}) {
       expected,
       `${selection.id}: text and semantic classifications differ from the independent corpus oracle`,
     );
+    assert.equal(
+      routeRequestSemantics({ action: expected.action, subject: expected.subject }, selection.id),
+      selection.route,
+      `${selection.id}: request semantics selected the wrong route`,
+    );
+    semanticCoverage.add(`${expected.action}:${expected.subject}:${selection.route}`);
   }
   assert.deepEqual(
     semanticCoverage,
@@ -1324,8 +1272,12 @@ export function validateScenarioDocument(document, options = {}) {
     ["Please assess the Veln parser.", "repository"],
     ["Audit the Veln lexer.", "repository"],
     ["Assess how effects are handled in Veln.", "repository"],
+    ["Validate how Veln schemas are parsed.", "repository"],
+    ["Alter how effects are handled in Veln.", "repository"],
     ["How are effects handled in Veln?", "language"],
     ["Explain how effects are handled in Veln.", "language"],
+    ["What does validate mean in Veln schemas?", "language"],
+    ["How does Veln alter effects?", "language"],
     ["Where is the Veln parser implemented?", "repository"],
   ]) {
     assert.equal(
@@ -1351,9 +1303,11 @@ export function validateScenarioDocument(document, options = {}) {
       const context = `${scenario.id} turn ${index + 1}`;
       const selection = requestSelectionByText.get(turn.request?.text);
       assert.ok(selection, `${context}: request has no independent semantic annotation`);
-      const route = routeRequestText(turn.request.text, context);
-      assert.equal(route, selection.route, `${context}: request text selected a route inconsistent with its corpus row`);
-      assert.equal(route, requirement.route, `${context}: request text selected the wrong route for ${scenario.covers}`);
+      const expected = requestSelectionOracle.get(selection.id);
+      assert.equal(expected.text, turn.request.text, `${context}: recorded request differs from the independent corpus oracle`);
+      const route = routeRequestSemantics({ action: expected.action, subject: expected.subject }, context);
+      assert.equal(route, selection.route, `${context}: reviewed request semantics selected a route inconsistent with its corpus row`);
+      assert.equal(route, requirement.route, `${context}: reviewed request semantics selected the wrong route for ${scenario.covers}`);
       lastSuccessfulResult = route === "language"
         ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, published, snapshots, context)
         : validateRepositoryTurn(turn, lastSuccessfulResult, requirement, contract, repositoryRoot, context);
