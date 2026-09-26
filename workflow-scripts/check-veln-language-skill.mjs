@@ -1055,6 +1055,7 @@ function parseInlineLinkDestination(source, start) {
     cursor += 1;
     const targetStart = cursor;
     while (cursor < source.length && source[cursor] !== ">" && source[cursor] !== "\n") {
+      if (source[cursor] === "(" || source[cursor] === "[") return undefined;
       if (source[cursor] === "<" && !isBackslashEscaped(source, cursor)) return undefined;
       cursor += 1;
     }
@@ -1062,22 +1063,17 @@ function parseInlineLinkDestination(source, start) {
     target = source.slice(targetStart, cursor);
     cursor += 1;
   } else {
-    let parentheses = 0;
     let escaped = false;
     while (cursor < source.length) {
       const character = source[cursor];
+      if (character === "(" || character === "[") return undefined;
       if (!escaped) {
-        if (character === "(") parentheses += 1;
-        if (character === ")") {
-          if (parentheses === 0) break;
-          parentheses -= 1;
-        }
+        if (character === ")") break;
         if (/\s/u.test(character)) break;
       }
       escaped = character === "\\" ? !escaped : false;
       cursor += 1;
     }
-    if (parentheses !== 0) return undefined;
     target = source.slice(destinationStart, cursor);
   }
   const destinationEnd = cursor;

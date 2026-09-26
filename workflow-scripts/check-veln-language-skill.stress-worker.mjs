@@ -68,6 +68,21 @@ function runTarget(target, data) {
     }
     return { bytes, linkCounts, milliseconds };
   }
+  if (target === "repeated-malformed-destinations") {
+    const bytes = [];
+    const linkCounts = [];
+    const milliseconds = [];
+    for (const size of data.sizes) {
+      const source = "[](".repeat(Math.floor(size / 3)).padEnd(size, "x");
+      writeFileSync(data.path, source);
+      const start = performance.now();
+      const links = linkedDocumentationPaths(data.repositoryPath, data.root);
+      milliseconds.push(performance.now() - start);
+      bytes.push(Buffer.byteLength(source));
+      linkCounts.push(links.length);
+    }
+    return { bytes, linkCounts, milliseconds };
+  }
   if (target === "schema-branching-cycle") {
     const reference = { $ref: "#/$defs/loop" };
     const schema = {
