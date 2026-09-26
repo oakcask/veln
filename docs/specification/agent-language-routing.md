@@ -60,10 +60,16 @@ route.
 
 The language route makes at most one search and one read. When search returns
 no topic, the skill reports the absence and does not use proposal text or model
-memory. When search is unavailable, a selected topic cannot be read, or a
-snapshot URI is stale, the skill stops, reports the failed operation and
-selected URI when one exists, and leaves any earlier successful result
-unchanged.
+memory. The route distinguishes failures as follows:
+
+| Tool result | Outcome |
+| --- | --- |
+| `search_docs` returns the transport error `tool_unavailable` | Stop after search and report that search is unavailable. |
+| `read_doc` returns the transport error `transport_unavailable` | Stop after read and report that the selected topic is unavailable. |
+| `read_doc` returns a tool error with code `resource_not_found` for the selected snapshot URI | Stop after read and report that the selected snapshot URI is stale. |
+
+Each failure reports the failed operation and the selected URI when one exists.
+It also leaves any earlier successful result unchanged.
 
 Repository routing reads at most three distinct documentation files. It stops
 when the selected route ends and reports when no route covers the request.
