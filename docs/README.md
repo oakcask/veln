@@ -32,6 +32,8 @@ is not obvious.
 - Update MCP workspace selection, saved diagnostics, saved navigation,
   resources, or tool schemas:
   [specification/mcp.md](specification/mcp.md).
+- Update agent routing between published language topics and repository work:
+  [specification/agent-language-routing.md](specification/agent-language-routing.md).
 - Check rationale behind current behavior:
   [specification/source-decisions.md](specification/source-decisions.md).
 - Author or maintain documentation:

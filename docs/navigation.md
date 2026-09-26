@@ -22,6 +22,8 @@ routes below are not enough.
 - Diagnostics or JSON output:
   [specification/diagnostics-json.md](specification/diagnostics-json.md)
   and [specification/json-output.md](specification/json-output.md).
+- Agent routing for language questions and repository work:
+  [specification/agent-language-routing.md](specification/agent-language-routing.md).
 - Proposal catalog: [proposals/README.md](proposals/README.md).
 - Proposal implementation and promotion: compare the selected proposal with the
   matching specification page.
