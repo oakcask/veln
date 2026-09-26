@@ -962,6 +962,22 @@ test("does not treat an outer nested Markdown link as navigation", (context) => 
   );
 });
 
+test("finds a valid link after repeated malformed destinations", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-link-after-malformed-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  writeFileSync(
+    join(root, "docs", "README.md"),
+    `${"[](".repeat(8)} [authority](authority.md)\n`,
+  );
+
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
+    ["docs/README.md", "docs/authority.md"],
+  );
+});
+
 test("retains a link whose label contains an image", (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-image-label-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
@@ -1093,6 +1109,26 @@ test("discovers links in linear progress on malformed adjacent-size input", asyn
   mkdirSync(join(root, "docs"));
   writeFileSync(join(root, "docs", "README.md"), "[".repeat(262_144));
   assert.deepEqual(await runStressTarget("linked-paths", { path: "docs/README.md", root }), []);
+});
+
+test("bounds repeated malformed destinations through the accepted size", async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-links-malformed-destinations-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  const path = join(root, "docs", "README.md");
+  const sizes = [131_072, 262_144];
+  const result = await runStressTarget("repeated-malformed-destinations", {
+    path,
+    repositoryPath: "docs/README.md",
+    root,
+    sizes,
+  }, 1_000);
+  assert.deepEqual(result.bytes, sizes);
+  assert.deepEqual(result.linkCounts, [0, 0]);
+  assert.ok(
+    result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 20,
+    `malformed destination scaling regressed: ${result.milliseconds.join(" ms, ")} ms`,
+  );
 });
 
 test("parses escaped inline-link destinations with adjacent-size scaling", async (context) => {
