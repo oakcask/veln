@@ -1304,6 +1304,10 @@ export function shortestDocumentationRoute(
 }
 
 export function currentRepositoryAuthority(path, context = "repository authority") {
+  assert.ok(
+    statSync(path).size <= fixtureLimits.repositoryDocumentBytes,
+    `${context}: repository document exceeds the byte limit`,
+  );
   const match = readFileSync(path, "utf8").match(/^---\n([\s\S]*?)\n---/);
   const role = match?.[1].match(/^role:\s*(\S+)\s*$/m)?.[1];
   const status = match?.[1].match(/^status:\s*(\S+)\s*$/m)?.[1];

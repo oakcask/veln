@@ -14,12 +14,6 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
-## Ready
-
-- [Agent language-reference skill routing](agent-language-reference-skill.md)
-  defines a client-neutral skill that answers language questions from the
-  published reference and routes repository changes to repository authority.
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the

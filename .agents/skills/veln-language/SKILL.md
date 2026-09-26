@@ -14,6 +14,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
   "schema_version": 1,
   "request_selection": {
     "repository_when": "The request asks to inspect, test, or change the Veln repository or makes the repository, codebase, source code, or proposal state its subject.",
+    "semantic_basis": "Classify the requested action and subject by meaning. Do not decide from a closed vocabulary of verbs, question words, or sentence frames.",
     "language_otherwise": true
   },
   "language": {
@@ -37,13 +38,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "published_reference_is_authority": false,
     "authority_selection": "smallest_current_linked_authority",
     "no_route": "Stop and report that no repository documentation route covers the request.",
-    "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
-    "explicit_target_selection": "An explicit repository target selects repository work only when it is the requested subject, including direct or indirect what or where questions. A term definition or incidental mention does not select repository work.",
-    "intent_verbs": ["add", "change", "debug", "examine", "fix", "implement", "inspect", "investigate", "modify", "refactor", "remove", "review", "select", "test", "update"],
-    "intent_selection": "A requested inspection, test, or change action selects repository work regardless of its position. A word that names such an action does not select repository work when the request instead asks a language question or asks what the word means.",
-    "language_complements": ["how", "what", "when", "where", "whether", "why"],
-    "location_question_endings": ["defined", "handled", "implemented", "located"],
-    "location_question_forms": ["where", "tell me where", "show me where"],
+    "semantic_selection": "A request for the agent to examine, validate, or alter Veln behavior or implementation selects repository work. A question whose subject is a compiler or parser implementation also selects repository work. A request for information about how a Veln language feature behaves selects language work. A repository, codebase, source-code, proposal-state, or repository-path subject selects repository work unless the phrase is incidental or being defined.",
     "path_prefixes": [".agents/", ".github/", "crates/", "docs/", "editors/", "examples/", "scripts/", "tools/", "workflow-scripts/"]
   },
   "failure": {
