@@ -37,6 +37,30 @@ function runTarget(target, data) {
     };
     validateSchema({}, schema, schema, "branching cyclic schema");
   }
+  if (target === "schema-branching-dag") {
+    const schema = { $defs: {}, $ref: "#/$defs/level-0" };
+    let value = {};
+    for (let index = data.levels - 1; index >= 0; index -= 1) {
+      const reference = {
+        $ref: index === data.levels - 1
+          ? "#/$defs/terminal"
+          : `#/$defs/level-${index + 1}`,
+      };
+      const branch = (choice) => ({
+        type: "object",
+        properties: { next: reference, choice: { const: choice } },
+        required: ["next", "choice"],
+        additionalProperties: false,
+      });
+      schema.$defs[`level-${index}`] = {
+        oneOf: [branch("left"), branch("right")],
+      };
+      value = { next: value, choice: "left" };
+    }
+    schema.$defs.terminal = { type: "object", additionalProperties: false };
+    validateSchema(value, schema, schema, "branching schema DAG");
+    return data.levels;
+  }
   if (target === "snapshot-evidence") {
     const originalStructuredClone = globalThis.structuredClone;
     let cloneCalls = 0;

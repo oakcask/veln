@@ -135,6 +135,10 @@ test("rejects a branching schema reference cycle within the external time bound"
   );
 });
 
+test("validates a branching schema DAG within the external time bound", async () => {
+  assert.equal(await runStressTarget("schema-branching-dag", { levels: 30 }, 3_000), 30);
+});
+
 test("request selection applies reviewed semantics for every raw corpus request", () => {
   const document = fixture();
   for (const entry of document.request_selection) {
