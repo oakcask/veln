@@ -70,6 +70,11 @@ memory. The route distinguishes failures as follows:
 
 Each failure reports the failed operation and the selected URI when one exists.
 It also leaves any earlier successful result unchanged.
+Within one server process, search candidates and reads remain retained state, so
+a URI returned by `search_docs` remains readable. The stale-URI outcome can
+occur after that server process ends and a replacement server starts with a
+different checked language-reference snapshot. The replacement can reject the
+earlier exact URI with `resource_not_found`.
 
 Repository routing reads at most three distinct documentation files. It stops
 when the selected route ends and reports when no route covers the request.
@@ -97,10 +102,12 @@ terminates at their time bound. The offline harness rejects repository
 documents larger than `262144` bytes before parsing them, which bounds replay
 resource use. It also verifies that a terminal authority recorded as current
 does not declare a closed or superseded lifecycle. Stale search recordings are
-checked in full against archived catalog
-evidence whose snapshot digest is recalculated with the published catalog
-digest contract. The current published catalog bytes must also match their
-digest sidecar before the harness parses them. The harness bounds published
+checked in full against archived catalog evidence whose snapshot digest is
+recalculated with the published catalog digest contract. The replay also
+requires a distinct replacement server whose retained snapshot is the current
+published snapshot before the stale read. The current published catalog bytes
+must also match their digest sidecar before the harness parses them. The
+harness bounds published
 catalog bytes and topic count, archived snapshot count, overrides per snapshot,
 and the snapshot-by-topic work product before it reconstructs archived
 catalogs. Its scaling check measures accepted ASCII internal-space runs at

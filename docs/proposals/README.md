@@ -14,6 +14,10 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
+## Ready
+
+No proposals are ready for implementation.
+
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the

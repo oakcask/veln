@@ -522,9 +522,21 @@ function parseSkillContract(skillText) {
     preserve_previous_result: true,
     report_operation: true,
     report_selected_uri: true,
-    search_unavailable: "Stop after search_docs and report that published language-reference search is unavailable.",
-    topic_unavailable: "Stop after read_doc and report that the selected published topic is unavailable.",
-    stale_snapshot: "When read_doc returns resource_not_found for the selected snapshot URI, stop and report that the URI is stale.",
+    search_unavailable: {
+      operation: "search_docs",
+      result: { kind: "transport_error", code: "tool_unavailable" },
+      instruction: "Stop after search_docs and report that published language-reference search is unavailable.",
+    },
+    topic_unavailable: {
+      operation: "read_doc",
+      result: { kind: "transport_error", code: "transport_unavailable" },
+      instruction: "Stop after read_doc and report that the selected published topic is unavailable.",
+    },
+    stale_snapshot: {
+      operation: "read_doc",
+      result: { kind: "tool_error", code: "resource_not_found", selected_uri_must_match: true },
+      instruction: "Stop after read_doc and report that the selected snapshot URI is stale.",
+    },
   }, "veln-language skill failure contract is inconsistent");
   assert.deepEqual(contract.maintenance, [
     "docs/specification/language-reference-catalog.md",
@@ -821,10 +833,15 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   const { events } = turn;
   assert.ok(turn.request.text.length <= fixtureLimits.requestCharacters, `${context}: request exceeds the fixture text limit`);
   for (const event of events) {
-    assert.ok(["call", "result", "answer"].includes(event.type), `${context}: language route contains forbidden fallback event ${event.type}`);
+    assert.ok(["call", "result", "server_transition", "answer"].includes(event.type), `${context}: language route contains forbidden fallback event ${event.type}`);
   }
   const calls = events.filter((event) => event.type === "call");
-  assert.ok(events.length <= fixtureLimits.eventsPerTurn, `${context}: turn exceeds the event limit`);
+  const serverTransitions = events.filter((event) => event.type === "server_transition");
+  assert.ok(serverTransitions.length <= 1, `${context}: turn must not record more than one server replacement`);
+  assert.ok(
+    events.length <= fixtureLimits.eventsPerTurn + serverTransitions.length,
+    `${context}: turn exceeds the event limit`,
+  );
   assert.ok(calls.length <= contract.language.maximum_calls, `${context}: language route exceeded its call bound`);
   assert.equal(events[0]?.type, "call", `${context}: language route must start with a call`);
   assertExactKeys(events[0], ["type", "tool", "arguments"], `${context}: search call event`);
@@ -857,12 +874,18 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     assertExactKeys(searchResult.error, ["code"], `${context}: search transport error`);
     assert.equal(
       searchResult.error.code,
-      "tool_unavailable",
+      contract.failure.search_unavailable.result.code,
       `${context}: unavailable search must use the recorded tool_unavailable error class`,
     );
     assert.equal(answer.status, "search_unavailable", `${context}: wrong unavailable-search status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: search failure answer`);
-    validateFailure(answer, "search_docs", null, previousResult, context);
+    validateFailure(
+      answer,
+      contract.failure.search_unavailable.operation,
+      null,
+      previousResult,
+      context,
+    );
     return previousResult;
   }
 
@@ -909,17 +932,51 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     return previousResult;
   }
 
-  assert.equal(events.length, 5, `${context}: matching route must have one search and one read`);
-  assert.equal(events[2]?.type, "call", `${context}: topic read must follow search result`);
-  assertExactKeys(events[2], ["type", "tool", "arguments"], `${context}: read call event`);
-  assert.equal(events[2]?.tool, contract.language.read_tool, `${context}: matching route must use read_doc`);
-  validateSchema(events[2]?.arguments, schemas.readInput, schemas.readInput, `${context}: read_doc input`);
-  const selectedUri = events[2]?.arguments?.uri;
+  const transition = events[2]?.type === "server_transition" ? events[2] : undefined;
+  const readCallIndex = transition === undefined ? 2 : 3;
+  const readResultIndex = readCallIndex + 1;
+  const expectedEventCount = transition === undefined ? 5 : 6;
+  assert.equal(events.length, expectedEventCount, `${context}: matching route must have one search and one read`);
+  if (transition !== undefined) {
+    assertExactKeys(transition, ["type", "transition", "before", "after"], `${context}: server transition`);
+    assert.equal(transition.transition, "replace_process", `${context}: unsupported server lifecycle transition`);
+    assertExactKeys(transition.before, ["server_instance", "language_snapshot_digest"], `${context}: previous server state`);
+    assertExactKeys(transition.after, ["server_instance", "language_snapshot_digest"], `${context}: replacement server state`);
+    assert.equal(typeof transition.before.server_instance, "string", `${context}: previous server identity must be text`);
+    assert.ok(transition.before.server_instance.length > 0, `${context}: previous server identity must not be empty`);
+    assert.equal(typeof transition.after.server_instance, "string", `${context}: replacement server identity must be text`);
+    assert.ok(transition.after.server_instance.length > 0, `${context}: replacement server identity must not be empty`);
+    assert.notEqual(
+      transition.before.server_instance,
+      transition.after.server_instance,
+      `${context}: server replacement must identify distinct process instances`,
+    );
+    assert.equal(
+      transition.before.language_snapshot_digest,
+      resultDigest,
+      `${context}: previous server must retain the snapshot that produced search results`,
+    );
+    assert.equal(
+      transition.after.language_snapshot_digest,
+      published.digest,
+      `${context}: replacement server must use the checked published snapshot`,
+    );
+    assert.notEqual(
+      transition.before.language_snapshot_digest,
+      transition.after.language_snapshot_digest,
+      `${context}: server replacement must change the retained language snapshot`,
+    );
+  }
+  assert.equal(events[readCallIndex]?.type, "call", `${context}: topic read must follow search result or server replacement`);
+  assertExactKeys(events[readCallIndex], ["type", "tool", "arguments"], `${context}: read call event`);
+  assert.equal(events[readCallIndex]?.tool, contract.language.read_tool, `${context}: matching route must use read_doc`);
+  validateSchema(events[readCallIndex]?.arguments, schemas.readInput, schemas.readInput, `${context}: read_doc input`);
+  const selectedUri = events[readCallIndex]?.arguments?.uri;
   assert.ok(results.some((result) => result.uri === selectedUri), `${context}: read_doc URI must exactly match a search result`);
   assert.equal(selectedUri, results[0].uri, `${context}: read_doc must deterministically select the first search result`);
-  assert.equal(events[3]?.type, "result", `${context}: topic result must follow read call`);
-  assert.equal(events[3]?.tool, contract.language.read_tool, `${context}: expected recorded read result`);
-  const readResult = events[3];
+  assert.equal(events[readResultIndex]?.type, "result", `${context}: topic result must follow read call`);
+  assert.equal(events[readResultIndex]?.tool, contract.language.read_tool, `${context}: expected recorded read result`);
+  const readResult = events[readResultIndex];
   assert.equal(Object.hasOwn(readResult, "error") !== Object.hasOwn(readResult, "value"), true, `${context}: result event must contain exactly one of error or value`);
   assertExactKeys(readResult, readResult.error === undefined
     ? ["type", "tool", "value"]
@@ -934,17 +991,24 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     assert.ok(readResult.error.code.length > 0, `${context}: read error code must not be empty`);
     assert.notEqual(
       readResult.error.code,
-      "resource_not_found",
+      contract.failure.stale_snapshot.result.code,
       `${context}: resource_not_found must use the checked stale-snapshot result path`,
     );
     assert.equal(
       readResult.error.code,
-      "transport_unavailable",
+      contract.failure.topic_unavailable.result.code,
       `${context}: unreadable topic must use the recorded transport_unavailable error class`,
     );
+    assert.equal(transition, undefined, `${context}: transport failure must not claim a server replacement`);
     assert.equal(answer.status, "topic_unavailable", `${context}: wrong unreadable-topic status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: topic failure answer`);
-    validateFailure(answer, "read_doc", selectedUri, previousResult, context);
+    validateFailure(
+      answer,
+      contract.failure.topic_unavailable.operation,
+      selectedUri,
+      previousResult,
+      context,
+    );
     return previousResult;
   }
   if (readResult.value?.isError === true) {
@@ -954,9 +1018,12 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
       true,
       `${context}: read_doc failure result`,
     );
-    assert.equal(failure.code, "resource_not_found", `${context}: unsupported read_doc error`);
-    assert.equal(failure.details?.uri, selectedUri, `${context}: stale error must identify the selected URI`);
+    assert.equal(failure.code, contract.failure.stale_snapshot.result.code, `${context}: unsupported read_doc error`);
+    if (contract.failure.stale_snapshot.result.selected_uri_must_match) {
+      assert.equal(failure.details?.uri, selectedUri, `${context}: stale error must identify the selected URI`);
+    }
     assert.equal(failure.text, undefined, `${context}: failed read must not contain partial document text`);
+    assert.ok(transition, `${context}: stale snapshot requires a recorded server-process replacement`);
     const staleDigest = snapshotDigest(selectedUri, context);
     assert.notEqual(
       staleDigest,
@@ -966,7 +1033,13 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     assert.ok(snapshots.has(staleDigest), `${context}: stale snapshot has no checked catalog evidence`);
     assert.equal(answer.status, "stale_snapshot", `${context}: wrong stale-snapshot status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: stale-snapshot answer`);
-    validateFailure(answer, "read_doc", selectedUri, previousResult, context);
+    validateFailure(
+      answer,
+      contract.failure.stale_snapshot.operation,
+      selectedUri,
+      previousResult,
+      context,
+    );
     return previousResult;
   }
 
@@ -976,6 +1049,7 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     false,
     `${context}: read_doc result`,
   );
+  assert.equal(transition, undefined, `${context}: successful read must use the search server state`);
   validateReadResult(readStructured, selectedUri, context);
   assert.ok(
     Buffer.byteLength(readStructured.text, "utf8") <= fixtureLimits.resourceTextBytes,
@@ -1547,7 +1621,12 @@ export function readScenarioDocument(path) {
         : ["request", "events"];
       assertExactKeys(turn, turnKeys, `${scenario.id}: turn`);
       assert.ok(Array.isArray(turn.events), `${scenario.id}: events are required`);
-      assert.ok(turn.events.length <= fixtureLimits.eventsPerTurn, `${scenario.id}: turn exceeds the event limit`);
+      const serverTransitions = turn.events.filter((event) => event.type === "server_transition");
+      assert.ok(serverTransitions.length <= 1, `${scenario.id}: turn must not record more than one server replacement`);
+      assert.ok(
+        turn.events.length <= fixtureLimits.eventsPerTurn + serverTransitions.length,
+        `${scenario.id}: turn exceeds the event limit`,
+      );
       for (const event of turn.events) {
         if (event.value_ref === undefined) continue;
         assert.ok(Object.hasOwn(document.recordings, event.value_ref), `unknown scenario recording ${event.value_ref}`);
