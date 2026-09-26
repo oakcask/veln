@@ -1,5 +1,7 @@
 import { parentPort, workerData } from "node:worker_threads";
 
+import { writeFileSync } from "node:fs";
+
 import {
   expectedPublishedSearch,
   linkedDocumentationPaths,
@@ -30,6 +32,24 @@ function runTarget(target, data) {
   }
   if (target === "linked-paths") {
     return linkedDocumentationPaths(data.path, data.root);
+  }
+  if (target === "descending-unmatched-ticks") {
+    const milliseconds = [];
+    const bytes = [];
+    const descendingRuns = Array.from(
+      { length: data.count },
+      (_, index) => "`".repeat(data.count - index),
+    ).join(" ");
+    for (const size of data.sizes) {
+      const prefix = `x ${descendingRuns}`;
+      const source = prefix.padEnd(size, "x");
+      writeFileSync(data.path, source);
+      const start = performance.now();
+      linkedDocumentationPaths(data.repositoryPath, data.root);
+      milliseconds.push(performance.now() - start);
+      bytes.push(Buffer.byteLength(source));
+    }
+    return { bytes, milliseconds };
   }
   if (target === "schema-branching-cycle") {
     const reference = { $ref: "#/$defs/loop" };
