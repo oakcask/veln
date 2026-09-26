@@ -29,8 +29,12 @@ const requestSelectionOraclePath = join(
 const acceptance = new Map([
   ["language-match", { route: "language", finalStatus: "answered" }],
   ["language-no-match", { route: "language", finalStatus: "no_match" }],
+  ["language-query-selection", { route: "language", finalStatus: "answered" }],
+  ["language-query-unbounded", { route: "language", finalStatus: "query_unbounded", failure: true }],
   ["search-unavailable", { route: "language", finalStatus: "search_unavailable", failure: true }],
+  ["search-failed", { route: "language", finalStatus: "search_failed", failure: true }],
   ["topic-unreadable", { route: "language", finalStatus: "topic_unavailable", failure: true }],
+  ["topic-read-failed", { route: "language", finalStatus: "topic_read_failed", failure: true }],
   ["stale-snapshot-uri", { route: "language", finalStatus: "stale_snapshot", failure: true }],
   ["repository-current", {
     route: "repository",
@@ -57,6 +61,12 @@ const acceptance = new Map([
     route: "repository",
     finalStatus: "repository_routed",
     authority: "docs/proposals/README.md",
+  }],
+  ["repository-explicit-path", {
+    route: "repository",
+    finalStatus: "repository_routed",
+    authority: "docs/specification/language-reference-catalog.md",
+    explicitPath: true,
   }],
   ["repository-reference", {
     route: "repository",
@@ -484,6 +494,18 @@ function parseSkillContract(skillText) {
     read_tool: "read_doc",
     maximum_calls: 2,
     call_order: ["search_docs", "read_doc"],
+    query_derivation: {
+      match: "ascii_case_insensitive_whole_word_or_phrase",
+      selection: "earliest_start_then_longest_mention_then_query_utf8",
+      entries: [
+        { mentions: ["schema", "schemas"], query: "schemas" },
+        { mentions: ["contract", "contracts"], query: "contracts" },
+        { mentions: ["effect", "effects"], query: "effects" },
+        { mentions: ["module", "modules"], query: "modules" },
+        { mentions: ["borrow checker"], query: "borrow checker" },
+      ],
+      no_match: "Use the trimmed request text as query when it contains from 1 through 256 Unicode scalar values; otherwise stop and report that no bounded query can be derived.",
+    },
     selection: "first_search_result",
     read_exact_search_result_uri: true,
     fallback: "forbidden",
@@ -495,6 +517,8 @@ function parseSkillContract(skillText) {
     "entry",
     "follow_selected_links",
     "maximum_reads",
+    "explicit_path_reads",
+    "explicit_path_rule",
     "repeat_paths",
     "published_reference_is_authority",
     "authority_selection",
@@ -505,6 +529,12 @@ function parseSkillContract(skillText) {
   assert.equal(contract.repository?.entry, "docs/README.md", "skill must start repository tasks at docs/README.md");
   assert.equal(contract.repository?.follow_selected_links, true, "skill must follow repository documentation links");
   assert.equal(contract.repository?.maximum_reads, 3, "skill must bound repository documentation reads");
+  assert.equal(contract.repository?.explicit_path_reads, 2, "skill must bound explicit repository paths to entry and authority reads");
+  assert.equal(
+    contract.repository?.explicit_path_rule,
+    "After reading docs/README.md, read an explicitly named normalized Markdown path under docs/ directly when it exists and is a current documentation authority. The explicit path is the terminal authority and does not need to be linked from docs/README.md.",
+    "skill must define direct routing for explicit repository documentation paths",
+  );
   assert.equal(contract.repository?.repeat_paths, "forbidden", "skill must reject repository documentation cycles");
   assert.equal(contract.repository?.published_reference_is_authority, false, "skill must reject published-reference repository authority");
   assert.equal(
@@ -538,6 +568,7 @@ function parseSkillContract(skillText) {
     preserve_previous_result: true,
     report_operation: true,
     report_selected_uri: true,
+    dispatch_order: ["search_unavailable", "topic_unavailable", "stale_snapshot", "other_search_failure", "other_topic_failure"],
     search_unavailable: {
       operation: "search_docs",
       result: { kind: "transport_error", code: "tool_unavailable" },
@@ -552,6 +583,16 @@ function parseSkillContract(skillText) {
       operation: "read_doc",
       result: { kind: "tool_error", code: "resource_not_found", selected_uri_must_match: true },
       instruction: "Stop after read_doc and report that the selected snapshot URI is stale.",
+    },
+    other_search_failure: {
+      operation: "search_docs",
+      result: "Any failed or malformed result not matched by an earlier dispatch entry.",
+      instruction: "Stop after search_docs and report that published language-reference search failed.",
+    },
+    other_topic_failure: {
+      operation: "read_doc",
+      result: "Any failed or malformed result not matched by an earlier dispatch entry.",
+      instruction: "Stop after read_doc and report that the selected published topic could not be read.",
     },
   }, "veln-language skill failure contract is inconsistent");
   assert.deepEqual(contract.maintenance, [
@@ -590,35 +631,49 @@ export function selectRequestRoute(semantics, options = {}) {
   return routeRequestSemantics(semantics, "request selection");
 }
 
-function expectedSelection(text, route, context) {
+export function deriveLanguageQuery(text, contract, context) {
+  const derivation = contract.language.query_derivation;
+  const folded = text.replace(/[A-Z]/g, (character) => character.toLowerCase());
+  const asciiWord = /[a-z0-9_]/;
+  for (let start = 0; start < folded.length; start += 1) {
+    let selected;
+    for (const entry of derivation.entries) {
+      for (const mention of entry.mentions) {
+        if (!folded.startsWith(mention, start)) continue;
+        const before = start === 0 ? "" : folded[start - 1];
+        const after = folded[start + mention.length] ?? "";
+        if (asciiWord.test(before) || asciiWord.test(after)) continue;
+        if (selected === undefined
+          || mention.length > selected.length
+          || (mention.length === selected.length
+            && Buffer.compare(Buffer.from(entry.query), Buffer.from(selected.query)) < 0)) {
+          selected = { length: mention.length, query: entry.query };
+        }
+      }
+    }
+    if (selected !== undefined) return { query: selected.query };
+  }
+  const fallback = text.trim();
+  const scalarLength = [...fallback].length;
+  if (scalarLength === 0 || scalarLength > 256) return { unbounded: true };
+  return { query: fallback };
+}
+
+function expectedSelection(text, route, contract, context) {
   const lower = text.toLocaleLowerCase("en-US");
   if (route === "language") {
-    const subjects = [
-      { match: /\bschemas?\b/u.exec(lower), topic: "schemas", query: "schemas" },
-      { match: /\bcontracts?\b/u.exec(lower), topic: "contracts", query: "contracts" },
-      { match: /\beffects?\b/u.exec(lower), topic: "effects-handlers", query: "effects" },
-      { match: /\bmodules?\b/u.exec(lower), topic: "modules-imports-packages", query: "modules" },
-      { match: /\bborrow checker\b/u.exec(lower), topic: undefined, query: "borrow checker" },
-    ].filter((subject) => subject.match !== null)
-      .sort((left, right) => left.match.index - right.match.index || left.query.localeCompare(right.query));
-    if (subjects[0]?.topic === "schemas") {
-      return {
-        searchArguments: { query: subjects[0].query, scope: "language" },
-        topic: "schemas",
-      };
-    }
-    if (subjects.length > 0) {
-      return {
-        searchArguments: { query: subjects[0].query, scope: "language" },
-        topic: subjects[0].topic,
-      };
-    }
-    assert.fail(`${context}: request has no independent language evidence selection rule`);
+    const query = deriveLanguageQuery(text, contract, context);
+    if (query.unbounded) return { queryUnbounded: true };
+    return {
+      searchArguments: { query: query.query, scope: "language" },
+    };
   }
 
-  if (lower.includes("docs/specification/types.md")) {
+  const explicitPath = text.match(/(?:^|\s)(docs\/[a-z0-9._/-]+\.md)(?=$|[\s.,;:!?])/i)?.[1];
+  if (explicitPath !== undefined) {
     return {
-      authority: "docs/specification/types.md",
+      authority: explicitPath,
+      explicitPath: true,
     };
   }
   if (/\bmcp\b.*\bdocumentation search\b/u.test(lower)) {
@@ -839,10 +894,79 @@ function validateToolEnvelope(value, schema, expectedIsError, context) {
   return value.structuredContent;
 }
 
+function validateToolFailureEnvelope(value, context) {
+  assertExactKeys(value, ["content", "structuredContent", "isError"], `${context}: MCP tool envelope`);
+  assert.equal(value.isError, true, `${context}: MCP tool envelope has the wrong error state`);
+  assert.ok(Array.isArray(value.content) && value.content.length === 1, `${context}: MCP tool content must contain one item`);
+  assertExactKeys(value.content[0], ["type", "text"], `${context}: MCP tool text content`);
+  assert.equal(value.content[0].type, "text", `${context}: MCP tool content must be text`);
+  assert.deepEqual(JSON.parse(value.content[0].text), value.structuredContent,
+    `${context}: MCP tool text must encode structuredContent`);
+  assert.equal(typeof value.structuredContent?.code, "string", `${context}: tool error code is required`);
+  assert.ok(value.structuredContent.code.length > 0, `${context}: tool error code must not be empty`);
+  return value.structuredContent;
+}
+
+function acceptsToolEnvelope(value, validator) {
+  try {
+    validator(value);
+    return true;
+  } catch (error) {
+    if (error instanceof assert.AssertionError || error instanceof SyntaxError) return false;
+    throw error;
+  }
+}
+
+function validateMalformedToolValue(value, schema, context) {
+  const validSuccess = acceptsToolEnvelope(
+    value,
+    (candidate) => validateToolEnvelope(candidate, schema, false, `${context}: success candidate`),
+  );
+  const validFailure = acceptsToolEnvelope(
+    value,
+    (candidate) => validateToolFailureEnvelope(candidate, `${context}: failure candidate`),
+  );
+  assert.equal(
+    validSuccess || validFailure,
+    false,
+    `${context}: malformed_result value is a valid MCP tool envelope`,
+  );
+}
+
+function validateResultKind(event, context) {
+  assert.ok(["success", "transport_error", "tool_error", "malformed_result"].includes(event.kind),
+    `${context}: result kind is invalid`);
+  const hasError = Object.hasOwn(event, "error");
+  const hasValue = Object.hasOwn(event, "value");
+  assert.equal(hasError !== hasValue, true, `${context}: result event must contain exactly one of error or value`);
+  if (event.kind === "transport_error") {
+    assert.equal(hasError, true, `${context}: ${event.kind} must use the recorded error branch`);
+  } else if (event.kind === "malformed_result") {
+    assert.equal(hasValue, true, `${context}: malformed_result must preserve the malformed MCP value`);
+  } else {
+    assert.equal(hasValue, true, `${context}: ${event.kind} must use the recorded value branch`);
+    assert.equal(event.value?.isError, event.kind === "tool_error",
+      `${context}: result kind disagrees with the MCP error state`);
+  }
+}
+
 function validateFailure(answer, operation, artifactUri, previousResult, context) {
   assert.deepEqual(answer.failure, { operation, artifact_uri: artifactUri }, `${context}: failure must identify the failed operation and artifact`);
   validateClaims(answer, undefined, undefined, context);
   assert.deepEqual(answer.retained_result, previousResult, `${context}: earlier result changed`);
+}
+
+export function classifyReadFailure(kind, code, errorUri, selectedUri, contract) {
+  if (kind === contract.failure.topic_unavailable.result.kind
+    && code === contract.failure.topic_unavailable.result.code) {
+    return "topic_unavailable";
+  }
+  if (kind === contract.failure.stale_snapshot.result.kind
+    && code === contract.failure.stale_snapshot.result.code
+    && (!contract.failure.stale_snapshot.result.selected_uri_must_match || errorUri === selectedUri)) {
+    return "stale_snapshot";
+  }
+  return "topic_read_failed";
 }
 
 function validateLanguageTurn(turn, previousResult, contract, schemas, published, snapshots, context) {
@@ -859,13 +983,35 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     `${context}: turn exceeds the event limit`,
   );
   assert.ok(calls.length <= contract.language.maximum_calls, `${context}: language route exceeded its call bound`);
+  const selection = expectedSelection(turn.request.text, "language", contract, context);
+  if (selection.queryUnbounded) {
+    assert.equal(events.length, 1, `${context}: unbounded query must stop without a tool call`);
+    assert.equal(calls.length, 0, `${context}: unbounded query must not call a tool`);
+    assertExactKeys(turn.expected, ["query_outcome", "answer_claims"], `${context}: unbounded-query expectation`);
+    assert.equal(turn.expected.query_outcome, "unbounded", `${context}: fixture must record the bounded-query outcome`);
+    assert.deepEqual(turn.expected.answer_claims, [], `${context}: bounded outcome must not expect language claims`);
+    const answer = finalAnswer(events, context);
+    assertExactKeys(
+      answer,
+      ["type", "status", "claims", "source_uris", "message", "retained_result"],
+      `${context}: unbounded-query answer`,
+    );
+    assert.equal(answer.status, "query_unbounded", `${context}: wrong unbounded-query status`);
+    assert.equal(
+      answer.message,
+      "No bounded published language-reference query can be derived.",
+      `${context}: unbounded-query answer must only report the query limit`,
+    );
+    validateClaims(answer, undefined, undefined, context);
+    assert.deepEqual(answer.retained_result, previousResult, `${context}: earlier result changed`);
+    return previousResult;
+  }
   assert.equal(events[0]?.type, "call", `${context}: language route must start with a call`);
   assertExactKeys(events[0], ["type", "tool", "arguments"], `${context}: search call event`);
   assert.equal(events[0]?.tool, contract.language.search_tool, `${context}: language route must search first`);
   validateSchema(events[0]?.arguments, schemas.searchInput, schemas.searchInput, `${context}: search_docs input`);
   assert.equal(events[0]?.arguments?.scope, contract.language.search_scope, `${context}: search scope must be language`);
   assertExactKeys(turn.expected, ["search_arguments", "answer_claims"], `${context}: language expectation`);
-  const selection = expectedSelection(turn.request.text, "language", context);
   assert.deepEqual(turn.expected.search_arguments, selection.searchArguments, `${context}: fixture expectation does not follow the request`);
   assert.deepEqual(
     events[0]?.arguments,
@@ -876,10 +1022,10 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   assert.equal(events[1]?.tool, contract.language.search_tool, `${context}: expected recorded search result`);
   const answer = finalAnswer(events, context);
   const searchResult = events[1];
-  assert.equal(Object.hasOwn(searchResult, "error") !== Object.hasOwn(searchResult, "value"), true, `${context}: result event must contain exactly one of error or value`);
+  validateResultKind(searchResult, `${context}: search result`);
   assertExactKeys(searchResult, searchResult.error === undefined
-    ? ["type", "tool", "value"]
-    : ["type", "tool", "error"], `${context}: search result event`);
+    ? ["type", "tool", "kind", "value"]
+    : ["type", "tool", "kind", "error"], `${context}: search result event`);
   assert.ok(Array.isArray(turn.expected.answer_claims), `${context}: expected answer claims must be an array`);
   if (answer.status !== "answered") {
     assert.deepEqual(turn.expected.answer_claims, [], `${context}: bounded outcome must not expect language claims`);
@@ -888,20 +1034,35 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   if (searchResult.error !== undefined) {
     assert.equal(events.length, 3, `${context}: unavailable search must stop without retry or read`);
     assertExactKeys(searchResult.error, ["code"], `${context}: search transport error`);
-    assert.equal(
-      searchResult.error.code,
-      contract.failure.search_unavailable.result.code,
-      `${context}: unavailable search must use the recorded tool_unavailable error class`,
-    );
-    assert.equal(answer.status, "search_unavailable", `${context}: wrong unavailable-search status`);
+    const named = searchResult.kind === contract.failure.search_unavailable.result.kind
+      && searchResult.error.code === contract.failure.search_unavailable.result.code;
+    assert.equal(answer.status, named ? "search_unavailable" : "search_failed", `${context}: wrong bounded search-failure status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: search failure answer`);
     validateFailure(
       answer,
-      contract.failure.search_unavailable.operation,
+      named ? contract.failure.search_unavailable.operation : contract.failure.other_search_failure.operation,
       null,
       previousResult,
       context,
     );
+    return previousResult;
+  }
+
+  if (searchResult.kind === "malformed_result") {
+    validateMalformedToolValue(searchResult.value, schemas.searchResult, `${context}: search result`);
+    assert.equal(events.length, 3, `${context}: malformed search must stop without retry or read`);
+    assert.equal(answer.status, "search_failed", `${context}: wrong generic search-failure status`);
+    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: search failure answer`);
+    validateFailure(answer, contract.failure.other_search_failure.operation, null, previousResult, context);
+    return previousResult;
+  }
+
+  if (searchResult.kind === "tool_error") {
+    validateToolFailureEnvelope(searchResult.value, `${context}: search_docs failure result`);
+    assert.equal(events.length, 3, `${context}: failed search must stop without retry or read`);
+    assert.equal(answer.status, "search_failed", `${context}: wrong generic search-failure status`);
+    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: search failure answer`);
+    validateFailure(answer, contract.failure.other_search_failure.operation, null, previousResult, context);
     return previousResult;
   }
 
@@ -930,11 +1091,6 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     expectedPublishedSearch(events[0].arguments, searchEvidence),
     `${context}: recorded search_docs result differs from the checked snapshot artifact`,
   );
-  if (selection.topic === undefined) {
-    assert.equal(results.length, 0, `${context}: request-selected topic absence must not replay a match`);
-  } else if (results.length > 0 && resultDigest === published.digest) {
-    assert.ok(results.some((result) => result.uri.endsWith(`/topic/${selection.topic}`)), `${context}: search results do not contain the request-selected topic`);
-  }
   if (results.length === 0) {
     assert.equal(events.length, 3, `${context}: no match must stop without retry or read`);
     assert.equal(answer.status, "no_match", `${context}: wrong no-match status`);
@@ -993,65 +1149,73 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   assert.equal(events[readResultIndex]?.type, "result", `${context}: topic result must follow read call`);
   assert.equal(events[readResultIndex]?.tool, contract.language.read_tool, `${context}: expected recorded read result`);
   const readResult = events[readResultIndex];
-  assert.equal(Object.hasOwn(readResult, "error") !== Object.hasOwn(readResult, "value"), true, `${context}: result event must contain exactly one of error or value`);
+  validateResultKind(readResult, `${context}: read result`);
   assertExactKeys(readResult, readResult.error === undefined
-    ? ["type", "tool", "value"]
-    : ["type", "tool", "error"], `${context}: read result event`);
-  if (resultDigest === published.digest) {
-    assert.ok(selectedUri.endsWith(`/topic/${selection.topic}`), `${context}: read_doc did not select the request-selected topic`);
-  }
+    ? ["type", "tool", "kind", "value"]
+    : ["type", "tool", "kind", "error"], `${context}: read result event`);
 
   if (readResult.error !== undefined) {
     assertExactKeys(readResult.error, ["code"], `${context}: read transport error`);
     assert.equal(typeof readResult.error.code, "string", `${context}: read error code is required`);
     assert.ok(readResult.error.code.length > 0, `${context}: read error code must not be empty`);
-    assert.notEqual(
+    const status = classifyReadFailure(
+      readResult.kind,
       readResult.error.code,
-      contract.failure.stale_snapshot.result.code,
-      `${context}: resource_not_found must use the checked stale-snapshot result path`,
+      undefined,
+      selectedUri,
+      contract,
     );
-    assert.equal(
-      readResult.error.code,
-      contract.failure.topic_unavailable.result.code,
-      `${context}: unreadable topic must use the recorded transport_unavailable error class`,
-    );
-    assert.equal(transition, undefined, `${context}: transport failure must not claim a server replacement`);
-    assert.equal(answer.status, "topic_unavailable", `${context}: wrong unreadable-topic status`);
+    assert.equal(answer.status, status, `${context}: wrong bounded read-failure status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: topic failure answer`);
     validateFailure(
       answer,
-      contract.failure.topic_unavailable.operation,
+      status === "topic_unavailable"
+        ? contract.failure.topic_unavailable.operation
+        : contract.failure.other_topic_failure.operation,
       selectedUri,
       previousResult,
       context,
     );
     return previousResult;
   }
-  if (readResult.value?.isError === true) {
-    const failure = validateToolEnvelope(
-      readResult.value,
-      schemas.readResult,
-      true,
-      `${context}: read_doc failure result`,
+  if (readResult.kind === "malformed_result") {
+    validateMalformedToolValue(readResult.value, schemas.readResult, `${context}: read result`);
+    assert.equal(answer.status, "topic_read_failed", `${context}: wrong generic read-failure status`);
+    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: topic failure answer`);
+    validateFailure(
+      answer,
+      contract.failure.other_topic_failure.operation,
+      selectedUri,
+      previousResult,
+      context,
     );
-    assert.equal(failure.code, contract.failure.stale_snapshot.result.code, `${context}: unsupported read_doc error`);
-    if (contract.failure.stale_snapshot.result.selected_uri_must_match) {
-      assert.equal(failure.details?.uri, selectedUri, `${context}: stale error must identify the selected URI`);
-    }
+    return previousResult;
+  }
+
+  if (readResult.kind === "tool_error") {
+    const failure = validateToolFailureEnvelope(readResult.value, `${context}: read_doc failure result`);
+    const status = classifyReadFailure(
+      readResult.kind,
+      failure.code,
+      failure.details?.uri,
+      selectedUri,
+      contract,
+    );
+    const stale = status === "stale_snapshot";
     assert.equal(failure.text, undefined, `${context}: failed read must not contain partial document text`);
-    assert.ok(transition, `${context}: stale snapshot requires a recorded server-process replacement`);
-    const staleDigest = snapshotDigest(selectedUri, context);
-    assert.notEqual(
-      staleDigest,
-      published.digest,
-      `${context}: stale snapshot URI must differ from the checked published snapshot digest`,
-    );
-    assert.ok(snapshots.has(staleDigest), `${context}: stale snapshot has no checked catalog evidence`);
-    assert.equal(answer.status, "stale_snapshot", `${context}: wrong stale-snapshot status`);
+    if (stale) {
+      validateSchema(failure, schemas.readResult, schemas.readResult, `${context}: stale read_doc failure`);
+      assert.ok(transition, `${context}: stale snapshot requires a recorded server-process replacement`);
+      const staleDigest = snapshotDigest(selectedUri, context);
+      assert.notEqual(staleDigest, published.digest,
+        `${context}: stale snapshot URI must differ from the checked published snapshot digest`);
+      assert.ok(snapshots.has(staleDigest), `${context}: stale snapshot has no checked catalog evidence`);
+    }
+    assert.equal(answer.status, status, `${context}: wrong tool-failure status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: stale-snapshot answer`);
     validateFailure(
       answer,
-      contract.failure.stale_snapshot.operation,
+      stale ? contract.failure.stale_snapshot.operation : contract.failure.other_topic_failure.operation,
       selectedUri,
       previousResult,
       context,
@@ -1452,17 +1616,27 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
   }
   const reads = events.filter((event) => event.type === "read");
   assert.ok(events.length <= fixtureLimits.eventsPerTurn, `${context}: turn exceeds the event limit`);
-  const selection = expectedSelection(turn.request.text, "repository", context);
+  const selection = expectedSelection(turn.request.text, "repository", contract, context);
   assert.equal(requirement.authority, selection.authority, `${context}: acceptance label does not match request-selected repository authority`);
+  assert.equal(Boolean(requirement.explicitPath), Boolean(selection.explicitPath),
+    `${context}: acceptance label does not match explicit-path selection`);
   assert.equal(reads[0]?.path, contract.repository.entry, `${context}: repository route must start at docs/README.md`);
   assert.equal(new Set(reads.map((read) => read.path)).size, reads.length, `${context}: repository route repeated a path`);
-  assert.ok(reads.length <= contract.repository.maximum_reads, `${context}: repository route exceeded its read bound`);
+  assert.ok(reads.length <= (selection.explicitPath
+    ? contract.repository.explicit_path_reads
+    : contract.repository.maximum_reads), `${context}: repository route exceeded its read bound`);
   for (const [index, read] of reads.entries()) {
     assertExactKeys(read, ["type", "path", "value"], `${context}: repository read`);
     checkedRepositoryPath(repositoryRoot, read.path, context);
     const terminal = index === reads.length - 1;
     if (!terminal || requirement.authority === undefined) {
-      assertExactKeys(read.value, ["route"], `${context}: repository routing result`);
+      assertExactKeys(read.value, selection.explicitPath && index === 0
+        ? ["route", "selection"]
+        : ["route"], `${context}: repository routing result`);
+      if (selection.explicitPath && index === 0) {
+        assert.equal(read.value.selection, "explicit-request-path",
+          `${context}: entry read must identify explicit request-path selection`);
+      }
       assert.equal(
         typeof read.value.route === "string" || (terminal && read.value.route === null),
         true,
@@ -1478,17 +1652,21 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
     }
     if (index > 0) {
       assert.equal(read.path, reads[index - 1].value?.route, `${context}: selected docs route was not followed`);
-      assert.ok(linkedDocumentationPaths(reads[index - 1].path, repositoryRoot).includes(read.path), `${context}: repository routing page does not select ${read.path}`);
+      if (!selection.explicitPath) {
+        assert.ok(linkedDocumentationPaths(reads[index - 1].path, repositoryRoot).includes(read.path), `${context}: repository routing page does not select ${read.path}`);
+      }
     }
   }
   const expectedPaths = requirement.authority === undefined
     ? selection.paths
-    : shortestDocumentationRoute(
+    : selection.explicitPath
+      ? [contract.repository.entry, selection.authority]
+      : shortestDocumentationRoute(
       contract.repository.entry,
       requirement.authority,
       repositoryRoot,
       contract.repository.maximum_reads,
-    );
+      );
   assert.deepEqual(reads.map((read) => read.path), expectedPaths,
     `${context}: repository route must use the smallest task-appropriate documentation path`);
   const answer = finalAnswer(events, context);
@@ -1673,7 +1851,7 @@ export function readScenarioDocument(path) {
       for (const event of turn.events) {
         if (event.value_ref === undefined) continue;
         assert.ok(Object.hasOwn(document.recordings, event.value_ref), `unknown scenario recording ${event.value_ref}`);
-        assertExactKeys(event, ["type", "tool", "value_ref"], "recorded result reference");
+        assertExactKeys(event, ["type", "tool", "kind", "value_ref"], "recorded result reference");
         referencedEvents.push(event);
       }
     }

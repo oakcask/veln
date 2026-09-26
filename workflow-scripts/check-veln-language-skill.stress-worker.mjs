@@ -3,6 +3,7 @@ import { parentPort, workerData } from "node:worker_threads";
 import { writeFileSync } from "node:fs";
 
 import {
+  deriveLanguageQuery,
   expectedPublishedSearch,
   linkedDocumentationPaths,
   loadCaseFoldMappings,
@@ -200,6 +201,32 @@ function runTarget(target, data) {
       lengths: data.sizes.map((_, index) => lengths[(index + 1) * data.repetitions * 5 - 1]),
       milliseconds,
     };
+  }
+  if (target === "recognized-query-scaling") {
+    const contract = {
+      language: {
+        query_derivation: {
+          entries: [{ mentions: ["schema", "schemas"], query: "schemas" }],
+        },
+      },
+    };
+    const milliseconds = [];
+    const queries = [];
+    for (const size of data.sizes) {
+      const value = "schema ".repeat(size);
+      const samples = [];
+      let result;
+      for (let sample = 0; sample < 5; sample += 1) {
+        const start = performance.now();
+        for (let repetition = 0; repetition < data.repetitions; repetition += 1) {
+          result = deriveLanguageQuery(value, contract, "recognized-query scaling");
+        }
+        samples.push(performance.now() - start);
+      }
+      milliseconds.push(median(samples));
+      queries.push(result.query);
+    }
+    return { milliseconds, queries };
   }
   if (target === "published-search-scaling") {
     const caseFoldMappings = loadCaseFoldMappings();

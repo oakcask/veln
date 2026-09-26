@@ -15,7 +15,9 @@ import test from "node:test";
 import { Worker } from "node:worker_threads";
 
 import {
+  classifyReadFailure,
   currentRepositoryAuthority,
+  deriveLanguageQuery,
   expectedPublishedSearch,
   linkedDocumentationPaths,
   loadCaseFoldMappings,
@@ -116,7 +118,63 @@ function writeSnapshotEvidence(root, snapshots) {
 }
 
 test("canonical veln-language skill replays every acceptance scenario", () => {
-  assert.equal(validateScenarioDocument(fixture()), 12);
+  assert.equal(validateScenarioDocument(fixture()), 17);
+});
+
+test("bounds unmatched language queries by Unicode scalar count", () => {
+  const contract = {
+    language: {
+      query_derivation: {
+        entries: [],
+      },
+    },
+  };
+  const accepted = "😀".repeat(256);
+  const rejected = "😀".repeat(257);
+  assert.equal(accepted.length, 512);
+  assert.deepEqual(deriveLanguageQuery(accepted, contract, "256-scalar query"), { query: accepted });
+  assert.deepEqual(deriveLanguageQuery(rejected, contract, "257-scalar query"), { unbounded: true });
+});
+
+test("rejects an empty query after trimming unmatched request text", () => {
+  const contract = {
+    language: {
+      query_derivation: {
+        entries: [],
+      },
+    },
+  };
+  assert.deepEqual(deriveLanguageQuery(" \t\n", contract, "empty trimmed query"), { unbounded: true });
+});
+
+test("uses ASCII-only case folding and ASCII word boundaries for query mentions", () => {
+  const contract = {
+    language: {
+      query_derivation: {
+        entries: [{ mentions: ["schema", "schemas"], query: "schemas" }],
+      },
+    },
+  };
+  assert.deepEqual(deriveLanguageQuery("SCHEMA", contract, "ASCII uppercase mention"), { query: "schemas" });
+  assert.deepEqual(deriveLanguageQuery("Kschema", contract, "non-ASCII word boundary"), { query: "schemas" });
+  assert.deepEqual(deriveLanguageQuery("kschema", contract, "ASCII word boundary"), { query: "kschema" });
+});
+
+test("records the unbounded query outcome without a tool call or fallback", () => {
+  const document = fixture();
+  const turn = scenario(document, "language-query-unbounded").turns[1];
+  assert.ok([...turn.request.text].length > 256);
+  assert.deepEqual(turn.events.map((event) => event.type), ["answer"]);
+  assert.equal(validateScenarioDocument(document, options), 17);
+});
+
+test("rejects fallback data on the unbounded-query answer", () => {
+  const document = fixture();
+  scenario(document, "language-query-unbounded").turns[1].events[0].fallback = "model-memory";
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /unbounded-query answer: fields must match the closed shape/,
+  );
 });
 
 test("bounds local schema reference traversal", () => {
@@ -339,6 +397,16 @@ test("normalizes the largest accepted internal whitespace run with linear scalin
   assert.ok(result.milliseconds[2] <= result.milliseconds[1] * 3.5 + 2, result.milliseconds);
 });
 
+test("derives repeated recognized queries with adjacent-size linear scaling", async () => {
+  const result = await runStressTarget("recognized-query-scaling", {
+    sizes: [16_384, 32_768, 65_536],
+    repetitions: 20,
+  });
+  assert.deepEqual(result.queries, ["schemas", "schemas", "schemas"]);
+  assert.ok(result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 2, result.milliseconds);
+  assert.ok(result.milliseconds[2] <= result.milliseconds[1] * 3.5 + 2, result.milliseconds);
+});
+
 test("scales published search excerpts near the accepted field and query limits", async () => {
   const result = await runStressTarget("published-search-scaling", {
     sizes: [900_000, 1_800_000],
@@ -555,7 +623,15 @@ test("accepts a deterministic selection for a multi-topic language question", ()
   const document = fixture();
   matchingTurn(document).request.text = "How do Veln schemas and contracts interact?";
   assert.match(matchingTurn(document).request.text, /\bschemas\b.*\bcontracts\b/u);
-  assert.equal(validateScenarioDocument(document, options), 12);
+  assert.equal(validateScenarioDocument(document, options), 17);
+});
+
+test("rejects a self-consistent fixture query that differs from skill derivation", () => {
+  const document = fixture();
+  const turn = scenario(document, "language-query-selection").turns[0];
+  turn.expected.search_arguments.query = "contracts";
+  turn.events[0].arguments.query = "contracts";
+  assert.throws(() => validateScenarioDocument(document, options), /fixture expectation does not follow the request/);
 });
 
 test("rejects a non-first topic from a multi-result language search", () => {
@@ -569,6 +645,17 @@ test("gives an explicit repository path precedence over a competing MCP subject"
   scenario(document, "repository-current").turns[0].request.text =
     "Inspect MCP documentation search in docs/specification/types.md.";
   assert.throws(() => validateScenarioDocument(document, options), /acceptance label does not match request-selected repository/);
+});
+
+test("requires the deep explicit path to use the direct two-read selector", () => {
+  const document = fixture();
+  const turn = scenario(document, "repository-explicit-path").turns[0];
+  assert.deepEqual(turn.events.filter((event) => event.type === "read").map((event) => event.path), [
+    "docs/README.md",
+    "docs/specification/language-reference-catalog.md",
+  ]);
+  delete turn.events[0].value.selection;
+  assert.throws(() => validateScenarioDocument(document, options), /fields must match the closed shape/);
 });
 
 test("rejects a read before language search", () => {
@@ -698,7 +785,7 @@ test("rejects MCP text content that differs from structuredContent", () => {
 test("rejects a successful envelope marked as an error", () => {
   const document = fixture();
   matchingTurn(document).events[1].value.isError = true;
-  assert.throws(() => validateScenarioDocument(document, options), /wrong error state/);
+  assert.throws(() => validateScenarioDocument(document, options), /result kind disagrees with the MCP error state/);
 });
 
 test("rejects a search result with both error and value", () => {
@@ -708,13 +795,43 @@ test("rejects a search result with both error and value", () => {
   assert.throws(() => validateScenarioDocument(document, options), /exactly one of error or value/);
 });
 
-test("rejects invalid arguments as an unavailable-search transport failure", () => {
+test("replays a malformed search value as the generic bounded outcome", () => {
   const document = fixture();
-  scenario(document, "search-unavailable").turns[1].events[1].error.code = "invalid_arguments";
+  const turn = scenario(document, "search-failed").turns[1];
+  assert.equal(turn.events[1].kind, "malformed_result");
+  assert.deepEqual(turn.events[1].value, { content: "not-an-array" });
+  assert.equal(validateScenarioDocument(document, options), 17);
+});
+
+test("rejects a valid search envelope labeled as malformed", () => {
+  const document = fixture();
+  const malformed = scenario(document, "search-failed").turns[1].events[1];
+  malformed.value = matchingTurn(document).events[1].value;
   assert.throws(
     () => validateScenarioDocument(document, options),
-    /unavailable search must use the recorded tool_unavailable error class/,
+    /malformed_result value is a valid MCP tool envelope/,
   );
+});
+
+test("rejects a valid search tool-error envelope labeled as malformed", () => {
+  const document = fixture();
+  const malformed = scenario(document, "search-failed").turns[1].events[1];
+  malformed.value = {
+    content: [{ type: "text", text: '{"code":"timeout"}' }],
+    structuredContent: { code: "timeout" },
+    isError: true,
+  };
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /malformed_result value is a valid MCP tool envelope/,
+  );
+});
+
+test("routes an unmatched search transport failure to the generic bounded outcome", () => {
+  const document = fixture();
+  const turn = scenario(document, "search-failed").turns[1];
+  turn.events[1] = { type: "result", tool: "search_docs", kind: "transport_error", error: { code: "timeout" } };
+  assert.equal(validateScenarioDocument(document, options), 17);
 });
 
 test("rejects a read result with both error and value", () => {
@@ -724,21 +841,80 @@ test("rejects a read result with both error and value", () => {
   assert.throws(() => validateScenarioDocument(document, options), /exactly one of error or value/);
 });
 
-test("rejects invalid arguments as an unreadable-topic transport failure", () => {
+test("routes an unmatched read transport failure to the generic bounded outcome", () => {
   const document = fixture();
-  scenario(document, "topic-unreadable").turns[1].events[3].error.code = "invalid_arguments";
+  const turn = scenario(document, "topic-read-failed").turns[1];
+  turn.events[3] = { type: "result", tool: "read_doc", kind: "transport_error", error: { code: "invalid_arguments" } };
+  assert.equal(validateScenarioDocument(document, options), 17);
+});
+
+test("replays a malformed read value as the generic bounded outcome", () => {
+  const document = fixture();
+  const turn = scenario(document, "topic-read-failed").turns[1];
+  assert.equal(turn.events[3].kind, "malformed_result");
+  assert.deepEqual(turn.events[3].value, { structuredContent: null, isError: false });
+  assert.equal(validateScenarioDocument(document, options), 17);
+});
+
+test("rejects a valid read envelope labeled as malformed", () => {
+  const document = fixture();
+  const malformed = scenario(document, "topic-read-failed").turns[1].events[3];
+  malformed.value = matchingTurn(document).events[3].value;
   assert.throws(
     () => validateScenarioDocument(document, options),
-    /unreadable topic must use the recorded transport_unavailable error class/,
+    /malformed_result value is a valid MCP tool envelope/,
   );
 });
 
-test("rejects resource_not_found as a generic unreadable-topic transport failure", () => {
+test("rejects a valid read tool-error envelope labeled as malformed", () => {
   const document = fixture();
-  scenario(document, "topic-unreadable").turns[1].events[3].error.code = "resource_not_found";
+  const malformed = scenario(document, "topic-read-failed").turns[1].events[3];
+  malformed.value = {
+    content: [{ type: "text", text: '{"code":"timeout"}' }],
+    structuredContent: { code: "timeout" },
+    isError: true,
+  };
   assert.throws(
     () => validateScenarioDocument(document, options),
-    /resource_not_found must use the checked stale-snapshot result path/,
+    /malformed_result value is a valid MCP tool envelope/,
+  );
+});
+
+test("dispatches resource_not_found by result kind as well as code", () => {
+  const document = fixture();
+  const turn = scenario(document, "topic-read-failed").turns[1];
+  turn.events[3] = { type: "result", tool: "read_doc", kind: "transport_error", error: { code: "resource_not_found" } };
+  assert.equal(validateScenarioDocument(document, options), 17);
+});
+
+test("keeps named and generic read failures bounded after server replacement", () => {
+  const document = fixture();
+  const events = staleEvents(document);
+  assert.equal(events.transition.transition, "replace_process");
+  const selectedUri = events.readCall.arguments.uri;
+  const contract = {
+    failure: {
+      topic_unavailable: { result: { kind: "transport_error", code: "transport_unavailable" } },
+      stale_snapshot: {
+        result: { kind: "tool_error", code: "resource_not_found", selected_uri_must_match: true },
+      },
+    },
+  };
+  assert.equal(
+    classifyReadFailure("transport_error", "transport_unavailable", undefined, selectedUri, contract),
+    "topic_unavailable",
+  );
+  assert.equal(
+    classifyReadFailure("malformed_result", "invalid_response", undefined, selectedUri, contract),
+    "topic_read_failed",
+  );
+  assert.equal(
+    classifyReadFailure("tool_error", "timeout", selectedUri, selectedUri, contract),
+    "topic_read_failed",
+  );
+  assert.equal(
+    classifyReadFailure("tool_error", "resource_not_found", `${selectedUri}-different`, selectedUri, contract),
+    "topic_read_failed",
   );
 });
 
@@ -1460,6 +1636,7 @@ test("shares recordings at the largest accepted reference boundary", (context) =
   const referenceEvent = () => ({
     type: "result",
     tool: "search_docs",
+    kind: "success",
     value_ref: "schemas-search",
   });
   const document = {
@@ -1512,6 +1689,7 @@ test("checks every recording reference bound before expanding recordings", (cont
   const referenceEvent = () => ({
     type: "result",
     tool: "search_docs",
+    kind: "success",
     value_ref: "schemas-search",
   });
   const turn = () => ({
@@ -1548,7 +1726,7 @@ test("checks every recording reference bound before expanding recordings", (cont
         "schemas-read": {},
       },
       request_selection: [],
-      scenarios: Array.from({ length: 12 }, scenario),
+      scenarios: Array.from({ length: 17 }, scenario),
     };
     if (fixtureCase.name === "turns") document.scenarios[0].turns.push(turn());
     if (fixtureCase.name === "events") {

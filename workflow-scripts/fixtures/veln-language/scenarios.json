@@ -100,10 +100,12 @@
     { "id": "modules-information", "action": "information", "subject": "language_behavior", "text": "How do Veln modules work?", "route": "language" },
     { "id": "mcp-inspection-action", "action": "repository_action", "subject": "implementation", "text": "Examine the implemented Veln MCP documentation search.", "route": "repository" },
     { "id": "explicit-path-inspection", "action": "repository_action", "subject": "implementation", "text": "Inspect MCP documentation search in docs/specification/types.md.", "route": "repository" },
+    { "id": "deep-explicit-path-inspection", "action": "repository_action", "subject": "repository_material", "text": "Review docs/specification/language-reference-catalog.md.", "route": "repository" },
     { "id": "parser-implementation-location-information", "action": "information", "subject": "implementation", "text": "Where is the Veln parser implemented?", "route": "repository" },
     { "id": "schemas-change-action", "action": "repository_action", "subject": "language_behavior", "text": "Change how Veln schemas work.", "route": "repository" },
     { "id": "authoring-policy-review-action", "action": "repository_action", "subject": "repository_material", "text": "Review the repository documentation authoring policy.", "route": "repository" },
-    { "id": "unknown-repository-inspection-action", "action": "repository_action", "subject": "repository_material", "text": "Inspect repository authority for an undocumented deployment service.", "route": "repository" }
+    { "id": "unknown-repository-inspection-action", "action": "repository_action", "subject": "repository_material", "text": "Inspect repository authority for an undocumented deployment service.", "route": "repository" },
+    { "id": "unbounded-language-query", "action": "information", "subject": "language_behavior", "text": "abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz", "route": "language" }
   ],
   "scenarios": [
     {
@@ -114,9 +116,24 @@
         "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
         "events": [
           { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
-          { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+          { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
           { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
-          { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
+          { "type": "result", "tool": "read_doc", "kind": "success", "value_ref": "schemas-read" },
+          { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
+        ]
+      }]
+    },
+    {
+      "id": "language-query-earliest-subject",
+      "covers": "language-query-selection",
+      "turns": [{
+        "request": { "text": "How do Veln schemas and contracts interact?" },
+        "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+        "events": [
+          { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+          { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
+          { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+          { "type": "result", "tool": "read_doc", "kind": "success", "value_ref": "schemas-read" },
           { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
         ]
       }]
@@ -129,10 +146,34 @@
         "expected": { "search_arguments": { "query": "borrow checker", "scope": "language" }, "answer_claims": [] },
         "events": [
           { "type": "call", "tool": "search_docs", "arguments": { "query": "borrow checker", "scope": "language" } },
-          { "type": "result", "tool": "search_docs", "value": { "content": [{ "type": "text", "text": "{\"scope\":\"language\",\"results\":[]}" }], "structuredContent": { "scope": "language", "results": [] }, "isError": false } },
+          { "type": "result", "tool": "search_docs", "kind": "success", "value": { "content": [{ "type": "text", "text": "{\"scope\":\"language\",\"results\":[]}" }], "structuredContent": { "scope": "language", "results": [] }, "isError": false } },
           { "type": "answer", "status": "no_match", "claims": [], "source_uris": [], "message": "The published Veln language reference has no matching topic." }
         ]
       }]
+    },
+    {
+      "id": "language-query-boundary-preserves-result",
+      "covers": "language-query-unbounded",
+      "turns": [
+        {
+          "request": { "text": "How do Veln schemas work?" },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "kind": "success", "value_ref": "schemas-read" },
+            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
+          ]
+        },
+        {
+          "request": { "text": "abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz" },
+          "expected": { "query_outcome": "unbounded", "answer_claims": [] },
+          "events": [
+            { "type": "answer", "status": "query_unbounded", "claims": [], "source_uris": [], "message": "No bounded published language-reference query can be derived.", "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
+          ]
+        }
+      ]
     },
     {
       "id": "language-search-unavailable-preserves-result",
@@ -143,9 +184,9 @@
           "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+            { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
             { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
-            { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
+            { "type": "result", "tool": "read_doc", "kind": "success", "value_ref": "schemas-read" },
             { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
           ]
         },
@@ -154,8 +195,34 @@
           "expected": { "search_arguments": { "query": "effects", "scope": "language" }, "answer_claims": [] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "effects", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "error": { "code": "tool_unavailable" } },
+            { "type": "result", "tool": "search_docs", "kind": "transport_error", "error": { "code": "tool_unavailable" } },
             { "type": "answer", "status": "search_unavailable", "claims": [], "source_uris": [], "failure": { "operation": "search_docs", "artifact_uri": null }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "language-search-other-failure-preserves-result",
+      "covers": "search-failed",
+      "turns": [
+        {
+          "request": { "text": "How do Veln schemas work?" },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "kind": "success", "value_ref": "schemas-read" },
+            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
+          ]
+        },
+        {
+          "request": { "text": "Does Veln update effects automatically?" },
+          "expected": { "search_arguments": { "query": "effects", "scope": "language" }, "answer_claims": [] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "effects", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "kind": "malformed_result", "value": { "content": "not-an-array" } },
+            { "type": "answer", "status": "search_failed", "claims": [], "source_uris": [], "failure": { "operation": "search_docs", "artifact_uri": null }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
           ]
         }
       ]
@@ -169,9 +236,9 @@
           "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+            { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
             { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
-            { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
+            { "type": "result", "tool": "read_doc", "kind": "success", "value_ref": "schemas-read" },
             { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
           ]
         },
@@ -180,10 +247,38 @@
           "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": [] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+            { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
             { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
-            { "type": "result", "tool": "read_doc", "error": { "code": "transport_unavailable" } },
+            { "type": "result", "tool": "read_doc", "kind": "transport_error", "error": { "code": "transport_unavailable" } },
             { "type": "answer", "status": "topic_unavailable", "claims": [], "source_uris": [], "failure": { "operation": "read_doc", "artifact_uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "language-topic-other-failure-preserves-result",
+      "covers": "topic-read-failed",
+      "turns": [
+        {
+          "request": { "text": "How do Veln schemas work?" },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "kind": "success", "value_ref": "schemas-read" },
+            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
+          ]
+        },
+        {
+          "request": { "text": "How do Veln schemas encode values?" },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": [] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "kind": "malformed_result", "value": { "structuredContent": null, "isError": false } },
+            { "type": "answer", "status": "topic_read_failed", "claims": [], "source_uris": [], "failure": { "operation": "read_doc", "artifact_uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
           ]
         }
       ]
@@ -197,9 +292,9 @@
           "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+            { "type": "result", "tool": "search_docs", "kind": "success", "value_ref": "schemas-search" },
             { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
-            { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
+            { "type": "result", "tool": "read_doc", "kind": "success", "value_ref": "schemas-read" },
             { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
           ]
         },
@@ -208,10 +303,10 @@
           "expected": { "search_arguments": { "query": "modules", "scope": "language" }, "answer_claims": [] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "modules", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value": { "content": [{ "type": "text", "text": "{\"scope\":\"language\",\"results\":[{\"uri\":\"veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout\",\"title\":\"Modules Legacy Layout\",\"summary\":\"The archived snapshot described a module layout that was later renamed.\",\"excerpt\":\"modules-legacy-layout\",\"prefix_truncated\":false,\"suffix_truncated\":false},{\"uri\":\"veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/legacy-module-lexicon\",\"title\":\"Legacy Module Lexicon\",\"summary\":\"The archived snapshot included a module lexicon topic that was later removed.\",\"excerpt\":\"modules\",\"prefix_truncated\":false,\"suffix_truncated\":false}]}" }], "structuredContent": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout", "title": "Modules Legacy Layout", "summary": "The archived snapshot described a module layout that was later renamed.", "excerpt": "modules-legacy-layout", "prefix_truncated": false, "suffix_truncated": false }, { "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/legacy-module-lexicon", "title": "Legacy Module Lexicon", "summary": "The archived snapshot included a module lexicon topic that was later removed.", "excerpt": "modules", "prefix_truncated": false, "suffix_truncated": false }] }, "isError": false } },
+            { "type": "result", "tool": "search_docs", "kind": "success", "value": { "content": [{ "type": "text", "text": "{\"scope\":\"language\",\"results\":[{\"uri\":\"veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout\",\"title\":\"Modules Legacy Layout\",\"summary\":\"The archived snapshot described a module layout that was later renamed.\",\"excerpt\":\"modules-legacy-layout\",\"prefix_truncated\":false,\"suffix_truncated\":false},{\"uri\":\"veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/legacy-module-lexicon\",\"title\":\"Legacy Module Lexicon\",\"summary\":\"The archived snapshot included a module lexicon topic that was later removed.\",\"excerpt\":\"modules\",\"prefix_truncated\":false,\"suffix_truncated\":false}]}" }], "structuredContent": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout", "title": "Modules Legacy Layout", "summary": "The archived snapshot described a module layout that was later renamed.", "excerpt": "modules-legacy-layout", "prefix_truncated": false, "suffix_truncated": false }, { "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/legacy-module-lexicon", "title": "Legacy Module Lexicon", "summary": "The archived snapshot included a module lexicon topic that was later removed.", "excerpt": "modules", "prefix_truncated": false, "suffix_truncated": false }] }, "isError": false } },
             { "type": "server_transition", "transition": "replace_process", "before": { "server_instance": "archived-reference-server", "language_snapshot_digest": "0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350" }, "after": { "server_instance": "current-reference-server", "language_snapshot_digest": "4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9" } },
             { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout" } },
-            { "type": "result", "tool": "read_doc", "value": { "content": [{ "type": "text", "text": "{\"code\":\"resource_not_found\",\"message\":\"language reference resource not found\",\"details\":{\"uri\":\"veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout\"}}" }], "structuredContent": { "code": "resource_not_found", "message": "language reference resource not found", "details": { "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout" } }, "isError": true } },
+            { "type": "result", "tool": "read_doc", "kind": "tool_error", "value": { "content": [{ "type": "text", "text": "{\"code\":\"resource_not_found\",\"message\":\"language reference resource not found\",\"details\":{\"uri\":\"veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout\"}}" }], "structuredContent": { "code": "resource_not_found", "message": "language reference resource not found", "details": { "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout" } }, "isError": true } },
             { "type": "answer", "status": "stale_snapshot", "claims": [], "source_uris": [], "failure": { "operation": "read_doc", "artifact_uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout" }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
           ]
         }
@@ -288,6 +383,18 @@
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/reference/documentation-authoring.md" } },
           { "type": "read", "path": "docs/reference/documentation-authoring.md", "value": { "authority": "docs/reference/documentation-authoring.md" } },
           { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/reference/documentation-authoring.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-deep-explicit-path",
+      "covers": "repository-explicit-path",
+      "turns": [{
+        "request": { "text": "Review docs/specification/language-reference-catalog.md." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/language-reference-catalog.md", "selection": "explicit-request-path" } },
+          { "type": "read", "path": "docs/specification/language-reference-catalog.md", "value": { "authority": "docs/specification/language-reference-catalog.md" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/language-reference-catalog.md" }
         ]
       }]
     },

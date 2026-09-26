@@ -524,6 +524,12 @@
       "subject": "implementation"
     },
     {
+      "id": "deep-explicit-path-inspection",
+      "text": "Review docs/specification/language-reference-catalog.md.",
+      "action": "repository_action",
+      "subject": "repository_material"
+    },
+    {
       "id": "parser-implementation-location-information",
       "text": "Where is the Veln parser implemented?",
       "action": "information",
@@ -546,6 +552,12 @@
       "text": "Inspect repository authority for an undocumented deployment service.",
       "action": "repository_action",
       "subject": "repository_material"
+    },
+    {
+      "id": "unbounded-language-query",
+      "text": "abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz",
+      "action": "information",
+      "subject": "language_behavior"
     }
   ]
 }

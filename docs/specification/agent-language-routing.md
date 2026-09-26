@@ -22,10 +22,25 @@ repository documentation tree.
 ## Routing and provenance
 
 For a language question, the skill first calls `search_docs` with
-`scope: "language"`. If a topic matches, it calls `read_doc` with the exact
+`scope: "language"`. The query is selected from a closed subject table in the
+skill. Each table entry maps whole-word or whole-phrase mentions to one
+canonical query. Matching is ASCII-case-insensitive. The earliest mention in
+the request wins; a longer mention wins a same-position tie, followed by the
+query in UTF-8 byte order. If no subject mention matches, the trimmed request
+text is the query when it contains from 1 through 256 Unicode scalar values.
+An empty or longer fallback request stops without a tool call because no
+bounded query can be derived. If a topic matches, the skill calls `read_doc` with the exact
 snapshot topic URI from the first search result. This makes selection
 deterministic when search returns multiple topics. The answer can contain only
 claims from that resource and reports that exact URI as its source.
+
+| Whole-word or whole-phrase mentions | Query |
+| --- | --- |
+| `schema`, `schemas` | `schemas` |
+| `contract`, `contracts` | `contracts` |
+| `effect`, `effects` | `effects` |
+| `module`, `modules` | `modules` |
+| `borrow checker` | `borrow checker` |
 
 For repository inspection, changes, and proposal selection, the skill starts
 at `docs/README.md`. It follows the smallest linked repository documentation
@@ -33,7 +48,11 @@ route for the request. A selected specification, proposal, or reference page
 owns its subject. The proposal catalog is the terminal authority for proposal
 availability and Ready-only selection. The published language reference is not
 repository implementation authority. An explicit repository documentation
-path takes precedence over a general subject phrase in the same request.
+path takes precedence over a general subject phrase in the same request. For
+such a path, the skill reads `docs/README.md` first and then reads the named
+path directly. The path must be a normalized existing Markdown path under
+`docs/` and a current documentation authority. It does not need to be linked
+directly from `docs/README.md`.
 
 The requested action and subject determine the route by meaning. The skill
 instructs clients not to decide from a closed vocabulary of verbs, question
@@ -67,11 +86,14 @@ memory. The route distinguishes failures as follows:
 | `search_docs` returns the transport error `tool_unavailable` | Stop after search and report that search is unavailable. |
 | `read_doc` returns the transport error `transport_unavailable` | Stop after read and report that the selected topic is unavailable. |
 | `read_doc` returns a tool error with code `resource_not_found` for the selected snapshot URI | Stop after read and report that the selected snapshot URI is stale. |
+| `search_docs` returns any other failed or malformed result | Stop after search and report that published language-reference search failed. |
+| `read_doc` returns any other failed or malformed result | Stop after read and report that the selected topic could not be read. |
 
-The skill selects these outcomes by the exact operation, result kind, and code
-shown in the table. The stale-snapshot outcome additionally requires the error
-URI to equal the URI selected from search. A different tuple does not select
-one of these named failure outcomes.
+The skill evaluates the rows in table order. It selects the first three named
+outcomes by the exact operation, result kind, and code shown in the table. The
+stale-snapshot outcome additionally requires the error URI to equal the URI
+selected from search. Every other failed or malformed search or read selects
+the matching generic bounded outcome instead of escaping failure handling.
 
 Each failure reports the failed operation and the selected URI when one exists.
 It also leaves any earlier successful result unchanged.
@@ -81,11 +103,14 @@ occur after that server process ends and a replacement server starts with a
 different checked language-reference snapshot. The replacement can reject the
 earlier exact URI with `resource_not_found`.
 
-Repository routing reads at most three distinct documentation files. It stops
-when the selected route ends and reports when no route covers the request.
-A documentation path contributes to a route only when it is the destination of
-an actual Markdown navigation link. Link-shaped text in code, comments,
-images, or escaped syntax does not make a path reachable.
+Linked repository routing reads at most three distinct documentation files.
+An explicit documentation path uses exactly two reads: `docs/README.md` and
+the named terminal authority. Routing stops when the selected route ends and
+reports when no route covers the request.
+Outside the explicit-path rule, a documentation path contributes to a route
+only when it is the destination of an actual Markdown navigation link.
+Link-shaped text in code, comments, images, or escaped syntax does not make a
+path reachable.
 
 ## Verification
 
