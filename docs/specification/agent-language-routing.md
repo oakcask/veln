@@ -35,13 +35,13 @@ availability and Ready-only selection. The published language reference is not
 repository implementation authority. An explicit repository documentation
 path takes precedence over a general subject phrase in the same request.
 
-The requested action and subject determine the route by meaning. Routing does
-not use a closed vocabulary of verbs, question words, or sentence frames. A
-request for the agent to examine, validate, or alter Veln behavior or its
-implementation is repository work. This includes synonymous actions such as
-assessing a parser. A request for information about how a Veln language
-feature behaves remains a language question, including a passive question
-such as how effects are handled.
+The requested action and subject determine the route by meaning. The skill
+instructs clients not to decide from a closed vocabulary of verbs, question
+words, or sentence frames. A request for the agent to examine, validate, or
+alter Veln behavior or its implementation is repository work. This includes
+synonymous actions such as assessing a parser. A request for information about
+how a Veln language feature behaves remains a language question, including a
+passive question such as how effects are handled.
 
 A question whose subject is a compiler or parser implementation uses the
 repository route. A request whose subject is the
@@ -82,13 +82,15 @@ expected action-and-subject classification. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 the closed operative-contract and result shapes, provenance, bounded failures,
-preserved results, routing, and input limits. The harness derives a route from
-the raw text of every corpus row and replayed request before it checks the
-recorded tool events. It does not use the supplied action-and-subject labels as
-selector input. It separately compares those labels and the request text with
-the reviewed oracle and uses contrastive paraphrases. Stress cases run in
-workers that the parent test terminates at their time bound. Stale search recordings
-are checked in full against archived catalog
+preserved results, routing, and input limits. The reviewed oracle independently
+classifies the action and subject of each raw corpus request. The harness checks
+that every replayed request matches that oracle, then applies the skill's closed
+action-and-subject decision table. The corpus includes contrastive paraphrases,
+synonymous requested actions, and incidental uses of action and repository
+terms. It is finite evidence for the semantic instruction, not a general
+natural-language classifier. Stress cases run in workers that the parent test
+terminates at their time bound. Stale search recordings are checked in full
+against archived catalog
 evidence whose snapshot digest is recalculated with the published catalog
 digest contract. The current published catalog bytes must also match their
 digest sidecar before the harness parses them. The harness bounds published
