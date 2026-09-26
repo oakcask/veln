@@ -46,6 +46,21 @@ function matchingTurn(document) {
   return scenario(document, "language-match").turns[0];
 }
 
+function staleTurn(document) {
+  return scenario(document, "stale-snapshot-uri").turns[1];
+}
+
+function staleEvents(document) {
+  const events = staleTurn(document).events;
+  return {
+    searchResult: events.find((event) => event.type === "result" && event.tool === "search_docs"),
+    transition: events.find((event) => event.type === "server_transition"),
+    readCall: events.find((event) => event.type === "call" && event.tool === "read_doc"),
+    readResult: events.find((event) => event.type === "result" && event.tool === "read_doc"),
+    answer: events.at(-1),
+  };
+}
+
 function structured(event) {
   return event.value.structuredContent;
 }
@@ -740,7 +755,7 @@ test("rejects incomplete failure provenance", () => {
 
 test("rejects a stale result without the schema-required message", () => {
   const document = fixture();
-  const event = scenario(document, "stale-snapshot-uri").turns[1].events[3];
+  const event = staleEvents(document).readResult;
   delete event.value.structuredContent.message;
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /value does not match exactly one published schema branch/);
@@ -748,19 +763,20 @@ test("rejects a stale result without the schema-required message", () => {
 
 test("rejects a stale-snapshot row that uses the current published digest", () => {
   const document = fixture();
-  const turn = scenario(document, "stale-snapshot-uri").turns[1];
-  const staleUri = turn.events[2].arguments.uri;
+  const events = staleEvents(document);
+  const staleUri = events.readCall.arguments.uri;
   const currentUri = staleUri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
     "snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/",
   );
-  structured(turn.events[1]).results[0].uri = currentUri;
-  structured(turn.events[1]).results.splice(1);
-  syncEnvelope(turn.events[1]);
-  turn.events[2].arguments.uri = currentUri;
-  structured(turn.events[3]).details.uri = currentUri;
-  syncEnvelope(turn.events[3]);
-  turn.events[4].failure.artifact_uri = currentUri;
+  structured(events.searchResult).results[0].uri = currentUri;
+  structured(events.searchResult).results.splice(1);
+  syncEnvelope(events.searchResult);
+  events.transition.before.language_snapshot_digest = events.transition.after.language_snapshot_digest;
+  events.readCall.arguments.uri = currentUri;
+  structured(events.readResult).details.uri = currentUri;
+  syncEnvelope(events.readResult);
+  events.answer.failure.artifact_uri = currentUri;
   assert.throws(
     () => validateScenarioDocument(document, options),
     /differs from the checked snapshot artifact|stale snapshot URI must differ/,
@@ -769,7 +785,7 @@ test("rejects a stale-snapshot row that uses the current published digest", () =
 
 test("rejects mutation of an unselected stale search result", () => {
   const document = fixture();
-  const event = scenario(document, "stale-snapshot-uri").turns[1].events[1];
+  const event = staleEvents(document).searchResult;
   structured(event).results[1].summary = "Fabricated historical summary.";
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /differs from the checked snapshot artifact/);
@@ -777,7 +793,7 @@ test("rejects mutation of an unselected stale search result", () => {
 
 test("rejects a fabricated unselected stale search result", () => {
   const document = fixture();
-  const event = scenario(document, "stale-snapshot-uri").turns[1].events[1];
+  const event = staleEvents(document).searchResult;
   structured(event).results.push({
     uri: "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/fabricated-modules",
     title: "Fabricated Modules",
@@ -792,7 +808,7 @@ test("rejects a fabricated unselected stale search result", () => {
 
 test("rejects stale search results from mixed snapshots", () => {
   const document = fixture();
-  const event = scenario(document, "stale-snapshot-uri").turns[1].events[1];
+  const event = staleEvents(document).searchResult;
   structured(event).results[1].uri = structured(event).results[1].uri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
     "snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/",
@@ -803,7 +819,7 @@ test("rejects stale search results from mixed snapshots", () => {
 
 test("rejects stale search results without snapshot evidence", () => {
   const document = fixture();
-  const event = scenario(document, "stale-snapshot-uri").turns[1].events[1];
+  const event = staleEvents(document).searchResult;
   for (const result of structured(event).results) {
     result.uri = result.uri.replace(
       /snapshot\/[0-9a-f]{64}\//u,
@@ -812,6 +828,58 @@ test("rejects stale search results without snapshot evidence", () => {
   }
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /no checked snapshot evidence/);
+});
+
+test("rejects stale-snapshot evidence without a server-process replacement", () => {
+  const document = fixture();
+  const turn = staleTurn(document);
+  turn.events.splice(turn.events.indexOf(staleEvents(document).transition), 1);
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /stale snapshot requires a recorded server-process replacement/,
+  );
+});
+
+test("rejects a server replacement that keeps the same process identity", () => {
+  const document = fixture();
+  const transition = staleEvents(document).transition;
+  transition.after.server_instance = transition.before.server_instance;
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /server replacement must identify distinct process instances/,
+  );
+});
+
+test("rejects a server replacement whose previous state did not produce search results", () => {
+  const document = fixture();
+  staleEvents(document).transition.before.language_snapshot_digest =
+    staleEvents(document).transition.after.language_snapshot_digest;
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /previous server must retain the snapshot that produced search results/,
+  );
+});
+
+test("rejects a server replacement whose new state is not the checked published snapshot", () => {
+  const document = fixture();
+  staleEvents(document).transition.after.language_snapshot_digest =
+    "1111111111111111111111111111111111111111111111111111111111111111";
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /replacement server must use the checked published snapshot/,
+  );
+});
+
+test("rejects a misplaced server replacement after the stale read", () => {
+  const document = fixture();
+  const turn = staleTurn(document);
+  const transitionIndex = turn.events.indexOf(staleEvents(document).transition);
+  const [transition] = turn.events.splice(transitionIndex, 1);
+  turn.events.splice(turn.events.length - 1, 0, transition);
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /matching route must have one search and one read/,
+  );
 });
 
 test("rejects mutation of the earlier result after failure", () => {
