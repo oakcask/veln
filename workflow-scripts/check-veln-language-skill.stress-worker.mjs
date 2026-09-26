@@ -5,6 +5,7 @@ import {
   loadSnapshotEvidence,
   normalizeSearchText,
   shortestDocumentationRoute,
+  validateSchema,
 } from "./check-veln-language-skill.mjs";
 
 function median(values) {
@@ -27,6 +28,14 @@ function runTarget(target, data) {
   }
   if (target === "linked-paths") {
     return linkedDocumentationPaths(data.path, data.root);
+  }
+  if (target === "schema-branching-cycle") {
+    const reference = { $ref: "#/$defs/loop" };
+    const schema = {
+      $defs: { loop: { oneOf: [reference, reference] } },
+      ...reference,
+    };
+    validateSchema({}, schema, schema, "branching cyclic schema");
   }
   if (target === "snapshot-evidence") {
     const originalStructuredClone = globalThis.structuredClone;

@@ -23,6 +23,7 @@ import {
   readScenarioDocument,
   selectRequestRoute,
   shortestDocumentationRoute,
+  validateSchema,
   validateScenarioDocument,
 } from "./check-veln-language-skill.mjs";
 
@@ -100,6 +101,38 @@ function writeSnapshotEvidence(root, snapshots) {
 
 test("canonical veln-language skill replays every acceptance scenario", () => {
   assert.equal(validateScenarioDocument(fixture()), 12);
+});
+
+test("bounds local schema reference traversal", () => {
+  const reference = (name) => ({ $ref: `#/$defs/${name}` });
+  const accepted = { $defs: {}, ...reference("level-0") };
+  for (let index = 0; index < 64; index += 1) {
+    accepted.$defs[`level-${index}`] = index === 63
+      ? { type: "object" }
+      : reference(`level-${index + 1}`);
+  }
+  assert.doesNotThrow(() => validateSchema({}, accepted, accepted, "bounded schema"));
+
+  const tooDeep = structuredClone(accepted);
+  tooDeep.$defs["level-63"] = reference("level-64");
+  tooDeep.$defs["level-64"] = { type: "object" };
+  assert.throws(
+    () => validateSchema({}, tooDeep, tooDeep, "deep schema"),
+    /schema validation exceeded the 64-reference depth bound/,
+  );
+
+  const cyclic = { $defs: { loop: reference("loop") }, ...reference("loop") };
+  assert.throws(
+    () => validateSchema({}, cyclic, cyclic, "cyclic schema"),
+    /schema reference cycle includes #\/\$defs\/loop/,
+  );
+});
+
+test("rejects a branching schema reference cycle within the external time bound", async () => {
+  await assert.rejects(
+    runStressTarget("schema-branching-cycle", {}, 3_000),
+    /schema reference cycle includes #\/\$defs\/loop/,
+  );
 });
 
 test("request selection applies reviewed semantics for every raw corpus request", () => {
@@ -816,6 +849,19 @@ test("rejects repository routes that appear only in non-navigational Markdown", 
     "",
     "![image](authority.md)",
   ].join("\n"));
+
+  assert.throws(
+    () => shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
+    /repository authority is not reachable/,
+  );
+});
+
+test("does not combine an unmatched link label with a later image destination", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-link-atoms-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  writeFileSync(join(root, "docs", "README.md"), "[unmatched label\n![image](authority.md)\n");
 
   assert.throws(
     () => shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
