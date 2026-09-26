@@ -76,13 +76,15 @@ document whose lifecycle status marks it as closed or superseded.
 ## Verification
 
 `workflow-scripts/fixtures/veln-language/scenarios.json` records the tool and
-repository results for the acceptance model. Run
+repository results for the acceptance model. The separate
+`request-selection-oracle.json` file records the reviewed request text and its
+expected action-and-subject classification. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 the closed operative-contract and result shapes, provenance, bounded failures,
-preserved results, routing, and input limits. Its request-selection evidence
-binds every corpus request text to an independently checked action-and-subject
-classification and uses contrastive paraphrases. Stress cases run in workers
+preserved results, routing, and input limits. The harness compares every corpus
+row with the separate oracle, including its text and both semantic labels, and
+uses contrastive paraphrases. Stress cases run in workers
 that the parent test terminates at their time bound. Stale search recordings
 are checked in full against archived catalog
 evidence whose snapshot digest is recalculated with the published catalog
