@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "recordings": {
+    "schemas-search": {
+      "content": [{ "type": "text", "text": "{\"scope\":\"language\",\"results\":[{\"uri\":\"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas\",\"title\":\"Schemas\",\"summary\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\",\"excerpt\":\"schemas\",\"prefix_truncated\":false,\"suffix_truncated\":false},{\"uri\":\"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/contracts\",\"title\":\"Contracts\",\"summary\":\"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.\",\"excerpt\":\"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.\",\"prefix_truncated\":false,\"suffix_truncated\":false},{\"uri\":\"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/declarations-aliases\",\"title\":\"Declarations And Aliases\",\"summary\":\"Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.\",\"excerpt\":\"Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.\",\"prefix_truncated\":false,\"suffix_truncated\":false}]}" }],
+      "structuredContent": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.", "excerpt": "schemas", "prefix_truncated": false, "suffix_truncated": false }, { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/contracts", "title": "Contracts", "summary": "Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.", "excerpt": "Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.", "prefix_truncated": false, "suffix_truncated": false }, { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/declarations-aliases", "title": "Declarations And Aliases", "summary": "Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.", "excerpt": "Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.", "prefix_truncated": false, "suffix_truncated": false }] },
+      "isError": false
+    },
+    "schemas-read": {
+      "content": [{ "type": "text", "text": "{\"uri\":\"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas\",\"name\":\"schemas\",\"title\":\"Schemas\",\"description\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\",\"mimeType\":\"text/markdown; charset=utf-8\",\"text\":\"# Schemas\\n\\nSchemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\\n\\nThe schema topic selects schema declaration, field, primitive, repeat, encode, and decode grammar.\\n\\nThe selected example covers schema composition precedence through a successful check case.\\n\\n## Grammar\\n\\n### SchemaDecl\\n\\n```ebnf\\nSchemaDecl    ::= \\\"pub\\\"? \\\"schema\\\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \\\"end\\\" NL?\\n```\\n\\n### SchemaField\\n\\n```ebnf\\nSchemaField   ::= Name \\\":\\\" SchemaFieldType SchemaFieldWhere? NL\\n```\\n\\n### SchemaFieldType\\n\\n```ebnf\\nSchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive\\n```\\n\\n### SchemaDecode\\n\\n```ebnf\\nSchemaDecode  ::= \\\"decode\\\" MemberPath \\\"from\\\" Expr \\\"at\\\" Expr\\n```\\n\\n### SchemaEncode\\n\\n```ebnf\\nSchemaEncode  ::= \\\"encode\\\" MemberPath \\\"from\\\" Expr\\n```\\n\\n## Examples\\n\\n### Schema composition grammar precedence\\n\\n#### neutral.veln\\n\\n```veln\\npub schema Int\\n\\tnested: String\\nend\\n\\npub schema String = Int\\n\\npub schema NeutralHost\\n\\tcount: Int\\n\\tlabel: String\\nend\\n\\n```\\n\\n#### binary.veln\\n\\n```veln\\npub schema UInt8\\n\\tvalue: Int\\nend\\n\\npub schema UInt16be = UInt8\\n\\npub schema BinaryHost\\n\\tformat binary\\n\\n\\tbyte: UInt8\\n\\tword: UInt16be\\nend\\n\\n```\\n\\n## Keywords\\n\\n- binary\\n- codec\\n- decode\\n- encode\\n- schemas\\n\\n## Related Topics\\n\\n- [contracts](veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/contracts)\\n- [expressions-patterns](veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/expressions-patterns)\\n- [types-inference-constructors](veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/types-inference-constructors)\\n\"}" }],
+      "structuredContent": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "name": "schemas", "title": "Schemas", "description": "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.", "mimeType": "text/markdown; charset=utf-8", "text": "# Schemas\n\nSchemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\n\nThe schema topic selects schema declaration, field, primitive, repeat, encode, and decode grammar.\n\nThe selected example covers schema composition precedence through a successful check case.\n\n## Grammar\n\n### SchemaDecl\n\n```ebnf\nSchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?\n```\n\n### SchemaField\n\n```ebnf\nSchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL\n```\n\n### SchemaFieldType\n\n```ebnf\nSchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive\n```\n\n### SchemaDecode\n\n```ebnf\nSchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr\n```\n\n### SchemaEncode\n\n```ebnf\nSchemaEncode  ::= \"encode\" MemberPath \"from\" Expr\n```\n\n## Examples\n\n### Schema composition grammar precedence\n\n#### neutral.veln\n\n```veln\npub schema Int\n\tnested: String\nend\n\npub schema String = Int\n\npub schema NeutralHost\n\tcount: Int\n\tlabel: String\nend\n\n```\n\n#### binary.veln\n\n```veln\npub schema UInt8\n\tvalue: Int\nend\n\npub schema UInt16be = UInt8\n\npub schema BinaryHost\n\tformat binary\n\n\tbyte: UInt8\n\tword: UInt16be\nend\n\n```\n\n## Keywords\n\n- binary\n- codec\n- decode\n- encode\n- schemas\n\n## Related Topics\n\n- [contracts](veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/contracts)\n- [expressions-patterns](veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/expressions-patterns)\n- [types-inference-constructors](veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/types-inference-constructors)\n" },
+      "isError": false
+    }
+  },
+  "request_selection": [
+    { "id": "add-action", "action": "repository_action", "subject": "implementation", "text": "Add a rule to the Veln compiler parser.", "route": "repository" },
+    { "id": "add-language", "action": "information", "subject": "language_behavior", "text": "What does add mean in Veln schemas?", "route": "language" },
+    { "id": "change-action", "action": "repository_action", "subject": "implementation", "text": "Change Veln schema semantics.", "route": "repository" },
+    { "id": "change-language", "action": "information", "subject": "language_behavior", "text": "How do Veln schemas change?", "route": "language" },
+    { "id": "debug-action", "action": "repository_action", "subject": "implementation", "text": "Debug the Veln compiler parser.", "route": "repository" },
+    { "id": "debug-language", "action": "information", "subject": "language_behavior", "text": "What does debug mean in Veln schemas?", "route": "language" },
+    { "id": "examine-action", "action": "repository_action", "subject": "implementation", "text": "Examine the Veln compiler parser.", "route": "repository" },
+    { "id": "examine-language", "action": "information", "subject": "language_behavior", "text": "What does examine mean in Veln schemas?", "route": "language" },
+    { "id": "fix-action", "action": "repository_action", "subject": "implementation", "text": "Could you please fix the Veln compiler parser?", "route": "repository" },
+    { "id": "fix-language", "action": "information", "subject": "language_behavior", "text": "What does fix mean in Veln schemas?", "route": "language" },
+    { "id": "implement-action", "action": "repository_action", "subject": "implementation", "text": "Implement the Veln compiler parser change.", "route": "repository" },
+    { "id": "implement-language", "action": "information", "subject": "language_behavior", "text": "How does Veln implement schemas?", "route": "language" },
+    { "id": "inspect-action", "action": "repository_action", "subject": "implementation", "text": "I need you to inspect how Veln schemas work.", "route": "repository" },
+    { "id": "inspect-assisted-action", "action": "repository_action", "subject": "implementation", "text": "Please help me inspect the Veln parser.", "route": "repository" },
+    { "id": "inspect-polite-intervening", "action": "repository_action", "subject": "implementation", "text": "Could you take a moment to inspect the Veln parser implementation?", "route": "repository" },
+    { "id": "inspect-modal-embedded", "action": "repository_action", "subject": "implementation", "text": "Do you think you could inspect the parser?", "route": "repository" },
+    { "id": "inspect-framed-curly-apostrophe", "action": "repository_action", "subject": "implementation", "text": "I’d like you to inspect the Veln parser implementation.", "route": "repository" },
+    { "id": "inspect-assigned-action", "action": "repository_action", "subject": "implementation", "text": "Your task is to inspect the Veln parser implementation.", "route": "repository" },
+    { "id": "inspect-nominal-action", "action": "repository_action", "subject": "implementation", "text": "The purpose here is to inspect the Veln parser.", "route": "repository" },
+    { "id": "inspect-nominal-definition", "action": "information", "subject": "language_behavior", "text": "What I need is an explanation of what inspect means in Veln schemas.", "route": "language" },
+    { "id": "inspect-communicated-action", "action": "repository_action", "subject": "implementation", "text": "I ask that you inspect the Veln parser.", "route": "repository" },
+    { "id": "inspect-communicated-infinitive", "action": "repository_action", "subject": "implementation", "text": "I ask you to inspect the Veln parser.", "route": "repository" },
+    { "id": "inspect-communicated-polite-infinitive", "action": "repository_action", "subject": "implementation", "text": "I ask you to please inspect the Veln parser.", "route": "repository" },
+    { "id": "inspect-communicated-polite-definition", "action": "information", "subject": "language_behavior", "text": "I ask you to please explain what inspect means in Veln schemas.", "route": "language" },
+    { "id": "inspect-modified-action", "action": "repository_action", "subject": "implementation", "text": "Please thoroughly inspect the Veln parser.", "route": "repository" },
+    { "id": "inspect-modal-question", "action": "repository_action", "subject": "implementation", "text": "Will you inspect Veln schemas?", "route": "repository" },
+    { "id": "inspect-communicated-definition", "action": "information", "subject": "language_behavior", "text": "I ask what inspect means in Veln schemas.", "route": "language" },
+    { "id": "inspect-communicated-explanation", "action": "information", "subject": "language_behavior", "text": "I ask that you explain what inspect means in Veln schemas.", "route": "language" },
+    { "id": "inspect-language", "action": "information", "subject": "language_behavior", "text": "In Veln terminology: inspect means what?", "route": "language" },
+    { "id": "inspect-polite-term-definition", "action": "information", "subject": "language_behavior", "text": "Could you take a moment to explain what inspect means in Veln schemas?", "route": "language" },
+    { "id": "inspect-direct-term-definition", "action": "information", "subject": "language_behavior", "text": "Please explain what inspect means in Veln schemas.", "route": "language" },
+    { "id": "investigate-action", "action": "repository_action", "subject": "implementation", "text": "We should investigate the Veln compiler parser.", "route": "repository" },
+    { "id": "investigate-language", "action": "information", "subject": "language_behavior", "text": "What does investigate mean in Veln schemas?", "route": "language" },
+    { "id": "modify-action", "action": "repository_action", "subject": "implementation", "text": "Modify the Veln compiler parser.", "route": "repository" },
+    { "id": "modify-language", "action": "information", "subject": "language_behavior", "text": "What does modify mean in Veln schemas?", "route": "language" },
+    { "id": "refactor-action", "action": "repository_action", "subject": "implementation", "text": "Refactor the Veln compiler parser.", "route": "repository" },
+    { "id": "refactor-language", "action": "information", "subject": "language_behavior", "text": "What does refactor mean in Veln schemas?", "route": "language" },
+    { "id": "remove-action", "action": "repository_action", "subject": "implementation", "text": "Remove a rule from the Veln compiler parser.", "route": "repository" },
+    { "id": "remove-language", "action": "information", "subject": "language_behavior", "text": "What does remove mean in Veln schemas?", "route": "language" },
+    { "id": "review-action", "action": "repository_action", "subject": "implementation", "text": "Tell me whether you can review the Veln compiler parser.", "route": "repository" },
+    { "id": "review-language-question", "action": "information", "subject": "language_behavior", "text": "Can you review what contracts mean in Veln?", "route": "language" },
+    { "id": "review-indirect-language-question", "action": "information", "subject": "language_behavior", "text": "Can you show me how to review contracts in Veln?", "route": "language" },
+    { "id": "review-language", "action": "information", "subject": "language_behavior", "text": "Review this question: how do Veln schemas work?", "route": "language" },
+    { "id": "select-action", "action": "repository_action", "subject": "implementation", "text": "Select the next ready Veln language proposal.", "route": "repository" },
+    { "id": "select-language", "action": "information", "subject": "language_behavior", "text": "What does select mean in Veln schemas?", "route": "language" },
+    { "id": "test-action", "action": "repository_action", "subject": "implementation", "text": "Test how Veln schemas work.", "route": "repository" },
+    { "id": "test-communicated-action", "action": "repository_action", "subject": "implementation", "text": "For this task, I ask that you test the Veln parser.", "route": "repository" },
+    { "id": "test-language", "action": "information", "subject": "language_behavior", "text": "What can I test in Veln schemas?", "route": "language" },
+    { "id": "update-action", "action": "repository_action", "subject": "implementation", "text": "Update the Veln compiler parser.", "route": "repository" },
+    { "id": "update-language", "action": "information", "subject": "language_behavior", "text": "Please update me on how Veln schemas work.", "route": "language" },
+    { "id": "repository-subject", "action": "information", "subject": "repository_material", "text": "Can you tell me what is in the Veln repository?", "route": "repository" },
+    { "id": "repository-copula-subject", "action": "information", "subject": "repository_material", "text": "Is the Veln repository organized by crates?", "route": "repository" },
+    { "id": "repository-auxiliary-subject", "action": "information", "subject": "repository_material", "text": "Does the Veln repository use crates?", "route": "repository" },
+    { "id": "repository-about-subject", "action": "information", "subject": "repository_material", "text": "Tell me about the Veln repository.", "route": "repository" },
+    { "id": "repository-why-subject", "action": "information", "subject": "repository_material", "text": "Why is the Veln repository so large?", "route": "repository" },
+    { "id": "repository-described-subject", "action": "information", "subject": "repository_material", "text": "Describe the Veln repository architecture.", "route": "repository" },
+    { "id": "repository-which-subject", "action": "information", "subject": "repository_material", "text": "Which crates are in the Veln repository?", "route": "repository" },
+    { "id": "repository-word-definition", "action": "information", "subject": "language_behavior", "text": "Explain the word repository.", "route": "language" },
+    { "id": "repository-incidental", "action": "information", "subject": "language_behavior", "text": "Does Veln have a repository schema?", "route": "language" },
+    { "id": "repository-compound-incidental", "action": "information", "subject": "language_behavior", "text": "What is the repository schema in Veln?", "route": "language" },
+    { "id": "repository-which-incidental", "action": "information", "subject": "language_behavior", "text": "Which repository schema does Veln use?", "route": "language" },
+    { "id": "codebase-subject", "action": "information", "subject": "repository_material", "text": "Can you tell me what is in the Veln codebase?", "route": "repository" },
+    { "id": "codebase-incidental", "action": "information", "subject": "language_behavior", "text": "Can Veln schemas describe a codebase identifier?", "route": "language" },
+    { "id": "source-code-subject", "action": "information", "subject": "repository_material", "text": "Can you tell me what is in the Veln source code?", "route": "repository" },
+    { "id": "source-code-where-subject", "action": "information", "subject": "repository_material", "text": "Where in the Veln source code is schema parsing implemented?", "route": "repository" },
+    { "id": "source-code-incidental", "action": "information", "subject": "language_behavior", "text": "Can Veln schemas encode source code text?", "route": "language" },
+    { "id": "source-code-object-incidental", "action": "information", "subject": "language_behavior", "text": "Can Veln schemas encode source code?", "route": "language" },
+    { "id": "proposal-state-subject", "action": "information", "subject": "repository_material", "text": "Can you tell me what the Veln proposal state is?", "route": "repository" },
+    { "id": "proposal-state-attribute-subject", "action": "information", "subject": "repository_material", "text": "How broad is the Veln proposal state today?", "route": "repository" },
+    { "id": "proposal-state-incidental", "action": "information", "subject": "language_behavior", "text": "Can Veln schemas record proposal state values?", "route": "language" },
+    { "id": "validate-action", "action": "repository_action", "subject": "language_behavior", "text": "Validate how Veln schemas are parsed.", "route": "repository" },
+    { "id": "validate-language", "action": "information", "subject": "language_behavior", "text": "What does validate mean in Veln schemas?", "route": "language" },
+    { "id": "alter-action", "action": "repository_action", "subject": "language_behavior", "text": "Alter how effects are handled in Veln.", "route": "repository" },
+    { "id": "alter-language", "action": "information", "subject": "language_behavior", "text": "How does Veln alter effects?", "route": "language" },
+    { "id": "assess-parser-action", "action": "repository_action", "subject": "implementation", "text": "Please assess the Veln parser.", "route": "repository" },
+    { "id": "audit-lexer-action", "action": "repository_action", "subject": "implementation", "text": "Audit the Veln lexer.", "route": "repository" },
+    { "id": "assess-effects-action", "action": "repository_action", "subject": "language_behavior", "text": "Assess how effects are handled in Veln.", "route": "repository" },
+    { "id": "effects-passive-information", "action": "information", "subject": "language_behavior", "text": "How are effects handled in Veln?", "route": "language" },
+    { "id": "effects-explained-information", "action": "information", "subject": "language_behavior", "text": "Explain how effects are handled in Veln.", "route": "language" },
+    { "id": "borrow-checker-information", "action": "information", "subject": "language_behavior", "text": "Does Veln have a borrow checker?", "route": "language" },
+    { "id": "schemas-information", "action": "information", "subject": "language_behavior", "text": "How do Veln schemas work?", "route": "language" },
+    { "id": "schemas-contracts-information", "action": "information", "subject": "language_behavior", "text": "How do Veln schemas and contracts interact?", "route": "language" },
+    { "id": "effects-update-information", "action": "information", "subject": "language_behavior", "text": "Does Veln update effects automatically?", "route": "language" },
+    { "id": "schemas-encode-information", "action": "information", "subject": "language_behavior", "text": "How do Veln schemas encode values?", "route": "language" },
+    { "id": "modules-information", "action": "information", "subject": "language_behavior", "text": "How do Veln modules work?", "route": "language" },
+    { "id": "mcp-inspection-action", "action": "repository_action", "subject": "implementation", "text": "Examine the implemented Veln MCP documentation search.", "route": "repository" },
+    { "id": "explicit-path-inspection", "action": "repository_action", "subject": "implementation", "text": "Inspect MCP documentation search in docs/specification/types.md.", "route": "repository" },
+    { "id": "parser-implementation-location-information", "action": "information", "subject": "implementation", "text": "Where is the Veln parser implemented?", "route": "repository" },
+    { "id": "schemas-change-action", "action": "repository_action", "subject": "language_behavior", "text": "Change how Veln schemas work.", "route": "repository" },
+    { "id": "authoring-policy-review-action", "action": "repository_action", "subject": "repository_material", "text": "Review the repository documentation authoring policy.", "route": "repository" },
+    { "id": "unknown-repository-inspection-action", "action": "repository_action", "subject": "repository_material", "text": "Inspect repository authority for an undocumented deployment service.", "route": "repository" }
+  ],
+  "scenarios": [
+    {
+      "id": "language-topic-match",
+      "covers": "language-match",
+      "turns": [{
+        "request": { "text": "What can I test in Veln schemas?" },
+        "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+        "events": [
+          { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+          { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+          { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+          { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
+          { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
+        ]
+      }]
+    },
+    {
+      "id": "language-topic-no-match",
+      "covers": "language-no-match",
+      "turns": [{
+        "request": { "text": "Does Veln have a borrow checker?" },
+        "expected": { "search_arguments": { "query": "borrow checker", "scope": "language" }, "answer_claims": [] },
+        "events": [
+          { "type": "call", "tool": "search_docs", "arguments": { "query": "borrow checker", "scope": "language" } },
+          { "type": "result", "tool": "search_docs", "value": { "content": [{ "type": "text", "text": "{\"scope\":\"language\",\"results\":[]}" }], "structuredContent": { "scope": "language", "results": [] }, "isError": false } },
+          { "type": "answer", "status": "no_match", "claims": [], "source_uris": [], "message": "The published Veln language reference has no matching topic." }
+        ]
+      }]
+    },
+    {
+      "id": "language-search-unavailable-preserves-result",
+      "covers": "search-unavailable",
+      "turns": [
+        {
+          "request": { "text": "How do Veln schemas work?" },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
+            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
+          ]
+        },
+        {
+          "request": { "text": "Does Veln update effects automatically?" },
+          "expected": { "search_arguments": { "query": "effects", "scope": "language" }, "answer_claims": [] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "effects", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "error": { "code": "tool_unavailable" } },
+            { "type": "answer", "status": "search_unavailable", "claims": [], "source_uris": [], "failure": { "operation": "search_docs", "artifact_uri": null }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "language-topic-unreadable-preserves-result",
+      "covers": "topic-unreadable",
+      "turns": [
+        {
+          "request": { "text": "How do Veln schemas work?" },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
+            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
+          ]
+        },
+        {
+          "request": { "text": "How do Veln schemas encode values?" },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": [] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "error": { "code": "transport_unavailable" } },
+            { "type": "answer", "status": "topic_unavailable", "claims": [], "source_uris": [], "failure": { "operation": "read_doc", "artifact_uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "language-stale-snapshot-preserves-result",
+      "covers": "stale-snapshot-uri",
+      "turns": [
+        {
+          "request": { "text": "How do Veln schemas work?" },
+          "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value_ref": "schemas-search" },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "value_ref": "schemas-read" },
+            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
+          ]
+        },
+        {
+          "request": { "text": "How do Veln modules work?" },
+          "expected": { "search_arguments": { "query": "modules", "scope": "language" }, "answer_claims": [] },
+          "events": [
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "modules", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value": { "content": [{ "type": "text", "text": "{\"scope\":\"language\",\"results\":[{\"uri\":\"veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout\",\"title\":\"Modules Legacy Layout\",\"summary\":\"The archived snapshot described a module layout that was later renamed.\",\"excerpt\":\"modules-legacy-layout\",\"prefix_truncated\":false,\"suffix_truncated\":false},{\"uri\":\"veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/legacy-module-lexicon\",\"title\":\"Legacy Module Lexicon\",\"summary\":\"The archived snapshot included a module lexicon topic that was later removed.\",\"excerpt\":\"modules\",\"prefix_truncated\":false,\"suffix_truncated\":false}]}" }], "structuredContent": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout", "title": "Modules Legacy Layout", "summary": "The archived snapshot described a module layout that was later renamed.", "excerpt": "modules-legacy-layout", "prefix_truncated": false, "suffix_truncated": false }, { "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/legacy-module-lexicon", "title": "Legacy Module Lexicon", "summary": "The archived snapshot included a module lexicon topic that was later removed.", "excerpt": "modules", "prefix_truncated": false, "suffix_truncated": false }] }, "isError": false } },
+            { "type": "server_transition", "transition": "replace_process", "before": { "server_instance": "archived-reference-server", "language_snapshot_digest": "0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350" }, "after": { "server_instance": "current-reference-server", "language_snapshot_digest": "4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9" } },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout" } },
+            { "type": "result", "tool": "read_doc", "value": { "content": [{ "type": "text", "text": "{\"code\":\"resource_not_found\",\"message\":\"language reference resource not found\",\"details\":{\"uri\":\"veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout\"}}" }], "structuredContent": { "code": "resource_not_found", "message": "language reference resource not found", "details": { "uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout" } }, "isError": true } },
+            { "type": "answer", "status": "stale_snapshot", "claims": [], "source_uris": [], "failure": { "operation": "read_doc", "artifact_uri": "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/modules-legacy-layout" }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "repository-current-behavior",
+      "covers": "repository-current",
+      "turns": [{
+        "request": { "text": "Examine the implemented Veln MCP documentation search." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/mcp.md" } },
+          { "type": "read", "path": "docs/specification/mcp.md", "value": { "authority": "docs/specification/mcp.md" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/mcp.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-change-request",
+      "covers": "repository-change",
+      "turns": [{
+        "request": { "text": "Change how Veln schemas work." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/topic-map.md" } },
+          { "type": "read", "path": "docs/specification/topic-map.md", "value": { "route": "docs/specification/source-surface.md" } },
+          { "type": "read", "path": "docs/specification/source-surface.md", "value": { "authority": "docs/specification/source-surface.md" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/source-surface.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-implementation-location-question",
+      "covers": "repository-implementation-location",
+      "turns": [{
+        "request": { "text": "Where is the Veln parser implemented?" },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/topic-map.md" } },
+          { "type": "read", "path": "docs/specification/topic-map.md", "value": { "route": "docs/specification/source-surface.md" } },
+          { "type": "read", "path": "docs/specification/source-surface.md", "value": { "authority": "docs/specification/source-surface.md" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/source-surface.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-proposal-selection",
+      "covers": "repository-proposal",
+      "turns": [{
+        "request": { "text": "Select the next ready Veln language proposal." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/proposals/README.md" } },
+          { "type": "read", "path": "docs/proposals/README.md", "value": { "authority": "docs/proposals/README.md", "selection": "ready-only" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/proposals/README.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-explicit-target-subject",
+      "covers": "repository-explicit-target",
+      "turns": [{
+        "request": { "text": "Can you tell me what the Veln proposal state is?" },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/proposals/README.md" } },
+          { "type": "read", "path": "docs/proposals/README.md", "value": { "authority": "docs/proposals/README.md" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/proposals/README.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-reference-policy",
+      "covers": "repository-reference",
+      "turns": [{
+        "request": { "text": "Review the repository documentation authoring policy." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/reference/documentation-authoring.md" } },
+          { "type": "read", "path": "docs/reference/documentation-authoring.md", "value": { "authority": "docs/reference/documentation-authoring.md" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/reference/documentation-authoring.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-unknown-topic",
+      "covers": "repository-unknown",
+      "turns": [{
+        "request": { "text": "Inspect repository authority for an undocumented deployment service." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/navigation.md" } },
+          { "type": "read", "path": "docs/navigation.md", "value": { "route": null } },
+          { "type": "answer", "status": "repository_no_route", "claims": [], "source_uris": [], "message": "No repository documentation route covers this topic." }
+        ]
+      }]
+    }
+  ]
+}
