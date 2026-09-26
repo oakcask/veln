@@ -1247,8 +1247,17 @@ function navigationalMarkdown(source) {
       mask(htmlLineStart, lineEnd);
       if (htmlBlock.closing.test(line)) htmlBlock = undefined;
     } else {
+      const closedBlock = [
+        { opening: /^ {0,3}<!--/u, closing: /-->/u },
+        { opening: /^ {0,3}<\?/u, closing: /\?>/u },
+        { opening: /^ {0,3}<![A-Z]/u, closing: />/u },
+        { opening: /^ {0,3}<!\[CDATA\[/u, closing: /\]\]>/u },
+      ].find(({ opening }) => opening.test(line));
       const rawTag = /^ {0,3}<(script|pre|style|textarea)(?=[\t\r\n />])/iu.exec(line);
-      if (rawTag !== null) {
+      if (closedBlock !== undefined) {
+        mask(htmlLineStart, lineEnd);
+        if (!closedBlock.closing.test(line)) htmlBlock = { closing: closedBlock.closing };
+      } else if (rawTag !== null) {
         const closing = new RegExp(`</${rawTag[1]}\\s*>`, "iu");
         mask(htmlLineStart, lineEnd);
         if (!closing.test(line)) htmlBlock = { closing };

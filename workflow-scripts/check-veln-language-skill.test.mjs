@@ -1033,6 +1033,34 @@ test("rejects repository routes that appear only in non-navigational Markdown", 
   );
 });
 
+test("ignores links in CommonMark closed HTML blocks and resumes navigation afterward", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-closed-html-blocks-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "fake.md"), "# Fake authority\n");
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  writeFileSync(join(root, "docs", "README.md"), [
+    "<!--",
+    "[comment](fake.md)",
+    "-->",
+    "<?processing",
+    "[instruction](fake.md)",
+    "?>",
+    "<!DECLARATION",
+    "[declaration](fake.md)",
+    ">",
+    "<![CDATA[",
+    "[cdata](fake.md)",
+    "]]>",
+    "[authority](authority.md)",
+  ].join("\n"));
+
+  assert.deepEqual(
+    linkedDocumentationPaths("docs/README.md", root),
+    ["docs/authority.md"],
+  );
+});
+
 test("ignores links in block-quoted tilde fences and resumes navigation afterward", (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-block-quote-fence-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
