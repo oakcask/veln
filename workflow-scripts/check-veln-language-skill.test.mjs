@@ -293,6 +293,17 @@ test("rejects a failing branching schema DAG within the external time bound", as
   );
 });
 
+test("validates a shared-child inline schema DAG within the external time bound", async () => {
+  assert.equal(await runStressTarget("schema-inline-branching-dag", { levels: 30 }, 3_000), 30);
+});
+
+test("bounds a distinct-child inline schema tree within the external time bound", async () => {
+  await assert.rejects(
+    runStressTarget("schema-inline-branching-tree", { levels: 15 }, 3_000),
+    /schema validation exceeded the 16384-operation work bound/,
+  );
+});
+
 test("rejects deeply nested inline schemas within the external time bound", async () => {
   for (const kind of ["array", "object"]) {
     await assert.rejects(

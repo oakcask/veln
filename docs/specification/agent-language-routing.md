@@ -138,8 +138,13 @@ finite evidence for the semantic instruction, not an executable general
 natural-language classifier. Stress cases run in workers that the parent test
 terminates at their time bound. The offline harness rejects repository
 documents larger than `262144` bytes before parsing them, which bounds replay
-resource use. It also verifies that a terminal authority recorded as current
-does not declare a closed or superseded lifecycle. Stale search recordings are
+resource use. Schema validation stops after `16384` schema-node evaluations.
+It reuses the result for repeated inline schema and value pairs when the
+earlier traversal was at least as deep, so shared-child schemas do not repeat
+the same branching work. Distinct-child schemas that exceed the work limit
+fail with a bounded validation error. The harness also verifies that a
+terminal authority recorded as current does not declare a closed or
+superseded lifecycle. Stale search recordings are
 checked in full against archived catalog evidence whose snapshot digest is
 recalculated with the published catalog digest contract. The replay also
 requires a distinct replacement server whose retained snapshot is the current

@@ -139,6 +139,41 @@ function runTarget(target, data) {
     schema.$defs.terminal = { const: "unreachable" };
     validateSchema(value, schema, schema, "failing branching schema DAG");
   }
+  if (target === "schema-inline-branching-dag") {
+    let schema = { type: "object", additionalProperties: false };
+    let value = {};
+    for (let index = data.levels - 1; index >= 0; index -= 1) {
+      const sharedChild = schema;
+      const branch = (choice) => ({
+        type: "object",
+        properties: { next: sharedChild, choice: { const: choice } },
+        required: ["next", "choice"],
+        additionalProperties: false,
+      });
+      schema = { oneOf: [branch("left"), branch("right")] };
+      value = { next: value, choice: "left" };
+    }
+    validateSchema(value, schema, schema, "inline branching schema DAG");
+    return data.levels;
+  }
+  if (target === "schema-inline-branching-tree") {
+    const branchTree = (level) => {
+      if (level === data.levels) return { type: "object", additionalProperties: false };
+      const branch = (choice) => ({
+        type: "object",
+        properties: { next: branchTree(level + 1), choice: { const: choice } },
+        required: ["next", "choice"],
+        additionalProperties: false,
+      });
+      return { oneOf: [branch("left"), branch("right")] };
+    };
+    let value = {};
+    for (let index = 0; index < data.levels; index += 1) {
+      value = { next: value, choice: "left" };
+    }
+    const schema = branchTree(0);
+    validateSchema(value, schema, schema, "inline branching schema tree");
+  }
   if (target === "schema-inline-depth") {
     let schema = { type: "string" };
     let value = "leaf";

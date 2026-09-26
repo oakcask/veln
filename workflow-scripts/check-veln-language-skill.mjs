@@ -103,6 +103,7 @@ const fixtureLimits = {
   snapshotTopicWork: 16_384,
   schemaReferenceDepth: 64,
   schemaTraversalDepth: 128,
+  schemaValidationWork: 16_384,
 };
 
 export function loadPublishedLanguageReference(repositoryRoot) {
@@ -774,16 +775,26 @@ function snapshotDigest(uri, context) {
   return uri.split("/")[5];
 }
 
-export function validateSchema(value, schema, root, context, traversal = undefined) {
-  const state = traversal ?? {
+export function validateSchema(value, schema, root, context) {
+  return validateSchemaNode(value, schema, root, context, {
     referenceDepth: 0,
     traversalDepth: 0,
     activeReferences: new Set(),
     validatedReferences: new Map(),
-  };
+    validatedSchemas: new WeakMap(),
+    work: { count: 0 },
+  });
+}
+
+function validateSchemaNode(value, schema, root, context, state) {
   assert.ok(
     state.traversalDepth <= fixtureLimits.schemaTraversalDepth,
     `${context}: schema validation exceeded the ${fixtureLimits.schemaTraversalDepth}-traversal depth bound`,
+  );
+  state.work.count += 1;
+  assert.ok(
+    state.work.count <= fixtureLimits.schemaValidationWork,
+    `${context}: schema validation exceeded the ${fixtureLimits.schemaValidationWork}-operation work bound`,
   );
   const descend = () => ({
     ...state,
@@ -811,7 +822,7 @@ export function validateSchema(value, schema, root, context, traversal = undefin
     activeReferences.add(schema.$ref);
     const validatedValues = state.validatedReferences.get(schema.$ref) ?? new Map();
     try {
-      validateSchema(value, definition, root, context, {
+      validateSchemaNode(value, definition, root, context, {
         ...descend(),
         referenceDepth: state.referenceDepth + 1,
         activeReferences,
@@ -827,51 +838,67 @@ export function validateSchema(value, schema, root, context, traversal = undefin
     }
     return;
   }
-  if (schema.oneOf !== undefined) {
-    const matches = schema.oneOf.filter((candidate) => {
-      try {
-        validateSchema(value, candidate, root, context, descend());
-        return true;
-      } catch (error) {
-        if (/schema (?:reference cycle|validation exceeded)|(?:unresolved|unsupported) schema reference/.test(error.message)) {
-          throw error;
-        }
-        return false;
-      }
-    });
-    assert.equal(matches.length, 1, `${context}: value does not match exactly one published schema branch`);
+  const validatedValues = state.validatedSchemas.get(schema) ?? new Map();
+  const validated = validatedValues.get(value);
+  if (validated !== undefined && state.traversalDepth <= validated.depth) {
+    if (validated.error !== undefined) throw validated.error;
     return;
   }
-  if (schema.const !== undefined) assert.deepEqual(value, schema.const, `${context}: constant value does not match schema`);
-  if (schema.enum !== undefined) assert.ok(schema.enum.includes(value), `${context}: value is outside the schema enum`);
-  if (schema.type === "object") {
-    assert.equal(value !== null && typeof value === "object" && !Array.isArray(value), true, `${context}: expected schema object`);
-    for (const field of schema.required ?? []) assert.ok(Object.hasOwn(value, field), `${context}: missing schema field ${field}`);
-    if (schema.additionalProperties === false) {
-      for (const field of Object.keys(value)) assert.ok(Object.hasOwn(schema.properties ?? {}, field), `${context}: unexpected schema field ${field}`);
-    }
-    for (const [field, fieldValue] of Object.entries(value)) {
-      if (schema.properties?.[field] !== undefined) {
-        validateSchema(fieldValue, schema.properties[field], root, `${context}.${field}`, descend());
+  try {
+    if (schema.oneOf !== undefined) {
+      const matches = schema.oneOf.filter((candidate) => {
+        try {
+          validateSchemaNode(value, candidate, root, context, descend());
+          return true;
+        } catch (error) {
+          if (/schema (?:reference cycle|validation exceeded)|(?:unresolved|unsupported) schema reference/.test(error.message)) {
+            throw error;
+          }
+          return false;
+        }
+      });
+      assert.equal(matches.length, 1, `${context}: value does not match exactly one published schema branch`);
+    } else {
+      if (schema.const !== undefined) assert.deepEqual(value, schema.const, `${context}: constant value does not match schema`);
+      if (schema.enum !== undefined) assert.ok(schema.enum.includes(value), `${context}: value is outside the schema enum`);
+      if (schema.type === "object") {
+        assert.equal(value !== null && typeof value === "object" && !Array.isArray(value), true, `${context}: expected schema object`);
+        for (const field of schema.required ?? []) assert.ok(Object.hasOwn(value, field), `${context}: missing schema field ${field}`);
+        if (schema.additionalProperties === false) {
+          for (const field of Object.keys(value)) assert.ok(Object.hasOwn(schema.properties ?? {}, field), `${context}: unexpected schema field ${field}`);
+        }
+        for (const [field, fieldValue] of Object.entries(value)) {
+          if (schema.properties?.[field] !== undefined) {
+            validateSchemaNode(fieldValue, schema.properties[field], root, `${context}.${field}`, descend());
+          }
+        }
+      } else if (schema.type === "array") {
+        assert.ok(Array.isArray(value), `${context}: expected schema array`);
+        if (schema.minItems !== undefined) assert.ok(value.length >= schema.minItems, `${context}: array is shorter than schema minimum`);
+        if (schema.maxItems !== undefined) assert.ok(value.length <= schema.maxItems, `${context}: array is longer than schema maximum`);
+        for (const [index, item] of value.entries()) {
+          validateSchemaNode(item, schema.items, root, `${context}[${index}]`, descend());
+        }
+      } else if (schema.type === "string") {
+        assert.equal(typeof value, "string", `${context}: expected schema string`);
+        if (schema.minLength !== undefined) assert.ok([...value].length >= schema.minLength, `${context}: string is shorter than schema minimum`);
+        if (schema.maxLength !== undefined) assert.ok([...value].length <= schema.maxLength, `${context}: string is longer than schema maximum`);
+      } else if (schema.type === "boolean") {
+        assert.equal(typeof value, "boolean", `${context}: expected schema boolean`);
+      } else if (schema.type === "integer") {
+        assert.equal(Number.isInteger(value), true, `${context}: expected schema integer`);
+        if (schema.minimum !== undefined) assert.ok(value >= schema.minimum, `${context}: integer is below schema minimum`);
+        if (schema.maximum !== undefined) assert.ok(value <= schema.maximum, `${context}: integer is above schema maximum`);
       }
     }
-  } else if (schema.type === "array") {
-    assert.ok(Array.isArray(value), `${context}: expected schema array`);
-    if (schema.minItems !== undefined) assert.ok(value.length >= schema.minItems, `${context}: array is shorter than schema minimum`);
-    if (schema.maxItems !== undefined) assert.ok(value.length <= schema.maxItems, `${context}: array is longer than schema maximum`);
-    for (const [index, item] of value.entries()) {
-      validateSchema(item, schema.items, root, `${context}[${index}]`, descend());
+    validatedValues.set(value, { depth: state.traversalDepth });
+    state.validatedSchemas.set(schema, validatedValues);
+  } catch (error) {
+    if (!/schema (?:reference cycle|validation exceeded)|(?:unresolved|unsupported) schema reference/.test(error.message)) {
+      validatedValues.set(value, { depth: state.traversalDepth, error });
+      state.validatedSchemas.set(schema, validatedValues);
     }
-  } else if (schema.type === "string") {
-    assert.equal(typeof value, "string", `${context}: expected schema string`);
-    if (schema.minLength !== undefined) assert.ok([...value].length >= schema.minLength, `${context}: string is shorter than schema minimum`);
-    if (schema.maxLength !== undefined) assert.ok([...value].length <= schema.maxLength, `${context}: string is longer than schema maximum`);
-  } else if (schema.type === "boolean") {
-    assert.equal(typeof value, "boolean", `${context}: expected schema boolean`);
-  } else if (schema.type === "integer") {
-    assert.equal(Number.isInteger(value), true, `${context}: expected schema integer`);
-    if (schema.minimum !== undefined) assert.ok(value >= schema.minimum, `${context}: integer is below schema minimum`);
-    if (schema.maximum !== undefined) assert.ok(value <= schema.maximum, `${context}: integer is above schema maximum`);
+    throw error;
   }
 }
 
