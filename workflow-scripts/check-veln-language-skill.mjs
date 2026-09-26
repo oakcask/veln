@@ -681,20 +681,31 @@ export function validateSchema(value, schema, root, context, traversal = undefin
       false,
       `${context}: schema reference cycle includes ${schema.$ref}`,
     );
-    const validatedDepth = state.validatedReferences.get(schema.$ref)?.get(value);
-    if (validatedDepth !== undefined && state.referenceDepth <= validatedDepth) return;
+    const validated = state.validatedReferences.get(schema.$ref)?.get(value);
+    if (validated !== undefined && state.referenceDepth <= validated.depth) {
+      if (validated.error !== undefined) throw validated.error;
+      return;
+    }
     const definition = root.$defs?.[schema.$ref.split("/").at(-1)];
     assert.notEqual(definition, undefined, `${context}: unresolved schema reference ${schema.$ref}`);
     const activeReferences = new Set(state.activeReferences);
     activeReferences.add(schema.$ref);
-    validateSchema(value, definition, root, context, {
-      ...descend(),
-      referenceDepth: state.referenceDepth + 1,
-      activeReferences,
-    });
     const validatedValues = state.validatedReferences.get(schema.$ref) ?? new Map();
-    validatedValues.set(value, state.referenceDepth);
-    state.validatedReferences.set(schema.$ref, validatedValues);
+    try {
+      validateSchema(value, definition, root, context, {
+        ...descend(),
+        referenceDepth: state.referenceDepth + 1,
+        activeReferences,
+      });
+      validatedValues.set(value, { depth: state.referenceDepth });
+      state.validatedReferences.set(schema.$ref, validatedValues);
+    } catch (error) {
+      if (!/schema (?:reference cycle|validation exceeded)|(?:unresolved|unsupported) schema reference/.test(error.message)) {
+        validatedValues.set(value, { depth: state.referenceDepth, error });
+        state.validatedReferences.set(schema.$ref, validatedValues);
+      }
+      throw error;
+    }
     return;
   }
   if (schema.oneOf !== undefined) {

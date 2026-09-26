@@ -170,6 +170,13 @@ test("validates a branching schema DAG within the external time bound", async ()
   assert.equal(await runStressTarget("schema-branching-dag", { levels: 30 }, 3_000), 30);
 });
 
+test("rejects a failing branching schema DAG within the external time bound", async () => {
+  await assert.rejects(
+    runStressTarget("schema-failing-branching-dag", { levels: 30 }, 3_000),
+    /value does not match exactly one published schema branch/,
+  );
+});
+
 test("rejects deeply nested inline schemas within the external time bound", async () => {
   for (const kind of ["array", "object"]) {
     await assert.rejects(
