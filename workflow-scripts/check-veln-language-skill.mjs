@@ -1109,11 +1109,36 @@ function navigationalMarkdown(source) {
   }
 
   const findCommentStart = monotonicVisibleFinder("<!--");
-  const findTickStart = monotonicVisibleFinder("`");
+  const tickRuns = [];
+  for (let index = 0; index < source.length;) {
+    if (masked[index] !== "`") {
+      index += 1;
+      continue;
+    }
+    const start = index;
+    while (masked[index] === "`") index += 1;
+    tickRuns.push({ start, end: index, nextMatching: undefined });
+  }
+  const nextRunByLength = new Map();
+  for (let index = tickRuns.length - 1; index >= 0; index -= 1) {
+    const run = tickRuns[index];
+    const length = run.end - run.start;
+    run.nextMatching = nextRunByLength.get(length);
+    nextRunByLength.set(length, run);
+  }
+
+  let tickIndex = 0;
   let cursor = 0;
   while (cursor < source.length) {
     const commentStart = findCommentStart(cursor);
-    const tickStart = findTickStart(cursor);
+    while (tickIndex < tickRuns.length && (
+      tickRuns[tickIndex].start < cursor
+      || masked[tickRuns[tickIndex].start] !== "`"
+    )) {
+      tickIndex += 1;
+    }
+    const tick = tickRuns[tickIndex];
+    const tickStart = tick?.start ?? -1;
     const start = commentStart === -1
       ? tickStart
       : tickStart === -1 ? commentStart : Math.min(commentStart, tickStart);
@@ -1125,15 +1150,12 @@ function navigationalMarkdown(source) {
       cursor = end;
       continue;
     }
-    let runEnd = start + 1;
-    while (masked[runEnd] === "`") runEnd += 1;
-    const delimiter = source.slice(start, runEnd);
-    const endStart = findVisible(delimiter, runEnd);
-    if (endStart === -1) {
-      cursor = runEnd;
+    tickIndex += 1;
+    if (tick.nextMatching === undefined) {
+      cursor = tick.end;
       continue;
     }
-    const end = endStart + delimiter.length;
+    const end = tick.nextMatching.end;
     mask(start, end);
     cursor = end;
   }

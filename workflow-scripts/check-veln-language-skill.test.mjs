@@ -922,6 +922,19 @@ test("does not combine an unmatched link label with a later image destination", 
   );
 });
 
+test("does not close inline code with a different-length backtick run", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-inline-delimiters-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+  writeFileSync(join(root, "docs", "README.md"), "x `[authority](authority.md)``\n");
+
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
+    ["docs/README.md", "docs/authority.md"],
+  );
+});
+
 test("terminates a nonresponsive stress worker at the external time bound", async () => {
   await assert.rejects(
     runStressTarget("nontermination", {}, 100),
@@ -1048,6 +1061,22 @@ test("masks mixed inline code and fenced comments at adjacent accepted sizes", a
       `${size} bytes`,
     );
   }
+});
+
+test("parses descending unmatched inline-code runs with adjacent-size scaling", async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-links-ticks-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  const path = join(root, "docs", "README.md");
+  const result = await runStressTarget("descending-unmatched-ticks", {
+    count: 722,
+    path,
+    repositoryPath: "docs/README.md",
+    root,
+    sizes: [262_143, 262_144],
+  }, 1_000);
+  assert.deepEqual(result.bytes, [262_143, 262_144]);
+  assert.equal(result.milliseconds.length, 2);
 });
 
 test("retains snapshot overrides without bilinear catalog copies", async (context) => {
