@@ -68,6 +68,11 @@ memory. The route distinguishes failures as follows:
 | `read_doc` returns the transport error `transport_unavailable` | Stop after read and report that the selected topic is unavailable. |
 | `read_doc` returns a tool error with code `resource_not_found` for the selected snapshot URI | Stop after read and report that the selected snapshot URI is stale. |
 
+The skill selects these outcomes by the exact operation, result kind, and code
+shown in the table. The stale-snapshot outcome additionally requires the error
+URI to equal the URI selected from search. A different tuple does not select
+one of these named failure outcomes.
+
 Each failure reports the failed operation and the selected URI when one exists.
 It also leaves any earlier successful result unchanged.
 Within one server process, search candidates and reads remain retained state, so
@@ -90,8 +95,9 @@ repository results for the acceptance model. The separate
 expected action-and-subject classification. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
-the closed operative-contract and result shapes, provenance, bounded failures,
-preserved results, routing, and input limits. The reviewed oracle independently
+the closed operative-contract and result shapes, exact failure dispatch,
+provenance, bounded failures, preserved results, routing, and input limits. The
+reviewed oracle independently
 classifies the action and subject of each raw corpus request. The harness checks
 that every replayed request matches that oracle, then applies the skill's closed
 action-and-subject decision table. The corpus includes contrastive paraphrases,
