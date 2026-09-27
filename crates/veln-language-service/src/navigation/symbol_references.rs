@@ -127,7 +127,17 @@ impl SymbolIndex {
     fn effect_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()
-            .filter(|file| workspace_navigation_file(file))
+            .filter(|file| {
+                workspace_navigation_file(file)
+                    && (file.module == symbol.module
+                        || (symbol.public
+                            && self
+                                .schema_alias_module_imports
+                                .get(&file.module)
+                                .is_some_and(|imports| {
+                                    imports.workspace_imports.contains(&symbol.module)
+                                })))
+            })
             .flat_map(|file| {
                 let ranges = file
                     .tokens

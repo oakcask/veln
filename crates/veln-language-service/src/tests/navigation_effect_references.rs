@@ -125,6 +125,44 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn imported_workspace_effect_imports_apply_across_sources_in_one_module() {
+        let declarations = source(
+            "library/fx.veln",
+            "pub effect Remote\n  run() -> Int\nend\n",
+        );
+        let imports = source("consumer_imports.veln", "mod consumer\n\nuse library::fx\n");
+        let usage = source(
+            "consumer_usage.veln",
+            concat!(
+                "mod consumer\n\n",
+                "fn qualified() -> Int effects [fx::Remote]\n",
+                "  1\n",
+                "end\n",
+            ),
+        );
+        let resolved = query(
+            vec![declarations.clone(), imports.clone(), usage.clone()],
+            "consumer_usage.veln",
+            3,
+            36,
+        )
+        .unwrap();
+        assert_location(&resolved.definition, "library/fx.veln", 1, 12);
+
+        let duplicate_import = source(
+            "consumer_duplicate.veln",
+            "mod consumer\n\nuse library::fx\n",
+        );
+        assert!(query(
+            vec![declarations, imports, duplicate_import, usage],
+            "consumer_usage.veln",
+            3,
+            36,
+        )
+        .is_none());
+    }
+
+    #[test]
     fn imported_workspace_effect_resolution_obeys_import_identity_and_visibility() {
         let precedence = vec![
             source("fx.veln", "pub effect Remote\n  run() -> Int\nend\n"),
@@ -961,6 +999,35 @@ mod navigation_effect_references_tests {
             assert_eq!(declaration_visits, count + 1);
             assert_eq!(identity_lookups, count);
         }
+    }
+
+    #[test]
+    fn workspace_effect_reference_collection_skips_unrelated_modules() {
+        let mut sources = vec![
+            source(
+                "library/fx.veln",
+                "pub effect Target\n  pick() -> Int\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                "use library::fx\n\nfn use_target() -> Int effects [fx::Target]\n  1\nend\n",
+            ),
+        ];
+        for index in 0..256 {
+            sources.push(source(
+                &format!("noise/item_{index}.veln"),
+                "effect Target\n  ignore() -> Int\nend\n\nfn local() -> Int effects [Target]\n  1\nend\n",
+            ));
+        }
+
+        crate::navigation::reset_effect_identity_index_work();
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+        let result = query_snapshot(&snapshot, "library/fx.veln", 1, 12).unwrap();
+        assert_eq!(locations(&result.references), [("consumer.veln", 3, 37)]);
+        let (declaration_visits, identity_lookups) =
+            crate::navigation::effect_identity_index_work();
+        assert_eq!(declaration_visits, 257);
+        assert_eq!(identity_lookups, 1);
     }
 
     #[test]
