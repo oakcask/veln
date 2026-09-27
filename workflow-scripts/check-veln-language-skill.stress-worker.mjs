@@ -84,6 +84,22 @@ function runTarget(target, data) {
     }
     return { bytes, linkCounts, milliseconds };
   }
+  if (target === "nested-brackets") {
+    const bytes = [];
+    const linkCounts = [];
+    const milliseconds = [];
+    for (const size of data.sizes) {
+      const openingCount = Math.floor(size / 2);
+      const source = "[".repeat(openingCount) + "]".repeat(size - openingCount);
+      writeFileSync(data.path, source);
+      const start = performance.now();
+      const links = linkedDocumentationPaths(data.repositoryPath, data.root);
+      milliseconds.push(performance.now() - start);
+      bytes.push(Buffer.byteLength(source));
+      linkCounts.push(links.length);
+    }
+    return { bytes, linkCounts, milliseconds };
+  }
   if (target === "schema-branching-cycle") {
     const reference = { $ref: "#/$defs/loop" };
     const schema = {

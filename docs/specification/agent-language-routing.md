@@ -139,7 +139,11 @@ natural-language classifier. Stress cases run in workers. At a time bound, the
 parent test terminates the worker and waits for its exit before it reports the
 failure. The offline harness rejects repository
 documents larger than `262144` bytes before parsing them, which bounds replay
-resource use. Schema validation stops after `16384` schema-node evaluations.
+resource use. Before parsing other repository-controlled inputs, it rejects a
+candidate skill or an individual MCP schema larger than `16384` bytes,
+case-folding data larger than `32768` bytes, and a language-reference digest
+sidecar larger than its canonical `65` bytes. Schema validation stops after
+`16384` schema-node evaluations.
 It reuses the result for repeated inline schema and value pairs when the
 earlier traversal was at least as deep, so shared-child schemas do not repeat
 the same branching work. Distinct-child schemas that exceed the work limit

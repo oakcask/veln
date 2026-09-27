@@ -97,6 +97,10 @@ const fixtureLimits = {
   skillDescriptionCharacters: 300,
   repositoryDiscoveryDocuments: 64,
   publishedCatalogBytes: 2_000_000,
+  digestSidecarBytes: 65,
+  caseFoldingBytes: 32_768,
+  skillBytes: 16_384,
+  toolSchemaBytes: 16_384,
   publishedCatalogTopics: 512,
   snapshotCatalogs: 32,
   snapshotOverrides: 64,
@@ -106,8 +110,17 @@ const fixtureLimits = {
   schemaValidationWork: 16_384,
 };
 
+function readBoundedUtf8(path, maximumBytes, context) {
+  assert.ok(statSync(path).size <= maximumBytes, `${context} exceeds the byte limit`);
+  return readFileSync(path, "utf8");
+}
+
 export function loadPublishedLanguageReference(repositoryRoot) {
-  const digest = readFileSync(join(repositoryRoot, digestPath), "utf8").trim();
+  const digest = readBoundedUtf8(
+    join(repositoryRoot, digestPath),
+    fixtureLimits.digestSidecarBytes,
+    "checked language-reference digest sidecar",
+  ).trim();
   assert.match(digest, /^[0-9a-f]{64}$/, "checked language-reference digest must be canonical");
   const absoluteCatalogPath = join(repositoryRoot, catalogPath);
   assert.ok(
@@ -131,18 +144,29 @@ export function loadPublishedLanguageReference(repositoryRoot) {
 
 export function loadCaseFoldMappings(repositoryRoot = defaultRepositoryRoot) {
   const mappings = new Map();
-  const rows = readFileSync(join(repositoryRoot, caseFoldingPath), "utf8").split("\n");
-  for (const [index, row] of rows.entries()) {
+  const source = readBoundedUtf8(
+    join(repositoryRoot, caseFoldingPath),
+    fixtureLimits.caseFoldingBytes,
+    "case-folding data",
+  );
+  let lineStart = 0;
+  let index = 0;
+  while (lineStart <= source.length) {
+    const lineEnd = source.indexOf("\n", lineStart);
+    const row = source.slice(lineStart, lineEnd === -1 ? source.length : lineEnd);
+    const lineNumber = index + 1;
+    index += 1;
+    lineStart = lineEnd === -1 ? source.length + 1 : lineEnd + 1;
     if (row.length === 0 || row.startsWith("#")) continue;
     const match = /^([0-9A-F]+);([0-9A-F]+(?: [0-9A-F]+)*)$/u.exec(row);
-    assert.ok(match, `case-folding row ${index + 1} is invalid`);
-    const source = String.fromCodePoint(Number.parseInt(match[1], 16));
+    assert.ok(match, `case-folding row ${lineNumber} is invalid`);
+    const sourceCharacter = String.fromCodePoint(Number.parseInt(match[1], 16));
     const replacement = match[2]
       .split(" ")
       .map((codePoint) => String.fromCodePoint(Number.parseInt(codePoint, 16)))
       .join("");
-    assert.equal(mappings.has(source), false, `case-folding row ${index + 1} is duplicated`);
-    mappings.set(source, replacement);
+    assert.equal(mappings.has(sourceCharacter), false, `case-folding row ${lineNumber} is duplicated`);
+    mappings.set(sourceCharacter, replacement);
   }
   assert.ok(mappings.size > 0, "case-folding data must contain mappings");
   return mappings;
@@ -634,7 +658,15 @@ function parseSkillContract(skillText) {
 }
 
 function loadSkillContract(options) {
-  const skillText = options.skillText ?? readFileSync(options.skillPath ?? defaultSkillPath, "utf8");
+  const skillText = options.skillText ?? readBoundedUtf8(
+    options.skillPath ?? defaultSkillPath,
+    fixtureLimits.skillBytes,
+    "veln-language skill",
+  );
+  assert.ok(
+    Buffer.byteLength(skillText, "utf8") <= fixtureLimits.skillBytes,
+    "veln-language skill exceeds the byte limit",
+  );
   return parseSkillContract(skillText);
 }
 
@@ -902,9 +934,13 @@ function validateSchemaNode(value, schema, root, context, state) {
   }
 }
 
-function loadToolSchemas(repositoryRoot) {
+export function loadToolSchemas(repositoryRoot) {
   const directory = join(repositoryRoot, "crates", "veln-mcp", "schemas", "mcp", "v1");
-  const load = (name) => JSON.parse(readFileSync(join(directory, `${name}.json`), "utf8"));
+  const load = (name) => JSON.parse(readBoundedUtf8(
+    join(directory, `${name}.json`),
+    fixtureLimits.toolSchemaBytes,
+    `${name} MCP schema`,
+  ));
   return {
     searchInput: load("search-docs-input"),
     searchResult: load("search-docs-result"),
@@ -1353,10 +1389,14 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
   const openLabels = [];
   for (let cursor = 0; cursor < source.length; cursor += 1) {
     if (source[cursor] === "[" && !isBackslashEscaped(source, cursor)) {
+      if (openLabels.length > 0) {
+        openLabels[openLabels.length - 1].containsNestedLabel = true;
+      }
       openLabels.push({
         start: cursor,
         image: cursor > 0 && source[cursor - 1] === "!" && !isBackslashEscaped(source, cursor - 1),
         containsLink: false,
+        containsNestedLabel: false,
       });
       continue;
     }
@@ -1373,6 +1413,7 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
       const referenceEnd = source.indexOf("]", cursor + 2);
       if (referenceEnd === -1 || isBackslashEscaped(source, referenceEnd)) continue;
       const explicit = source.slice(cursor + 2, referenceEnd);
+      if (explicit.length === 0 && label.containsNestedLabel) continue;
       const reference = normalizeReferenceLabel(explicit.length === 0
         ? source.slice(label.start + 1, cursor)
         : explicit);
@@ -1381,6 +1422,7 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
       if (target === undefined) continue;
     } else {
       if (source[cursor + 1] === ":") continue;
+      if (label.containsNestedLabel) continue;
       target = definitions.get(normalizeReferenceLabel(source.slice(label.start + 1, cursor)));
       if (target === undefined) continue;
     }

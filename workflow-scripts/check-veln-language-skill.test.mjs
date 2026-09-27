@@ -24,6 +24,7 @@ import {
   loadCaseFoldMappings,
   loadPublishedLanguageReference,
   loadSnapshotEvidence,
+  loadToolSchemas,
   readScenarioDocument,
   selectRequestRoute,
   shortestDocumentationRoute,
@@ -484,6 +485,93 @@ test("preserves Unicode whitespace trimming semantics", async () => {
     values: ["\u0085 schema \u3000", "a   b", "\u2003\u2003"],
   });
   assert.deepEqual(result, ["schema", "a   b", ""]);
+});
+
+test("bounds candidate skill bytes at the accepted boundary", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-skill-bytes-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, "SKILL.md");
+  const canonical = readFileSync(join(repositoryRoot, ".agents", "skills", "veln-language", "SKILL.md"), "utf8");
+  const contractEnd = canonical.lastIndexOf("\n}\n```\n<!-- veln-language-contract:end -->");
+  assert.notEqual(contractEnd, -1);
+  const padding = 16_384 - Buffer.byteLength(canonical, "utf8");
+  assert.ok(padding >= 0, "canonical skill already exceeds its byte limit");
+  const accepted = `${canonical.slice(0, contractEnd)}${" ".repeat(padding)}${canonical.slice(contractEnd)}`;
+  assert.equal(Buffer.byteLength(accepted, "utf8"), 16_384);
+  writeFileSync(path, accepted);
+  assert.equal(
+    selectRequestRoute({ action: "information", subject: "language_behavior" }, { skillPath: path }),
+    "language",
+  );
+
+  writeFileSync(path, `${accepted} `);
+  assert.throws(
+    () => selectRequestRoute({ action: "information", subject: "language_behavior" }, { skillPath: path }),
+    /veln-language skill exceeds the byte limit/,
+  );
+  assert.throws(
+    () => selectRequestRoute(
+      { action: "information", subject: "language_behavior" },
+      { skillText: "x".repeat(16_385) },
+    ),
+    /veln-language skill exceeds the byte limit/,
+  );
+});
+
+test("bounds case-folding bytes at the accepted boundary", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-case-fold-bytes-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const directory = join(root, "crates", "veln-project", "testdata");
+  mkdirSync(directory, { recursive: true });
+  const path = join(directory, "case_folding_17_c_f.txt");
+  const accepted = "0041;0061\n#".padEnd(32_768, "x");
+  writeFileSync(path, accepted);
+  assert.equal(loadCaseFoldMappings(root).get("A"), "a");
+  writeFileSync(path, `${accepted}x`);
+  assert.throws(() => loadCaseFoldMappings(root), /case-folding data exceeds the byte limit/);
+});
+
+test("bounds the catalog digest sidecar at its canonical byte length", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-digest-bytes-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const generated = join(root, "tools", "veln-repo-language-reference", "generated");
+  const caseFoldDirectory = join(root, "crates", "veln-project", "testdata");
+  mkdirSync(generated, { recursive: true });
+  mkdirSync(caseFoldDirectory, { recursive: true });
+  const catalog = { topics: [] };
+  writeFileSync(join(generated, "language-reference-catalog-v1.json"), `${JSON.stringify(catalog)}\n`);
+  const sidecarPath = join(generated, "language-reference-catalog-v1.sha256");
+  const sidecar = `${digestCatalog(catalog)}\n`;
+  assert.equal(Buffer.byteLength(sidecar), 65);
+  writeFileSync(sidecarPath, sidecar);
+  writeFileSync(join(caseFoldDirectory, "case_folding_17_c_f.txt"), "0041;0061\n");
+  assert.equal(loadPublishedLanguageReference(root).digest, digestCatalog(catalog));
+  writeFileSync(sidecarPath, `${sidecar}x`);
+  assert.throws(
+    () => loadPublishedLanguageReference(root),
+    /digest sidecar exceeds the byte limit/,
+  );
+});
+
+test("bounds each MCP schema at the accepted byte boundary", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-schema-bytes-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const directory = join(root, "crates", "veln-mcp", "schemas", "mcp", "v1");
+  mkdirSync(directory, { recursive: true });
+  const names = ["search-docs-input", "search-docs-result", "read-doc-input", "read-doc-result"];
+  const accepted = "{}".padEnd(16_384, " ");
+  for (const name of names) writeFileSync(join(directory, `${name}.json`), accepted);
+  assert.deepEqual(loadToolSchemas(root), {
+    searchInput: {},
+    searchResult: {},
+    readInput: {},
+    readResult: {},
+  });
+  for (const name of names) {
+    writeFileSync(join(directory, `${name}.json`), `${accepted} `);
+    assert.throws(() => loadToolSchemas(root), new RegExp(`${name} MCP schema exceeds the byte limit`));
+    writeFileSync(join(directory, `${name}.json`), accepted);
+  }
 });
 
 test("rejects a published catalog beyond its byte limit before reading it", (context) => {
@@ -1580,6 +1668,26 @@ test("discovers links in linear progress on malformed adjacent-size input", asyn
   mkdirSync(join(root, "docs"));
   writeFileSync(join(root, "docs", "README.md"), "[".repeat(262_144));
   assert.deepEqual(await runStressTarget("linked-paths", { path: "docs/README.md", root }), []);
+});
+
+test("parses nested brackets with adjacent-size linear scaling", async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-links-nested-brackets-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  const path = join(root, "docs", "README.md");
+  const sizes = [131_072, 262_144];
+  const result = await runStressTarget("nested-brackets", {
+    path,
+    repositoryPath: "docs/README.md",
+    root,
+    sizes,
+  }, 1_000);
+  assert.deepEqual(result.bytes, sizes);
+  assert.deepEqual(result.linkCounts, [0, 0]);
+  assert.ok(
+    result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 20,
+    `nested bracket scaling regressed: ${result.milliseconds.join(" ms, ")} ms`,
+  );
 });
 
 test("bounds repeated malformed destinations through the accepted size", async (context) => {
