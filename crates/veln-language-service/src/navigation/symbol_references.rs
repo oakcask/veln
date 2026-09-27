@@ -50,15 +50,10 @@ impl SymbolIndex {
         if symbol.package.is_some() {
             return false;
         }
-        let mut effects = self.effects.iter().filter(|candidate| {
-            candidate.package.is_none()
-                && candidate.module == symbol.module
-                && candidate.name == symbol.effect_name
-        });
-        let Some(effect) = effects.next() else {
-            return false;
-        };
-        if effects.next().is_some() || !self.effect_declaration_is_unrecovered(effect) {
+        if !self
+            .eligible_workspace_effect_indices
+            .contains_key(&(symbol.module.clone(), symbol.effect_name.clone()))
+        {
             return false;
         }
         let mut operations = self.operations.iter().filter(|candidate| {
@@ -165,17 +160,10 @@ impl SymbolIndex {
         {
             return false;
         }
-        let mut declarations = self.effects.iter().filter(|candidate| {
-            candidate.package.is_none()
-                && candidate.module == symbol.module
-                && candidate.name == symbol.name
-        });
-        let Some(candidate) = declarations.next() else {
-            return false;
-        };
-        candidate.declaration == symbol.declaration
-            && declarations.next().is_none()
-            && self.effect_declaration_is_unrecovered(symbol)
+        self.eligible_workspace_effect_indices
+            .get(&(symbol.module.clone(), symbol.name.clone()))
+            .and_then(|index| self.effects.get(*index))
+            .is_some_and(|candidate| candidate.declaration == symbol.declaration)
     }
 
     fn workspace_type_alias_references(&self, symbol: &TypeAliasSymbol) -> Vec<SourceSpan> {

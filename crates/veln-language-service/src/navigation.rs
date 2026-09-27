@@ -71,9 +71,35 @@ thread_local! {
     static EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static EFFECT_LIST_CLASSIFICATION_FRAME_VISITS: Cell<usize> = const { Cell::new(0) };
     static EFFECT_REFERENCE_SOURCE_SCALAR_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EFFECT_DECLARATION_INDEX_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EFFECT_IDENTITY_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_DIAGNOSTIC_INDEX_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_DIAGNOSTIC_OVERLAP_QUERIES: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_effect_declaration_index_visit() {
+    EFFECT_DECLARATION_INDEX_VISITS.set(EFFECT_DECLARATION_INDEX_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_effect_identity_lookup() {
+    EFFECT_IDENTITY_LOOKUPS.set(EFFECT_IDENTITY_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_effect_identity_index_work() {
+    EFFECT_DECLARATION_INDEX_VISITS.set(0);
+    EFFECT_IDENTITY_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn effect_identity_index_work() -> (usize, usize) {
+    (
+        EFFECT_DECLARATION_INDEX_VISITS.get(),
+        EFFECT_IDENTITY_LOOKUPS.get(),
+    )
 }
 
 #[cfg(test)]

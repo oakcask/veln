@@ -39,7 +39,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/4/range"
-equals = {"start":{"line":4,"column":19},"end":{"line":4,"column":20}}
+equals = {"start":{"line":4,"column":20},"end":{"line":4,"column":21}}
 
 [[mcp_assert]]
 id = 4
