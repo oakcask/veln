@@ -77,155 +77,192 @@ equals_json_file = "case-text/expected.json"
     fs::remove_dir_all(root).expect("case root should be removed");
 }
 
-#[test]
-pub(super) fn manifest_lsp_and_mcp_file_equality_rejects_invalid_missing_and_duplicate_operands() {
-    let root = test_temp_root("lsp-mcp-invalid-json-sidecar");
+fn rpc_assertion_manifest(command: &str, section: &str, operation: &str) -> String {
+    format!(
+        "command = [\"{command}\"]\nexit = 0\n[[{section}]]\nid = 1\npath = \"/result\"\n{operation}\n"
+    )
+}
+
+fn file_sidecar_case(name: &str) -> (PathBuf, PathBuf) {
+    let root = test_temp_root(name);
     let case_dir = root.join("case");
-    let text_dir = case_dir.join("case-text");
-    fs::create_dir_all(&text_dir).expect("case text directory should be created");
-    fs::write(text_dir.join("invalid.json"), "{").expect("invalid JSON sidecar should be written");
+    fs::create_dir_all(case_dir.join("case-text")).expect("case text directory should be created");
+    (root, case_dir)
+}
+
+fn manifest_load_panic(case_dir: &Path, manifest: &str, expectation: &str) -> String {
+    let error = std::panic::catch_unwind(|| parse_manifest(&case_dir.join("case.toml"), manifest))
+        .expect_err(expectation);
+    panic_message(error)
+}
+
+fn assert_rpc_assertion_context(message: &str, section: &str, operation: &str) {
+    let expected = format!("{section} 0 response id 1 path `/result` {operation}");
+    assert!(
+        message.contains(&expected),
+        "expected `{expected}` in `{message}`"
+    );
+}
+
+#[test]
+pub(super) fn manifest_rpc_json_file_equality_rejects_invalid_sidecars() {
+    let (root, case_dir) = file_sidecar_case("rpc-invalid-json-sidecar");
+    fs::write(case_dir.join("case-text/invalid.json"), "{")
+        .expect("invalid JSON sidecar should be written");
 
     for (command, section) in [("lsp", "lsp_assert"), ("mcp", "mcp_assert")] {
-        let error = std::panic::catch_unwind(|| {
-            parse_manifest(
-                &case_dir.join("case.toml"),
-                &format!(
-                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\nid = 1\npath = \"/result\"\nequals_json_file = \"case-text/invalid.json\"\n"
-                ),
-            )
-        })
-        .expect_err("invalid JSON sidecar should fail manifest loading");
-        let message = panic_message(error);
-        assert!(message.contains(section), "{message}");
-        assert!(message.contains("0"), "{message}");
-        assert!(message.contains("response id 1"), "{message}");
-        assert!(message.contains("path `/result`"), "{message}");
-        assert!(message.contains("equals_json_file"), "{message}");
+        let manifest = rpc_assertion_manifest(
+            command,
+            section,
+            "equals_json_file = \"case-text/invalid.json\"",
+        );
+        let message = manifest_load_panic(
+            &case_dir,
+            &manifest,
+            "invalid JSON sidecar should fail manifest loading",
+        );
+        assert_rpc_assertion_context(&message, section, "equals_json_file");
         assert!(message.contains("invalid"), "{message}");
-
-        let error = std::panic::catch_unwind(|| {
-            parse_manifest(
-                &case_dir.join("case.toml"),
-                &format!(
-                    "command = [\"{command}\"]\nexit = 0\n[[{section}]]\nid = 1\npath = \"/result\"\nequals_json_file = \"case-text/missing.json\"\n"
-                ),
-            )
-        })
-        .expect_err("missing JSON sidecar should fail manifest loading");
-        let message = panic_message(error);
-        assert!(message.contains("case file `case-text/missing.json`"));
-        assert!(message.contains(section), "{message}");
-        assert!(message.contains("0"), "{message}");
-        assert!(message.contains("response id 1"), "{message}");
-        assert!(message.contains("path `/result`"), "{message}");
-        assert!(message.contains("equals_json_file"), "{message}");
-
-        assert_manifest_parse_error(
-            &format!(
-                "command = [\"{command}\"]\nexit = 0\n[[{section}]]\nid = 1\npath = \"/result\"\nequals = null\nequals_json_file = \"case-text/missing.json\"\n"
-            ),
-            "needs exactly one",
-        );
     }
 
-    let error = std::panic::catch_unwind(|| {
-        parse_manifest(
-            &case_dir.join("case.toml"),
-            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = \"/result\"\nequals_file = \"case-text/missing.txt\"\n",
-        )
-    })
-    .expect_err("missing MCP text sidecar should fail manifest loading");
-    let message = panic_message(error);
-    assert!(message.contains("case file `case-text/missing.txt`"));
-    assert!(message.contains("mcp_assert 0 response id 1 path `/result` equals_file"));
-
-    for (command, section, operation, expected) in [
-        (
-            "lsp",
-            "lsp_assert",
-            "equals_json_file",
-            "lsp_assert `equals_json_file` must be a string case file reference",
-        ),
-        (
-            "mcp",
-            "mcp_assert",
-            "equals_file",
-            "mcp_assert `equals_file` must be a string case file reference",
-        ),
-        (
-            "mcp",
-            "mcp_assert",
-            "equals_json_file",
-            "mcp_assert `equals_json_file` must be a string case file reference",
-        ),
-    ] {
-        assert_manifest_parse_error(
-            &format!(
-                "command = [\"{command}\"]\nexit = 0\n[[{section}]]\nid = 1\npath = \"/result\"\n{operation} = 1\n"
-            ),
-            expected,
-        );
-    }
     fs::remove_dir_all(root).expect("case root should be removed");
 }
 
 #[test]
-pub(super) fn lsp_and_mcp_file_backed_equality_report_operation_specific_failures() {
-    let expected_object = parse_json(r#"{"a":2}"#).expect("expected object should parse");
-    let lsp_messages = decode_lsp_stdout(&lsp_frame(
-        r#"{"jsonrpc":"2.0","id":"one","result":{"a":1}}"#,
-    ))
-    .expect("LSP response should decode");
-    let lsp_assertion = LspAssertion {
+pub(super) fn manifest_rpc_file_equality_rejects_missing_sidecars() {
+    let (root, case_dir) = file_sidecar_case("rpc-missing-sidecar");
+
+    for (command, section) in [("lsp", "lsp_assert"), ("mcp", "mcp_assert")] {
+        let manifest = rpc_assertion_manifest(
+            command,
+            section,
+            "equals_json_file = \"case-text/missing.json\"",
+        );
+        let message = manifest_load_panic(
+            &case_dir,
+            &manifest,
+            "missing JSON sidecar should fail manifest loading",
+        );
+        assert_rpc_assertion_context(&message, section, "equals_json_file");
+        assert!(message.contains("case file `case-text/missing.json`"));
+    }
+
+    let manifest = rpc_assertion_manifest(
+        "mcp",
+        "mcp_assert",
+        "equals_file = \"case-text/missing.txt\"",
+    );
+    let message = manifest_load_panic(
+        &case_dir,
+        &manifest,
+        "missing MCP text sidecar should fail manifest loading",
+    );
+    assert_rpc_assertion_context(&message, "mcp_assert", "equals_file");
+    assert!(message.contains("case file `case-text/missing.txt`"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+pub(super) fn manifest_rpc_file_equality_requires_one_string_operand() {
+    for (command, section) in [("lsp", "lsp_assert"), ("mcp", "mcp_assert")] {
+        let manifest = rpc_assertion_manifest(
+            command,
+            section,
+            "equals = null\nequals_json_file = \"case-text/missing.json\"",
+        );
+        assert_manifest_parse_error(&manifest, "needs exactly one");
+    }
+
+    for (command, section, operation) in [
+        ("lsp", "lsp_assert", "equals_json_file"),
+        ("mcp", "mcp_assert", "equals_file"),
+        ("mcp", "mcp_assert", "equals_json_file"),
+    ] {
+        let manifest = rpc_assertion_manifest(command, section, &format!("{operation} = 1"));
+        assert_manifest_parse_error(
+            &manifest,
+            &format!("{section} `{operation}` must be a string case file reference"),
+        );
+    }
+}
+
+fn lsp_file_assertion(operation: RpcAssertionOperation) -> LspAssertion {
+    LspAssertion {
         id: Some(JsonValue::String("one".to_string())),
         method: None,
         occurrence: None,
         path: "/result".to_string(),
         path_present: true,
         pointer_tokens: vec!["result".to_string()],
-        operation: Some(RpcAssertionOperation::EqualsJsonFile(
-            expected_object.clone(),
-        )),
+        operation: Some(operation),
         operation_count: 1,
-    };
+    }
+}
+
+fn mcp_file_assertion(path_field: &str, operation: RpcAssertionOperation) -> McpAssertion {
+    McpAssertion {
+        id: Some(JsonValue::String("one".to_string())),
+        path: format!("/result/{path_field}"),
+        path_present: true,
+        pointer_tokens: vec!["result".to_string(), path_field.to_string()],
+        operation: Some(operation),
+        operation_count: 1,
+    }
+}
+
+#[test]
+pub(super) fn lsp_json_file_equality_reports_value_mismatches() {
+    let expected_object = parse_json(r#"{"a":2}"#).expect("expected object should parse");
+    let lsp_messages = decode_lsp_stdout(&lsp_frame(
+        r#"{"jsonrpc":"2.0","id":"one","result":{"a":1}}"#,
+    ))
+    .expect("LSP response should decode");
+    let lsp_assertion = lsp_file_assertion(RpcAssertionOperation::EqualsJsonFile(expected_object));
     assert_eq!(
         evaluate_lsp_assertion(&lsp_messages, &lsp_assertion)
             .expect_err("different LSP JSON should fail"),
         "value mismatch: expected {\"a\":2}, got {\"a\":1}"
     );
+}
 
+#[test]
+pub(super) fn mcp_file_equality_reports_operand_specific_failures() {
+    let expected_object = parse_json(r#"{"a":2}"#).expect("expected object should parse");
     let mcp_messages = decode_mcp_stdout(
         r#"{"jsonrpc":"2.0","id":"one","result":{"text":1,"value":{"a":1}}}
 "#,
     )
     .expect("MCP response should decode");
-    let mut mcp_assertion = McpAssertion {
-        id: Some(JsonValue::String("one".to_string())),
-        path: "/result/text".to_string(),
-        path_present: true,
-        pointer_tokens: vec!["result".to_string(), "text".to_string()],
-        operation: Some(RpcAssertionOperation::EqualsFile("1".to_string())),
-        operation_count: 1,
-    };
+    let text_assertion =
+        mcp_file_assertion("text", RpcAssertionOperation::EqualsFile("1".to_string()));
     assert_eq!(
-        evaluate_mcp_assertion(&mcp_messages, &mcp_assertion, Path::new("."))
+        evaluate_mcp_assertion(&mcp_messages, &text_assertion, Path::new("."))
             .expect_err("non-string MCP value should fail"),
         "equals_file requires a selected JSON string"
     );
 
-    mcp_assertion.path = "/result/value".to_string();
-    mcp_assertion.pointer_tokens = vec!["result".to_string(), "value".to_string()];
-    mcp_assertion.operation = Some(RpcAssertionOperation::EqualsJsonFile(expected_object));
+    let json_assertion = mcp_file_assertion(
+        "value",
+        RpcAssertionOperation::EqualsJsonFile(expected_object),
+    );
     assert_eq!(
-        evaluate_mcp_assertion(&mcp_messages, &mcp_assertion, Path::new("."))
+        evaluate_mcp_assertion(&mcp_messages, &json_assertion, Path::new("."))
             .expect_err("different MCP JSON should fail"),
         "value mismatch: expected {\"a\":2}, got {\"a\":1}"
     );
+}
 
+#[test]
+pub(super) fn aggregated_file_equality_failures_preserve_protocol_context() {
     let context = CaseRunContext {
         case_dir: Path::new("file-backed-runtime-context"),
         run_number: 1,
     };
+    let expected_object = parse_json(r#"{"a":2}"#).expect("expected object should parse");
+    let lsp_assertion = lsp_file_assertion(RpcAssertionOperation::EqualsJsonFile(
+        expected_object.clone(),
+    ));
     let lsp_panic = std::panic::catch_unwind(|| {
         assert_lsp_assertions(
             &context,
@@ -241,6 +278,10 @@ pub(super) fn lsp_and_mcp_file_backed_equality_report_operation_specific_failure
     assert!(message.contains("path \"/result\""));
     assert!(message.contains("value mismatch"));
 
+    let mcp_assertion = mcp_file_assertion(
+        "value",
+        RpcAssertionOperation::EqualsJsonFile(expected_object),
+    );
     let mcp_panic = std::panic::catch_unwind(|| {
         assert_mcp_assertions(
             &context,
@@ -257,6 +298,25 @@ pub(super) fn lsp_and_mcp_file_backed_equality_report_operation_specific_failure
     assert!(message.contains("response id \"one\""));
     assert!(message.contains("path \"/result/value\""));
     assert!(message.contains("value mismatch"));
+}
+
+#[test]
+pub(super) fn mcp_file_backed_text_equality_reports_content_mismatches() {
+    let messages = decode_mcp_stdout(
+        r#"{"jsonrpc":"2.0","id":"one","result":{"text":"actual"}}
+"#,
+    )
+    .expect("MCP response should decode");
+    let assertion = mcp_file_assertion(
+        "text",
+        RpcAssertionOperation::EqualsFile("expected".to_string()),
+    );
+
+    assert_eq!(
+        evaluate_mcp_assertion(&messages, &assertion, Path::new("."))
+            .expect_err("different MCP text should fail"),
+        "string does not equal the expected file contents"
+    );
 }
 
 #[test]
