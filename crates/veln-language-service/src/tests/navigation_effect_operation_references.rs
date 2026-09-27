@@ -831,6 +831,32 @@ mod navigation_effect_operation_references_tests {
         );
         assert!(query_snapshot(&snapshot, "main.veln", 4, 22).is_none());
 
+        let transitive = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use upstream from \"up/pkg\"\n\n",
+                    "fn use() -> Int effects [upstream::Task]\n",
+                    "  perform upstream::Task::run()\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/bridge",
+                &[(
+                    "bridge.veln",
+                    concat!(
+                        "use upstream from \"up/pkg\"\n\n",
+                        "pub fn bridge() -> Int effects [upstream::Task]\n",
+                        "  perform upstream::Task::run()\n",
+                        "end\n",
+                    ),
+                )],
+                ["bridge.veln"],
+            )],
+        );
+        assert!(query_snapshot(&transitive, "main.veln", 4, 27).is_none());
+
         let standard = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
             concat!(
@@ -937,5 +963,56 @@ mod navigation_effect_operation_references_tests {
             let result = query(vec![source("main.veln", &text)], "main.veln", 2, 3).unwrap();
             assert_eq!(result.references.len(), count);
         }
+    }
+
+    #[test]
+    fn same_named_workspace_effect_operation_lookup_work_is_adjacent_linear() {
+        use std::fmt::Write as _;
+
+        fn measured_identity_work(count: usize) -> ((usize, usize), std::time::Duration) {
+            let mut sources = Vec::with_capacity(count + 1);
+            let mut consumer = String::new();
+            for index in 0..count {
+                let module = format!("module_{index}");
+                sources.push(SourceFile::new(
+                    format!("{module}.veln"),
+                    "pub effect Remote\n  run() -> Int\nend\n",
+                ));
+                writeln!(consumer, "use {module}").unwrap();
+            }
+            consumer.push_str("\nfn use_all() -> Int\n");
+            for index in 0..count {
+                writeln!(consumer, "  perform module_{index}::Remote::run()").unwrap();
+            }
+            consumer.push_str("end\n");
+            sources.push(source("consumer.veln", &consumer));
+            let snapshot = EffectiveProjectSnapshot::new(sources);
+            let position = || SourcePosition {
+                source: SourcePath::new("module_0.veln"),
+                line: 2,
+                column: 3,
+            };
+            navigate(&snapshot, position()).unwrap();
+            crate::navigation::reset_effect_operation_identity_work();
+            let started = std::time::Instant::now();
+            let result = navigate(&snapshot, position()).unwrap();
+            assert_eq!(result.references.len(), 1);
+            (
+                crate::navigation::effect_operation_identity_work(),
+                started.elapsed(),
+            )
+        }
+
+        let (smaller_work, smaller_elapsed) = measured_identity_work(100);
+        let (larger_work, larger_elapsed) = measured_identity_work(200);
+        eprintln!(
+            "same-named effect-operation lookup: 100={smaller_elapsed:?}/{smaller_work:?}, 200={larger_elapsed:?}/{larger_work:?}"
+        );
+        assert!(smaller_work.0 <= 100 * 3 + 10, "{smaller_work:?}");
+        assert!(smaller_work.1 <= 100 * 2 + 10, "{smaller_work:?}");
+        assert!(larger_work.0 <= 200 * 3 + 10, "{larger_work:?}");
+        assert!(larger_work.1 <= 200 * 2 + 10, "{larger_work:?}");
+        assert!(larger_work.0 <= smaller_work.0 * 2 + 10);
+        assert!(larger_work.1 <= smaller_work.1 * 2 + 10);
     }
 }

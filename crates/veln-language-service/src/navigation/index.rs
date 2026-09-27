@@ -128,6 +128,11 @@ impl SymbolIndex {
             package_symbol_indices_by_module_and_name(&declarations.type_aliases);
         let eligible_workspace_effect_indices =
             eligible_workspace_effect_indices(&declarations.effects, &files);
+        let eligible_workspace_effect_operation_indices = eligible_workspace_effect_operation_indices(
+            &declarations.operations,
+            &eligible_workspace_effect_indices,
+            &files,
+        );
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         Self {
@@ -151,6 +156,7 @@ impl SymbolIndex {
             workspace_type_alias_indices_by_module_and_name,
             package_type_alias_indices_by_module_and_name,
             eligible_workspace_effect_indices,
+            eligible_workspace_effect_operation_indices,
             schema_composition_references,
             schema_alias_module_imports,
             bare_schema_alias_index,
@@ -651,17 +657,8 @@ impl SymbolIndex {
             effect_index,
             &effect.text,
         )?;
-        let symbol = self.operations
-            .iter()
-            .find(|symbol| {
-                symbol.name == name
-                    && symbol.effect_name == owning_effect.name
-                    && symbol.module == owning_effect.module
-                    && symbol.package.is_none()
-            })
-            .cloned()?;
-        self.effect_operation_identity_is_unambiguous(&symbol)
-            .then_some(symbol)
+        self.unique_workspace_effect_operation(&owning_effect.module, &owning_effect.name, name)
+            .cloned()
     }
 
     fn operation_for_handler_clause(
@@ -677,20 +674,79 @@ impl SymbolIndex {
                     && clause.span.end.offset == token.range.end
             })?;
         self.handler_for_reference(file, &clause.handler_name)?;
-        let symbol = self
-            .operations
-            .iter()
-            .find(|symbol| {
-                symbol.package.is_none()
-                    && symbol.module == file.module
-                    && symbol.effect_name == clause.effect_name
-                    && symbol.name == clause.operation_name
-            })
-            .cloned()?;
-        self.effect_operation_identity_is_unambiguous(&symbol)
-            .then_some(symbol)
+        self.unique_workspace_effect_operation(
+            &file.module,
+            &clause.effect_name,
+            &clause.operation_name,
+        )
+        .cloned()
     }
 
+}
+
+fn eligible_workspace_effect_operation_indices(
+    operations: &[EffectOperationSymbol],
+    eligible_effects: &BTreeMap<(String, String), usize>,
+    files: &[IndexedFile],
+) -> BTreeMap<(String, String, String), usize> {
+    let recovery_by_file = files
+        .iter()
+        .filter(|file| workspace_navigation_file(file))
+        .map(|file| {
+            (
+                file.source.path().as_str(),
+                (
+                    file.invalid_declaration_names
+                        .iter()
+                        .map(|span| (span.start.offset, span.end.offset))
+                        .collect::<BTreeSet<_>>(),
+                    file.recovered_effect_declarations
+                        .iter()
+                        .map(|span| (span.start.offset, span.end.offset))
+                        .collect::<Vec<_>>(),
+                ),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut candidates = BTreeMap::<(String, String, String), Vec<usize>>::new();
+    for (index, operation) in operations.iter().enumerate() {
+        if operation.package.is_none() {
+            candidates
+                .entry((
+                    operation.module.clone(),
+                    operation.effect_name.clone(),
+                    operation.name.clone(),
+                ))
+                .or_default()
+                .push(index);
+        }
+    }
+    let mut indices = BTreeMap::new();
+    for (key, candidates) in candidates {
+        let [index] = candidates.as_slice() else {
+            continue;
+        };
+        let operation = &operations[*index];
+        let declaration_range = (
+            operation.declaration.span.start.offset,
+            operation.declaration.span.end.offset,
+        );
+        let declaration_is_unrecovered = recovery_by_file
+            .get(operation.declaration.span.file.as_str())
+            .is_some_and(|(invalid_names, recovered_effects)| {
+                !invalid_names.contains(&declaration_range)
+                    && !recovered_effects.iter().any(|(start, end)| {
+                        *start <= declaration_range.0 && declaration_range.1 <= *end
+                    })
+            });
+        if eligible_effects
+            .contains_key(&(operation.module.clone(), operation.effect_name.clone()))
+            && declaration_is_unrecovered
+        {
+            indices.insert(key, *index);
+        }
+    }
+    indices
 }
 
 fn index_workspace_input(

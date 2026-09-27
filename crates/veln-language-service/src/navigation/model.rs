@@ -989,6 +989,7 @@ pub(crate) struct SymbolIndex {
     workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
+    eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,
     schema_composition_references: Vec<SchemaCompositionReference>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
     bare_schema_alias_index: BareSchemaAliasIndex,

@@ -430,7 +430,7 @@ fn references_include_workspace_effect_predicate_perform_qualifiers() {
     );
 }
 
-struct OperationClauseReferenceState {
+struct ImportedOperationReferenceState {
     _workspace: TempWorkspace,
     server: Server,
     before: Value,
@@ -440,29 +440,30 @@ struct OperationClauseReferenceState {
     cursor: String,
 }
 
-fn operation_clause_reference_state() -> OperationClauseReferenceState {
-    let workspace = TempWorkspace::new("references-workspace-effect-failure-state");
+fn imported_operation_reference_state() -> ImportedOperationReferenceState {
+    let workspace = TempWorkspace::new("references-imported-effect-failure-state");
     workspace.write("veln.toml", "");
     workspace.write(
-        "main.veln",
+        "foreign.veln",
         concat!(
-            "effect Choose\n",
-            "  pick() -> Int\n",
+            "pub effect Remote\n",
+            "  run() -> Int\n",
             "end\n\n",
-            "fn choose() -> Int effects [Choose]\n",
-            "  perform Choose::pick()\n",
-            "end\n\n",
-            "handler chooser() handles Choose\n",
-            "  pick() => 1\n",
+            "fn local() -> Int\n",
+            "  perform Remote::run()\n",
             "end\n",
         ),
     );
+    workspace.write(
+        "main.veln",
+        "use foreign\n\nfn use() -> Int\n  perform foreign::Remote::run()\nend\n",
+    );
     let mut server = initialized_server(&workspace);
     let before = server.references_tool(&json!({
-        "source":"main.veln", "line":10, "column":3
+        "source":"main.veln", "line":4, "column":28
     }));
     let seeded = server.references_tool(&json!({
-        "source":"main.veln", "line":10, "column":3,
+        "source":"main.veln", "line":4, "column":28,
         "include_declaration":false, "page_size":1
     }));
     let cursor = seeded["structuredContent"]["next_cursor"]
@@ -470,10 +471,10 @@ fn operation_clause_reference_state() -> OperationClauseReferenceState {
         .unwrap()
         .to_owned();
     let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
-    OperationClauseReferenceState {
+    ImportedOperationReferenceState {
         continuation: json!([{
             "uri": uri,
-            "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
+            "range": {"start":{"line":4,"column":28},"end":{"line":4,"column":31}}
         }]),
         resources: all_resource_state(&mut server),
         selection: server.selection_result(),
@@ -484,7 +485,7 @@ fn operation_clause_reference_state() -> OperationClauseReferenceState {
     }
 }
 
-fn assert_operation_clause_reference_state_is_live(state: &mut OperationClauseReferenceState) {
+fn assert_imported_operation_reference_state_is_live(state: &mut ImportedOperationReferenceState) {
     assert_eq!(all_resource_state(&mut state.server), state.resources);
     assert_eq!(state.server.selection_result(), state.selection);
     let continuation = state
@@ -505,14 +506,14 @@ fn assert_operation_clause_reference_state_is_live(state: &mut OperationClauseRe
             .is_none()
     );
     let after = state.server.references_tool(&json!({
-        "source":"main.veln", "line":10, "column":3
+        "source":"main.veln", "line":4, "column":28
     }));
     assert_eq!(after, state.before);
 }
 
 #[test]
-fn invalid_workspace_effect_operation_clause_reference_position_preserves_live_state() {
-    let mut state = operation_clause_reference_state();
+fn invalid_imported_workspace_effect_operation_position_preserves_live_state() {
+    let mut state = imported_operation_reference_state();
     let invalid_position = state.server.references_tool(&json!({
         "source":"main.veln", "line":99, "column":1
     }));
@@ -520,22 +521,22 @@ fn invalid_workspace_effect_operation_clause_reference_position_preserves_live_s
         invalid_position["structuredContent"]["code"],
         "invalid_position"
     );
-    assert_operation_clause_reference_state_is_live(&mut state);
+    assert_imported_operation_reference_state_is_live(&mut state);
 }
 
 #[test]
-fn invalid_workspace_effect_operation_clause_reference_path_preserves_live_state() {
-    let mut state = operation_clause_reference_state();
+fn invalid_imported_workspace_effect_operation_path_preserves_live_state() {
+    let mut state = imported_operation_reference_state();
     let invalid_path = state.server.references_tool(&json!({
         "source":"missing.veln", "line":1, "column":1
     }));
     assert_eq!(invalid_path["structuredContent"]["code"], "invalid_path");
-    assert_operation_clause_reference_state_is_live(&mut state);
+    assert_imported_operation_reference_state_is_live(&mut state);
 }
 
 #[test]
-fn invalid_workspace_effect_operation_clause_reference_cursor_preserves_live_state() {
-    let mut state = operation_clause_reference_state();
+fn invalid_imported_workspace_effect_operation_cursor_preserves_live_state() {
+    let mut state = imported_operation_reference_state();
     let invalid_continuation = state
         .server
         .references_tool(&json!({"cursor":format!("{}x", state.cursor)}));
@@ -543,12 +544,12 @@ fn invalid_workspace_effect_operation_clause_reference_cursor_preserves_live_sta
         invalid_continuation["structuredContent"]["code"],
         "invalid_cursor"
     );
-    assert_operation_clause_reference_state_is_live(&mut state);
+    assert_imported_operation_reference_state_is_live(&mut state);
 }
 
 #[test]
-fn missing_workspace_effect_operation_clause_resource_preserves_live_state() {
-    let mut state = operation_clause_reference_state();
+fn missing_imported_workspace_effect_operation_resource_preserves_live_state() {
+    let mut state = imported_operation_reference_state();
     let missing_resource = state
         .server
         .handle_request(json!({
@@ -562,7 +563,7 @@ fn missing_workspace_effect_operation_clause_resource_preserves_live_state() {
         missing_resource["error"]["data"]["code"],
         "resource_not_found"
     );
-    assert_operation_clause_reference_state_is_live(&mut state);
+    assert_imported_operation_reference_state_is_live(&mut state);
 }
 
 #[test]

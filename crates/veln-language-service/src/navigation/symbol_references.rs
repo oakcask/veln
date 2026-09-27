@@ -58,36 +58,32 @@ impl SymbolIndex {
         {
             return false;
         }
-        let mut operations = self.operations.iter().filter(|candidate| {
-            candidate.package.is_none()
-                && candidate.module == symbol.module
-                && candidate.effect_name == symbol.effect_name
-                && candidate.name == symbol.name
-        });
-        let Some(candidate) = operations.next() else {
+        let Some(candidate) = self.unique_workspace_effect_operation(
+            &symbol.module,
+            &symbol.effect_name,
+            &symbol.name,
+        ) else {
             return false;
         };
         candidate.declaration == symbol.declaration
-            && operations.next().is_none()
-            && self.effect_operation_declaration_is_unrecovered(symbol)
     }
 
-    fn effect_operation_declaration_is_unrecovered(
+    fn unique_workspace_effect_operation(
         &self,
-        symbol: &EffectOperationSymbol,
-    ) -> bool {
-        self.files.iter().any(|file| {
-            workspace_navigation_file(file)
-                && file.source.path() == &symbol.declaration.span.file
-                && !file.invalid_declaration_names.iter().any(|span| {
-                    span.start.offset == symbol.declaration.span.start.offset
-                        && span.end.offset == symbol.declaration.span.end.offset
-                })
-                && !file.recovered_effect_declarations.iter().any(|span| {
-                    span.start.offset <= symbol.declaration.span.start.offset
-                        && symbol.declaration.span.end.offset <= span.end.offset
-                })
-        })
+        module: &str,
+        effect_name: &str,
+        operation_name: &str,
+    ) -> Option<&EffectOperationSymbol> {
+        #[cfg(test)]
+        record_effect_operation_identity_lookup();
+        let index = self.eligible_workspace_effect_operation_indices.get(&(
+            module.to_string(),
+            effect_name.to_string(),
+            operation_name.to_string(),
+        ))?;
+        #[cfg(test)]
+        record_effect_operation_candidate_visit();
+        self.operations.get(*index)
     }
 
     fn handler_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
