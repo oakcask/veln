@@ -84,6 +84,23 @@ function runTarget(target, data) {
     }
     return { bytes, linkCounts, milliseconds };
   }
+  if (target === "open-label-malformed-destinations") {
+    const bytes = [];
+    const linkCounts = [];
+    const milliseconds = [];
+    for (const size of data.sizes) {
+      const openingLabels = Math.floor(size / 2);
+      const source = "[".repeat(openingLabels)
+        + "](".repeat(Math.floor((size - openingLabels) / 2));
+      writeFileSync(data.path, source);
+      const start = performance.now();
+      const links = linkedDocumentationPaths(data.repositoryPath, data.root);
+      milliseconds.push(performance.now() - start);
+      bytes.push(Buffer.byteLength(source));
+      linkCounts.push(links.length);
+    }
+    return { bytes, linkCounts, milliseconds };
+  }
   if (target === "nested-brackets") {
     const bytes = [];
     const linkCounts = [];

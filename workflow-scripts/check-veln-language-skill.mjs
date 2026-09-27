@@ -1370,6 +1370,7 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     `${sourcePath}: repository document exceeds the byte limit`,
   );
   const source = navigationalMarkdown(readFileSync(absolute, "utf8"));
+  const parenthesisSuffix = inlineParenthesisSuffix(source);
   const links = [];
   const addTarget = (rawTarget) => {
     const target = rawTarget.split("#", 1)[0];
@@ -1405,7 +1406,7 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     if (label === undefined) continue;
     let target;
     if (source[cursor + 1] === "(") {
-      const destination = parseInlineLinkDestination(source, cursor + 2);
+      const destination = parseInlineLinkDestination(source, cursor + 2, parenthesisSuffix);
       if (destination === undefined) continue;
       target = destination.target;
       cursor = destination.end;
@@ -1434,7 +1435,30 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
   return links;
 }
 
-function parseInlineLinkDestination(source, start) {
+function inlineParenthesisSuffix(source) {
+  const openings = new Uint32Array(source.length + 1);
+  const closings = new Uint32Array(source.length + 1);
+  const boundary = new Uint8Array(source.length);
+  const nextBoundary = new Uint32Array(source.length + 1);
+  nextBoundary[source.length] = source.length;
+  let escaped = false;
+  for (let cursor = 0; cursor < source.length; cursor += 1) {
+    if (!escaped) {
+      if (source[cursor] === "(") openings[cursor] = 1;
+      else if (source[cursor] === ")") closings[cursor] = 1;
+      if (source[cursor] === "[" || /\s/u.test(source[cursor])) boundary[cursor] = 1;
+    }
+    escaped = source[cursor] === "\\" ? !escaped : false;
+  }
+  for (let cursor = source.length - 1; cursor >= 0; cursor -= 1) {
+    openings[cursor] += openings[cursor + 1];
+    closings[cursor] += closings[cursor + 1];
+    nextBoundary[cursor] = boundary[cursor] === 1 ? cursor : nextBoundary[cursor + 1];
+  }
+  return { openings, closings, nextBoundary };
+}
+
+function parseInlineLinkDestination(source, start, parenthesisSuffix) {
   const leadingWhitespace = consumeLinkWhitespace(source, start);
   if (leadingWhitespace === undefined) return undefined;
   let cursor = leadingWhitespace.cursor;
@@ -1451,6 +1475,15 @@ function parseInlineLinkDestination(source, start) {
     target = source.slice(targetStart, cursor);
     cursor += 1;
   } else {
+    const boundary = parenthesisSuffix.nextBoundary[cursor];
+    const openings = parenthesisSuffix.openings[cursor] - parenthesisSuffix.openings[boundary];
+    const closings = parenthesisSuffix.closings[cursor] - parenthesisSuffix.closings[boundary];
+    const cannotClose = boundary === source.length || source[boundary] === "["
+      ? closings <= openings
+      : openings > closings;
+    if (cannotClose) {
+      return undefined;
+    }
     let escaped = false;
     let parentheses = 0;
     while (cursor < source.length) {

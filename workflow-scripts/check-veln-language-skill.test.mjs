@@ -1477,12 +1477,13 @@ test("discovers a repository route with a titled Markdown link", (context) => {
   context.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "docs"));
   writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
-  writeFileSync(join(root, "docs", "README.md"), "[authority](authority.md \"Authority\")\n");
-
-  assert.deepEqual(
-    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
-    ["docs/README.md", "docs/authority.md"],
-  );
+  for (const title of ["Authority", "((("]) {
+    writeFileSync(join(root, "docs", "README.md"), `[authority](authority.md "${title}")\n`);
+    assert.deepEqual(
+      shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 2),
+      ["docs/README.md", "docs/authority.md"],
+    );
+  }
 });
 
 test("discovers inline repository routes with balanced parenthesized destinations", (context) => {
@@ -1768,6 +1769,26 @@ test("bounds repeated malformed destinations through the accepted size", async (
   assert.ok(
     result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 20,
     `malformed destination scaling regressed: ${result.milliseconds.join(" ms, ")} ms`,
+  );
+});
+
+test("parses open labels followed by malformed destinations with adjacent-size linear scaling", async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-links-open-label-malformed-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  const path = join(root, "docs", "README.md");
+  const sizes = [32_768, 65_536];
+  const result = await runStressTarget("open-label-malformed-destinations", {
+    path,
+    repositoryPath: "docs/README.md",
+    root,
+    sizes,
+  }, 1_000);
+  assert.deepEqual(result.bytes, sizes);
+  assert.deepEqual(result.linkCounts, [0, 0]);
+  assert.ok(
+    result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 20,
+    `open-label malformed destination scaling regressed: ${result.milliseconds.join(" ms, ")} ms`,
   );
 });
 
