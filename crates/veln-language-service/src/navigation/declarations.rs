@@ -302,7 +302,7 @@ fn neutral_declaration(
     })
 }
 
-fn same_schema(left: &NeutralSymbol, right: &NeutralSymbol) -> bool {
+fn same_neutral_symbol(left: &NeutralSymbol, right: &NeutralSymbol) -> bool {
     left.package == right.package
         && left.module == right.module
         && left.name == right.name

@@ -40,17 +40,20 @@ struct WorkspaceImports {
     import_aliases: BTreeMap<String, String>,
     external_import_aliases: BTreeMap<String, (String, String)>,
     schema_alias_external_imports: Vec<ExternalImport>,
+    workspace_imports: Vec<WorkspaceImport>,
 }
 
 impl WorkspaceImports {
     fn new(source: &str, parsed: &ParseOutput) -> Self {
         let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source);
+        let use_diagnostics = UseDeclarationDiagnosticIndex::new(parsed);
         Self {
             uses,
             external_uses,
             import_aliases,
             external_import_aliases,
-            schema_alias_external_imports: schema_alias_external_imports(parsed),
+            schema_alias_external_imports: schema_alias_external_imports(parsed, &use_diagnostics),
+            workspace_imports: workspace_imports(parsed, &use_diagnostics),
         }
     }
 }
@@ -132,6 +135,7 @@ fn indexed_workspace_file(
         import_aliases: imports.import_aliases,
         external_import_aliases: imports.external_import_aliases,
         schema_alias_external_imports: imports.schema_alias_external_imports,
+        workspace_imports: imports.workspace_imports,
         invalid_declaration_names: syntax.invalid_declaration_names,
         recovery_symbols: syntax.recovery_symbols,
         recovered_effect_declarations: syntax.recovered_effect_declarations,

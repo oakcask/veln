@@ -50,15 +50,10 @@ impl SymbolIndex {
         if symbol.package.is_some() {
             return false;
         }
-        let mut effects = self.effects.iter().filter(|candidate| {
-            candidate.package.is_none()
-                && candidate.module == symbol.module
-                && candidate.name == symbol.effect_name
-        });
-        let Some(effect) = effects.next() else {
-            return false;
-        };
-        if effects.next().is_some() || !self.effect_declaration_is_unrecovered(effect) {
+        if !self
+            .eligible_workspace_effect_indices
+            .contains_key(&(symbol.module.clone(), symbol.effect_name.clone()))
+        {
             return false;
         }
         let mut operations = self.operations.iter().filter(|candidate| {
@@ -134,7 +129,14 @@ impl SymbolIndex {
             .iter()
             .filter(|file| {
                 workspace_navigation_file(file)
-                    && file.module == symbol.module
+                    && (file.module == symbol.module
+                        || (symbol.public
+                            && self
+                                .schema_alias_module_imports
+                                .get(&file.module)
+                                .is_some_and(|imports| {
+                                    imports.workspace_imports.contains(&symbol.module)
+                                })))
             })
             .flat_map(|file| {
                 let ranges = file
@@ -145,6 +147,11 @@ impl SymbolIndex {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
                             && is_effect_reference_token(file, *index)
+                            && self
+                                .effect_for_reference(file, &file.tokens, *index, &token.text)
+                                .is_some_and(|candidate| {
+                                    same_neutral_symbol(&candidate, symbol)
+                                })
                     })
                     .map(|(_, token)| token.range)
                     .collect::<Vec<_>>();
@@ -163,17 +170,10 @@ impl SymbolIndex {
         {
             return false;
         }
-        let mut declarations = self.effects.iter().filter(|candidate| {
-            candidate.package.is_none()
-                && candidate.module == symbol.module
-                && candidate.name == symbol.name
-        });
-        let Some(candidate) = declarations.next() else {
-            return false;
-        };
-        candidate.declaration == symbol.declaration
-            && declarations.next().is_none()
-            && self.effect_declaration_is_unrecovered(symbol)
+        self.eligible_workspace_effect_indices
+            .get(&(symbol.module.clone(), symbol.name.clone()))
+            .and_then(|index| self.effects.get(*index))
+            .is_some_and(|candidate| candidate.declaration == symbol.declaration)
     }
 
     fn workspace_type_alias_references(&self, symbol: &TypeAliasSymbol) -> Vec<SourceSpan> {
@@ -298,7 +298,7 @@ impl SymbolIndex {
                                     *index,
                                     &token.text,
                                 )
-                                .is_some_and(|candidate| same_schema(&candidate, symbol))
+                                .is_some_and(|candidate| same_neutral_symbol(&candidate, symbol))
                     })
                     .map(|(_, token)| file.source.span(token.range))
                     .collect::<Vec<_>>()
@@ -315,7 +315,7 @@ impl SymbolIndex {
                     .iter()
                     .filter_map(|reference| match &reference.target {
                         SchemaReferenceTarget::Alias(candidate)
-                            if same_schema(candidate, symbol) =>
+                            if same_neutral_symbol(candidate, symbol) =>
                         {
                             Some(reference.span.clone())
                         }
@@ -350,7 +350,7 @@ impl SymbolIndex {
                             }
                             && self
                                 .schema_for_reference(file, &file.tokens, *index, &token.text)
-                                .is_some_and(|candidate| same_schema(&candidate, symbol))
+                                .is_some_and(|candidate| same_neutral_symbol(&candidate, symbol))
                     })
                     .map(|(_, token)| file.source.span(token.range))
                     .collect::<Vec<_>>()
@@ -369,7 +369,7 @@ impl SymbolIndex {
                         matches!(
                             &reference.target,
                             SchemaReferenceTarget::Schema(candidate)
-                                if same_schema(candidate, symbol)
+                                if same_neutral_symbol(candidate, symbol)
                         )
                     })
                     .map(|reference| reference.span.clone()),

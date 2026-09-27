@@ -377,6 +377,25 @@ source uses project scope; another accepted source uses anonymous single-file
 scope. A source below an unselected descendant manifest is not analyzed as
 part of the outer project.
 
+For an eligible public workspace effect, `definition` and `references` accept
+selection at the declaration, a bare same-module occurrence, or the
+effect-name leaf of a qualified occurrence reached through one parse-clean,
+unambiguous workspace import. The import may spell the full module path or use
+a unique implicit leaf alias. An exact full written import path takes
+precedence over a colliding implicit leaf alias. `definition` returns the
+public effect declaration. The reference result combines bare references in
+the declaring module with qualified references in the importing module, and
+every occurrence range covers only the effect-name leaf. Private effects,
+ambiguous or recovered imports, dependency-package and standard-library
+effects, effect operations, handlers, generic effect parameters, and rename
+remain outside this behavior.
+The MCP adapter preserves the existing positive one-based Unicode-scalar
+coordinates, declaration-inclusion option, deterministic location ordering,
+pagination, stable saved-project capture, and failure behavior for this
+reference set. In particular, a capture or lookup failure does not publish a
+partial page or replace previously retained state. Executable evidence is
+`examples/specification/mcp/references-workspace-imported-effect`.
+
 A definition result is either `{"definition": location|null}` or a failure.
 A location has `uri` and a half-open `range` with one-based line and
 Unicode-scalar column positions. Workspace locations use canonical `file:`
@@ -528,11 +547,16 @@ identity. Capture, position, path, cursor, refresh, and resource-capacity
 failures retain the general state-preservation and failure-atomicity rules of
 saved workspace navigation.
 
-A workspace effect result contains bare effect
-rows on functions, tests, handlers, and function types, handler `handles`
-targets, and `perform Effect::operation(...)` qualifiers from every saved
-source that declares the selected effect's module. The operation leaf keeps
-its separate effect-operation identity.
+A workspace effect result contains bare effect rows on functions, tests,
+handlers, and function types, handler `handles` targets, and
+`perform Effect::operation(...)` qualifiers from every saved source that
+declares the selected effect's module. For a public effect reached through one
+parse-clean, unambiguous workspace import, the same result also contains
+qualified occurrences through that import in the importing module. The
+written import can use the full module path or a unique implicit leaf alias.
+An exact full written import path takes precedence over a colliding implicit
+leaf alias. Each qualified range covers only the effect-name leaf. The
+operation leaf keeps its separate effect-operation identity.
 The qualifier forms include structurally complete occurrences in function
 contracts, hole `satisfy` predicates, schema field `where` predicates, and
 schema validation predicates. Recovery of another predicate token does not
@@ -542,11 +566,12 @@ recovery. A missing operation path, opening `(`, or closing `)` excludes that
 qualifier.
 Effect lookup requires one valid-cased, unrecovered workspace declaration for
 the module and name. Valid occurrences in a saved source remain available when
-an unrelated construct in that source has a parse error. Imported and package
-effects, generic effect parameters, duplicate declarations, invalid casing,
-unresolved names, recovered effect rows, recovered handler targets, incomplete
-`perform` qualifiers, other modules, and other symbol classes do not enter the
-result.
+an unrelated construct in that source has a parse error. Private effects
+reached through an import, ambiguous or recovered workspace imports,
+dependency-package and standard-library effects, generic effect parameters,
+duplicate declarations, invalid casing, unresolved names, recovered effect
+rows, recovered handler targets, incomplete `perform` qualifiers, other
+modules, and other symbol classes do not enter the result.
 
 A workspace effect-operation result contains each complete
 `perform Effect::operation(arguments)` operation-name leaf from saved sources

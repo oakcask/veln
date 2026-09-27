@@ -157,7 +157,82 @@ fn use_modules(text: &str) -> UseModuleIndexes {
     (local, external, local_aliases, external_aliases)
 }
 
-fn schema_alias_external_imports(parsed: &ParseOutput) -> Vec<ExternalImport> {
+struct UseDeclarationDiagnosticIndex {
+    spanless: bool,
+    ranges_by_file: BTreeMap<SourcePath, UseDiagnosticRanges>,
+}
+
+struct UseDiagnosticRanges {
+    ranges: Vec<(usize, usize)>,
+    prefix_max_ends: Vec<usize>,
+}
+
+impl UseDeclarationDiagnosticIndex {
+    fn new(parsed: &ParseOutput) -> Self {
+        let mut spanless = false;
+        let mut ranges_by_file = BTreeMap::<SourcePath, Vec<(usize, usize)>>::new();
+        for diagnostic in &parsed.diagnostics {
+            #[cfg(test)]
+            record_use_diagnostic_index_visit();
+            if diagnostic.parser_context != "use_declaration" {
+                continue;
+            }
+            if let Some(span) = &diagnostic.span {
+                ranges_by_file
+                    .entry(span.file.clone())
+                    .or_default()
+                    .push((span.start.offset, span.end.offset));
+            } else {
+                spanless = true;
+            }
+        }
+        let ranges_by_file = ranges_by_file
+            .into_iter()
+            .map(|(file, mut ranges)| {
+                ranges.sort_unstable();
+                let mut greatest_end = 0;
+                let prefix_max_ends = ranges
+                    .iter()
+                    .map(|range| {
+                        greatest_end = greatest_end.max(range.1);
+                        greatest_end
+                    })
+                    .collect();
+                (
+                    file,
+                    UseDiagnosticRanges {
+                        ranges,
+                        prefix_max_ends,
+                    },
+                )
+            })
+            .collect();
+        Self {
+            spanless,
+            ranges_by_file,
+        }
+    }
+
+    fn overlaps(&self, span: &SourceSpan) -> bool {
+        #[cfg(test)]
+        record_use_diagnostic_overlap_query();
+        if self.spanless {
+            return true;
+        }
+        let Some(index) = self.ranges_by_file.get(&span.file) else {
+            return false;
+        };
+        let candidate_count = index
+            .ranges
+            .partition_point(|range| range.0 <= span.end.offset);
+        candidate_count > 0 && index.prefix_max_ends[candidate_count - 1] >= span.start.offset
+    }
+}
+
+fn schema_alias_external_imports(
+    parsed: &ParseOutput,
+    diagnostics: &UseDeclarationDiagnosticIndex,
+) -> Vec<ExternalImport> {
     parsed
         .tree
         .uses
@@ -171,20 +246,40 @@ fn schema_alias_external_imports(parsed: &ParseOutput) -> Vec<ExternalImport> {
                 .unwrap_or(use_decl.name.as_str())
                 .to_string();
             let syntax_valid = !module_identity_has_invalid_casing(&use_decl.name)
-                && !parsed.diagnostics.iter().any(|diagnostic| {
-                    diagnostic.parser_context == "use_declaration"
-                        && diagnostic.span.as_ref().is_none_or(|span| {
-                            span.file == use_decl.span.file
-                                && span.start.offset <= use_decl.span.end.offset
-                                && span.end.offset >= use_decl.span.start.offset
-                        })
-                });
+                && !diagnostics.overlaps(&use_decl.span);
             Some(ExternalImport {
                 module: use_decl.name.clone(),
                 package: package.name.clone(),
                 alias,
                 syntax_valid,
             })
+        })
+        .collect()
+}
+
+fn workspace_imports(
+    parsed: &ParseOutput,
+    diagnostics: &UseDeclarationDiagnosticIndex,
+) -> Vec<WorkspaceImport> {
+    parsed
+        .tree
+        .uses
+        .iter()
+        .filter(|use_decl| use_decl.package.is_none())
+        .map(|use_decl| {
+            let alias = use_decl
+                .name
+                .rsplit("::")
+                .next()
+                .unwrap_or(use_decl.name.as_str())
+                .to_string();
+            let syntax_valid = !module_identity_has_invalid_casing(&use_decl.name)
+                && !diagnostics.overlaps(&use_decl.span);
+            WorkspaceImport {
+                module: use_decl.name.clone(),
+                alias,
+                syntax_valid,
+            }
         })
         .collect()
 }

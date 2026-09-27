@@ -70,10 +70,39 @@ thread_local! {
     static TYPE_NAMESPACE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static EFFECT_LIST_CLASSIFICATION_FRAME_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EFFECT_PATH_CLASSIFICATION_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static USE_DIAGNOSTIC_INDEX_VISITS: Cell<usize> = const { Cell::new(0) };
+    static USE_DIAGNOSTIC_OVERLAP_QUERIES: Cell<usize> = const { Cell::new(0) };
     static EFFECT_REFERENCE_SOURCE_SCALAR_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EFFECT_DECLARATION_INDEX_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EFFECT_IDENTITY_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_DIAGNOSTIC_INDEX_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_DIAGNOSTIC_OVERLAP_QUERIES: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_effect_declaration_index_visit() {
+    EFFECT_DECLARATION_INDEX_VISITS.set(EFFECT_DECLARATION_INDEX_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_effect_identity_lookup() {
+    EFFECT_IDENTITY_LOOKUPS.set(EFFECT_IDENTITY_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_effect_identity_index_work() {
+    EFFECT_DECLARATION_INDEX_VISITS.set(0);
+    EFFECT_IDENTITY_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn effect_identity_index_work() -> (usize, usize) {
+    (
+        EFFECT_DECLARATION_INDEX_VISITS.get(),
+        EFFECT_IDENTITY_LOOKUPS.get(),
+    )
 }
 
 #[cfg(test)]
@@ -131,6 +160,45 @@ pub(crate) fn effect_list_classification_token_visits() -> usize {
 #[cfg(test)]
 pub(crate) fn effect_list_classification_frame_visits() -> usize {
     EFFECT_LIST_CLASSIFICATION_FRAME_VISITS.get()
+}
+
+#[cfg(test)]
+fn record_effect_path_classification_token_visit() {
+    EFFECT_PATH_CLASSIFICATION_TOKEN_VISITS.set(EFFECT_PATH_CLASSIFICATION_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_effect_path_classification_token_visits() {
+    EFFECT_PATH_CLASSIFICATION_TOKEN_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn effect_path_classification_token_visits() -> usize {
+    EFFECT_PATH_CLASSIFICATION_TOKEN_VISITS.get()
+}
+
+#[cfg(test)]
+fn record_use_diagnostic_index_visit() {
+    USE_DIAGNOSTIC_INDEX_VISITS.set(USE_DIAGNOSTIC_INDEX_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_use_diagnostic_overlap_query() {
+    USE_DIAGNOSTIC_OVERLAP_QUERIES.set(USE_DIAGNOSTIC_OVERLAP_QUERIES.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_use_diagnostic_index_work() {
+    USE_DIAGNOSTIC_INDEX_VISITS.set(0);
+    USE_DIAGNOSTIC_OVERLAP_QUERIES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn use_diagnostic_index_work() -> (usize, usize) {
+    (
+        USE_DIAGNOSTIC_INDEX_VISITS.get(),
+        USE_DIAGNOSTIC_OVERLAP_QUERIES.get(),
+    )
 }
 
 #[cfg(test)]

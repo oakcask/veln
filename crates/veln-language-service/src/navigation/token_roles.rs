@@ -509,23 +509,31 @@ fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
 fn is_effect_list_member_token(tokens: &[Token], membership: &[bool], index: usize) -> bool {
     membership[index]
         && previous_non_layout_token(tokens, index).is_none_or(|previous| {
-            previous.kind != TokenKind::DoubleColon && previous.kind != TokenKind::Dot
+            previous.kind != TokenKind::Dot
         })
         && next_non_layout_token(tokens, index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon)
 }
 
-fn is_handler_handled_effect_token(tokens: &[Token], index: usize) -> bool {
+fn is_handler_handled_effect_token(
+    tokens: &[Token],
+    path_roots: &[usize],
+    index: usize,
+) -> bool {
     tokens[index].kind == TokenKind::Ident
-        && previous_non_layout_token(tokens, index)
+        && previous_non_layout_token(tokens, path_roots[index])
             .is_some_and(|previous| previous.kind == TokenKind::Handles)
         && next_non_layout_token(tokens, index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon)
 }
 
-fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
+fn is_perform_effect_qualifier_token(
+    tokens: &[Token],
+    path_roots: &[usize],
+    index: usize,
+) -> bool {
     tokens[index].kind == TokenKind::Ident
-        && previous_non_layout_token(tokens, index)
+        && previous_non_layout_token(tokens, path_roots[index])
             .is_some_and(|previous| previous.kind == TokenKind::Perform)
         && next_non_layout_token(tokens, index)
             .is_some_and(|next| next.kind == TokenKind::DoubleColon)
@@ -533,6 +541,29 @@ fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
             next_non_whitespace_token(tokens, operation_index)
                 .is_some_and(|next| next.kind == TokenKind::LParen)
         })
+}
+
+fn path_root_indices(tokens: &[Token]) -> Vec<usize> {
+    let mut roots = (0..tokens.len()).collect::<Vec<_>>();
+    let mut previous_non_layout: Option<usize> = None;
+    let mut separator_root = None;
+    for (index, token) in tokens.iter().enumerate() {
+        #[cfg(test)]
+        record_effect_path_classification_token_visit();
+        if is_layout_token(token) {
+            continue;
+        }
+        if previous_non_layout.is_some_and(|previous| tokens[previous].kind == TokenKind::DoubleColon)
+            && let Some(root) = separator_root
+        {
+            roots[index] = root;
+        }
+        separator_root = (token.kind == TokenKind::DoubleColon)
+            .then(|| previous_non_layout.map(|previous| roots[previous]))
+            .flatten();
+        previous_non_layout = Some(index);
+    }
+    roots
 }
 
 fn is_handler_reference_token(file: &IndexedFile, index: usize) -> bool {

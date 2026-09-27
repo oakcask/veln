@@ -65,6 +65,178 @@ fn references_page_workspace_effect_locations_with_unicode_scalar_coordinates() 
 }
 
 #[test]
+fn imported_workspace_effect_navigation_pages_shared_scalar_locations() {
+    let workspace = TempWorkspace::new("references-workspace-imported-effect");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "foreign.veln",
+        concat!(
+            "pub effect E\r\n",
+            "  run() -> Int\r\n",
+            "end\r\n\r\n",
+            "fn local() -> Int effects [E]\r\n",
+            "  \"😀\" + perform E::run()\r\n",
+            "end\r\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use foreign\r\n\r\n",
+            "fn imported(callback: fn() -> Int effects [foreign::E]) -> Int effects [foreign::E]\r\n",
+            "  \"😀\" + perform foreign::E::missing()\r\n",
+            "end\r\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let foreign_uri = crate::definition::path_to_uri(&workspace.path("foreign.veln"));
+    let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+
+    let definition = server.definition_tool(&json!({
+        "source":"main.veln", "line":3, "column":53
+    }));
+    assert_eq!(
+        definition["structuredContent"]["definition"],
+        json!({
+            "uri": foreign_uri,
+            "range": {"start":{"line":1,"column":12},"end":{"line":1,"column":13}}
+        })
+    );
+
+    let without_declaration = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":26, "include_declaration":false
+    }));
+    assert_eq!(
+        without_declaration["structuredContent"]["references"],
+        json!([
+            {"uri": foreign_uri, "range":{"start":{"line":5,"column":28},"end":{"line":5,"column":29}}},
+            {"uri": foreign_uri, "range":{"start":{"line":6,"column":17},"end":{"line":6,"column":18}}},
+            {"uri": main_uri, "range":{"start":{"line":3,"column":53},"end":{"line":3,"column":54}}},
+            {"uri": main_uri, "range":{"start":{"line":3,"column":82},"end":{"line":3,"column":83}}},
+            {"uri": main_uri, "range":{"start":{"line":4,"column":26},"end":{"line":4,"column":27}}}
+        ])
+    );
+
+    let invalid_position = server.references_tool(&json!({
+        "source":"main.veln", "line":99, "column":1
+    }));
+    assert_eq!(
+        invalid_position["structuredContent"]["code"],
+        "invalid_position"
+    );
+    let invalid_path = server.references_tool(&json!({
+        "source":"missing.veln", "line":1, "column":1
+    }));
+    assert_eq!(invalid_path["structuredContent"]["code"], "invalid_path");
+    let missing_resource = server
+        .handle_request(json!({
+            "jsonrpc":"2.0",
+            "id":"missing-imported-effect-resource",
+            "method":"resources/read",
+            "params":{"uri":"veln-pkg:///missing/snapshot/main.veln"}
+        }))
+        .unwrap();
+    assert_eq!(
+        missing_resource["error"]["data"]["code"],
+        "resource_not_found"
+    );
+    assert_eq!(
+        server.references_tool(&json!({
+            "source":"main.veln", "line":4, "column":26,
+            "include_declaration":false
+        })),
+        without_declaration
+    );
+
+    let first = server.references_tool(&json!({
+        "source":"main.veln", "line":3, "column":82,
+        "include_declaration":true, "page_size":2
+    }));
+    assert_eq!(
+        first["structuredContent"]["references"],
+        json!([
+            {"uri": foreign_uri, "range":{"start":{"line":1,"column":12},"end":{"line":1,"column":13}}},
+            {"uri": foreign_uri, "range":{"start":{"line":5,"column":28},"end":{"line":5,"column":29}}}
+        ])
+    );
+    let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
+    let invalid_cursor = server.references_tool(&json!({"cursor":format!("{cursor}x")}));
+    assert_eq!(
+        invalid_cursor["structuredContent"]["code"],
+        "invalid_cursor"
+    );
+    let second = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(
+        second["structuredContent"]["references"],
+        json!([
+            {"uri": foreign_uri, "range":{"start":{"line":6,"column":17},"end":{"line":6,"column":18}}},
+            {"uri": main_uri, "range":{"start":{"line":3,"column":53},"end":{"line":3,"column":54}}}
+        ])
+    );
+    let cursor = second["structuredContent"]["next_cursor"].as_str().unwrap();
+    let final_page = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(
+        final_page["structuredContent"]["references"],
+        json!([
+            {"uri": main_uri, "range":{"start":{"line":3,"column":82},"end":{"line":3,"column":83}}},
+            {"uri": main_uri, "range":{"start":{"line":4,"column":26},"end":{"line":4,"column":27}}}
+        ])
+    );
+    assert!(final_page["structuredContent"].get("next_cursor").is_none());
+}
+
+#[test]
+fn imported_workspace_effect_navigation_rejects_visibility_and_import_recovery_boundaries() {
+    fn position_of(source: &str, needle: &str, leaf_offset: usize) -> (usize, usize) {
+        let offset = source.find(needle).unwrap() + leaf_offset;
+        let prefix = &source[..offset];
+        (
+            prefix.bytes().filter(|byte| *byte == b'\n').count() + 1,
+            prefix.rsplit('\n').next().unwrap().chars().count() + 1,
+        )
+    }
+
+    for (name, imports) in [
+        ("private", "use fx\n"),
+        ("ambiguous", "use first::fx\nuse second::fx\n"),
+        ("duplicate", "use first::fx\nuse first::fx\n"),
+        ("recovered", "use first::fx unexpected\n"),
+    ] {
+        let workspace = TempWorkspace::new(&format!("references-imported-effect-{name}"));
+        workspace.write("veln.toml", "");
+        workspace.write("fx.veln", "effect Remote\n  run() -> Int\nend\n");
+        workspace.write("first/fx.veln", "pub effect Remote\n  run() -> Int\nend\n");
+        workspace.write("second/fx.veln", "pub effect Remote\n  run() -> Int\nend\n");
+        workspace.write("stable.veln", "pub effect Stable\n  run() -> Int\nend\n");
+        let source = format!(
+            "use stable\n{imports}\nfn invalid() -> Int effects [fx::Remote]\n  1\nend\n\nfn valid() -> Int effects [stable::Stable]\n  1\nend\n"
+        );
+        workspace.write("main.veln", &source);
+        let mut server = initialized_server(&workspace);
+
+        let (valid_line, valid_column) = position_of(&source, "stable::Stable", 8);
+        let valid_input = json!({
+            "source":"main.veln", "line":valid_line, "column":valid_column,
+            "include_declaration":true
+        });
+        let before = server.references_tool(&valid_input);
+        assert_ne!(
+            before["structuredContent"]["references"],
+            json!([]),
+            "{name}"
+        );
+
+        let (invalid_line, invalid_column) = position_of(&source, "fx::Remote", 4);
+        let invalid = server.references_tool(&json!({
+            "source":"main.veln", "line":invalid_line, "column":invalid_column,
+            "include_declaration":true
+        }));
+        assert_eq!(invalid["structuredContent"]["references"], json!([]));
+        assert_eq!(server.references_tool(&valid_input), before, "{name}");
+    }
+}
+
+#[test]
 fn references_page_workspace_effect_operation_locations_with_unicode_scalar_coordinates() {
     let workspace = TempWorkspace::new("references-workspace-effect-operation");
     workspace.write("veln.toml", "");
@@ -480,7 +652,7 @@ fn references_reject_qualified_workspace_handler_clause_headings() {
 }
 
 #[test]
-fn references_reject_standard_library_handler_clause_headings() {
+fn references_reject_standard_library_effect_and_handler_clause_headings() {
     let workspace = TempWorkspace::new("references-workspace-handler-standard-library-effect");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -489,11 +661,13 @@ fn references_reject_standard_library_handler_clause_headings() {
     );
     let mut server = initialized_server_with_embedded_resources(&workspace);
 
-    let result = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":3,
-        "include_declaration":true
-    }));
-    assert_eq!(result["structuredContent"]["references"], json!([]));
+    for (line, column) in [(3, 39), (4, 3)] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
 }
 
 #[test]

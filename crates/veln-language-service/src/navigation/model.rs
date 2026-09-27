@@ -804,6 +804,7 @@ struct IndexedFile {
     import_aliases: BTreeMap<String, String>,
     external_import_aliases: BTreeMap<String, (String, String)>,
     schema_alias_external_imports: Vec<ExternalImport>,
+    workspace_imports: Vec<WorkspaceImport>,
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
     recovered_effect_declarations: Vec<SourceSpan>,
@@ -856,10 +857,19 @@ struct ExternalImport {
     syntax_valid: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct WorkspaceImport {
+    module: String,
+    alias: String,
+    syntax_valid: bool,
+}
+
 #[derive(Clone, Debug, Default)]
 struct SchemaAliasModuleImports {
     workspace_imports: BTreeSet<String>,
     workspace_imports_by_alias: BTreeMap<String, BTreeSet<String>>,
+    valid_workspace_imports: BTreeSet<String>,
+    valid_workspace_imports_by_alias: BTreeMap<String, BTreeSet<String>>,
     external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
     external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
     valid_external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
@@ -978,6 +988,7 @@ pub(crate) struct SymbolIndex {
     workspace_type_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
+    eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
     schema_composition_references: Vec<SchemaCompositionReference>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
     bare_schema_alias_index: BareSchemaAliasIndex,

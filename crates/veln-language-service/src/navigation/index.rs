@@ -126,6 +126,8 @@ impl SymbolIndex {
             workspace_symbol_indices_by_module_and_name(&declarations.type_aliases);
         let package_type_alias_indices_by_module_and_name =
             package_symbol_indices_by_module_and_name(&declarations.type_aliases);
+        let eligible_workspace_effect_indices =
+            eligible_workspace_effect_indices(&declarations.effects, &files);
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         Self {
@@ -148,6 +150,7 @@ impl SymbolIndex {
             workspace_type_indices_by_module_and_name,
             workspace_type_alias_indices_by_module_and_name,
             package_type_alias_indices_by_module_and_name,
+            eligible_workspace_effect_indices,
             schema_composition_references,
             schema_alias_module_imports,
             bare_schema_alias_index,
@@ -528,27 +531,79 @@ impl SymbolIndex {
         self.visible_schema_alias_for_bare_reference(file, name)
     }
 
-    fn effect_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
-        let mut candidates = self
-            .effects
-            .iter()
-            .filter(|symbol| {
-                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-            });
-        let candidate = candidates.next()?.clone();
-        (candidates.next().is_none() && self.effect_declaration_is_unrecovered(&candidate))
-            .then_some(candidate)
+    fn effect_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        let qualifier = qualifier_for_token(tokens, token_index);
+        let module = match &qualifier {
+            Some(qualifier) => match self.effect_qualified_workspace_module(file, qualifier) {
+                QualifiedWorkspaceModule::Workspace(module) => module,
+                QualifiedWorkspaceModule::Ambiguous
+                | QualifiedWorkspaceModule::External
+                | QualifiedWorkspaceModule::Unresolved => return None,
+            },
+            None => file.module.clone(),
+        };
+        #[cfg(test)]
+        record_effect_identity_lookup();
+        let candidate = self
+            .eligible_workspace_effect_indices
+            .get(&(module, name.to_string()))
+            .and_then(|index| self.effects.get(*index))?;
+        (qualifier.is_none() || candidate.public).then(|| candidate.clone())
     }
 
-    fn effect_declaration_is_unrecovered(&self, symbol: &NeutralSymbol) -> bool {
-        self.files.iter().any(|file| {
-            workspace_navigation_file(file)
-                && file.source.path() == &symbol.declaration.span.file
-                && !file.recovered_effect_declarations.iter().any(|span| {
-                    span.start.offset <= symbol.declaration.span.start.offset
-                        && symbol.declaration.span.end.offset <= span.end.offset
-                })
-        })
+    fn effect_qualified_workspace_module(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+    ) -> QualifiedWorkspaceModule {
+        let Some(imports) = self.schema_alias_module_imports.get(&file.module) else {
+            return QualifiedWorkspaceModule::Unresolved;
+        };
+        let external_exact = imports.external_imports_by_module.get(qualifier);
+        if imports.workspace_imports.contains(qualifier) {
+            if external_exact.is_some_and(|routes| !routes.is_empty()) {
+                return QualifiedWorkspaceModule::Ambiguous;
+            }
+            return if imports.valid_workspace_imports.contains(qualifier) {
+                QualifiedWorkspaceModule::Workspace(qualifier.to_string())
+            } else {
+                QualifiedWorkspaceModule::Ambiguous
+            };
+        }
+        if external_exact.is_some_and(|routes| !routes.is_empty()) {
+            return QualifiedWorkspaceModule::External;
+        }
+        let workspace_routes = imports.workspace_imports_by_alias.get(qualifier);
+        let external_route_count = imports
+            .external_imports_by_alias
+            .get(qualifier)
+            .map_or(0, BTreeSet::len);
+        match (
+            workspace_routes.map_or(0, BTreeSet::len),
+            external_route_count,
+        ) {
+            (1, 0) => {
+                let valid_routes = imports.valid_workspace_imports_by_alias.get(qualifier);
+                if valid_routes.map_or(0, BTreeSet::len) != 1 {
+                    return QualifiedWorkspaceModule::Ambiguous;
+                }
+                QualifiedWorkspaceModule::Workspace(
+                    valid_routes
+                        .and_then(|routes| routes.iter().next())
+                        .cloned()
+                        .expect("one valid workspace import is present"),
+                )
+            }
+            (0, 1) => QualifiedWorkspaceModule::External,
+            (0, 0) => QualifiedWorkspaceModule::Unresolved,
+            _ => QualifiedWorkspaceModule::Ambiguous,
+        }
     }
 
     fn handler_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
@@ -786,6 +841,55 @@ fn workspace_symbol_indices_by_module_and_name<T: NamedTypeSymbol>(
         }
     }
     by_module_and_name
+}
+
+fn eligible_workspace_effect_indices(
+    effects: &[NeutralSymbol],
+    files: &[IndexedFile],
+) -> BTreeMap<(String, String), usize> {
+    let recovered_by_file = files
+        .iter()
+        .filter(|file| workspace_navigation_file(file))
+        .map(|file| {
+            let mut ranges = file
+                .recovered_effect_declarations
+                .iter()
+                .map(|span| (span.start.offset, span.end.offset))
+                .collect::<Vec<_>>();
+            ranges.sort_unstable();
+            (file.source.path().as_str(), ranges)
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut candidates = BTreeMap::<(String, String), Vec<usize>>::new();
+    for (index, symbol) in effects.iter().enumerate() {
+        #[cfg(test)]
+        record_effect_declaration_index_visit();
+        if symbol.package.is_none() {
+            candidates
+                .entry((symbol.module.clone(), symbol.name.clone()))
+                .or_default()
+                .push(index);
+        }
+    }
+    candidates
+        .into_iter()
+        .filter_map(|(identity, candidates)| {
+            let [index] = candidates.as_slice() else {
+                return None;
+            };
+            let symbol = &effects[*index];
+            let ranges = recovered_by_file.get(symbol.declaration.span.file.as_str())?;
+            let insertion = ranges.partition_point(|(start, _)| {
+                *start <= symbol.declaration.span.start.offset
+            });
+            let recovered = insertion.checked_sub(1).is_some_and(|range_index| {
+                let (start, end) = ranges[range_index];
+                start <= symbol.declaration.span.start.offset
+                    && symbol.declaration.span.end.offset <= end
+            });
+            (!recovered).then_some((identity, *index))
+        })
+        .collect()
 }
 
 fn package_symbol_indices_by_module_and_name<T: NamedTypeSymbol>(

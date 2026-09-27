@@ -61,6 +61,386 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn imported_workspace_effect_references_share_public_identity_across_qualified_forms() {
+        let sources = vec![
+            source(
+                "library/fx.veln",
+                concat!(
+                    "pub effect Remote\n",
+                    "  run() -> Int\n",
+                    "end\n\n",
+                    "fn local() -> Int effects [Remote]\n",
+                    "  perform Remote::run()\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "use library::fx\n",
+                    "fn qualified(callback: fn() -> Int effects [fx::Remote]) -> Int effects [library::fx::Remote]\n",
+                    "  perform fx::Remote::run()\n",
+                    "end\n\n",
+                    "handler qualified_handler() handles fx::Remote effects [library::fx::Remote]\n",
+                    "  run() => perform fx::Remote::run()\n",
+                    "end\n\n",
+                    "test qualified_test() -> Int effects [fx::Remote]\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            ),
+        ];
+        let expected = [
+            ("consumer.veln", 2, 49),
+            ("consumer.veln", 2, 87),
+            ("consumer.veln", 3, 15),
+            ("consumer.veln", 6, 41),
+            ("consumer.veln", 6, 70),
+            ("consumer.veln", 7, 24),
+            ("consumer.veln", 10, 43),
+            ("library/fx.veln", 5, 28),
+            ("library/fx.veln", 6, 11),
+        ];
+
+        for (path, line, column) in [
+            ("library/fx.veln", 1, 12),
+            ("consumer.veln", 2, 49),
+            ("consumer.veln", 2, 87),
+            ("consumer.veln", 3, 15),
+            ("consumer.veln", 6, 41),
+            ("consumer.veln", 6, 70),
+            ("consumer.veln", 7, 24),
+            ("consumer.veln", 10, 43),
+        ] {
+            let result = query(sources.clone(), path, line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Effect);
+            assert!(result.reference_eligible);
+            assert_location(&result.definition, "library/fx.veln", 1, 12);
+            assert_eq!(locations(&result.references), expected, "{path}:{line}:{column}");
+        }
+
+        for (line, column) in [(1, 5), (3, 11), (3, 23), (7, 20), (7, 32)] {
+            assert!(query(sources.clone(), "consumer.veln", line, column).is_none());
+        }
+    }
+
+    #[test]
+    fn imported_workspace_effect_imports_apply_across_sources_in_one_module() {
+        let declarations = source(
+            "library/fx.veln",
+            "pub effect Remote\n  run() -> Int\nend\n",
+        );
+        let imports = source("consumer_imports.veln", "mod consumer\n\nuse library::fx\n");
+        let usage = source(
+            "consumer_usage.veln",
+            concat!(
+                "mod consumer\n\n",
+                "fn qualified() -> Int effects [fx::Remote]\n",
+                "  1\n",
+                "end\n",
+            ),
+        );
+        let resolved = query(
+            vec![declarations.clone(), imports.clone(), usage.clone()],
+            "consumer_usage.veln",
+            3,
+            36,
+        )
+        .unwrap();
+        assert_location(&resolved.definition, "library/fx.veln", 1, 12);
+
+        let duplicate_import = source(
+            "consumer_duplicate.veln",
+            "mod consumer\n\nuse library::fx\n",
+        );
+        assert!(query(
+            vec![declarations, imports, duplicate_import, usage],
+            "consumer_usage.veln",
+            3,
+            36,
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn imported_workspace_effect_resolution_obeys_import_identity_and_visibility() {
+        let precedence = vec![
+            source("fx.veln", "pub effect Remote\n  run() -> Int\nend\n"),
+            source(
+                "library/fx.veln",
+                "pub effect Remote\n  run() -> Int\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "use library::fx\n",
+                    "use fx\n\n",
+                    "fn exact() -> Int effects [fx::Remote]\n",
+                    "  1\n",
+                    "end\n\n",
+                    "fn full() -> Int effects [library::fx::Remote]\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            ),
+        ];
+        let exact = query(precedence.clone(), "consumer.veln", 4, 32).unwrap();
+        assert_location(&exact.definition, "fx.veln", 1, 12);
+        let full = query(precedence, "consumer.veln", 8, 40).unwrap();
+        assert_location(&full.definition, "library/fx.veln", 1, 12);
+
+        for (label, imports) in [
+            (
+                "ambiguous implicit leaf",
+                "use first::fx\nuse second::fx\n",
+            ),
+            (
+                "duplicate import",
+                "use first::fx\nuse first::fx\n",
+            ),
+            (
+                "recovered import",
+                "use first::fx unexpected\n",
+            ),
+        ] {
+            let sources = vec![
+                source(
+                    "first/fx.veln",
+                    "pub effect Remote\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "second/fx.veln",
+                    "pub effect Remote\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "stable.veln",
+                    "pub effect Stable\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "consumer.veln",
+                    &format!(
+                        "use stable\n{imports}\nfn invalid() -> Int effects [fx::Remote]\n  1\nend\n\nfn valid() -> Int effects [stable::Stable]\n  1\nend\n"
+                    ),
+                ),
+            ];
+            assert!(
+                query(sources.clone(), "consumer.veln", imports.lines().count() + 3, 34)
+                    .is_none(),
+                "{label}"
+            );
+            let valid = query(
+                sources,
+                "consumer.veln",
+                imports.lines().count() + 7,
+                36,
+            )
+            .unwrap();
+            assert_location(&valid.definition, "stable.veln", 1, 12);
+        }
+
+        let private = vec![
+            source("hidden.veln", "effect Hidden\n  run() -> Int\nend\n"),
+            source(
+                "consumer.veln",
+                "use hidden\n\nfn invalid() -> Int effects [hidden::Hidden]\n  1\nend\n",
+            ),
+        ];
+        assert!(query(private, "consumer.veln", 3, 38).is_none());
+    }
+
+    #[test]
+    fn imported_workspace_effect_references_reject_ineligible_declarations() {
+        let duplicate = vec![
+            source(
+                "first.veln",
+                "mod library::fx\n\npub effect Remote\n  run() -> Int\nend\n",
+            ),
+            source(
+                "second.veln",
+                "mod library::fx\n\npub effect Remote\n  run() -> Int\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                "use library::fx\n\nfn use() -> Int effects [fx::Remote]\n  1\nend\n",
+            ),
+        ];
+        let declaration = query(duplicate.clone(), "first.veln", 3, 12).unwrap();
+        assert!(!declaration.reference_eligible);
+        assert!(declaration.references.is_empty());
+        assert!(query(duplicate, "consumer.veln", 3, 30).is_none());
+
+        for (declaration, effect_name) in [
+            ("pub effect Remote\nend\n", "Remote"),
+            (
+                "pub effect remote\n  run() -> Int\nend\n",
+                "remote",
+            ),
+        ] {
+            let sources = vec![
+                source("library/fx.veln", declaration),
+                source(
+                    "consumer.veln",
+                    &format!(
+                        "use library::fx\n\nfn use() -> Int effects [fx::{effect_name}]\n  1\nend\n"
+                    ),
+                ),
+            ];
+            let selected = query(sources.clone(), "library/fx.veln", 1, 12).unwrap();
+            assert!(!selected.reference_eligible);
+            assert!(selected.references.is_empty());
+            assert!(query(sources, "consumer.veln", 3, 30).is_none());
+        }
+    }
+
+    #[test]
+    fn imported_workspace_effect_references_exclude_exact_companion_private_access() {
+        let sources = vec![
+            source(
+                "main.veln",
+                "effect Hidden\n  run() -> Int\nend\n",
+            ),
+            source(
+                "stable.veln",
+                "pub effect Stable\n  run() -> Int\nend\n",
+            ),
+            source(
+                "main.test.veln",
+                concat!(
+                    "use main\n",
+                    "use stable\n\n",
+                    "test private_access() -> Int effects [main::Hidden]\n",
+                    "  perform main::Hidden::run()\n",
+                    "end\n\n",
+                    "test public_access() -> Int effects [stable::Stable]\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+        assert!(declaration.references.is_empty());
+        for (line, column) in [(4, 45), (5, 17)] {
+            assert!(query(sources.clone(), "main.test.veln", line, column).is_none());
+        }
+
+        let public = query(sources, "main.test.veln", 8, 46).unwrap();
+        assert_location(&public.definition, "stable.veln", 1, 12);
+    }
+
+    #[test]
+    fn imported_workspace_effect_resolution_rejects_unresolved_and_external_qualifiers() {
+        let unresolved = vec![
+            source(
+                "library/fx.veln",
+                "pub effect Remote\n  run() -> Int\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                "fn use() -> Int effects [fx::Remote]\n  1\nend\n",
+            ),
+        ];
+        assert!(query(unresolved, "consumer.veln", 1, 30).is_none());
+
+        let collision = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "library/fx.veln",
+                    "pub effect Remote\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "stable.veln",
+                    "pub effect Stable\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "consumer.veln",
+                    concat!(
+                        "use library::fx\n",
+                        "use fx from \"example/dep\"\n",
+                        "use stable\n\n",
+                        "fn collision() -> Int effects [fx::Remote]\n  1\nend\n\n",
+                        "fn valid() -> Int effects [stable::Stable]\n  1\nend\n",
+                    ),
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[("fx.veln", "pub effect Remote\n  run() -> Int\nend\n")],
+                ["fx.veln"],
+            )],
+        );
+        assert!(query_snapshot(&collision, "consumer.veln", 5, 36).is_none());
+        let valid = query_snapshot(&collision, "consumer.veln", 9, 36).unwrap();
+        assert_location(&valid.definition, "stable.veln", 1, 12);
+
+        let standard = EffectiveProjectSnapshot::new(vec![source(
+            "consumer.veln",
+            concat!(
+                "use tasks from \"std\"\n\n",
+                "effect Task\n",
+                "  local() -> Int\n",
+                "end\n\n",
+                "fn standard() -> Int effects [tasks::Task]\n",
+                "  1\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[("tasks.veln", "pub effect Task\n  run() -> Int\nend\n")],
+            ["tasks.veln"],
+        ));
+        assert!(query_snapshot(&standard, "consumer.veln", 7, 37).is_none());
+    }
+
+    #[test]
+    fn imported_workspace_effect_references_obey_qualified_perform_recovery_boundaries() {
+        for expression in [
+            "perform fx::Remote",
+            "perform fx::Remote::run",
+            "perform fx::Remote::run(",
+        ] {
+            let sources = vec![
+                source(
+                    "library/fx.veln",
+                    "pub effect Remote\n  run(value: Int) -> Int\nend\n",
+                ),
+                source(
+                    "consumer.veln",
+                    &format!("use library::fx\n\nfn broken() -> Int\n  {expression}\nend\n"),
+                ),
+            ];
+            let declaration = query(sources.clone(), "library/fx.veln", 1, 12).unwrap();
+            assert!(declaration.references.is_empty(), "{expression}");
+            assert!(query(sources, "consumer.veln", 4, 15).is_none(), "{expression}");
+        }
+
+        let sources = vec![
+            source(
+                "library/fx.veln",
+                "pub effect Remote\n  run(value: Int) -> Int\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "use library::fx\n\n",
+                    "fn unknown() -> Int\n  perform fx::Remote::missing()\nend\n\n",
+                    "fn recovered_arguments() -> Int\n  perform fx::Remote::run(1 2)\nend\n\n",
+                    "fn unrelated() -> Int\n  @\nend\n",
+                ),
+            ),
+        ];
+        let expected = [("consumer.veln", 4, 15), ("consumer.veln", 8, 15)];
+        for (path, line, column) in [
+            ("library/fx.veln", 1, 12),
+            ("consumer.veln", 4, 15),
+            ("consumer.veln", 8, 15),
+        ] {
+            let result = query(sources.clone(), path, line, column).unwrap();
+            assert_eq!(locations(&result.references), expected);
+        }
+    }
+
+    #[test]
     fn workspace_effect_references_exclude_other_identities_and_lexical_collisions() {
         let sources = vec![
             source(
@@ -596,26 +976,58 @@ mod navigation_effect_references_tests {
 
     #[test]
     fn workspace_effect_reference_collection_handles_many_declarations_and_occurrences() {
-        let mut declarations =
-            String::from("mod shared\n\neffect Choose\n  pick() -> Int\nend\n\n");
-        let mut uses = String::from("mod shared\n\n");
+        for count in [128, 256, 512] {
+            let mut declarations =
+                String::from("pub effect Target\n  pick() -> Int\nend\n\n");
+            let mut uses = String::from("use library::fx\n\n");
+            for index in 0..count {
+                declarations
+                    .push_str(&format!("effect Noise{index}\n  ignore() -> Int\nend\n\n"));
+                uses.push_str(&format!(
+                    "fn use_{index}() -> Int effects [fx::Target]\n  {index}\nend\n\n"
+                ));
+            }
+            crate::navigation::reset_effect_identity_index_work();
+            let snapshot = EffectiveProjectSnapshot::new(vec![
+                source("library/fx.veln", &declarations),
+                source("uses.veln", &uses),
+            ]);
+            let result = query_snapshot(&snapshot, "library/fx.veln", 1, 12).unwrap();
+            assert_eq!(result.references.len(), count);
+            let (declaration_visits, identity_lookups) =
+                crate::navigation::effect_identity_index_work();
+            assert_eq!(declaration_visits, count + 1);
+            assert_eq!(identity_lookups, count);
+        }
+    }
+
+    #[test]
+    fn workspace_effect_reference_collection_skips_unrelated_modules() {
+        let mut sources = vec![
+            source(
+                "library/fx.veln",
+                "pub effect Target\n  pick() -> Int\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                "use library::fx\n\nfn use_target() -> Int effects [fx::Target]\n  1\nend\n",
+            ),
+        ];
         for index in 0..256 {
-            declarations.push_str(&format!("effect Noise{index}\n  ignore() -> Int\nend\n\n"));
-            uses.push_str(&format!(
-                "fn use_{index}() -> Int effects [Choose]\n  {index}\nend\n\n"
+            sources.push(source(
+                &format!("noise/item_{index}.veln"),
+                "effect Target\n  ignore() -> Int\nend\n\nfn local() -> Int effects [Target]\n  1\nend\n",
             ));
         }
-        let result = query(
-            vec![
-                source("declarations.veln", &declarations),
-                source("uses.veln", &uses),
-            ],
-            "declarations.veln",
-            3,
-            8,
-        )
-        .unwrap();
-        assert_eq!(result.references.len(), 256);
+
+        crate::navigation::reset_effect_identity_index_work();
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+        let result = query_snapshot(&snapshot, "library/fx.veln", 1, 12).unwrap();
+        assert_eq!(locations(&result.references), [("consumer.veln", 3, 37)]);
+        let (declaration_visits, identity_lookups) =
+            crate::navigation::effect_identity_index_work();
+        assert_eq!(declaration_visits, 257);
+        assert_eq!(identity_lookups, 1);
     }
 
     #[test]
@@ -687,6 +1099,71 @@ mod navigation_effect_references_tests {
                 frame_visits <= token_count,
                 "effect-list classification must inspect at most one delimiter frame per token",
             );
+        }
+    }
+
+    #[test]
+    fn qualified_effect_path_classification_is_linear_for_deep_handles_and_perform_paths() {
+        for segment_count in [1_000, 2_000, 4_000] {
+            let qualifier = (0..segment_count)
+                .map(|index| format!("segment{index}"))
+                .collect::<Vec<_>>()
+                .join("::");
+            let input = source(
+                "main.veln",
+                &format!(
+                    "handler deep() handles {qualifier}::Effect\n  run() => perform {qualifier}::Effect::run()\nend\n"
+                ),
+            );
+            let token_count = veln_syntax::lex(&input).tokens.len();
+
+            crate::navigation::reset_effect_path_classification_token_visits();
+            let started = std::time::Instant::now();
+            let snapshot = EffectiveProjectSnapshot::new(vec![input]);
+            let _ = snapshot.navigation_index();
+            let elapsed = started.elapsed();
+            let token_visits = crate::navigation::effect_path_classification_token_visits();
+            eprintln!(
+                "qualified effect paths: segments={segment_count} tokens={} token_visits={token_visits} elapsed={elapsed:?}",
+                token_count,
+            );
+            assert_eq!(token_visits, token_count);
+        }
+    }
+
+    #[test]
+    fn workspace_import_validation_indexes_diagnostics_once() {
+        for count in [250, 500, 1_000] {
+            let mut body = String::new();
+            for index in 0..count {
+                body.push_str(&format!("use module{index}\n"));
+            }
+            for index in 0..count {
+                body.push_str(&format!("codec Removed{index} for Header\nend\n\n"));
+            }
+            let input = source("main.veln", &body);
+            let parsed = veln_syntax::parse(&input);
+            assert_eq!(parsed.diagnostics.len(), count);
+            assert!(
+                parsed
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.parser_context == "codec_declaration")
+            );
+
+            crate::navigation::reset_use_diagnostic_index_work();
+            let started = std::time::Instant::now();
+            let snapshot = EffectiveProjectSnapshot::new(vec![input]);
+            let _ = snapshot.navigation_index();
+            let elapsed = started.elapsed();
+            let (diagnostic_visits, overlap_queries) =
+                crate::navigation::use_diagnostic_index_work();
+            eprintln!(
+                "workspace import validation: imports={count} diagnostics={} diagnostic_visits={diagnostic_visits} overlap_queries={overlap_queries} elapsed={elapsed:?}",
+                parsed.diagnostics.len(),
+            );
+            assert_eq!(diagnostic_visits, parsed.diagnostics.len());
+            assert_eq!(overlap_queries, count);
         }
     }
 }
