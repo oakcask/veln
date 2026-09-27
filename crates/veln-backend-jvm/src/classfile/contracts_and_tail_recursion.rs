@@ -61,9 +61,6 @@ fn scan_expr_tail_recursion(
                 IrCallTarget::Function(name) if name == function => {
                     facts.has_non_tail_self_call = true;
                 }
-                IrCallTarget::CodecDecode { function: name, .. } if name == function => {
-                    facts.has_non_tail_self_call = true;
-                }
                 IrCallTarget::Value(_) => {
                     facts.has_indirect_value_call = true;
                 }

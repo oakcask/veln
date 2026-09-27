@@ -10,9 +10,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     ) {
         match target {
             IrCallTarget::Function(name) => self.emit_program_function_call(code, name, args),
-            IrCallTarget::CodecDecode { function, codec } => {
-                self.emit_codec_decode_call(code, function, codec, args)
-            }
             IrCallTarget::SchemaDecode(name) => {
                 self.emit_schema_decode_call(code, name, args);
             }
@@ -56,27 +53,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             &self.program.options.program_class,
             &self.program.function_name(name),
             &object_method_descriptor(args.len()),
-        );
-    }
-
-    fn emit_codec_decode_call(
-        &mut self,
-        code: &mut MethodCode,
-        function: &str,
-        codec: &str,
-        args: &[IrExpr],
-    ) {
-        let [view, base_offset] = args else {
-            panic!("codec decode boundary call should receive ByteView and ByteOffset arguments");
-        };
-        self.emit_expr(code, view);
-        self.emit_expr(code, base_offset);
-        self.emit_program_function_call(code, function, args);
-        code.ldc_string(codec);
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "validateCodecDecodeStep",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 

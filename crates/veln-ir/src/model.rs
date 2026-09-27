@@ -211,7 +211,6 @@ pub struct IrHandlerProvider {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IrCallTarget {
     Function(String),
-    CodecDecode { function: String, codec: String },
     SchemaDecode(String),
     SchemaDecodeStep(String),
     SchemaNeutralDecode(String),

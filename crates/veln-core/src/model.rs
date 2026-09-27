@@ -168,7 +168,6 @@ pub struct CoreHandlerProvider {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CoreCallTarget {
     Function(String),
-    CodecDecode { function: String, codec: String },
     SchemaDecode(String),
     SchemaDecodeStep(String),
     SchemaNeutralDecode(String),
