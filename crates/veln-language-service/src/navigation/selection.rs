@@ -210,16 +210,8 @@ impl SymbolIndex {
             .effect_operation_ranges
             .contains(&(token.range.start, token.range.end))
         {
-            let qualifier_index = previous_path_segment_index(tokens, token_index)?;
-            let qualifier_token = &tokens[qualifier_index];
-            if file
-                .generic_effect_binder_shadows(&qualifier_token.text, qualifier_token.range.start)
-            {
-                return None;
-            }
-            let qualifier = qualifier_for_token(tokens, token_index)?;
             return self
-                .operation_for_qualified_perform(file, &qualifier, name)
+                .operation_for_qualified_perform(file, tokens, token_index, name)
                 .map(Symbol::EffectOperation);
         }
         if is_schema_operation_path_leaf_candidate_token(tokens, token_index) {

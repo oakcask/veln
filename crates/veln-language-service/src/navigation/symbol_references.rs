@@ -3,8 +3,10 @@ impl SymbolIndex {
         let eligible_handlers = self.effect_operation_reference_handlers();
         self.files
             .iter()
-            .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
-            .flat_map(|file| effect_operation_references_in_file(file, symbol, &eligible_handlers))
+            .filter(|file| workspace_navigation_file(file))
+            .flat_map(|file| {
+                effect_operation_references_in_file(self, file, symbol, &eligible_handlers)
+            })
             .collect()
     }
 
@@ -1007,6 +1009,7 @@ impl SymbolIndex {
 }
 
 fn effect_operation_references_in_file(
+    index: &SymbolIndex,
     file: &IndexedFile,
     symbol: &EffectOperationSymbol,
     eligible_handlers: &BTreeSet<(String, String)>,
@@ -1015,14 +1018,17 @@ fn effect_operation_references_in_file(
         .tokens
         .iter()
         .enumerate()
-        .filter(|(index, token)| effect_operation_token_matches(file, *index, token, symbol))
+        .filter(|(token_index, token)| {
+            effect_operation_token_matches(index, file, *token_index, token, symbol)
+        })
         .map(|(_, token)| file.source.span(token.range))
         .collect::<Vec<_>>();
     references.extend(
         file.handler_operation_clause_references
             .iter()
             .filter(|clause| {
-                clause.effect_name == symbol.effect_name
+                file.module == symbol.module
+                    && clause.effect_name == symbol.effect_name
                     && clause.operation_name == symbol.name
                     && eligible_handlers
                         .contains(&(file.module.clone(), clause.handler_name.clone()))
@@ -1034,8 +1040,9 @@ fn effect_operation_references_in_file(
 }
 
 fn effect_operation_token_matches(
+    index: &SymbolIndex,
     file: &IndexedFile,
-    index: usize,
+    token_index: usize,
     token: &Token,
     symbol: &EffectOperationSymbol,
 ) -> bool {
@@ -1047,16 +1054,14 @@ fn effect_operation_token_matches(
     {
         return false;
     }
-    let Some(qualifier_index) = previous_path_segment_index(&file.tokens, index) else {
-        return false;
-    };
-    let qualifier = &file.tokens[qualifier_index];
-    qualifier.text == symbol.effect_name
-        && !file.generic_effect_binder_shadows(&symbol.effect_name, qualifier.range.start)
-        && file
-            .effect_reference_ranges
-            .contains(&(qualifier.range.start, qualifier.range.end))
-        && qualifier_for_token(&file.tokens, index).is_some_and(|name| name == symbol.effect_name)
+    index
+        .operation_for_qualified_perform(file, &file.tokens, token_index, &token.text)
+        .is_some_and(|candidate| {
+            candidate.module == symbol.module
+                && candidate.effect_name == symbol.effect_name
+                && candidate.name == symbol.name
+                && candidate.declaration == symbol.declaration
+        })
 }
 
 fn source_spans_for_sorted_ranges(source: &SourceFile, ranges: &[TextRange]) -> Vec<SourceSpan> {

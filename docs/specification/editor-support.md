@@ -269,7 +269,13 @@ coverage is provided by
 
 For a selected parse-clean workspace effect operation, references include each
 complete `perform Effect::operation(arguments)` operation-name leaf in saved
-workspace sources that declare the same module. They also include each
+workspace sources that declare the same module. If the owning effect is public,
+references also include complete
+`perform module::Effect::operation(arguments)` operation-name leaves reached
+through one parse-clean, unambiguous workspace import. The written qualifier
+can use the full module path or its unique implicit leaf alias. An exact full
+path takes precedence over a colliding implicit leaf alias. References also
+include each
 structurally complete matching operation-clause heading in a parse-clean
 same-module handler whose bare `handles` target resolves to the owning effect.
 The declaration, every included leaf, and every included heading select the
@@ -280,11 +286,14 @@ adds that declaration before the sorted shared references.
 
 Effect-operation lookup requires one unrecovered owning effect declaration and
 one unrecovered operation declaration for the module, effect, and operation
-names. It excludes duplicate declarations and imported, package-backed,
-generic-effect-qualified, invalid-cased, unresolved, ambiguous, incomplete,
-recovered, or additionally qualified operation paths. An operation leaf is
-also excluded when its argument list requires syntax recovery, even if the
-adjacent effect qualifier remains eligible for effect references. A clause
+names. An imported operation additionally requires an explicit workspace
+import that resolves to the public owning effect; equal spelling does not infer
+an operation identity. Lookup excludes duplicate declarations, ambiguous or
+recovered imports, package-backed and standard-library declarations,
+generic-effect-qualified paths, invalid-cased names, and unresolved,
+incomplete, recovered, or additionally qualified operation paths. An operation
+leaf is also excluded when its argument list requires syntax recovery, even if
+the adjacent effect qualifier remains eligible for effect references. A clause
 heading is excluded when its handler declaration is duplicate or recovered,
 its heading is duplicate or recovered, or its `handles` target is qualified,
 imported, package-backed, unresolved, or ambiguous. Unknown operation names
@@ -635,6 +644,10 @@ rename, and virtual-document boundaries.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect and
 effect-operation references.
+The checked
+`examples/specification/lsp/references-workspace-imported-effect-operation/`
+transcript demonstrates imported operation definition, operation-leaf ranges,
+declaration policy, deterministic ordering, and UTF-16 conversion.
 The checked
 `examples/specification/lsp/references-workspace-handler-operation-clause/`
 transcript demonstrates shared operation selection from a handler clause

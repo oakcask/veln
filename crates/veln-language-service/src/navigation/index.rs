@@ -632,15 +632,31 @@ impl SymbolIndex {
     fn operation_for_qualified_perform(
         &self,
         file: &IndexedFile,
-        qualifier: &str,
+        tokens: &[Token],
+        token_index: usize,
         name: &str,
     ) -> Option<EffectOperationSymbol> {
+        let effect_index = previous_path_segment_index(tokens, token_index)?;
+        let effect = &tokens[effect_index];
+        if !file
+            .effect_reference_ranges
+            .contains(&(effect.range.start, effect.range.end))
+            || file.generic_effect_binder_shadows(&effect.text, effect.range.start)
+        {
+            return None;
+        }
+        let owning_effect = self.effect_for_reference(
+            file,
+            tokens,
+            effect_index,
+            &effect.text,
+        )?;
         let symbol = self.operations
             .iter()
             .find(|symbol| {
                 symbol.name == name
-                    && symbol.effect_name == qualifier
-                    && symbol.module == file.module
+                    && symbol.effect_name == owning_effect.name
+                    && symbol.module == owning_effect.module
                     && symbol.package.is_none()
             })
             .cloned()?;

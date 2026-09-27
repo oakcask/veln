@@ -303,6 +303,83 @@ fn references_page_workspace_effect_operation_locations_with_unicode_scalar_coor
 }
 
 #[test]
+fn references_page_imported_workspace_effect_operation_locations() {
+    let workspace = TempWorkspace::new("references-imported-workspace-effect-operation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "foreign.veln",
+        concat!(
+            "pub effect Remote\r\n",
+            "  run() -> Int\r\n",
+            "end\r\n\r\n",
+            "fn local() -> Int\r\n",
+            "  \"😀\" + perform Remote::run()\r\n",
+            "end\r\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use foreign\r\n\r\n",
+            "fn imported() -> Int\r\n",
+            "  \"😀😀\" + perform foreign::Remote::run()\r\n",
+            "end\r\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let foreign_uri = crate::definition::path_to_uri(&workspace.path("foreign.veln"));
+    let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+
+    let without_declaration = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":35, "include_declaration":false
+    }));
+    assert_eq!(
+        without_declaration["structuredContent"]["references"],
+        json!([
+            {
+                "uri": foreign_uri,
+                "range": {"start":{"line":6,"column":25},"end":{"line":6,"column":28}}
+            },
+            {
+                "uri": main_uri,
+                "range": {"start":{"line":4,"column":35},"end":{"line":4,"column":38}}
+            }
+        ])
+    );
+
+    let first = server.references_tool(&json!({
+        "source":"foreign.veln", "line":2, "column":3,
+        "include_declaration":true, "page_size":1
+    }));
+    assert_eq!(
+        first["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("foreign.veln")),
+            "range": {"start":{"line":2,"column":3},"end":{"line":2,"column":6}}
+        }])
+    );
+    let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
+    let second = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(
+        second["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("foreign.veln")),
+            "range": {"start":{"line":6,"column":25},"end":{"line":6,"column":28}}
+        }])
+    );
+    let cursor = second["structuredContent"]["next_cursor"].as_str().unwrap();
+    let final_page = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(
+        final_page["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {"start":{"line":4,"column":35},"end":{"line":4,"column":38}}
+        }])
+    );
+    assert!(final_page["structuredContent"].get("next_cursor").is_none());
+}
+
+#[test]
 fn references_include_workspace_effect_predicate_perform_qualifiers() {
     let workspace = TempWorkspace::new("references-workspace-effect-predicates");
     workspace.write("veln.toml", "");

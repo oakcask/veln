@@ -18,19 +18,14 @@ The following work remains planned:
 - remaining package definition and reference symbol classes;
 - imported handlers and other workspace symbol reference classes outside the
   implemented same-module and imported-workspace effect boundaries and the
-  implemented same-module effect-operation and handler boundaries;
+  implemented same-module and imported-workspace effect-operation boundaries
+  and same-module handler boundaries;
 - Codex and Claude Code plugin packaging and client-native installation flows;
 - the conformance gate.
 
 Each follow-up must define its own observable acceptance cases and executable
 evidence before implementation. It must update the matching current
 specification page and remove its completed scope from this inventory.
-
-Effect operations reached through explicit workspace imports are routed to the
-focused
-[workspace imported-effect-operation references proposal](workspace-imported-effect-operation-references.md).
-That slice does not extend handler, package, or transitive-dependency
-navigation.
 
 ## Remaining acceptance model
 
