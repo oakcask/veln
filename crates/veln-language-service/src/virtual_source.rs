@@ -338,8 +338,14 @@ mod tests {
         }
     }
 
-    #[test]
-    fn resolver_uses_exact_identity_digest_path_and_captured_bytes() {
+    struct ResolverFixture {
+        catalog: VirtualSourceCatalog,
+        first_digest: String,
+        second_digest: String,
+        canonical_first_source: String,
+    }
+
+    fn resolver_fixture() -> ResolverFixture {
         let first =
             TempPackage::new(&[("a.veln", b"\xEF\xBB\xBFa\r\n"), ("nested/b.veln", b"b\n")]);
         let second = TempPackage::new(&[("other.veln", b"other\n")]);
@@ -349,53 +355,87 @@ mod tests {
         let second_digest = second_snapshot.digest().to_string();
         let first_identity = PackageIdentity::new("first").unwrap();
         let second_identity = PackageIdentity::new("second").unwrap();
-        let expected = [
-            (&first_identity, &first_snapshot),
-            (&second_identity, &second_snapshot),
-        ]
-        .into_iter()
-        .flat_map(|(identity, snapshot)| {
-            snapshot.sources().iter().map(|source| {
-                (
-                    canonical_uri(identity, snapshot.digest(), source.path()),
-                    source.bytes().to_vec(),
-                )
-            })
-        })
-        .collect::<BTreeMap<_, _>>();
+        let canonical_first_source = canonical_uri(&first_identity, &first_digest, "a.veln");
         let catalog = VirtualSourceCatalog::new([
             (first_identity, first_snapshot),
             (second_identity, second_snapshot),
         ])
         .unwrap();
 
-        let listed = catalog.entries().collect::<Vec<_>>();
-        let resolvable = listed
-            .iter()
+        ResolverFixture {
+            catalog,
+            first_digest,
+            second_digest,
+            canonical_first_source,
+        }
+    }
+
+    #[test]
+    fn resolver_lists_every_source_under_its_exact_identity_digest_and_path() {
+        let fixture = resolver_fixture();
+        let expected = BTreeMap::from([
+            (
+                format!("veln-pkg:///first/snapshot/{}/a.veln", fixture.first_digest),
+                b"\xEF\xBB\xBFa\r\n".to_vec(),
+            ),
+            (
+                format!(
+                    "veln-pkg:///first/snapshot/{}/nested/b.veln",
+                    fixture.first_digest
+                ),
+                b"b\n".to_vec(),
+            ),
+            (
+                format!(
+                    "veln-pkg:///second/snapshot/{}/other.veln",
+                    fixture.second_digest
+                ),
+                b"other\n".to_vec(),
+            ),
+        ]);
+        let resolved = fixture
+            .catalog
+            .entries()
             .map(|entry| {
                 (
                     entry.uri().to_string(),
-                    catalog.resolve(entry.uri()).unwrap().to_vec(),
+                    fixture.catalog.resolve(entry.uri()).unwrap().to_vec(),
                 )
             })
             .collect::<BTreeMap<_, _>>();
-        assert_eq!(resolvable, expected);
 
-        let canonical = listed
-            .iter()
-            .find(|entry| entry.uri().ends_with("/a.veln"))
-            .unwrap()
-            .uri();
+        assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn resolver_rejects_mismatched_identity_digest_and_source_path() {
+        let fixture = resolver_fixture();
         let mismatches = [
-            canonical.replacen("/first/", "/unknown/", 1),
-            canonical.replace(&first_digest, &second_digest),
-            canonical.replacen("/a.veln", "/missing.veln", 1),
+            fixture
+                .canonical_first_source
+                .replacen("/first/", "/unknown/", 1),
+            fixture
+                .canonical_first_source
+                .replace(&fixture.first_digest, &fixture.second_digest),
+            fixture
+                .canonical_first_source
+                .replacen("/a.veln", "/missing.veln", 1),
         ];
         for mismatch in mismatches {
-            assert_eq!(catalog.resolve(&mismatch), None);
+            assert_eq!(
+                fixture.catalog.resolve(&mismatch),
+                None,
+                "resolved mismatched URI: {mismatch}"
+            );
         }
+    }
+
+    #[test]
+    fn resolver_preserves_captured_source_bytes_without_normalization() {
+        let fixture = resolver_fixture();
+
         assert_eq!(
-            catalog.resolve(canonical),
+            fixture.catalog.resolve(&fixture.canonical_first_source),
             Some(b"\xEF\xBB\xBFa\r\n".as_slice())
         );
     }
