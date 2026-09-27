@@ -369,10 +369,6 @@ fn lower_call_target(
 ) -> Result<IrCallTarget, IrLowerError> {
     match target {
         CoreCallTarget::Function(name) => Ok(IrCallTarget::Function(name.clone())),
-        CoreCallTarget::CodecDecode { function, codec } => Ok(IrCallTarget::CodecDecode {
-            function: function.clone(),
-            codec: codec.clone(),
-        }),
         CoreCallTarget::SchemaDecode(name) => Ok(IrCallTarget::SchemaDecode(name.clone())),
         CoreCallTarget::SchemaDecodeStep(name) => Ok(IrCallTarget::SchemaDecodeStep(name.clone())),
         CoreCallTarget::SchemaNeutralDecode(name) => {
