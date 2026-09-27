@@ -66,6 +66,13 @@ fn references_page_workspace_effect_locations_with_unicode_scalar_coordinates() 
 
 #[test]
 fn imported_workspace_effect_navigation_pages_shared_scalar_locations() {
+    let (workspace, mut server) = imported_workspace_effect_navigation_server();
+    let before = assert_imported_effect_definition_and_references(&workspace, &mut server);
+    assert_imported_effect_navigation_failures(&mut server, &before);
+    assert_imported_effect_reference_pages(&workspace, &mut server);
+}
+
+fn imported_workspace_effect_navigation_server() -> (TempWorkspace, Server) {
     let workspace = TempWorkspace::new("references-workspace-imported-effect");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -88,7 +95,14 @@ fn imported_workspace_effect_navigation_pages_shared_scalar_locations() {
             "end\r\n",
         ),
     );
-    let mut server = initialized_server(&workspace);
+    let server = initialized_server(&workspace);
+    (workspace, server)
+}
+
+fn assert_imported_effect_definition_and_references(
+    workspace: &TempWorkspace,
+    server: &mut Server,
+) -> Value {
     let foreign_uri = crate::definition::path_to_uri(&workspace.path("foreign.veln"));
     let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
 
@@ -116,7 +130,10 @@ fn imported_workspace_effect_navigation_pages_shared_scalar_locations() {
             {"uri": main_uri, "range":{"start":{"line":4,"column":26},"end":{"line":4,"column":27}}}
         ])
     );
+    without_declaration
+}
 
+fn assert_imported_effect_navigation_failures(server: &mut Server, expected: &Value) {
     let invalid_position = server.references_tool(&json!({
         "source":"main.veln", "line":99, "column":1
     }));
@@ -145,9 +162,13 @@ fn imported_workspace_effect_navigation_pages_shared_scalar_locations() {
             "source":"main.veln", "line":4, "column":26,
             "include_declaration":false
         })),
-        without_declaration
+        *expected
     );
+}
 
+fn assert_imported_effect_reference_pages(workspace: &TempWorkspace, server: &mut Server) {
+    let foreign_uri = crate::definition::path_to_uri(&workspace.path("foreign.veln"));
+    let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
     let first = server.references_tool(&json!({
         "source":"main.veln", "line":3, "column":82,
         "include_declaration":true, "page_size":2
