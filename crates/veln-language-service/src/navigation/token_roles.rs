@@ -509,7 +509,7 @@ fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
 fn is_effect_list_member_token(tokens: &[Token], membership: &[bool], index: usize) -> bool {
     membership[index]
         && previous_non_layout_token(tokens, index).is_none_or(|previous| {
-            previous.kind != TokenKind::DoubleColon && previous.kind != TokenKind::Dot
+            previous.kind != TokenKind::Dot
         })
         && next_non_layout_token(tokens, index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon)
@@ -517,7 +517,7 @@ fn is_effect_list_member_token(tokens: &[Token], membership: &[bool], index: usi
 
 fn is_handler_handled_effect_token(tokens: &[Token], index: usize) -> bool {
     tokens[index].kind == TokenKind::Ident
-        && previous_non_layout_token(tokens, index)
+        && previous_non_layout_token(tokens, path_root_index(tokens, index))
             .is_some_and(|previous| previous.kind == TokenKind::Handles)
         && next_non_layout_token(tokens, index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon)
@@ -525,7 +525,7 @@ fn is_handler_handled_effect_token(tokens: &[Token], index: usize) -> bool {
 
 fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
     tokens[index].kind == TokenKind::Ident
-        && previous_non_layout_token(tokens, index)
+        && previous_non_layout_token(tokens, path_root_index(tokens, index))
             .is_some_and(|previous| previous.kind == TokenKind::Perform)
         && next_non_layout_token(tokens, index)
             .is_some_and(|next| next.kind == TokenKind::DoubleColon)
@@ -533,6 +533,13 @@ fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
             next_non_whitespace_token(tokens, operation_index)
                 .is_some_and(|next| next.kind == TokenKind::LParen)
         })
+}
+
+fn path_root_index(tokens: &[Token], mut index: usize) -> usize {
+    while let Some(previous) = previous_path_segment_index(tokens, index) {
+        index = previous;
+    }
+    index
 }
 
 fn is_handler_reference_token(file: &IndexedFile, index: usize) -> bool {

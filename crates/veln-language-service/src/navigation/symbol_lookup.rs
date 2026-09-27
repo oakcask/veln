@@ -996,21 +996,29 @@ impl SymbolIndex {
 fn index_schema_alias_module_imports(
     files: &[IndexedFile],
 ) -> BTreeMap<String, SchemaAliasModuleImports> {
-    let mut collected = BTreeMap::<String, (BTreeSet<String>, Vec<ExternalImport>)>::new();
+    let mut collected = BTreeMap::<
+        String,
+        (BTreeSet<String>, Vec<WorkspaceImport>, Vec<ExternalImport>),
+    >::new();
     for file in files.iter().filter(|file| workspace_navigation_file(file)) {
-        let (workspace_imports, external_imports) =
+        let (workspace_imports, validated_workspace_imports, external_imports) =
             collected.entry(file.module.clone()).or_default();
         workspace_imports.extend(file.uses.iter().cloned());
+        validated_workspace_imports.extend(file.workspace_imports.iter().cloned());
         #[cfg(test)]
         record_schema_alias_import_index_entries(file.schema_alias_external_imports.len());
         external_imports.extend(file.schema_alias_external_imports.iter().cloned());
     }
     collected
         .into_iter()
-        .map(|(module, (workspace_imports, external_imports))| {
+        .map(|(module, (workspace_imports, validated_workspace_imports, external_imports))| {
             (
                 module,
-                SchemaAliasModuleImports::new(workspace_imports, external_imports),
+                SchemaAliasModuleImports::new(
+                    workspace_imports,
+                    validated_workspace_imports,
+                    external_imports,
+                ),
             )
         })
         .collect()
@@ -1065,12 +1073,32 @@ fn schema_qualified_workspace_module(
 }
 
 impl SchemaAliasModuleImports {
-    fn new(workspace_imports: BTreeSet<String>, external_imports: Vec<ExternalImport>) -> Self {
-        let workspace_imports_by_alias = workspace_imports_by_alias(&workspace_imports);
+    fn new(
+        workspace_imports: BTreeSet<String>,
+        validated_workspace_imports: Vec<WorkspaceImport>,
+        external_imports: Vec<ExternalImport>,
+    ) -> Self {
+        let raw_workspace_imports_by_alias = workspace_imports_by_alias(&workspace_imports);
+        let duplicate_workspace_imports =
+            workspace_import_duplicate_counts(&validated_workspace_imports);
+        let valid_workspace_imports = validated_workspace_imports
+            .into_iter()
+            .filter(|import| {
+                import.syntax_valid
+                    && duplicate_workspace_imports
+                        .get(&(import.module.clone(), import.alias.clone()))
+                        == Some(&1)
+            })
+            .map(|import| import.module)
+            .collect::<BTreeSet<_>>();
+        let valid_workspace_imports_by_alias =
+            workspace_imports_by_alias(&valid_workspace_imports);
         let duplicate_counts = schema_alias_import_duplicate_counts(&external_imports);
         let mut indexed = Self {
             workspace_imports,
-            workspace_imports_by_alias,
+            workspace_imports_by_alias: raw_workspace_imports_by_alias,
+            valid_workspace_imports,
+            valid_workspace_imports_by_alias,
             ..Self::default()
         };
         for import in external_imports {
@@ -1142,6 +1170,17 @@ impl SchemaAliasModuleImports {
                 })
             })
     }
+}
+
+fn workspace_import_duplicate_counts(
+    imports: &[WorkspaceImport],
+) -> BTreeMap<(String, String), usize> {
+    imports.iter().fold(BTreeMap::new(), |mut counts, import| {
+        *counts
+            .entry((import.module.clone(), import.alias.clone()))
+            .or_default() += 1;
+        counts
+    })
 }
 
 fn workspace_imports_by_alias(

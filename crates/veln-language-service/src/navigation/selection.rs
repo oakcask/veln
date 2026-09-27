@@ -247,7 +247,9 @@ impl SymbolIndex {
             return self.schema_composition_symbol_at(file, &tokens[token_index]);
         }
         if is_effect_reference_token(file, token_index) {
-            return self.effect_for_reference(file, name).map(Symbol::Effect);
+            return self
+                .effect_for_reference(file, tokens, token_index, name)
+                .map(Symbol::Effect);
         }
         if is_handler_reference_token(file, token_index) {
             return self.handler_for_reference(file, name).map(Symbol::Handler);

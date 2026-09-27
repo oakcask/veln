@@ -528,16 +528,80 @@ impl SymbolIndex {
         self.visible_schema_alias_for_bare_reference(file, name)
     }
 
-    fn effect_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
-        let mut candidates = self
-            .effects
-            .iter()
-            .filter(|symbol| {
-                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-            });
+    fn effect_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        let qualifier = qualifier_for_token(tokens, token_index);
+        let module = match &qualifier {
+            Some(qualifier) => match self.effect_qualified_workspace_module(file, qualifier) {
+                QualifiedWorkspaceModule::Workspace(module) => module,
+                QualifiedWorkspaceModule::Ambiguous
+                | QualifiedWorkspaceModule::External
+                | QualifiedWorkspaceModule::Unresolved => return None,
+            },
+            None => file.module.clone(),
+        };
+        let mut candidates = self.effects.iter().filter(|symbol| {
+            symbol.name == name && symbol.module == module && symbol.package.is_none()
+        });
         let candidate = candidates.next()?.clone();
-        (candidates.next().is_none() && self.effect_declaration_is_unrecovered(&candidate))
-            .then_some(candidate)
+        (candidates.next().is_none()
+            && self.effect_declaration_is_unrecovered(&candidate)
+            && (qualifier.is_none() || candidate.public))
+        .then_some(candidate)
+    }
+
+    fn effect_qualified_workspace_module(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+    ) -> QualifiedWorkspaceModule {
+        let Some(imports) = self.schema_alias_module_imports.get(&file.module) else {
+            return QualifiedWorkspaceModule::Unresolved;
+        };
+        let external_exact = imports.external_imports_by_module.get(qualifier);
+        if imports.workspace_imports.contains(qualifier) {
+            if external_exact.is_some_and(|routes| !routes.is_empty()) {
+                return QualifiedWorkspaceModule::Ambiguous;
+            }
+            return if imports.valid_workspace_imports.contains(qualifier) {
+                QualifiedWorkspaceModule::Workspace(qualifier.to_string())
+            } else {
+                QualifiedWorkspaceModule::Ambiguous
+            };
+        }
+        if external_exact.is_some_and(|routes| !routes.is_empty()) {
+            return QualifiedWorkspaceModule::External;
+        }
+        let workspace_routes = imports.workspace_imports_by_alias.get(qualifier);
+        let external_route_count = imports
+            .external_imports_by_alias
+            .get(qualifier)
+            .map_or(0, BTreeSet::len);
+        match (
+            workspace_routes.map_or(0, BTreeSet::len),
+            external_route_count,
+        ) {
+            (1, 0) => {
+                let valid_routes = imports.valid_workspace_imports_by_alias.get(qualifier);
+                if valid_routes.map_or(0, BTreeSet::len) != 1 {
+                    return QualifiedWorkspaceModule::Ambiguous;
+                }
+                QualifiedWorkspaceModule::Workspace(
+                    valid_routes
+                        .and_then(|routes| routes.iter().next())
+                        .cloned()
+                        .expect("one valid workspace import is present"),
+                )
+            }
+            (0, 1) => QualifiedWorkspaceModule::External,
+            (0, 0) => QualifiedWorkspaceModule::Unresolved,
+            _ => QualifiedWorkspaceModule::Ambiguous,
+        }
     }
 
     fn effect_declaration_is_unrecovered(&self, symbol: &NeutralSymbol) -> bool {

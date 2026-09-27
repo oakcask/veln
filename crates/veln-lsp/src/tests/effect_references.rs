@@ -28,7 +28,6 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
             ),
         )]
     );
-
     let with_declaration = server.handle_message(&references_request_with_declaration(
         &main_uri, 0, 7, true,
     ));
@@ -63,6 +62,98 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
             ),
         )]
     );
+}
+
+#[test]
+fn imported_workspace_effect_navigation_preserves_utf16_and_declaration_policy() {
+    let project = TempProject::new("workspace-imported-effect-references");
+    project.write("veln.toml", "");
+    project.write(
+        "foreign.veln",
+        concat!(
+            "pub effect E\r\n",
+            "  run() -> Int\r\n",
+            "end\r\n\r\n",
+            "fn local() -> Int effects [E]\r\n",
+            "  \"😀\" + perform E::run()\r\n",
+            "end\r\n",
+        ),
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "use foreign\r\n\r\n",
+            "fn imported(callback: fn() -> Int effects [foreign::E]) -> Int effects [foreign::E]\r\n",
+            "  \"😀\" + perform foreign::E::missing()\r\n",
+            "end\r\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let foreign_uri = path_to_uri(&project.root.join("foreign.veln"));
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    let definition = server.handle_message(&definition_request(&main_uri, 2, 52));
+    assert_eq!(definition.len(), 1);
+    assert!(definition[0].contains(&foreign_uri), "{}", definition[0]);
+    assert!(
+        definition[0].contains(
+            r#""range":{"start":{"line":0,"character":11},"end":{"line":0,"character":12}}"#
+        ),
+        "{}",
+        definition[0]
+    );
+
+    let without_declaration = server.handle_message(&references_request_with_declaration(
+        &main_uri, 3, 26, false,
+    ));
+    assert_eq!(
+        without_declaration,
+        [response(
+            "2",
+            &format!(
+                concat!(
+                    "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":4,\"character\":27}},\"end\":{{\"line\":4,\"character\":28}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":17}},\"end\":{{\"line\":5,\"character\":18}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":2,\"character\":52}},\"end\":{{\"line\":2,\"character\":53}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":2,\"character\":81}},\"end\":{{\"line\":2,\"character\":82}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":3,\"character\":26}},\"end\":{{\"line\":3,\"character\":27}}}}}}]"
+                ),
+                foreign_uri, foreign_uri, main_uri, main_uri, main_uri,
+            ),
+        )]
+    );
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 99, 0, false,
+        )),
+        [invalid_navigation_position_response("2")]
+    );
+    let missing_uri = path_to_uri(&project.root.join("missing.veln"));
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &missing_uri,
+            0,
+            0,
+            false,
+        )),
+        [response("2", "[]")]
+    );
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 3, 26, false,
+        )),
+        without_declaration
+    );
+
+    let with_declaration = server.handle_message(&references_request_with_declaration(
+        &main_uri, 2, 81, true,
+    ));
+    assert!(with_declaration[0].contains(&format!(
+        "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":0,\"character\":11}},\"end\":{{\"line\":0,\"character\":12}}}}}}",
+        foreign_uri
+    )));
 }
 
 #[test]

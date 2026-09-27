@@ -1,0 +1,7 @@
+pub effect E
+  run() -> Int
+end
+
+fn local() -> Int effects [E]
+  perform E::run()
+end

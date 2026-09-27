@@ -40,6 +40,7 @@ struct WorkspaceImports {
     import_aliases: BTreeMap<String, String>,
     external_import_aliases: BTreeMap<String, (String, String)>,
     schema_alias_external_imports: Vec<ExternalImport>,
+    workspace_imports: Vec<WorkspaceImport>,
 }
 
 impl WorkspaceImports {
@@ -51,6 +52,7 @@ impl WorkspaceImports {
             import_aliases,
             external_import_aliases,
             schema_alias_external_imports: schema_alias_external_imports(parsed),
+            workspace_imports: workspace_imports(parsed),
         }
     }
 }
@@ -132,6 +134,7 @@ fn indexed_workspace_file(
         import_aliases: imports.import_aliases,
         external_import_aliases: imports.external_import_aliases,
         schema_alias_external_imports: imports.schema_alias_external_imports,
+        workspace_imports: imports.workspace_imports,
         invalid_declaration_names: syntax.invalid_declaration_names,
         recovery_symbols: syntax.recovery_symbols,
         recovered_effect_declarations: syntax.recovered_effect_declarations,

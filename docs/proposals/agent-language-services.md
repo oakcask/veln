@@ -26,12 +26,6 @@ Each follow-up must define its own observable acceptance cases and executable
 evidence before implementation. It must update the matching current
 specification page and remove its completed scope from this inventory.
 
-Public effects reached through explicit workspace imports are routed to the
-focused
-[workspace imported-effect references proposal](workspace-imported-effect-references.md).
-That slice does not extend operation, handler, package, or transitive-dependency
-navigation.
-
 ## Remaining acceptance model
 
 The following rows are the umbrella's remaining planning contract. They are

@@ -16,11 +16,6 @@ also states it.
 
 ## Ready
 
-- Link a public effect from an explicitly imported workspace module to its
-  declaration and qualified effect references in the shared navigation result
-  and both saved-navigation adapters:
-  [workspace-imported-effect-references.md](workspace-imported-effect-references.md).
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the

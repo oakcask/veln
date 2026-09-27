@@ -1,0 +1,5 @@
+use foreign
+
+fn imported(callback: fn() -> Int effects [foreign::E]) -> Int effects [foreign::E]
+  perform foreign::E::missing()
+end

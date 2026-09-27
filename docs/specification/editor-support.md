@@ -241,12 +241,27 @@ An unrelated parse error in the same saved source does not remove structurally
 complete effect occurrences from that shared set.
 
 Effect reference lookup requires one valid-cased workspace effect declaration
-for that name and module. It excludes qualified imported or package effects,
+for that name and module. Outside the imported-workspace case below, it
+excludes qualified imported or package effects,
 generic effect-row parameters, duplicate declarations, invalid-cased or
 unresolved names, recovered effect rows, recovered handler targets, incomplete
 `perform` qualifiers, and equal spelling in another module or symbol class.
 Comments and strings do not contribute references.
 Effects, handlers, and effect operations remain unsupported for rename.
+
+A public, valid-cased workspace effect can also be selected through one
+parse-clean, unambiguous workspace import. The written import may name the
+effect through its full module path or through a unique implicit leaf alias.
+For that imported identity, references combine the bare occurrences in saved
+workspace sources that declare the effect's module with qualified occurrences
+through the resolved import in the importing module. Each qualified reference
+range covers only the effect-name leaf; the module or import qualifier is not
+part of the range. Private effects, ambiguous or recovered imports,
+dependency-package and standard-library effects, effect operations, handlers,
+and generic effect parameters do not enter this imported-effect reference set.
+The declaration and references remain unsupported for rename. Executable
+coverage is provided by
+`examples/specification/mcp/references-workspace-imported-effect`.
 
 For a selected parse-clean workspace effect operation, references include each
 complete `perform Effect::operation(arguments)` operation-name leaf in saved

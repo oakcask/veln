@@ -1039,6 +1039,7 @@ fn indexed_dependency_source(
         import_aliases,
         external_import_aliases,
         schema_alias_external_imports: Vec::new(),
+        workspace_imports: Vec::new(),
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols: Vec::new(),
         recovered_effect_declarations: recovered_effect_declarations(&parsed.tree),

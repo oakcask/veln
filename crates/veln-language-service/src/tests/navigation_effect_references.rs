@@ -61,6 +61,150 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn imported_workspace_effect_references_share_public_identity_across_qualified_forms() {
+        let sources = vec![
+            source(
+                "library/fx.veln",
+                concat!(
+                    "pub effect Remote\n",
+                    "  run() -> Int\n",
+                    "end\n\n",
+                    "fn local() -> Int effects [Remote]\n",
+                    "  perform Remote::run()\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "use library::fx\n",
+                    "fn qualified(callback: fn() -> Int effects [fx::Remote]) -> Int effects [library::fx::Remote]\n",
+                    "  perform fx::Remote::run()\n",
+                    "end\n\n",
+                    "handler qualified_handler() handles fx::Remote effects [library::fx::Remote]\n",
+                    "  run() => perform fx::Remote::run()\n",
+                    "end\n",
+                ),
+            ),
+        ];
+        let expected = [
+            ("consumer.veln", 2, 49),
+            ("consumer.veln", 2, 87),
+            ("consumer.veln", 3, 15),
+            ("consumer.veln", 6, 41),
+            ("consumer.veln", 6, 70),
+            ("consumer.veln", 7, 24),
+            ("library/fx.veln", 5, 28),
+            ("library/fx.veln", 6, 11),
+        ];
+
+        for (path, line, column) in [
+            ("library/fx.veln", 1, 12),
+            ("consumer.veln", 2, 49),
+            ("consumer.veln", 2, 87),
+            ("consumer.veln", 3, 15),
+            ("consumer.veln", 6, 41),
+            ("consumer.veln", 7, 24),
+        ] {
+            let result = query(sources.clone(), path, line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Effect);
+            assert!(result.reference_eligible);
+            assert_location(&result.definition, "library/fx.veln", 1, 12);
+            assert_eq!(locations(&result.references), expected, "{path}:{line}:{column}");
+        }
+
+        for (line, column) in [(1, 5), (3, 11), (3, 23), (7, 20), (7, 32)] {
+            assert!(query(sources.clone(), "consumer.veln", line, column).is_none());
+        }
+    }
+
+    #[test]
+    fn imported_workspace_effect_resolution_obeys_import_identity_and_visibility() {
+        let precedence = vec![
+            source("fx.veln", "pub effect Remote\n  run() -> Int\nend\n"),
+            source(
+                "library/fx.veln",
+                "pub effect Remote\n  run() -> Int\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "use library::fx\n",
+                    "use fx\n\n",
+                    "fn exact() -> Int effects [fx::Remote]\n",
+                    "  1\n",
+                    "end\n\n",
+                    "fn full() -> Int effects [library::fx::Remote]\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            ),
+        ];
+        let exact = query(precedence.clone(), "consumer.veln", 4, 32).unwrap();
+        assert_location(&exact.definition, "fx.veln", 1, 12);
+        let full = query(precedence, "consumer.veln", 8, 40).unwrap();
+        assert_location(&full.definition, "library/fx.veln", 1, 12);
+
+        for (label, imports) in [
+            (
+                "ambiguous implicit leaf",
+                "use first::fx\nuse second::fx\n",
+            ),
+            (
+                "duplicate import",
+                "use first::fx\nuse first::fx\n",
+            ),
+            (
+                "recovered import",
+                "use first::fx unexpected\n",
+            ),
+        ] {
+            let sources = vec![
+                source(
+                    "first/fx.veln",
+                    "pub effect Remote\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "second/fx.veln",
+                    "pub effect Remote\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "stable.veln",
+                    "pub effect Stable\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "consumer.veln",
+                    &format!(
+                        "use stable\n{imports}\nfn invalid() -> Int effects [fx::Remote]\n  1\nend\n\nfn valid() -> Int effects [stable::Stable]\n  1\nend\n"
+                    ),
+                ),
+            ];
+            assert!(
+                query(sources.clone(), "consumer.veln", imports.lines().count() + 3, 34)
+                    .is_none(),
+                "{label}"
+            );
+            let valid = query(
+                sources,
+                "consumer.veln",
+                imports.lines().count() + 7,
+                36,
+            )
+            .unwrap();
+            assert_location(&valid.definition, "stable.veln", 1, 12);
+        }
+
+        let private = vec![
+            source("hidden.veln", "effect Hidden\n  run() -> Int\nend\n"),
+            source(
+                "consumer.veln",
+                "use hidden\n\nfn invalid() -> Int effects [hidden::Hidden]\n  1\nend\n",
+            ),
+        ];
+        assert!(query(private, "consumer.veln", 3, 38).is_none());
+    }
+
+    #[test]
     fn workspace_effect_references_exclude_other_identities_and_lexical_collisions() {
         let sources = vec![
             source(
