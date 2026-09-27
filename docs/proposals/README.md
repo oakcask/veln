@@ -16,6 +16,11 @@ also states it.
 
 ## Ready
 
+- Link an operation of a public effect from an explicitly imported workspace
+  module to its declaration and qualified operation references in the shared
+  navigation result and both saved-navigation adapters:
+  [workspace-imported-effect-operation-references.md](workspace-imported-effect-operation-references.md).
+
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
@@ -23,8 +28,9 @@ also states it.
   [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
-  remaining symbol, conformance-gate, and plugin work. Do not select the
-  umbrella directly.
+  remaining symbol, conformance-gate, and plugin work outside the ready
+  workspace imported-effect-operation slice. Do not select the umbrella
+  directly.
 
 ## Selection Rule
 
