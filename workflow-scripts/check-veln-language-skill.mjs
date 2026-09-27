@@ -1373,7 +1373,7 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
   const links = [];
   const addTarget = (rawTarget) => {
     const target = rawTarget.split("#", 1)[0];
-    if (target.length === 0 || target.includes("(") || target.includes("[")) return;
+    if (target.length === 0 || target.includes("[")) return;
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return;
     const joined = posix.normalize(posix.join(posix.dirname(sourcePath), target));
     if (joined.startsWith("docs/")) links.push(joined);
@@ -1435,15 +1435,15 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
 }
 
 function parseInlineLinkDestination(source, start) {
-  let cursor = start;
-  while (source[cursor] === " " || source[cursor] === "\t" || source[cursor] === "\n") cursor += 1;
+  const leadingWhitespace = consumeLinkWhitespace(source, start);
+  if (leadingWhitespace === undefined) return undefined;
+  let cursor = leadingWhitespace.cursor;
   const destinationStart = cursor;
   let target;
   if (source[cursor] === "<") {
     cursor += 1;
     const targetStart = cursor;
-    while (cursor < source.length && source[cursor] !== ">" && source[cursor] !== "\n") {
-      if (source[cursor] === "(" || source[cursor] === "[") return undefined;
+    while (cursor < source.length && source[cursor] !== ">" && !isLineEnding(source[cursor])) {
       if (source[cursor] === "<" && !isBackslashEscaped(source, cursor)) return undefined;
       cursor += 1;
     }
@@ -1452,20 +1452,30 @@ function parseInlineLinkDestination(source, start) {
     cursor += 1;
   } else {
     let escaped = false;
+    let parentheses = 0;
     while (cursor < source.length) {
       const character = source[cursor];
-      if (character === "(" || character === "[") return undefined;
       if (!escaped) {
-        if (character === ")") break;
+        if (character === "[") {
+          return undefined;
+        } else if (character === "(") {
+          parentheses += 1;
+        } else if (character === ")") {
+          if (parentheses === 0) break;
+          parentheses -= 1;
+        }
         if (/\s/u.test(character)) break;
       }
       escaped = character === "\\" ? !escaped : false;
       cursor += 1;
     }
+    if (parentheses !== 0) return undefined;
     target = source.slice(destinationStart, cursor);
   }
   const destinationEnd = cursor;
-  while (source[cursor] === " " || source[cursor] === "\t" || source[cursor] === "\n") cursor += 1;
+  const trailingWhitespace = consumeLinkWhitespace(source, cursor);
+  if (trailingWhitespace === undefined) return undefined;
+  cursor = trailingWhitespace.cursor;
   const separated = cursor > destinationEnd;
   if (source[cursor] !== ")") {
     if (!separated) return undefined;
@@ -1481,10 +1491,30 @@ function parseInlineLinkDestination(source, start) {
     }
     if (source[cursor] !== closer) return undefined;
     cursor += 1;
-    while (source[cursor] === " " || source[cursor] === "\t" || source[cursor] === "\n") cursor += 1;
+    const titleWhitespace = consumeLinkWhitespace(source, cursor);
+    if (titleWhitespace === undefined) return undefined;
+    cursor = titleWhitespace.cursor;
   }
   if (source[cursor] !== ")") return undefined;
   return { target, end: cursor };
+}
+
+function consumeLinkWhitespace(source, start) {
+  let cursor = start;
+  let lineEndings = 0;
+  while (source[cursor] === " " || source[cursor] === "\t" || isLineEnding(source[cursor])) {
+    if (isLineEnding(source[cursor])) {
+      lineEndings += 1;
+      if (lineEndings > 1) return undefined;
+      if (source[cursor] === "\r" && source[cursor + 1] === "\n") cursor += 1;
+    }
+    cursor += 1;
+  }
+  return { cursor };
+}
+
+function isLineEnding(character) {
+  return character === "\n" || character === "\r";
 }
 
 function isBackslashEscaped(source, index) {

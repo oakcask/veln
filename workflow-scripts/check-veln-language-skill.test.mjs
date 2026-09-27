@@ -1485,6 +1485,67 @@ test("discovers a repository route with a titled Markdown link", (context) => {
   );
 });
 
+test("discovers inline repository routes with balanced parenthesized destinations", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-parenthesized-links-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs", "route(one(two))"), { recursive: true });
+  writeFileSync(join(root, "docs", "route(one(two))", "authority.md"), "# Authority\n");
+  writeFileSync(join(root, "docs", "README.md"), [
+    "[bare](route(one(two))/authority.md)",
+    "[angle](<route(one(two))/authority.md>)",
+  ].join("\n"));
+
+  assert.deepEqual(
+    linkedDocumentationPaths("docs/README.md", root),
+    [
+      "docs/route(one(two))/authority.md",
+      "docs/route(one(two))/authority.md",
+    ],
+  );
+});
+
+test("accepts one line ending between inline-link components", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-link-line-ending-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs", "route(one)"), { recursive: true });
+  writeFileSync(join(root, "docs", "route(one)", "authority.md"), "# Authority\n");
+
+  for (const lineEnding of ["\n", "\r\n"]) {
+    writeFileSync(join(root, "docs", "README.md"), [
+      "[authority](",
+      "route(one)/authority.md",
+      "\"Authority\"",
+      ")",
+    ].join(lineEnding));
+    assert.deepEqual(
+      shortestDocumentationRoute(
+        "docs/README.md",
+        "docs/route(one)/authority.md",
+        root,
+        2,
+      ),
+      ["docs/README.md", "docs/route(one)/authority.md"],
+      JSON.stringify(lineEnding),
+    );
+  }
+});
+
+test("rejects blank lines around inline-link destinations", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-link-blank-lines-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+
+  for (const source of [
+    "[authority](\n\nauthority.md)",
+    "[authority](authority.md\n\n)",
+    "[authority](authority.md\n\n\"Authority\")",
+  ]) {
+    writeFileSync(join(root, "docs", "README.md"), source);
+    assert.deepEqual(linkedDocumentationPaths("docs/README.md", root), [], source);
+  }
+});
+
 test("does not combine an unmatched link label with a later image destination", (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-link-atoms-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));

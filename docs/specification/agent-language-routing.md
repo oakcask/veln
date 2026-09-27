@@ -135,28 +135,16 @@ that the replay labels select that route through the skill's closed decision
 table. The corpus includes contrastive paraphrases, synonymous requested
 actions, and incidental uses of action and repository terms. This is reviewed
 finite evidence for the semantic instruction, not an executable general
-natural-language classifier. Stress cases run in workers. At a time bound, the
-parent test terminates the worker and waits for its exit before it reports the
-failure. The offline harness rejects repository
-documents larger than `262144` bytes before parsing them, which bounds replay
-resource use. Before parsing other repository-controlled inputs, it rejects a
-candidate skill or an individual MCP schema larger than `16384` bytes,
-case-folding data larger than `32768` bytes, and a language-reference digest
-sidecar larger than its canonical `65` bytes. Schema validation stops after
-`16384` schema-node evaluations.
-It reuses the result for repeated inline schema and value pairs when the
-earlier traversal was at least as deep, so shared-child schemas do not repeat
-the same branching work. Distinct-child schemas that exceed the work limit
-fail with a bounded validation error. The harness also verifies that a
-terminal authority recorded as current does not declare a closed or
-superseded lifecycle. Stale search recordings are
-checked in full against archived catalog evidence whose snapshot digest is
-recalculated with the published catalog digest contract. The replay also
-requires a distinct replacement server whose retained snapshot is the current
-published snapshot before the stale read. The current published catalog bytes
-must also match their digest sidecar before the harness parses them. The
-harness bounds published
-catalog bytes and topic count, archived snapshot count, overrides per snapshot,
-and the snapshot-by-topic work product before it reconstructs archived
-catalogs. Its scaling check measures accepted ASCII internal-space runs at
-successively doubled sizes and allows bounded timing noise.
+natural-language classifier.
+
+The harness rejects oversized or excessive-work skill, schema, documentation,
+catalog, snapshot, and fixture inputs with a bounded failure. Stress checks use
+a time bound and terminate nonresponsive work before reporting failure. These
+limits keep offline replay bounded without making its parsing, validation, or
+fixture-construction algorithms part of the routing contract.
+
+The harness also checks that a selected repository authority is current.
+Recorded search results must match checked published or archived catalog
+evidence and its snapshot digest. A stale snapshot scenario must replace the
+server that returned the URI with a distinct server that retains the current
+published snapshot before the read fails.
