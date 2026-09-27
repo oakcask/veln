@@ -157,6 +157,100 @@ fn imported_workspace_effect_navigation_preserves_utf16_and_declaration_policy()
 }
 
 #[test]
+fn imported_workspace_effect_operation_navigation_preserves_utf16_and_declaration_policy() {
+    let project = TempProject::new("workspace-imported-effect-operation-references");
+    project.write("veln.toml", "");
+    project.write(
+        "foreign.veln",
+        concat!(
+            "pub effect Remote\r\n",
+            "  run() -> Int\r\n",
+            "end\r\n\r\n",
+            "fn local() -> Int\r\n",
+            "  \"😀\" + perform Remote::run()\r\n",
+            "end\r\n",
+        ),
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "use foreign\r\n\r\n",
+            "fn imported() -> Int\r\n",
+            "  \"😀😀\" + perform foreign::Remote::run()\r\n",
+            "end\r\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let foreign_uri = path_to_uri(&project.root.join("foreign.veln"));
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    let definition = server.handle_message(&definition_request(&main_uri, 3, 36));
+    assert_eq!(
+        definition,
+        [response(
+            "2",
+            &format!(
+                "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":5}}}}}}",
+                foreign_uri
+            ),
+        )]
+    );
+
+    let without_declaration = server.handle_message(&references_request_with_declaration(
+        &main_uri, 3, 36, false,
+    ));
+    assert_eq!(
+        without_declaration,
+        [response(
+            "2",
+            &format!(
+                concat!(
+                    "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":25}},\"end\":{{\"line\":5,\"character\":28}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":3,\"character\":36}},\"end\":{{\"line\":3,\"character\":39}}}}}}]"
+                ),
+                foreign_uri, main_uri,
+            ),
+        )]
+    );
+
+    let with_declaration = server.handle_message(&references_request_with_declaration(
+        &foreign_uri,
+        1,
+        2,
+        true,
+    ));
+    assert_eq!(
+        with_declaration,
+        [response(
+            "2",
+            &format!(
+                concat!(
+                    "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":5}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":25}},\"end\":{{\"line\":5,\"character\":28}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":3,\"character\":36}},\"end\":{{\"line\":3,\"character\":39}}}}}}]"
+                ),
+                foreign_uri, foreign_uri, main_uri,
+            ),
+        )]
+    );
+
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 99, 0, false,
+        )),
+        [invalid_navigation_position_response("2")]
+    );
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 3, 36, false,
+        )),
+        without_declaration
+    );
+}
+
+#[test]
 fn imported_workspace_effect_navigation_rejects_visibility_and_import_recovery_boundaries() {
     fn position_of(source: &str, needle: &str, leaf_offset: usize) -> (usize, usize) {
         let offset = source.find(needle).unwrap() + leaf_offset;
@@ -648,34 +742,36 @@ fn workspace_effect_operation_reference_failures_preserve_valid_results() {
     let project = TempProject::new("workspace-effect-operation-reference-failure-state");
     project.write("veln.toml", "");
     project.write(
-        "main.veln",
+        "foreign.veln",
         concat!(
-            "effect Choose\n",
-            "  pick() -> Int\n",
+            "pub effect Remote\n",
+            "  run() -> Int\n",
             "end\n\n",
-            "fn use() -> Int\n",
-            "  perform Choose::pick()\n",
-            "end\n\n",
-            "handler chooser() handles Choose\n",
-            "  pick() => 1\n",
+            "fn local() -> Int\n",
+            "  perform Remote::run()\n",
             "end\n",
         ),
     );
+    project.write(
+        "main.veln",
+        "use foreign\n\nfn use() -> Int\n  perform foreign::Remote::run()\nend\n",
+    );
     let root_uri = path_to_uri(&project.root);
+    let foreign_uri = path_to_uri(&project.root.join("foreign.veln"));
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     let missing_uri = path_to_uri(&project.root.join("missing.veln"));
     let mut server = Server::default();
     server.handle_message(&initialize_request(&root_uri));
-    let request = references_request_with_declaration(&main_uri, 9, 2, true);
+    let request = references_request_with_declaration(&main_uri, 3, 27, true);
     let expected = [response(
         "2",
         &format!(
             concat!(
-                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":6}}}}}},",
-                "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":18}},\"end\":{{\"line\":5,\"character\":22}}}}}},",
-                "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":9,\"character\":2}},\"end\":{{\"line\":9,\"character\":6}}}}}}]"
+                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":5}}}}}},",
+                "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":18}},\"end\":{{\"line\":5,\"character\":21}}}}}},",
+                "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":3,\"character\":27}},\"end\":{{\"line\":3,\"character\":30}}}}}}]"
             ),
-            main_uri, main_uri, main_uri
+            foreign_uri, foreign_uri, main_uri
         ),
     )];
 

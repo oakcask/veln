@@ -306,6 +306,7 @@ The `publish-diagnostics`, `semantic-tokens`,
 `identifier-casing-handler-binding-navigation`, and
 `identifier-casing-rename-boundary`, and
 `references-workspace-effect`,
+`references-workspace-imported-effect-operation`,
 `references-workspace-handler`,
 `references-workspace-schema-composition` and
 `references-workspace-schema-alias`, and
@@ -331,6 +332,10 @@ representation is still part of the fixture.
 The `references-workspace-effect` LSP specification case uses decoded
 assertions for exact effect and effect-operation reference locations,
 declaration inclusion, and UTF-16 coordinates.
+The `references-workspace-imported-effect-operation` LSP specification case
+uses decoded assertions for an imported operation definition, exact local and
+imported operation-leaf references, declaration inclusion, deterministic
+ordering, and UTF-16 coordinates.
 The `saved-navigation-cross-adapter` LSP specification case uses decoded
 assertions for direct `params.position` validation, invalid-coordinate errors,
 empty rename edits for invalid names, and successful navigation repeated after
@@ -350,6 +355,10 @@ The `references-workspace-effect` MCP specification case uses decoded
 assertions for exact effect and effect-operation reference locations,
 declaration inclusion, Unicode-scalar coordinates, deterministic ordering, and
 cursor pagination.
+The `references-workspace-imported-effect-operation` MCP specification case
+uses decoded assertions for an imported operation definition, exact local and
+imported operation-leaf references, declaration inclusion, Unicode-scalar
+coordinates, deterministic ordering, and cursor pagination.
 The `references-recovery-navigation` MCP specification case uses decoded
 assertions for selection from a retained invalid declaration and a linked
 reference, declaration exclusion and inclusion, saved Unicode-scalar ranges,

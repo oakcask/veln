@@ -3,8 +3,10 @@ impl SymbolIndex {
         let eligible_handlers = self.effect_operation_reference_handlers();
         self.files
             .iter()
-            .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
-            .flat_map(|file| effect_operation_references_in_file(file, symbol, &eligible_handlers))
+            .filter(|file| workspace_navigation_file(file))
+            .flat_map(|file| {
+                effect_operation_references_in_file(self, file, symbol, &eligible_handlers)
+            })
             .collect()
     }
 
@@ -56,36 +58,32 @@ impl SymbolIndex {
         {
             return false;
         }
-        let mut operations = self.operations.iter().filter(|candidate| {
-            candidate.package.is_none()
-                && candidate.module == symbol.module
-                && candidate.effect_name == symbol.effect_name
-                && candidate.name == symbol.name
-        });
-        let Some(candidate) = operations.next() else {
+        let Some(candidate) = self.unique_workspace_effect_operation(
+            &symbol.module,
+            &symbol.effect_name,
+            &symbol.name,
+        ) else {
             return false;
         };
         candidate.declaration == symbol.declaration
-            && operations.next().is_none()
-            && self.effect_operation_declaration_is_unrecovered(symbol)
     }
 
-    fn effect_operation_declaration_is_unrecovered(
+    fn unique_workspace_effect_operation(
         &self,
-        symbol: &EffectOperationSymbol,
-    ) -> bool {
-        self.files.iter().any(|file| {
-            workspace_navigation_file(file)
-                && file.source.path() == &symbol.declaration.span.file
-                && !file.invalid_declaration_names.iter().any(|span| {
-                    span.start.offset == symbol.declaration.span.start.offset
-                        && span.end.offset == symbol.declaration.span.end.offset
-                })
-                && !file.recovered_effect_declarations.iter().any(|span| {
-                    span.start.offset <= symbol.declaration.span.start.offset
-                        && symbol.declaration.span.end.offset <= span.end.offset
-                })
-        })
+        module: &str,
+        effect_name: &str,
+        operation_name: &str,
+    ) -> Option<&EffectOperationSymbol> {
+        #[cfg(test)]
+        record_effect_operation_identity_lookup();
+        let index = self.eligible_workspace_effect_operation_indices.get(&(
+            module.to_string(),
+            effect_name.to_string(),
+            operation_name.to_string(),
+        ))?;
+        #[cfg(test)]
+        record_effect_operation_candidate_visit();
+        self.operations.get(*index)
     }
 
     fn handler_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
@@ -1007,6 +1005,7 @@ impl SymbolIndex {
 }
 
 fn effect_operation_references_in_file(
+    index: &SymbolIndex,
     file: &IndexedFile,
     symbol: &EffectOperationSymbol,
     eligible_handlers: &BTreeSet<(String, String)>,
@@ -1015,14 +1014,17 @@ fn effect_operation_references_in_file(
         .tokens
         .iter()
         .enumerate()
-        .filter(|(index, token)| effect_operation_token_matches(file, *index, token, symbol))
+        .filter(|(token_index, token)| {
+            effect_operation_token_matches(index, file, *token_index, token, symbol)
+        })
         .map(|(_, token)| file.source.span(token.range))
         .collect::<Vec<_>>();
     references.extend(
         file.handler_operation_clause_references
             .iter()
             .filter(|clause| {
-                clause.effect_name == symbol.effect_name
+                file.module == symbol.module
+                    && clause.effect_name == symbol.effect_name
                     && clause.operation_name == symbol.name
                     && eligible_handlers
                         .contains(&(file.module.clone(), clause.handler_name.clone()))
@@ -1034,8 +1036,9 @@ fn effect_operation_references_in_file(
 }
 
 fn effect_operation_token_matches(
+    index: &SymbolIndex,
     file: &IndexedFile,
-    index: usize,
+    token_index: usize,
     token: &Token,
     symbol: &EffectOperationSymbol,
 ) -> bool {
@@ -1047,16 +1050,14 @@ fn effect_operation_token_matches(
     {
         return false;
     }
-    let Some(qualifier_index) = previous_path_segment_index(&file.tokens, index) else {
-        return false;
-    };
-    let qualifier = &file.tokens[qualifier_index];
-    qualifier.text == symbol.effect_name
-        && !file.generic_effect_binder_shadows(&symbol.effect_name, qualifier.range.start)
-        && file
-            .effect_reference_ranges
-            .contains(&(qualifier.range.start, qualifier.range.end))
-        && qualifier_for_token(&file.tokens, index).is_some_and(|name| name == symbol.effect_name)
+    index
+        .operation_for_qualified_perform(file, &file.tokens, token_index, &token.text)
+        .is_some_and(|candidate| {
+            candidate.module == symbol.module
+                && candidate.effect_name == symbol.effect_name
+                && candidate.name == symbol.name
+                && candidate.declaration == symbol.declaration
+        })
 }
 
 fn source_spans_for_sorted_ranges(source: &SourceFile, ranges: &[TextRange]) -> Vec<SourceSpan> {

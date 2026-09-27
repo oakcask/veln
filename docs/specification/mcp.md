@@ -575,9 +575,15 @@ modules, and other symbol classes do not enter the result.
 
 A workspace effect-operation result contains each complete
 `perform Effect::operation(arguments)` operation-name leaf from saved sources
-that declare the selected operation's module. It also contains each
-structurally complete matching operation-clause heading in a parse-clean
-same-module handler whose bare `handles` target resolves to the owning effect.
+that declare the selected operation's module. If the owning effect is public,
+the result also contains complete
+`perform module::Effect::operation(arguments)` operation-name leaves reached
+through one parse-clean, unambiguous workspace import. The written qualifier
+can use the full module path or its unique implicit leaf alias. An exact full
+path takes precedence over a colliding implicit leaf alias. The result also
+contains each structurally complete matching operation-clause heading in a
+parse-clean same-module handler whose bare `handles` target resolves to the
+owning effect.
 The declaration, each leaf, and each included heading select the same module,
 owning-effect, and operation identity. Every location covers only the
 operation-name token. A `definition` request at any of those forms returns the
@@ -586,9 +592,12 @@ declaration before sorting and pagination.
 
 Effect-operation lookup requires one unrecovered owning effect declaration and
 one unrecovered operation declaration for the module, effect, and operation
-names. Duplicate declarations and imported, package-backed, unresolved,
-generic-effect-qualified, invalid-cased, ambiguous, incomplete, recovered, or
-additionally qualified operation paths return a successful empty result. An
+names. An imported operation additionally requires an explicit workspace
+import that resolves to the public owning effect; equal spelling does not infer
+an operation identity. Duplicate declarations, ambiguous or recovered imports,
+package-backed and standard-library declarations, unresolved or
+generic-effect-qualified paths, invalid-cased names, and incomplete, recovered,
+or additionally qualified operation paths return a successful empty result. An
 operation leaf whose argument list requires syntax recovery is excluded even
 when its adjacent effect qualifier remains eligible. A clause heading is
 excluded when its handler declaration is duplicate or recovered, its heading
@@ -697,6 +706,10 @@ pagination.
 The checked `examples/specification/mcp/references-workspace-effect/` transcript
 demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
 pagination for workspace effect and effect-operation references.
+The checked
+`examples/specification/mcp/references-workspace-imported-effect-operation/`
+transcript demonstrates the same contract across a public owning effect and
+its explicitly imported operation leaves.
 The checked
 `examples/specification/mcp/references-workspace-handler-operation-clause/`
 transcript demonstrates heading selection and declaration, perform, and clause

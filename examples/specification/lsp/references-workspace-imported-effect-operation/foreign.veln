@@ -1,0 +1,7 @@
+pub effect Remote
+  run() -> Int
+end
+
+fn local() -> Int
+  "😀" + perform Remote::run()
+end

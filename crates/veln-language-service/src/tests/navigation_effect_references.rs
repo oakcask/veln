@@ -119,8 +119,22 @@ mod navigation_effect_references_tests {
             assert_eq!(locations(&result.references), expected, "{path}:{line}:{column}");
         }
 
-        for (line, column) in [(1, 5), (3, 11), (3, 23), (7, 20), (7, 32)] {
+        for (line, column) in [(1, 5), (3, 11), (7, 20)] {
             assert!(query(sources.clone(), "consumer.veln", line, column).is_none());
+        }
+
+        let expected_operations = [
+            ("consumer.veln", 3, 23),
+            ("consumer.veln", 7, 32),
+            ("library/fx.veln", 6, 19),
+        ];
+        for (line, column) in [(3, 23), (7, 32)] {
+            let result = query(sources.clone(), "consumer.veln", line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::EffectOperation);
+            assert_eq!(result.selected_symbol.name, "run");
+            assert!(result.reference_eligible);
+            assert_location(&result.definition, "library/fx.veln", 2, 3);
+            assert_eq!(locations(&result.references), expected_operations);
         }
     }
 

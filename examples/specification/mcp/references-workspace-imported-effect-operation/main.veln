@@ -1,0 +1,5 @@
+use foreign
+
+fn imported() -> Int
+  "😀😀" + perform foreign::Remote::run()
+end

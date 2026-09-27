@@ -58,6 +58,259 @@ mod navigation_effect_operation_references_tests {
     }
 
     #[test]
+    fn imported_workspace_effect_operation_references_share_one_identity() {
+        let sources = vec![
+            source(
+                "library/fx.veln",
+                concat!(
+                    "pub effect Remote\n",
+                    "  run() -> Int\n",
+                    "end\n\n",
+                    "fn local() -> Int effects [Remote]\n",
+                    "  perform Remote::run()\n",
+                    "end\n\n",
+                    "handler local_handler() handles Remote\n",
+                    "  run() => 1\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "use library::fx\n\n",
+                    "fn alias() -> Int effects [fx::Remote]\n",
+                    "  perform fx::Remote::run()\n",
+                    "end\n\n",
+                    "fn full() -> Int effects [library::fx::Remote]\n",
+                    "  perform library::fx::Remote::run()\n",
+                    "end\n\n",
+                    "handler imported_handler() handles fx::Remote\n",
+                    "  run() => 2\n",
+                    "end\n",
+                ),
+            ),
+        ];
+        let expected = [
+            ("consumer.veln", 4, 23, 4, 26),
+            ("consumer.veln", 8, 32, 8, 35),
+            ("library/fx.veln", 6, 19, 6, 22),
+            ("library/fx.veln", 10, 3, 10, 6),
+        ];
+
+        for (path, line, column) in [
+            ("library/fx.veln", 2, 3),
+            ("library/fx.veln", 6, 19),
+            ("library/fx.veln", 10, 3),
+            ("consumer.veln", 4, 23),
+            ("consumer.veln", 8, 32),
+        ] {
+            let result = query(sources.clone(), path, line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::EffectOperation);
+            assert_eq!(result.selected_symbol.name, "run");
+            assert!(result.reference_eligible);
+            assert_location(&result.definition, "library/fx.veln", 2, 3);
+            assert_eq!(exact_locations(&result.references), expected);
+        }
+
+        assert!(query(sources, "consumer.veln", 12, 3).is_none());
+    }
+
+    #[test]
+    fn imported_workspace_effect_operation_resolution_obeys_import_identity() {
+        let precedence = vec![
+            source("fx.veln", "pub effect Remote\n  run() -> Int\nend\n"),
+            source(
+                "library/fx.veln",
+                "pub effect Remote\n  run() -> Int\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "use library::fx\n",
+                    "use fx\n\n",
+                    "fn exact() -> Int\n",
+                    "  perform fx::Remote::run()\n",
+                    "end\n\n",
+                    "fn full() -> Int\n",
+                    "  perform library::fx::Remote::run()\n",
+                    "end\n",
+                ),
+            ),
+        ];
+        let exact = query(precedence.clone(), "consumer.veln", 5, 23).unwrap();
+        assert_location(&exact.definition, "fx.veln", 2, 3);
+        let full = query(precedence, "consumer.veln", 9, 32).unwrap();
+        assert_location(&full.definition, "library/fx.veln", 2, 3);
+
+        for (label, imports) in [
+            ("ambiguous implicit leaf", "use first::fx\nuse second::fx\n"),
+            ("duplicate import", "use first::fx\nuse first::fx\n"),
+            ("recovered import", "use first::fx unexpected\n"),
+        ] {
+            let invalid_line = imports.lines().count() + 4;
+            let valid_line = imports.lines().count() + 8;
+            let sources = vec![
+                source(
+                    "first/fx.veln",
+                    "pub effect Remote\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "second/fx.veln",
+                    "pub effect Remote\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "stable.veln",
+                    "pub effect Stable\n  run() -> Int\nend\n",
+                ),
+                source(
+                    "consumer.veln",
+                    &format!(
+                        "use stable\n{imports}\nfn invalid() -> Int\n  perform fx::Remote::run()\nend\n\nfn valid() -> Int\n  perform stable::Stable::run()\nend\n"
+                    ),
+                ),
+            ];
+            assert!(
+                query(sources.clone(), "consumer.veln", invalid_line, 23).is_none(),
+                "{label}"
+            );
+            let valid = query(sources, "consumer.veln", valid_line, 27).unwrap();
+            assert_location(&valid.definition, "stable.veln", 2, 3);
+        }
+    }
+
+    #[test]
+    fn imported_workspace_effect_operation_references_reject_ineligible_owners_and_operations() {
+        for (label, declaration, effect, operation, unsupported_selection) in [
+            (
+                "private effect",
+                "effect Remote\n  run() -> Int\nend\n",
+                "Remote",
+                "run",
+                false,
+            ),
+            (
+                "invalid effect casing",
+                "pub effect remote\n  run() -> Int\nend\n",
+                "remote",
+                "run",
+                true,
+            ),
+            (
+                "invalid operation casing",
+                "pub effect Remote\n  Run() -> Int\nend\n",
+                "Remote",
+                "Run",
+                true,
+            ),
+            (
+                "unknown operation",
+                "pub effect Remote\n  run() -> Int\nend\n",
+                "Remote",
+                "missing",
+                false,
+            ),
+        ] {
+            let sources = vec![
+                source("library/fx.veln", declaration),
+                source(
+                    "consumer.veln",
+                    &format!(
+                        "use library::fx\n\nfn use() -> Int\n  perform fx::{effect}::{operation}()\nend\n"
+                    ),
+                ),
+            ];
+            let selected = query(sources, "consumer.veln", 4, 23);
+            assert_eq!(selected.is_some(), unsupported_selection, "{label}");
+            if let Some(result) = selected {
+                assert!(!result.reference_eligible, "{label}");
+                assert!(result.references.is_empty(), "{label}");
+            }
+        }
+
+        for declaration in [
+            "pub effect Remote\n  run() -> Int\n  run(value: Int) -> Int\nend\n",
+            "pub effect Remote\n  run() Int\nend\n",
+            "pub effect Remote\n  run() -> Int\n  broken()\nend\n",
+        ] {
+            let sources = vec![
+                source("library/fx.veln", declaration),
+                source(
+                    "consumer.veln",
+                    "use library::fx\n\nfn use() -> Int\n  perform fx::Remote::run()\nend\n",
+                ),
+            ];
+            assert!(query(sources, "consumer.veln", 4, 23).is_none());
+        }
+
+        let duplicate_owner = vec![
+            source(
+                "first.veln",
+                "mod library::fx\n\npub effect Remote\n  run() -> Int\nend\n",
+            ),
+            source(
+                "second.veln",
+                "mod library::fx\n\npub effect Remote\n  run() -> Int\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                "use library::fx\n\nfn use() -> Int\n  perform fx::Remote::run()\nend\n",
+            ),
+        ];
+        assert!(query(duplicate_owner, "consumer.veln", 4, 23).is_none());
+    }
+
+    #[test]
+    fn imported_workspace_effect_operation_references_obey_shape_boundaries() {
+        for expression in [
+            "perform fx::::run()",
+            "perform fx::Remote::()",
+            "perform fx::Remote::run",
+            "perform fx::Remote::run(",
+            "perform fx::Remote::extra::run()",
+            "perform fx::Remote::run(1 2)",
+        ] {
+            let source_text = format!(
+                "use library::fx\n\nfn broken() -> Int\n  {expression}\nend\n"
+            );
+            let sources = vec![
+                source(
+                    "library/fx.veln",
+                    "pub effect Remote\n  run(value: Int) -> Int\nend\n",
+                ),
+                source("consumer.veln", &source_text),
+            ];
+            if let Some(operation_offset) = expression.rfind("run") {
+                let operation_column = 3 + operation_offset;
+                let selected = query(
+                    sources.clone(),
+                    "consumer.veln",
+                    4,
+                    operation_column,
+                );
+                assert!(
+                    selected.is_none_or(|result| {
+                        result.selected_symbol.kind != SymbolKind::EffectOperation
+                    }),
+                    "{expression}"
+                );
+            }
+            if let Some(effect_offset) = expression.find("Remote") {
+                let effect_column = 3 + effect_offset;
+                if let Some(result) = query(
+                    sources.clone(),
+                    "consumer.veln",
+                    4,
+                    effect_column,
+                ) {
+                    assert_eq!(result.selected_symbol.kind, SymbolKind::Effect, "{expression}");
+                }
+            }
+            assert!(query(sources.clone(), "consumer.veln", 1, 5).is_none());
+            assert!(query(sources, "consumer.veln", 4, 11).is_none());
+        }
+    }
+
+    #[test]
     fn workspace_effect_operation_references_select_multiline_operation_leaves() {
         let sources = vec![source(
             "main.veln",
@@ -577,6 +830,47 @@ mod navigation_effect_operation_references_tests {
             )],
         );
         assert!(query_snapshot(&snapshot, "main.veln", 4, 22).is_none());
+
+        let transitive = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use upstream from \"up/pkg\"\n\n",
+                    "fn use() -> Int effects [upstream::Task]\n",
+                    "  perform upstream::Task::run()\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/bridge",
+                &[(
+                    "bridge.veln",
+                    concat!(
+                        "use upstream from \"up/pkg\"\n\n",
+                        "pub fn bridge() -> Int effects [upstream::Task]\n",
+                        "  perform upstream::Task::run()\n",
+                        "end\n",
+                    ),
+                )],
+                ["bridge.veln"],
+            )],
+        );
+        assert!(query_snapshot(&transitive, "main.veln", 4, 27).is_none());
+
+        let standard = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use tasks from \"std\"\n\n",
+                "fn use() -> Int effects [tasks::Task]\n",
+                "  perform tasks::Task::run()\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[("tasks.veln", "pub effect Task\n  run() -> Int\nend\n")],
+            ["tasks.veln"],
+        ));
+        assert!(query_snapshot(&standard, "main.veln", 4, 24).is_none());
     }
 
     #[test]
@@ -669,5 +963,56 @@ mod navigation_effect_operation_references_tests {
             let result = query(vec![source("main.veln", &text)], "main.veln", 2, 3).unwrap();
             assert_eq!(result.references.len(), count);
         }
+    }
+
+    #[test]
+    fn same_named_workspace_effect_operation_lookup_work_is_adjacent_linear() {
+        use std::fmt::Write as _;
+
+        fn measured_identity_work(count: usize) -> ((usize, usize), std::time::Duration) {
+            let mut sources = Vec::with_capacity(count + 1);
+            let mut consumer = String::new();
+            for index in 0..count {
+                let module = format!("module_{index}");
+                sources.push(SourceFile::new(
+                    format!("{module}.veln"),
+                    "pub effect Remote\n  run() -> Int\nend\n",
+                ));
+                writeln!(consumer, "use {module}").unwrap();
+            }
+            consumer.push_str("\nfn use_all() -> Int\n");
+            for index in 0..count {
+                writeln!(consumer, "  perform module_{index}::Remote::run()").unwrap();
+            }
+            consumer.push_str("end\n");
+            sources.push(source("consumer.veln", &consumer));
+            let snapshot = EffectiveProjectSnapshot::new(sources);
+            let position = || SourcePosition {
+                source: SourcePath::new("module_0.veln"),
+                line: 2,
+                column: 3,
+            };
+            navigate(&snapshot, position()).unwrap();
+            crate::navigation::reset_effect_operation_identity_work();
+            let started = std::time::Instant::now();
+            let result = navigate(&snapshot, position()).unwrap();
+            assert_eq!(result.references.len(), 1);
+            (
+                crate::navigation::effect_operation_identity_work(),
+                started.elapsed(),
+            )
+        }
+
+        let (smaller_work, smaller_elapsed) = measured_identity_work(100);
+        let (larger_work, larger_elapsed) = measured_identity_work(200);
+        eprintln!(
+            "same-named effect-operation lookup: 100={smaller_elapsed:?}/{smaller_work:?}, 200={larger_elapsed:?}/{larger_work:?}"
+        );
+        assert!(smaller_work.0 <= 100 * 3 + 10, "{smaller_work:?}");
+        assert!(smaller_work.1 <= 100 * 2 + 10, "{smaller_work:?}");
+        assert!(larger_work.0 <= 200 * 3 + 10, "{larger_work:?}");
+        assert!(larger_work.1 <= 200 * 2 + 10, "{larger_work:?}");
+        assert!(larger_work.0 <= smaller_work.0 * 2 + 10);
+        assert!(larger_work.1 <= smaller_work.1 * 2 + 10);
     }
 }

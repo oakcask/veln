@@ -116,29 +116,34 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
     let workspace = TempWorkspace::new("references-workspace-effect-operation-capture-retry");
     workspace.write("veln.toml", "");
     workspace.write(
+        "foreign.veln",
+        "pub effect Remote\n  run() -> Int\nend\n\nfn local() -> Int\n  perform Remote::run()\nend\n",
+    );
+    workspace.write(
         "main.veln",
-        "effect Choose\n  pick() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::pick()\nend\n\nhandler chooser() handles Choose\n  pick() => 1\nend\n",
+        "use foreign\n\nfn use() -> Int\n  perform foreign::Remote::run()\nend\n",
     );
     let mut server = initialized_server(&workspace);
     let before = server.references_tool(&json!({
-        "source":"main.veln", "line":10, "column":3
+        "source":"main.veln", "line":4, "column":28
     }));
-    let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+    let foreign_uri = crate::definition::path_to_uri(&workspace.path("foreign.veln"));
+    let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
     assert_eq!(
         before["structuredContent"]["references"],
         json!([
             {
-                "uri": uri,
-                "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":23}}
+                "uri": foreign_uri,
+                "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":22}}
             },
             {
-                "uri": uri,
-                "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
+                "uri": main_uri,
+                "range": {"start":{"line":4,"column":28},"end":{"line":4,"column":31}}
             }
         ])
     );
     let seeded = server.references_tool(&json!({
-        "source":"main.veln", "line":10, "column":3,
+        "source":"main.veln", "line":4, "column":28,
         "include_declaration":false, "page_size":1
     }));
     let live_cursor = seeded["structuredContent"]["next_cursor"]
@@ -151,7 +156,7 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
     let hook = install_changing_workspace_effect_hook(&workspace, &attempts);
 
     let failed = server.references_tool(&json!({
-        "source":"main.veln", "line":10, "column":3
+        "source":"main.veln", "line":4, "column":28
     }));
     assert_snapshot_changed_without_references_or_scope(&failed);
     assert_eq!(attempts.get(), 3);
@@ -167,7 +172,7 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
         continuation["structuredContent"]["references"],
         json!([{
             "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
-            "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
+            "range": {"start":{"line":4,"column":28},"end":{"line":4,"column":31}}
         }])
     );
     assert!(
@@ -178,7 +183,7 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
 
     drop(hook);
     let after = server.references_tool(&json!({
-        "source":"main.veln", "line":10, "column":3
+        "source":"main.veln", "line":4, "column":28
     }));
     assert_eq!(after, before);
 }
@@ -186,6 +191,24 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
 #[test]
 fn imported_workspace_effect_capture_failure_preserves_state_and_later_results() {
     let workspace = TempWorkspace::new("references-imported-effect-capture-retry");
+    write_imported_effect_capture_project(&workspace);
+    let mut state = imported_effect_capture_state(&workspace);
+    let attempts = Rc::new(Cell::new(0usize));
+    let hook = install_changing_imported_effect_hook(&workspace, &attempts);
+
+    let failed = state
+        .server
+        .references_tool(&imported_effect_reference_input());
+    assert_imported_effect_capture_failure(&mut state, &failed, attempts.get());
+
+    drop(hook);
+    let after = state
+        .server
+        .references_tool(&imported_effect_reference_input());
+    assert_eq!(after, state.before);
+}
+
+fn write_imported_effect_capture_project(workspace: &TempWorkspace) {
     workspace.write("veln.toml", "");
     workspace.write(
         "foreign.veln",
@@ -198,18 +221,29 @@ fn imported_workspace_effect_capture_failure_preserves_state_and_later_results()
             "end\n",
         ),
     );
-    let main = concat!(
+    workspace.write("main.veln", imported_effect_capture_main());
+}
+
+fn imported_effect_capture_main() -> &'static str {
+    concat!(
         "use foreign\n\n",
         "fn imported() -> Int effects [foreign::E]\n",
         "  perform foreign::E::run()\n",
         "end\n",
-    );
-    workspace.write("main.veln", main);
-    let mut server = initialized_server(&workspace);
-    let before = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":20,
-        "include_declaration":false
-    }));
+    )
+}
+
+struct ImportedEffectCaptureState {
+    server: Server,
+    before: Value,
+    resources: Value,
+    selection: Value,
+    live_cursor: String,
+}
+
+fn imported_effect_capture_state(workspace: &TempWorkspace) -> ImportedEffectCaptureState {
+    let mut server = initialized_server(workspace);
+    let before = server.references_tool(&imported_effect_reference_input());
     assert_eq!(
         before["structuredContent"]["references"]
             .as_array()
@@ -225,35 +259,48 @@ fn imported_workspace_effect_capture_failure_preserves_state_and_later_results()
         .as_str()
         .unwrap()
         .to_owned();
-    let before_resources = all_resource_state(&mut server);
-    let before_selection = server.selection_result();
-    let attempts = Rc::new(Cell::new(0usize));
+    ImportedEffectCaptureState {
+        resources: all_resource_state(&mut server),
+        selection: server.selection_result(),
+        server,
+        before,
+        live_cursor,
+    }
+}
+
+fn imported_effect_reference_input() -> Value {
+    json!({
+        "source":"main.veln", "line":4, "column":20,
+        "include_declaration":false
+    })
+}
+
+fn install_changing_imported_effect_hook(
+    workspace: &TempWorkspace,
+    attempts: &Rc<Cell<usize>>,
+) -> impl Drop {
     let attempts_for_hook = attempts.clone();
     let root = workspace.root.clone();
-    let hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+    let main = imported_effect_capture_main();
+    crate::check_project::set_after_first_stable_capture_hook(move || {
         let attempt = attempts_for_hook.get();
         attempts_for_hook.set(attempt + 1);
         let path = root.join("main.veln");
         fs::remove_file(&path).unwrap();
         fs::write(&path, format!("{main}# capture attempt {attempt}\n")).unwrap();
-    });
+    })
+}
 
-    let failed = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":20,
-        "include_declaration":false
-    }));
-    assert_snapshot_changed_without_references_or_scope(&failed);
-    assert_eq!(attempts.get(), 3);
-    assert_eq!(all_resource_state(&mut server), before_resources);
-    assert_eq!(server.selection_result(), before_selection);
-    assert_live_reference_cursor(&mut server, &live_cursor);
-
-    drop(hook);
-    let after = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":20,
-        "include_declaration":false
-    }));
-    assert_eq!(after, before);
+fn assert_imported_effect_capture_failure(
+    state: &mut ImportedEffectCaptureState,
+    failed: &Value,
+    attempts: usize,
+) {
+    assert_snapshot_changed_without_references_or_scope(failed);
+    assert_eq!(attempts, 3);
+    assert_eq!(all_resource_state(&mut state.server), state.resources);
+    assert_eq!(state.server.selection_result(), state.selection);
+    assert_live_reference_cursor(&mut state.server, &state.live_cursor);
 }
 
 fn install_changing_workspace_effect_hook(
@@ -265,17 +312,17 @@ fn install_changing_workspace_effect_hook(
     crate::check_project::set_after_first_stable_capture_hook(move || {
         let attempt = attempts_for_hook.get();
         attempts_for_hook.set(attempt + 1);
-        let main = root.join("main.veln");
-        fs::remove_file(&main).unwrap();
+        let foreign = root.join("foreign.veln");
+        fs::remove_file(&foreign).unwrap();
         let operation = if attempt.is_multiple_of(2) {
-            "pick"
+            "run"
         } else {
-            "choose"
+            "other"
         };
         fs::write(
-            &main,
+            &foreign,
             format!(
-                "effect Choose\n  {operation}() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::{operation}()\nend\n\nhandler chooser() handles Choose\n  {operation}() => 1\nend\n"
+                "pub effect Remote\n  {operation}() -> Int\nend\n\nfn local() -> Int\n  perform Remote::{operation}()\nend\n"
             ),
         )
         .unwrap();
