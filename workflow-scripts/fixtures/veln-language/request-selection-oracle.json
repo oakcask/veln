@@ -1,0 +1,470 @@
+{
+  "schema_version": 1,
+  "records": [
+    {
+      "id": "add-action",
+      "text": "Add a rule to the Veln compiler parser.",
+      "route": "repository"
+    },
+    {
+      "id": "add-language",
+      "text": "What does add mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "change-action",
+      "text": "Change Veln schema semantics.",
+      "route": "repository"
+    },
+    {
+      "id": "change-language",
+      "text": "How do Veln schemas change?",
+      "route": "language"
+    },
+    {
+      "id": "debug-action",
+      "text": "Debug the Veln compiler parser.",
+      "route": "repository"
+    },
+    {
+      "id": "debug-language",
+      "text": "What does debug mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "examine-action",
+      "text": "Examine the Veln compiler parser.",
+      "route": "repository"
+    },
+    {
+      "id": "examine-language",
+      "text": "What does examine mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "fix-action",
+      "text": "Could you please fix the Veln compiler parser?",
+      "route": "repository"
+    },
+    {
+      "id": "fix-language",
+      "text": "What does fix mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "implement-action",
+      "text": "Implement the Veln compiler parser change.",
+      "route": "repository"
+    },
+    {
+      "id": "implement-language",
+      "text": "How does Veln implement schemas?",
+      "route": "language"
+    },
+    {
+      "id": "inspect-action",
+      "text": "I need you to inspect how Veln schemas work.",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-assisted-action",
+      "text": "Please help me inspect the Veln parser.",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-polite-intervening",
+      "text": "Could you take a moment to inspect the Veln parser implementation?",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-modal-embedded",
+      "text": "Do you think you could inspect the parser?",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-framed-curly-apostrophe",
+      "text": "I’d like you to inspect the Veln parser implementation.",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-assigned-action",
+      "text": "Your task is to inspect the Veln parser implementation.",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-nominal-action",
+      "text": "The purpose here is to inspect the Veln parser.",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-nominal-definition",
+      "text": "What I need is an explanation of what inspect means in Veln schemas.",
+      "route": "language"
+    },
+    {
+      "id": "inspect-communicated-action",
+      "text": "I ask that you inspect the Veln parser.",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-communicated-infinitive",
+      "text": "I ask you to inspect the Veln parser.",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-communicated-polite-infinitive",
+      "text": "I ask you to please inspect the Veln parser.",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-communicated-polite-definition",
+      "text": "I ask you to please explain what inspect means in Veln schemas.",
+      "route": "language"
+    },
+    {
+      "id": "inspect-modified-action",
+      "text": "Please thoroughly inspect the Veln parser.",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-modal-question",
+      "text": "Will you inspect Veln schemas?",
+      "route": "repository"
+    },
+    {
+      "id": "inspect-communicated-definition",
+      "text": "I ask what inspect means in Veln schemas.",
+      "route": "language"
+    },
+    {
+      "id": "inspect-communicated-explanation",
+      "text": "I ask that you explain what inspect means in Veln schemas.",
+      "route": "language"
+    },
+    {
+      "id": "inspect-language",
+      "text": "In Veln terminology: inspect means what?",
+      "route": "language"
+    },
+    {
+      "id": "inspect-polite-term-definition",
+      "text": "Could you take a moment to explain what inspect means in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "inspect-direct-term-definition",
+      "text": "Please explain what inspect means in Veln schemas.",
+      "route": "language"
+    },
+    {
+      "id": "investigate-action",
+      "text": "We should investigate the Veln compiler parser.",
+      "route": "repository"
+    },
+    {
+      "id": "investigate-language",
+      "text": "What does investigate mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "modify-action",
+      "text": "Modify the Veln compiler parser.",
+      "route": "repository"
+    },
+    {
+      "id": "modify-language",
+      "text": "What does modify mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "refactor-action",
+      "text": "Refactor the Veln compiler parser.",
+      "route": "repository"
+    },
+    {
+      "id": "refactor-language",
+      "text": "What does refactor mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "remove-action",
+      "text": "Remove a rule from the Veln compiler parser.",
+      "route": "repository"
+    },
+    {
+      "id": "remove-language",
+      "text": "What does remove mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "review-action",
+      "text": "Tell me whether you can review the Veln compiler parser.",
+      "route": "repository"
+    },
+    {
+      "id": "review-language-question",
+      "text": "Can you review what contracts mean in Veln?",
+      "route": "language"
+    },
+    {
+      "id": "review-indirect-language-question",
+      "text": "Can you show me how to review contracts in Veln?",
+      "route": "language"
+    },
+    {
+      "id": "review-language",
+      "text": "Review this question: how do Veln schemas work?",
+      "route": "language"
+    },
+    {
+      "id": "select-action",
+      "text": "Select the next ready Veln language proposal.",
+      "route": "repository"
+    },
+    {
+      "id": "select-language",
+      "text": "What does select mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "test-action",
+      "text": "Test how Veln schemas work.",
+      "route": "repository"
+    },
+    {
+      "id": "test-communicated-action",
+      "text": "For this task, I ask that you test the Veln parser.",
+      "route": "repository"
+    },
+    {
+      "id": "test-language",
+      "text": "What can I test in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "update-action",
+      "text": "Update the Veln compiler parser.",
+      "route": "repository"
+    },
+    {
+      "id": "update-language",
+      "text": "Please update me on how Veln schemas work.",
+      "route": "language"
+    },
+    {
+      "id": "repository-subject",
+      "text": "Can you tell me what is in the Veln repository?",
+      "route": "repository"
+    },
+    {
+      "id": "repository-copula-subject",
+      "text": "Is the Veln repository organized by crates?",
+      "route": "repository"
+    },
+    {
+      "id": "repository-auxiliary-subject",
+      "text": "Does the Veln repository use crates?",
+      "route": "repository"
+    },
+    {
+      "id": "repository-about-subject",
+      "text": "Tell me about the Veln repository.",
+      "route": "repository"
+    },
+    {
+      "id": "repository-why-subject",
+      "text": "Why is the Veln repository so large?",
+      "route": "repository"
+    },
+    {
+      "id": "repository-described-subject",
+      "text": "Describe the Veln repository architecture.",
+      "route": "repository"
+    },
+    {
+      "id": "repository-which-subject",
+      "text": "Which crates are in the Veln repository?",
+      "route": "repository"
+    },
+    {
+      "id": "repository-word-definition",
+      "text": "Explain the word repository.",
+      "route": "language"
+    },
+    {
+      "id": "repository-incidental",
+      "text": "Does Veln have a repository schema?",
+      "route": "language"
+    },
+    {
+      "id": "repository-compound-incidental",
+      "text": "What is the repository schema in Veln?",
+      "route": "language"
+    },
+    {
+      "id": "repository-which-incidental",
+      "text": "Which repository schema does Veln use?",
+      "route": "language"
+    },
+    {
+      "id": "codebase-subject",
+      "text": "Can you tell me what is in the Veln codebase?",
+      "route": "repository"
+    },
+    {
+      "id": "codebase-incidental",
+      "text": "Can Veln schemas describe a codebase identifier?",
+      "route": "language"
+    },
+    {
+      "id": "source-code-subject",
+      "text": "Can you tell me what is in the Veln source code?",
+      "route": "repository"
+    },
+    {
+      "id": "source-code-where-subject",
+      "text": "Where in the Veln source code is schema parsing implemented?",
+      "route": "repository"
+    },
+    {
+      "id": "source-code-incidental",
+      "text": "Can Veln schemas encode source code text?",
+      "route": "language"
+    },
+    {
+      "id": "source-code-object-incidental",
+      "text": "Can Veln schemas encode source code?",
+      "route": "language"
+    },
+    {
+      "id": "proposal-state-subject",
+      "text": "Can you tell me what the Veln proposal state is?",
+      "route": "repository"
+    },
+    {
+      "id": "proposal-state-attribute-subject",
+      "text": "How broad is the Veln proposal state today?",
+      "route": "repository"
+    },
+    {
+      "id": "proposal-state-incidental",
+      "text": "Can Veln schemas record proposal state values?",
+      "route": "language"
+    },
+    {
+      "id": "validate-action",
+      "text": "Validate how Veln schemas are parsed.",
+      "route": "repository"
+    },
+    {
+      "id": "validate-language",
+      "text": "What does validate mean in Veln schemas?",
+      "route": "language"
+    },
+    {
+      "id": "alter-action",
+      "text": "Alter how effects are handled in Veln.",
+      "route": "repository"
+    },
+    {
+      "id": "alter-language",
+      "text": "How does Veln alter effects?",
+      "route": "language"
+    },
+    {
+      "id": "assess-parser-action",
+      "text": "Please assess the Veln parser.",
+      "route": "repository"
+    },
+    {
+      "id": "audit-lexer-action",
+      "text": "Audit the Veln lexer.",
+      "route": "repository"
+    },
+    {
+      "id": "assess-effects-action",
+      "text": "Assess how effects are handled in Veln.",
+      "route": "repository"
+    },
+    {
+      "id": "effects-passive-information",
+      "text": "How are effects handled in Veln?",
+      "route": "language"
+    },
+    {
+      "id": "effects-explained-information",
+      "text": "Explain how effects are handled in Veln.",
+      "route": "language"
+    },
+    {
+      "id": "borrow-checker-information",
+      "text": "Does Veln have a borrow checker?",
+      "route": "language"
+    },
+    {
+      "id": "schemas-information",
+      "text": "How do Veln schemas work?",
+      "route": "language"
+    },
+    {
+      "id": "schemas-contracts-information",
+      "text": "How do Veln schemas and contracts interact?",
+      "route": "language"
+    },
+    {
+      "id": "effects-update-information",
+      "text": "Does Veln update effects automatically?",
+      "route": "language"
+    },
+    {
+      "id": "schemas-encode-information",
+      "text": "How do Veln schemas encode values?",
+      "route": "language"
+    },
+    {
+      "id": "modules-information",
+      "text": "How do Veln modules work?",
+      "route": "language"
+    },
+    {
+      "id": "mcp-inspection-action",
+      "text": "Examine the implemented Veln MCP documentation search.",
+      "route": "repository"
+    },
+    {
+      "id": "explicit-path-inspection",
+      "text": "Inspect MCP documentation search in docs/specification/types.md.",
+      "route": "repository"
+    },
+    {
+      "id": "deep-explicit-path-inspection",
+      "text": "Review docs/specification/language-reference-catalog.md.",
+      "route": "repository"
+    },
+    {
+      "id": "parser-implementation-location-information",
+      "text": "Where is the Veln parser implemented?",
+      "route": "repository"
+    },
+    {
+      "id": "schemas-change-action",
+      "text": "Change how Veln schemas work.",
+      "route": "repository"
+    },
+    {
+      "id": "authoring-policy-review-action",
+      "text": "Review the repository documentation authoring policy.",
+      "route": "repository"
+    },
+    {
+      "id": "unknown-repository-inspection-action",
+      "text": "Inspect repository authority for an undocumented deployment service.",
+      "route": "repository"
+    },
+    {
+      "id": "unbounded-language-query",
+      "text": "abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz",
+      "route": "language"
+    }
+  ]
+}

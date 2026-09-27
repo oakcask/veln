@@ -31,6 +31,8 @@ its references provide supporting implementation and test evidence.
   [package-documentation.md](package-documentation.md), and
   [package-virtual-sources.md](package-virtual-sources.md).
 - Generated reference artifact: [language-reference-catalog.md](language-reference-catalog.md).
+- Agent routing for language questions and repository tasks:
+  [agent-language-routing.md](agent-language-routing.md).
 - Rationale: [source-decisions.md](source-decisions.md).
 
 Proposal pages describe unfinished work and are not current behavior.

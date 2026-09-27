@@ -82,6 +82,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
   renderer, MCP publication, source authorities, generation gates, and
   freshness route:
   [language-reference-catalog.md](language-reference-catalog.md).
+- Agent routing between published language topics and repository documentation:
+  [agent-language-routing.md](agent-language-routing.md).
 - Canonical package virtual-source URIs, listing, and exact resolution:
   [package-virtual-sources.md](package-virtual-sources.md).
 - Explicit HTTP/2 frame, diagnostic, HPACK, and core modules:
