@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   mkdtempSync,
   mkdirSync,
+  openSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -1943,6 +1945,43 @@ test("rejects a scenario symlink to a non-regular file without reading it", {
   await assert.rejects(
     runStressTarget("scenario-document", { path }),
     /scenario fixture must be a regular file/,
+  );
+});
+
+test("rejects a scenario FIFO without waiting for a writer", {
+  skip: process.platform !== "linux",
+}, (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-fixture-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, "scenario.json");
+  const created = spawnSync("mkfifo", [path], { encoding: "utf8" });
+  assert.equal(created.status, 0, created.stderr);
+  const moduleUrl = new URL("./check-veln-language-skill.mjs", import.meta.url).href;
+  const source = `import { readScenarioDocument } from ${JSON.stringify(moduleUrl)}; readScenarioDocument(${JSON.stringify(path)});`;
+  const read = spawnSync(process.execPath, ["--input-type=module", "--eval", source], {
+    encoding: "utf8",
+    timeout: 2_000,
+  });
+  assert.notEqual(read.error?.code, "ETIMEDOUT", "scenario FIFO read exceeded the external time bound");
+  assert.equal(read.status, 1, read.stderr);
+  assert.match(read.stderr, /scenario fixture must be a regular file/);
+});
+
+test("rejects a repository document symlink swapped outside docs", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-repository-read-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "inside.md"), "[inside](authority.md)\n");
+  writeFileSync(join(root, "outside.md"), "[outside](docs/authority.md)\n");
+  const path = join(root, "docs", "route.md");
+  symlinkSync("inside.md", path);
+  assert.throws(
+    () => linkedDocumentationPaths("docs/route.md", root, (candidate, flags) => {
+      rmSync(candidate);
+      symlinkSync("../outside.md", candidate);
+      return openSync(candidate, flags);
+    }),
+    /repository document escaped/,
   );
 });
 

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   closeSync,
+  constants,
   existsSync,
   fstatSync,
   openSync,
@@ -11,7 +12,7 @@ import {
   realpathSync,
   statSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, posix, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -118,10 +119,34 @@ const fixtureLimits = {
   schemaValidationWork: 16_384,
 };
 
-function readBoundedBytes(path, maximumBytes, context) {
-  const descriptor = openSync(path, "r");
+function descriptorPath(descriptor, context) {
+  for (const descriptorRoot of ["/proc/self/fd", "/dev/fd"]) {
+    const descriptorLink = join(descriptorRoot, `${descriptor}`);
+    if (existsSync(descriptorLink)) return realpathSync(descriptorLink);
+  }
+  assert.fail(`${context} cannot verify the opened descriptor path on this platform`);
+}
+
+function assertDescriptorWithin(descriptor, containmentRoot, context) {
+  const openedPath = descriptorPath(descriptor, context);
+  const fromRoot = relative(containmentRoot, openedPath);
+  assert.ok(
+    fromRoot !== ".." && !fromRoot.startsWith(`..${sep}`) && !isAbsolute(fromRoot),
+    `${context} escaped ${containmentRoot}`,
+  );
+}
+
+function readBoundedBytes(path, maximumBytes, context, containmentRoot, openFile = openSync) {
+  const resolvedContainmentRoot = containmentRoot === undefined
+    ? undefined
+    : realpathSync(containmentRoot);
+  const descriptor = openFile(path, constants.O_RDONLY | (constants.O_NONBLOCK ?? 0));
   try {
-    assert.ok(fstatSync(descriptor).isFile(), `${context} must be a regular file`);
+    const openedFile = fstatSync(descriptor);
+    assert.ok(openedFile.isFile(), `${context} must be a regular file`);
+    if (resolvedContainmentRoot !== undefined) {
+      assertDescriptorWithin(descriptor, resolvedContainmentRoot, context);
+    }
     const bytes = Buffer.allocUnsafe(maximumBytes + 1);
     let length = 0;
     while (length < bytes.length) {
@@ -136,8 +161,8 @@ function readBoundedBytes(path, maximumBytes, context) {
   }
 }
 
-function readBoundedUtf8(path, maximumBytes, context) {
-  return readBoundedBytes(path, maximumBytes, context).toString("utf8");
+function readBoundedUtf8(path, maximumBytes, context, containmentRoot, openFile) {
+  return readBoundedBytes(path, maximumBytes, context, containmentRoot, openFile).toString("utf8");
 }
 
 export function loadPublishedLanguageReference(repositoryRoot) {
@@ -1384,19 +1409,21 @@ function checkedRepositoryPath(repositoryRoot, path, context) {
   const absolute = resolve(repositoryRoot, path);
   const docsRoot = realpathSync(resolve(repositoryRoot, "docs"));
   const fromDocs = relative(docsRoot, absolute);
-  assert.ok(fromDocs !== ".." && !fromDocs.startsWith(`..${posix.sep}`), `${context}: repository authority escaped docs/`);
+  assert.ok(fromDocs !== ".." && !fromDocs.startsWith(`..${sep}`), `${context}: repository authority escaped docs/`);
   assert.ok(existsSync(absolute) && statSync(absolute).isFile(), `${context}: repository authority does not exist: ${path}`);
   const realFromDocs = relative(docsRoot, realpathSync(absolute));
-  assert.ok(realFromDocs !== ".." && !realFromDocs.startsWith(`..${posix.sep}`), `${context}: repository authority escaped docs/`);
+  assert.ok(realFromDocs !== ".." && !realFromDocs.startsWith(`..${sep}`), `${context}: repository authority escaped docs/`);
   return absolute;
 }
 
-export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
+export function linkedDocumentationPaths(sourcePath, repositoryRoot, openFile) {
   const absolute = resolve(repositoryRoot, sourcePath);
   const source = navigationalMarkdown(readBoundedUtf8(
     absolute,
     fixtureLimits.repositoryDocumentBytes,
     `${sourcePath}: repository document`,
+    resolve(repositoryRoot, "docs"),
+    openFile,
   ));
   const parenthesisSuffix = inlineParenthesisSuffix(source);
   const links = [];
@@ -1816,11 +1843,12 @@ export function shortestDocumentationRoute(
   assert.fail(`repository authority is not reachable within the read bound: ${authority}`);
 }
 
-export function currentRepositoryAuthority(path, context = "repository authority") {
+export function currentRepositoryAuthority(path, context = "repository authority", repositoryRoot) {
   const match = readBoundedUtf8(
     path,
     fixtureLimits.repositoryDocumentBytes,
     `${context}: repository document`,
+    repositoryRoot === undefined ? undefined : resolve(repositoryRoot, "docs"),
   ).match(/^---\n([\s\S]*?)\n---/);
   const role = match?.[1].match(/^role:\s*(\S+)\s*$/m)?.[1];
   const status = match?.[1].match(/^status:\s*(\S+)\s*$/m)?.[1];
@@ -1912,6 +1940,7 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
   const role = currentRepositoryAuthority(
     checkedRepositoryPath(repositoryRoot, requirement.authority, context),
     context,
+    repositoryRoot,
   );
   if (requirement.authority === "docs/proposals/README.md") {
     assert.equal(role, "routing", `${context}: proposal request must use the proposal catalog route`);
