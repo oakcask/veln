@@ -1933,6 +1933,19 @@ test("rejects a scenario file before reading beyond the byte limit", (context) =
   assert.throws(() => readScenarioDocument(path), /scenario fixture exceeds the byte limit/);
 });
 
+test("rejects a scenario symlink to a non-regular file without reading it", {
+  skip: process.platform !== "linux",
+}, async (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-fixture-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, "non-regular.json");
+  symlinkSync("/dev/zero", path);
+  await assert.rejects(
+    runStressTarget("scenario-document", { path }),
+    /scenario fixture must be a regular file/,
+  );
+});
+
 test("shares recordings at the largest accepted reference boundary", (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-fixture-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));

@@ -9,6 +9,7 @@ import {
   loadCaseFoldMappings,
   loadSnapshotEvidence,
   normalizeSearchText,
+  readScenarioDocument,
   shortestDocumentationRoute,
   validateSchema,
 } from "./check-veln-language-skill.mjs";
@@ -33,6 +34,9 @@ function runTarget(target, data) {
   }
   if (target === "linked-paths") {
     return linkedDocumentationPaths(data.path, data.root);
+  }
+  if (target === "scenario-document") {
+    return readScenarioDocument(data.path);
   }
   if (target === "descending-unmatched-ticks") {
     const milliseconds = [];

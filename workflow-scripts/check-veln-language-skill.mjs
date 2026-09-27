@@ -2,7 +2,15 @@
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  fstatSync,
+  openSync,
+  readSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { dirname, isAbsolute, join, posix, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -110,9 +118,26 @@ const fixtureLimits = {
   schemaValidationWork: 16_384,
 };
 
+function readBoundedBytes(path, maximumBytes, context) {
+  const descriptor = openSync(path, "r");
+  try {
+    assert.ok(fstatSync(descriptor).isFile(), `${context} must be a regular file`);
+    const bytes = Buffer.allocUnsafe(maximumBytes + 1);
+    let length = 0;
+    while (length < bytes.length) {
+      const count = readSync(descriptor, bytes, length, bytes.length - length, null);
+      if (count === 0) break;
+      length += count;
+    }
+    assert.ok(length <= maximumBytes, `${context} exceeds the byte limit`);
+    return bytes.subarray(0, length);
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
 function readBoundedUtf8(path, maximumBytes, context) {
-  assert.ok(statSync(path).size <= maximumBytes, `${context} exceeds the byte limit`);
-  return readFileSync(path, "utf8");
+  return readBoundedBytes(path, maximumBytes, context).toString("utf8");
 }
 
 export function loadPublishedLanguageReference(repositoryRoot) {
@@ -123,11 +148,11 @@ export function loadPublishedLanguageReference(repositoryRoot) {
   ).trim();
   assert.match(digest, /^[0-9a-f]{64}$/, "checked language-reference digest must be canonical");
   const absoluteCatalogPath = join(repositoryRoot, catalogPath);
-  assert.ok(
-    statSync(absoluteCatalogPath).size <= fixtureLimits.publishedCatalogBytes,
-    "checked language-reference catalog exceeds the byte limit",
+  const catalogBytes = readBoundedBytes(
+    absoluteCatalogPath,
+    fixtureLimits.publishedCatalogBytes,
+    "checked language-reference catalog",
   );
-  const catalogBytes = readFileSync(absoluteCatalogPath);
   assert.equal(
     catalogDigest(catalogBytes),
     digest,
@@ -184,8 +209,11 @@ function catalogDigest(bytes) {
 
 export function loadSnapshotEvidence(repositoryRoot, published) {
   const path = join(repositoryRoot, snapshotEvidencePath);
-  assert.ok(statSync(path).size <= fixtureLimits.fixtureBytes, "snapshot evidence exceeds the fixture byte limit");
-  const document = JSON.parse(readFileSync(path, "utf8"));
+  const document = JSON.parse(readBoundedUtf8(
+    path,
+    fixtureLimits.fixtureBytes,
+    "snapshot evidence",
+  ));
   assertExactKeys(document, ["schema_version", "snapshots"], "snapshot evidence");
   assert.equal(document.schema_version, 1, "unsupported snapshot-evidence schema");
   assert.ok(Array.isArray(document.snapshots), "snapshot evidence must contain snapshots");
@@ -460,11 +488,11 @@ function requestSelectionRecord(selection) {
 }
 
 function loadRequestSelectionOracle() {
-  assert.ok(
-    statSync(requestSelectionOraclePath).size <= fixtureLimits.fixtureBytes,
-    "request-selection oracle exceeds the byte limit",
-  );
-  const document = JSON.parse(readFileSync(requestSelectionOraclePath, "utf8"));
+  const document = JSON.parse(readBoundedUtf8(
+    requestSelectionOraclePath,
+    fixtureLimits.fixtureBytes,
+    "request-selection oracle",
+  ));
   assertExactKeys(document, ["schema_version", "records"], "request-selection oracle");
   assert.equal(document.schema_version, 1, "unsupported request-selection oracle schema");
   assert.ok(Array.isArray(document.records), "request-selection oracle must contain records");
@@ -1365,11 +1393,11 @@ function checkedRepositoryPath(repositoryRoot, path, context) {
 
 export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
   const absolute = resolve(repositoryRoot, sourcePath);
-  assert.ok(
-    statSync(absolute).size <= fixtureLimits.repositoryDocumentBytes,
-    `${sourcePath}: repository document exceeds the byte limit`,
-  );
-  const source = navigationalMarkdown(readFileSync(absolute, "utf8"));
+  const source = navigationalMarkdown(readBoundedUtf8(
+    absolute,
+    fixtureLimits.repositoryDocumentBytes,
+    `${sourcePath}: repository document`,
+  ));
   const parenthesisSuffix = inlineParenthesisSuffix(source);
   const links = [];
   const addTarget = (rawTarget) => {
@@ -1789,11 +1817,11 @@ export function shortestDocumentationRoute(
 }
 
 export function currentRepositoryAuthority(path, context = "repository authority") {
-  assert.ok(
-    statSync(path).size <= fixtureLimits.repositoryDocumentBytes,
-    `${context}: repository document exceeds the byte limit`,
-  );
-  const match = readFileSync(path, "utf8").match(/^---\n([\s\S]*?)\n---/);
+  const match = readBoundedUtf8(
+    path,
+    fixtureLimits.repositoryDocumentBytes,
+    `${context}: repository document`,
+  ).match(/^---\n([\s\S]*?)\n---/);
   const role = match?.[1].match(/^role:\s*(\S+)\s*$/m)?.[1];
   const status = match?.[1].match(/^status:\s*(\S+)\s*$/m)?.[1];
   assert.equal(
@@ -2014,8 +2042,7 @@ export function validateScenarioDocument(document, options = {}) {
 }
 
 export function readScenarioDocument(path) {
-  assert.ok(statSync(path).size <= fixtureLimits.fixtureBytes, "scenario fixture exceeds the byte limit");
-  const bytes = readFileSync(path);
+  const bytes = readBoundedBytes(path, fixtureLimits.fixtureBytes, "scenario fixture");
   const document = JSON.parse(bytes.toString("utf8"));
   if (document.recordings === undefined) return document;
   assertExactKeys(document, ["schema_version", "recordings", "request_selection", "scenarios"], "scenario document");
