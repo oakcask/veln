@@ -84,9 +84,20 @@ function runStressTarget(target, data, timeout = 2_000) {
       clearTimeout(timer);
       callback(value);
     };
-    const timer = setTimeout(() => {
-      void worker.terminate();
-      finish(rejectPromise, new Error(`stress target ${target} exceeded ${timeout} ms`));
+    const timer = setTimeout(async () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        await worker.terminate();
+      } catch (error) {
+        rejectPromise(new AggregateError(
+          [error],
+          `stress target ${target} exceeded ${timeout} ms and worker termination failed`,
+        ));
+        return;
+      }
+      rejectPromise(new Error(`stress target ${target} exceeded ${timeout} ms`));
     }, timeout);
     worker.once("message", (message) => {
       if (message.ok) finish(resolvePromise, message.value);
@@ -297,10 +308,14 @@ test("validates a shared-child inline schema DAG within the external time bound"
   assert.equal(await runStressTarget("schema-inline-branching-dag", { levels: 30 }, 3_000), 30);
 });
 
-test("bounds a distinct-child inline schema tree within the external time bound", async () => {
+test("bounds distinct inline schema children within the external time bound", async () => {
   await assert.rejects(
-    runStressTarget("schema-inline-branching-tree", { levels: 15 }, 3_000),
+    runStressTarget("schema-inline-distinct-children", { children: 16_384 }, 3_000),
     /schema validation exceeded the 16384-operation work bound/,
+  );
+  await assert.rejects(
+    runStressTarget("schema-inline-distinct-children", { children: 16_385 }, 3_000),
+    /exceed the 16384-child fixture bound/,
   );
 });
 

@@ -135,8 +135,9 @@ that the replay labels select that route through the skill's closed decision
 table. The corpus includes contrastive paraphrases, synonymous requested
 actions, and incidental uses of action and repository terms. This is reviewed
 finite evidence for the semantic instruction, not an executable general
-natural-language classifier. Stress cases run in workers that the parent test
-terminates at their time bound. The offline harness rejects repository
+natural-language classifier. Stress cases run in workers. At a time bound, the
+parent test terminates the worker and waits for its exit before it reports the
+failure. The offline harness rejects repository
 documents larger than `262144` bytes before parsing them, which bounds replay
 resource use. Schema validation stops after `16384` schema-node evaluations.
 It reuses the result for repeated inline schema and value pairs when the

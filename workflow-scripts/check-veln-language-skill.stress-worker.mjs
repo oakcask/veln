@@ -156,23 +156,18 @@ function runTarget(target, data) {
     validateSchema(value, schema, schema, "inline branching schema DAG");
     return data.levels;
   }
-  if (target === "schema-inline-branching-tree") {
-    const branchTree = (level) => {
-      if (level === data.levels) return { type: "object", additionalProperties: false };
-      const branch = (choice) => ({
-        type: "object",
-        properties: { next: branchTree(level + 1), choice: { const: choice } },
-        required: ["next", "choice"],
-        additionalProperties: false,
-      });
-      return { oneOf: [branch("left"), branch("right")] };
-    };
-    let value = {};
-    for (let index = 0; index < data.levels; index += 1) {
-      value = { next: value, choice: "left" };
+  if (target === "schema-inline-distinct-children") {
+    if (!Number.isSafeInteger(data.children) || data.children < 1 || data.children > 16_384) {
+      throw new Error("inline distinct schema children exceed the 16384-child fixture bound");
     }
-    const schema = branchTree(0);
-    validateSchema(value, schema, schema, "inline branching schema tree");
+    const schema = { type: "object", properties: {}, additionalProperties: false };
+    const value = {};
+    for (let index = 0; index < data.children; index += 1) {
+      const field = `field-${index}`;
+      schema.properties[field] = { type: "integer" };
+      value[field] = index;
+    }
+    validateSchema(value, schema, schema, "inline distinct schema children");
   }
   if (target === "schema-inline-depth") {
     let schema = { type: "string" };
