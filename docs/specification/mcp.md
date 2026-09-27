@@ -377,17 +377,18 @@ source uses project scope; another accepted source uses anonymous single-file
 scope. A source below an unselected descendant manifest is not analyzed as
 part of the outer project.
 
-For an eligible public workspace effect, `references` accepts selection at the
-declaration, a bare same-module occurrence, or the effect-name leaf of a
-qualified occurrence reached through one parse-clean, unambiguous workspace
-import. The import may spell the full module path or use a unique implicit
-leaf alias. An exact full written import path takes precedence over a
-colliding implicit leaf alias. The result combines bare references in the
-declaring module with qualified references in the importing module, and every
-occurrence range covers only the effect-name leaf. Private effects, ambiguous
-or recovered imports, dependency-package and standard-library effects, effect
-operations, handlers, generic effect parameters, and rename remain outside
-this behavior.
+For an eligible public workspace effect, `definition` and `references` accept
+selection at the declaration, a bare same-module occurrence, or the
+effect-name leaf of a qualified occurrence reached through one parse-clean,
+unambiguous workspace import. The import may spell the full module path or use
+a unique implicit leaf alias. An exact full written import path takes
+precedence over a colliding implicit leaf alias. `definition` returns the
+public effect declaration. The reference result combines bare references in
+the declaring module with qualified references in the importing module, and
+every occurrence range covers only the effect-name leaf. Private effects,
+ambiguous or recovered imports, dependency-package and standard-library
+effects, effect operations, handlers, generic effect parameters, and rename
+remain outside this behavior.
 The MCP adapter preserves the existing positive one-based Unicode-scalar
 coordinates, declaration-inclusion option, deterministic location ordering,
 pagination, stable saved-project capture, and failure behavior for this
