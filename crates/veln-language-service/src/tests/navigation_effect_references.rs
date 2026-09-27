@@ -83,6 +83,9 @@ mod navigation_effect_references_tests {
                     "end\n\n",
                     "handler qualified_handler() handles fx::Remote effects [library::fx::Remote]\n",
                     "  run() => perform fx::Remote::run()\n",
+                    "end\n\n",
+                    "test qualified_test() -> Int effects [fx::Remote]\n",
+                    "  1\n",
                     "end\n",
                 ),
             ),
@@ -94,6 +97,7 @@ mod navigation_effect_references_tests {
             ("consumer.veln", 6, 41),
             ("consumer.veln", 6, 70),
             ("consumer.veln", 7, 24),
+            ("consumer.veln", 10, 43),
             ("library/fx.veln", 5, 28),
             ("library/fx.veln", 6, 11),
         ];
@@ -104,7 +108,9 @@ mod navigation_effect_references_tests {
             ("consumer.veln", 2, 87),
             ("consumer.veln", 3, 15),
             ("consumer.veln", 6, 41),
+            ("consumer.veln", 6, 70),
             ("consumer.veln", 7, 24),
+            ("consumer.veln", 10, 43),
         ] {
             let result = query(sources.clone(), path, line, column).unwrap();
             assert_eq!(result.selected_symbol.kind, SymbolKind::Effect);
@@ -292,6 +298,24 @@ mod navigation_effect_references_tests {
         assert!(query_snapshot(&collision, "consumer.veln", 5, 36).is_none());
         let valid = query_snapshot(&collision, "consumer.veln", 9, 36).unwrap();
         assert_location(&valid.definition, "stable.veln", 1, 12);
+
+        let standard = EffectiveProjectSnapshot::new(vec![source(
+            "consumer.veln",
+            concat!(
+                "use tasks from \"std\"\n\n",
+                "effect Task\n",
+                "  local() -> Int\n",
+                "end\n\n",
+                "fn standard() -> Int effects [tasks::Task]\n",
+                "  1\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[("tasks.veln", "pub effect Task\n  run() -> Int\nend\n")],
+            ["tasks.veln"],
+        ));
+        assert!(query_snapshot(&standard, "consumer.veln", 7, 37).is_none());
     }
 
     #[test]
