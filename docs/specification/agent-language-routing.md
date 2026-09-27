@@ -143,6 +143,11 @@ a time bound and terminate nonresponsive work before reporting failure. These
 limits keep offline replay bounded without making its parsing, validation, or
 fixture-construction algorithms part of the routing contract.
 
+File-backed inputs must be regular files before the harness consumes them. A
+non-regular scenario input fails without waiting for a producer. When the
+harness opens a repository route document, the opened file must remain inside
+`docs/`; a concurrent link substitution outside that boundary fails the check.
+
 The harness also checks that a selected repository authority is current.
 Recorded search results must match checked published or archived catalog
 evidence and its snapshot digest. A stale snapshot scenario must replace the
