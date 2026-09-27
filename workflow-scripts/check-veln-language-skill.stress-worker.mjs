@@ -37,20 +37,27 @@ function runTarget(target, data) {
   if (target === "descending-unmatched-ticks") {
     const milliseconds = [];
     const bytes = [];
-    const descendingRuns = Array.from(
-      { length: data.count },
-      (_, index) => "`".repeat(data.count - index),
-    ).join(" ");
-    for (const size of data.sizes) {
+    const runCounts = [];
+    for (const [index, size] of data.sizes.entries()) {
+      const count = data.counts[index];
+      const descendingRuns = Array.from(
+        { length: count },
+        (_, runIndex) => "`".repeat(count - runIndex),
+      ).join(" ");
       const prefix = `x ${descendingRuns}`;
       const source = prefix.padEnd(size, "x");
       writeFileSync(data.path, source);
-      const start = performance.now();
-      linkedDocumentationPaths(data.repositoryPath, data.root);
-      milliseconds.push(performance.now() - start);
+      const timings = [];
+      for (let repetition = 0; repetition < data.repetitions; repetition += 1) {
+        const start = performance.now();
+        linkedDocumentationPaths(data.repositoryPath, data.root);
+        timings.push(performance.now() - start);
+      }
+      milliseconds.push(median(timings));
       bytes.push(Buffer.byteLength(source));
+      runCounts.push(count);
     }
-    return { bytes, milliseconds };
+    return { bytes, milliseconds, runCounts };
   }
   if (target === "escaped-destination") {
     const milliseconds = [];

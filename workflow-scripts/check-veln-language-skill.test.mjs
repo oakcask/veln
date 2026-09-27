@@ -1832,20 +1832,25 @@ test("masks mixed inline code and fenced comments at adjacent accepted sizes", a
   }
 });
 
-test("parses descending unmatched inline-code runs with adjacent-size scaling", async (context) => {
+test("parses descending unmatched inline-code runs with linear scaling", async (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-links-ticks-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "docs"));
   const path = join(root, "docs", "README.md");
   const result = await runStressTarget("descending-unmatched-ticks", {
-    count: 722,
+    counts: [510, 722],
     path,
     repositoryPath: "docs/README.md",
     root,
-    sizes: [262_143, 262_144],
+    sizes: [131_072, 262_144],
+    repetitions: 5,
   }, 1_000);
-  assert.deepEqual(result.bytes, [262_143, 262_144]);
-  assert.equal(result.milliseconds.length, 2);
+  assert.deepEqual(result.bytes, [131_072, 262_144]);
+  assert.deepEqual(result.runCounts, [510, 722]);
+  assert.ok(
+    result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 20,
+    `descending unmatched tick scaling regressed: ${result.milliseconds.join(" ms, ")} ms`,
+  );
 });
 
 test("retains snapshot overrides without bilinear catalog copies", async (context) => {
