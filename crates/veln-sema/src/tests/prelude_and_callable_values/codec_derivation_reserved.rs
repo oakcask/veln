@@ -21,45 +21,7 @@ fn codec_decode_with_resolves_as_named_decode_boundary() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "PacketWire"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be in IR");
-    let IrStmtKind::Return { value } = &main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "PacketWire"
-    ));
+    assert_main_schema_boundary(&source, "PacketWire", ExpectedSchemaBoundary::DecodeStep);
 }
 
 #[test]
@@ -190,45 +152,7 @@ fn codec_derive_decode_resolves_as_schema_decode_step_boundary() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "PacketWire"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be in IR");
-    let IrStmtKind::Return { value } = &main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "PacketWire"
-    ));
+    assert_main_schema_boundary(&source, "PacketWire", ExpectedSchemaBoundary::DecodeStep);
 }
 
 #[test]
@@ -416,45 +340,7 @@ fn codec_derive_decode_resolves_quotient_byte_view_schema_decode_step_boundary()
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "PacketWire"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be in IR");
-    let IrStmtKind::Return { value } = &main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "PacketWire"
-    ));
+    assert_main_schema_boundary(&source, "PacketWire", ExpectedSchemaBoundary::DecodeStep);
 }
 
 #[test]
@@ -476,45 +362,7 @@ fn codec_derive_encode_resolves_quotient_byte_view_schema_encode_step_boundary()
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncode(name),
-            ..
-        } if name == "PacketWire"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be in IR");
-    let IrStmtKind::Return { value } = &main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaEncode(name),
-            ..
-        } if name == "PacketWire"
-    ));
+    assert_main_schema_boundary(&source, "PacketWire", ExpectedSchemaBoundary::Encode);
 }
 
 #[test]
