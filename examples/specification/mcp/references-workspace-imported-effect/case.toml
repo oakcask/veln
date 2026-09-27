@@ -33,6 +33,36 @@ equals = {"start":{"line":5,"column":28},"end":{"line":5,"column":29}}
 
 [[mcp_assert]]
 id = 3
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "foreign.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":6,"column":11},"end":{"line":6,"column":12}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":3,"column":53},"end":{"line":3,"column":54}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/3/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/3/range"
+equals = {"start":{"line":3,"column":82},"end":{"line":3,"column":83}}
+
+[[mcp_assert]]
+id = 3
 path = "/result/structuredContent/references/4/uri"
 workspace_file_uri = "main.veln"
 
@@ -53,6 +83,16 @@ equals = {"start":{"line":1,"column":12},"end":{"line":1,"column":13}}
 
 [[mcp_assert]]
 id = 4
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "foreign.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":5,"column":28},"end":{"line":5,"column":29}}
+
+[[mcp_assert]]
+id = 4
 path = "/result/structuredContent/next_cursor"
 contains = "."
 
@@ -60,6 +100,26 @@ contains = "."
 id = 5
 path = "/result/structuredContent/references"
 length = 2
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "foreign.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":6,"column":11},"end":{"line":6,"column":12}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":3,"column":53},"end":{"line":3,"column":54}}
 
 [[mcp_assert]]
 id = 5
@@ -70,6 +130,26 @@ contains = "."
 id = 6
 path = "/result/structuredContent/references"
 length = 2
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":3,"column":82},"end":{"line":3,"column":83}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":4,"column":20},"end":{"line":4,"column":21}}
 
 [[mcp_assert]]
 id = 6

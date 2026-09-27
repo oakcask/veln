@@ -153,15 +153,11 @@ fn imported_workspace_effect_navigation_pages_shared_scalar_locations() {
         "include_declaration":true, "page_size":2
     }));
     assert_eq!(
-        first["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .len(),
-        2
-    );
-    assert_eq!(
-        first["structuredContent"]["references"][0]["range"],
-        json!({"start":{"line":1,"column":12},"end":{"line":1,"column":13}})
+        first["structuredContent"]["references"],
+        json!([
+            {"uri": foreign_uri, "range":{"start":{"line":1,"column":12},"end":{"line":1,"column":13}}},
+            {"uri": foreign_uri, "range":{"start":{"line":5,"column":28},"end":{"line":5,"column":29}}}
+        ])
     );
     let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
     let invalid_cursor = server.references_tool(&json!({"cursor":format!("{cursor}x")}));
@@ -171,20 +167,20 @@ fn imported_workspace_effect_navigation_pages_shared_scalar_locations() {
     );
     let second = server.references_tool(&json!({"cursor":cursor}));
     assert_eq!(
-        second["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .len(),
-        2
+        second["structuredContent"]["references"],
+        json!([
+            {"uri": foreign_uri, "range":{"start":{"line":6,"column":17},"end":{"line":6,"column":18}}},
+            {"uri": main_uri, "range":{"start":{"line":3,"column":53},"end":{"line":3,"column":54}}}
+        ])
     );
     let cursor = second["structuredContent"]["next_cursor"].as_str().unwrap();
     let final_page = server.references_tool(&json!({"cursor":cursor}));
     assert_eq!(
-        final_page["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .len(),
-        2
+        final_page["structuredContent"]["references"],
+        json!([
+            {"uri": main_uri, "range":{"start":{"line":3,"column":82},"end":{"line":3,"column":83}}},
+            {"uri": main_uri, "range":{"start":{"line":4,"column":26},"end":{"line":4,"column":27}}}
+        ])
     );
     assert!(final_page["structuredContent"].get("next_cursor").is_none());
 }

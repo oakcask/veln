@@ -17,8 +17,9 @@ The following work remains planned:
 - transitive-dependency navigation;
 - remaining package definition and reference symbol classes;
 - imported handlers, imported effect operations, and other workspace symbol
-  reference classes outside the implemented same-module effect,
-  effect-operation, and handler boundaries;
+  reference classes outside the implemented same-module and imported-workspace
+  effect boundaries and the implemented same-module effect-operation and
+  handler boundaries;
 - Codex and Claude Code plugin packaging and client-native installation flows;
 - the conformance gate.
 
