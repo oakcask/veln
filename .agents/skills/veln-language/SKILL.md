@@ -23,6 +23,24 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "read_tool": "read_doc",
     "maximum_calls": 2,
     "call_order": ["search_docs", "read_doc"],
+    "query_derivation": {
+      "match": "ascii_case_insensitive_whole_word_or_phrase",
+      "selection": "earliest_start_then_longest_mention_then_query_utf8",
+      "entries": [
+        {"mentions": ["schema", "schemas"], "query": "schemas"},
+        {"mentions": ["contract", "contracts"], "query": "contracts"},
+        {"mentions": ["effect", "effects"], "query": "effects"},
+        {"mentions": ["module", "modules"], "query": "modules"},
+        {"mentions": ["function", "functions"], "query": "functions"},
+        {"mentions": ["handler", "handlers"], "query": "handlers"},
+        {"mentions": ["borrow checker"], "query": "borrow checker"}
+      ],
+      "after_veln": {
+        "selection": "first_non_ignored_ascii_word_after_standalone_veln",
+        "ignored_words": ["a", "an", "are", "did", "do", "does", "has", "have", "is", "the", "was", "were"]
+      },
+      "no_match": "Use the Unicode-whitespace-trimmed request text as query when it contains from 1 through 256 Unicode scalar values; otherwise stop and report that no bounded query can be derived."
+    },
     "selection": "first_search_result",
     "read_exact_search_result_uri": true,
     "fallback": "forbidden",
@@ -34,6 +52,8 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "entry": "docs/README.md",
     "follow_selected_links": true,
     "maximum_reads": 3,
+    "explicit_path_reads": 2,
+    "explicit_path_rule": "After reading docs/README.md, read an explicitly named normalized Markdown path under docs/ directly when it exists and is a current documentation authority. The explicit path is the terminal authority and does not need to be linked from docs/README.md.",
     "repeat_paths": "forbidden",
     "published_reference_is_authority": false,
     "authority_selection": "smallest_current_linked_authority",
@@ -46,6 +66,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "preserve_previous_result": true,
     "report_operation": true,
     "report_selected_uri": true,
+    "dispatch_order": ["search_unavailable", "topic_unavailable", "stale_snapshot", "other_search_failure", "other_topic_failure"],
     "search_unavailable": {
       "operation": "search_docs",
       "result": { "kind": "transport_error", "code": "tool_unavailable" },
@@ -60,6 +81,16 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
       "operation": "read_doc",
       "result": { "kind": "tool_error", "code": "resource_not_found", "selected_uri_must_match": true },
       "instruction": "Stop after read_doc and report that the selected snapshot URI is stale."
+    },
+    "other_search_failure": {
+      "operation": "search_docs",
+      "result": "Any failed or malformed result not matched by an earlier dispatch entry.",
+      "instruction": "Stop after search_docs and report that published language-reference search failed."
+    },
+    "other_topic_failure": {
+      "operation": "read_doc",
+      "result": "Any failed or malformed result not matched by an earlier dispatch entry.",
+      "instruction": "Stop after read_doc and report that the selected published topic could not be read."
     }
   },
   "maintenance": [

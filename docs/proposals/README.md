@@ -16,8 +16,7 @@ also states it.
 
 ## Ready
 
-- Agent language-reference skill routing:
-  [agent-language-reference-skill.md](agent-language-reference-skill.md).
+No proposal is ready for implementation.
 
 ## Blocked
 
