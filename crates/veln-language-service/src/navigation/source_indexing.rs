@@ -547,6 +547,7 @@ fn valid_effect_reference_ranges(
     effect_list_membership: &[bool],
     syntax: &SyntaxTree,
 ) -> BTreeSet<(usize, usize)> {
+    let path_roots = path_root_indices(tokens);
     let mut regions = Vec::new();
     for item in &syntax.items {
         match item {
@@ -570,7 +571,12 @@ fn valid_effect_reference_ranges(
     }
 
     let merged_regions = merge_regions(regions);
-    collect_effect_reference_token_ranges(tokens, effect_list_membership, &merged_regions)
+    collect_effect_reference_token_ranges(
+        tokens,
+        effect_list_membership,
+        &path_roots,
+        &merged_regions,
+    )
 }
 
 fn collect_function_effect_reference_regions(
@@ -705,6 +711,7 @@ fn merge_regions(mut regions: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
 fn collect_effect_reference_token_ranges(
     tokens: &[Token],
     effect_list_membership: &[bool],
+    path_roots: &[usize],
     merged_regions: &[(usize, usize)],
 ) -> BTreeSet<(usize, usize)> {
     let mut ranges = BTreeSet::new();
@@ -723,8 +730,8 @@ fn collect_effect_reference_token_ranges(
             && token.range.end <= end
             && token.kind == TokenKind::Ident
             && (is_effect_list_member_token(tokens, effect_list_membership, index)
-                || is_handler_handled_effect_token(tokens, index)
-                || is_perform_effect_qualifier_token(tokens, index))
+                || is_handler_handled_effect_token(tokens, path_roots, index)
+                || is_perform_effect_qualifier_token(tokens, path_roots, index))
         {
             ranges.insert((token.range.start, token.range.end));
         }

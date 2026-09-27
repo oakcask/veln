@@ -190,6 +190,57 @@ fn imported_workspace_effect_navigation_pages_shared_scalar_locations() {
 }
 
 #[test]
+fn imported_workspace_effect_navigation_rejects_visibility_and_import_recovery_boundaries() {
+    fn position_of(source: &str, needle: &str, leaf_offset: usize) -> (usize, usize) {
+        let offset = source.find(needle).unwrap() + leaf_offset;
+        let prefix = &source[..offset];
+        (
+            prefix.bytes().filter(|byte| *byte == b'\n').count() + 1,
+            prefix.rsplit('\n').next().unwrap().chars().count() + 1,
+        )
+    }
+
+    for (name, imports) in [
+        ("private", "use fx\n"),
+        ("ambiguous", "use first::fx\nuse second::fx\n"),
+        ("duplicate", "use first::fx\nuse first::fx\n"),
+        ("recovered", "use first::fx unexpected\n"),
+    ] {
+        let workspace = TempWorkspace::new(&format!("references-imported-effect-{name}"));
+        workspace.write("veln.toml", "");
+        workspace.write("fx.veln", "effect Remote\n  run() -> Int\nend\n");
+        workspace.write("first/fx.veln", "pub effect Remote\n  run() -> Int\nend\n");
+        workspace.write("second/fx.veln", "pub effect Remote\n  run() -> Int\nend\n");
+        workspace.write("stable.veln", "pub effect Stable\n  run() -> Int\nend\n");
+        let source = format!(
+            "use stable\n{imports}\nfn invalid() -> Int effects [fx::Remote]\n  1\nend\n\nfn valid() -> Int effects [stable::Stable]\n  1\nend\n"
+        );
+        workspace.write("main.veln", &source);
+        let mut server = initialized_server(&workspace);
+
+        let (valid_line, valid_column) = position_of(&source, "stable::Stable", 8);
+        let valid_input = json!({
+            "source":"main.veln", "line":valid_line, "column":valid_column,
+            "include_declaration":true
+        });
+        let before = server.references_tool(&valid_input);
+        assert_ne!(
+            before["structuredContent"]["references"],
+            json!([]),
+            "{name}"
+        );
+
+        let (invalid_line, invalid_column) = position_of(&source, "fx::Remote", 4);
+        let invalid = server.references_tool(&json!({
+            "source":"main.veln", "line":invalid_line, "column":invalid_column,
+            "include_declaration":true
+        }));
+        assert_eq!(invalid["structuredContent"]["references"], json!([]));
+        assert_eq!(server.references_tool(&valid_input), before, "{name}");
+    }
+}
+
+#[test]
 fn references_page_workspace_effect_operation_locations_with_unicode_scalar_coordinates() {
     let workspace = TempWorkspace::new("references-workspace-effect-operation");
     workspace.write("veln.toml", "");
@@ -605,7 +656,7 @@ fn references_reject_qualified_workspace_handler_clause_headings() {
 }
 
 #[test]
-fn references_reject_standard_library_handler_clause_headings() {
+fn references_reject_standard_library_effect_and_handler_clause_headings() {
     let workspace = TempWorkspace::new("references-workspace-handler-standard-library-effect");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -614,11 +665,13 @@ fn references_reject_standard_library_handler_clause_headings() {
     );
     let mut server = initialized_server_with_embedded_resources(&workspace);
 
-    let result = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":3,
-        "include_declaration":true
-    }));
-    assert_eq!(result["structuredContent"]["references"], json!([]));
+    for (line, column) in [(3, 39), (4, 3)] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
 }
 
 #[test]

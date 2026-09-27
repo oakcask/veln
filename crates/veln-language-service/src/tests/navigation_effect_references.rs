@@ -255,6 +255,42 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn imported_workspace_effect_references_exclude_exact_companion_private_access() {
+        let sources = vec![
+            source(
+                "main.veln",
+                "effect Hidden\n  run() -> Int\nend\n",
+            ),
+            source(
+                "stable.veln",
+                "pub effect Stable\n  run() -> Int\nend\n",
+            ),
+            source(
+                "main.test.veln",
+                concat!(
+                    "use main\n",
+                    "use stable\n\n",
+                    "test private_access() -> Int effects [main::Hidden]\n",
+                    "  perform main::Hidden::run()\n",
+                    "end\n\n",
+                    "test public_access() -> Int effects [stable::Stable]\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+        assert!(declaration.references.is_empty());
+        for (line, column) in [(4, 45), (5, 17)] {
+            assert!(query(sources.clone(), "main.test.veln", line, column).is_none());
+        }
+
+        let public = query(sources, "main.test.veln", 8, 46).unwrap();
+        assert_location(&public.definition, "stable.veln", 1, 12);
+    }
+
+    #[test]
     fn imported_workspace_effect_resolution_rejects_unresolved_and_external_qualifiers() {
         let unresolved = vec![
             source(
@@ -996,6 +1032,71 @@ mod navigation_effect_references_tests {
                 frame_visits <= token_count,
                 "effect-list classification must inspect at most one delimiter frame per token",
             );
+        }
+    }
+
+    #[test]
+    fn qualified_effect_path_classification_is_linear_for_deep_handles_and_perform_paths() {
+        for segment_count in [1_000, 2_000, 4_000] {
+            let qualifier = (0..segment_count)
+                .map(|index| format!("segment{index}"))
+                .collect::<Vec<_>>()
+                .join("::");
+            let input = source(
+                "main.veln",
+                &format!(
+                    "handler deep() handles {qualifier}::Effect\n  run() => perform {qualifier}::Effect::run()\nend\n"
+                ),
+            );
+            let token_count = veln_syntax::lex(&input).tokens.len();
+
+            crate::navigation::reset_effect_path_classification_token_visits();
+            let started = std::time::Instant::now();
+            let snapshot = EffectiveProjectSnapshot::new(vec![input]);
+            let _ = snapshot.navigation_index();
+            let elapsed = started.elapsed();
+            let token_visits = crate::navigation::effect_path_classification_token_visits();
+            eprintln!(
+                "qualified effect paths: segments={segment_count} tokens={} token_visits={token_visits} elapsed={elapsed:?}",
+                token_count,
+            );
+            assert_eq!(token_visits, token_count);
+        }
+    }
+
+    #[test]
+    fn workspace_import_validation_indexes_diagnostics_once() {
+        for count in [250, 500, 1_000] {
+            let mut body = String::new();
+            for index in 0..count {
+                body.push_str(&format!("use module{index}\n"));
+            }
+            for index in 0..count {
+                body.push_str(&format!("codec Removed{index} for Header\nend\n\n"));
+            }
+            let input = source("main.veln", &body);
+            let parsed = veln_syntax::parse(&input);
+            assert_eq!(parsed.diagnostics.len(), count);
+            assert!(
+                parsed
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.parser_context == "codec_declaration")
+            );
+
+            crate::navigation::reset_use_diagnostic_index_work();
+            let started = std::time::Instant::now();
+            let snapshot = EffectiveProjectSnapshot::new(vec![input]);
+            let _ = snapshot.navigation_index();
+            let elapsed = started.elapsed();
+            let (diagnostic_visits, overlap_queries) =
+                crate::navigation::use_diagnostic_index_work();
+            eprintln!(
+                "workspace import validation: imports={count} diagnostics={} diagnostic_visits={diagnostic_visits} overlap_queries={overlap_queries} elapsed={elapsed:?}",
+                parsed.diagnostics.len(),
+            );
+            assert_eq!(diagnostic_visits, parsed.diagnostics.len());
+            assert_eq!(overlap_queries, count);
         }
     }
 }

@@ -157,6 +157,69 @@ fn imported_workspace_effect_navigation_preserves_utf16_and_declaration_policy()
 }
 
 #[test]
+fn imported_workspace_effect_navigation_rejects_visibility_and_import_recovery_boundaries() {
+    fn position_of(source: &str, needle: &str, leaf_offset: usize) -> (usize, usize) {
+        let offset = source.find(needle).unwrap() + leaf_offset;
+        let prefix = &source[..offset];
+        (
+            prefix.bytes().filter(|byte| *byte == b'\n').count(),
+            prefix.rsplit('\n').next().unwrap().chars().count(),
+        )
+    }
+
+    for (name, imports) in [
+        ("private", "use fx\n"),
+        ("ambiguous", "use first::fx\nuse second::fx\n"),
+        ("duplicate", "use first::fx\nuse first::fx\n"),
+        ("recovered", "use first::fx unexpected\n"),
+    ] {
+        let project = TempProject::new(&format!("workspace-imported-effect-{name}"));
+        project.write("veln.toml", "");
+        project.write("fx.veln", "effect Remote\n  run() -> Int\nend\n");
+        project.write(
+            "first/fx.veln",
+            "pub effect Remote\n  run() -> Int\nend\n",
+        );
+        project.write(
+            "second/fx.veln",
+            "pub effect Remote\n  run() -> Int\nend\n",
+        );
+        project.write(
+            "stable.veln",
+            "pub effect Stable\n  run() -> Int\nend\n",
+        );
+        let source = format!(
+            "use stable\n{imports}\nfn invalid() -> Int effects [fx::Remote]\n  1\nend\n\nfn valid() -> Int effects [stable::Stable]\n  1\nend\n"
+        );
+        project.write("main.veln", &source);
+
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        let mut server = Server::default();
+        server.handle_message(&initialize_request(&root_uri));
+        let (valid_line, valid_character) = position_of(&source, "stable::Stable", 8);
+        let valid_request = references_request_with_declaration(
+            &main_uri,
+            valid_line,
+            valid_character,
+            true,
+        );
+        let before = server.handle_message(&valid_request);
+        assert!(!before[0].contains("\"result\":[]"), "{name}: {}", before[0]);
+
+        let (invalid_line, invalid_character) = position_of(&source, "fx::Remote", 4);
+        let invalid = server.handle_message(&references_request_with_declaration(
+            &main_uri,
+            invalid_line,
+            invalid_character,
+            true,
+        ));
+        assert_empty_result_array(&invalid[0]);
+        assert_eq!(server.handle_message(&valid_request), before, "{name}");
+    }
+}
+
+#[test]
 fn workspace_handler_operation_clause_references_preserve_utf16_crlf_and_declaration_policy() {
     let project = TempProject::new("workspace-handler-operation-clause-references");
     project.write("veln.toml", "");
@@ -515,12 +578,14 @@ fn workspace_handler_operation_clause_references_reject_standard_library_effects
     let mut server = Server::default();
     server.handle_message(&initialize_request(&root_uri));
 
-    assert_eq!(
-        server.handle_message(&references_request_with_declaration(
-            &main_uri, 3, 2, true,
-        )),
-        [response("2", "[]")]
-    );
+    for (line, character) in [(2, 38), (3, 2)] {
+        assert_eq!(
+            server.handle_message(&references_request_with_declaration(
+                &main_uri, line, character, true,
+            )),
+            [response("2", "[]")]
+        );
+    }
 }
 
 #[test]

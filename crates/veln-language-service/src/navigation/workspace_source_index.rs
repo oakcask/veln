@@ -46,13 +46,14 @@ struct WorkspaceImports {
 impl WorkspaceImports {
     fn new(source: &str, parsed: &ParseOutput) -> Self {
         let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source);
+        let use_diagnostics = UseDeclarationDiagnosticIndex::new(parsed);
         Self {
             uses,
             external_uses,
             import_aliases,
             external_import_aliases,
-            schema_alias_external_imports: schema_alias_external_imports(parsed),
-            workspace_imports: workspace_imports(parsed),
+            schema_alias_external_imports: schema_alias_external_imports(parsed, &use_diagnostics),
+            workspace_imports: workspace_imports(parsed, &use_diagnostics),
         }
     }
 }

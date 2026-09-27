@@ -252,6 +252,8 @@ Effects, handlers, and effect operations remain unsupported for rename.
 A public, valid-cased workspace effect can also be selected through one
 parse-clean, unambiguous workspace import. The written import may name the
 effect through its full module path or through a unique implicit leaf alias.
+An exact full written import path takes precedence over a colliding implicit
+leaf alias.
 For that imported identity, references combine the bare occurrences in saved
 workspace sources that declare the effect's module with qualified occurrences
 through the resolved import in the importing module. Each qualified reference
