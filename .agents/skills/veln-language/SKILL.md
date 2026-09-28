@@ -24,22 +24,11 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "maximum_calls": 2,
     "call_order": ["search_docs", "read_doc"],
     "query_derivation": {
-      "match": "ascii_case_insensitive_whole_word_or_phrase",
-      "selection": "earliest_start_then_longest_mention_then_query_utf8",
-      "entries": [
-        {"mentions": ["schema", "schemas"], "query": "schemas"},
-        {"mentions": ["contract", "contracts"], "query": "contracts"},
-        {"mentions": ["effect", "effects"], "query": "effects"},
-        {"mentions": ["module", "modules"], "query": "modules"},
-        {"mentions": ["function", "functions"], "query": "functions"},
-        {"mentions": ["handler", "handlers"], "query": "handlers"},
-        {"mentions": ["borrow checker"], "query": "borrow checker"}
-      ],
-      "after_veln": {
-        "selection": "first_non_ignored_ascii_word_after_standalone_veln",
-        "ignored_words": ["a", "an", "are", "did", "do", "does", "has", "have", "is", "the", "was", "were"]
-      },
-      "no_match": "Use the Unicode-whitespace-trimmed request text as query when it contains from 1 through 256 Unicode scalar values; otherwise stop and report that no bounded query can be derived."
+      "basis": "semantic_main_language_subject",
+      "instruction": "Derive one concise English search phrase that names the main Veln language concept requested. Translate a non-English request. Prefer terms likely to occur together in a reference topic title or keywords. Omit Veln, question framing, requested answer form, and incidental concepts. Do not copy the request text as the query unless the request already consists only of the subject terms.",
+      "maximum_query_scalars": 64,
+      "request_text_as_query": "forbidden_unless_subject_terms_only",
+      "no_subject": "Stop without a tool call and report that no bounded published language-reference query can be derived when no main language concept can be identified or the derived query would be empty or exceed 64 Unicode scalar values."
     },
     "selection": "first_search_result",
     "read_exact_search_result_uri": true,

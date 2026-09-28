@@ -34,11 +34,18 @@ const requestSelectionOraclePath = join(
   "veln-language",
   "request-selection-oracle.json",
 );
+const languageQueryOraclePath = join(
+  defaultRepositoryRoot,
+  "workflow-scripts",
+  "fixtures",
+  "veln-language",
+  "language-query-oracle.json",
+);
 
 const acceptance = new Map([
   ["language-match", { route: "language", finalStatus: "answered" }],
   ["language-no-match", { route: "language", finalStatus: "no_match" }],
-  ["language-query-selection", { route: "language", finalStatus: "answered" }],
+  ["language-query-normalization", { route: "language", finalStatus: "answered" }],
   ["language-query-unbounded", { route: "language", finalStatus: "query_unbounded", failure: true }],
   ["search-unavailable", { route: "language", finalStatus: "search_unavailable", failure: true }],
   ["search-failed", { route: "language", finalStatus: "search_failed", failure: true }],
@@ -103,6 +110,7 @@ const fixtureLimits = {
   repositoryDocumentBytes: 262_144,
   fixtureBytes: 1_000_000,
   requestSelectionCases: 128,
+  languageQueryCases: 32,
   skillDescriptionCharacters: 300,
   repositoryDiscoveryDocuments: 64,
   publishedCatalogBytes: 2_000_000,
@@ -545,6 +553,31 @@ function loadRequestSelectionOracle() {
   return new Map(records.map((record) => [record.id, record]));
 }
 
+function loadLanguageQueryOracle() {
+  const document = JSON.parse(readBoundedUtf8(
+    languageQueryOraclePath,
+    fixtureLimits.fixtureBytes,
+    "language-query oracle",
+  ));
+  assertExactKeys(document, ["schema_version", "records"], "language-query oracle");
+  assert.equal(document.schema_version, 1, "unsupported language-query oracle schema");
+  assert.ok(Array.isArray(document.records), "language-query oracle must contain records");
+  assert.ok(
+    document.records.length <= fixtureLimits.languageQueryCases,
+    "language-query oracle exceeds the case limit",
+  );
+  const texts = new Set();
+  for (const record of document.records) {
+    assertExactKeys(record, ["text", "query"], "language-query oracle record");
+    assert.equal(typeof record.text, "string", "language-query oracle text must be a string");
+    assert.ok(record.text.length <= fixtureLimits.requestCharacters, "language-query oracle text exceeds the limit");
+    assert.equal(texts.has(record.text), false, "duplicate language-query oracle text");
+    texts.add(record.text);
+    assert.ok(record.query === null || typeof record.query === "string", "language-query oracle query must be a string or null");
+  }
+  return new Map(document.records.map((record) => [record.text, record.query]));
+}
+
 function parseSkillContract(skillText) {
   const frontmatter = skillText.match(/^---\n([\s\S]*?)\n---/);
   assert.match(frontmatter?.[1] ?? "", /^name:\s*veln-language\s*$/m, "canonical skill name must be veln-language");
@@ -596,22 +629,11 @@ function parseSkillContract(skillText) {
     maximum_calls: 2,
     call_order: ["search_docs", "read_doc"],
     query_derivation: {
-      match: "ascii_case_insensitive_whole_word_or_phrase",
-      selection: "earliest_start_then_longest_mention_then_query_utf8",
-      entries: [
-        { mentions: ["schema", "schemas"], query: "schemas" },
-        { mentions: ["contract", "contracts"], query: "contracts" },
-        { mentions: ["effect", "effects"], query: "effects" },
-        { mentions: ["module", "modules"], query: "modules" },
-        { mentions: ["function", "functions"], query: "functions" },
-        { mentions: ["handler", "handlers"], query: "handlers" },
-        { mentions: ["borrow checker"], query: "borrow checker" },
-      ],
-      after_veln: {
-        selection: "first_non_ignored_ascii_word_after_standalone_veln",
-        ignored_words: ["a", "an", "are", "did", "do", "does", "has", "have", "is", "the", "was", "were"],
-      },
-      no_match: "Use the Unicode-whitespace-trimmed request text as query when it contains from 1 through 256 Unicode scalar values; otherwise stop and report that no bounded query can be derived.",
+      basis: "semantic_main_language_subject",
+      instruction: "Derive one concise English search phrase that names the main Veln language concept requested. Translate a non-English request. Prefer terms likely to occur together in a reference topic title or keywords. Omit Veln, question framing, requested answer form, and incidental concepts. Do not copy the request text as the query unless the request already consists only of the subject terms.",
+      maximum_query_scalars: 64,
+      request_text_as_query: "forbidden_unless_subject_terms_only",
+      no_subject: "Stop without a tool call and report that no bounded published language-reference query can be derived when no main language concept can be identified or the derived query would be empty or exceed 64 Unicode scalar values.",
     },
     selection: "first_search_result",
     read_exact_search_result_uri: true,
@@ -746,48 +768,20 @@ export function selectRequestRoute(semantics, options = {}) {
   return routeRequestSemantics(semantics, "request selection");
 }
 
-export function deriveLanguageQuery(text, contract, context) {
-  const derivation = contract.language.query_derivation;
-  const folded = text.replace(/[A-Z]/g, (character) => character.toLowerCase());
-  const asciiWord = /[a-z0-9_]/;
-  for (let start = 0; start < folded.length; start += 1) {
-    let selected;
-    for (const entry of derivation.entries) {
-      for (const mention of entry.mentions) {
-        if (!folded.startsWith(mention, start)) continue;
-        const before = start === 0 ? "" : folded[start - 1];
-        const after = folded[start + mention.length] ?? "";
-        if (asciiWord.test(before) || asciiWord.test(after)) continue;
-        if (selected === undefined
-          || mention.length > selected.length
-          || (mention.length === selected.length
-            && Buffer.compare(Buffer.from(entry.query), Buffer.from(selected.query)) < 0)) {
-          selected = { length: mention.length, query: entry.query };
-        }
-      }
-    }
-    if (selected !== undefined) return { query: selected.query };
-  }
-  const words = [...folded.matchAll(/[a-z0-9_]+/g)];
-  const velnIndex = words.findIndex((match) => match[0] === "veln");
-  if (velnIndex !== -1 && derivation.after_veln !== undefined) {
-    const ignored = new Set(derivation.after_veln.ignored_words);
-    const subject = words.slice(velnIndex + 1).find((match) => !ignored.has(match[0]));
-    if (subject !== undefined) return { query: subject[0] };
-  }
-  const fallback = trimUnicodeWhitespace(text);
-  const scalarLength = [...fallback].length;
-  if (scalarLength === 0 || scalarLength > 256) return { unbounded: true };
-  return { query: fallback };
-}
-
-function expectedSelection(text, route, contract, context) {
+function expectedSelection(text, route, contract, context, languageQueryOracle) {
   const lower = text.toLocaleLowerCase("en-US");
   if (route === "language") {
-    const query = deriveLanguageQuery(text, contract, context);
-    if (query.unbounded) return { queryUnbounded: true };
+    assert.ok(languageQueryOracle?.has(text), `${context}: request has no independent language-query annotation`);
+    const query = languageQueryOracle.get(text);
+    if (query === null) return { queryUnbounded: true };
+    assert.equal(trimUnicodeWhitespace(query), query, `${context}: query must not have surrounding Unicode whitespace`);
+    assert.ok([...query].length > 0, `${context}: query must not be empty`);
+    assert.ok(
+      [...query].length <= contract.language.query_derivation.maximum_query_scalars,
+      `${context}: query exceeds the skill bound`,
+    );
     return {
-      searchArguments: { query: query.query, scope: "language" },
+      searchArguments: { query, scope: "language" },
     };
   }
 
@@ -1121,7 +1115,7 @@ export function classifyReadFailure(kind, code, errorUri, selectedUri, contract)
   return "topic_read_failed";
 }
 
-function validateLanguageTurn(turn, previousResult, contract, schemas, published, snapshots, context) {
+function validateLanguageTurn(turn, previousResult, contract, schemas, published, snapshots, languageQueryOracle, context) {
   const { events } = turn;
   assert.ok(turn.request.text.length <= fixtureLimits.requestCharacters, `${context}: request exceeds the fixture text limit`);
   for (const event of events) {
@@ -1135,7 +1129,7 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     `${context}: turn exceeds the event limit`,
   );
   assert.ok(calls.length <= contract.language.maximum_calls, `${context}: language route exceeded its call bound`);
-  const selection = expectedSelection(turn.request.text, "language", contract, context);
+  const selection = expectedSelection(turn.request.text, "language", contract, context, languageQueryOracle);
   if (selection.queryUnbounded) {
     assert.equal(events.length, 1, `${context}: unbounded query must stop without a tool call`);
     assert.equal(calls.length, 0, `${context}: unbounded query must not call a tool`);
@@ -1959,6 +1953,7 @@ export function validateScenarioDocument(document, options = {}) {
   const schemas = loadToolSchemas(repositoryRoot);
   const published = loadPublishedLanguageReference(repositoryRoot);
   const snapshots = loadSnapshotEvidence(repositoryRoot, published);
+  const languageQueryOracle = loadLanguageQueryOracle();
   for (const path of contract.maintenance) {
     checkedRepositoryPath(repositoryRoot, path, "veln-language maintenance contract");
   }
@@ -2040,7 +2035,6 @@ export function validateScenarioDocument(document, options = {}) {
   const coverage = new Set(document.scenarios.map((scenario) => scenario.covers));
   assert.deepEqual(coverage, new Set(acceptance.keys()), "scenario coverage does not match the acceptance model");
   assert.equal(coverage.size, document.scenarios.length, "scenario coverage entries must be unique");
-
   for (const scenario of document.scenarios) {
     const requirement = acceptance.get(scenario.covers);
     assert.ok(requirement, `${scenario.id}: unknown acceptance row`);
@@ -2058,7 +2052,7 @@ export function validateScenarioDocument(document, options = {}) {
       assert.equal(route, selection.route, `${context}: reviewed request semantics selected a route inconsistent with its corpus row`);
       assert.equal(route, requirement.route, `${context}: reviewed request semantics selected the wrong route for ${scenario.covers}`);
       lastSuccessfulResult = route === "language"
-        ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, published, snapshots, context)
+        ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, published, snapshots, languageQueryOracle, context)
         : validateRepositoryTurn(turn, lastSuccessfulResult, requirement, contract, repositoryRoot, context);
     }
     if (requirement.failure) {
@@ -2067,6 +2061,14 @@ export function validateScenarioDocument(document, options = {}) {
       assert.deepEqual(lastSuccessfulResult, expected, `${scenario.id}: failed turn replaced the earlier result`);
     }
   }
+  const languageScenarioTexts = new Set(document.scenarios
+    .filter((scenario) => acceptance.get(scenario.covers)?.route === "language")
+    .flatMap((scenario) => scenario.turns.map((turn) => turn.request.text)));
+  assert.deepEqual(
+    [...languageScenarioTexts].sort(),
+    [...languageQueryOracle.keys()].sort(),
+    "language-query oracle must cover exactly the replayed language requests",
+  );
   return document.scenarios.length;
 }
 
