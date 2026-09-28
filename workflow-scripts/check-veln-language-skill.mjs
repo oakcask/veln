@@ -630,9 +630,9 @@ function parseSkillContract(skillText) {
     call_order: ["search_docs", "read_doc"],
     query_derivation: {
       basis: "semantic_main_language_subject",
-      instruction: "Derive one concise English search phrase that names the main Veln language concept requested. Translate a non-English request. Prefer terms likely to occur together in a reference topic title or keywords. Omit Veln, question framing, requested answer form, and incidental concepts. Do not copy the request text as the query unless the request already consists only of the subject terms.",
+      instruction: "Derive one broad English topic term that names the main Veln language concept requested. Translate a non-English request. Use a multi-word query only for an established compound concept such as borrow checker. Omit Veln, question framing, requested answer form, operations or details being asked about, and incidental concepts. Do not copy the request text as the query unless the request already consists only of the topic term.",
       maximum_query_scalars: 64,
-      request_text_as_query: "forbidden_unless_subject_terms_only",
+      request_text_as_query: "forbidden_unless_topic_term_only",
       no_subject: "Stop without a tool call and report that no bounded published language-reference query can be derived when no main language concept can be identified or the derived query would be empty or exceed 64 Unicode scalar values.",
     },
     selection: "first_search_result",

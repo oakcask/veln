@@ -22,13 +22,14 @@ repository documentation tree.
 ## Routing and provenance
 
 For a language question, the skill first calls `search_docs` with
-`scope: "language"`. The agent derives one concise English search phrase that
-names the main Veln language concept in the request. It translates a
-non-English request and prefers terms likely to occur together in a reference
-topic title or keywords. It omits `Veln`, question framing, requested answer
-form, and incidental concepts. The complete request is not a query unless the
-request already consists only of subject terms. This prevents question words
-and user-language grammar from becoming mandatory search tokens.
+`scope: "language"`. The agent derives one broad English topic term that names
+the main Veln language concept in the request. It translates a non-English
+request. It uses multiple words only for an established compound concept such
+as `borrow checker`. It omits `Veln`, question framing, requested answer form,
+operations or details being asked about, and incidental concepts. The complete
+request is not a query unless the request already consists only of the topic
+term. This prevents question grammar and narrow details from becoming
+mandatory search tokens.
 
 The derived query contains at most 64 Unicode scalar values. If the agent
 cannot identify one main language concept, or if the derived query is empty or
