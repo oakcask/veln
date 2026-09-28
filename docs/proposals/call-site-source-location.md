@@ -16,9 +16,8 @@ later stack walk cannot recover the required logical call site.
 
 ## Outcome
 
-Add the standard `SourceLocation` value, the pure `source::here()` intrinsic,
-and a `callsite` function modifier that introduces a built-in `callsite` local
-variable.
+Add the standard `SourceLocation` value and a `callsite` function modifier that
+introduces a built-in `callsite` local variable.
 
 ```veln
 pub type SourceLocation = {
@@ -38,12 +37,6 @@ Lines and columns are one-based. Columns count Unicode scalar values. Offsets
 count UTF-8 bytes. `file` is a package-relative or virtual source path; it is
 never a machine-specific absolute path. `package` and `module` disambiguate
 equal relative paths from different dependencies.
-
-```veln
-source::here() -> SourceLocation
-```
-
-`source::here()` evaluates to the span of its own expression.
 
 ## Call-site-aware Functions
 
@@ -97,11 +90,12 @@ The final callee observes the location at which the user called `warning`.
 Direct and indirect calls follow the same propagation table. Devirtualization
 and inlining do not change the observed location.
 
+The built-in local variable is an ordinary `SourceLocation` value. A function
+can pass it to another function, store it in an event or trace, or return it.
 The implicit context cannot be overridden at a call expression. A library that
-accepts a user-selected location provides a separate function with an ordinary
-`SourceLocation` parameter. Such a function is not call-site-aware unless its
-header also has the `callsite` modifier. A wrapper can pass `source::here()` to
-that ordinary parameter when it intentionally selects an internal expression.
+accepts an already available location can use an ordinary `SourceLocation`
+parameter. Such a function is not call-site-aware unless its header also has
+the `callsite` modifier.
 
 The `callsite` modifier is visible in source, documentation, completion, and
 signature help. Completion inside the function body includes the built-in
@@ -127,16 +121,15 @@ file value.
 
 | Case | Source form | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| S1 | Direct `source::here()` call. | The value covers that expression and uses one-based line and column coordinates. | Run case with a checked source fixture. |
-| S2 | A non-call-site-aware function directly calls a call-site-aware function. | The callee's `callsite` value identifies the call expression. | Run specification case. |
-| S3 | A call-site-aware wrapper calls another call-site-aware function. | The final callee observes the outer user's site. | Nested-wrapper run case. |
-| S4 | A wrapper passes `source::here()` to an ordinary explicit-location function. | The ordinary parameter identifies the wrapper's internal expression. | Run specification case. |
-| S5 | A call-site-aware function is invoked through a function value from a non-call-site-aware function. | The callee observes the indirect call expression and callable type checking remains unchanged. | Type-check and run cases. |
-| S6 | The modifier is missing when the built-in variable is referenced, the modifier is duplicated, or a binding shadows the built-in variable. | Checking reports the failed declaration rule and a repair. | Check and check-JSON cases. |
-| S7 | Source is generated and has an origin mapping. | The exposed location is the mapped user location. | Generated-source fixture. |
-| S8 | A package is checked from two different absolute roots. | Exposed package, module, and file values are identical and contain neither root. | Relocation test. |
-| S9 | Formatter, docs, LSP, and MCP present the declaration. | Each surface identifies the modifier and built-in local variable without changing ordinary arity. | Formatter, documentation, LSP, and MCP cases. |
-| S10 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
+| S1 | A non-call-site-aware function directly calls a call-site-aware function. | The callee's `callsite` value identifies the call expression. | Run specification case. |
+| S2 | A call-site-aware wrapper calls another call-site-aware function. | The final callee observes the outer user's site. | Nested-wrapper run case. |
+| S3 | A call-site-aware function passes `callsite` to an ordinary `SourceLocation` parameter. | The ordinary parameter receives the same value. | Type-check and run cases. |
+| S4 | A call-site-aware function is invoked through a function value from a non-call-site-aware function. | The callee observes the indirect call expression and callable type checking remains unchanged. | Type-check and run cases. |
+| S5 | The modifier is missing when the built-in variable is referenced, the modifier is duplicated, or a binding shadows the built-in variable. | Checking reports the failed declaration rule and a repair. | Check and check-JSON cases. |
+| S6 | Source is generated and has an origin mapping. | The exposed location is the mapped user location. | Generated-source fixture. |
+| S7 | A package is checked from two different absolute roots. | Exposed package, module, and file values are identical and contain neither root. | Relocation test. |
+| S8 | Formatter, docs, LSP, and MCP present the declaration. | Each surface identifies the modifier and built-in local variable without changing ordinary arity. | Formatter, documentation, LSP, and MCP cases. |
+| S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
 
 ## Verification and Promotion
 
@@ -157,5 +150,7 @@ propagation, and generated-source mapping.
 - The proposal does not add general optional or default parameters.
 - The proposal does not add syntax that overrides implicit call-site context at
   an individual call expression.
+- The proposal does not expose an arbitrary current expression's location as a
+  `SourceLocation` value.
 - The proposal does not give libraries access to machine-specific source
   paths.
