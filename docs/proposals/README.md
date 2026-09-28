@@ -16,7 +16,10 @@ also states it.
 
 ## Ready
 
-No proposal is currently ready for implementation.
+- ADT variant refinement types for state-transition signatures, including
+  syntax, typing, diagnostics, runtime erasure, LSP, MCP, and package
+  documentation:
+  [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked
 
