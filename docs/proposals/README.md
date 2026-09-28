@@ -22,8 +22,8 @@ also states it.
 - A standard wall-clock value for cross-process timestamps while retaining the
   monotonic clock for durations and deadlines:
   [wall-clock-time.md](wall-clock-time.md).
-- Caller parameters and portable source-location values for diagnostics and
-  library-defined instrumentation:
+- Call-site-aware functions and portable source-location values for diagnostics
+  and library-defined instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
 - Standard-library TCP stream networking, typed ordinary failures, resource
   lifecycle, and a substitutable public effect with an explicit system handler:

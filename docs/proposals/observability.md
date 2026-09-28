@@ -68,15 +68,14 @@ The standard library supplies these groups:
 - `observe`: recording, no-op, JSON Lines, and configured export handlers; and
 - `traced`: explicit context attachment for task and channel values.
 
-Logging and event helpers have caller parameters. A representative helper is:
+Logging and event helpers are call-site-aware. A representative helper is:
 
 ```veln
 pub fn info(
   context: Option<TraceContext>,
   message: String,
   attributes: Attributes,
-  caller site: SourceLocation,
-) -> () effects [Observe]
+) -> () effects [Observe] callsite
 ```
 
 `trace::in_span` starts a span, registers its finish operation with `defer`,

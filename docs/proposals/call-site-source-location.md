@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Caller parameters, source-location values, generated-source mapping, or call-site lowering is implemented or redesigned.
+update-when: Call-site-aware functions, source-location values, generated-source mapping, or call-site lowering is implemented or redesigned.
 ---
 
 # Call-site Source Location
@@ -10,10 +10,15 @@ call site rather than the source location inside a wrapper function. Veln must
 provide this without making each observability function a compiler-recognized
 special case.
 
+The location must be captured when the library API is called. A trace can be
+finished or exported after the originating call stack no longer exists, so a
+later stack walk cannot recover the required logical call site.
+
 ## Outcome
 
 Add the standard `SourceLocation` value, the pure `source::here()` intrinsic,
-and one optional caller parameter per function.
+and a `callsite` function modifier that introduces a built-in `callsite` local
+variable.
 
 ```veln
 pub type SourceLocation = {
@@ -40,53 +45,75 @@ source::here() -> SourceLocation
 
 `source::here()` evaluates to the span of its own expression.
 
-## Caller Parameters
+## Call-site-aware Functions
 
-A function can mark its final parameter with `caller`:
+A function can place the `callsite` modifier at the end of its header:
 
 ```veln
 pub fn info(
   message: String,
   attributes: Attributes,
-  caller site: SourceLocation,
-) -> () effects [Observe]
-  observe::emit(LogInfo(message, attributes, site))
+) -> () effects [Observe] callsite
+  observe::emit(LogInfo(message, attributes, callsite))
 end
 ```
 
 The proposed grammar addition is:
 
 ```ebnf
-CallerParameter ::= "caller" Name ":" "SourceLocation"
+CallsiteModifier ::= "callsite"
 ```
 
-A caller parameter must be the final parameter. Its type must be
-`SourceLocation`. A function cannot declare more than one caller parameter.
+`CallsiteModifier` follows the optional effects clause in a function header.
+The modifier introduces a built-in local variable named `callsite` with type
+`SourceLocation`. The modifier and the local variable use the same contextual
+keyword because the modifier's purpose is to introduce that value.
 
-Callers may omit that final argument. The compiler then supplies the call
-expression's location. A caller may also pass an explicit `SourceLocation`.
-This permits wrappers to forward the original site:
+Within a call-site-aware function, a parameter, result binding, local binding,
+or pattern binding cannot use the name `callsite`. Outside a call-site-aware
+function, `callsite` remains an ordinary identifier. An unresolved `callsite`
+reference in a function body reports that the `callsite` modifier introduces
+the built-in local variable.
+
+## Propagation
+
+A call to a call-site-aware function supplies hidden call-site context. The
+supplied value depends on the calling function:
+
+| Calling function | Supplied value |
+| --- | --- |
+| Not call-site-aware | The location of the call expression. |
+| Call-site-aware | The calling function's built-in `callsite` value. |
+
+The second rule makes a call-site-aware wrapper transparent by default:
 
 ```veln
-pub fn warning(message: String, caller site: SourceLocation) -> () effects [Observe]
-  info(message, {}, site)
+pub fn warning(message: String) -> () effects [Observe] callsite
+  info(message, {})
 end
 ```
 
-An omitted caller argument inside a function that itself has a caller
-parameter forwards that parameter. A wrapper passes `source::here()` explicitly
-when it intentionally wants its internal call expression instead.
+The final callee observes the location at which the user called `warning`.
+Direct and indirect calls follow the same propagation table. Devirtualization
+and inlining do not change the observed location.
 
-The caller parameter is visible in source, documentation, completion, and
-signature help. It does not contribute to the ordinary callable arity or
-function type. An indirect call supplies the indirect call expression's
-location when no explicit value is forwarded.
+The implicit context cannot be overridden at a call expression. A library that
+accepts a user-selected location provides a separate function with an ordinary
+`SourceLocation` parameter. Such a function is not call-site-aware unless its
+header also has the `callsite` modifier. A wrapper can pass `source::here()` to
+that ordinary parameter when it intentionally selects an internal expression.
+
+The `callsite` modifier is visible in source, documentation, completion, and
+signature help. Completion inside the function body includes the built-in
+local variable. The modifier does not contribute to ordinary callable arity or
+function type.
 
 The call ABI must therefore carry a hidden source location for direct and
-indirect calls. A function without a caller parameter does not expose or use
-that hidden value. An implementation can specialize direct calls, but the
-observable location cannot depend on whether a call was devirtualized or
-inlined.
+indirect calls. A function without the modifier does not expose or use that
+hidden value. Function interface metadata records whether a function is
+call-site-aware so separate compilation does not infer the calling convention
+from its body. An implementation can specialize direct calls, but the
+observable location remains defined by the propagation table.
 
 ## Generated and Virtual Sources
 
@@ -101,14 +128,15 @@ file value.
 | Case | Source form | Required observation | Planned evidence |
 | --- | --- | --- | --- |
 | S1 | Direct `source::here()` call. | The value covers that expression and uses one-based line and column coordinates. | Run case with a checked source fixture. |
-| S2 | Direct call that omits a caller parameter. | The callee receives the caller's call-expression location. | Run specification case. |
-| S3 | Wrapper forwards its caller parameter explicitly. | The final callee observes the outer user's site. | Nested-wrapper run case. |
-| S4 | Wrapper passes `source::here()` explicitly. | The final callee observes the wrapper's internal call site. | Run specification case. |
-| S5 | Caller-aware function is invoked through a function value. | The callee observes the indirect call expression and callable type checking remains unchanged. | Type-check and run cases. |
-| S6 | Caller parameter is not final, has the wrong type, or is duplicated. | Checking reports the failed declaration rule and a repair. | Check and check-JSON cases. |
+| S2 | A non-call-site-aware function directly calls a call-site-aware function. | The callee's `callsite` value identifies the call expression. | Run specification case. |
+| S3 | A call-site-aware wrapper calls another call-site-aware function. | The final callee observes the outer user's site. | Nested-wrapper run case. |
+| S4 | A wrapper passes `source::here()` to an ordinary explicit-location function. | The ordinary parameter identifies the wrapper's internal expression. | Run specification case. |
+| S5 | A call-site-aware function is invoked through a function value from a non-call-site-aware function. | The callee observes the indirect call expression and callable type checking remains unchanged. | Type-check and run cases. |
+| S6 | The modifier is missing when the built-in variable is referenced, the modifier is duplicated, or a binding shadows the built-in variable. | Checking reports the failed declaration rule and a repair. | Check and check-JSON cases. |
 | S7 | Source is generated and has an origin mapping. | The exposed location is the mapped user location. | Generated-source fixture. |
 | S8 | A package is checked from two different absolute roots. | Exposed package, module, and file values are identical and contain neither root. | Relocation test. |
-| S9 | Formatter, docs, LSP, and MCP present the declaration. | Each surface identifies the caller parameter without counting it as a required ordinary argument. | Formatter, documentation, LSP, and MCP cases. |
+| S9 | Formatter, docs, LSP, and MCP present the declaration. | Each surface identifies the modifier and built-in local variable without changing ordinary arity. | Formatter, documentation, LSP, and MCP cases. |
+| S10 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
 
 ## Verification and Promotion
 
@@ -118,13 +146,16 @@ metadata, formatting, documentation, LSP, and MCP. The run harness must compare
 locations against a checked source fixture rather than machine paths.
 
 After implementation, the current source-surface and name/effect
-specifications must explain caller parameters. The source and execution
-specifications must explain `SourceLocation` and generated-source mapping.
+specifications must explain the `callsite` modifier and built-in local variable.
+The source and execution specifications must explain `SourceLocation`, call-site
+propagation, and generated-source mapping.
 
 ## Non-goals
 
 - This proposal does not expose a runtime stack trace.
 - Source locations are not stable identifiers across source edits.
 - The proposal does not add general optional or default parameters.
+- The proposal does not add syntax that overrides implicit call-site context at
+  an individual call expression.
 - The proposal does not give libraries access to machine-specific source
   paths.
