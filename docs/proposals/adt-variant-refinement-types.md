@@ -497,6 +497,7 @@ repair guidance belong in `related` notes rather than the primary message.
 | `type.variant_mismatch` | A value's possible variant set is not a subset of the required set. | `actual_type`, `expected_type`, `expected_variants` in ADT declaration order | The refined parameter, return, field, or local annotation. |
 | `type.match_impossible_variant` | A match arm names a variant excluded by the refined scrutinee. | `scrutinee_type`, `arm_variant` | The refinement source and selected ADT declaration. |
 | `type.match_redundant_arm` | A valid arm has no variant left after preceding valid coverage. | `scrutinee_type`, `arm_pattern`, nullable `arm_variant`, `reason` as `duplicate_variant`, `preceding_catch_all`, or `complete_prior_coverage` | The preceding arm or arms that consumed the applicable variants. |
+| `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
 Parser failures that cannot form a base type, `::`, and final constructor name
 remain syntax diagnostics. Once that structure exists, semantic failures use
@@ -508,14 +509,61 @@ declaration.
 Machine-readable diagnostics use the existing diagnostic envelope and
 half-open spans. New detail objects are closed schemas. Human and JSON cases
 must cover every row, including overlap with one independently provable name or
-arity failure.
+arity failure. A schema refinement diagnostic selects the refinement annotation
+as its primary span. If the refinement is nested, it selects the innermost
+refinement that the decoder cannot establish.
+
+## Schema Encode And Decode Soundness
+
+A refinement in a schema-visible shape constrains the decoded or encoded value.
+It does not define a new wire shape, omit an existing constructor tag, or change
+the underlying ADT representation.
+
+| Boundary | Refinement behavior |
+| --- | --- |
+| Encode | Require the supplied value to be assignable to the refined schema-visible shape, then use the existing base-ADT encoding. A base ADT or excluded variant fails static checking with `type.variant_mismatch`. |
+| Typed pass-through decode | Require the supplied value to be assignable to the refined input shape and preserve that type in the result. No runtime refinement check is needed because the helper does not strengthen a base type. |
+| External or representation decode | Decode the complete base value first. After successful base decoding, validate that every refinement-bearing position contains an admitted variant. Return the refined result only after every validation succeeds. |
+| Base-typed decode result | Preserve the declared base type even when one execution produces a particular variant. Observing a runtime tag does not silently strengthen the declared result. |
+
+An external decoder can produce a refinement only when it directly constructs
+an admitted variant or can inspect the existing ADT tag after decoding. If it
+can do neither, the schema or decode operation is rejected with
+`schema.variant_refinement_decode_unsupported`. A handwritten Veln function can
+return a refinement through ordinary constructor, match, and result-type
+checking; its signature alone does not grant an opaque or host decoder this
+capability.
+
+Singleton targets accept only their selected variant. Union targets accept any
+variant in their set. Validation is recursive through record fields, ADT
+payloads, option and result payloads, collection elements, and dictionary keys
+and values wherever the schema vocabulary admits those shapes. Record and ADT
+payloads use declaration order, indexed collections use increasing index, and
+dictionaries use their existing canonical traversal order. The first failed
+position selects the reported field path. A failed validation publishes no
+partial decoded value.
+
+The decoder completes ordinary base decoding before refinement validation.
+Malformed tags, malformed payloads, truncation, and other existing decode
+failures therefore take precedence. If base decoding succeeds but a value has
+an excluded variant, the decoder uses its existing failure channel. An
+incremental decoder returns `Invalid(DecodeErrorWithReason(...))`; a
+result-returning decoder returns `Err`. The error id is
+`schema.variant_refinement_mismatch`, the offset identifies the decoded value's
+constructor tag or the narrowest available containing position, the field path
+identifies the failed refined position, and the reason renders the actual
+variant and expected variant set. This is a recoverable decode failure, not a
+trap or process failure.
 
 ## Runtime And Compatibility
 
 Singleton refinements and variant unions are erased after static checking.
 They do not add tags, checks, casts, allocation, or a distinct JVM
 representation. A refined value uses the existing ADT representation and
-pattern-match behavior.
+pattern-match behavior. Decode-boundary validation is the only check introduced
+by a refinement: it inspects the existing ADT tag before an external value is
+first exposed with a refined static type. Ordinary construction, assignment,
+calls, returns, matching, equality, and encoding add no refinement check.
 
 Existing source remains valid because the proposal adds a type form and a
 subtype-to-base widening rule. Existing unannotated constructor bindings can
@@ -526,7 +574,8 @@ precise type only where source or inference retains it under the rules above.
 
 Serialization, schema encode/decode, equality, and exhaustiveness use the
 underlying ADT representation. Decode helpers that return a base ADT do not
-claim a refined result unless their declared signature does so.
+claim a refined result unless their declared signature does so and their
+boundary establishes the refinement under the schema rules above.
 
 ## Command Behavior
 
@@ -610,12 +659,6 @@ The following decisions remain open. Each one changes observable typing,
 diagnostics, serialization, or language-service results and must be resolved
 before its affected acceptance row can pass:
 
-- **Decode and schema soundness:** If refinements are allowed in record fields
-  and ADT payloads, can schema or decode operations produce those refined
-  types? Either decoding must validate the selected variant, the schema must
-  encode a single-variant shape, or refinement-bearing decode targets must be
-  rejected; erasure alone does not establish that decoded data has variant
-  `V`.
 - **Transitive visibility:** Does the public-signature visibility check reject
   a private type or variant hidden under a record field, function type, source
   ADT payload, collection argument, or alias chain? The required traversal and
@@ -640,9 +683,10 @@ described as current behavior:
 | Construction, joins, aggregate retention, and widening | Expected base, singleton, union, and aggregate types select the owning ADT and supply generic arguments for unqualified constructors; nullary generic constructors use that context; a written different variant remains different; same-spelled constructors from other ADTs do not create ambiguity or provide a fallback; constructors and unannotated aggregate positions retain exact refinements; multiple contributions to one aggregate position use a source-order-independent variant union; field access, payload patterns, and collection element positions observe the retained type; and expected component types widen during aggregate construction without a later nested assignment. | Table-driven type-checker cases for each contextual constructor outcome, direct and aggregate join, unannotated record, vector, dictionary, and generic ADT retention, explicit aggregate widening, projection, and rejected post-construction nested widening, plus executable `check` examples and backend execution and representation cases. |
 | Calls, results, function values, and result propagation | Every singleton, union, and base assignability-table row succeeds or fails as specified. Nested refinement differences in named types, records, ADT payloads, and fixed, variadic, or nested function types remain incompatible. Existing function shapes and effects remain compatible only when their refinement-bearing positions are identical. Every successfully typed final function expression satisfies the declared result refinement. When the final expression is an `if` or `match`, every branch or arm expression satisfies that refinement even under a constant condition or other statically dead control flow. An expression that has no type because of an earlier error produces no derivative variant mismatch. Postfix `?` on a known `Ok` produces its exact success type but still requires the ordinary propagation context and error compatibility. Postfix `?` on a known `Err` follows the ordinary error path without a refinement-specific diagnostic, and later source remains checked. | Table-driven type-checker cases, including nested aggregate and callable boundaries, final `if` and `match` expressions, constant-condition cases, prior-error cases, compatible and incompatible known-`Ok` propagation, refined success payloads, known-`Err` early return, and independent failures after that return, plus executable `check` examples. |
 | Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, and complete union arms are exhaustive. A valid variant outside the original domain is impossible; a valid constructor or catch-all with no remaining variants is redundant. Invalid arm heads take diagnostic precedence, contribute no coverage, and can use only unambiguous recovery for binding and body checking. Impossible and redundant arms still receive independent body checks and any expected-type check inherited from the enclosing expression, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, duplicate variants, complete prior coverage, invalid casing, hidden and private constructors, wrong-ADT constructors, qualified immutable values, recovered binding and body types, declared-result mismatches in final `match` expressions, and computed-expression boundaries, plus state-machine `check` examples. |
+| Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Impossible and redundant-arm cases use separate codes, while intrinsic casing, resolution, visibility, ADT, generic, arity, and pattern failures suppress derivative arm-classification diagnostics. | Human and JSON command fixtures covering every diagnostic row and each arm-precedence overlap. |
 | Commands | Check, run, test, doc, format, and their machine-readable modes share analysis and preserve their execution or recovery boundaries. | Command harness cases with accepted, rejected, and recovered sources. |
-| Runtime erasure | Singleton-refined, union-refined, and widened values preserve constructor tag, payload, matching, equality, schema, and backend behavior without a refinement check. | JVM execution, encode/decode, and regression cases. |
+| Runtime erasure | Singleton-refined, union-refined, and widened values preserve constructor tag, payload, matching, equality, schema, and backend behavior without checks outside the external decode trust boundary. Decode validation inspects the existing tag and does not change the representation or encoded bytes. | JVM execution, encode/decode, representation, unchanged-byte, and no-check-outside-decode regression cases. |
 | LSP | Tokens, formatting, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
 | MCP | Check, navigation, pagination, rename, package signatures, reference publication, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 | Cross-transport identity | LSP and MCP select the same declaration and reference set from the same saved source before coordinate projection. | Shared language-service cases consumed by both adapter suites. |
