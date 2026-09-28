@@ -16,28 +16,22 @@ and adapters are outside this contract.
 
 Select the skill for a question about the Veln language or for a request to
 inspect or change this repository. A language question requires the published
-`search_docs` and `read_doc` tools. A repository task requires access to the
-repository documentation tree.
+`list_language_topics` and `read_doc` tools. A repository task requires access
+to the repository documentation tree.
 
 ## Routing and provenance
 
-For a language question, the skill first calls `search_docs` with
-`scope: "language"`. The agent derives one broad English topic term that names
-the main Veln language concept in the request. It translates a non-English
-request. It uses multiple words only for an established compound concept such
-as `borrow checker`. It omits `Veln`, question framing, requested answer form,
-operations or details being asked about, and incidental concepts. The complete
-request is not a query unless the request already consists only of the topic
-term. This prevents question grammar and narrow details from becoming
-mandatory search tokens.
+For a language question, the skill first calls `list_language_topics`. It
+inspects every returned title and summary and selects only the topics
+semantically relevant to the request, regardless of the request language or
+vocabulary. It removes unrelated topics and selects at most three. If no topic
+is relevant, it stops after listing and reports that the published reference
+has no relevant topic.
 
-The derived query contains at most 64 Unicode scalar values. If the agent
-cannot identify one main language concept, or if the derived query is empty or
-too long, it stops without a tool call and reports that no bounded query can be
-derived. If a topic matches, the skill calls `read_doc` with the exact snapshot
-topic URI from the first search result. This makes selection deterministic
-when search returns multiple topics. The answer can contain only claims from
-that resource and reports that exact URI as its source.
+For each selected topic, the skill calls `read_doc` with the exact listed
+snapshot topic URI. It does not derive or construct a URI. The answer can
+contain only claims supported by successfully read selected resources and
+reports all of their exact URIs as sources.
 
 For repository inspection, changes, and proposal selection, the skill starts
 at `docs/README.md`. It follows the smallest linked repository documentation
@@ -74,28 +68,29 @@ route.
 
 ## Limits and failures
 
-The language route makes at most one search and one read. When search returns
-no topic, the skill reports the absence and does not use proposal text or model
-memory. The route distinguishes failures as follows:
+The language route makes one listing call and at most three reads. When no
+listed topic is relevant, the skill reports the absence and does not use
+proposal text or model memory. The route distinguishes failures as follows:
 
 | Tool result | Outcome |
 | --- | --- |
-| `search_docs` returns the transport error `tool_unavailable` | Stop after search and report that search is unavailable. |
+| `list_language_topics` returns the transport error `tool_unavailable` | Stop after listing and report that language-topic discovery is unavailable. |
 | `read_doc` returns the transport error `transport_unavailable` | Stop after read and report that the selected topic is unavailable. |
 | `read_doc` returns a tool error with code `resource_not_found` for the selected snapshot URI | Stop after read and report that the selected snapshot URI is stale. |
-| `search_docs` returns any other failed or malformed result | Stop after search and report that published language-reference search failed. |
+| `list_language_topics` returns any other failed or malformed result | Stop after listing and report that language-topic discovery failed. |
 | `read_doc` returns any other failed or malformed result | Stop after read and report that the selected topic could not be read. |
 
 The skill evaluates the rows in table order. It selects the first three named
 outcomes by the exact operation, result kind, and code shown in the table. The
 stale-snapshot outcome additionally requires the error URI to equal the URI
-selected from search. Every other failed or malformed search or read selects
-the matching generic bounded outcome instead of escaping failure handling.
+selected from the listing. Every other failed or malformed listing or read
+selects the matching generic bounded outcome instead of escaping failure
+handling.
 
 Each failure reports the failed operation and the selected URI when one exists.
 It also leaves any earlier successful result unchanged.
-Within one server process, search candidates and reads remain retained state, so
-a URI returned by `search_docs` remains readable. The stale-URI outcome can
+Within one server process, listed topics and reads remain retained state, so a
+URI returned by `list_language_topics` remains readable. The stale-URI outcome can
 occur after that server process ends and a replacement server starts with a
 different checked language-reference snapshot. The replacement can reject the
 earlier exact URI with `resource_not_found`.
@@ -115,8 +110,8 @@ or escaped syntax does not make a path reachable.
 `workflow-scripts/fixtures/veln-language/scenarios.json` records the tool and
 repository results for the acceptance model. The separate
 `request-selection-oracle.json` file records each reviewed raw request and its
-expected observable route. `language-query-oracle.json` independently records
-the accepted normalized queries for language scenarios. Run
+expected observable route. `language-topic-oracle.json` independently records
+the reviewed topic selections for language scenarios. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 the closed operative-contract and result shapes, exact failure dispatch,
@@ -124,8 +119,8 @@ provenance, bounded failures, preserved results, routing, and input limits. The
 reviewed routing oracle is independent of the replay's action-and-subject
 labels. The harness checks that every replayed raw request matches the oracle
 route and that the replay labels select that route through the skill's closed
-decision table. The query oracle checks representative English, non-English,
-absent-topic, and non-derivable requests. Both corpora are
+decision table. The topic oracle checks representative English, non-English,
+absent-topic, and unrelated-vocabulary requests. Both corpora are
 reviewed finite evidence for semantic instructions, not executable general
 natural-language classifiers.
 
@@ -141,7 +136,7 @@ harness opens a repository route document, the opened file must remain inside
 `docs/`; a concurrent link substitution outside that boundary fails the check.
 
 The harness also checks that a selected repository authority is current.
-Recorded search results must match checked published or archived catalog
+Recorded topic listings must match checked published or archived catalog
 evidence and its snapshot digest. A stale snapshot scenario must replace the
 server that returned the URI with a distinct server that retains the current
 published snapshot before the read fails.

@@ -18,6 +18,10 @@ const REFERENCES_INPUT: &str = include_str!("../schemas/mcp/v1/references-input.
 const REFERENCES_RESULT: &str = include_str!("../schemas/mcp/v1/references-result.json");
 const RENAME_INPUT: &str = include_str!("../schemas/mcp/v1/rename-input.json");
 const RENAME_RESULT: &str = include_str!("../schemas/mcp/v1/rename-result.json");
+const LIST_LANGUAGE_TOPICS_INPUT: &str =
+    include_str!("../schemas/mcp/v1/list-language-topics-input.json");
+const LIST_LANGUAGE_TOPICS_RESULT: &str =
+    include_str!("../schemas/mcp/v1/list-language-topics-result.json");
 const SEARCH_DOCS_INPUT: &str = include_str!("../schemas/mcp/v1/search-docs-input.json");
 const SEARCH_DOCS_RESULT: &str = include_str!("../schemas/mcp/v1/search-docs-result.json");
 const READ_DOC_INPUT: &str = include_str!("../schemas/mcp/v1/read-doc-input.json");
@@ -45,7 +49,9 @@ impl ToolSchema {
             return false;
         };
         match self.name {
-            "workspace_projects" | "refresh_workspace" => object.is_empty(),
+            "workspace_projects" | "refresh_workspace" | "list_language_topics" => {
+                object.is_empty()
+            }
             "check_project" => {
                 object.keys().all(|key| key == "project" || key == "source")
                     && object.get("project").is_none_or(Value::is_string)
@@ -70,7 +76,7 @@ impl ToolSchema {
     }
 }
 
-pub(crate) const TOOLS: [ToolSchema; 8] = [
+pub(crate) const TOOLS: [ToolSchema; 9] = [
     ToolSchema {
         name: "workspace_projects",
         description: "Return the current workspace project selection without refreshing it",
@@ -106,6 +112,12 @@ pub(crate) const TOOLS: [ToolSchema; 8] = [
         description: "Compute workspace edits for a supported symbol in one saved workspace source",
         input: RENAME_INPUT,
         result: RENAME_RESULT,
+    },
+    ToolSchema {
+        name: "list_language_topics",
+        description: "List every checked Veln language-reference topic",
+        input: LIST_LANGUAGE_TOPICS_INPUT,
+        result: LIST_LANGUAGE_TOPICS_RESULT,
     },
     ToolSchema {
         name: "search_docs",

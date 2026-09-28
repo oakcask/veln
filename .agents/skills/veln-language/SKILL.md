@@ -18,24 +18,23 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "language_otherwise": true
   },
   "language": {
-    "search_tool": "search_docs",
-    "search_scope": "language",
+    "discovery_tool": "list_language_topics",
     "read_tool": "read_doc",
-    "maximum_calls": 2,
-    "call_order": ["search_docs", "read_doc"],
-    "query_derivation": {
-      "basis": "semantic_main_language_subject",
-      "instruction": "Derive one broad English topic term that names the main Veln language concept requested. Translate a non-English request. Use a multi-word query only for an established compound concept such as borrow checker. Omit Veln, question framing, requested answer form, operations or details being asked about, and incidental concepts. Do not copy the request text as the query unless the request already consists only of the topic term.",
-      "maximum_query_scalars": 64,
-      "request_text_as_query": "forbidden_unless_topic_term_only",
-      "no_subject": "Stop without a tool call and report that no bounded published language-reference query can be derived when no main language concept can be identified or the derived query would be empty or exceed 64 Unicode scalar values."
+    "maximum_calls": 4,
+    "maximum_topic_reads": 3,
+    "call_order": ["list_language_topics", "read_doc"],
+    "topic_selection": {
+      "basis": "semantic_relevance_to_request",
+      "instruction": "Inspect every listed title and summary. Select only the topics needed to answer the Veln language question, regardless of the request language or vocabulary. Discard topics that are not relevant. Select no more than three topics and do not derive an unlisted URI.",
+      "selection_source": ["title", "summary"],
+      "deduplicate_by": "uri",
+      "no_relevant_topic": "Stop after list_language_topics and report that the published Veln language reference has no relevant topic."
     },
-    "selection": "first_search_result",
-    "read_exact_search_result_uri": true,
+    "read_exact_listed_uris": true,
     "fallback": "forbidden",
-    "answer_source": "selected_resource_uri",
-    "report_selected_uri": true,
-    "no_match": "Report that the published Veln language reference has no matching topic. Do not use proposal text or model memory."
+    "answer_source": "successfully_read_selected_resource_uris",
+    "report_selected_uris": true,
+    "no_match": "Report that the published Veln language reference has no relevant topic. Do not use proposal text or model memory."
   },
   "repository": {
     "entry": "docs/README.md",
@@ -55,11 +54,11 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "preserve_previous_result": true,
     "report_operation": true,
     "report_selected_uri": true,
-    "dispatch_order": ["search_unavailable", "topic_unavailable", "stale_snapshot", "other_search_failure", "other_topic_failure"],
-    "search_unavailable": {
-      "operation": "search_docs",
+    "dispatch_order": ["listing_unavailable", "topic_unavailable", "stale_snapshot", "other_listing_failure", "other_topic_failure"],
+    "listing_unavailable": {
+      "operation": "list_language_topics",
       "result": { "kind": "transport_error", "code": "tool_unavailable" },
-      "instruction": "Stop after search_docs and report that published language-reference search is unavailable."
+      "instruction": "Stop after list_language_topics and report that published language-topic discovery is unavailable."
     },
     "topic_unavailable": {
       "operation": "read_doc",
@@ -71,10 +70,10 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
       "result": { "kind": "tool_error", "code": "resource_not_found", "selected_uri_must_match": true },
       "instruction": "Stop after read_doc and report that the selected snapshot URI is stale."
     },
-    "other_search_failure": {
-      "operation": "search_docs",
+    "other_listing_failure": {
+      "operation": "list_language_topics",
       "result": "Any failed or malformed result not matched by an earlier dispatch entry.",
-      "instruction": "Stop after search_docs and report that published language-reference search failed."
+      "instruction": "Stop after list_language_topics and report that published language-topic discovery failed."
     },
     "other_topic_failure": {
       "operation": "read_doc",
