@@ -23,6 +23,10 @@ also states it.
 
 ## Blocked
 
+- Generic named-type and function variance remains separate from ADT variant
+  refinement and is blocked until its constructor classifications and complete
+  callable composition table are decided:
+  [generic-and-function-variance.md](generic-and-function-variance.md).
 - Explicit import-alias casing is blocked until an owning proposal defines the
   syntax and lookup contract:
   [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).

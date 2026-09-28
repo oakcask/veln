@@ -187,6 +187,19 @@ Every refinement is a subtype of `A<T...>` and retains the same generic
 arguments and runtime value. Different singleton variants of the same ADT are
 not subtypes of each other.
 
+Refinement widening applies only when the actual and expected types being
+compared are themselves the refinement and its base ADT. It does not recurse
+through a named type argument, record field, ADT payload, or function parameter
+or result. A nested refinement position must therefore be identical on both
+sides of assignment. For example, `A::V` is assignable to `A`, but
+`List<A::V>` is not assignable to `List<A>`, and neither
+`fn(A) -> R` nor `fn(A::V) -> R` is assignable to the other solely because of
+that refinement relationship.
+
+This direct-boundary rule keeps generic and function variance outside this
+feature. [Generic And Function Variance](generic-and-function-variance.md)
+owns any future recursive widening through aggregates or callable positions.
+
 A union that contains every declared variant of the instantiated ADT is
 semantically equivalent to the base ADT. An inferred complete union is
 displayed as the base ADT. A written complete union remains written as a union
@@ -262,10 +275,9 @@ The following assignability table is normative for the planned feature:
 | `A<T>` | `A<T>::V` | Reject because the variant is not known. |
 | `A<T>` | `A<T>::V \| A<T>::W` | Reject because the variant is not restricted to the expected set. |
 | `A<T>::W` | `A<T>::V` where `W` and `V` differ | Reject. |
-| `fn(A<T>) -> R` | `fn(A<T>::V) -> R` | Accept because the actual callable accepts every `V`. |
-| `fn(P) -> A<T>::V` | `fn(P) -> A<T>` | Accept because every returned `V` is an `A<T>`. |
-| `fn(A<T>::V) -> R` | `fn(A<T>) -> R` | Reject because the callable cannot accept every `A<T>`. |
-| `fn(P) -> A<T>` | `fn(P) -> A<T>::V` | Reject because the result variant is not promised. |
+| `fn(A<T>::V) -> R` | `fn(A<T>::V) -> R` | Accept when the remaining function shape and effects satisfy the existing rules. |
+| `fn(A<T>) -> R` | `fn(A<T>::V) -> R` | Reject because refinement widening does not recurse into a function parameter. |
+| `fn(P) -> A<T>::V` | `fn(P) -> A<T>` | Reject because refinement widening does not recurse into a function result. |
 
 A call to a refined parameter requires the argument's static variant set to be
 a subset of the parameter's set. A refined result checks every return-producing
@@ -474,21 +486,11 @@ The following decisions remain open. Each one changes observable typing,
 diagnostics, serialization, or language-service results and must be resolved
 before its affected acceptance row can pass:
 
-- **Nested variance:** Is `Container<A::V>` assignable to `Container<A>` for
-  built-in collections, records, and source ADTs, or is refinement widening
-  allowed only at the outermost value boundary? If named type arguments remain
-  pairwise assignable, the proposal must state which constructors are
-  covariant and why payload positions cannot make that rule unsound.
 - **Refinement retention in aggregates:** When an unannotated record,
   collection, or ADT payload contains an `A::V` value, does its inferred type
   retain the nested refinement? The decision must identify which explicit
   annotations widen it and what type field access or pattern binding later
   observes.
-- **Complete function subtyping:** Does the assignability table apply
-  recursively to every parameter and result of fixed, variadic, and nested
-  function types? A decision is needed for callables that change both a
-  parameter and result refinement at once and for how those checks compose
-  with the existing effect-subset rule.
 - **Impossible and redundant arms:** How does
   `type.match_impossible_variant` interact with a preceding catch-all,
   duplicate `V` arms, a hidden or private `W`, invalid constructor casing, and
@@ -527,7 +529,7 @@ described as current behavior:
 | Grammar and formatting | Singleton and union refinement forms parse in every type position, only variants of one instantiated ADT compose a union, malformed separators and final segments fail at the responsible token, and format is idempotent. | Executable source grammar, accepted and rejected fixtures, parser cases, AST wire round trips, and formatter cases. |
 | Resolution, aliases, and visibility | Source, built-in, generic, qualified, imported, private, opaque, ambiguous, and exact-companion bases follow the stated identity and visibility rules. Aliases of one target are mutually assignable, written annotations retain their spelling, unannotated and conflicting-provenance inference uses the canonical target spelling, mismatch sides select their spelling independently, and base and variant navigation select the alias and target constructor respectively. | Table-driven semantic, display, package-signature, and shared navigation cases with exact diagnostics, spans, identities, and rendered types. |
 | Construction, joins, and widening | Expected base, singleton, and union types select the owning ADT and supply generic arguments for unqualified constructors; nullary generic constructors use that context; a written different variant remains different; same-spelled constructors from other ADTs do not create ambiguity or provide a fallback; constructors retain exact variants; branch-order-independent joins infer variant unions; and expected base types widen without runtime work. | Table-driven type-checker cases for each contextual constructor outcome and join, plus executable `check` examples and backend execution and representation cases. |
-| Calls, returns, and function values | Every singleton, union, base, and callable assignability-table row succeeds or fails as specified, including generic arguments and effects. Every successfully typed return-producing expression satisfies the declared result refinement even under a constant condition or other statically dead control flow. An expression that has no type because of an earlier error produces no derivative variant mismatch. | Table-driven type-checker cases, including constant-condition and prior-error cases, plus executable `check` examples. |
+| Calls, returns, and function values | Every singleton, union, and base assignability-table row succeeds or fails as specified. Nested refinement differences in named types, records, ADT payloads, and fixed, variadic, or nested function types remain incompatible. Existing function shapes and effects remain compatible only when their refinement-bearing positions are identical. Every successfully typed return-producing expression satisfies the declared result refinement even under a constant condition or other statically dead control flow. An expression that has no type because of an earlier error produces no derivative variant mismatch. | Table-driven type-checker cases, including nested aggregate and callable boundaries, constant-condition cases, and prior-error cases, plus executable `check` examples. |
 | Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, complete union arms are exhaustive, excluded arms fail, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, qualified immutable values, and computed-expression boundaries, plus state-machine `check` examples. |
 | Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. | Human and JSON command fixtures. |
 | Commands | Check, run, test, doc, format, and their machine-readable modes share analysis and preserve their execution or recovery boundaries. | Command harness cases with accepted, rejected, and recovered sources. |
