@@ -3,35 +3,35 @@
   "records": [
     {
       "text": "What can I test in Veln schemas?",
-      "query": "schemas"
+      "queries": ["schema", "schemas"]
     },
     {
       "text": "Veln のスキーマはどのように値をエンコードしますか？",
-      "query": "schemas"
+      "queries": ["schema", "schemas"]
     },
     {
       "text": "Does Veln have a borrow checker?",
-      "query": "borrow checker"
+      "queries": ["borrow checker"]
     },
     {
       "text": "How do Veln schemas work?",
-      "query": "schemas"
+      "queries": ["schema", "schemas"]
     },
     {
       "text": "abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz",
-      "query": null
+      "queries": null
     },
     {
       "text": "Does Veln update effects automatically?",
-      "query": "effects"
+      "queries": ["effect", "effects"]
     },
     {
       "text": "How do Veln schemas encode values?",
-      "query": "schemas"
+      "queries": ["schema", "schemas"]
     },
     {
       "text": "How do Veln modules work?",
-      "query": "modules"
+      "queries": ["module", "modules"]
     }
   ]
 }

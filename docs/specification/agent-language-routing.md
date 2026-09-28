@@ -116,7 +116,7 @@ or escaped syntax does not make a path reachable.
 repository results for the acceptance model. The separate
 `request-selection-oracle.json` file records each reviewed raw request and its
 expected observable route. `language-query-oracle.json` independently records
-the expected normalized query for language scenarios. Run
+the accepted normalized queries for language scenarios. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 the closed operative-contract and result shapes, exact failure dispatch,

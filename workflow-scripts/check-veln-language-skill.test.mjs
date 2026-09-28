@@ -719,7 +719,7 @@ test("rejects a self-consistent fixture query that differs from the reviewed sem
   const turn = scenario(document, "language-query-normalization").turns[0];
   turn.expected.search_arguments.query = "contracts";
   turn.events[0].arguments.query = "contracts";
-  assert.throws(() => validateScenarioDocument(document, options), /fixture expectation does not follow the request/);
+  assert.throws(() => validateScenarioDocument(document, options), /fixture expectation does not follow the reviewed semantic query/);
 });
 
 test("rejects a non-first topic from a multi-result language search", () => {

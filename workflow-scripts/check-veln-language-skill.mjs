@@ -568,14 +568,19 @@ function loadLanguageQueryOracle() {
   );
   const texts = new Set();
   for (const record of document.records) {
-    assertExactKeys(record, ["text", "query"], "language-query oracle record");
+    assertExactKeys(record, ["text", "queries"], "language-query oracle record");
     assert.equal(typeof record.text, "string", "language-query oracle text must be a string");
     assert.ok(record.text.length <= fixtureLimits.requestCharacters, "language-query oracle text exceeds the limit");
     assert.equal(texts.has(record.text), false, "duplicate language-query oracle text");
     texts.add(record.text);
-    assert.ok(record.query === null || typeof record.query === "string", "language-query oracle query must be a string or null");
+    assert.ok(record.queries === null || Array.isArray(record.queries), "language-query oracle queries must be an array or null");
+    if (Array.isArray(record.queries)) {
+      assert.ok(record.queries.length > 0, "language-query oracle queries must not be empty");
+      assert.ok(record.queries.every((query) => typeof query === "string"), "language-query oracle queries must be strings");
+      assert.equal(new Set(record.queries).size, record.queries.length, "language-query oracle queries must be unique");
+    }
   }
-  return new Map(document.records.map((record) => [record.text, record.query]));
+  return new Map(document.records.map((record) => [record.text, record.queries]));
 }
 
 function parseSkillContract(skillText) {
@@ -772,17 +777,17 @@ function expectedSelection(text, route, contract, context, languageQueryOracle) 
   const lower = text.toLocaleLowerCase("en-US");
   if (route === "language") {
     assert.ok(languageQueryOracle?.has(text), `${context}: request has no independent language-query annotation`);
-    const query = languageQueryOracle.get(text);
-    if (query === null) return { queryUnbounded: true };
-    assert.equal(trimUnicodeWhitespace(query), query, `${context}: query must not have surrounding Unicode whitespace`);
-    assert.ok([...query].length > 0, `${context}: query must not be empty`);
-    assert.ok(
-      [...query].length <= contract.language.query_derivation.maximum_query_scalars,
-      `${context}: query exceeds the skill bound`,
-    );
-    return {
-      searchArguments: { query, scope: "language" },
-    };
+    const queries = languageQueryOracle.get(text);
+    if (queries === null) return { queryUnbounded: true };
+    for (const query of queries) {
+      assert.equal(trimUnicodeWhitespace(query), query, `${context}: query must not have surrounding Unicode whitespace`);
+      assert.ok([...query].length > 0, `${context}: query must not be empty`);
+      assert.ok(
+        [...query].length <= contract.language.query_derivation.maximum_query_scalars,
+        `${context}: query exceeds the skill bound`,
+      );
+    }
+    return { searchQueries: queries };
   }
 
   const explicitPath = text.match(/(?:^|\s)(docs\/[a-z0-9._/-]+\.md)(?=$|[\s.,;:!?])/i)?.[1];
@@ -1158,10 +1163,14 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   validateSchema(events[0]?.arguments, schemas.searchInput, schemas.searchInput, `${context}: search_docs input`);
   assert.equal(events[0]?.arguments?.scope, contract.language.search_scope, `${context}: search scope must be language`);
   assertExactKeys(turn.expected, ["search_arguments", "answer_claims"], `${context}: language expectation`);
-  assert.deepEqual(turn.expected.search_arguments, selection.searchArguments, `${context}: fixture expectation does not follow the request`);
+  assert.equal(turn.expected.search_arguments.scope, "language", `${context}: fixture expectation must use language scope`);
+  assert.ok(
+    selection.searchQueries.includes(turn.expected.search_arguments.query),
+    `${context}: fixture expectation does not follow the reviewed semantic query`,
+  );
   assert.deepEqual(
     events[0]?.arguments,
-    selection.searchArguments,
+    turn.expected.search_arguments,
     `${context}: search request must match request-selected evidence`,
   );
   assert.equal(events[1]?.type, "result", `${context}: search result must follow search call`);
