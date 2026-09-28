@@ -382,8 +382,51 @@ the variants selected by preceding valid constructor arms. A constructor arm
 uses its singleton intersection with that remaining set. A catch-all arm uses
 the complete remaining set. A binding catch-all becomes a transparent alias
 with that refinement. A catch-all that binds no name still refines every
-existing transparent alias for its arm expression. An invalid constructor arm
-does not remove a variant from the remaining set.
+existing transparent alias for its arm expression.
+
+Arm classification follows this precedence:
+
+1. Validate constructor casing, resolution, visibility, owning ADT, generic
+   arguments, and payload shape.
+2. If a valid constructor belongs to the scrutinee ADT but its variant is not
+   in the scrutinee's original finite domain, report
+   `type.match_impossible_variant`.
+3. If a valid constructor or catch-all intersects the original domain but no
+   variants remain for it after preceding valid arms, report
+   `type.match_redundant_arm`.
+4. Otherwise, type the arm with its intersection and remove that intersection
+   from the remaining set.
+
+An invalid-cased, unresolved, hidden, private, wrong-ADT, wrong-generic, or
+malformed constructor arm reports its intrinsic name, visibility, type, arity,
+or pattern diagnostic. It does not also report an impossible or redundant-arm
+diagnostic, and it does not remove a variant from the remaining set. An
+unambiguous recovery identity can still type its payload bindings and body to
+avoid derivative unknown-type errors, but recovery does not make the arm valid
+or contribute exhaustiveness coverage.
+
+An impossible or redundant arm still receives binding and body checking. A
+valid constructor pattern gives its payload bindings the constructor's
+substituted payload types. A redundant constructor arm refines stable aliases
+to that constructor when it belongs to the original scrutinee domain. An
+impossible constructor cannot refine the scrutinee or its aliases because its
+intersection with the original domain is empty. A redundant binding catch-all
+with no remaining variants uses the original scrutinee type for recovery
+because the language has no empty variant union. Return checks and independent
+body diagnostics apply even though the arm cannot execute.
+
+The first valid catch-all consumes the complete remaining set. A later valid
+constructor or catch-all is redundant. A repeated valid constructor is
+redundant after its first covering arm. Impossible and redundant arms do not
+change the remaining set.
+
+The redundant-arm reason is deterministic. Use `preceding_catch_all` when a
+valid catch-all precedes the arm. Without a preceding catch-all, use
+`duplicate_variant` for a constructor whose variant was already covered. Use
+`complete_prior_coverage` for a catch-all reached after constructor arms have
+covered the complete original domain. Related context selects the preceding
+catch-all, the first arm that covered the duplicate variant, or the arms that
+completed the domain, respectively.
 
 The residual refinement and transparent aliases make a catch-all usable as a
 state transition without repeating every remaining constructor:
@@ -423,6 +466,7 @@ repair guidance belong in `related` notes rather than the primary message.
 | `type.variant_union_base` | A union alternative resolves to a different ADT identity or generic arguments. | `expected_base_type`, `actual_base_type` | The first alternative that established the required union base. |
 | `type.variant_mismatch` | A value's possible variant set is not a subset of the required set. | `actual_type`, `expected_type`, `expected_variants` in ADT declaration order | The refined parameter, return, field, or local annotation. |
 | `type.match_impossible_variant` | A match arm names a variant excluded by the refined scrutinee. | `scrutinee_type`, `arm_variant` | The refinement source and selected ADT declaration. |
+| `type.match_redundant_arm` | A valid arm has no variant left after preceding valid coverage. | `scrutinee_type`, `arm_pattern`, nullable `arm_variant`, `reason` as `duplicate_variant`, `preceding_catch_all`, or `complete_prior_coverage` | The preceding arm or arms that consumed the applicable variants. |
 
 Parser failures that cannot form a base type, `::`, and final constructor name
 remain syntax diagnostics. Once that structure exists, semantic failures use
@@ -536,12 +580,6 @@ The following decisions remain open. Each one changes observable typing,
 diagnostics, serialization, or language-service results and must be resolved
 before its affected acceptance row can pass:
 
-- **Impossible and redundant arms:** How does
-  `type.match_impossible_variant` interact with a preceding catch-all,
-  duplicate `V` arms, a hidden or private `W`, invalid constructor casing, and
-  an independently wrong ADT constructor? The diagnostic precedence and
-  whether such arms still contribute bindings and body diagnostics remain to
-  be selected.
 - **Refined `Result` propagation:** What does postfix `?` do when its operand
   is `Result<T, E>::Ok` or `Result<T, E>::Err`? The decision must state whether
   the operator preserves existing propagation semantics, simplifies based on
@@ -575,8 +613,8 @@ described as current behavior:
 | Resolution, aliases, and visibility | Source, built-in, generic, qualified, imported, private, opaque, ambiguous, and exact-companion bases follow the stated identity and visibility rules. Aliases of one target are mutually assignable, written annotations retain their spelling, unannotated and conflicting-provenance inference uses the canonical target spelling, mismatch sides select their spelling independently, and base and variant navigation select the alias and target constructor respectively. | Table-driven semantic, display, package-signature, and shared navigation cases with exact diagnostics, spans, identities, and rendered types. |
 | Construction, joins, aggregate retention, and widening | Expected base, singleton, union, and aggregate types select the owning ADT and supply generic arguments for unqualified constructors; nullary generic constructors use that context; a written different variant remains different; same-spelled constructors from other ADTs do not create ambiguity or provide a fallback; constructors and unannotated aggregate positions retain exact refinements; multiple contributions to one aggregate position use a source-order-independent variant union; field access, payload patterns, and collection element positions observe the retained type; and expected component types widen during aggregate construction without a later nested assignment. | Table-driven type-checker cases for each contextual constructor outcome, direct and aggregate join, unannotated record, vector, dictionary, and generic ADT retention, explicit aggregate widening, projection, and rejected post-construction nested widening, plus executable `check` examples and backend execution and representation cases. |
 | Calls, returns, and function values | Every singleton, union, and base assignability-table row succeeds or fails as specified. Nested refinement differences in named types, records, ADT payloads, and fixed, variadic, or nested function types remain incompatible. Existing function shapes and effects remain compatible only when their refinement-bearing positions are identical. Every successfully typed return-producing expression satisfies the declared result refinement even under a constant condition or other statically dead control flow. An expression that has no type because of an earlier error produces no derivative variant mismatch. | Table-driven type-checker cases, including nested aggregate and callable boundaries, constant-condition cases, and prior-error cases, plus executable `check` examples. |
-| Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, complete union arms are exhaustive, excluded arms fail, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, qualified immutable values, and computed-expression boundaries, plus state-machine `check` examples. |
-| Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. | Human and JSON command fixtures. |
+| Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, and complete union arms are exhaustive. A valid variant outside the original domain is impossible; a valid constructor or catch-all with no remaining variants is redundant. Invalid arm heads take diagnostic precedence, contribute no coverage, and can use only unambiguous recovery for binding and body checking. Impossible and redundant arms still receive independent body and return checks, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, duplicate variants, complete prior coverage, invalid casing, hidden and private constructors, wrong-ADT constructors, qualified immutable values, recovered binding and body types, return mismatches, and computed-expression boundaries, plus state-machine `check` examples. |
+| Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Impossible and redundant-arm cases use separate codes, while intrinsic casing, resolution, visibility, ADT, generic, arity, and pattern failures suppress derivative arm-classification diagnostics. | Human and JSON command fixtures covering every diagnostic row and each arm-precedence overlap. |
 | Commands | Check, run, test, doc, format, and their machine-readable modes share analysis and preserve their execution or recovery boundaries. | Command harness cases with accepted, rejected, and recovered sources. |
 | Runtime erasure | Singleton-refined, union-refined, and widened values preserve constructor tag, payload, matching, equality, schema, and backend behavior without a refinement check. | JVM execution, encode/decode, and regression cases. |
 | LSP | Tokens, formatting, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
