@@ -330,15 +330,17 @@ The following assignability table is normative for the planned feature:
 | `fn(P) -> A<T>::V` | `fn(P) -> A<T>` | Reject because refinement widening does not recurse into a function result. |
 
 A call to a refined parameter requires the argument's static variant set to be
-a subset of the parameter's set. A refined result checks every return-producing
-expression that semantic analysis successfully types against the declared
-variant set. Control-flow reachability, including a constant condition or an
-arm excluded by a refined match domain, does not waive this check. An excluded
-arm remains invalid under the pattern-refinement rules. If an earlier error
-prevents a return-producing expression from receiving a type, the checker does
-not emit a derivative `type.variant_mismatch` for that expression. Contracts
-and runtime assertions do not convert a base ADT into a refinement. Effects
-remain orthogonal to variant assignability.
+a subset of the parameter's set. A refined function result checks the final
+expression of every successfully typed function body against the declared
+variant set. When that final expression is an `if` or `match`, every branch or
+arm expression must satisfy the same expected result type. Control-flow
+reachability, including a constant condition or an arm excluded by a refined
+match domain, does not waive this check. An excluded arm remains invalid under
+the pattern-refinement rules. If an earlier error prevents a final, branch, or
+arm expression from receiving a type, the checker does not emit a derivative
+`type.variant_mismatch` for that expression. Contracts and runtime assertions
+do not convert a base ADT into a refinement. Effects remain orthogonal to
+variant assignability.
 
 ### Refined Result Propagation
 
@@ -362,7 +364,7 @@ A statically known `Err` operand is a guaranteed early return. This fact does
 not produce an error or warning as part of variant refinement. The operator's
 success type remains `T` for checking its surrounding expression, and source
 after the guaranteed return still receives ordinary name, type, effect, and
-return checking. Existing unreachable-code diagnostics, if any, remain
+declared-result checking. Existing unreachable-code diagnostics, if any, remain
 independent of refinement propagation.
 
 ### Pattern Refinement
@@ -437,8 +439,11 @@ to that constructor when it belongs to the original scrutinee domain. An
 impossible constructor cannot refine the scrutinee or its aliases because its
 intersection with the original domain is empty. A redundant binding catch-all
 with no remaining variants uses the original scrutinee type for recovery
-because the language has no empty variant union. Return checks and independent
-body diagnostics apply even though the arm cannot execute.
+because the language has no empty variant union. Inherited expected-type checks
+and independent body diagnostics apply even though the arm cannot execute. The
+arm inherits the declared result as its expected type when the complete `match`
+is the final expression of a function. Veln does not add an explicit `return`
+statement to an arm.
 
 The first valid catch-all consumes the complete remaining set. A later valid
 constructor or catch-all is redundant. A repeated valid constructor is
@@ -633,8 +638,8 @@ described as current behavior:
 | Grammar and formatting | Singleton and union refinement forms parse in every type position, only variants of one instantiated ADT compose a union, malformed separators and final segments fail at the responsible token, and format is idempotent. | Executable source grammar, accepted and rejected fixtures, parser cases, AST wire round trips, and formatter cases. |
 | Resolution, aliases, and visibility | Source, built-in, generic, qualified, imported, private, opaque, ambiguous, and exact-companion bases follow the stated identity and visibility rules. Aliases of one target are mutually assignable, written annotations retain their spelling, unannotated and conflicting-provenance inference uses the canonical target spelling, mismatch sides select their spelling independently, and base and variant navigation select the alias and target constructor respectively. | Table-driven semantic, display, package-signature, and shared navigation cases with exact diagnostics, spans, identities, and rendered types. |
 | Construction, joins, aggregate retention, and widening | Expected base, singleton, union, and aggregate types select the owning ADT and supply generic arguments for unqualified constructors; nullary generic constructors use that context; a written different variant remains different; same-spelled constructors from other ADTs do not create ambiguity or provide a fallback; constructors and unannotated aggregate positions retain exact refinements; multiple contributions to one aggregate position use a source-order-independent variant union; field access, payload patterns, and collection element positions observe the retained type; and expected component types widen during aggregate construction without a later nested assignment. | Table-driven type-checker cases for each contextual constructor outcome, direct and aggregate join, unannotated record, vector, dictionary, and generic ADT retention, explicit aggregate widening, projection, and rejected post-construction nested widening, plus executable `check` examples and backend execution and representation cases. |
-| Calls, returns, function values, and result propagation | Every singleton, union, and base assignability-table row succeeds or fails as specified. Nested refinement differences in named types, records, ADT payloads, and fixed, variadic, or nested function types remain incompatible. Existing function shapes and effects remain compatible only when their refinement-bearing positions are identical. Every successfully typed return-producing expression satisfies the declared result refinement even under a constant condition or other statically dead control flow. An expression that has no type because of an earlier error produces no derivative variant mismatch. Postfix `?` on a known `Ok` produces its exact success type but still requires the ordinary propagation context and error compatibility. Postfix `?` on a known `Err` follows the ordinary error path without a refinement-specific diagnostic, and later source remains checked. | Table-driven type-checker cases, including nested aggregate and callable boundaries, constant-condition cases, prior-error cases, compatible and incompatible known-`Ok` propagation, refined success payloads, known-`Err` early return, and independent failures after that return, plus executable `check` examples. |
-| Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, and complete union arms are exhaustive. A valid variant outside the original domain is impossible; a valid constructor or catch-all with no remaining variants is redundant. Invalid arm heads take diagnostic precedence, contribute no coverage, and can use only unambiguous recovery for binding and body checking. Impossible and redundant arms still receive independent body and return checks, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, duplicate variants, complete prior coverage, invalid casing, hidden and private constructors, wrong-ADT constructors, qualified immutable values, recovered binding and body types, return mismatches, and computed-expression boundaries, plus state-machine `check` examples. |
+| Calls, results, function values, and result propagation | Every singleton, union, and base assignability-table row succeeds or fails as specified. Nested refinement differences in named types, records, ADT payloads, and fixed, variadic, or nested function types remain incompatible. Existing function shapes and effects remain compatible only when their refinement-bearing positions are identical. Every successfully typed final function expression satisfies the declared result refinement. When the final expression is an `if` or `match`, every branch or arm expression satisfies that refinement even under a constant condition or other statically dead control flow. An expression that has no type because of an earlier error produces no derivative variant mismatch. Postfix `?` on a known `Ok` produces its exact success type but still requires the ordinary propagation context and error compatibility. Postfix `?` on a known `Err` follows the ordinary error path without a refinement-specific diagnostic, and later source remains checked. | Table-driven type-checker cases, including nested aggregate and callable boundaries, final `if` and `match` expressions, constant-condition cases, prior-error cases, compatible and incompatible known-`Ok` propagation, refined success payloads, known-`Err` early return, and independent failures after that return, plus executable `check` examples. |
+| Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, and complete union arms are exhaustive. A valid variant outside the original domain is impossible; a valid constructor or catch-all with no remaining variants is redundant. Invalid arm heads take diagnostic precedence, contribute no coverage, and can use only unambiguous recovery for binding and body checking. Impossible and redundant arms still receive independent body checks and any expected-type check inherited from the enclosing expression, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, duplicate variants, complete prior coverage, invalid casing, hidden and private constructors, wrong-ADT constructors, qualified immutable values, recovered binding and body types, declared-result mismatches in final `match` expressions, and computed-expression boundaries, plus state-machine `check` examples. |
 | Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Impossible and redundant-arm cases use separate codes, while intrinsic casing, resolution, visibility, ADT, generic, arity, and pattern failures suppress derivative arm-classification diagnostics. | Human and JSON command fixtures covering every diagnostic row and each arm-precedence overlap. |
 | Commands | Check, run, test, doc, format, and their machine-readable modes share analysis and preserve their execution or recovery boundaries. | Command harness cases with accepted, rejected, and recovered sources. |
 | Runtime erasure | Singleton-refined, union-refined, and widened values preserve constructor tag, payload, matching, equality, schema, and backend behavior without a refinement check. | JVM execution, encode/decode, and regression cases. |
