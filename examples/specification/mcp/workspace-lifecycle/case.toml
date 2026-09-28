@@ -16,7 +16,7 @@ equals = {"code":-32602,"message":"Server not initialized"}
 [[mcp_assert]]
 id = 2
 path = "/result/tools"
-length = 8
+length = 9
 
 [[mcp_assert]]
 id = 3

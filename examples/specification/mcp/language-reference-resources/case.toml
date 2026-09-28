@@ -10,6 +10,7 @@ contains = [
   "\"name\":\"bytes.veln\"",
   "\"title\":\"Veln standard library source: prelude.veln\"",
   "# Veln Language Reference",
+  "\"name\":\"list_language_topics\"",
   "\"name\":\"search_docs\"",
   "\"name\":\"read_doc\"",
   "\"scope\":\"language\"",
@@ -122,7 +123,7 @@ missing = true
 [[mcp_assert]]
 id = 8
 path = "/result/tools"
-length = 8
+length = 9
 
 [[mcp_assert]]
 id = 8
@@ -157,26 +158,41 @@ equals = false
 [[mcp_assert]]
 id = 8
 path = "/result/tools/6/name"
-equals = "search_docs"
+equals = "list_language_topics"
 
 [[mcp_assert]]
 id = 8
-path = "/result/tools/6/inputSchema/properties/query/maxLength"
-equals = 256
+path = "/result/tools/6/inputSchema/additionalProperties"
+equals = false
 
 [[mcp_assert]]
 id = 8
-path = "/result/tools/6/inputSchema/properties/limit/maximum"
-equals = 50
+path = "/result/tools/6/outputSchema/properties/topics/items/required"
+equals = ["uri","title","summary"]
 
 [[mcp_assert]]
 id = 8
 path = "/result/tools/7/name"
+equals = "search_docs"
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/7/inputSchema/properties/query/maxLength"
+equals = 256
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/7/inputSchema/properties/limit/maximum"
+equals = 50
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/8/name"
 equals = "read_doc"
 
 [[mcp_assert]]
 id = 8
-path = "/result/tools/7/outputSchema/$defs/failure/properties/code/const"
+path = "/result/tools/8/outputSchema/$defs/failure/properties/code/const"
 equals = "resource_not_found"
 
 [[mcp_assert]]
@@ -503,3 +519,23 @@ equals = "resource_not_found"
 id = 25
 path = "/result"
 missing = true
+
+[[mcp_assert]]
+id = 26
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 26
+path = "/result/structuredContent/topics"
+length = 10
+
+[[mcp_assert]]
+id = 26
+path = "/result/structuredContent/topics/0"
+equals = {"uri":"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/contracts","title":"Contracts","summary":"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations."}
+
+[[mcp_assert]]
+id = 26
+path = "/result/structuredContent/topics/9/uri"
+equals = "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/types-inference-constructors"
