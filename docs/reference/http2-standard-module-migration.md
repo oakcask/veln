@@ -1,6 +1,10 @@
-# HTTP/2 Standard Module Migration
+---
+role: reference
+authority: supporting
+update-when: The HTTP/2 standard-module public symbol surface or residual legacy-name classification changes.
+---
 
-Status: implemented
+# HTTP/2 Standard Module Migration
 
 This record classifies the public symbol move from the implicit prelude to
 explicit standard modules.
