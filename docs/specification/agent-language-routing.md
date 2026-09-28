@@ -22,31 +22,22 @@ repository documentation tree.
 ## Routing and provenance
 
 For a language question, the skill first calls `search_docs` with
-`scope: "language"`. The query is selected from a closed subject table in the
-skill. Each table entry maps whole-word or whole-phrase mentions to one
-canonical query. Matching is ASCII-case-insensitive. The earliest mention in
-the request wins; a longer mention wins a same-position tie, followed by the
-query in UTF-8 byte order. If no table entry matches and the request contains
-the standalone word `Veln`, the first later ASCII word that is not one of
-`a`, `an`, `are`, `did`, `do`, `does`, `has`, `have`, `is`, `the`, `was`, or
-`were` becomes the query. If neither rule selects a subject, the request text
-is trimmed with the same Unicode whitespace rule as `search_docs`. The result
-is the query when it contains from 1 through 256 Unicode scalar values. An
-empty or longer fallback request stops without a tool call because no bounded
-query can be derived. If a topic matches, the skill calls `read_doc` with the exact
-snapshot topic URI from the first search result. This makes selection
-deterministic when search returns multiple topics. The answer can contain only
-claims from that resource and reports that exact URI as its source.
+`scope: "language"`. The agent derives one broad English topic term that names
+the main Veln language concept in the request. It translates a non-English
+request. It uses multiple words only for an established compound concept such
+as `borrow checker`. It omits `Veln`, question framing, requested answer form,
+operations or details being asked about, and incidental concepts. The complete
+request is not a query unless the request already consists only of the topic
+term. This prevents question grammar and narrow details from becoming
+mandatory search tokens.
 
-| Whole-word or whole-phrase mentions | Query |
-| --- | --- |
-| `schema`, `schemas` | `schemas` |
-| `contract`, `contracts` | `contracts` |
-| `effect`, `effects` | `effects` |
-| `module`, `modules` | `modules` |
-| `function`, `functions` | `functions` |
-| `handler`, `handlers` | `handlers` |
-| `borrow checker` | `borrow checker` |
+The derived query contains at most 64 Unicode scalar values. If the agent
+cannot identify one main language concept, or if the derived query is empty or
+too long, it stops without a tool call and reports that no bounded query can be
+derived. If a topic matches, the skill calls `read_doc` with the exact snapshot
+topic URI from the first search result. This makes selection deterministic
+when search returns multiple topics. The answer can contain only claims from
+that resource and reports that exact URI as its source.
 
 For repository inspection, changes, and proposal selection, the skill starts
 at `docs/README.md`. It follows the smallest linked repository documentation
@@ -124,18 +115,19 @@ or escaped syntax does not make a path reachable.
 `workflow-scripts/fixtures/veln-language/scenarios.json` records the tool and
 repository results for the acceptance model. The separate
 `request-selection-oracle.json` file records each reviewed raw request and its
-expected observable route. Run
+expected observable route. `language-query-oracle.json` independently records
+the accepted normalized queries for language scenarios. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 the closed operative-contract and result shapes, exact failure dispatch,
 provenance, bounded failures, preserved results, routing, and input limits. The
-reviewed oracle is independent of the replay's action-and-subject labels. The
-harness checks that every replayed raw request matches the oracle route and
-that the replay labels select that route through the skill's closed decision
-table. The corpus includes contrastive paraphrases, synonymous requested
-actions, and incidental uses of action and repository terms. This is reviewed
-finite evidence for the semantic instruction, not an executable general
-natural-language classifier.
+reviewed routing oracle is independent of the replay's action-and-subject
+labels. The harness checks that every replayed raw request matches the oracle
+route and that the replay labels select that route through the skill's closed
+decision table. The query oracle checks representative English, non-English,
+absent-topic, and non-derivable requests. Both corpora are
+reviewed finite evidence for semantic instructions, not executable general
+natural-language classifiers.
 
 The harness rejects oversized or excessive-work skill, schema, documentation,
 catalog, snapshot, and fixture inputs with a bounded failure. Stress checks use

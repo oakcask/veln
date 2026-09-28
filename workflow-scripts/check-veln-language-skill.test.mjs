@@ -19,7 +19,6 @@ import { Worker } from "node:worker_threads";
 import {
   classifyReadFailure,
   currentRepositoryAuthority,
-  deriveLanguageQuery,
   expectedPublishedSearch,
   expectedSnapshotRead,
   linkedDocumentationPaths,
@@ -137,65 +136,9 @@ test("canonical veln-language skill replays every acceptance scenario", () => {
   assert.equal(validateScenarioDocument(fixture()), 17);
 });
 
-test("bounds unmatched language queries by Unicode scalar count", () => {
-  const contract = {
-    language: {
-      query_derivation: {
-        entries: [],
-      },
-    },
-  };
-  const accepted = "😀".repeat(256);
-  const rejected = "😀".repeat(257);
-  assert.equal(accepted.length, 512);
-  assert.deepEqual(deriveLanguageQuery(accepted, contract, "256-scalar query"), { query: accepted });
-  assert.deepEqual(deriveLanguageQuery(rejected, contract, "257-scalar query"), { unbounded: true });
-});
-
-test("uses the MCP Unicode whitespace rule for unmatched request text", () => {
-  const contract = {
-    language: {
-      query_derivation: {
-        entries: [],
-      },
-    },
-  };
-  assert.deepEqual(deriveLanguageQuery(" \t\n\u0085", contract, "empty trimmed query"), { unbounded: true });
-  assert.deepEqual(deriveLanguageQuery("\uFEFF", contract, "non-whitespace query"), { query: "\uFEFF" });
-});
-
-test("uses ASCII-only case folding and ASCII word boundaries for query mentions", () => {
-  const contract = {
-    language: {
-      query_derivation: {
-        entries: [{ mentions: ["schema", "schemas"], query: "schemas" }],
-      },
-    },
-  };
-  assert.deepEqual(deriveLanguageQuery("SCHEMA", contract, "ASCII uppercase mention"), { query: "schemas" });
-  assert.deepEqual(deriveLanguageQuery("Kschema", contract, "non-ASCII word boundary"), { query: "schemas" });
-  assert.deepEqual(deriveLanguageQuery("kschema", contract, "ASCII word boundary"), { query: "kschema" });
-});
-
-test("derives topic-bearing queries for ordinary questions and possessives", () => {
-  const contract = {
-    language: {
-      query_derivation: {
-        entries: [
-          { mentions: ["function", "functions"], query: "functions" },
-          { mentions: ["handler", "handlers"], query: "handlers" },
-        ],
-        after_veln: {
-          ignored_words: ["a", "an", "are", "did", "do", "does", "has", "have", "is", "the", "was", "were"],
-        },
-      },
-    },
-  };
-  assert.deepEqual(deriveLanguageQuery("In Veln, how do functions work?", contract, "functions query"), { query: "functions" });
-  assert.deepEqual(deriveLanguageQuery("How does Veln’s handler work?", contract, "handler query"), { query: "handlers" });
-
+test("the reviewed semantic queries reach published topics", () => {
   const published = loadPublishedLanguageReference(repositoryRoot);
-  for (const query of ["functions", "handlers"]) {
+  for (const query of ["schemas", "effects", "modules"]) {
     assert.ok(
       expectedPublishedSearch({ query, scope: "language" }, published).results.length > 0,
       `${query} must reach a published topic`,
@@ -459,16 +402,6 @@ test("normalizes the largest accepted internal whitespace run with linear scalin
     repetitions: 12,
   });
   assert.deepEqual(result.lengths, [65_538, 131_074, 262_146]);
-  assert.ok(result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 2, result.milliseconds);
-  assert.ok(result.milliseconds[2] <= result.milliseconds[1] * 3.5 + 2, result.milliseconds);
-});
-
-test("derives repeated recognized queries with adjacent-size linear scaling", async () => {
-  const result = await runStressTarget("recognized-query-scaling", {
-    sizes: [16_384, 32_768, 65_536],
-    repetitions: 20,
-  });
-  assert.deepEqual(result.queries, ["schemas", "schemas", "schemas"]);
   assert.ok(result.milliseconds[1] <= result.milliseconds[0] * 3.5 + 2, result.milliseconds);
   assert.ok(result.milliseconds[2] <= result.milliseconds[1] * 3.5 + 2, result.milliseconds);
 });
@@ -772,19 +705,21 @@ test("rejects a search query unrelated to the scenario expectation", () => {
   assert.throws(() => validateScenarioDocument(document, options), /search request must match request-selected evidence/);
 });
 
-test("accepts a deterministic selection for a multi-topic language question", () => {
+test("normalizes a non-English request instead of forwarding it verbatim", () => {
   const document = fixture();
-  matchingTurn(document).request.text = "How do Veln schemas and contracts interact?";
-  assert.match(matchingTurn(document).request.text, /\bschemas\b.*\bcontracts\b/u);
+  const turn = scenario(document, "language-query-normalization").turns[0];
+  assert.equal(turn.request.text, "Veln のスキーマはどのように値をエンコードしますか？");
+  assert.equal(turn.events[0].arguments.query, "schemas");
+  assert.notEqual(turn.events[0].arguments.query, turn.request.text);
   assert.equal(validateScenarioDocument(document, options), 17);
 });
 
-test("rejects a self-consistent fixture query that differs from skill derivation", () => {
+test("rejects a self-consistent fixture query that differs from the reviewed semantic query", () => {
   const document = fixture();
-  const turn = scenario(document, "language-query-selection").turns[0];
+  const turn = scenario(document, "language-query-normalization").turns[0];
   turn.expected.search_arguments.query = "contracts";
   turn.events[0].arguments.query = "contracts";
-  assert.throws(() => validateScenarioDocument(document, options), /fixture expectation does not follow the request/);
+  assert.throws(() => validateScenarioDocument(document, options), /fixture expectation does not follow the reviewed semantic query/);
 });
 
 test("rejects a non-first topic from a multi-result language search", () => {

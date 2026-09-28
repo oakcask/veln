@@ -407,8 +407,8 @@
       "route": "language"
     },
     {
-      "id": "schemas-contracts-information",
-      "text": "How do Veln schemas and contracts interact?",
+      "id": "schemas-japanese-information",
+      "text": "Veln のスキーマはどのように値をエンコードしますか？",
       "route": "language"
     },
     {
