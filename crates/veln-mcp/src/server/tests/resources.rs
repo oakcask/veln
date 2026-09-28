@@ -307,7 +307,7 @@ fn rejected_standard_library_resource_uris(server: &mut Server) -> Vec<String> {
         std_resource.replace(std_digest, wrong_digest),
         format!("veln-pkg:///other/snapshot/{std_digest}/prelude.veln"),
         format!("veln-pkg:///std/snapshot/{std_digest}/missing.veln"),
-        format!("veln-pkg:///std/snapshot/{std_digest}/prelude_test.veln"),
+        format!("veln-pkg:///std/snapshot/{std_digest}/prelude.test.veln"),
         format!("veln-pkg:/std/snapshot/{std_digest}/prelude.veln"),
         std_resource.replacen("veln-pkg", "VELN-pkg", 1),
         std_resource.replace("prelude.veln", "prelude%2Eveln"),

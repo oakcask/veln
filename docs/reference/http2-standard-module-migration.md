@@ -1,6 +1,10 @@
-# HTTP/2 Standard Module Migration
+---
+role: reference
+authority: supporting
+update-when: The HTTP/2 standard-module public symbol surface or residual legacy-name classification changes.
+---
 
-Status: implemented
+# HTTP/2 Standard Module Migration
 
 This record classifies the public symbol move from the implicit prelude to
 explicit standard modules.
@@ -26,7 +30,7 @@ the public facade and cannot be imported from the `std` package.
 ## Prefixed-Integer Fixture Retirement
 
 The adjacent
-[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+[`hpack.test.veln`](../../crates/veln-stdlib/veln/http2/hpack.test.veln)
 coverage replaces the focused fixture's pure indexed-prefix,
 table-size-prefix, literal-length-prefix, unterminated continuation, and three
 encoding assertions. It retains the exact indexed, table-size, and
