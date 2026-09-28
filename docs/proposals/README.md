@@ -16,10 +16,17 @@ also states it.
 
 ## Ready
 
-No proposal is currently ready for implementation.
+- ADT variant refinement types for state-transition signatures, including
+  syntax, typing, diagnostics, runtime erasure, LSP, MCP, and package
+  documentation:
+  [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked
 
+- Generic named-type and function variance remains separate from ADT variant
+  refinement and is blocked until its constructor classifications and complete
+  callable composition table are decided:
+  [generic-and-function-variance.md](generic-and-function-variance.md).
 - Explicit import-alias casing is blocked until an owning proposal defines the
   syntax and lookup contract:
   [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
