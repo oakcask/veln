@@ -335,13 +335,15 @@ fn selection_plan(
 
     let graph_project = Project::discover(root, &[]).map_err(|error| error.to_string())?;
     let graph_analysis = analyze_project(graph_project, DoctestMode::Exclude);
-    Ok(dependency_aware_selection_plan(
+    let mut plan = dependency_aware_selection_plan(
         &graph_analysis.project,
         &graph_analysis.module,
         &explicit_roots,
         &source_roots,
         target_expansion.source_to_test_added_count,
-    ))
+    );
+    preserve_standard_package_analysis(root, &mut plan)?;
+    Ok(plan)
 }
 
 mod execution;

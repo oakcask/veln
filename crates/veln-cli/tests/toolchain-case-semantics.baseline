@@ -17824,9 +17824,9 @@ field	expectations.stdout.contains[8]	"\"name\":\"read_doc\""
 field	expectations.stdout.contains[9]	"\"scope\":\"language\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"375c3762dd3049216510ca91b41199eff700eeb25c6f616a2bd18f3405c944ca"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"9882e9031597894a79782e5bbbec9de99e16b1cbad34895a31e427cac8a2958d"}
 field	source_errors	"forbidden"
-case_digest	"f6c8cd9588940c0cbbc0fa80363a669d0e257b34cfcd5ad9fb7a063599ad3de8"
+case_digest	"a8b7f201c1d72dcbc02c5a2780752b2b1b6b3317597b94d968cdc381897f056d"
 case	"examples/specification/mcp/references-dependency-function"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -61865,4 +61865,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"2c141792f977121e1737fff0ee4b63f70c65ea5c8905f1f669eed45bea5311cc"
+aggregate_digest	"8b0214770d8788a14f265db63e789dd0fdb55a6fdffaddb1268dead032cbfc8a"

@@ -86,7 +86,10 @@ pub(super) fn load_toolchain_standard_sources(
         files: project
             .files
             .iter()
-            .filter(|source| source.path().as_str().ends_with("_test.veln"))
+            .filter(|source| {
+                source.path().as_str().ends_with("_test.veln")
+                    || classify_companion_source(source.path().as_str()).is_some()
+            })
             .cloned()
             .collect(),
         manifest: project.manifest.clone(),

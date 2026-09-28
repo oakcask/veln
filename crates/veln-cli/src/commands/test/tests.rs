@@ -26,6 +26,8 @@ use veln_test::{
 mod execution;
 #[path = "tests/scheduling.rs"]
 mod scheduling;
+#[path = "tests/selection.rs"]
+mod selection;
 
 fn assert_stdio_event(case: &TestCase, stream: &str, text: &str) {
     assert!(

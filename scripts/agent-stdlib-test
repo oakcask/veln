@@ -31,7 +31,7 @@ bash ../../../scripts/agent-run \
   -p veln-cli \
   -- test \
   --jobs 1 \
-  http2/connection_test.veln
+  http2/connection.test.veln
 
 printf '%s\n' \
   'connect-production 127.0.0.1:0 production-stream' \

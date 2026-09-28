@@ -26,7 +26,7 @@ the public facade and cannot be imported from the `std` package.
 ## Prefixed-Integer Fixture Retirement
 
 The adjacent
-[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+[`hpack.test.veln`](../../crates/veln-stdlib/veln/http2/hpack.test.veln)
 coverage replaces the focused fixture's pure indexed-prefix,
 table-size-prefix, literal-length-prefix, unterminated continuation, and three
 encoding assertions. It retains the exact indexed, table-size, and

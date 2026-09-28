@@ -64,7 +64,7 @@ fn toolchain_standard_project_is_not_loaded_twice() {
     );
     assert!(
         module.uses.iter().any(|use_decl| {
-            use_decl.module_name.as_deref() == Some("std::http2::core_test")
+            use_decl.module_name.as_deref() == Some("std::http2::core__test_companion")
                 && use_decl.name == "std::http2::core"
         }),
         "uses: {:#?}",
@@ -84,7 +84,7 @@ fn toolchain_standard_project_is_not_loaded_twice() {
 }
 
 #[test]
-fn toolchain_standard_project_allows_extra_companion_source() {
+fn toolchain_standard_project_loads_extra_companion_source() {
     let bundle = veln_stdlib::package_bundle();
     let mut files = bundle
         .files
@@ -126,6 +126,13 @@ fn toolchain_standard_project_allows_extra_companion_source() {
     };
 
     assert!(super::is_toolchain_standard_project(&project));
+    let (module, diagnostics) = load_surface_module(&project);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert!(module.functions.iter().any(|function| {
+        function.module_name.as_deref() == Some("std::prelude__test_companion")
+            && function.name.as_deref() == Some("companion")
+            && function.kind == FunctionKind::Test
+    }));
 }
 
 #[test]
@@ -141,7 +148,7 @@ fn standard_http2_tests_load_with_private_imports() {
     ] {
         assert!(
             module.functions.iter().any(|function| {
-                function.module_name.as_deref() == Some("std::http2::core_test")
+                function.module_name.as_deref() == Some("std::http2::core__test_companion")
                     && function.name.as_deref() == Some(entry)
                     && function.kind == FunctionKind::Test
             }),
@@ -177,14 +184,17 @@ fn loaded_toolchain_standard_fixture() -> &'static (SurfaceModule, Vec<Diagnosti
     static FIXTURE: OnceLock<(SurfaceModule, Vec<Diagnostic>, usize, usize)> = OnceLock::new();
     FIXTURE.get_or_init(|| {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
-        let core_test = fs::read_to_string(root.join("http2/core_test.veln"))
+        let core_test = fs::read_to_string(root.join("http2/core.test.veln"))
             .expect("standard HTTP/2 core test source should load");
         let project =
-            toolchain_standard_project(vec![SourceFile::new("http2/core_test.veln", core_test)]);
+            toolchain_standard_project(vec![SourceFile::new("http2/core.test.veln", core_test)]);
         let expected_runtime_sources = project
             .files
             .iter()
-            .filter(|source| source.path().as_str().ends_with("_test.veln"))
+            .filter(|source| {
+                source.path().as_str().ends_with("_test.veln")
+                    || veln_project::classify_companion_source(source.path().as_str()).is_some()
+            })
             .count();
         let ((module, diagnostics), work) =
             embedded_standard_counters::observe(|| load_surface_module(&project));
