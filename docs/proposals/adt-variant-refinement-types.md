@@ -527,8 +527,8 @@ repair guidance belong in `related` notes rather than the primary message.
 
 | Code | Primary span and failed fact | Stable structured details | Planned related context |
 | --- | --- | --- | --- |
-| `type.variant_refinement_base` | The base prefix does not resolve to one refinable ADT. | `written_type`, `reason` | Ambiguous candidates or the opaque/non-ADT declaration. |
-| `type.variant_refinement_unknown` | The final segment is not a visible variant of the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
+| `type.variant_refinement_base` | A uniquely resolved base type cannot provide a refinable finite ADT. | `written_type`, `reason` | The non-ADT or opaque declaration, or the provider that lacks a public variant descriptor. |
+| `type.variant_refinement_unknown` | The final segment does not name a variant owned by the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
 | `type.variant_refinement_private` | A refinement exposes a private base type or selects an inaccessible variant. | `written_type`, `base_type`, `variant`, `boundary`, `exposure_path` | The alias declarations on the exposure path, the final private declaration, and the public-signature boundary. |
 | `type.variant_union_base` | A union alternative resolves to a different ADT identity or generic arguments. | `expected_base_type`, `actual_base_type` | The first alternative that established the required union base. |
 | `type.variant_mismatch` | A value's possible variant set is not a subset of the required set. | `actual_type`, `expected_type`, `expected_variants` in ADT declaration order | The refined parameter, return, field, or local annotation. |
@@ -542,6 +542,61 @@ the table above. Existing generic arity, name ambiguity, duplicate, and
 invalid-casing diagnostics remain independently reportable. Diagnostic order
 must be deterministic, and failure must not publish a partially typed
 declaration.
+
+### Diagnostic Overlap And Recovery
+
+`type.variant_refinement_base.details.reason` has exactly these values:
+
+| Reason | Failed fact |
+| --- | --- |
+| `not_adt` | The uniquely resolved base denotes a named type that has no finite ADT variants. |
+| `opaque` | The uniquely resolved declaration intentionally hides its variant identities at the annotation site. |
+| `variant_descriptor_unavailable` | The ADT identity is known, but its selected compiler or package provider supplies no public finite variant descriptor. |
+
+Known opacity takes precedence over an unavailable descriptor. Unresolved,
+ambiguous, private, wrong-kind, invalid-cased, and wrong-arity bases use their
+existing diagnostics instead of adding `type.variant_refinement_base`.
+
+The checker reports every failure that it can prove from identities available
+without assuming that an earlier failed step succeeded. It suppresses a
+diagnostic when that diagnostic follows only from a missing or invalid result
+of an earlier step. The following table defines the observable overlap and
+identity contract. A retained identity is available to shared source
+navigation even though the annotation remains invalid.
+
+| Condition | Emitted diagnostics | Suppressed diagnostics | Retained identity |
+| --- | --- | --- | --- |
+| The refinement syntax is incomplete. | The responsible syntax diagnostic. | All semantic refinement diagnostics for that type occurrence. | None from the incomplete refinement. |
+| The base is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
+| The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
+| The base resolves uniquely but is not refinable. | `type.variant_refinement_base` with one closed reason above. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base declaration only. |
+| Generic arity is invalid after the base ADT resolves. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or visibility diagnostic. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The base declaration and, when resolved, the constructor declaration; no instantiated refinement type. |
+| The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
+| A base or final segment has invalid casing and one existing recovery identity. | `name.invalid_case`, plus independent arity, base-eligibility, or visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | Every uniquely recovered base and constructor declaration. |
+| An invalid-cased segment has no unique recovery and is independently missing, ambiguous, private, or wrong-kind. | `name.invalid_case` when the segment role is known, plus the applicable existing lookup or visibility diagnostic. | Downstream failures that require a selected identity. | Only identities selected independently of the failed segment. |
+| The base or selected constructor is inaccessible. | `type.variant_refinement_private` for each exposure path defined above, plus independent casing or arity failures. | Publication and assignability diagnostics that require a valid public type. | Every uniquely resolved alias, base, and constructor declaration for source navigation. |
+| Two successfully instantiated alternatives have different base identities or generic arguments. | `type.variant_union_base`. | Assignability diagnostics that require the rejected union type. | All successfully resolved alternative identities; no union type identity. |
+| A well-formed refinement is not assignable at its use site. | `type.variant_mismatch`. | No earlier diagnostic; this check runs only after the refinement type is complete. | The complete actual and expected type, base, and constructor identities. |
+
+Within one annotation, the checker visits union alternatives in written order.
+It checks each alternative in this order: casing, base resolution, generic
+arity, base eligibility, final-segment resolution, and visibility. The earliest
+successfully instantiated alternative establishes the expected union base;
+each later successfully instantiated alternative is compared with it. An
+incomplete alternative does not prevent an independently complete later pair
+from reporting `type.variant_union_base`.
+
+Published diagnostics are ordered by primary source span. Diagnostics with the
+same primary span use the check order above, followed by union-base and
+assignability diagnostics. A uniquely recovered casing identity lets later
+independent checks run, but recovery never makes the annotation valid.
+
+LSP and MCP use the same retained identities. Definition, references,
+prepare-rename, and rename can select a uniquely resolved or uniquely recovered
+source identity. An invalid public declaration creates no published package
+identity or replacement saved snapshot. A failed stable capture or analysis
+preserves the previous saved snapshot under the existing language-service
+rules.
 
 Machine-readable diagnostics use the existing diagnostic envelope and
 half-open spans. New detail objects are closed schemas. Human and JSON cases
@@ -690,19 +745,6 @@ cursor, admit no dependency resource, and preserve the previous saved state.
 LSP and MCP must obtain navigation from the same transport-independent result;
 coordinate and JSON adapters must not implement separate refinement lookup.
 
-## Open Question
-
-The following decision remains open. It changes observable diagnostics and
-language-service results and must be resolved before its affected acceptance
-row can pass:
-
-- **Diagnostic overlap contract:** The closed values of
-  `type.variant_refinement_base.details.reason` and the deterministic order for
-  simultaneous base-resolution, arity, casing, visibility, and variant errors
-  are not yet specified. The proposal must decide which independent errors are
-  emitted, which derivative errors are suppressed, and which identity remains
-  available to LSP and MCP after each failure.
-
 ## Acceptance Model
 
 The following evidence is required before any part of this proposal is
@@ -716,7 +758,7 @@ described as current behavior:
 | Calls, results, function values, and result propagation | Every singleton, union, and base assignability-table row succeeds or fails as specified. Nested refinement differences in named types, records, ADT payloads, and fixed, variadic, or nested function types remain incompatible. Existing function shapes and effects remain compatible only when their refinement-bearing positions are identical. Every successfully typed final function expression satisfies the declared result refinement. When the final expression is an `if` or `match`, every branch or arm expression satisfies that refinement even under a constant condition or other statically dead control flow. An expression that has no type because of an earlier error produces no derivative variant mismatch. Postfix `?` on a known `Ok` produces its exact success type but still requires the ordinary propagation context and error compatibility. Postfix `?` on a known `Err` follows the ordinary error path without a refinement-specific diagnostic, and later source remains checked. | Table-driven type-checker cases, including nested aggregate and callable boundaries, final `if` and `match` expressions, constant-condition cases, prior-error cases, compatible and incompatible known-`Ok` propagation, refined success payloads, known-`Err` early return, and independent failures after that return, plus executable `check` examples. |
 | Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, and complete union arms are exhaustive. A valid variant outside the original domain is impossible; a valid constructor or catch-all with no remaining variants is redundant. Invalid arm heads take diagnostic precedence, contribute no coverage, and can use only unambiguous recovery for binding and body checking. Impossible and redundant arms still receive independent body checks and any expected-type check inherited from the enclosing expression, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, duplicate variants, complete prior coverage, invalid casing, hidden and private constructors, wrong-ADT constructors, qualified immutable values, recovered binding and body types, declared-result mismatches in final `match` expressions, and computed-expression boundaries, plus state-machine `check` examples. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
-| Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Impossible and redundant-arm cases use separate codes, while intrinsic casing, resolution, visibility, ADT, generic, arity, and pattern failures suppress derivative arm-classification diagnostics. | Human and JSON command fixtures covering every diagnostic row and each arm-precedence overlap. |
+| Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Base-refinement reasons use only the closed values in the diagnostic contract. Independent casing, resolution, arity, base-eligibility, variant, visibility, union-base, and assignability failures compose as specified; derivative failures are suppressed; and each failure retains exactly the specified navigation identities. Impossible and redundant-arm cases use separate codes, while intrinsic casing, resolution, visibility, ADT, generic, arity, and pattern failures suppress derivative arm-classification diagnostics. | Human and JSON command fixtures covering every diagnostic row, base-reason value, refinement-overlap row, identity-retention outcome, and arm-precedence overlap. |
 | Commands | Check, run, test, doc, format, and their machine-readable modes share analysis and preserve their execution or recovery boundaries. | Command harness cases with accepted, rejected, and recovered sources. |
 | Runtime erasure | Singleton-refined, union-refined, and widened values preserve constructor tag, payload, matching, equality, schema, and backend behavior without checks outside the external decode trust boundary. Decode validation inspects the existing tag and does not change the representation or encoded bytes. | JVM execution, encode/decode, representation, unchanged-byte, and no-check-outside-decode regression cases. |
 | LSP | Tokens, formatting, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
