@@ -6,6 +6,37 @@ use veln_project::{PackageSnapshotSource, Project, parse_manifest_text};
 use veln_source::SourceFile;
 
 #[test]
+fn list_language_topics_returns_the_complete_checked_snapshot_in_uri_order() {
+    let workspace = TempWorkspace::new("list-language-topics");
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+
+    let listed = list_language_topics(&mut server);
+    let topics = listed["structuredContent"]["topics"].as_array().unwrap();
+    assert!(!topics.is_empty());
+    let uris = topics
+        .iter()
+        .map(|topic| topic["uri"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    let mut sorted = uris.clone();
+    sorted.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+    assert_eq!(uris, sorted);
+    assert!(topics.iter().all(|topic| {
+        topic["uri"]
+            .as_str()
+            .is_some_and(|uri| uri.contains("/language/snapshot/") && uri.contains("/topic/"))
+            && topic["title"]
+                .as_str()
+                .is_some_and(|title| !title.is_empty())
+            && topic["summary"]
+                .as_str()
+                .is_some_and(|summary| !summary.is_empty())
+    }));
+
+    refresh_workspace(&mut server);
+    assert_eq!(list_language_topics(&mut server), listed);
+}
+
+#[test]
 fn search_docs_ranks_exact_prefix_and_ties_by_uri_bytes() {
     let workspace = TempWorkspace::new("search-rank");
     let mut server = initialized_server_with_embedded_resources(&workspace);
@@ -1072,6 +1103,13 @@ fn status_only_package_documentation_is_readable_but_not_searchable() {
 }
 
 const WRONG_DIGEST: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+fn list_language_topics(server: &mut Server) -> Value {
+    server
+        .handle_request(json!({"jsonrpc":"2.0","id":"list","method":"tools/call","params":{"name":"list_language_topics","arguments":{}}}))
+        .unwrap()["result"]
+        .clone()
+}
 
 fn search(server: &mut Server, arguments: Value) -> Value {
     server

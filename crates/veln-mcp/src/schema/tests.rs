@@ -399,6 +399,23 @@ fn search_docs_input_enforces_query_scope_and_limit_bounds() {
 
 #[test]
 fn language_doc_result_schemas_accept_success_and_domain_failure() {
+    let list = tool("list_language_topics").unwrap();
+    assert!(list.accepts_input(&serde_json::json!({})));
+    assert!(!list.accepts_input(&serde_json::json!({"unknown": true})));
+    assert!(list.accepts_result(&serde_json::json!({
+        "topics": [{
+            "uri": "veln-doc:///language/snapshot/d/topic/schemas",
+            "title": "Schemas",
+            "summary": "Schemas describe format-neutral and binary fields."
+        }]
+    })));
+    assert!(!list.accepts_result(&serde_json::json!({
+        "topics": [{
+            "uri": "veln-doc:///language/snapshot/d/topic/schemas",
+            "title": "Schemas"
+        }]
+    })));
+
     let search = tool("search_docs").unwrap();
     assert!(search.accepts_result(&serde_json::json!({
         "scope": "language",

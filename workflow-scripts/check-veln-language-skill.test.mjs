@@ -60,7 +60,7 @@ function staleTurn(document) {
 function staleEvents(document) {
   const events = staleTurn(document).events;
   return {
-    searchResult: events.find((event) => event.type === "result" && event.tool === "search_docs"),
+    listResult: events.find((event) => event.type === "result" && event.tool === "list_language_topics"),
     transition: events.find((event) => event.type === "server_transition"),
     readCall: events.find((event) => event.type === "call" && event.tool === "read_doc"),
     readResult: events.find((event) => event.type === "result" && event.tool === "read_doc"),
@@ -136,17 +136,15 @@ test("canonical veln-language skill replays every acceptance scenario", () => {
   assert.equal(validateScenarioDocument(fixture()), 17);
 });
 
-test("the reviewed semantic queries reach published topics", () => {
+test("the reviewed semantic topic selections identify published topics", () => {
   const published = loadPublishedLanguageReference(repositoryRoot);
-  for (const query of ["schemas", "effects", "modules"]) {
-    assert.ok(
-      expectedPublishedSearch({ query, scope: "language" }, published).results.length > 0,
-      `${query} must reach a published topic`,
-    );
+  const ids = new Set(published.catalog.topics.map((topic) => topic.id));
+  for (const id of ["schemas", "effects-handlers", "modules-imports-packages"]) {
+    assert.ok(ids.has(id), `${id} must be a published topic`);
   }
 });
 
-test("accepts a successful read from the archived snapshot retained by search", () => {
+test("accepts a successful read from the archived snapshot retained by discovery", () => {
   const published = loadPublishedLanguageReference(repositoryRoot);
   const snapshots = loadSnapshotEvidence(repositoryRoot, published);
   const archivedDigest = [...snapshots.keys()][0];
@@ -159,20 +157,22 @@ test("accepts a successful read from the archived snapshot retained by search", 
   assert.match(read.text, new RegExp(archivedDigest, "u"));
 });
 
-test("records the unbounded query outcome without a tool call or fallback", () => {
+test("lists all topics before reporting that unrelated vocabulary has no relevant topic", () => {
   const document = fixture();
-  const turn = scenario(document, "language-query-unbounded").turns[1];
+  const turn = scenario(document, "language-unrelated-vocabulary").turns[1];
   assert.ok([...turn.request.text].length > 256);
-  assert.deepEqual(turn.events.map((event) => event.type), ["answer"]);
+  assert.deepEqual(turn.events.map((event) => event.type), ["call", "result", "answer"]);
+  assert.equal(turn.events[0].tool, "list_language_topics");
+  assert.equal(turn.events[2].status, "no_match");
   assert.equal(validateScenarioDocument(document, options), 17);
 });
 
-test("rejects fallback data on the unbounded-query answer", () => {
+test("rejects fallback data on an unrelated-topic answer", () => {
   const document = fixture();
-  scenario(document, "language-query-unbounded").turns[1].events[0].fallback = "model-memory";
+  scenario(document, "language-unrelated-vocabulary").turns[1].events[2].fallback = "model-memory";
   assert.throws(
     () => validateScenarioDocument(document, options),
-    /unbounded-query answer: fields must match the closed shape/,
+    /no-match answer: fields must match the closed shape/,
   );
 });
 
@@ -381,7 +381,7 @@ test("rejects unsupported answer provenance and fallback", () => {
 
 test("preserves an earlier successful result after bounded failure", () => {
   const document = fixture();
-  scenario(document, "search-unavailable").turns[1].events.at(-1).retained_result.claims = [];
+  scenario(document, "listing-unavailable").turns[1].events.at(-1).retained_result.claims = [];
   assert.throws(() => validateScenarioDocument(document, candidateOptions), /earlier result changed/);
 });
 
@@ -493,10 +493,19 @@ test("bounds each MCP schema at the accepted byte boundary", (context) => {
   context.after(() => rmSync(root, { recursive: true, force: true }));
   const directory = join(root, "crates", "veln-mcp", "schemas", "mcp", "v1");
   mkdirSync(directory, { recursive: true });
-  const names = ["search-docs-input", "search-docs-result", "read-doc-input", "read-doc-result"];
+  const names = [
+    "list-language-topics-input",
+    "list-language-topics-result",
+    "search-docs-input",
+    "search-docs-result",
+    "read-doc-input",
+    "read-doc-result",
+  ];
   const accepted = "{}".padEnd(16_384, " ");
   for (const name of names) writeFileSync(join(directory, `${name}.json`), accepted);
   assert.deepEqual(loadToolSchemas(root), {
+    listInput: {},
+    listResult: {},
     searchInput: {},
     searchResult: {},
     readInput: {},
@@ -628,10 +637,10 @@ test("binds every acceptance row to its final outcome", () => {
   assert.throws(() => validateScenarioDocument(document, options), /acceptance row has the wrong final outcome/);
 });
 
-test("rejects a language search without explicit language scope", () => {
+test("rejects arguments on language-topic discovery", () => {
   const document = fixture();
-  delete matchingTurn(document).events[0].arguments.scope;
-  assert.throws(() => validateScenarioDocument(document, options), /search scope must be language/);
+  matchingTurn(document).events[0].arguments.scope = "language";
+  assert.throws(() => validateScenarioDocument(document, options), /unexpected schema field scope/);
 });
 
 function syntheticPublished(topic) {
@@ -699,33 +708,35 @@ test("maps a long decomposed canonical match into the returned excerpt", () => {
   assert.equal(results[0].suffix_truncated, false);
 });
 
-test("rejects a search query unrelated to the scenario expectation", () => {
+test("rejects search arguments on language-topic discovery", () => {
   const document = fixture();
   matchingTurn(document).events[0].arguments.query = "Veln effects";
-  assert.throws(() => validateScenarioDocument(document, options), /search request must match request-selected evidence/);
+  assert.throws(() => validateScenarioDocument(document, options), /unexpected schema field query/);
 });
 
-test("normalizes a non-English request instead of forwarding it verbatim", () => {
+test("selects a listed topic for a non-English request without forwarding query text", () => {
   const document = fixture();
-  const turn = scenario(document, "language-query-normalization").turns[0];
+  const turn = scenario(document, "language-topic-selection").turns[0];
   assert.equal(turn.request.text, "Veln のスキーマはどのように値をエンコードしますか？");
-  assert.equal(turn.events[0].arguments.query, "schemas");
-  assert.notEqual(turn.events[0].arguments.query, turn.request.text);
+  assert.deepEqual(turn.events[0].arguments, {});
+  assert.deepEqual(turn.expected.selected_topic_ids, ["schemas"]);
+  assert.match(turn.events[2].arguments.uri, /\/topic\/schemas$/u);
   assert.equal(validateScenarioDocument(document, options), 17);
 });
 
-test("rejects a self-consistent fixture query that differs from the reviewed semantic query", () => {
+test("rejects a fixture topic selection that differs from the reviewed semantic selection", () => {
   const document = fixture();
-  const turn = scenario(document, "language-query-normalization").turns[0];
-  turn.expected.search_arguments.query = "contracts";
-  turn.events[0].arguments.query = "contracts";
-  assert.throws(() => validateScenarioDocument(document, options), /fixture expectation does not follow the reviewed semantic query/);
+  const turn = scenario(document, "language-topic-selection").turns[0];
+  turn.expected.selected_topic_ids = ["contracts"];
+  turn.events[2].arguments.uri = turn.events[2].arguments.uri.replace(/schemas$/u, "contracts");
+  assert.throws(() => validateScenarioDocument(document, options), /reviewed semantic topic selection/);
 });
 
-test("rejects a non-first topic from a multi-result language search", () => {
+test("rejects a listed but semantically unselected topic", () => {
   const document = fixture();
-  matchingTurn(document).events[2].arguments.uri = structured(matchingTurn(document).events[1]).results[1].uri;
-  assert.throws(() => validateScenarioDocument(document, options), /deterministically select the first search result/);
+  matchingTurn(document).events[2].arguments.uri = structured(matchingTurn(document).events[1]).topics
+    .find((topic) => topic.uri.endsWith("/contracts")).uri;
+  assert.throws(() => validateScenarioDocument(document, options), /exactly match the selected listed topic/);
 });
 
 test("gives an explicit repository path precedence over a competing MCP subject", () => {
@@ -746,16 +757,16 @@ test("requires the deep explicit path to use the direct two-read selector", () =
   assert.throws(() => validateScenarioDocument(document, options), /fields must match the closed shape/);
 });
 
-test("rejects a read before language search", () => {
+test("rejects a read before language-topic discovery", () => {
   const document = fixture();
   matchingTurn(document).events[0].tool = "read_doc";
-  assert.throws(() => validateScenarioDocument(document, options), /language route must search first/);
+  assert.throws(() => validateScenarioDocument(document, options), /language route must list topics first/);
 });
 
-test("rejects a fallback field on a language search call", () => {
+test("rejects a fallback field on a language-topic discovery call", () => {
   const document = fixture();
   matchingTurn(document).events[0].fallback = "model-memory";
-  assert.throws(() => validateScenarioDocument(document, options), /search call event: fields must match the closed shape/);
+  assert.throws(() => validateScenarioDocument(document, options), /topic-list call event: fields must match the closed shape/);
 });
 
 test("rejects an unknown field on a language read call", () => {
@@ -767,25 +778,25 @@ test("rejects an unknown field on a language read call", () => {
 test("rejects a noncanonical snapshot URI", () => {
   const document = fixture();
   const event = matchingTurn(document).events[1];
-  structured(event).results[0].uri = "veln-doc:///language/snapshot/placeholder/topic/schemas";
+  structured(event).topics[0].uri = "veln-doc:///language/snapshot/placeholder/topic/schemas";
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /canonical snapshot digest/);
 });
 
-test("rejects an incomplete search result", () => {
+test("rejects an incomplete listed topic", () => {
   const document = fixture();
   const event = matchingTurn(document).events[1];
-  delete structured(event).results[0].excerpt;
+  delete structured(event).topics[0].summary;
   syncEnvelope(event);
-  assert.throws(() => validateScenarioDocument(document, options), /missing schema field excerpt/);
+  assert.throws(() => validateScenarioDocument(document, options), /missing schema field summary/);
 });
 
-test("rejects search metadata that drifts from the checked language-reference artifact", () => {
+test("rejects listed metadata that drifts from the checked language-reference artifact", () => {
   const document = fixture();
   const event = matchingTurn(document).events[1];
-  structured(event).results[0].summary = "A shortened recording.";
+  structured(event).topics[0].summary = "A shortened recording.";
   syncEnvelope(event);
-  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked snapshot artifact/);
+  assert.throws(() => validateScenarioDocument(document, options), /topics must be in URI order|differs from the checked snapshot artifact/);
 });
 
 test("rejects incomplete read metadata", () => {
@@ -796,19 +807,19 @@ test("rejects incomplete read metadata", () => {
   assert.throws(() => validateScenarioDocument(document, options), /does not match exactly one published schema branch/);
 });
 
-test("rejects a search result outside the published schema", () => {
+test("rejects a listed topic outside the published schema", () => {
   const document = fixture();
   const event = matchingTurn(document).events[1];
-  structured(event).results[0].fallback = true;
+  structured(event).topics[0].fallback = true;
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /unexpected schema field fallback/);
 });
 
-test("rejects a topic URI not returned by search", () => {
+test("rejects a topic URI not returned by discovery", () => {
   const document = fixture();
   matchingTurn(document).events[2].arguments.uri =
     "veln-doc:///language/snapshot/0000000000000000000000000000000000000000000000000000000000000000/topic/schemas";
-  assert.throws(() => validateScenarioDocument(document, options), /must exactly match a search result/);
+  assert.throws(() => validateScenarioDocument(document, options), /exactly match the selected listed topic/);
 });
 
 test("rejects an empty supported claim", () => {
@@ -829,7 +840,7 @@ test("rejects a claim that appears only inside a negated statement", () => {
   structured(event).text =
     "The reference does not establish this claim: Schemas describe format-neutral and binary fields.";
   syncEnvelope(event);
-  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked search snapshot artifact/);
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked listed snapshot artifact/);
 });
 
 test("rejects unsupported content in a successful answer", () => {
@@ -855,7 +866,7 @@ test("rejects a model-memory claim appended to the no-match message", () => {
   const document = fixture();
   scenario(document, "language-no-match").turns[0].events[2].message +=
     " Veln uses a borrow checker inferred from model memory.";
-  assert.throws(() => validateScenarioDocument(document, options), /must only report the published-topic absence/);
+  assert.throws(() => validateScenarioDocument(document, options), /must only report the topic absence/);
 });
 
 test("rejects a successful result without the published MCP envelope", () => {
@@ -876,24 +887,24 @@ test("rejects a successful envelope marked as an error", () => {
   assert.throws(() => validateScenarioDocument(document, options), /result kind disagrees with the MCP error state/);
 });
 
-test("rejects a search result with both error and value", () => {
+test("rejects a topic-list result with both error and value", () => {
   const document = fixture();
-  scenario(document, "search-unavailable").turns[1].events[1].value =
+  scenario(document, "listing-unavailable").turns[1].events[1].value =
     structured(matchingTurn(document).events[1]);
   assert.throws(() => validateScenarioDocument(document, options), /exactly one of error or value/);
 });
 
-test("replays a malformed search value as the generic bounded outcome", () => {
+test("replays a malformed topic-list value as the generic bounded outcome", () => {
   const document = fixture();
-  const turn = scenario(document, "search-failed").turns[1];
+  const turn = scenario(document, "listing-failed").turns[1];
   assert.equal(turn.events[1].kind, "malformed_result");
   assert.deepEqual(turn.events[1].value, { content: "not-an-array" });
   assert.equal(validateScenarioDocument(document, options), 17);
 });
 
-test("rejects a valid search envelope labeled as malformed", () => {
+test("rejects a valid topic-list envelope labeled as malformed", () => {
   const document = fixture();
-  const malformed = scenario(document, "search-failed").turns[1].events[1];
+  const malformed = scenario(document, "listing-failed").turns[1].events[1];
   malformed.value = matchingTurn(document).events[1].value;
   assert.throws(
     () => validateScenarioDocument(document, options),
@@ -901,9 +912,9 @@ test("rejects a valid search envelope labeled as malformed", () => {
   );
 });
 
-test("rejects a valid search tool-error envelope labeled as malformed", () => {
+test("rejects a valid topic-list tool-error envelope labeled as malformed", () => {
   const document = fixture();
-  const malformed = scenario(document, "search-failed").turns[1].events[1];
+  const malformed = scenario(document, "listing-failed").turns[1].events[1];
   malformed.value = {
     content: [{ type: "text", text: '{"code":"timeout"}' }],
     structuredContent: { code: "timeout" },
@@ -915,10 +926,10 @@ test("rejects a valid search tool-error envelope labeled as malformed", () => {
   );
 });
 
-test("routes an unmatched search transport failure to the generic bounded outcome", () => {
+test("routes an unmatched topic-list transport failure to the generic bounded outcome", () => {
   const document = fixture();
-  const turn = scenario(document, "search-failed").turns[1];
-  turn.events[1] = { type: "result", tool: "search_docs", kind: "transport_error", error: { code: "timeout" } };
+  const turn = scenario(document, "listing-failed").turns[1];
+  turn.events[1] = { type: "result", tool: "list_language_topics", kind: "transport_error", error: { code: "timeout" } };
   assert.equal(validateScenarioDocument(document, options), 17);
 });
 
@@ -1014,7 +1025,7 @@ test("rejects a selected resource beyond the published byte limit", () => {
   assert.throws(() => validateScenarioDocument(document, options), /published byte limit/);
 });
 
-test("rejects read text that drifts from the checked search snapshot artifact", () => {
+test("rejects read text that drifts from the checked listed snapshot artifact", () => {
   const document = fixture();
   const turn = matchingTurn(document);
   const statement = "A replacement recording.";
@@ -1022,7 +1033,7 @@ test("rejects read text that drifts from the checked search snapshot artifact", 
   syncEnvelope(turn.events[3]);
   turn.expected.answer_claims = [statement];
   turn.events[4].claims = [statement];
-  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked search snapshot artifact/);
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked listed snapshot artifact/);
 });
 
 test("rejects incomplete failure provenance", () => {
@@ -1047,9 +1058,11 @@ test("rejects a stale-snapshot row that uses the current published digest", () =
     /snapshot\/[0-9a-f]{64}\//u,
     "snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/",
   );
-  structured(events.searchResult).results[0].uri = currentUri;
-  structured(events.searchResult).results.splice(1);
-  syncEnvelope(events.searchResult);
+  for (const topic of structured(events.listResult).topics) {
+    topic.uri = topic.uri.replace(/snapshot\/[0-9a-f]{64}\//u,
+      "snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/");
+  }
+  syncEnvelope(events.listResult);
   events.transition.before.language_snapshot_digest = events.transition.after.language_snapshot_digest;
   events.readCall.arguments.uri = currentUri;
   structured(events.readResult).details.uri = currentUri;
@@ -1061,45 +1074,42 @@ test("rejects a stale-snapshot row that uses the current published digest", () =
   );
 });
 
-test("rejects mutation of an unselected stale search result", () => {
+test("rejects mutation of an unselected stale listed topic", () => {
   const document = fixture();
-  const event = staleEvents(document).searchResult;
-  structured(event).results[1].summary = "Fabricated historical summary.";
+  const event = staleEvents(document).listResult;
+  structured(event).topics[1].summary = "Fabricated historical summary.";
   syncEnvelope(event);
-  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked snapshot artifact/);
+  assert.throws(() => validateScenarioDocument(document, options), /topics must be in URI order|differs from the checked snapshot artifact/);
 });
 
-test("rejects a fabricated unselected stale search result", () => {
+test("rejects a fabricated unselected stale listed topic", () => {
   const document = fixture();
-  const event = staleEvents(document).searchResult;
-  structured(event).results.push({
+  const event = staleEvents(document).listResult;
+  structured(event).topics.push({
     uri: "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/fabricated-modules",
     title: "Fabricated Modules",
     summary: "This topic has no snapshot evidence.",
-    excerpt: "modules",
-    prefix_truncated: false,
-    suffix_truncated: false,
   });
   syncEnvelope(event);
-  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked snapshot artifact/);
+  assert.throws(() => validateScenarioDocument(document, options), /topics must be in URI order|differs from the checked snapshot artifact/);
 });
 
-test("rejects stale search results from mixed snapshots", () => {
+test("rejects stale topic listings from mixed snapshots", () => {
   const document = fixture();
-  const event = staleEvents(document).searchResult;
-  structured(event).results[1].uri = structured(event).results[1].uri.replace(
+  const event = staleEvents(document).listResult;
+  structured(event).topics[1].uri = structured(event).topics[1].uri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
     "snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/",
   );
   syncEnvelope(event);
-  assert.throws(() => validateScenarioDocument(document, options), /must belong to one snapshot/);
+  assert.throws(() => validateScenarioDocument(document, options), /topics must be in URI order|must belong to one snapshot/);
 });
 
-test("rejects stale search results without snapshot evidence", () => {
+test("rejects stale topic listings without snapshot evidence", () => {
   const document = fixture();
-  const event = staleEvents(document).searchResult;
-  for (const result of structured(event).results) {
-    result.uri = result.uri.replace(
+  const event = staleEvents(document).listResult;
+  for (const topic of structured(event).topics) {
+    topic.uri = topic.uri.replace(
       /snapshot\/[0-9a-f]{64}\//u,
       "snapshot/1111111111111111111111111111111111111111111111111111111111111111/",
     );
@@ -1134,7 +1144,7 @@ test("rejects a server replacement whose previous state did not produce search r
     staleEvents(document).transition.after.language_snapshot_digest;
   assert.throws(
     () => validateScenarioDocument(document, options),
-    /previous server must retain the snapshot that produced search results/,
+    /previous server must retain the snapshot that produced the listing/,
   );
 });
 
@@ -1156,19 +1166,19 @@ test("rejects a misplaced server replacement after the stale read", () => {
   turn.events.splice(turn.events.length - 1, 0, transition);
   assert.throws(
     () => validateScenarioDocument(document, options),
-    /matching route must have one search and one read/,
+    /matching route must have one listing and one read/,
   );
 });
 
 test("rejects mutation of the earlier result after failure", () => {
   const document = fixture();
-  scenario(document, "search-unavailable").turns[1].events[2].retained_result.claims[0] = "Changed after failure.";
+  scenario(document, "listing-unavailable").turns[1].events[2].retained_result.claims[0] = "Changed after failure.";
   assert.throws(() => validateScenarioDocument(document, options), /earlier result changed/);
 });
 
 test("rejects removal from the complete earlier result after failure", () => {
   const document = fixture();
-  delete scenario(document, "search-unavailable").turns[1].events[2].retained_result.source_uris;
+  delete scenario(document, "listing-unavailable").turns[1].events[2].retained_result.source_uris;
   assert.throws(() => validateScenarioDocument(document, options), /earlier result changed/);
 });
 
@@ -1925,14 +1935,14 @@ test("shares recordings at the largest accepted reference boundary", (context) =
   context.after(() => rmSync(root, { recursive: true, force: true }));
   const referenceEvent = () => ({
     type: "result",
-    tool: "search_docs",
+    tool: "list_language_topics",
     kind: "success",
-    value_ref: "schemas-search",
+    value_ref: "language-topics-list",
   });
   const document = {
     schema_version: 1,
     recordings: {
-      "schemas-search": { content: "" },
+      "language-topics-list": { content: "" },
       "schemas-read": {},
     },
     request_selection: [],
@@ -1946,7 +1956,7 @@ test("shares recordings at the largest accepted reference boundary", (context) =
     })),
   };
   const emptyBytes = Buffer.byteLength(JSON.stringify(document));
-  document.recordings["schemas-search"].content = "x".repeat(1_000_000 - emptyBytes);
+  document.recordings["language-topics-list"].content = "x".repeat(1_000_000 - emptyBytes);
   const serialized = JSON.stringify(document);
   assert.equal(Buffer.byteLength(serialized), 1_000_000);
   const path = join(root, "reference-boundary.json");
@@ -1978,9 +1988,9 @@ test("checks every recording reference bound before expanding recordings", (cont
   context.after(() => rmSync(root, { recursive: true, force: true }));
   const referenceEvent = () => ({
     type: "result",
-    tool: "search_docs",
+    tool: "list_language_topics",
     kind: "success",
-    value_ref: "schemas-search",
+    value_ref: "language-topics-list",
   });
   const turn = () => ({
     request: { text: "How do Veln schemas work?" },
@@ -2012,7 +2022,7 @@ test("checks every recording reference bound before expanding recordings", (cont
     const document = {
       schema_version: 1,
       recordings: {
-        "schemas-search": { content: "x".repeat(100_000) },
+        "language-topics-list": { content: "x".repeat(100_000) },
         "schemas-read": {},
       },
       request_selection: [],
@@ -2020,7 +2030,7 @@ test("checks every recording reference bound before expanding recordings", (cont
     };
     if (fixtureCase.name === "turns") document.scenarios[0].turns.push(turn());
     if (fixtureCase.name === "events") {
-      document.scenarios[0].turns[0].events = Array.from({ length: 5 }, referenceEvent);
+      document.scenarios[0].turns[0].events = Array.from({ length: 9 }, referenceEvent);
     }
     fixtureCase.mutate(document);
     const path = join(root, `${fixtureCase.name}.json`);

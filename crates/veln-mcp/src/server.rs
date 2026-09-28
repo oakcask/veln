@@ -179,10 +179,18 @@ impl Server {
             "definition" => self.definition_tool(arguments),
             "references" => self.references_tool(arguments),
             "rename" => self.rename_tool(arguments),
+            "list_language_topics" => self.list_language_topics_tool(),
             "search_docs" => self.search_docs_tool(arguments),
             "read_doc" => self.read_doc_tool(arguments),
             _ => unreachable!("tool name was checked against declarations"),
         })
+    }
+
+    fn list_language_topics_tool(&self) -> Value {
+        render_tool_outcome(
+            "list_language_topics",
+            language_tools::list_language_topics(&self.language_resources),
+        )
     }
 
     fn search_docs_tool(&self, arguments: &Value) -> Value {

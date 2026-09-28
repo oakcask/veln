@@ -34,21 +34,21 @@ const requestSelectionOraclePath = join(
   "veln-language",
   "request-selection-oracle.json",
 );
-const languageQueryOraclePath = join(
+const languageTopicOraclePath = join(
   defaultRepositoryRoot,
   "workflow-scripts",
   "fixtures",
   "veln-language",
-  "language-query-oracle.json",
+  "language-topic-oracle.json",
 );
 
 const acceptance = new Map([
   ["language-match", { route: "language", finalStatus: "answered" }],
   ["language-no-match", { route: "language", finalStatus: "no_match" }],
-  ["language-query-normalization", { route: "language", finalStatus: "answered" }],
-  ["language-query-unbounded", { route: "language", finalStatus: "query_unbounded", failure: true }],
-  ["search-unavailable", { route: "language", finalStatus: "search_unavailable", failure: true }],
-  ["search-failed", { route: "language", finalStatus: "search_failed", failure: true }],
+  ["language-topic-selection", { route: "language", finalStatus: "answered" }],
+  ["language-unrelated-vocabulary", { route: "language", finalStatus: "no_match" }],
+  ["listing-unavailable", { route: "language", finalStatus: "listing_unavailable", failure: true }],
+  ["listing-failed", { route: "language", finalStatus: "listing_failed", failure: true }],
   ["topic-unreadable", { route: "language", finalStatus: "topic_unavailable", failure: true }],
   ["topic-read-failed", { route: "language", finalStatus: "topic_read_failed", failure: true }],
   ["stale-snapshot-uri", { route: "language", finalStatus: "stale_snapshot", failure: true }],
@@ -102,7 +102,7 @@ const canonicalSkillDescription = "Use for Veln language questions and for inspe
 const fixtureLimits = {
   scenarios: acceptance.size,
   turnsPerScenario: 2,
-  eventsPerTurn: 5,
+  eventsPerTurn: 9,
   claimsPerAnswer: 16,
   searchResults: 50,
   requestCharacters: 1_000,
@@ -110,7 +110,7 @@ const fixtureLimits = {
   repositoryDocumentBytes: 262_144,
   fixtureBytes: 1_000_000,
   requestSelectionCases: 128,
-  languageQueryCases: 32,
+  languageTopicCases: 32,
   skillDescriptionCharacters: 300,
   repositoryDiscoveryDocuments: 64,
   publishedCatalogBytes: 2_000_000,
@@ -553,34 +553,32 @@ function loadRequestSelectionOracle() {
   return new Map(records.map((record) => [record.id, record]));
 }
 
-function loadLanguageQueryOracle() {
+function loadLanguageTopicOracle() {
   const document = JSON.parse(readBoundedUtf8(
-    languageQueryOraclePath,
+    languageTopicOraclePath,
     fixtureLimits.fixtureBytes,
-    "language-query oracle",
+    "language-topic oracle",
   ));
-  assertExactKeys(document, ["schema_version", "records"], "language-query oracle");
-  assert.equal(document.schema_version, 1, "unsupported language-query oracle schema");
-  assert.ok(Array.isArray(document.records), "language-query oracle must contain records");
+  assertExactKeys(document, ["schema_version", "records"], "language-topic oracle");
+  assert.equal(document.schema_version, 1, "unsupported language-topic oracle schema");
+  assert.ok(Array.isArray(document.records), "language-topic oracle must contain records");
   assert.ok(
-    document.records.length <= fixtureLimits.languageQueryCases,
-    "language-query oracle exceeds the case limit",
+    document.records.length <= fixtureLimits.languageTopicCases,
+    "language-topic oracle exceeds the case limit",
   );
   const texts = new Set();
   for (const record of document.records) {
-    assertExactKeys(record, ["text", "queries"], "language-query oracle record");
-    assert.equal(typeof record.text, "string", "language-query oracle text must be a string");
-    assert.ok(record.text.length <= fixtureLimits.requestCharacters, "language-query oracle text exceeds the limit");
-    assert.equal(texts.has(record.text), false, "duplicate language-query oracle text");
+    assertExactKeys(record, ["text", "topic_ids"], "language-topic oracle record");
+    assert.equal(typeof record.text, "string", "language-topic oracle text must be a string");
+    assert.ok(record.text.length <= fixtureLimits.requestCharacters, "language-topic oracle text exceeds the limit");
+    assert.equal(texts.has(record.text), false, "duplicate language-topic oracle text");
     texts.add(record.text);
-    assert.ok(record.queries === null || Array.isArray(record.queries), "language-query oracle queries must be an array or null");
-    if (Array.isArray(record.queries)) {
-      assert.ok(record.queries.length > 0, "language-query oracle queries must not be empty");
-      assert.ok(record.queries.every((query) => typeof query === "string"), "language-query oracle queries must be strings");
-      assert.equal(new Set(record.queries).size, record.queries.length, "language-query oracle queries must be unique");
-    }
+    assert.ok(Array.isArray(record.topic_ids), "language-topic oracle topic_ids must be an array");
+    assert.ok(record.topic_ids.length <= 3, "language-topic oracle selects too many topics");
+    assert.ok(record.topic_ids.every((id) => typeof id === "string"), "language-topic oracle topic IDs must be strings");
+    assert.equal(new Set(record.topic_ids).size, record.topic_ids.length, "language-topic oracle topic IDs must be unique");
   }
-  return new Map(document.records.map((record) => [record.text, record.queries]));
+  return new Map(document.records.map((record) => [record.text, record.topic_ids]));
 }
 
 function parseSkillContract(skillText) {
@@ -628,24 +626,23 @@ function parseSkillContract(skillText) {
     language_otherwise: true,
   }, "veln-language request-selection contract is inconsistent");
   assert.deepEqual(contract.language, {
-    search_tool: "search_docs",
-    search_scope: "language",
+    discovery_tool: "list_language_topics",
     read_tool: "read_doc",
-    maximum_calls: 2,
-    call_order: ["search_docs", "read_doc"],
-    query_derivation: {
-      basis: "semantic_main_language_subject",
-      instruction: "Derive one broad English topic term that names the main Veln language concept requested. Translate a non-English request. Use a multi-word query only for an established compound concept such as borrow checker. Omit Veln, question framing, requested answer form, operations or details being asked about, and incidental concepts. Do not copy the request text as the query unless the request already consists only of the topic term.",
-      maximum_query_scalars: 64,
-      request_text_as_query: "forbidden_unless_topic_term_only",
-      no_subject: "Stop without a tool call and report that no bounded published language-reference query can be derived when no main language concept can be identified or the derived query would be empty or exceed 64 Unicode scalar values.",
+    maximum_calls: 4,
+    maximum_topic_reads: 3,
+    call_order: ["list_language_topics", "read_doc"],
+    topic_selection: {
+      basis: "semantic_relevance_to_request",
+      instruction: "Inspect every listed title and summary. Select only the topics needed to answer the Veln language question, regardless of the request language or vocabulary. Discard topics that are not relevant. Select no more than three topics and do not derive an unlisted URI.",
+      selection_source: ["title", "summary"],
+      deduplicate_by: "uri",
+      no_relevant_topic: "Stop after list_language_topics and report that the published Veln language reference has no relevant topic.",
     },
-    selection: "first_search_result",
-    read_exact_search_result_uri: true,
+    read_exact_listed_uris: true,
     fallback: "forbidden",
-    answer_source: "selected_resource_uri",
-    report_selected_uri: true,
-    no_match: "Report that the published Veln language reference has no matching topic. Do not use proposal text or model memory.",
+    answer_source: "successfully_read_selected_resource_uris",
+    report_selected_uris: true,
+    no_match: "Report that the published Veln language reference has no relevant topic. Do not use proposal text or model memory.",
   }, "veln-language skill language contract is inconsistent");
   assertExactKeys(contract.repository, [
     "entry",
@@ -702,11 +699,11 @@ function parseSkillContract(skillText) {
     preserve_previous_result: true,
     report_operation: true,
     report_selected_uri: true,
-    dispatch_order: ["search_unavailable", "topic_unavailable", "stale_snapshot", "other_search_failure", "other_topic_failure"],
-    search_unavailable: {
-      operation: "search_docs",
+    dispatch_order: ["listing_unavailable", "topic_unavailable", "stale_snapshot", "other_listing_failure", "other_topic_failure"],
+    listing_unavailable: {
+      operation: "list_language_topics",
       result: { kind: "transport_error", code: "tool_unavailable" },
-      instruction: "Stop after search_docs and report that published language-reference search is unavailable.",
+      instruction: "Stop after list_language_topics and report that published language-topic discovery is unavailable.",
     },
     topic_unavailable: {
       operation: "read_doc",
@@ -718,10 +715,10 @@ function parseSkillContract(skillText) {
       result: { kind: "tool_error", code: "resource_not_found", selected_uri_must_match: true },
       instruction: "Stop after read_doc and report that the selected snapshot URI is stale.",
     },
-    other_search_failure: {
-      operation: "search_docs",
+    other_listing_failure: {
+      operation: "list_language_topics",
       result: "Any failed or malformed result not matched by an earlier dispatch entry.",
-      instruction: "Stop after search_docs and report that published language-reference search failed.",
+      instruction: "Stop after list_language_topics and report that published language-topic discovery failed.",
     },
     other_topic_failure: {
       operation: "read_doc",
@@ -773,21 +770,11 @@ export function selectRequestRoute(semantics, options = {}) {
   return routeRequestSemantics(semantics, "request selection");
 }
 
-function expectedSelection(text, route, contract, context, languageQueryOracle) {
+function expectedSelection(text, route, contract, context, languageTopicOracle) {
   const lower = text.toLocaleLowerCase("en-US");
   if (route === "language") {
-    assert.ok(languageQueryOracle?.has(text), `${context}: request has no independent language-query annotation`);
-    const queries = languageQueryOracle.get(text);
-    if (queries === null) return { queryUnbounded: true };
-    for (const query of queries) {
-      assert.equal(trimUnicodeWhitespace(query), query, `${context}: query must not have surrounding Unicode whitespace`);
-      assert.ok([...query].length > 0, `${context}: query must not be empty`);
-      assert.ok(
-        [...query].length <= contract.language.query_derivation.maximum_query_scalars,
-        `${context}: query exceeds the skill bound`,
-      );
-    }
-    return { searchQueries: queries };
+    assert.ok(languageTopicOracle?.has(text), `${context}: request has no independent language-topic annotation`);
+    return { topicIds: languageTopicOracle.get(text) };
   }
 
   const explicitPath = text.match(/(?:^|\s)(docs\/[a-z0-9._/-]+\.md)(?=$|[\s.,;:!?])/i)?.[1];
@@ -994,11 +981,42 @@ export function loadToolSchemas(repositoryRoot) {
     `${name} MCP schema`,
   ));
   return {
+    listInput: load("list-language-topics-input"),
+    listResult: load("list-language-topics-result"),
     searchInput: load("search-docs-input"),
     searchResult: load("search-docs-result"),
     readInput: load("read-doc-input"),
     readResult: load("read-doc-result"),
   };
+}
+
+function expectedLanguageTopics(evidence) {
+  return {
+    topics: evidence.catalog.topics
+      .map((topic) => ({
+        uri: topicUri(evidence.digest, topic.id),
+        title: topic.title,
+        summary: topic.summary,
+      }))
+      .sort((left, right) => Buffer.compare(Buffer.from(left.uri), Buffer.from(right.uri))),
+  };
+}
+
+function validateLanguageTopicList(result, context) {
+  assert.ok(Array.isArray(result.topics), `${context}: topics must be an array`);
+  assert.ok(result.topics.length <= fixtureLimits.searchResults, `${context}: topic count exceeds the fixture limit`);
+  for (const topic of result.topics) {
+    assertExactKeys(topic, ["uri", "title", "summary"], `${context}: listed topic`);
+    assert.match(topic.uri, snapshotTopicUri, `${context}: topic URI must use a canonical snapshot digest`);
+    assert.equal(typeof topic.title, "string", `${context}: topic title is required`);
+    assert.equal(typeof topic.summary, "string", `${context}: topic summary is required`);
+  }
+  assert.deepEqual(
+    result.topics.map((topic) => topic.uri),
+    [...result.topics.map((topic) => topic.uri)].sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right))),
+    `${context}: topics must be in URI order`,
+  );
+  return result.topics;
 }
 
 function validateSearchResult(result, context) {
@@ -1120,190 +1138,145 @@ export function classifyReadFailure(kind, code, errorUri, selectedUri, contract)
   return "topic_read_failed";
 }
 
-function validateLanguageTurn(turn, previousResult, contract, schemas, published, snapshots, languageQueryOracle, context) {
+function validateLanguageTurn(turn, previousResult, contract, schemas, published, snapshots, languageTopicOracle, context) {
   const { events } = turn;
   assert.ok(turn.request.text.length <= fixtureLimits.requestCharacters, `${context}: request exceeds the fixture text limit`);
   for (const event of events) {
-    assert.ok(["call", "result", "server_transition", "answer"].includes(event.type), `${context}: language route contains forbidden fallback event ${event.type}`);
+    assert.ok(["call", "result", "server_transition", "answer"].includes(event.type),
+      `${context}: language route contains forbidden fallback event ${event.type}`);
   }
   const calls = events.filter((event) => event.type === "call");
-  const serverTransitions = events.filter((event) => event.type === "server_transition");
-  assert.ok(serverTransitions.length <= 1, `${context}: turn must not record more than one server replacement`);
-  assert.ok(
-    events.length <= fixtureLimits.eventsPerTurn + serverTransitions.length,
-    `${context}: turn exceeds the event limit`,
-  );
+  const transitions = events.filter((event) => event.type === "server_transition");
+  assert.ok(transitions.length <= 1, `${context}: turn must not record more than one server replacement`);
+  assert.ok(events.length <= fixtureLimits.eventsPerTurn + transitions.length, `${context}: turn exceeds the event limit`);
   assert.ok(calls.length <= contract.language.maximum_calls, `${context}: language route exceeded its call bound`);
-  const selection = expectedSelection(turn.request.text, "language", contract, context, languageQueryOracle);
-  if (selection.queryUnbounded) {
-    assert.equal(events.length, 1, `${context}: unbounded query must stop without a tool call`);
-    assert.equal(calls.length, 0, `${context}: unbounded query must not call a tool`);
-    assertExactKeys(turn.expected, ["query_outcome", "answer_claims"], `${context}: unbounded-query expectation`);
-    assert.equal(turn.expected.query_outcome, "unbounded", `${context}: fixture must record the bounded-query outcome`);
-    assert.deepEqual(turn.expected.answer_claims, [], `${context}: bounded outcome must not expect language claims`);
-    const answer = finalAnswer(events, context);
-    assertExactKeys(
-      answer,
-      ["type", "status", "claims", "source_uris", "message", "retained_result"],
-      `${context}: unbounded-query answer`,
-    );
-    assert.equal(answer.status, "query_unbounded", `${context}: wrong unbounded-query status`);
-    assert.equal(
-      answer.message,
-      "No bounded published language-reference query can be derived.",
-      `${context}: unbounded-query answer must only report the query limit`,
-    );
-    validateClaims(answer, undefined, undefined, context);
-    assert.deepEqual(answer.retained_result, previousResult, `${context}: earlier result changed`);
-    return previousResult;
-  }
-  assert.equal(events[0]?.type, "call", `${context}: language route must start with a call`);
-  assertExactKeys(events[0], ["type", "tool", "arguments"], `${context}: search call event`);
-  assert.equal(events[0]?.tool, contract.language.search_tool, `${context}: language route must search first`);
-  validateSchema(events[0]?.arguments, schemas.searchInput, schemas.searchInput, `${context}: search_docs input`);
-  assert.equal(events[0]?.arguments?.scope, contract.language.search_scope, `${context}: search scope must be language`);
-  assertExactKeys(turn.expected, ["search_arguments", "answer_claims"], `${context}: language expectation`);
-  assert.equal(turn.expected.search_arguments.scope, "language", `${context}: fixture expectation must use language scope`);
-  assert.ok(
-    selection.searchQueries.includes(turn.expected.search_arguments.query),
-    `${context}: fixture expectation does not follow the reviewed semantic query`,
-  );
-  assert.deepEqual(
-    events[0]?.arguments,
-    turn.expected.search_arguments,
-    `${context}: search request must match request-selected evidence`,
-  );
-  assert.equal(events[1]?.type, "result", `${context}: search result must follow search call`);
-  assert.equal(events[1]?.tool, contract.language.search_tool, `${context}: expected recorded search result`);
-  const answer = finalAnswer(events, context);
-  const searchResult = events[1];
-  validateResultKind(searchResult, `${context}: search result`);
-  assertExactKeys(searchResult, searchResult.error === undefined
-    ? ["type", "tool", "kind", "value"]
-    : ["type", "tool", "kind", "error"], `${context}: search result event`);
+
+  const selection = expectedSelection(turn.request.text, "language", contract, context, languageTopicOracle);
+  assertExactKeys(turn.expected, ["selected_topic_ids", "answer_claims"], `${context}: language expectation`);
+  assert.deepEqual(turn.expected.selected_topic_ids, selection.topicIds,
+    `${context}: fixture expectation does not follow the reviewed semantic topic selection`);
+  assert.ok(selection.topicIds.length <= contract.language.maximum_topic_reads,
+    `${context}: topic selection exceeds the skill bound`);
   assert.ok(Array.isArray(turn.expected.answer_claims), `${context}: expected answer claims must be an array`);
+
+  assert.equal(events[0]?.type, "call", `${context}: language route must start with a call`);
+  assertExactKeys(events[0], ["type", "tool", "arguments"], `${context}: topic-list call event`);
+  assert.equal(events[0].tool, contract.language.discovery_tool, `${context}: language route must list topics first`);
+  validateSchema(events[0].arguments, schemas.listInput, schemas.listInput, `${context}: list_language_topics input`);
+  assert.deepEqual(events[0].arguments, {}, `${context}: topic listing takes no arguments`);
+  assert.equal(events[1]?.type, "result", `${context}: topic-list result must follow the call`);
+  assert.equal(events[1]?.tool, contract.language.discovery_tool, `${context}: expected recorded topic-list result`);
+  const listResult = events[1];
+  validateResultKind(listResult, `${context}: topic-list result`);
+  assertExactKeys(listResult, listResult.error === undefined
+    ? ["type", "tool", "kind", "value"]
+    : ["type", "tool", "kind", "error"], `${context}: topic-list result event`);
+  const answer = finalAnswer(events, context);
   if (answer.status !== "answered") {
     assert.deepEqual(turn.expected.answer_claims, [], `${context}: bounded outcome must not expect language claims`);
   }
 
-  if (searchResult.error !== undefined) {
-    assert.equal(events.length, 3, `${context}: unavailable search must stop without retry or read`);
-    assertExactKeys(searchResult.error, ["code"], `${context}: search transport error`);
-    const named = searchResult.kind === contract.failure.search_unavailable.result.kind
-      && searchResult.error.code === contract.failure.search_unavailable.result.code;
-    assert.equal(answer.status, named ? "search_unavailable" : "search_failed", `${context}: wrong bounded search-failure status`);
-    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: search failure answer`);
-    validateFailure(
-      answer,
-      named ? contract.failure.search_unavailable.operation : contract.failure.other_search_failure.operation,
-      null,
-      previousResult,
-      context,
-    );
+  if (listResult.error !== undefined) {
+    assert.equal(events.length, 3, `${context}: unavailable listing must stop without a read`);
+    assertExactKeys(listResult.error, ["code"], `${context}: listing transport error`);
+    const named = listResult.kind === contract.failure.listing_unavailable.result.kind
+      && listResult.error.code === contract.failure.listing_unavailable.result.code;
+    assert.equal(answer.status, named ? "listing_unavailable" : "listing_failed",
+      `${context}: wrong bounded listing-failure status`);
+    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"],
+      `${context}: listing failure answer`);
+    validateFailure(answer, named
+      ? contract.failure.listing_unavailable.operation
+      : contract.failure.other_listing_failure.operation, null, previousResult, context);
     return previousResult;
   }
 
-  if (searchResult.kind === "malformed_result") {
-    validateMalformedToolValue(searchResult.value, schemas.searchResult, `${context}: search result`);
-    assert.equal(events.length, 3, `${context}: malformed search must stop without retry or read`);
-    assert.equal(answer.status, "search_failed", `${context}: wrong generic search-failure status`);
-    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: search failure answer`);
-    validateFailure(answer, contract.failure.other_search_failure.operation, null, previousResult, context);
+  if (listResult.kind === "malformed_result") {
+    validateMalformedToolValue(listResult.value, schemas.listResult, `${context}: topic-list result`);
+    assert.equal(events.length, 3, `${context}: malformed listing must stop without a read`);
+    assert.equal(answer.status, "listing_failed", `${context}: wrong generic listing-failure status`);
+    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"],
+      `${context}: listing failure answer`);
+    validateFailure(answer, contract.failure.other_listing_failure.operation, null, previousResult, context);
     return previousResult;
   }
 
-  if (searchResult.kind === "tool_error") {
-    validateToolFailureEnvelope(searchResult.value, `${context}: search_docs failure result`);
-    assert.equal(events.length, 3, `${context}: failed search must stop without retry or read`);
-    assert.equal(answer.status, "search_failed", `${context}: wrong generic search-failure status`);
-    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: search failure answer`);
-    validateFailure(answer, contract.failure.other_search_failure.operation, null, previousResult, context);
+  if (listResult.kind === "tool_error") {
+    validateToolFailureEnvelope(listResult.value, `${context}: list_language_topics failure result`);
+    assert.equal(events.length, 3, `${context}: failed listing must stop without a read`);
+    assert.equal(answer.status, "listing_failed", `${context}: wrong generic listing-failure status`);
+    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"],
+      `${context}: listing failure answer`);
+    validateFailure(answer, contract.failure.other_listing_failure.operation, null, previousResult, context);
     return previousResult;
   }
 
-  const searchStructured = validateToolEnvelope(
-    searchResult.value,
-    schemas.searchResult,
-    false,
-    `${context}: search_docs result`,
-  );
-  const results = validateSearchResult(searchStructured, context);
-  const resultDigests = new Set(results.map((result) => snapshotDigest(result.uri, context)));
-  assert.ok(resultDigests.size <= 1, `${context}: search results must belong to one snapshot`);
-  const resultDigest = resultDigests.values().next().value ?? published.digest;
+  const listStructured = validateToolEnvelope(
+    listResult.value, schemas.listResult, false, `${context}: list_language_topics result`);
+  const topics = validateLanguageTopicList(listStructured, context);
+  assert.ok(topics.length > 0, `${context}: checked language reference must list topics`);
+  const digests = new Set(topics.map((topic) => snapshotDigest(topic.uri, context)));
+  assert.equal(digests.size, 1, `${context}: listed topics must belong to one snapshot`);
+  const resultDigest = digests.values().next().value;
   const snapshotEvidence = resultDigest === published.digest ? undefined : snapshots.get(resultDigest);
   assert.ok(resultDigest === published.digest || snapshotEvidence,
-    `${context}: search results have no checked snapshot evidence`);
-  const searchEvidence = resultDigest === published.digest
+    `${context}: topic listing has no checked snapshot evidence`);
+  const listEvidence = resultDigest === published.digest
     ? published
     : {
       digest: resultDigest,
       catalog: materializeSnapshotCatalog(published, snapshotEvidence, `${context}: checked snapshot`),
-      caseFoldMappings: published.caseFoldMappings,
     };
-  assert.deepEqual(
-    searchStructured,
-    expectedPublishedSearch(events[0].arguments, searchEvidence),
-    `${context}: recorded search_docs result differs from the checked snapshot artifact`,
-  );
-  if (results.length === 0) {
-    assert.equal(events.length, 3, `${context}: no match must stop without retry or read`);
+  assert.deepEqual(listStructured, expectedLanguageTopics(listEvidence),
+    `${context}: recorded topic listing differs from the checked snapshot artifact`);
+  const byId = new Map(topics.map((topic) => [topic.uri.slice(topic.uri.lastIndexOf("/") + 1), topic]));
+  for (const id of selection.topicIds) {
+    assert.ok(byId.has(id), `${context}: selected topic is absent from the complete listing`);
+  }
+
+  if (selection.topicIds.length === 0) {
+    assert.equal(events.length, 3, `${context}: no relevant topic must stop without a read`);
     assert.equal(answer.status, "no_match", `${context}: wrong no-match status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "message"], `${context}: no-match answer`);
-    assert.equal(
-      answer.message,
-      "The published Veln language reference has no matching topic.",
-      `${context}: no-match answer must only report the published-topic absence`,
-    );
+    assert.equal(answer.message, "The published Veln language reference has no relevant topic.",
+      `${context}: no-match answer must only report the topic absence`);
     validateClaims(answer, undefined, undefined, context);
     return previousResult;
   }
 
+  assert.equal(selection.topicIds.length, 1,
+    `${context}: current replay fixture must isolate one semantic topic selection`);
   const transition = events[2]?.type === "server_transition" ? events[2] : undefined;
   const readCallIndex = transition === undefined ? 2 : 3;
   const readResultIndex = readCallIndex + 1;
-  const expectedEventCount = transition === undefined ? 5 : 6;
-  assert.equal(events.length, expectedEventCount, `${context}: matching route must have one search and one read`);
+  assert.equal(events.length, transition === undefined ? 5 : 6,
+    `${context}: matching route must have one listing and one read`);
   if (transition !== undefined) {
     assertExactKeys(transition, ["type", "transition", "before", "after"], `${context}: server transition`);
     assert.equal(transition.transition, "replace_process", `${context}: unsupported server lifecycle transition`);
     assertExactKeys(transition.before, ["server_instance", "language_snapshot_digest"], `${context}: previous server state`);
     assertExactKeys(transition.after, ["server_instance", "language_snapshot_digest"], `${context}: replacement server state`);
-    assert.equal(typeof transition.before.server_instance, "string", `${context}: previous server identity must be text`);
-    assert.ok(transition.before.server_instance.length > 0, `${context}: previous server identity must not be empty`);
-    assert.equal(typeof transition.after.server_instance, "string", `${context}: replacement server identity must be text`);
-    assert.ok(transition.after.server_instance.length > 0, `${context}: replacement server identity must not be empty`);
-    assert.notEqual(
-      transition.before.server_instance,
-      transition.after.server_instance,
-      `${context}: server replacement must identify distinct process instances`,
-    );
-    assert.equal(
-      transition.before.language_snapshot_digest,
-      resultDigest,
-      `${context}: previous server must retain the snapshot that produced search results`,
-    );
-    assert.equal(
-      transition.after.language_snapshot_digest,
-      published.digest,
-      `${context}: replacement server must use the checked published snapshot`,
-    );
-    assert.notEqual(
-      transition.before.language_snapshot_digest,
-      transition.after.language_snapshot_digest,
-      `${context}: server replacement must change the retained language snapshot`,
-    );
+    assert.notEqual(transition.before.server_instance, transition.after.server_instance,
+      `${context}: server replacement must identify distinct process instances`);
+    assert.equal(transition.before.language_snapshot_digest, resultDigest,
+      `${context}: previous server must retain the snapshot that produced the listing`);
+    assert.equal(transition.after.language_snapshot_digest, published.digest,
+      `${context}: replacement server must use the checked published snapshot`);
+    assert.notEqual(transition.before.language_snapshot_digest, transition.after.language_snapshot_digest,
+      `${context}: server replacement must change the retained language snapshot`);
   }
-  assert.equal(events[readCallIndex]?.type, "call", `${context}: topic read must follow search result or server replacement`);
-  assertExactKeys(events[readCallIndex], ["type", "tool", "arguments"], `${context}: read call event`);
-  assert.equal(events[readCallIndex]?.tool, contract.language.read_tool, `${context}: matching route must use read_doc`);
-  validateSchema(events[readCallIndex]?.arguments, schemas.readInput, schemas.readInput, `${context}: read_doc input`);
-  const selectedUri = events[readCallIndex]?.arguments?.uri;
-  assert.ok(results.some((result) => result.uri === selectedUri), `${context}: read_doc URI must exactly match a search result`);
-  assert.equal(selectedUri, results[0].uri, `${context}: read_doc must deterministically select the first search result`);
-  assert.equal(events[readResultIndex]?.type, "result", `${context}: topic result must follow read call`);
-  assert.equal(events[readResultIndex]?.tool, contract.language.read_tool, `${context}: expected recorded read result`);
+
+  const readCall = events[readCallIndex];
+  assert.equal(readCall?.type, "call", `${context}: topic read must follow listing or server replacement`);
+  assertExactKeys(readCall, ["type", "tool", "arguments"], `${context}: read call event`);
+  assert.equal(readCall.tool, contract.language.read_tool, `${context}: matching route must use read_doc`);
+  validateSchema(readCall.arguments, schemas.readInput, schemas.readInput, `${context}: read_doc input`);
+  const selectedUri = readCall.arguments.uri;
+  assert.equal(selectedUri, byId.get(selection.topicIds[0]).uri,
+    `${context}: read_doc URI must exactly match the selected listed topic`);
   const readResult = events[readResultIndex];
+  assert.equal(readResult?.type, "result", `${context}: topic result must follow read call`);
+  assert.equal(readResult.tool, contract.language.read_tool, `${context}: expected recorded read result`);
   validateResultKind(readResult, `${context}: read result`);
   assertExactKeys(readResult, readResult.error === undefined
     ? ["type", "tool", "kind", "value"]
@@ -1311,99 +1284,58 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
 
   if (readResult.error !== undefined) {
     assertExactKeys(readResult.error, ["code"], `${context}: read transport error`);
-    assert.equal(typeof readResult.error.code, "string", `${context}: read error code is required`);
-    assert.ok(readResult.error.code.length > 0, `${context}: read error code must not be empty`);
-    const status = classifyReadFailure(
-      readResult.kind,
-      readResult.error.code,
-      undefined,
-      selectedUri,
-      contract,
-    );
+    const status = classifyReadFailure(readResult.kind, readResult.error.code, undefined, selectedUri, contract);
     assert.equal(answer.status, status, `${context}: wrong bounded read-failure status`);
-    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: topic failure answer`);
-    validateFailure(
-      answer,
-      status === "topic_unavailable"
-        ? contract.failure.topic_unavailable.operation
-        : contract.failure.other_topic_failure.operation,
-      selectedUri,
-      previousResult,
-      context,
-    );
+    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"],
+      `${context}: topic failure answer`);
+    validateFailure(answer, status === "topic_unavailable"
+      ? contract.failure.topic_unavailable.operation
+      : contract.failure.other_topic_failure.operation, selectedUri, previousResult, context);
     return previousResult;
   }
   if (readResult.kind === "malformed_result") {
     validateMalformedToolValue(readResult.value, schemas.readResult, `${context}: read result`);
     assert.equal(answer.status, "topic_read_failed", `${context}: wrong generic read-failure status`);
-    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: topic failure answer`);
-    validateFailure(
-      answer,
-      contract.failure.other_topic_failure.operation,
-      selectedUri,
-      previousResult,
-      context,
-    );
+    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"],
+      `${context}: topic failure answer`);
+    validateFailure(answer, contract.failure.other_topic_failure.operation, selectedUri, previousResult, context);
     return previousResult;
   }
-
   if (readResult.kind === "tool_error") {
     const failure = validateToolFailureEnvelope(readResult.value, `${context}: read_doc failure result`);
-    const status = classifyReadFailure(
-      readResult.kind,
-      failure.code,
-      failure.details?.uri,
-      selectedUri,
-      contract,
-    );
+    const status = classifyReadFailure(readResult.kind, failure.code, failure.details?.uri, selectedUri, contract);
     const stale = status === "stale_snapshot";
     assert.equal(failure.text, undefined, `${context}: failed read must not contain partial document text`);
     if (stale) {
       validateSchema(failure, schemas.readResult, schemas.readResult, `${context}: stale read_doc failure`);
       assert.ok(transition, `${context}: stale snapshot requires a recorded server-process replacement`);
-      const staleDigest = snapshotDigest(selectedUri, context);
-      assert.notEqual(staleDigest, published.digest,
-        `${context}: stale snapshot URI must differ from the checked published snapshot digest`);
-      assert.ok(snapshots.has(staleDigest), `${context}: stale snapshot has no checked catalog evidence`);
+      assert.ok(snapshots.has(snapshotDigest(selectedUri, context)),
+        `${context}: stale snapshot has no checked catalog evidence`);
     }
     assert.equal(answer.status, status, `${context}: wrong tool-failure status`);
-    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: stale-snapshot answer`);
-    validateFailure(
-      answer,
-      stale ? contract.failure.stale_snapshot.operation : contract.failure.other_topic_failure.operation,
-      selectedUri,
-      previousResult,
-      context,
-    );
+    assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"],
+      `${context}: topic failure answer`);
+    validateFailure(answer, stale
+      ? contract.failure.stale_snapshot.operation
+      : contract.failure.other_topic_failure.operation, selectedUri, previousResult, context);
     return previousResult;
   }
 
-  const readStructured = validateToolEnvelope(
-    readResult.value,
-    schemas.readResult,
-    false,
-    `${context}: read_doc result`,
-  );
-  assert.equal(transition, undefined, `${context}: successful read must use the search server state`);
+  const readStructured = validateToolEnvelope(readResult.value, schemas.readResult, false,
+    `${context}: read_doc result`);
+  assert.equal(transition, undefined, `${context}: successful read must use the listing server state`);
   validateReadResult(readStructured, selectedUri, context);
-  assert.ok(
-    Buffer.byteLength(readStructured.text, "utf8") <= fixtureLimits.resourceTextBytes,
-    `${context}: selected resource exceeds the published byte limit`,
-  );
-  assert.equal(snapshotDigest(selectedUri, context), searchEvidence.digest,
-    `${context}: successful read must use the snapshot retained by search`);
-  assert.deepEqual(
-    readStructured,
-    expectedSnapshotRead(selectedUri, published, snapshots),
-    `${context}: recorded read_doc result differs from the checked search snapshot artifact`,
-  );
+  assert.ok(Buffer.byteLength(readStructured.text, "utf8") <= fixtureLimits.resourceTextBytes,
+    `${context}: selected resource exceeds the published byte limit`);
+  assert.deepEqual(readStructured, expectedSnapshotRead(selectedUri, published, snapshots),
+    `${context}: recorded read_doc result differs from the checked listed snapshot artifact`);
   assert.equal(answer.status, "answered", `${context}: wrong successful status`);
   assertExactKeys(answer, ["type", "status", "claims", "source_uris"], `${context}: successful answer`);
   validateClaims(answer, selectedUri, readStructured.text, context);
-  assert.deepEqual(answer.claims, turn.expected.answer_claims, `${context}: answer claims must match the scenario expectation`);
+  assert.deepEqual(answer.claims, turn.expected.answer_claims,
+    `${context}: answer claims must match the scenario expectation`);
   return retainedResult(answer);
 }
-
 function checkedRepositoryPath(repositoryRoot, path, context) {
   assert.equal(typeof path, "string", `${context}: repository read path is required`);
   assert.ok(!isAbsolute(path) && !path.includes("\\"), `${context}: repository path must be relative and portable`);
@@ -1962,7 +1894,7 @@ export function validateScenarioDocument(document, options = {}) {
   const schemas = loadToolSchemas(repositoryRoot);
   const published = loadPublishedLanguageReference(repositoryRoot);
   const snapshots = loadSnapshotEvidence(repositoryRoot, published);
-  const languageQueryOracle = loadLanguageQueryOracle();
+  const languageTopicOracle = loadLanguageTopicOracle();
   for (const path of contract.maintenance) {
     checkedRepositoryPath(repositoryRoot, path, "veln-language maintenance contract");
   }
@@ -2061,7 +1993,7 @@ export function validateScenarioDocument(document, options = {}) {
       assert.equal(route, selection.route, `${context}: reviewed request semantics selected a route inconsistent with its corpus row`);
       assert.equal(route, requirement.route, `${context}: reviewed request semantics selected the wrong route for ${scenario.covers}`);
       lastSuccessfulResult = route === "language"
-        ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, published, snapshots, languageQueryOracle, context)
+        ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, published, snapshots, languageTopicOracle, context)
         : validateRepositoryTurn(turn, lastSuccessfulResult, requirement, contract, repositoryRoot, context);
     }
     if (requirement.failure) {
@@ -2075,8 +2007,8 @@ export function validateScenarioDocument(document, options = {}) {
     .flatMap((scenario) => scenario.turns.map((turn) => turn.request.text)));
   assert.deepEqual(
     [...languageScenarioTexts].sort(),
-    [...languageQueryOracle.keys()].sort(),
-    "language-query oracle must cover exactly the replayed language requests",
+    [...languageTopicOracle.keys()].sort(),
+    "language-topic oracle must cover exactly the replayed language requests",
   );
   return document.scenarios.length;
 }
@@ -2086,7 +2018,7 @@ export function readScenarioDocument(path) {
   const document = JSON.parse(bytes.toString("utf8"));
   if (document.recordings === undefined) return document;
   assertExactKeys(document, ["schema_version", "recordings", "request_selection", "scenarios"], "scenario document");
-  assertExactKeys(document.recordings, ["schemas-search", "schemas-read"], "scenario recordings");
+  assertExactKeys(document.recordings, ["language-topics-list", "schemas-read"], "scenario recordings");
   assert.ok(Array.isArray(document.scenarios), "scenarios must be an array");
   assert.ok(Array.isArray(document.request_selection), "request-selection evidence must be an array");
   assert.ok(

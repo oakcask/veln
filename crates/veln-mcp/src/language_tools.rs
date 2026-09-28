@@ -8,6 +8,35 @@ use crate::schema;
 const DEFAULT_LIMIT: usize = 10;
 const EXCERPT_LIMIT: usize = 160;
 
+pub(crate) fn list_language_topics(resources: &LanguageResources) -> ToolOutcome {
+    let mut topics = resources
+        .topics()
+        .iter()
+        .map(|topic| {
+            json!({
+                "uri": topic.uri,
+                "title": topic.title,
+                "summary": topic.summary,
+            })
+        })
+        .collect::<Vec<_>>();
+    topics.sort_by(|left, right| {
+        left["uri"]
+            .as_str()
+            .expect("language topic URI must be text")
+            .as_bytes()
+            .cmp(
+                right["uri"]
+                    .as_str()
+                    .expect("language topic URI must be text")
+                    .as_bytes(),
+            )
+    });
+    ToolOutcome::Success(json!({
+        "topics": topics
+    }))
+}
+
 pub(crate) fn search_docs(resources: &LanguageResources, arguments: &Value) -> ToolOutcome {
     let query = arguments["query"]
         .as_str()

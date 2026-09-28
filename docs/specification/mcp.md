@@ -15,7 +15,8 @@ The current MCP surface contains language-reference, standard-library source,
 standard-library package-documentation, admitted direct-dependency source,
 and admitted direct-dependency package-documentation resources plus the
 `workspace_projects`, `refresh_workspace`, `check_project`, `definition`,
-`references`, `rename`, `search_docs`, and `read_doc` tools.
+`references`, `rename`, `list_language_topics`, `search_docs`, and `read_doc`
+tools.
 Initialization advertises
 `resources` with
 `listChanged: false` and `subscribe: false`, and `tools` with
@@ -186,6 +187,16 @@ catalog construction fails, `veln mcp` startup fails instead of publishing a
 partial resource set.
 
 ## Documentation Tools
+
+`list_language_topics` accepts an empty object and returns every topic in the
+checked language-reference snapshot. Each entry contains the exact snapshot
+topic `uri`, `title`, and `summary`. Entries sort by URI UTF-8 bytes and contain
+no duplicate URI. The language index and package-documentation resources are
+not included. The result is a compact, complete discovery surface: clients can
+inspect all titles and summaries, select semantically relevant topics, and
+pass only listed URIs to `read_doc` without constructing a URI or depending on
+search vocabulary. The returned snapshot and entries remain unchanged until
+server shutdown.
 
 `search_docs` searches checked language-reference topics and retained
 successful package-documentation catalogs. The input requires `query`, accepts
