@@ -16,6 +16,9 @@ also states it.
 
 ## Ready
 
+- Standard-library TCP stream networking, typed ordinary failures, resource
+  lifecycle, and a substitutable public effect with an explicit system handler:
+  [standard-library-networking.md](standard-library-networking.md).
 - ADT variant refinement types for state-transition signatures, including
   syntax, typing, diagnostics, runtime erasure, LSP, MCP, and package
   documentation:
