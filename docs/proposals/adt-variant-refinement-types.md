@@ -247,6 +247,56 @@ constructor as they do for ordinary ADTs. A generic variant annotation must
 supply enough type arguments for the existing type-annotation rules. It does
 not introduce a new inference hole in public signatures.
 
+### Aggregate Retention And Contextual Widening
+
+An aggregate without an expected aggregate type retains every refinement that
+its component expressions contribute. Record fields retain their initializer
+types. Collection element, dictionary key and value, and generic ADT payload
+inference retain refinements in their corresponding inferred type arguments.
+An outer constructor expression also retains its own singleton refinement.
+
+When several expressions contribute to one inferred aggregate position,
+refinements of the same instantiated ADT use the symmetric least upper bound.
+The result is the union of their variant sets, independent of source order. A
+complete union becomes the base ADT. A refinement combined with its base ADT
+also becomes the base ADT. Contributions that are not refinements of the same
+instantiated ADT continue to use the existing aggregate inference and mismatch
+rules.
+
+For example, these unannotated values retain nested refinements:
+
+```veln
+let record = { state: Connected(1) }
+let states = [Connected(1), Closed("normal")]
+let boxed = Boxed(Connected(1))
+```
+
+The record field has type `Connection::Connected`. The vector has type
+`Vec<Connection::Connected | Connection::Closed>`. If `Boxed` is the sole
+variant of `Box<A>`, the third expression has type
+`Box<Connection::Connected>::Boxed`.
+
+An explicit aggregate annotation supplies expected component types before the
+aggregate type is formed. Each component can widen at that direct boundary:
+
+```veln
+let states: Vec<Connection> = [Connected(1), Closed("normal")]
+```
+
+This contextual construction produces `Vec<Connection>` directly. It is not
+an assignment from `Vec<Connection::Connected | Connection::Closed>`. After
+an unannotated aggregate has been constructed, assigning its nested refinement
+to a wider aggregate remains invalid until
+[Generic And Function Variance](generic-and-function-variance.md) defines and
+implements a covariant path for that aggregate.
+
+Field access observes the retained record-field type. Constructor payload
+patterns observe the retained payload type after generic substitution. A
+collection operation whose declared result or callback parameter uses the
+element type observes the collection's retained type argument. None of these
+projections widens a refinement merely because the surrounding aggregate is
+unannotated.
+
 `if` and `match` use a symmetric least upper bound that does not depend on
 branch order. The join of refinements with the same ADT identity and generic
 arguments is the union of their variant sets. A join of `A::V` and `A::W` is
@@ -486,11 +536,6 @@ The following decisions remain open. Each one changes observable typing,
 diagnostics, serialization, or language-service results and must be resolved
 before its affected acceptance row can pass:
 
-- **Refinement retention in aggregates:** When an unannotated record,
-  collection, or ADT payload contains an `A::V` value, does its inferred type
-  retain the nested refinement? The decision must identify which explicit
-  annotations widen it and what type field access or pattern binding later
-  observes.
 - **Impossible and redundant arms:** How does
   `type.match_impossible_variant` interact with a preceding catch-all,
   duplicate `V` arms, a hidden or private `W`, invalid constructor casing, and
@@ -528,7 +573,7 @@ described as current behavior:
 | --- | --- | --- |
 | Grammar and formatting | Singleton and union refinement forms parse in every type position, only variants of one instantiated ADT compose a union, malformed separators and final segments fail at the responsible token, and format is idempotent. | Executable source grammar, accepted and rejected fixtures, parser cases, AST wire round trips, and formatter cases. |
 | Resolution, aliases, and visibility | Source, built-in, generic, qualified, imported, private, opaque, ambiguous, and exact-companion bases follow the stated identity and visibility rules. Aliases of one target are mutually assignable, written annotations retain their spelling, unannotated and conflicting-provenance inference uses the canonical target spelling, mismatch sides select their spelling independently, and base and variant navigation select the alias and target constructor respectively. | Table-driven semantic, display, package-signature, and shared navigation cases with exact diagnostics, spans, identities, and rendered types. |
-| Construction, joins, and widening | Expected base, singleton, and union types select the owning ADT and supply generic arguments for unqualified constructors; nullary generic constructors use that context; a written different variant remains different; same-spelled constructors from other ADTs do not create ambiguity or provide a fallback; constructors retain exact variants; branch-order-independent joins infer variant unions; and expected base types widen without runtime work. | Table-driven type-checker cases for each contextual constructor outcome and join, plus executable `check` examples and backend execution and representation cases. |
+| Construction, joins, aggregate retention, and widening | Expected base, singleton, union, and aggregate types select the owning ADT and supply generic arguments for unqualified constructors; nullary generic constructors use that context; a written different variant remains different; same-spelled constructors from other ADTs do not create ambiguity or provide a fallback; constructors and unannotated aggregate positions retain exact refinements; multiple contributions to one aggregate position use a source-order-independent variant union; field access, payload patterns, and collection element positions observe the retained type; and expected component types widen during aggregate construction without a later nested assignment. | Table-driven type-checker cases for each contextual constructor outcome, direct and aggregate join, unannotated record, vector, dictionary, and generic ADT retention, explicit aggregate widening, projection, and rejected post-construction nested widening, plus executable `check` examples and backend execution and representation cases. |
 | Calls, returns, and function values | Every singleton, union, and base assignability-table row succeeds or fails as specified. Nested refinement differences in named types, records, ADT payloads, and fixed, variadic, or nested function types remain incompatible. Existing function shapes and effects remain compatible only when their refinement-bearing positions are identical. Every successfully typed return-producing expression satisfies the declared result refinement even under a constant condition or other statically dead control flow. An expression that has no type because of an earlier error produces no derivative variant mismatch. | Table-driven type-checker cases, including nested aggregate and callable boundaries, constant-condition cases, and prior-error cases, plus executable `check` examples. |
 | Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, complete union arms are exhaustive, excluded arms fail, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, qualified immutable values, and computed-expression boundaries, plus state-machine `check` examples. |
 | Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. | Human and JSON command fixtures. |
