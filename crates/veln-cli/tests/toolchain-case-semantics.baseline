@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"5dc5c2831f78cabfe3648887a66e597c35138494"
+source_git_tree	"d26aaddfe64d426187f65f804c66fb04853c7f56"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1710
@@ -1537,7 +1537,7 @@ field	expectations.diagnostics[1].id	"effect.missing_public"
 field	expectations.diagnostics[1].kind	"effect"
 field	expectations.diagnostics[1].message	"public function uses undeclared effect `concurrency`"
 field	expectations.diagnostics[1].severity	"error"
-field	expectations.diagnostics[1].span.column	3
+field	expectations.diagnostics[1].span.column	1
 field	expectations.diagnostics[1].span.file	"main.veln"
 field	expectations.diagnostics[1].span.line	61
 field	expectations.diagnostics[2].id	"effect.missing_public"
@@ -3602,7 +3602,7 @@ field	expectations.diagnostics[1].id	"defer.non_unit"
 field	expectations.diagnostics[1].kind	"type"
 field	expectations.diagnostics[1].message	"deferred block must have type `()`, but found `Int`"
 field	expectations.diagnostics[1].severity	"error"
-field	expectations.diagnostics[1].span.column	1
+field	expectations.diagnostics[1].span.column	3
 field	expectations.diagnostics[1].span.file	"main.veln"
 field	expectations.diagnostics[1].span.line	14
 field	expectations.diagnostics[2].id	"defer.nested"
@@ -3662,7 +3662,7 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"ad01a56f23d48bc2a420c288cdd659fe09a266a40457f7ce9695efda50d98086"
+case_digest	"dc22921705383049b27941e0cc900975af61a388123276fa84a09d366900139b"
 case	"examples/specification/check/deferred-block-restrictions-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -3677,7 +3677,7 @@ field	invocation.command[0]	"check"
 field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"58ee75b66eac3c8672bf261188818c10b71aab2cf6e81deabe68021655b692b4"
+case_digest	"9e62a6b348bd3926f6da60b323fdfb258076da28358671bb66d83df6d0a4cbf2"
 case	"examples/specification/check/dependency-companion-export-boundary-json"
 field	expectations.diagnostics[0].id	"manifest.invalid_export"
 field	expectations.diagnostics[0].kind	"module"
@@ -62109,4 +62109,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"672d2491b2edffdce39fcb67500d46811a384a4bd86ebf642f5f3ec754e881c6"
+aggregate_digest	"eb2e9753351a900ed119c7865850083ae117b1e11a5c2934bccb42918eaf9beb"
