@@ -428,7 +428,9 @@ binding starts after its complete initializer, including a multiline `begin`,
 so a same-spelled call inside the initializer can select an earlier function
 identity. The same rules apply to a `begin` used as a handler operation clause
 expression. MCP returns the resulting locations in its existing one-based
-Unicode-scalar coordinate model.
+Unicode-scalar coordinate model. The same scope boundaries drive rename
+conflict prediction: renaming a cleanup-body local binding to a visible
+enclosing function parameter returns `rename.conflict` and no edits.
 
 The supported definition set includes workspace functions, types,
 constructors, handler context and operation-clause parameters, exact
@@ -724,8 +726,8 @@ recovery selection from a declaration and reference, declaration exclusion and
 inclusion, an empty linked-reference set, saved coordinates, sorting, and
 pagination.
 The checked `examples/specification/mcp/cleanup-region-navigation/` transcript
-covers definition, references, and rename across `begin` and `defer` lexical
-boundaries.
+covers definition, references, rename, and an edit-free rename-conflict
+response across `begin` and `defer` lexical boundaries.
 The checked `examples/specification/mcp/references-workspace-effect/` transcript
 demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
 pagination for workspace effect and effect-operation references.

@@ -138,7 +138,11 @@ Expected types flow into holes and subexpressions from:
 A `begin` expression checks its body in a nested lexical type environment. Its
 final expression supplies the `begin` type and receives the enclosing expected
 type. A body with no final expression has type `()`. Bindings declared inside
-the body do not escape it.
+the body do not escape it. Local annotations in nested `begin` and `defer`
+bodies, including a `begin` used as a handler operation clause, receive the
+same type-name and schema-boundary checks as local annotations in a function
+body. A schema declaration is not an ordinary type, and schema-only primitive
+spellings remain invalid in these annotations.
 
 A deferred block must have type `()`. Postfix `?` inside the block reports
 `defer.propagation`; a non-unit block reports `defer.non_unit`; and another
