@@ -463,3 +463,24 @@ fn rejects_two_thousand_directly_nested_defer_statements_without_aborting() {
         lex(&source).tokens.len()
     );
 }
+
+#[test]
+fn lossless_tree_handles_large_flat_binary_expression_without_input_depth_recursion() {
+    let term_count = 10_000;
+    let mut text = String::from("fn flat() -> Int\n  0");
+    for _ in 1..term_count {
+        text.push_str(" + 0");
+    }
+    text.push_str("\nend\n");
+
+    let source = SourceFile::new("flat.veln", text);
+    let expected_token_count = lex(&source).tokens.len();
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+
+    // The parsed binary AST is deliberately left-deep. Avoid making its
+    // recursive drop behavior part of this lossless-tree construction test.
+    std::mem::forget(output);
+}

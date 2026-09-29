@@ -180,3 +180,39 @@
         assert!(larger > smaller);
         assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
     }
+
+    #[test]
+    fn sibling_cleanup_annotation_collection_is_linear() {
+        fn token_visits(annotation_count: usize) -> usize {
+            let mut source_text = String::from(
+                "type Item\n  Value\nend\n\nfn main(input: Item) -> Item\n  let region = ",
+            );
+            for index in 0..annotation_count {
+                if index > 0 {
+                    source_text.push_str(" + ");
+                }
+                source_text.push_str(&format!(
+                    "begin\n    let value{index}: Item = input\n    input\n  end"
+                ));
+            }
+            source_text.push_str("\n  input\nend\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_type_reference_collections();
+
+            let result = query_snapshot(&snapshot, "main.veln", 1, 6)
+                .expect("declared type should resolve");
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+            assert_eq!(result.references.len(), annotation_count + 2);
+            assert_eq!(type_reference_collections(), 1);
+            type_reference_token_visits()
+        }
+
+        let smaller = token_visits(64);
+        let larger = token_visits(128);
+
+        eprintln!("sibling cleanup annotation indexing: 64={smaller}, 128={larger}");
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
+    }

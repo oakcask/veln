@@ -200,33 +200,11 @@ fn type_references_in_body_lines(
     tokens: &[Token],
     body: &[BodyLine],
 ) -> TypeReferenceLocations {
-    body.iter()
-        .flat_map(|line| {
-            let mut spans = match line {
-            BodyLine::Let {
-                annotation: Some(_),
-                span,
-                ..
-            } => type_references_after_token_until_token_in_span(
-                source,
-                tokens,
-                span,
-                TokenKind::Colon,
-                TokenKind::Equal,
-            ),
-            _ => Vec::new(),
-            };
-            match line {
-                BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
-                    spans.extend(type_references_in_cleanup_expr(source, tokens, expr));
-                }
-                BodyLine::Defer { body, .. } => {
-                    spans.extend(type_references_in_body_lines(source, tokens, body));
-                }
-            }
-            spans
-        })
-        .collect()
+    collect_type_references_in_cleanup(
+        source,
+        tokens,
+        body.iter().rev().map(CleanupReferenceWork::BodyLine),
+    )
 }
 
 fn type_references_in_cleanup_expr(
@@ -234,89 +212,126 @@ fn type_references_in_cleanup_expr(
     tokens: &[Token],
     expr: &Expr,
 ) -> TypeReferenceLocations {
-    match &expr.kind {
-        ExprKind::Begin { body, .. } => type_references_in_body_lines(source, tokens, body),
-        ExprKind::TypeApply { callee, .. }
-        | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
-        | ExprKind::Prefix { expr: callee, .. } => {
-            type_references_in_cleanup_expr(source, tokens, callee)
+    collect_type_references_in_cleanup(
+        source,
+        tokens,
+        std::iter::once(CleanupReferenceWork::Expr(expr)),
+    )
+}
+
+enum CleanupReferenceWork<'a> {
+    BodyLine(&'a BodyLine),
+    Expr(&'a Expr),
+}
+
+fn collect_type_references_in_cleanup<'a>(
+    source: &SourceFile,
+    tokens: &[Token],
+    initial: impl IntoIterator<Item = CleanupReferenceWork<'a>>,
+) -> TypeReferenceLocations {
+    let mut spans = Vec::new();
+    let mut pending = initial.into_iter().collect::<Vec<_>>();
+    while let Some(work) = pending.pop() {
+        match work {
+            CleanupReferenceWork::BodyLine(line) => match line {
+                BodyLine::Let {
+                    annotation,
+                    expr,
+                    span,
+                    ..
+                } => {
+                    if annotation.is_some() {
+                        spans.extend(type_references_after_token_until_token_in_span(
+                            source,
+                            tokens,
+                            span,
+                            TokenKind::Colon,
+                            TokenKind::Equal,
+                        ));
+                    }
+                    pending.push(CleanupReferenceWork::Expr(expr));
+                }
+                BodyLine::Expr { expr, .. } => {
+                    pending.push(CleanupReferenceWork::Expr(expr));
+                }
+                BodyLine::Defer { body, .. } => {
+                    pending.extend(body.iter().rev().map(CleanupReferenceWork::BodyLine));
+                }
+            },
+            CleanupReferenceWork::Expr(expr) => match &expr.kind {
+                ExprKind::Begin { body, .. } => {
+                    pending.extend(body.iter().rev().map(CleanupReferenceWork::BodyLine));
+                }
+                ExprKind::TypeApply { callee, .. }
+                | ExprKind::SchemaEncode { value: callee, .. }
+                | ExprKind::FieldAccess { base: callee, .. }
+                | ExprKind::Try(callee)
+                | ExprKind::Prefix { expr: callee, .. } => {
+                    pending.push(CleanupReferenceWork::Expr(callee));
+                }
+                ExprKind::Call { callee, args }
+                | ExprKind::Handle {
+                    body: callee, args, ..
+                } => {
+                    pending.push(CleanupReferenceWork::Expr(callee));
+                    pending.extend(args.iter().map(CleanupReferenceWork::Expr));
+                }
+                ExprKind::Perform { args, .. } | ExprKind::List(args) => {
+                    pending.extend(args.iter().map(CleanupReferenceWork::Expr));
+                }
+                ExprKind::SchemaDecode { input, base, .. }
+                | ExprKind::Binary {
+                    left: input,
+                    right: base,
+                    ..
+                } => {
+                    pending.push(CleanupReferenceWork::Expr(input));
+                    pending.push(CleanupReferenceWork::Expr(base));
+                }
+                ExprKind::Record(fields) => pending.extend(
+                    fields
+                        .iter()
+                        .map(|field| CleanupReferenceWork::Expr(&field.expr)),
+                ),
+                ExprKind::Dict(entries) => {
+                    for entry in entries {
+                        pending.push(CleanupReferenceWork::Expr(&entry.key));
+                        pending.push(CleanupReferenceWork::Expr(&entry.value));
+                    }
+                }
+                ExprKind::Match { scrutinee, arms } => {
+                    pending.push(CleanupReferenceWork::Expr(scrutinee));
+                    pending.extend(
+                        arms.iter()
+                            .map(|arm| CleanupReferenceWork::Expr(&arm.expr)),
+                    );
+                }
+                ExprKind::If {
+                    condition,
+                    then_branch,
+                    else_if_branches,
+                    else_branch,
+                } => {
+                    pending.push(CleanupReferenceWork::Expr(condition));
+                    pending.push(CleanupReferenceWork::Expr(then_branch));
+                    for branch in else_if_branches {
+                        pending.push(CleanupReferenceWork::Expr(&branch.condition));
+                        pending.push(CleanupReferenceWork::Expr(&branch.expr));
+                    }
+                    pending.push(CleanupReferenceWork::Expr(else_branch));
+                }
+                ExprKind::Missing
+                | ExprKind::Hole { .. }
+                | ExprKind::NamePath { .. }
+                | ExprKind::StringLiteral(_)
+                | ExprKind::IntLiteral(_)
+                | ExprKind::FloatLiteral(_)
+                | ExprKind::BoolLiteral(_)
+                | ExprKind::Unit => {}
+            },
         }
-        ExprKind::Call { callee, args } => type_references_in_cleanup_expr(source, tokens, callee)
-            .into_iter()
-            .chain(args.iter().flat_map(|arg| {
-                type_references_in_cleanup_expr(source, tokens, arg)
-            }))
-            .collect(),
-        ExprKind::Perform { args, .. } | ExprKind::List(args) => args
-            .iter()
-            .flat_map(|arg| type_references_in_cleanup_expr(source, tokens, arg))
-            .collect(),
-        ExprKind::Handle { body, args, .. } => type_references_in_cleanup_expr(source, tokens, body)
-            .into_iter()
-            .chain(args.iter().flat_map(|arg| {
-                type_references_in_cleanup_expr(source, tokens, arg)
-            }))
-            .collect(),
-        ExprKind::SchemaDecode { input, base, .. } => {
-            type_references_in_cleanup_expr(source, tokens, input)
-                .into_iter()
-                .chain(type_references_in_cleanup_expr(source, tokens, base))
-                .collect()
-        }
-        ExprKind::SchemaEncode { value, .. } => {
-            type_references_in_cleanup_expr(source, tokens, value)
-        }
-        ExprKind::Record(fields) => fields
-            .iter()
-            .flat_map(|field| type_references_in_cleanup_expr(source, tokens, &field.expr))
-            .collect(),
-        ExprKind::Dict(entries) => entries
-            .iter()
-            .flat_map(|entry| {
-                type_references_in_cleanup_expr(source, tokens, &entry.key)
-                    .into_iter()
-                    .chain(type_references_in_cleanup_expr(source, tokens, &entry.value))
-            })
-            .collect(),
-        ExprKind::Match { scrutinee, arms } => {
-            type_references_in_cleanup_expr(source, tokens, scrutinee)
-                .into_iter()
-                .chain(arms.iter().flat_map(|arm| {
-                    type_references_in_cleanup_expr(source, tokens, &arm.expr)
-                }))
-                .collect()
-        }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => type_references_in_cleanup_expr(source, tokens, condition)
-            .into_iter()
-            .chain(type_references_in_cleanup_expr(source, tokens, then_branch))
-            .chain(else_if_branches.iter().flat_map(|branch| {
-                type_references_in_cleanup_expr(source, tokens, &branch.condition)
-                    .into_iter()
-                    .chain(type_references_in_cleanup_expr(source, tokens, &branch.expr))
-            }))
-            .chain(type_references_in_cleanup_expr(source, tokens, else_branch))
-            .collect(),
-        ExprKind::Binary { left, right, .. } => {
-            type_references_in_cleanup_expr(source, tokens, left)
-                .into_iter()
-                .chain(type_references_in_cleanup_expr(source, tokens, right))
-                .collect()
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => Vec::new(),
     }
+    spans
 }
 
 fn type_references_in_variant_field(

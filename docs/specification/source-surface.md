@@ -63,9 +63,11 @@ Its type and value come from its final expression. If the body has no final
 expression, the result is `()`. A `defer` statement is a direct line of a
 function, test, or `begin` body. Its block can refer only to bindings that are
 in scope before the statement, must have type `()`, and cannot use `?` or
-contain another `defer`. A rejected deferred block reports the failed fact at
-the violating source and puts its repair note on the containing deferred
-block.
+contain another `defer`. The dedicated diagnostics for a non-unit result, `?`,
+or a nested `defer` report the failed fact at the violating source and put a
+repair note on the containing deferred block. A reference to a binding declared
+after the `defer` is instead an ordinary unresolved-name error and has no
+deferred-block repair note.
 
 Effects used in a `begin` body or deferred block contribute to the effect set
 of the enclosing function, test, or handler operation. A cleanup-region

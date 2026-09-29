@@ -500,6 +500,12 @@ fn match_arm_pattern_binding_names(
         let scope_start = token.range.end;
         let scope_end = match_arm_scope_end(tokens, index + 1, function_end);
         let pattern_start = match_arm_pattern_start(tokens, index, body_start);
+        let first_pattern_token_start = tokens[..index]
+            .iter()
+            .find(|token| {
+                token.range.start >= pattern_start && !is_layout_token_kind(token.kind)
+            })
+            .map(|token| token.range.start);
         for name in pattern_binding_names_in_range(tokens, pattern_start, index) {
             bindings.push(LocalBinding {
                 name: name.0,
@@ -507,7 +513,10 @@ fn match_arm_pattern_binding_names(
                 declaration_end: name.2,
                 start: scope_start,
                 end: scope_end,
-                navigation_supported: false,
+                // Whole-pattern bindings retain their established unsupported
+                // navigation boundary. Bindings nested in structured patterns
+                // have an unambiguous declaration token and remain navigable.
+                navigation_supported: first_pattern_token_start != Some(name.1),
             });
         }
     }

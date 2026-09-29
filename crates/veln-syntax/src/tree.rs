@@ -397,75 +397,66 @@ fn body_line_range(line: &BodyLine) -> TextRange {
 }
 
 fn collect_outer_begin_exprs<'a>(expr: &'a Expr, begins: &mut Vec<&'a Expr>) {
-    match &expr.kind {
-        ExprKind::Begin { .. } => begins.push(expr),
-        ExprKind::TypeApply { callee, .. }
-        | ExprKind::SchemaEncode { value: callee, .. }
-        | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
-        | ExprKind::Prefix { expr: callee, .. } => collect_outer_begin_exprs(callee, begins),
-        ExprKind::Call { callee, args }
-        | ExprKind::Handle {
-            body: callee, args, ..
-        } => {
-            collect_outer_begin_exprs(callee, begins);
-            for arg in args {
-                collect_outer_begin_exprs(arg, begins);
+    let mut pending = vec![expr];
+    while let Some(expr) = pending.pop() {
+        match &expr.kind {
+            ExprKind::Begin { .. } => begins.push(expr),
+            ExprKind::TypeApply { callee, .. }
+            | ExprKind::SchemaEncode { value: callee, .. }
+            | ExprKind::FieldAccess { base: callee, .. }
+            | ExprKind::Try(callee)
+            | ExprKind::Prefix { expr: callee, .. } => pending.push(callee),
+            ExprKind::Call { callee, args }
+            | ExprKind::Handle {
+                body: callee, args, ..
+            } => {
+                pending.push(callee);
+                pending.extend(args);
             }
-        }
-        ExprKind::Perform { args, .. } | ExprKind::List(args) => {
-            for arg in args {
-                collect_outer_begin_exprs(arg, begins);
+            ExprKind::Perform { args, .. } | ExprKind::List(args) => pending.extend(args),
+            ExprKind::SchemaDecode { input, base, .. }
+            | ExprKind::Binary {
+                left: input,
+                right: base,
+                ..
+            } => {
+                pending.push(input);
+                pending.push(base);
             }
-        }
-        ExprKind::SchemaDecode { input, base, .. }
-        | ExprKind::Binary {
-            left: input,
-            right: base,
-            ..
-        } => {
-            collect_outer_begin_exprs(input, begins);
-            collect_outer_begin_exprs(base, begins);
-        }
-        ExprKind::Record(fields) => {
-            for field in fields {
-                collect_outer_begin_exprs(&field.expr, begins);
+            ExprKind::Record(fields) => pending.extend(fields.iter().map(|field| &field.expr)),
+            ExprKind::Dict(entries) => {
+                for entry in entries {
+                    pending.push(&entry.key);
+                    pending.push(&entry.value);
+                }
             }
-        }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_outer_begin_exprs(&entry.key, begins);
-                collect_outer_begin_exprs(&entry.value, begins);
+            ExprKind::Match { scrutinee, arms } => {
+                pending.push(scrutinee);
+                pending.extend(arms.iter().map(|arm| &arm.expr));
             }
-        }
-        ExprKind::Match { scrutinee, arms } => {
-            collect_outer_begin_exprs(scrutinee, begins);
-            for arm in arms {
-                collect_outer_begin_exprs(&arm.expr, begins);
+            ExprKind::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => {
+                pending.push(condition);
+                pending.push(then_branch);
+                for branch in else_if_branches {
+                    pending.push(&branch.condition);
+                    pending.push(&branch.expr);
+                }
+                pending.push(else_branch);
             }
+            ExprKind::Missing
+            | ExprKind::Hole { .. }
+            | ExprKind::NamePath { .. }
+            | ExprKind::StringLiteral(_)
+            | ExprKind::IntLiteral(_)
+            | ExprKind::FloatLiteral(_)
+            | ExprKind::BoolLiteral(_)
+            | ExprKind::Unit => {}
         }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            collect_outer_begin_exprs(condition, begins);
-            collect_outer_begin_exprs(then_branch, begins);
-            for branch in else_if_branches {
-                collect_outer_begin_exprs(&branch.condition, begins);
-                collect_outer_begin_exprs(&branch.expr, begins);
-            }
-            collect_outer_begin_exprs(else_branch, begins);
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => {}
     }
 }
 
