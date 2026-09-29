@@ -173,6 +173,33 @@ fn references_resolve_callable_and_local_bindings() {
             ranges: vec![("main.veln", 9, 15, 9, 23), ("main.veln", 11, 5, 11, 13)],
         },
         WorkspaceSymbolCase {
+            name: "handler clause begin local captured by deferred cleanup",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value() -> Int\n",
+                        "end\n\n",
+                        "handler ask() handles Ask\n",
+                        "  value() => begin\n",
+                        "    let captured = 1\n",
+                        "    defer\n",
+                        "      captured\n",
+                        "    end\n",
+                        "    captured\n",
+                        "  end\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 9,
+            column: 8,
+            ranges: vec![("main.veln", 9, 7, 9, 15), ("main.veln", 11, 5, 11, 13)],
+        },
+        WorkspaceSymbolCase {
             name: "parameter shadowed across nested cleanup scopes",
             files: nested_cleanup_shadowing_files(),
             source: "main.veln",

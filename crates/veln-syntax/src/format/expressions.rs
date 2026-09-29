@@ -9,7 +9,37 @@ pub(super) fn format_expr_at_indent_with_comments(
     indent: usize,
     comments: &LineComments,
 ) -> String {
-    format_expr_at_indent_ctx(expr, indent, Some(comments))
+    let mut continued_comments = Vec::new();
+    take_continued_begin_comments(expr, comments, &mut continued_comments);
+    let mut text = format_expr_at_indent_ctx(expr, indent, Some(comments));
+    for comment in continued_comments {
+        text.push_str("  ");
+        text.push_str(&comment);
+    }
+    text
+}
+
+fn take_continued_begin_comments(
+    expr: &Expr,
+    comments: &LineComments,
+    continued_comments: &mut Vec<String>,
+) {
+    let ExprKind::Binary { left, right, .. } = &expr.kind else {
+        return;
+    };
+    if matches!(left.kind, ExprKind::Begin { .. }) {
+        continued_comments.extend(comments.take_after(expr_end_line(left)));
+    }
+    take_continued_begin_comments(left, comments, continued_comments);
+    take_continued_begin_comments(right, comments, continued_comments);
+}
+
+fn expr_end_line(expr: &Expr) -> usize {
+    if expr.span.end.column == 1 {
+        expr.span.end.line.saturating_sub(1)
+    } else {
+        expr.span.end.line
+    }
 }
 
 fn format_expr_at_indent_ctx(

@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(super) struct LocalBinding {
     pub(super) name: String,
     pub(super) function_shape: Option<FunctionShape>,
@@ -95,8 +95,9 @@ fn collect_body_callees(
                 collect_function_callees(expr, context, local_bindings, callees);
             }
             veln_ast::BodyLineKind::Defer { body, .. } => {
-                let mut defer_bindings = local_bindings.clone();
-                collect_body_callees(body, context, &mut defer_bindings, callees);
+                let binding_count = local_bindings.len();
+                collect_body_callees(body, context, local_bindings, callees);
+                local_bindings.truncate(binding_count);
             }
         }
     }
@@ -233,7 +234,7 @@ pub(super) fn collect_contract_function_value_references(
 pub(super) fn collect_function_callees(
     expr: &Expr,
     context: &FunctionCalleeContext<'_>,
-    local_bindings: &[LocalBinding],
+    local_bindings: &mut Vec<LocalBinding>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     match &expr.kind {
@@ -259,14 +260,16 @@ pub(super) fn collect_function_callees(
         ExprKind::Match { scrutinee, arms } => {
             collect_function_callees(scrutinee, context, local_bindings, callees);
             for arm in arms {
-                let mut arm_bindings = local_bindings.to_vec();
-                collect_pattern_bindings(&arm.pattern, None, &mut arm_bindings);
-                collect_function_callees(&arm.expr, context, &arm_bindings, callees);
+                let binding_count = local_bindings.len();
+                collect_pattern_bindings(&arm.pattern, None, local_bindings);
+                collect_function_callees(&arm.expr, context, local_bindings, callees);
+                local_bindings.truncate(binding_count);
             }
         }
         ExprKind::Begin { body, .. } => {
-            let mut begin_bindings = local_bindings.to_vec();
-            collect_body_callees(body, context, &mut begin_bindings, callees);
+            let binding_count = local_bindings.len();
+            collect_body_callees(body, context, local_bindings, callees);
+            local_bindings.truncate(binding_count);
         }
         _ => {
             if matches!(expr.kind, ExprKind::Handle { .. }) {

@@ -124,6 +124,13 @@ impl LineComments {
         }
     }
 
+    pub(super) fn take_after(&self, source_line: usize) -> Vec<String> {
+        self.after
+            .borrow_mut()
+            .remove(&source_line)
+            .unwrap_or_default()
+    }
+
     pub(super) fn has_comment_in_span(&self, span: &veln_source::SourceSpan) -> bool {
         let start = span.start.line;
         let end = if span.end.column == 1 {

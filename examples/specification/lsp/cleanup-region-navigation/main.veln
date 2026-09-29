@@ -13,3 +13,18 @@ fn choose(input: Int) -> Int
 	end
 	cleanup
 end
+
+effect Ask
+	value() -> Int
+end
+
+handler ask() handles Ask
+	value() => begin
+		let captured = 1
+		defer
+			let deferred = captured
+			()
+		end
+		captured
+	end
+end

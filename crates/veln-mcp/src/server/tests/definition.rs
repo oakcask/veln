@@ -80,6 +80,35 @@ fn definition_resolves_the_supported_workspace_symbol_set() {
             definition_column: 8,
         },
         Case {
+            name: "handler clause begin local",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value() -> Int\n",
+                        "end\n\n",
+                        "handler ask() handles Ask\n",
+                        "  value() => begin\n",
+                        "    let captured = 1\n",
+                        "    defer\n",
+                        "      captured\n",
+                        "    end\n",
+                        "    captured\n",
+                        "  end\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 9,
+            column: 8,
+            definition_file: "main.veln",
+            definition_line: 7,
+            definition_column: 9,
+        },
+        Case {
             name: "exact companion private function",
             files: vec![
                 ("veln.toml", ""),

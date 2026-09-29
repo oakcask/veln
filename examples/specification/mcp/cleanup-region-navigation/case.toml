@@ -49,3 +49,28 @@ equals = {"start":{"line":10,"column":4},"end":{"line":10,"column":11}}
 id = 7
 path = "/result/structuredContent/edits"
 length = 2
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":23,"column":7},"end":{"line":23,"column":15}}
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":25,"column":19},"end":{"line":25,"column":27}}
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":28,"column":3},"end":{"line":28,"column":11}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/edits"
+length = 3

@@ -25,6 +25,8 @@ use recovery_index::*;
 use recovery_resolution::*;
 use targets::*;
 
+struct LocalNameBinding(String);
+
 #[cfg(test)]
 pub(crate) fn reachable_entry_module(
     module: &SurfaceModule,

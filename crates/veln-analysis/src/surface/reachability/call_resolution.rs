@@ -215,7 +215,7 @@ pub(super) fn collect_handler_operation_clause_callees(
                 name: param.name.clone(),
                 function_shape: None,
             }));
-            collect_function_callees(&clause.body, &context, &local_bindings, callees);
+            collect_function_callees(&clause.body, &context, &mut local_bindings, callees);
             local_bindings.truncate(binding_count);
         }
     }

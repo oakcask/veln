@@ -598,6 +598,41 @@
     }
 
     #[test]
+    fn handler_clause_begin_local_links_deferred_and_tail_uses() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "effect Ask\n",
+                    "  value() -> Int\n",
+                    "end\n\n",
+                    "handler ask() handles Ask\n",
+                    "  value() => begin\n",
+                    "    let captured = 1\n",
+                    "    defer\n",
+                    "      captured\n",
+                    "    end\n",
+                    "    captured\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            9,
+            8,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 7, 9);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 9, 7), ("main.veln", 11, 5)]
+        );
+        assert!(validate_rename(&result, "saved").is_ok());
+    }
+
+    #[test]
     fn cleanup_region_local_binding_scope_index_grows_linearly() {
         fn token_visits(binding_count: usize) -> usize {
             let mut source_text = String::from(

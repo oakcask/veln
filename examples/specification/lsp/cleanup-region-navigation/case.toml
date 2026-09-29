@@ -54,3 +54,28 @@ equals = {"start":{"line":9,"character":3},"end":{"line":9,"character":10}}
 id = 8
 path = "/result/changes/$workspace_file_uri:main.veln"
 length = 2
+
+[[lsp_assert]]
+id = 9
+path = "/result/range"
+equals = {"start":{"line":22,"character":6},"end":{"line":22,"character":14}}
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 10
+path = "/result/1/range"
+equals = {"start":{"line":24,"character":18},"end":{"line":24,"character":26}}
+
+[[lsp_assert]]
+id = 10
+path = "/result/2/range"
+equals = {"start":{"line":27,"character":2},"end":{"line":27,"character":10}}
+
+[[lsp_assert]]
+id = 11
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 3

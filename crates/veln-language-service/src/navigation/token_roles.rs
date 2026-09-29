@@ -115,7 +115,10 @@ fn is_bare_function_reference_token(
         && !is_handler_operation_clause_operation_name(tokens, index)
         && (is_call_target_token(tokens, index)
             || token_scope(scopes, tokens[index].range.start)
-                .is_some_and(|scope| !scope.shadows(name, tokens, index))
+                .is_some_and(|scope| {
+                    !inside_handler_operation_clause_body(tokens, tokens[index].range.start)
+                        && !scope.shadows(name, tokens, index)
+                })
             || is_handler_operation_clause_call_target(tokens, index)
             || is_function_alias_target_reference(tokens, index, name)
             || is_codec_implementation_function_reference(tokens, index, name))

@@ -204,6 +204,49 @@ fn rename_begin_local_edits_declaration_and_deferred_cleanup_references() {
 }
 
 #[test]
+fn rename_handler_clause_begin_local_edits_declaration_and_cleanup_uses() {
+    let workspace = TempWorkspace::new("rename-handler-clause-cleanup-region-local");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n\n",
+            "handler ask() handles Ask\n",
+            "  value() => begin\n",
+            "    let captured = 1\n",
+            "    defer\n",
+            "      captured\n",
+            "    end\n",
+            "    captured\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let result = rename_result(&workspace, "main.veln", 9, 8, "saved");
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    let ranges = edits(&result)
+        .iter()
+        .map(|edit| {
+            let range = &edit["range"];
+            (
+                range["start"]["line"].as_u64().unwrap(),
+                range["start"]["column"].as_u64().unwrap(),
+                range["end"]["line"].as_u64().unwrap(),
+                range["end"]["column"].as_u64().unwrap(),
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        ranges,
+        BTreeSet::from([(7, 9, 7, 17), (9, 7, 9, 15), (11, 5, 11, 13),])
+    );
+}
+
+#[test]
 fn rename_uses_innermost_binding_across_nested_cleanup_scopes() {
     let workspace = TempWorkspace::new("rename-cleanup-region-shadowing");
     workspace.write("veln.toml", "");

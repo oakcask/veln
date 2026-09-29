@@ -51,7 +51,34 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
             local_bindings_by_name,
         });
     }
+    scopes.extend(handler_operation_clause_scopes(tokens));
     scopes
+}
+
+fn handler_operation_clause_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
+    let file_end = tokens.last().map_or(0, |token| token.range.end);
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(index, token)| {
+            token.kind == TokenKind::FatArrow
+                && is_handler_operation_clause_arrow(tokens, *index)
+        })
+        .map(|(arrow_index, arrow)| {
+            let body_start = arrow.range.end;
+            let end = handler_operation_clause_body_end(tokens, arrow_index, file_end);
+            let local_bindings = local_bindings(tokens, body_start, end);
+            let local_bindings_by_name = local_binding_index_by_name(&local_bindings);
+            FunctionScope {
+                body_start,
+                end,
+                params: Vec::new(),
+                result_binding: None,
+                local_bindings,
+                local_bindings_by_name,
+            }
+        })
+        .collect()
 }
 
 impl FunctionScope {

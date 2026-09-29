@@ -11,3 +11,11 @@ fn choose(input: Int) -> Int
 		captured
 	end
 end
+
+fn combine(left: Int, right: Int) -> Int
+	begin
+		left
+	end + begin
+		right
+	end  # retain the complete addition
+end

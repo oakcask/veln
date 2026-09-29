@@ -215,6 +215,51 @@ fn keeps_cleanup_header_comments_on_the_header_line() {
 }
 
 #[test]
+fn moves_begin_continuation_comments_after_the_enclosing_binary_expression() {
+    let input = concat!(
+        "fn calculate() -> Int\n",
+        " let simple = begin\n",
+        "  1\n",
+        " end + 2 # keep the complete sum\n",
+        " let nested = begin\n",
+        "  3\n",
+        " end + begin # keep both regions\n",
+        "  4\n",
+        " end\n",
+        " simple + nested\n",
+        "end\n",
+    );
+    let source = SourceFile::new("cleanup.veln", input);
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let first = format_tree(&output.tree);
+    let expected = concat!(
+        "fn calculate() -> Int\n",
+        "\tlet simple = begin\n",
+        "\t\t1\n",
+        "\tend + 2  # keep the complete sum\n",
+        "\tlet nested = begin\n",
+        "\t\t3\n",
+        "\tend + begin\n",
+        "\t\t4\n",
+        "\tend  # keep both regions\n",
+        "\tsimple + nested\n",
+        "end\n",
+    );
+    assert_eq!(first, expected);
+
+    let second_source = SourceFile::new("cleanup.veln", first.clone());
+    let second_output = parse(&second_source);
+    assert!(
+        second_output.diagnostics.is_empty(),
+        "{:#?}",
+        second_output.diagnostics
+    );
+    assert_eq!(format_tree(&second_output.tree), first);
+}
+
+#[test]
 fn lossless_tree_exposes_cleanup_region_nodes() {
     let source = SourceFile::new("cleanup.veln", SOURCE);
     let output = parse(&source);

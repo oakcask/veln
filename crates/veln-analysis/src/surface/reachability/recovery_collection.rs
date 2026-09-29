@@ -44,7 +44,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let mut local_bindings = function
             .params
             .iter()
-            .map(|param| param.name.clone())
+            .map(|param| LocalNameBinding(param.name.clone()))
             .collect::<Vec<_>>();
         for param in &function.params {
             self.collect_type_annotation(
@@ -70,7 +70,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         &mut self,
         body: &[veln_ast::BodyLine],
         current_module: Option<&str>,
-        local_bindings: &mut Vec<String>,
+        local_bindings: &mut Vec<LocalNameBinding>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         for line in body {
@@ -90,8 +90,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                     self.collect_expr(expr, current_module, local_bindings, spans);
                 }
                 veln_ast::BodyLineKind::Defer { body, .. } => {
-                    let mut defer_bindings = local_bindings.clone();
-                    self.collect_body(body, current_module, &mut defer_bindings, spans);
+                    let binding_count = local_bindings.len();
+                    self.collect_body(body, current_module, local_bindings, spans);
+                    local_bindings.truncate(binding_count);
                 }
             }
         }
@@ -118,7 +119,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         &mut self,
         expr: &Expr,
         current_module: Option<&str>,
-        local_bindings: &[String],
+        local_bindings: &mut Vec<LocalNameBinding>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         match &expr.kind {
@@ -197,8 +198,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 );
             }
             ExprKind::Begin { body, .. } => {
-                let mut begin_bindings = local_bindings.to_vec();
-                self.collect_body(body, current_module, &mut begin_bindings, spans);
+                let binding_count = local_bindings.len();
+                self.collect_body(body, current_module, local_bindings, spans);
+                local_bindings.truncate(binding_count);
             }
             ExprKind::Binary { left, right, .. } => {
                 self.collect_expr(left, current_module, local_bindings, spans);
@@ -218,7 +220,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         callee: &Expr,
         type_args: &[String],
         current_module: Option<&str>,
-        local_bindings: &[String],
+        local_bindings: &mut Vec<LocalNameBinding>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         self.collect_expr(callee, current_module, local_bindings, spans);
@@ -232,7 +234,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         callee: &Expr,
         args: &[Expr],
         current_module: Option<&str>,
-        local_bindings: &[String],
+        local_bindings: &mut Vec<LocalNameBinding>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if let Some(segments) = callee.callee_name_path() {
@@ -249,7 +251,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         &mut self,
         expressions: &[Expr],
         current_module: Option<&str>,
-        local_bindings: &[String],
+        local_bindings: &mut Vec<LocalNameBinding>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         for expression in expressions {
@@ -262,15 +264,16 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         scrutinee: &Expr,
         arms: &[veln_ast::MatchArm],
         current_module: Option<&str>,
-        local_bindings: &[String],
+        local_bindings: &mut Vec<LocalNameBinding>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         self.collect_expr(scrutinee, current_module, local_bindings, spans);
         for arm in arms {
             self.collect_pattern(&arm.pattern, current_module, spans);
-            let mut arm_bindings = local_bindings.to_vec();
-            collect_pattern_binding_names(&arm.pattern, &mut arm_bindings);
-            self.collect_expr(&arm.expr, current_module, &arm_bindings, spans);
+            let binding_count = local_bindings.len();
+            collect_pattern_binding_names(&arm.pattern, local_bindings);
+            self.collect_expr(&arm.expr, current_module, local_bindings, spans);
+            local_bindings.truncate(binding_count);
         }
     }
 
@@ -280,7 +283,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         else_if_branches: &[veln_ast::IfBranch],
         else_branch: &Expr,
         current_module: Option<&str>,
-        local_bindings: &[String],
+        local_bindings: &mut Vec<LocalNameBinding>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         self.collect_expr(then_branch, current_module, local_bindings, spans);
@@ -449,20 +452,25 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let mut local_bindings = handler
             .params
             .iter()
-            .map(|param| param.name.clone())
+            .map(|param| LocalNameBinding(param.name.clone()))
             .collect::<Vec<_>>();
         for param in &handler.params {
             self.collect_type_annotation(param.ty.as_deref(), current_module, spans);
         }
         for clause in &handler.operation_clauses {
             let binding_count = local_bindings.len();
-            local_bindings.extend(clause.params.iter().map(|param| param.name.clone()));
-            self.collect_expr(&clause.body, current_module, &local_bindings, spans);
+            local_bindings.extend(
+                clause
+                    .params
+                    .iter()
+                    .map(|param| LocalNameBinding(param.name.clone())),
+            );
+            self.collect_expr(&clause.body, current_module, &mut local_bindings, spans);
             local_bindings.truncate(binding_count);
         }
     }
 }
 
-fn is_local_name_path(segments: &[String], local_bindings: &[String]) -> bool {
-    matches!(segments, [name] if local_bindings.iter().rev().any(|binding| binding == name))
+fn is_local_name_path(segments: &[String], local_bindings: &[LocalNameBinding]) -> bool {
+    matches!(segments, [name] if local_bindings.iter().rev().any(|binding| binding.0 == *name))
 }
