@@ -127,14 +127,14 @@ fails.
 | C6 | A `begin` expression completes successfully. | Its cleanup runs before the expression value is bound outside the scope. | Run specification case. |
 | C7 | Cleanup fails while the region is already failing. | The original failure remains primary and cleanup failure is related context. | Human and JSON runtime-failure cases. |
 | C8 | A Veln task is cancelled while inside a cleanup region. | Task completion is not reported until registered cleanup has run. | Deterministic task-runtime case. |
-| C9 | A successful region has a cleanup block that fails. | The first cleanup failure becomes the region failure after every cleanup block runs. | Run specification case with an event recorder and a failing cleanup. |
-| C10 | One cleanup fails before another registered cleanup runs. | The remaining cleanup still runs in reverse registration order. | Run specification case with ordered events. |
 | C11 | More than one cleanup fails while the region is already failing. | The original failure remains primary and cleanup failures are attached in execution order. | Human and JSON runtime-failure cases with ordered related failures. |
+| C12 | A successful region has a cleanup block that fails. | The first cleanup failure becomes the region failure after every cleanup block runs. | Run specification case with an event recorder and a failing cleanup. |
+| C13 | One cleanup fails before another registered cleanup runs. | The remaining cleanup still runs in reverse registration order. | Run specification case with ordered events. |
 
 ## Verification and Promotion
 
-Runtime cases belong under `examples/specification/`. After C1 through C11 pass,
-the execution behavior must be explained in the current execution
+Runtime cases belong under `examples/specification/`. After all listed runtime
+cases pass, the execution behavior must be explained in the current execution
 specification and this proposal must be removed from the proposal catalog.
 
 Task cancellation cannot satisfy this proposal by abandoning the host thread.

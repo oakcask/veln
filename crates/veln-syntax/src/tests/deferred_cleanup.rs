@@ -281,17 +281,23 @@ fn handler_operation_navigation_exposes_begin_region() {
 
 #[test]
 fn reports_unterminated_cleanup_regions() {
-    for text in [
-        "fn demo()\n defer\n  release()\n",
-        "fn demo()\n let value = begin\n  acquire()\n",
+    for (text, expected_diagnostic) in [
+        (
+            "fn demo()\n defer\n  release()\n",
+            "parse.defer_missing_end",
+        ),
+        (
+            "fn demo()\n let value = begin\n  acquire()\n",
+            "parse.begin_missing_end",
+        ),
     ] {
         let source = SourceFile::new("cleanup.veln", text);
         let output = parse(&source);
         assert!(
-            output.diagnostics.iter().any(|diagnostic| matches!(
-                diagnostic.id,
-                "parse.defer_missing_end" | "parse.begin_missing_end"
-            )),
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == expected_diagnostic),
             "{:#?}",
             output.diagnostics
         );

@@ -204,6 +204,13 @@ has no source syntax for `return`, `break`, `continue`, or another explicit
 control transfer, so a deferred block cannot currently express a transfer out
 of its body.
 
+The completed source-foundation acceptance cases retain these identifiers:
+
+| Case | Observable requirement | Verification |
+| --- | --- | --- |
+| C9 | A deferred block that uses `?`, produces a non-unit value, or uses a source-supported control transfer out of the block fails checking with a repair note on the containing deferred block. | Checked human and JSON diagnostics cover the expressible restrictions. The current grammar has no outward control-transfer form. |
+| C10 | Parsing and formatting preserve both cleanup forms and their block ranges, and definition, reference, and rename operations respect bindings within those ranges. | Parser, formatter, LSP, and MCP checks exercise the round trip and navigation behavior. |
+
 These forms currently provide parsing, static checks, formatting, and
 navigation only. `veln check` accepts a well-typed cleanup region, but core
 lowering records the `deferred_cleanup_runtime` blocker and `veln run` reports
@@ -334,6 +341,11 @@ MemberPath    ::= Name ("::" Name)*
 - Grammar artifact: [source-surface-executable.pl](source-surface-executable.pl).
 - Parser: `crates/veln-syntax/src/parser/` and `crates/veln-syntax/src/lexer.rs`.
 - Source identity and companion visibility: `crates/veln-analysis/src/surface/`.
+- C9 evidence: `examples/specification/check/deferred-block-restrictions/`
+  and `examples/specification/check/deferred-block-restrictions-human/`.
+- C10 evidence: `examples/specification/fmt/cleanup-regions/`,
+  `examples/specification/lsp/cleanup-region-navigation/`, and
+  `examples/specification/mcp/cleanup-region-navigation/`.
 
 ## Read by task
 
