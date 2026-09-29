@@ -33,6 +33,7 @@ include!("navigation/recovery_declarations.rs");
 include!("navigation/handler_bindings.rs");
 include!("navigation/references.rs");
 include!("navigation/scopes.rs");
+include!("navigation/local_binding_scopes.rs");
 include!("navigation/token_roles.rs");
 include!("navigation/source_paths.rs");
 

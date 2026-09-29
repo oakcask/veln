@@ -25,6 +25,7 @@ mod callback_discovery;
 mod expression_inference;
 mod orchestration;
 mod reference_discovery;
+mod scoped_body_inference;
 
 pub(crate) use aliases_and_bindings::*;
 pub(crate) use call_site_resolution::*;
@@ -34,6 +35,7 @@ pub(crate) use callback_discovery::*;
 pub(crate) use expression_inference::*;
 pub(crate) use orchestration::*;
 pub(crate) use reference_discovery::*;
+pub(crate) use scoped_body_inference::*;
 
 fn valid_value_binding_name(name: &str) -> bool {
     name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)

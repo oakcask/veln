@@ -6,7 +6,7 @@ format = "text"
 contains = [
   "main.veln:7:3: error[defer.propagation]: deferred block cannot use `?`",
   "note: main.veln:7:1: Handle the `Result` inside the deferred block instead of propagating it with `?`.",
-  "main.veln:14:1: error[defer.non_unit]: deferred block must have type `()`, but found `Int`",
+  "main.veln:14:3: error[defer.non_unit]: deferred block must have type `()`, but found `Int`",
   "note: main.veln:14:1: End the deferred block with `()` so cleanup cannot replace the region value.",
   "main.veln:21:3: error[defer.nested]: deferred block cannot register another deferred block",
   "note: main.veln:21:1: Move the nested `defer` to a cleanup-region body.",

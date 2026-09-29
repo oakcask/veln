@@ -1537,7 +1537,7 @@ field	expectations.diagnostics[1].id	"effect.missing_public"
 field	expectations.diagnostics[1].kind	"effect"
 field	expectations.diagnostics[1].message	"public function uses undeclared effect `concurrency`"
 field	expectations.diagnostics[1].severity	"error"
-field	expectations.diagnostics[1].span.column	1
+field	expectations.diagnostics[1].span.column	3
 field	expectations.diagnostics[1].span.file	"main.veln"
 field	expectations.diagnostics[1].span.line	61
 field	expectations.diagnostics[2].id	"effect.missing_public"
@@ -3668,7 +3668,7 @@ field	expectations.exit	1
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"main.veln:7:3: error[defer.propagation]: deferred block cannot use `?`"
 field	expectations.stdout.contains[1]	"note: main.veln:7:1: Handle the `Result` inside the deferred block instead of propagating it with `?`."
-field	expectations.stdout.contains[2]	"main.veln:14:1: error[defer.non_unit]: deferred block must have type `()`, but found `Int`"
+field	expectations.stdout.contains[2]	"main.veln:14:3: error[defer.non_unit]: deferred block must have type `()`, but found `Int`"
 field	expectations.stdout.contains[3]	"note: main.veln:14:1: End the deferred block with `()` so cleanup cannot replace the region value."
 field	expectations.stdout.contains[4]	"main.veln:21:3: error[defer.nested]: deferred block cannot register another deferred block"
 field	expectations.stdout.contains[5]	"note: main.veln:21:1: Move the nested `defer` to a cleanup-region body."

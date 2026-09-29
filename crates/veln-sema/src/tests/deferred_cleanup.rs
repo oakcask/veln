@@ -107,6 +107,8 @@ fn defer_rejects_non_unit_result_with_repair_note() {
         "deferred block must have type `()`, but found `Int`"
     );
     assert_eq!(diagnostic.kind, DiagnosticKind::Type);
+    let span = diagnostic.span.as_ref().expect("non-unit result span");
+    assert_eq!((span.start.line, span.start.column), (3, 5));
     assert_eq!(diagnostic.related.len(), 1);
     assert!(diagnostic.related[0].to_json().contains("repair_hint"));
 }

@@ -34,6 +34,13 @@ impl<'a> FunctionChecker<'a> {
         self.defer_blocks.pop();
 
         if actual != Type::Unknown && !is_assignable(&Type::unit(), &actual) {
+            let result_span = body
+                .last()
+                .and_then(|line| match &line.kind {
+                    BodyLineKind::Expr { expr } => Some(expr.span.clone()),
+                    BodyLineKind::Let { .. } | BodyLineKind::Defer { .. } => None,
+                })
+                .unwrap_or_else(|| block_span.clone());
             self.push_defer_restriction_diagnostic(DeferRestrictionDiagnostic {
                 id: "defer.non_unit",
                 message: format!(
@@ -41,7 +48,7 @@ impl<'a> FunctionChecker<'a> {
                     actual.render()
                 ),
                 node_id: line.node_id.display("defer"),
-                span: block_span.clone(),
+                span: result_span,
                 reason: "non_unit_result",
                 repair: "End the deferred block with `()` so cleanup cannot replace the region value.",
                 repair_span: block_span.clone(),
