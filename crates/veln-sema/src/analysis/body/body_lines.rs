@@ -17,7 +17,7 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn check_defer_line(&mut self, line: &BodyLine, body: &[BodyLine], block_span: &SourceSpan) {
-        if !self.defer_blocks.is_empty() {
+        if let Some(containing_block_span) = self.defer_blocks.last().cloned() {
             self.push_defer_restriction_diagnostic(DeferRestrictionDiagnostic {
                 id: "defer.nested",
                 message: "deferred block cannot register another deferred block".to_string(),
@@ -25,7 +25,7 @@ impl<'a> FunctionChecker<'a> {
                 span: line.span.clone(),
                 reason: "nested_defer",
                 repair: "Move the nested `defer` to a cleanup-region body.",
-                repair_span: block_span.clone(),
+                repair_span: containing_block_span,
             });
         }
 

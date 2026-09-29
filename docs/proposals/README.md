@@ -16,8 +16,9 @@ also states it.
 
 ## Ready
 
-- Lexical deferred cleanup for normal completion, result propagation, runtime
-  failure, and task cancellation:
+- Lexical deferred-cleanup registration and reverse-order unwinding for normal
+  completion, result propagation, contract or runtime failure, and task
+  cancellation, including cleanup-failure precedence and continued cleanup:
   [lexical-deferred-cleanup.md](lexical-deferred-cleanup.md).
 - A standard wall-clock value for cross-process timestamps while retaining the
   monotonic clock for durations and deadlines:

@@ -89,7 +89,7 @@ equals = "repair_hint"
 
 [[json_assert]]
 path = "diagnostics.2.related.0.span.start.line"
-equals = 22
+equals = 21
 
 [[json_assert]]
 path = "diagnostics.2.related.0.span.start.column"

@@ -143,7 +143,9 @@ fn defer_rejects_nested_registration_with_repair_note() {
         "deferred block cannot register another deferred block"
     );
     assert_eq!(diagnostic.related.len(), 1);
-    assert!(diagnostic.related[0].to_json().contains("repair_hint"));
+    let related = diagnostic.related[0].to_json();
+    assert!(related.contains("repair_hint"));
+    assert!(related.contains("\"start\":{\"line\":3,\"column\":1"));
 }
 
 #[test]

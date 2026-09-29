@@ -43,6 +43,7 @@ mod classification_tests;
 #[cfg(test)]
 thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+    static LOCAL_BINDING_SCOPE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static CONSTRUCTOR_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
@@ -431,6 +432,24 @@ pub(crate) fn schema_operation_qualified_lookup_work() -> (usize, usize) {
 #[cfg(test)]
 fn record_function_scope_collection() {
     FUNCTION_SCOPE_COLLECTIONS.set(FUNCTION_SCOPE_COLLECTIONS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_local_binding_scope_token_visit() {
+    LOCAL_BINDING_SCOPE_TOKEN_VISITS.set(LOCAL_BINDING_SCOPE_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_local_binding_scope_token_visit() {}
+
+#[cfg(test)]
+pub(crate) fn reset_local_binding_scope_token_visits() {
+    LOCAL_BINDING_SCOPE_TOKEN_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn local_binding_scope_token_visits() -> usize {
+    LOCAL_BINDING_SCOPE_TOKEN_VISITS.get()
 }
 
 #[cfg(test)]

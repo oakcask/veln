@@ -196,83 +196,89 @@ fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Opt
 }
 
 fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalBinding> {
-    let mut bindings = Vec::new();
-    let flat_body = function_body_has_no_inner_scope_boundary(tokens, body_start, end);
-    for (index, token) in tokens.iter().enumerate() {
-        if token.range.start < body_start
-            || token.range.start >= end
-            || token.kind != TokenKind::Let
-        {
-            continue;
+    let mut bindings: Vec<LocalBinding> = Vec::new();
+    let mut scope_bindings = vec![Vec::new()];
+    let mut pending_lets = Vec::new();
+    let first_index = tokens.partition_point(|token| token.range.start < body_start);
+
+    for (relative_index, token) in tokens[first_index..].iter().enumerate() {
+        if token.range.start >= end {
+            break;
         }
-        let binding_end = if flat_body {
-            end
-        } else {
-            local_binding_scope_end(tokens, index, end)
-        };
-        let binding_start = let_binding_scope_start(tokens, index);
-        bindings.extend(
-            let_binding_names(tokens, index)
-                .into_iter()
-                .map(|(name, declaration_start, declaration_end)| LocalBinding {
-                    name,
-                    declaration_start,
-                    declaration_end,
-                    start: binding_start,
-                    end: binding_end,
-                }),
-        );
+        record_local_binding_scope_token_visit();
+        let index = first_index + relative_index;
+        match token.kind {
+            TokenKind::Let => {
+                let binding_indices: Vec<usize> = let_binding_names(tokens, index)
+                    .into_iter()
+                    .map(|(name, declaration_start, declaration_end)| {
+                        let binding_index = bindings.len();
+                        bindings.push(LocalBinding {
+                            name,
+                            declaration_start,
+                            declaration_end,
+                            start: token.range.end,
+                            end,
+                        });
+                        binding_index
+                    })
+                    .collect();
+                pending_lets.push((scope_bindings.len(), binding_indices));
+            }
+            TokenKind::Newline => {
+                while pending_lets
+                    .last()
+                    .is_some_and(|(depth, _)| *depth == scope_bindings.len())
+                {
+                    let (_, binding_indices) = pending_lets.pop().expect("pending let");
+                    for binding_index in binding_indices {
+                        bindings[binding_index].start = token.range.end;
+                        scope_bindings
+                            .last_mut()
+                            .expect("local binding scope")
+                            .push(binding_index);
+                    }
+                }
+            }
+            TokenKind::If if !is_else_if(tokens, index) => scope_bindings.push(Vec::new()),
+            TokenKind::Match | TokenKind::Handler | TokenKind::Begin | TokenKind::Defer => {
+                scope_bindings.push(Vec::new());
+            }
+            TokenKind::Else => close_local_binding_scope(
+                &mut bindings,
+                scope_bindings.last_mut().expect("local binding scope"),
+                token.range.start,
+            ),
+            TokenKind::End => {
+                close_local_binding_scope(
+                    &mut bindings,
+                    scope_bindings.last_mut().expect("local binding scope"),
+                    token.range.start,
+                );
+                if scope_bindings.len() > 1 {
+                    scope_bindings.pop();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for scope in &mut scope_bindings {
+        close_local_binding_scope(&mut bindings, scope, end);
     }
     bindings.extend(match_arm_pattern_binding_names(tokens, body_start, end));
     bindings.extend(satisfy_candidate_binding_names(tokens, body_start, end));
     bindings
 }
 
-fn function_body_has_no_inner_scope_boundary(tokens: &[Token], body_start: usize, end: usize) -> bool {
-    tokens.iter().all(|token| {
-        token.range.start < body_start
-            || token.range.start >= end
-            || !matches!(
-                token.kind,
-                TokenKind::If
-                    | TokenKind::Match
-                    | TokenKind::Handler
-                    | TokenKind::Begin
-                    | TokenKind::Defer
-                    | TokenKind::Else
-                    | TokenKind::End
-            )
-    })
-}
-
-fn let_binding_scope_start(tokens: &[Token], let_index: usize) -> usize {
-    tokens[let_index + 1..]
-        .iter()
-        .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
-        .last()
-        .map(|token| token.range.end)
-        .unwrap_or_else(|| tokens[let_index].range.end)
-}
-
-fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usize) -> usize {
-    let mut nested_blocks = 0usize;
-    for (relative_index, token) in tokens[let_index + 1..].iter().enumerate() {
-        let index = let_index + 1 + relative_index;
-        if token.range.start >= function_end {
-            break;
-        }
-        match token.kind {
-            TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
-            TokenKind::Match | TokenKind::Handler | TokenKind::Begin | TokenKind::Defer => {
-                nested_blocks += 1
-            }
-            TokenKind::Else if nested_blocks == 0 => return token.range.start,
-            TokenKind::End if nested_blocks == 0 => return token.range.start,
-            TokenKind::End => nested_blocks -= 1,
-            _ => {}
-        }
+fn close_local_binding_scope(
+    bindings: &mut [LocalBinding],
+    scope: &mut Vec<usize>,
+    end: usize,
+) {
+    for binding_index in scope.drain(..) {
+        bindings[binding_index].end = end;
     }
-    function_end
 }
 
 fn let_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize, usize)> {

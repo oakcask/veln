@@ -61,31 +61,11 @@ Code can use ordinary `Result` matching when it needs outcome-specific work.
 The safety requirement is unconditional cleanup that cannot replace the
 region's value or control transfer.
 
-## Source and Static-semantics Evidence
+## Implemented Prerequisite
 
-The incomplete proposal has checked source and static-semantics evidence for
-these forms:
-
-```ebnf
-DeferStatement ::= "defer" NL Body "end" NL?
-BeginExpr      ::= "begin" NL Body "end"
-```
-
-The executable grammar, accepted and rejected fixtures, parser, formatter,
-syntax navigation, LSP, and MCP retain the source forms and their spans for the
-later runtime slice. Static checks enforce capture scope, unit result,
-result-propagation, and nested-registration restrictions. The grammar has no
-explicit `return`, `break`, `continue`, or other control-transfer form, so
-there is no separate source case for transfer out of a deferred block.
-
-| Case | Observable requirement | Evidence |
-| --- | --- | --- |
-| C9 | A deferred block that uses `?`, produces a non-unit value, or uses a source-supported control transfer out of the block fails checking with a repair note on the containing deferred block. | Checked human and JSON diagnostics cover the expressible restrictions. The grammar has no outward control-transfer form. |
-| C10 | Parsing and formatting preserve both forms and their block ranges, and definition, reference, and rename operations respect bindings within those ranges. | Parser, formatter, LSP, and MCP cases check round trips and navigation. |
-
-These cases are prerequisite evidence only. They do not promote either form to
-the current language specification while runtime cases C1 through C8 remain
-unimplemented.
+The static and tooling boundary for the source forms is current behavior in
+the [source-surface specification](../specification/source-surface.md#static-cleanup-region-forms).
+This proposal contains only the unimplemented runtime contract.
 
 ## Remaining Runtime Contract
 

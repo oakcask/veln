@@ -46,7 +46,8 @@ provides the production notation for these forms.
   calls, function type effect rows with final `...E` tails, `perform`
   operation expressions, `handle ... with ...` expressions, standard channel
   calls, zero-argument task spawns, one-context `task::spawn_with` calls, and
-  method-call diagnostics: this page.
+  method-call diagnostics: this page. The static-only `begin` and `defer`
+  source boundary is described below.
 - Contract predicate grammar: this page.
 - Identifier casing for source-written module headers, ADT types,
   constructors, functions, tests, public aliases, bindings, parser recovery,
@@ -54,6 +55,27 @@ provides the production notation for these forms.
   [names-effects.md](names-effects.md).
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
+
+### Static cleanup-region forms
+
+`begin` is a value-producing expression whose body introduces a lexical scope.
+Its type and value come from its final expression. A `defer` statement is a
+direct line of a function, test, or `begin` body. Its block can refer only to
+bindings that are in scope before the statement, must have type `()`, and
+cannot use `?` or contain another `defer`. A rejected deferred block reports
+the failed fact at the violating source and puts its repair note on the
+containing deferred block.
+
+Parsing, formatting, syntax navigation, LSP, and MCP preserve both forms and
+their block ranges. A binding introduced by `let` becomes visible only after
+its complete initializer, including a multiline `begin` initializer. Local
+definition, reference, and rename operations use that same boundary.
+
+These forms have a static and tooling surface only. A checked program that
+contains either form is not executable: lowering reports the
+`deferred_cleanup_runtime` blocker because the runtime does not register or
+execute deferred blocks. Runtime registration, reverse-order unwinding, exit
+coverage, and cleanup-failure precedence remain unimplemented.
 
 ## Test companion sources
 

@@ -570,6 +570,67 @@
     }
 
     #[test]
+    fn local_binding_scope_starts_after_a_multiline_initializer() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "fn value() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "fn main() -> Int\n",
+                "  let value: Int = begin\n",
+                "    value()\n",
+                "  end\n",
+                "  value\n",
+                "end\n",
+            ),
+        )];
+
+        let initializer = query(sources.clone(), "main.veln", 7, 6).unwrap();
+        assert_eq!(initializer.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&initializer.definition, "main.veln", 1, 4);
+        assert_eq!(locations(&initializer.references), [("main.veln", 7, 5)]);
+
+        let local = query(sources, "main.veln", 9, 4).unwrap();
+        assert_eq!(local.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&local.definition, "main.veln", 6, 7);
+        assert_eq!(locations(&local.references), [("main.veln", 9, 3)]);
+    }
+
+    #[test]
+    fn cleanup_region_local_binding_scope_index_grows_linearly() {
+        fn token_visits(binding_count: usize) -> usize {
+            let mut source_text = String::from(
+                "fn main(input: Int) -> Int\n  let region: Int = begin\n    input\n  end\n",
+            );
+            for index in 0..binding_count {
+                source_text.push_str(&format!("  let value{index}: Int = input\n"));
+            }
+            source_text.push_str(&format!("  value{}\nend\n", binding_count - 1));
+            let snapshot =
+                EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_binding_scope_token_visits();
+
+            let result = query_snapshot(
+                &snapshot,
+                "main.veln",
+                binding_count + 5,
+                4,
+            )
+            .expect("last local binding should resolve");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            local_binding_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 32, "{smaller} -> {larger}");
+    }
+
+    #[test]
     fn invalid_parameter_recovery_navigation_links_in_scope_uses() {
         let result = query(
             vec![source(

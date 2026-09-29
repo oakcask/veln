@@ -4,9 +4,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::navigation::{
     constructor_reference_collections, dependency_path_classifications, dependency_source_indexes,
-    dependency_source_parses, function_scope_collections, reset_constructor_reference_collections,
-    reset_dependency_path_classifications, reset_dependency_source_indexes,
-    reset_dependency_source_parses, reset_function_scope_collections,
+    dependency_source_parses, function_scope_collections, local_binding_scope_token_visits,
+    reset_constructor_reference_collections, reset_dependency_path_classifications,
+    reset_dependency_source_indexes, reset_dependency_source_parses,
+    reset_function_scope_collections, reset_local_binding_scope_token_visits,
     reset_schema_alias_import_work, reset_type_reference_collections, schema_alias_import_work,
     type_reference_collections,
 };

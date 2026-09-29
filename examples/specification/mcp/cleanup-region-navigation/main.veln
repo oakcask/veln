@@ -4,12 +4,12 @@ end
 
 fn choose(input: Int) -> Int
 	let outer = input
-	let result = begin
+	let cleanup = begin
 		let captured = outer
 		defer
 			cleanup(captured)
 		end
 		captured
 	end
-	result
+	cleanup
 end

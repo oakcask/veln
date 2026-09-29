@@ -9,7 +9,7 @@ contains = [
   "main.veln:14:1: error[defer.non_unit]: deferred block must have type `()`, but found `Int`",
   "note: main.veln:14:1: End the deferred block with `()` so cleanup cannot replace the region value.",
   "main.veln:21:3: error[defer.nested]: deferred block cannot register another deferred block",
-  "note: main.veln:22:1: Move the nested `defer` to a cleanup-region body.",
+  "note: main.veln:21:1: Move the nested `defer` to a cleanup-region body.",
 ]
 
 [stderr]
