@@ -104,3 +104,18 @@ equals = {"start":{"line":4,"character":10},"end":{"line":4,"character":15}}
 id = 12
 path = "/result"
 missing = true
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 2
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:main.veln/0/range"
+equals = {"start":{"line":33,"character":6},"end":{"line":33,"character":11}}
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:main.veln/1/range"
+equals = {"start":{"line":34,"character":2},"end":{"line":34,"character":7}}

@@ -319,7 +319,14 @@ impl SymbolIndex {
                                         &declaration,
                                         &result.selected_symbol.declaration.span,
                                     )
-                                    .then(|| (binding.name.clone(), declaration))
+                                    .then(|| {
+                                        (
+                                            binding.name.clone(),
+                                            declaration,
+                                            scope.body_start,
+                                            scope.end,
+                                        )
+                                    })
                                 })
                                 .or_else(|| {
                                     scope.local_bindings.iter().find_map(|binding| {
@@ -329,15 +336,22 @@ impl SymbolIndex {
                                             &declaration,
                                             &result.selected_symbol.declaration.span,
                                         )
-                                        .then(|| (binding.name.clone(), declaration))
+                                        .then(|| {
+                                            (
+                                                binding.name.clone(),
+                                                declaration,
+                                                binding.start,
+                                                binding.end,
+                                            )
+                                        })
                                     })
                                 })
-                                .map(|(name, declaration)| LocalSymbol {
+                                .map(|(name, declaration, scope_start, scope_end)| LocalSymbol {
                                     name,
                                     declaration,
                                     scope_file: file.source.path().as_str().to_string(),
-                                    scope_start: scope.body_start,
-                                    scope_end: scope.end,
+                                    scope_start,
+                                    scope_end,
                                     declaration_scope_start: scope.body_start,
                                     declaration_scope_end: scope.end,
                                     kind: LocalSymbolKind::ValueBinding,

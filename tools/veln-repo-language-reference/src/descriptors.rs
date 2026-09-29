@@ -94,7 +94,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
         Descriptor {
             id: "expressions-patterns",
             title: "Expressions, Operators, And Patterns",
-            summary: "Expressions include calls, operators, aggregates, control flow, lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.",
+            summary: "Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.",
             keywords: &[
                 "expressions",
                 "operators",
@@ -108,6 +108,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             body: &[
                 "The expression grammar selection is production-based and does not duplicate a hand-maintained grammar.",
                 "The selected examples cover typed operators and lexical cleanup-region formatting.",
+                "The begin and defer forms are static and tooling surfaces only. A reachable use prevents checked-core execution readiness with deferred_cleanup_runtime because cleanup registration and unwinding are not implemented.",
             ],
             related: &["lexical-structure", "types-inference-constructors", "holes"],
             grammar: &[

@@ -28,3 +28,15 @@ handler ask() handles Ask
 		captured
 	end
 end
+
+fn sibling_cleanup_scopes() -> Int
+	let left = begin
+		let first = 1
+		first
+	end
+	let right = begin
+		let second = 2
+		second
+	end
+	left + right
+end

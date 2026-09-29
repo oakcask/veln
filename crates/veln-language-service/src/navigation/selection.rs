@@ -159,6 +159,10 @@ impl SymbolIndex {
             return None;
         }
         let (declaration_start, declaration_end) = shadow.declaration_range();
+        let (scope_start, scope_end) = match shadow {
+            ScopeShadow::FunctionBinding(_) => (scope.body_start, scope.end),
+            ScopeShadow::LocalBinding(binding) => (binding.start, binding.end),
+        };
         let declaration = file
             .source
             .span(TextRange::new(declaration_start, declaration_end));
@@ -169,8 +173,8 @@ impl SymbolIndex {
             name: name.to_string(),
             declaration,
             scope_file: file.source.path().as_str().to_string(),
-            scope_start: scope.body_start,
-            scope_end: scope.end,
+            scope_start,
+            scope_end,
             declaration_scope_start: scope.body_start,
             declaration_scope_end: scope.end,
             kind: LocalSymbolKind::ValueBinding,
