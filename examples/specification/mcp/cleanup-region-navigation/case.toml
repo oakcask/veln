@@ -74,3 +74,28 @@ equals = {"start":{"line":28,"column":3},"end":{"line":28,"column":11}}
 id = 10
 path = "/result/structuredContent/edits"
 length = 3
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/code"
+equals = "rename.conflict"
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/details/symbol_class"
+equals = "value_binding"
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/details/requested_name"
+equals = "input"
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/details/conflicting_declaration/range"
+equals = {"start":{"line":5,"column":11},"end":{"line":5,"column":16}}
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/edits"
+missing = true

@@ -305,6 +305,45 @@ impl SymbolIndex {
                     declaration_scope_end: binding.end,
                     kind: binding.kind,
                 })
+                .or_else(|| {
+                    function_scopes(&file.tokens)
+                        .into_iter()
+                        .find_map(|scope| {
+                            scope
+                                .params
+                                .iter()
+                                .chain(scope.result_binding.iter())
+                                .find_map(|binding| {
+                                    let declaration = scoped_binding_declaration(file, binding);
+                                    same_span(
+                                        &declaration,
+                                        &result.selected_symbol.declaration.span,
+                                    )
+                                    .then(|| (binding.name.clone(), declaration))
+                                })
+                                .or_else(|| {
+                                    scope.local_bindings.iter().find_map(|binding| {
+                                        let declaration =
+                                            local_binding_declaration(file, binding);
+                                        same_span(
+                                            &declaration,
+                                            &result.selected_symbol.declaration.span,
+                                        )
+                                        .then(|| (binding.name.clone(), declaration))
+                                    })
+                                })
+                                .map(|(name, declaration)| LocalSymbol {
+                                    name,
+                                    declaration,
+                                    scope_file: file.source.path().as_str().to_string(),
+                                    scope_start: scope.body_start,
+                                    scope_end: scope.end,
+                                    declaration_scope_start: scope.body_start,
+                                    declaration_scope_end: scope.end,
+                                    kind: LocalSymbolKind::ValueBinding,
+                                })
+                        })
+                })
         })
     }
 

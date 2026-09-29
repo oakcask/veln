@@ -74,8 +74,8 @@ specified by their focused pages. Formatter behavior is specified by the
 specified by [editor support](editor-support.md#lsp-navigation-formatting-and-rename)
 and [saved workspace navigation](mcp.md#saved-workspace-navigation).
 
-These forms have a static and tooling surface only. A checked program that
-contains either form is not executable. The
+These forms have a static and tooling surface only. A selected entry is not
+executable when its reachable program contains either form. The
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries)
 specifies the `deferred_cleanup_runtime` blocker. Runtime registration,
 reverse-order unwinding, exit coverage, and cleanup-failure precedence remain

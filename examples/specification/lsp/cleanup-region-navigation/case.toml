@@ -79,3 +79,28 @@ equals = {"start":{"line":27,"character":2},"end":{"line":27,"character":10}}
 id = 11
 path = "/result/changes/$workspace_file_uri:main.veln"
 length = 3
+
+[[lsp_assert]]
+id = 12
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 12
+path = "/error/data/details/symbol_class"
+equals = "value_binding"
+
+[[lsp_assert]]
+id = 12
+path = "/error/data/details/requested_name"
+equals = "input"
+
+[[lsp_assert]]
+id = 12
+path = "/error/data/details/conflicting_declaration/range"
+equals = {"start":{"line":4,"character":10},"end":{"line":4,"character":15}}
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+missing = true

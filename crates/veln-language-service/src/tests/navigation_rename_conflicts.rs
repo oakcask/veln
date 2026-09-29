@@ -145,6 +145,36 @@
     }
 
     #[test]
+    fn rename_validation_rejects_cleanup_local_conflict_with_function_parameter() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "fn choose(input: Int) -> Int\n",
+                "  let result = begin\n",
+                "    let captured = input\n",
+                "    defer\n",
+                "      captured\n",
+                "    end\n",
+                "    captured\n",
+                "  end\n",
+                "  result\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 5, 8).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "input").unwrap_err(),
+            RenameNameClass::ValueBinding,
+            "input",
+            "main.veln",
+            1,
+            11,
+        );
+    }
+
+    #[test]
     fn rename_validation_allows_unedited_clause_parameter_shadowing() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
