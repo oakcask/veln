@@ -239,6 +239,7 @@ impl<'a> Parser<'a> {
         let mut depth = 0usize;
         let mut block_depth = 0usize;
         let mut previous_kind = None;
+        let mut at_line_start = false;
         while !self.at(TokenKind::Eof) {
             if depth == 0 && block_depth == 0 && self.at(TokenKind::Newline) {
                 break;
@@ -251,7 +252,10 @@ impl<'a> Parser<'a> {
                 TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                     depth = depth.saturating_sub(1);
                 }
-                TokenKind::Match | TokenKind::Begin | TokenKind::Defer => block_depth += 1,
+                TokenKind::Match | TokenKind::Begin => block_depth += 1,
+                TokenKind::Defer if depth == 0 && block_depth > 0 && at_line_start => {
+                    block_depth += 1;
+                }
                 TokenKind::If if previous_kind != Some(TokenKind::Else) => block_depth += 1,
                 TokenKind::End if block_depth > 0 => {
                     block_depth = block_depth.saturating_sub(1);
@@ -270,6 +274,7 @@ impl<'a> Parser<'a> {
             } else {
                 end = token.range;
             }
+            at_line_start = token_kind == TokenKind::Newline;
             previous_kind = Some(token_kind);
         }
         if self.at(TokenKind::Newline) {

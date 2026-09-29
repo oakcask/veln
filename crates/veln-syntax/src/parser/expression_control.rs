@@ -188,11 +188,20 @@ impl<'a> ExprParser<'a> {
         let mut depth = 1usize;
         let mut end = fallback;
         let mut previous_kind = None;
+        let mut at_line_start = true;
+        let mut delimiter_depth = 0usize;
         while !self.is_at_end() {
             let token = self.bump();
             let kind = token.kind;
             match kind {
-                TokenKind::Match | TokenKind::Begin | TokenKind::Defer => depth += 1,
+                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+                    delimiter_depth += 1;
+                }
+                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                    delimiter_depth = delimiter_depth.saturating_sub(1);
+                }
+                TokenKind::Match | TokenKind::Begin => depth += 1,
+                TokenKind::Defer if at_line_start && delimiter_depth == 0 => depth += 1,
                 TokenKind::If if previous_kind != Some(TokenKind::Else) => depth += 1,
                 TokenKind::End => {
                     depth -= 1;
@@ -202,6 +211,7 @@ impl<'a> ExprParser<'a> {
                 }
                 _ => {}
             }
+            at_line_start = kind == TokenKind::Newline;
             previous_kind = Some(kind);
             end = token.range;
         }

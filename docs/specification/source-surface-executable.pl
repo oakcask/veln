@@ -676,7 +676,7 @@ collect_expr_line([], [], 0, 0, _, Acc, Acc) :- !.
 collect_expr_line([Token | Rest], S, Depth0, Block0, Previous, Acc0, Acc) :-
     Token = t(Kind, _),
     next_depth(Kind, Depth0, Depth),
-    next_block_depth(Kind, Previous, Block0, Block),
+    next_block_depth(Kind, Previous, Depth0, Block0, Block),
     collect_expr_line(Rest, S, Depth, Block, Kind, [Token | Acc0], Acc).
 
 line_tokens(Tokens, S0, S) :-
@@ -728,12 +728,12 @@ next_depth(rbracket, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
 next_depth(rbrace, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
 next_depth(_, Depth, Depth).
 
-next_block_depth(match, _, Block0, Block) :- !, Block is Block0 + 1.
-next_block_depth(begin, _, Block0, Block) :- !, Block is Block0 + 1.
-next_block_depth(defer, _, Block0, Block) :- !, Block is Block0 + 1.
-next_block_depth(if, Previous, Block0, Block) :- Previous \= else, !, Block is Block0 + 1.
-next_block_depth(end, _, Block0, Block) :- Block0 > 0, !, Block is Block0 - 1.
-next_block_depth(_, _, Block, Block).
+next_block_depth(match, _, _, Block0, Block) :- !, Block is Block0 + 1.
+next_block_depth(begin, _, _, Block0, Block) :- !, Block is Block0 + 1.
+next_block_depth(defer, nl, 0, Block0, Block) :- !, Block is Block0 + 1.
+next_block_depth(if, Previous, _, Block0, Block) :- Previous \= else, !, Block is Block0 + 1.
+next_block_depth(end, _, _, Block0, Block) :- Block0 > 0, !, Block is Block0 - 1.
+next_block_depth(_, _, _, Block, Block).
 
 expr --> prefix_expr, binary_tail.
 binary_tail --> binary_op, prefix_expr, !, binary_tail.

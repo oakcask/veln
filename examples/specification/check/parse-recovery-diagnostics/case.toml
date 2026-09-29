@@ -1,9 +1,9 @@
-command = ["check", "--json", "call.veln", "newline.veln", "pattern.veln"]
+command = ["check", "--json", "call.veln", "defer.veln", "newline.veln", "pattern.veln"]
 exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"parse.call_argument\"", "\"id\":\"parse.expected_newline\"", "\"id\":\"parse.pattern\"", "\"parser_context\"", "\"recovery\""]
+contains = ["\"id\":\"parse.call_argument\"", "\"id\":\"parse.expected_expression\"", "\"id\":\"parse.expected_newline\"", "\"id\":\"parse.pattern\"", "\"parser_context\"", "\"recovery\""]
 
 [stderr]
 format = "empty"

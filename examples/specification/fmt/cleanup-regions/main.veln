@@ -5,7 +5,7 @@ end
 fn choose(input: Int) -> Int
   begin # value-producing cleanup region
     let captured = input
-    defer # capture at registration
+		defer # earlier binding is visible in this block
       cleanup(captured)
     end
     captured

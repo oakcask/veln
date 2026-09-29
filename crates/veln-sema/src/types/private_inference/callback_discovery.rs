@@ -41,6 +41,9 @@ pub(crate) fn infer_private_prelude_callback_return_types(
         return;
     }
 
+    // Select one monomorphic return constraint per callback. Later incompatible
+    // uses are ordinary type mismatches rather than fixed-point updates.
+    let mut selected_callback_returns = BTreeSet::new();
     let mut changed = true;
     while changed {
         changed = false;
@@ -54,6 +57,7 @@ pub(crate) fn infer_private_prelude_callback_return_types(
                 &function_by_path,
                 &omitted_private_returns,
                 &mut returns_by_path,
+                &mut selected_callback_returns,
                 adts,
                 &mut changed,
             );
@@ -72,12 +76,14 @@ pub(crate) fn infer_private_prelude_callback_return_types(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn collect_private_prelude_callback_return_constraints(
     function: &Function,
     uses: &[UseDecl],
     function_by_path: &BTreeMap<(Option<String>, String), &Function>,
     omitted_private_returns: &BTreeSet<(Option<String>, String)>,
     returns_by_path: &mut BTreeMap<(Option<String>, String), Type>,
+    selected_callback_returns: &mut BTreeSet<(Option<String>, String)>,
     adts: &AdtRegistry,
     changed: &mut bool,
 ) {
@@ -97,6 +103,7 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
         function_by_path,
         omitted_private_returns,
         returns_by_path,
+        selected_callback_returns,
         adts,
         changed,
         &mut bindings,
@@ -112,6 +119,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
     function_by_path: &BTreeMap<(Option<String>, String), &Function>,
     omitted_private_returns: &BTreeSet<(Option<String>, String)>,
     returns_by_path: &mut BTreeMap<(Option<String>, String), Type>,
+    selected_callback_returns: &mut BTreeSet<(Option<String>, String)>,
     adts: &AdtRegistry,
     changed: &mut bool,
     bindings: &mut Vec<Binding>,
@@ -137,6 +145,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                         function_by_path,
                         omitted_private_returns,
                         returns_by_path,
+                        selected_callback_returns,
                         adts,
                         changed,
                     },
@@ -167,6 +176,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                         function_by_path,
                         omitted_private_returns,
                         returns_by_path,
+                        selected_callback_returns,
                         adts,
                         changed,
                     },
@@ -183,6 +193,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                     function_by_path,
                     omitted_private_returns,
                     returns_by_path,
+                    selected_callback_returns,
                     adts,
                     changed,
                     bindings,

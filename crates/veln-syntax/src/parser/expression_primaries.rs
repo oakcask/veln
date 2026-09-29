@@ -316,6 +316,20 @@ impl<'a> ExprParser<'a> {
     }
 
     pub(super) fn parse_missing_primary(&mut self, token: Token) -> Expr {
+        if token.kind == TokenKind::Defer {
+            self.error_at_token(
+                &token,
+                DiagnosticRequest {
+                    id: "parse.expected_expression",
+                    message: "`defer` is only valid as a direct cleanup-body line".to_string(),
+                    parser_context: self.context,
+                    expected: vec!["expression"],
+                    strategy: RecoveryStrategy::SkipToken,
+                    anchor: Some("expression"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+        }
         self.bump();
         Expr {
             kind: ExprKind::Missing,

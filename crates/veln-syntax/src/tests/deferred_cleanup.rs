@@ -409,6 +409,43 @@ fn reports_unterminated_cleanup_regions() {
 }
 
 #[test]
+fn expression_position_defer_preserves_following_declaration_boundary() {
+    for invalid_call in ["  consume(defer)\n", "  consume(\n    defer\n  )\n"] {
+        let source = SourceFile::new(
+            "cleanup.veln",
+            format!("fn invalid() -> ()\n{invalid_call}end\nfn following() -> Int\n  1\nend\n"),
+        );
+        let expected_token_count = lex(&source).tokens.len();
+
+        let output = parse(&source);
+
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+        let function_names = output
+            .tree
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                SyntaxItem::Function(function) => function.name.as_deref(),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            function_names,
+            ["invalid", "following"],
+            "{:#?}",
+            output.diagnostics
+        );
+        assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+        assert_eq!(output.diagnostics[0].id, "parse.expected_expression");
+        assert_eq!(
+            output.diagnostics[0].message,
+            "`defer` is only valid as a direct cleanup-body line"
+        );
+        assert_eq!(output.diagnostics[0].unexpected.text, "defer");
+    }
+}
+
+#[test]
 fn rejects_excessive_cleanup_nesting_without_aborting() {
     let depth = 800;
     let mut text = String::from("fn deeply_nested() -> ()\n ");

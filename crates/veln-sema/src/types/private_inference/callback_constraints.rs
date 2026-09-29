@@ -40,6 +40,7 @@ pub(crate) struct PrivatePreludeCallbackConstraintContext<'a> {
     pub(crate) function_by_path: &'a BTreeMap<(Option<String>, String), &'a Function>,
     pub(crate) omitted_private_returns: &'a BTreeSet<(Option<String>, String)>,
     pub(crate) returns_by_path: &'a mut BTreeMap<(Option<String>, String), Type>,
+    pub(crate) selected_callback_returns: &'a mut BTreeSet<(Option<String>, String)>,
     pub(crate) adts: &'a AdtRegistry,
     pub(crate) changed: &'a mut bool,
 }
@@ -79,6 +80,7 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
                 context.function_by_path,
                 context.omitted_private_returns,
                 context.returns_by_path,
+                context.selected_callback_returns,
                 context.adts,
                 context.changed,
                 context.bindings,
@@ -364,6 +366,9 @@ pub(crate) fn collect_private_callback_return_constraint_for_segments(
         return;
     };
     if !private_tail_can_use_expected(function, return_type, context.uses, context.adts) {
+        return;
+    }
+    if !context.selected_callback_returns.insert(key.clone()) {
         return;
     }
     if context.returns_by_path.get(&key) == Some(return_type) {

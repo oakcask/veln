@@ -141,6 +141,7 @@ fn rejected_source_surface_fixtures_produce_diagnostics() {
 
         let expected_diagnostic = match fixture.file_name().and_then(|name| name.to_str()) {
             Some("begin-missing-block-end.veln") => Some("parse.begin_missing_end"),
+            Some("defer-expression-position.veln") => Some("parse.expected_expression"),
             Some("defer-missing-block-end.veln") => Some("parse.defer_missing_end"),
             _ => None,
         };
