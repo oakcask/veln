@@ -67,6 +67,24 @@ fn search_docs_ranks_exact_prefix_and_ties_by_uri_bytes() {
 }
 
 #[test]
+fn search_docs_discovers_cleanup_region_forms() {
+    let workspace = TempWorkspace::new("search-cleanup-regions");
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+
+    for query in ["begin", "defer"] {
+        let result = search(&mut server, json!({"query": query, "limit": 1}));
+        let first = &result["structuredContent"]["results"][0];
+        assert_eq!(first["title"], "Expressions, Operators, And Patterns");
+        assert_eq!(first["excerpt"], query);
+
+        let document = read_doc(&mut server, first["uri"].as_str().unwrap());
+        let text = document["structuredContent"]["text"].as_str().unwrap();
+        assert!(text.contains("BeginExpr"));
+        assert!(text.contains("DeferStatement"));
+    }
+}
+
+#[test]
 fn search_docs_normalizes_case_unicode_whitespace_tokens_and_limits() {
     let workspace = TempWorkspace::new("search-normalization");
     let mut server = initialized_server_with_embedded_resources(&workspace);
