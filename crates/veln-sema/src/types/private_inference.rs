@@ -13,6 +13,7 @@ use crate::adt::{type_operations as adt, unification};
 use crate::name_recovery::{normal_use_decls, public_alias_has_invalid_target_leaf};
 use crate::semantic_model::{Binding, FunctionKey, Type};
 use crate::type_syntax::parse_type_or_unknown;
+use crate::types::record_scoped_binding_count;
 use crate::types::signatures::{FunctionSignature, MatchScrutineePatternInference};
 use crate::types::symbols::imported_use_for_path;
 

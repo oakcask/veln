@@ -71,12 +71,7 @@ This proposal contains only the unimplemented runtime contract.
 
 When execution reaches a `defer` statement, the runtime registers its block.
 The runtime captures all referenced local bindings at that point. It does not
-execute the block at registration time. A deferred block cannot refer to a
-binding declared after the statement.
-
-Fallible cleanup must handle its ordinary `Result` inside the block. The
-example helper `close_or_report` represents that explicit policy; it is not a
-new standard-library operation.
+execute the block at registration time.
 
 ## Exit and Failure Rules
 

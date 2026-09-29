@@ -173,7 +173,8 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                 );
             }
             BodyLineKind::Defer { body, .. } => {
-                let mut nested_bindings = bindings.clone();
+                let binding_count = bindings.len();
+                record_scoped_binding_count(bindings);
                 collect_private_prelude_callback_body_constraints(
                     body,
                     Some(&Type::unit()),
@@ -184,8 +185,9 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                     returns_by_path,
                     adts,
                     changed,
-                    &mut nested_bindings,
+                    bindings,
                 );
+                bindings.truncate(binding_count);
             }
         }
     }
@@ -294,7 +296,7 @@ fn private_prelude_callback_body_references_slot(
                 let annotation_type = annotation
                     .as_deref()
                     .map(|annotation| parse_type_or_unknown(Some(annotation)));
-                let reference_context = PrivatePreludeCallbackReferenceContext {
+                let mut reference_context = PrivatePreludeCallbackReferenceContext {
                     current_module,
                     uses,
                     bindings,
@@ -306,7 +308,7 @@ fn private_prelude_callback_body_references_slot(
                 if private_prelude_callback_expr_references_slot(
                     expr,
                     annotation_type.as_ref(),
-                    &reference_context,
+                    &mut reference_context,
                 ) {
                     return true;
                 }
@@ -326,7 +328,7 @@ fn private_prelude_callback_body_references_slot(
             }
             BodyLineKind::Expr { expr } => {
                 let expected = (index + 1 == body.len()).then_some(tail_expected).flatten();
-                let reference_context = PrivatePreludeCallbackReferenceContext {
+                let mut reference_context = PrivatePreludeCallbackReferenceContext {
                     current_module,
                     uses,
                     bindings,
@@ -335,14 +337,18 @@ fn private_prelude_callback_body_references_slot(
                     function_by_path,
                     adts,
                 };
-                if private_prelude_callback_expr_references_slot(expr, expected, &reference_context)
-                {
+                if private_prelude_callback_expr_references_slot(
+                    expr,
+                    expected,
+                    &mut reference_context,
+                ) {
                     return true;
                 }
             }
             BodyLineKind::Defer { body, .. } => {
-                let mut nested_bindings = bindings.clone();
-                if private_prelude_callback_body_references_slot(
+                let binding_count = bindings.len();
+                record_scoped_binding_count(bindings);
+                let references_slot = private_prelude_callback_body_references_slot(
                     body,
                     Some(&Type::unit()),
                     current_module,
@@ -351,8 +357,10 @@ fn private_prelude_callback_body_references_slot(
                     returns_by_path,
                     function_by_path,
                     adts,
-                    &mut nested_bindings,
-                ) {
+                    bindings,
+                );
+                bindings.truncate(binding_count);
+                if references_slot {
                     return true;
                 }
             }
@@ -403,7 +411,7 @@ fn collect_private_callback_let_bindings(
 pub(crate) fn private_prelude_callback_expr_references_slot(
     expr: &Expr,
     expected: Option<&Type>,
-    context: &PrivatePreludeCallbackReferenceContext<'_>,
+    context: &mut PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
     if let ExprKind::NamePath { segments, .. } = &expr.kind
         && expected.is_some_and(|expected| {
@@ -439,8 +447,9 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
             private_prelude_callback_control_flow_references_slot(expr, expected, context)
         }
         ExprKind::Begin { body, .. } => {
-            let mut bindings = context.bindings.to_vec();
-            private_prelude_callback_body_references_slot(
+            let binding_count = context.bindings.len();
+            record_scoped_binding_count(context.bindings);
+            let references_slot = private_prelude_callback_body_references_slot(
                 body,
                 expected,
                 context.current_module,
@@ -449,8 +458,10 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
                 context.returns_by_path,
                 context.function_by_path,
                 context.adts,
-                &mut bindings,
-            )
+                context.bindings,
+            );
+            context.bindings.truncate(binding_count);
+            references_slot
         }
         ExprKind::NamePath { .. }
         | ExprKind::Missing
@@ -467,7 +478,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
 pub(crate) fn private_prelude_callback_collection_references_slot(
     expr: &Expr,
     expected: Option<&Type>,
-    context: &PrivatePreludeCallbackReferenceContext<'_>,
+    context: &mut PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
     match &expr.kind {
         ExprKind::List(items) => items.iter().any(|item| {
@@ -496,7 +507,7 @@ pub(crate) fn private_prelude_callback_collection_references_slot(
 pub(crate) fn private_prelude_callback_wrapped_expr_references_slot(
     expr: &Expr,
     expected: Option<&Type>,
-    context: &PrivatePreludeCallbackReferenceContext<'_>,
+    context: &mut PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
     match &expr.kind {
         ExprKind::Perform { args, .. } => args
@@ -532,7 +543,7 @@ pub(crate) fn private_prelude_callback_wrapped_expr_references_slot(
 pub(crate) fn private_prelude_callback_control_flow_references_slot(
     expr: &Expr,
     expected: Option<&Type>,
-    context: &PrivatePreludeCallbackReferenceContext<'_>,
+    context: &mut PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
     match &expr.kind {
         ExprKind::Match { scrutinee, arms } => {
@@ -574,13 +585,13 @@ pub(crate) fn private_prelude_callback_call_references_slot(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    context: &PrivatePreludeCallbackReferenceContext<'_>,
+    context: &mut PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
     let Some(params) = private_prelude_callback_call_params(
         callee,
         args,
         expected,
-        &PrivateSignatureInferContext {
+        &mut PrivateSignatureInferContext {
             current_module: context.current_module,
             uses: context.uses,
             bindings: context.bindings,
@@ -599,7 +610,7 @@ pub(crate) fn private_prelude_callback_call_references_slot(
 pub(crate) struct PrivatePreludeCallbackReferenceContext<'a> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
-    pub(crate) bindings: &'a [Binding],
+    pub(crate) bindings: &'a mut Vec<Binding>,
     pub(crate) omitted_private_returns: &'a BTreeSet<FunctionKey>,
     pub(crate) returns_by_path: &'a FunctionReturnMap,
     pub(crate) function_by_path: &'a FunctionAstMap<'a>,
@@ -609,7 +620,7 @@ pub(crate) struct PrivatePreludeCallbackReferenceContext<'a> {
 pub(crate) fn private_prelude_callback_arg_references_slot(
     expr: &Expr,
     expected: &Type,
-    context: &PrivatePreludeCallbackReferenceContext<'_>,
+    context: &mut PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
     match &expr.kind {
         ExprKind::NamePath { segments, .. } => {

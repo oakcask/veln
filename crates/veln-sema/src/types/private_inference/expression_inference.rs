@@ -138,16 +138,18 @@ fn infer_private_body_type(
                 );
             }
             BodyLineKind::Defer { body, .. } => {
-                let mut nested_bindings = bindings.clone();
+                let binding_count = bindings.len();
+                record_scoped_binding_count(bindings);
                 infer_private_body_type(
                     body,
                     Some(&Type::unit()),
                     current_module,
                     uses,
-                    &mut nested_bindings,
+                    bindings,
                     returns_by_path,
                     adts,
                 );
+                bindings.truncate(binding_count);
                 tail = Type::unit();
             }
         }
@@ -189,11 +191,11 @@ pub(crate) fn infer_private_signature_expr_type(
     expected: Option<&Type>,
     current_module: Option<&str>,
     uses: &[UseDecl],
-    bindings: &[Binding],
+    bindings: &mut Vec<Binding>,
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
-    let context = PrivateSignatureInferContext {
+    let mut context = PrivateSignatureInferContext {
         current_module,
         uses,
         bindings,
@@ -212,15 +214,15 @@ pub(crate) fn infer_private_signature_expr_type(
             expected,
             current_module,
             uses,
-            bindings,
+            context.bindings,
             returns_by_path,
             adts,
         ),
-        ExprKind::List(items) => infer_private_list_type(items, expected, &context),
-        ExprKind::Dict(entries) => infer_private_dict_type(entries, expected, &context),
-        ExprKind::Record(fields) => infer_private_record_type(fields, expected, &context),
+        ExprKind::List(items) => infer_private_list_type(items, expected, &mut context),
+        ExprKind::Dict(entries) => infer_private_dict_type(entries, expected, &mut context),
+        ExprKind::Record(fields) => infer_private_record_type(fields, expected, &mut context),
         ExprKind::Call { callee, args } => {
-            infer_private_signature_call_type(callee, args, expected, &context)
+            infer_private_signature_call_type(callee, args, expected, &mut context)
         }
         ExprKind::Perform { args, .. } => {
             for arg in args {
@@ -253,7 +255,7 @@ pub(crate) fn infer_private_signature_expr_type(
             adt::result_parts(&inner_type).map_or(Type::Unknown, |(value, _)| value.clone())
         }),
         ExprKind::Match { scrutinee, arms } => {
-            infer_private_match_type(scrutinee, arms, expected, &context)
+            infer_private_match_type(scrutinee, arms, expected, &mut context)
         }
         ExprKind::If {
             then_branch,
@@ -265,26 +267,29 @@ pub(crate) fn infer_private_signature_expr_type(
             else_if_branches,
             else_branch,
             expected,
-            &context,
+            &mut context,
         ),
         ExprKind::Begin { body, .. } => {
-            let mut nested_bindings = bindings.to_vec();
-            infer_private_body_type(
+            let binding_count = context.bindings.len();
+            record_scoped_binding_count(context.bindings);
+            let ty = infer_private_body_type(
                 body,
                 expected,
                 current_module,
                 uses,
-                &mut nested_bindings,
+                context.bindings,
                 returns_by_path,
                 adts,
-            )
+            );
+            context.bindings.truncate(binding_count);
+            ty
         }
         ExprKind::Prefix { expr, .. } => {
             context.infer(expr, expected);
             Type::Unknown
         }
         ExprKind::Binary { op, left, right } => {
-            infer_private_binary_type(*op, left, right, expected, &context)
+            infer_private_binary_type(*op, left, right, expected, &mut context)
         }
     }
 }
@@ -292,7 +297,7 @@ pub(crate) fn infer_private_signature_expr_type(
 pub(crate) fn infer_private_list_type(
     items: &[Expr],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     let mut item_type = expected
         .and_then(Type::vec_part)
@@ -310,7 +315,7 @@ pub(crate) fn infer_private_list_type(
 pub(crate) fn infer_private_dict_type(
     entries: &[DictEntry],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     let (mut key_type, mut value_type) = expected
         .and_then(Type::dict_parts)
@@ -333,7 +338,7 @@ pub(crate) fn infer_private_dict_type(
 pub(crate) fn infer_private_record_type(
     fields: &[RecordField],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     if fields.is_empty()
         && let Some(expected) = expected
@@ -360,7 +365,7 @@ pub(crate) fn infer_private_match_type(
     scrutinee: &Expr,
     arms: &[MatchArm],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     let scrutinee_expected = match infer_match_scrutinee_type_from_constructor_patterns(
         arms,
@@ -388,7 +393,7 @@ pub(crate) fn infer_private_if_result_type(
     else_if_branches: &[IfBranch],
     else_branch: &Expr,
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     for branch_expr in std::iter::once(then_branch)
@@ -408,7 +413,7 @@ pub(crate) fn infer_private_binary_type(
     left: &Expr,
     right: &Expr,
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     match op {
         veln_ast::BinaryOp::Equal
@@ -656,13 +661,13 @@ pub(crate) fn infer_private_signature_name_type(
 pub(crate) struct PrivateSignatureInferContext<'a> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
-    pub(crate) bindings: &'a [Binding],
+    pub(crate) bindings: &'a mut Vec<Binding>,
     pub(crate) returns_by_path: &'a BTreeMap<(Option<String>, String), Type>,
     pub(crate) adts: &'a AdtRegistry,
 }
 
 impl PrivateSignatureInferContext<'_> {
-    pub(crate) fn infer(&self, expr: &Expr, expected: Option<&Type>) -> Type {
+    pub(crate) fn infer(&mut self, expr: &Expr, expected: Option<&Type>) -> Type {
         infer_private_signature_expr_type(
             expr,
             expected,
@@ -679,7 +684,7 @@ pub(crate) fn infer_private_signature_call_type(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     if let ExprKind::NamePath { segments, .. } = &callee.kind {
         if let ConstructorLookup::Found(constructor) =

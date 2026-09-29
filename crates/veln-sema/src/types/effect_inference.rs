@@ -412,7 +412,7 @@ fn insert_handler_effect_dependencies(
             &clause.body,
             handler.module_name.as_deref(),
             context,
-            &bindings,
+            &mut bindings,
             &mut |expr, expr_context| {
                 collect_expr_effect_dependencies(expr, expr_context, &mut dependencies);
             },
@@ -490,7 +490,7 @@ fn collect_private_handler_effects(
             &clause.body,
             handler.module_name.as_deref(),
             &function_context,
-            &bindings,
+            &mut bindings,
             &mut |expr, expr_context| {
                 collect_expr_effects(expr, expr_context, &mut inferred);
             },
@@ -591,14 +591,10 @@ fn visit_effect_body_expressions(
                 visit_effect_expr(expr, current_module, context, bindings, visit);
             }
             BodyLineKind::Defer { body, .. } => {
-                let mut nested_bindings = bindings.clone();
-                visit_effect_body_expressions(
-                    body,
-                    current_module,
-                    context,
-                    &mut nested_bindings,
-                    visit,
-                );
+                let binding_count = bindings.len();
+                record_scoped_binding_count(bindings);
+                visit_effect_body_expressions(body, current_module, context, bindings, visit);
+                bindings.truncate(binding_count);
             }
         }
     }
@@ -608,7 +604,7 @@ fn visit_effect_expr(
     expr: &Expr,
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
-    bindings: &[Binding],
+    bindings: &mut Vec<Binding>,
     visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>),
 ) {
     let expr_context = context.expression_context(current_module, bindings);
@@ -620,12 +616,14 @@ fn visit_nested_effect_regions(
     expr: &Expr,
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
-    bindings: &[Binding],
+    bindings: &mut Vec<Binding>,
     visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>),
 ) {
     if let ExprKind::Begin { body, .. } = &expr.kind {
-        let mut nested_bindings = bindings.to_vec();
-        visit_effect_body_expressions(body, current_module, context, &mut nested_bindings, visit);
+        let binding_count = bindings.len();
+        record_scoped_binding_count(bindings);
+        visit_effect_body_expressions(body, current_module, context, bindings, visit);
+        bindings.truncate(binding_count);
         return;
     }
     expr.for_each_child(&mut |child| {

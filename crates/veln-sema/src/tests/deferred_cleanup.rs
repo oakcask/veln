@@ -244,3 +244,56 @@ fn cleanup_regions_block_executable_lowering_until_runtime_support_exists() {
         assert!(lowered.ir.is_none());
     }
 }
+
+#[test]
+fn nested_cleanup_binding_environment_retention_grows_linearly() {
+    fn source_with_depth(depth: usize) -> String {
+        let mut source = String::from("fn identity(value)\n");
+        for level in 0..depth {
+            source.push_str(&"  ".repeat(level + 1));
+            source.push_str("begin\n");
+            source.push_str(&"  ".repeat(level + 2));
+            source.push_str(&format!("let value_{level}: Int = value\n"));
+        }
+        source.push_str(&"  ".repeat(depth + 1));
+        source.push_str("value\n");
+        for level in (0..depth).rev() {
+            source.push_str(&"  ".repeat(level + 1));
+            source.push_str("end\n");
+        }
+        source.push_str("end\n\nfn main() -> Int\n  identity(1)\nend\n");
+        source
+    }
+
+    fn binding_work(depth: usize) -> (usize, usize) {
+        crate::semantic_model::reset_binding_clone_count();
+        let diagnostics = diagnostics_for(&source_with_depth(depth));
+        assert!(diagnostics.is_empty(), "depth {depth}: {diagnostics:#?}");
+        (
+            crate::semantic_model::binding_clone_count(),
+            crate::semantic_model::max_scoped_binding_count(),
+        )
+    }
+
+    let (shallow_clones, shallow) = binding_work(12);
+    let (medium_clones, medium) = binding_work(24);
+    let (deep_clones, deep) = binding_work(48);
+    assert_eq!(
+        (shallow_clones, medium_clones, deep_clones),
+        (0, 0, 0),
+        "nested cleanup traversal must not clone binding environments"
+    );
+    assert!(
+        shallow < medium && medium < deep,
+        "generated nesting must exercise scoped binding retention: \
+         shallow={shallow}, medium={medium}, deep={deep}"
+    );
+    let first_growth = medium - shallow;
+    let second_growth = deep - medium;
+
+    assert!(
+        second_growth <= first_growth * 3,
+        "retained binding slots must remain linear across nested cleanup regions: \
+         shallow={shallow}, medium={medium}, deep={deep}"
+    );
+}

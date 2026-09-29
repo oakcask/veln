@@ -91,16 +91,22 @@ fn visit_private_line_references(
             visit_private_expr_references(expr, current_module, function_by_path, bindings, visitor)
         }
         BodyLineKind::Defer { body, .. } => {
-            let mut nested_bindings = bindings.clone();
+            let binding_count = bindings.len();
+            record_scoped_binding_count(bindings);
             for line in body {
-                visit_private_line_references(
+                let result = visit_private_line_references(
                     line,
                     current_module,
                     function_by_path,
-                    &mut nested_bindings,
+                    bindings,
                     visitor,
-                )?;
+                );
+                if result.is_break() {
+                    bindings.truncate(binding_count);
+                    return result;
+                }
             }
+            bindings.truncate(binding_count);
             ControlFlow::Continue(())
         }
     }
@@ -110,7 +116,7 @@ fn visit_private_expr_references(
     expr: &Expr,
     current_module: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
-    bindings: &[Binding],
+    bindings: &mut Vec<Binding>,
     visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
 ) -> ControlFlow<()> {
     if let Some(key) =
@@ -128,29 +134,37 @@ fn visit_private_expr_references(
                 visitor,
             )?;
             for arm in arms {
-                let mut arm_bindings = bindings.to_vec();
-                collect_private_reference_pattern_bindings(&arm.pattern, &mut arm_bindings);
-                visit_private_expr_references(
+                let binding_count = bindings.len();
+                collect_private_reference_pattern_bindings(&arm.pattern, bindings);
+                let result = visit_private_expr_references(
                     &arm.expr,
                     current_module,
                     function_by_path,
-                    &arm_bindings,
+                    bindings,
                     visitor,
-                )?;
+                );
+                bindings.truncate(binding_count);
+                result?;
             }
             ControlFlow::Continue(())
         }
         ExprKind::Begin { body, .. } => {
-            let mut nested_bindings = bindings.to_vec();
+            let binding_count = bindings.len();
+            record_scoped_binding_count(bindings);
             for line in body {
-                visit_private_line_references(
+                let result = visit_private_line_references(
                     line,
                     current_module,
                     function_by_path,
-                    &mut nested_bindings,
+                    bindings,
                     visitor,
-                )?;
+                );
+                if result.is_break() {
+                    bindings.truncate(binding_count);
+                    return result;
+                }
             }
+            bindings.truncate(binding_count);
             ControlFlow::Continue(())
         }
         // Explicitly instantiated callees do not contribute private inference constraints.

@@ -14,7 +14,7 @@ pub(crate) struct PrivateCallSiteConstraintContext<'a> {
 pub(crate) struct PrivateCallSiteExprContext<'a, 'b> {
     pub(crate) current_module: Option<&'b str>,
     pub(crate) caller_key: Option<&'b FunctionKey>,
-    pub(crate) bindings: &'b [Binding],
+    pub(crate) bindings: &'b mut Vec<Binding>,
     pub(crate) constraints: &'b mut PrivateCallSiteConstraintContext<'a>,
 }
 
@@ -118,15 +118,17 @@ fn collect_private_call_site_body_constraints(
                 );
             }
             BodyLineKind::Defer { body, .. } => {
-                let mut nested_bindings = bindings.clone();
+                let binding_count = bindings.len();
+                record_scoped_binding_count(bindings);
                 collect_private_call_site_body_constraints(
                     body,
                     Some(&Type::unit()),
                     current_module,
                     caller_key,
-                    &mut nested_bindings,
+                    bindings,
                     context,
                 );
+                bindings.truncate(binding_count);
             }
         }
     }
@@ -157,15 +159,17 @@ pub(crate) fn collect_private_call_site_expr_constraints(
             collect_private_call_site_control_flow_constraints(expr, expected, context);
         }
         ExprKind::Begin { body, .. } => {
-            let mut nested_bindings = context.bindings.to_vec();
+            let binding_count = context.bindings.len();
+            record_scoped_binding_count(context.bindings);
             collect_private_call_site_body_constraints(
                 body,
                 expected,
                 context.current_module,
                 context.caller_key,
-                &mut nested_bindings,
+                context.bindings,
                 context.constraints,
             );
+            context.bindings.truncate(binding_count);
         }
         ExprKind::NamePath { segments, .. } => {
             collect_private_parameter_constraints(segments, expected, context);

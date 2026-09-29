@@ -36,7 +36,7 @@ pub(crate) fn private_callback_return_constraint_can_update(
 pub(crate) struct PrivatePreludeCallbackConstraintContext<'a> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
-    pub(crate) bindings: &'a [Binding],
+    pub(crate) bindings: &'a mut Vec<Binding>,
     pub(crate) function_by_path: &'a BTreeMap<(Option<String>, String), &'a Function>,
     pub(crate) omitted_private_returns: &'a BTreeSet<(Option<String>, String)>,
     pub(crate) returns_by_path: &'a mut BTreeMap<(Option<String>, String), Type>,
@@ -69,7 +69,8 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
             collect_private_prelude_callback_control_flow_constraints(expr, expected, context);
         }
         ExprKind::Begin { body, .. } => {
-            let mut nested_bindings = context.bindings.to_vec();
+            let binding_count = context.bindings.len();
+            record_scoped_binding_count(context.bindings);
             collect_private_prelude_callback_body_constraints(
                 body,
                 expected,
@@ -80,8 +81,9 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
                 context.returns_by_path,
                 context.adts,
                 context.changed,
-                &mut nested_bindings,
+                context.bindings,
             );
+            context.bindings.truncate(binding_count);
         }
         ExprKind::NamePath { segments, .. } => {
             if let Some(expected) = expected {
@@ -238,7 +240,7 @@ pub(crate) fn collect_private_prelude_callback_call_constraints(
         callee,
         args,
         expected,
-        &PrivateSignatureInferContext {
+        &mut PrivateSignatureInferContext {
             current_module: context.current_module,
             uses: context.uses,
             bindings: context.bindings,
@@ -259,7 +261,7 @@ pub(crate) fn private_prelude_callback_call_params(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
     function_by_path: &FunctionAstMap<'_>,
 ) -> Option<Vec<Type>> {
     let ExprKind::NamePath { segments, .. } = &callee.kind else {

@@ -51,6 +51,13 @@ use veln_source::SourceSpan;
 
 use crate::semantic_model::{Binding, FunctionKey, Type};
 
+fn record_scoped_binding_count(bindings: &[Binding]) {
+    #[cfg(test)]
+    crate::semantic_model::record_scoped_binding_count(bindings.len());
+    #[cfg(not(test))]
+    let _ = bindings;
+}
+
 #[cfg(test)]
 pub(crate) mod effect_inference_counters {
     use super::*;
