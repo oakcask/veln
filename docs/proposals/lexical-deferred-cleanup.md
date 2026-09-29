@@ -5,12 +5,13 @@ update-when: Lexical cleanup syntax, begin-scope exit behavior, task cancellatio
 
 # Lexical Deferred Cleanup Runtime
 
-Veln has source-surface and static-semantics support for lexical cleanup
-regions, but it does not yet register or execute their deferred blocks. The
-remaining work is runtime unwinding for normal, propagated-error, failure, and
-cancellation exits. The mechanism must cover files, sockets, locks, effect
-handlers, spans, and future resources without requiring destructors or
-garbage-collector finalizers.
+This proposal remains incomplete. Its checked source and static-semantics
+slice does not make lexical cleanup a supported language feature because the
+runtime does not register or execute deferred blocks. The remaining work is
+runtime unwinding for normal, propagated-error, failure, and cancellation
+exits. The mechanism must cover files, sockets, locks, effect handlers, spans,
+and future resources without requiring destructors or garbage-collector
+finalizers.
 
 ## Outcome
 
@@ -60,10 +61,10 @@ Code can use ordinary `Result` matching when it needs outcome-specific work.
 The safety requirement is unconditional cleanup that cannot replace the
 region's value or control transfer.
 
-## Implemented Foundation
+## Source and Static-semantics Evidence
 
-The current [source-surface specification](../specification/source-surface.md#cleanup-region-source-forms)
-defines and checks these forms:
+The incomplete proposal has checked source and static-semantics evidence for
+these forms:
 
 ```ebnf
 DeferStatement ::= "defer" NL Body "end" NL?
@@ -71,11 +72,20 @@ BeginExpr      ::= "begin" NL Body "end"
 ```
 
 The executable grammar, accepted and rejected fixtures, parser, formatter,
-syntax navigation, LSP, and MCP support the source forms and their spans.
-Static checking enforces capture scope, unit result, result-propagation, and
-nested-registration restrictions. The current grammar has no explicit
-`return`, `break`, `continue`, or other control-transfer form, so there is no
-separate source case for transfer out of a deferred block.
+syntax navigation, LSP, and MCP retain the source forms and their spans for the
+later runtime slice. Static checks enforce capture scope, unit result,
+result-propagation, and nested-registration restrictions. The grammar has no
+explicit `return`, `break`, `continue`, or other control-transfer form, so
+there is no separate source case for transfer out of a deferred block.
+
+| Case | Observable requirement | Evidence |
+| --- | --- | --- |
+| C9 | A deferred block that uses `?`, produces a non-unit value, or uses a source-supported control transfer out of the block fails checking with a repair note on the containing deferred block. | Checked human and JSON diagnostics cover the expressible restrictions. The grammar has no outward control-transfer form. |
+| C10 | Parsing and formatting preserve both forms and their block ranges, and definition, reference, and rename operations respect bindings within those ranges. | Parser, formatter, LSP, and MCP cases check round trips and navigation. |
+
+These cases are prerequisite evidence only. They do not promote either form to
+the current language specification while runtime cases C1 through C8 remain
+unimplemented.
 
 ## Remaining Runtime Contract
 

@@ -45,8 +45,8 @@ provides the production notation for these forms.
   `if` / `else if` / `else` expressions, pipelines, ordinary and variadic
   calls, function type effect rows with final `...E` tails, `perform`
   operation expressions, `handle ... with ...` expressions, standard channel
-  calls, cleanup-region source forms, zero-argument task spawns, one-context
-  `task::spawn_with` calls, and method-call diagnostics: this page.
+  calls, zero-argument task spawns, one-context `task::spawn_with` calls, and
+  method-call diagnostics: this page.
 - Contract predicate grammar: this page.
 - Identifier casing for source-written module headers, ADT types,
   constructors, functions, tests, public aliases, bindings, parser recovery,
@@ -181,44 +181,6 @@ token and directs source toward ordinary functions plus explicit
 `decode Schema from view at base_offset` and `encode Schema from value`
 expressions.
 
-## Cleanup-region source forms
-
-`defer` is a direct body line whose block ends at the matching `end`. Function
-and test bodies are cleanup regions. A `begin` expression is a value-producing
-cleanup region and has the type of its final expression. Both forms preserve
-their source range and cleanup-block range for formatting and language-service
-navigation. A deferred block can reference only bindings that are in scope at
-its declaration.
-
-A handler operation clause remains one expression after `=>`; it is not itself
-a cleanup-region body. A clause uses `begin` when it needs direct `defer`
-lines. Names declared in that `begin` shadow handler and operation parameters
-for definition, reference, and rename operations until the matching `end`.
-
-Static checking requires a deferred block to produce `()`. It rejects `?`
-inside the block and rejects a nested `defer`. Each diagnostic marks the failed
-expression or block as primary and attaches a repair hint at the containing
-deferred block. Effects used by a deferred block or `begin` body contribute to
-the effect row of the containing function, test, or handler operation. Veln
-has no source syntax for `return`, `break`, `continue`, or another explicit
-control transfer, so a deferred block cannot currently express a transfer out
-of its body.
-
-The completed source-foundation acceptance cases retain these identifiers:
-
-| Case | Observable requirement | Verification |
-| --- | --- | --- |
-| C9 | A deferred block that uses `?`, produces a non-unit value, or uses a source-supported control transfer out of the block fails checking with a repair note on the containing deferred block. | Checked human and JSON diagnostics cover the expressible restrictions. The current grammar has no outward control-transfer form. |
-| C10 | Parsing and formatting preserve both cleanup forms and their block ranges, and definition, reference, and rename operations respect bindings within those ranges. | Parser, formatter, LSP, and MCP checks exercise the round trip and navigation behavior. |
-
-These forms currently provide parsing, static checks, formatting, and
-navigation only. `veln check` accepts a well-typed cleanup region, but core
-lowering records the `deferred_cleanup_runtime` blocker and `veln run` reports
-that the checked program is not executable. The runtime does not yet register
-deferred blocks, run them on region exit, or implement cleanup failure and
-cancellation rules. The toolchain harness checks this command boundary with
-the `deferred-cleanup-runtime-boundary` run case.
-
 ## Diagnostics
 
 Schema-level `map to` clauses, selected mappings, mapping assignments, and
@@ -341,11 +303,6 @@ MemberPath    ::= Name ("::" Name)*
 - Grammar artifact: [source-surface-executable.pl](source-surface-executable.pl).
 - Parser: `crates/veln-syntax/src/parser/` and `crates/veln-syntax/src/lexer.rs`.
 - Source identity and companion visibility: `crates/veln-analysis/src/surface/`.
-- C9 evidence: `examples/specification/check/deferred-block-restrictions/`
-  and `examples/specification/check/deferred-block-restrictions-human/`.
-- C10 evidence: `examples/specification/fmt/cleanup-regions/`,
-  `examples/specification/lsp/cleanup-region-navigation/`, and
-  `examples/specification/mcp/cleanup-region-navigation/`.
 
 ## Read by task
 
