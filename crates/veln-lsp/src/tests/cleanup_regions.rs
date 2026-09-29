@@ -53,3 +53,72 @@ fn cleanup_regions_format_stably_and_preserve_navigation_ranges() {
     ));
     assert_eq!(formatting, [response("3", "[]")]);
 }
+
+#[test]
+fn cleanup_region_type_annotations_support_function_and_handler_navigation() {
+    let mut server = Server::default();
+    let project = TempProject::new("cleanup-region-type-navigation");
+    let source = concat!(
+        "type Resource\n",
+        "  Ready\n",
+        "end\n",
+        "\n",
+        "effect Ask\n",
+        "  value() -> Resource\n",
+        "end\n",
+        "\n",
+        "fn work(input: Resource) -> Resource\n",
+        "  defer\n",
+        "    let deferred: Resource = input\n",
+        "    ()\n",
+        "  end\n",
+        "  let begun: Resource = begin\n",
+        "    let nested: Resource = input\n",
+        "    nested\n",
+        "  end\n",
+        "  begun\n",
+        "end\n",
+        "\n",
+        "handler ask(seed: Resource) handles Ask\n",
+        "  value() => begin\n",
+        "    defer\n",
+        "      let deferred: Resource = seed\n",
+        "      ()\n",
+        "    end\n",
+        "    let clause: Resource = seed\n",
+        "    clause\n",
+        "  end\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for (line, character) in [(10, 20), (14, 18), (23, 24), (26, 18)] {
+        let definition = server.handle_message(&definition_request(&main_uri, line, character));
+        assert_eq!(definition.len(), 1, "{line}:{character}");
+        assert!(
+            definition[0].contains(
+                r#""range":{"start":{"line":0,"character":5},"end":{"line":0,"character":13}}"#
+            ),
+            "{line}:{character}: {}",
+            definition[0]
+        );
+    }
+
+    let references = server.handle_message(&references_request(&main_uri, 26, 18));
+    assert_eq!(references.len(), 1);
+    for range in [
+        r#""range":{"start":{"line":10,"character":18},"end":{"line":10,"character":26}}"#,
+        r#""range":{"start":{"line":14,"character":16},"end":{"line":14,"character":24}}"#,
+        r#""range":{"start":{"line":23,"character":20},"end":{"line":23,"character":28}}"#,
+        r#""range":{"start":{"line":26,"character":16},"end":{"line":26,"character":24}}"#,
+    ] {
+        assert!(references[0].contains(range), "{range}: {}", references[0]);
+    }
+
+    let rename = server.handle_message(&rename_request(&main_uri, 26, 18, "Handle"));
+    assert_eq!(rename.len(), 1);
+    assert_eq!(rename[0].matches(r#""newText":"Handle""#).count(), 10);
+}

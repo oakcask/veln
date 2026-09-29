@@ -1,9 +1,15 @@
 use super::*;
 
+const MAX_CLEANUP_NESTING: usize = 128;
+
 impl<'a> ExprParser<'a> {
     pub(super) fn parse_begin(&mut self) -> Expr {
         let start = self.bump().range;
         let header_end = self.expect_begin_newline("begin expression must continue on a new line");
+        if self.cleanup_depth >= MAX_CLEANUP_NESTING {
+            return self.recover_overdeep_begin(start, header_end);
+        }
+        self.cleanup_depth += 1;
         let mut body = Vec::new();
         self.eat_newlines();
         while !self.at(TokenKind::End) && !self.is_at_end() {
@@ -25,6 +31,7 @@ impl<'a> ExprParser<'a> {
             |token| token.range,
         );
         let block_end = close.as_ref().map_or(end.end, |token| token.range.start);
+        self.cleanup_depth -= 1;
         Expr {
             kind: ExprKind::Begin {
                 body,
@@ -105,6 +112,10 @@ impl<'a> ExprParser<'a> {
     fn parse_nested_defer(&mut self) -> BodyLine {
         let start = self.bump().range;
         let header_end = self.expect_begin_newline("defer statement must continue on a new line");
+        if self.cleanup_depth >= MAX_CLEANUP_NESTING {
+            return self.recover_overdeep_defer(start, header_end);
+        }
+        self.cleanup_depth += 1;
         let mut body = Vec::new();
         self.eat_newlines();
         while !self.at(TokenKind::End) && !self.is_at_end() {
@@ -126,6 +137,7 @@ impl<'a> ExprParser<'a> {
             |token| token.range,
         );
         let block_end = close.as_ref().map_or(end.end, |token| token.range.start);
+        self.cleanup_depth -= 1;
         if self.at(TokenKind::Newline) {
             self.bump();
         }
@@ -137,6 +149,65 @@ impl<'a> ExprParser<'a> {
             )),
             span: self.source.span(start.cover(end)),
         }
+    }
+
+    fn recover_overdeep_begin(&mut self, start: TextRange, header_end: TextRange) -> Expr {
+        self.report_cleanup_nesting_limit();
+        let end = self.skip_cleanup_region(header_end);
+        Expr {
+            kind: ExprKind::Begin {
+                body: Vec::new(),
+                block_span: self.source.span(TextRange::new(header_end.end, end.start)),
+            },
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn recover_overdeep_defer(&mut self, start: TextRange, header_end: TextRange) -> BodyLine {
+        self.report_cleanup_nesting_limit();
+        let end = self.skip_cleanup_region(header_end);
+        if self.at(TokenKind::Newline) {
+            self.bump();
+        }
+        BodyLine::Defer {
+            body: Vec::new(),
+            block_span: self.source.span(TextRange::new(header_end.end, end.start)),
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn report_cleanup_nesting_limit(&mut self) {
+        self.error_current(
+            "parse.cleanup_nesting_limit",
+            "cleanup regions are nested too deeply",
+            vec!["less deeply nested cleanup regions"],
+            RecoveryStrategy::CloseBlock,
+            Some("end"),
+        );
+    }
+
+    fn skip_cleanup_region(&mut self, fallback: TextRange) -> TextRange {
+        let mut depth = 1usize;
+        let mut end = fallback;
+        let mut previous_kind = None;
+        while !self.is_at_end() {
+            let token = self.bump();
+            let kind = token.kind;
+            match kind {
+                TokenKind::Match | TokenKind::Begin | TokenKind::Defer => depth += 1,
+                TokenKind::If if previous_kind != Some(TokenKind::Else) => depth += 1,
+                TokenKind::End => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return token.range;
+                    }
+                }
+                _ => {}
+            }
+            previous_kind = Some(kind);
+            end = token.range;
+        }
+        end
     }
 
     fn expect_begin_newline(&mut self, message: &'static str) -> TextRange {

@@ -94,6 +94,47 @@ fn formats_cleanup_regions_stably() {
 }
 
 #[test]
+fn keeps_cleanup_header_comments_on_the_header_line() {
+    let input = concat!(
+        "fn demo() -> Int\n",
+        " defer # release the outer resource\n",
+        "  ()\n",
+        " end\n",
+        " let value = begin # limit the inner resource lifetime\n",
+        "  defer # release the inner resource\n",
+        "   ()\n",
+        "  end\n",
+        "  1\n",
+        " end\n",
+        " value\n",
+        "end\n",
+    );
+    let source = SourceFile::new("cleanup.veln", input);
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let first = format_tree(&output.tree);
+    let expected = concat!(
+        "fn demo() -> Int\n",
+        "\tdefer  # release the outer resource\n",
+        "\t\t()\n",
+        "\tend\n",
+        "\tlet value = begin  # limit the inner resource lifetime\n",
+        "\t\tdefer  # release the inner resource\n",
+        "\t\t\t()\n",
+        "\t\tend\n",
+        "\t\t1\n",
+        "\tend\n",
+        "\tvalue\n",
+        "end\n",
+    );
+    assert_eq!(first, expected);
+
+    let second_source = SourceFile::new("cleanup.veln", first.clone());
+    assert_eq!(format_tree(&parse(&second_source).tree), first);
+}
+
+#[test]
 fn lossless_tree_exposes_cleanup_region_nodes() {
     let source = SourceFile::new("cleanup.veln", SOURCE);
     let output = parse(&source);
@@ -175,4 +216,32 @@ fn reports_unterminated_cleanup_regions() {
             output.diagnostics
         );
     }
+}
+
+#[test]
+fn rejects_excessive_cleanup_nesting_without_aborting() {
+    let depth = 800;
+    let mut text = String::from("fn deeply_nested() -> ()\n ");
+    for _ in 0..depth {
+        text.push_str("begin\n ");
+    }
+    text.push_str("()\n");
+    for _ in 0..depth {
+        text.push_str(" end\n");
+    }
+    text.push_str("end\n");
+
+    let source = SourceFile::new("deep-cleanup.veln", text);
+    let output = parse(&source);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.cleanup_nesting_limit")
+    );
+    assert_eq!(
+        output.tree.lossless_tokens().count(),
+        lex(&source).tokens.len()
+    );
 }

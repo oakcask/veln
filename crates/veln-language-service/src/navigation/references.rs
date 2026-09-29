@@ -75,7 +75,7 @@ fn type_reference_locations_in_item(
 ) -> TypeReferenceLocations {
     match item {
         SyntaxItem::Function(function) => type_references_in_function(source, tokens, function),
-        SyntaxItem::Handler(handler) => type_references_in_params(source, tokens, &handler.params),
+        SyntaxItem::Handler(handler) => type_references_in_handler(source, tokens, handler),
         SyntaxItem::Effect(effect) => effect
             .operations
             .iter()
@@ -123,6 +123,23 @@ fn type_references_in_function(
         tokens,
         &function.body,
     ));
+    spans
+}
+
+fn type_references_in_handler(
+    source: &SourceFile,
+    tokens: &[Token],
+    handler: &veln_syntax::HandlerDecl,
+) -> TypeReferenceLocations {
+    let mut spans = type_references_in_params(source, tokens, &handler.params);
+    for clause in &handler.operation_clauses {
+        spans.extend(type_references_in_params(source, tokens, &clause.params));
+        spans.extend(type_references_in_cleanup_expr(
+            source,
+            tokens,
+            &clause.body,
+        ));
+    }
     spans
 }
 
@@ -181,7 +198,8 @@ fn type_references_in_body_lines(
     body: &[BodyLine],
 ) -> TypeReferenceLocations {
     body.iter()
-        .flat_map(|line| match line {
+        .flat_map(|line| {
+            let mut spans = match line {
             BodyLine::Let {
                 annotation: Some(_),
                 span,
@@ -194,8 +212,108 @@ fn type_references_in_body_lines(
                 TokenKind::Equal,
             ),
             _ => Vec::new(),
+            };
+            match line {
+                BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
+                    spans.extend(type_references_in_cleanup_expr(source, tokens, expr));
+                }
+                BodyLine::Defer { body, .. } => {
+                    spans.extend(type_references_in_body_lines(source, tokens, body));
+                }
+            }
+            spans
         })
         .collect()
+}
+
+fn type_references_in_cleanup_expr(
+    source: &SourceFile,
+    tokens: &[Token],
+    expr: &Expr,
+) -> TypeReferenceLocations {
+    match &expr.kind {
+        ExprKind::Begin { body, .. } => type_references_in_body_lines(source, tokens, body),
+        ExprKind::TypeApply { callee, .. }
+        | ExprKind::FieldAccess { base: callee, .. }
+        | ExprKind::Try(callee)
+        | ExprKind::Prefix { expr: callee, .. } => {
+            type_references_in_cleanup_expr(source, tokens, callee)
+        }
+        ExprKind::Call { callee, args } => type_references_in_cleanup_expr(source, tokens, callee)
+            .into_iter()
+            .chain(args.iter().flat_map(|arg| {
+                type_references_in_cleanup_expr(source, tokens, arg)
+            }))
+            .collect(),
+        ExprKind::Perform { args, .. } | ExprKind::List(args) => args
+            .iter()
+            .flat_map(|arg| type_references_in_cleanup_expr(source, tokens, arg))
+            .collect(),
+        ExprKind::Handle { body, args, .. } => type_references_in_cleanup_expr(source, tokens, body)
+            .into_iter()
+            .chain(args.iter().flat_map(|arg| {
+                type_references_in_cleanup_expr(source, tokens, arg)
+            }))
+            .collect(),
+        ExprKind::SchemaDecode { input, base, .. } => {
+            type_references_in_cleanup_expr(source, tokens, input)
+                .into_iter()
+                .chain(type_references_in_cleanup_expr(source, tokens, base))
+                .collect()
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            type_references_in_cleanup_expr(source, tokens, value)
+        }
+        ExprKind::Record(fields) => fields
+            .iter()
+            .flat_map(|field| type_references_in_cleanup_expr(source, tokens, &field.expr))
+            .collect(),
+        ExprKind::Dict(entries) => entries
+            .iter()
+            .flat_map(|entry| {
+                type_references_in_cleanup_expr(source, tokens, &entry.key)
+                    .into_iter()
+                    .chain(type_references_in_cleanup_expr(source, tokens, &entry.value))
+            })
+            .collect(),
+        ExprKind::Match { scrutinee, arms } => {
+            type_references_in_cleanup_expr(source, tokens, scrutinee)
+                .into_iter()
+                .chain(arms.iter().flat_map(|arm| {
+                    type_references_in_cleanup_expr(source, tokens, &arm.expr)
+                }))
+                .collect()
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => type_references_in_cleanup_expr(source, tokens, condition)
+            .into_iter()
+            .chain(type_references_in_cleanup_expr(source, tokens, then_branch))
+            .chain(else_if_branches.iter().flat_map(|branch| {
+                type_references_in_cleanup_expr(source, tokens, &branch.condition)
+                    .into_iter()
+                    .chain(type_references_in_cleanup_expr(source, tokens, &branch.expr))
+            }))
+            .chain(type_references_in_cleanup_expr(source, tokens, else_branch))
+            .collect(),
+        ExprKind::Binary { left, right, .. } => {
+            type_references_in_cleanup_expr(source, tokens, left)
+                .into_iter()
+                .chain(type_references_in_cleanup_expr(source, tokens, right))
+                .collect()
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => Vec::new(),
+    }
 }
 
 fn type_references_in_variant_field(

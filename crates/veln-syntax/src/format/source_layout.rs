@@ -16,8 +16,13 @@ pub(super) fn push_source_line(
 ) {
     comments.emit_before(source_line, out, indent);
     push_indent(out, indent);
-    out.push_str(&content);
-    comments.emit_after(source_line, out);
+    for (index, line) in content.split('\n').enumerate() {
+        if index > 0 {
+            out.push('\n');
+        }
+        out.push_str(line);
+        comments.emit_after(source_line + index, out);
+    }
     out.push('\n');
 }
 

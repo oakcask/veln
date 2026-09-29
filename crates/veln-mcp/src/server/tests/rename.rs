@@ -204,6 +204,49 @@ fn rename_begin_local_edits_declaration_and_deferred_cleanup_references() {
 }
 
 #[test]
+fn rename_type_edits_function_and_handler_cleanup_annotations() {
+    let workspace = TempWorkspace::new("rename-cleanup-region-type");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "type Resource\n",
+            "  Ready\n",
+            "end\n\n",
+            "effect Ask\n",
+            "  value() -> Resource\n",
+            "end\n\n",
+            "fn work(input: Resource) -> Resource\n",
+            "  defer\n",
+            "    let deferred: Resource = input\n",
+            "    ()\n",
+            "  end\n",
+            "  let begun: Resource = begin\n",
+            "    let nested: Resource = input\n",
+            "    nested\n",
+            "  end\n",
+            "  begun\n",
+            "end\n\n",
+            "handler ask(seed: Resource) handles Ask\n",
+            "  value() => begin\n",
+            "    defer\n",
+            "      let deferred: Resource = seed\n",
+            "      ()\n",
+            "    end\n",
+            "    let clause: Resource = seed\n",
+            "    clause\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let result = rename_result(&workspace, "main.veln", 27, 19, "Handle");
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(edits(&result).len(), 10, "{result:#}");
+}
+
+#[test]
 fn rename_type_alias_constructor_qualifiers_share_validated_identity() {
     let workspace = TempWorkspace::new("rename-type-alias-constructor-qualifier");
     workspace.write("veln.toml", "");

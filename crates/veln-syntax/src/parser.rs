@@ -373,6 +373,7 @@ struct ExprParser<'a> {
     context: &'static str,
     tokens: &'a [Token],
     cursor: usize,
+    cleanup_depth: usize,
     diagnostics: Vec<ParseDiagnostic>,
 }
 

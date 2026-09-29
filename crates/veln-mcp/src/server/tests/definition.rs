@@ -122,6 +122,39 @@ fn definition_resolves_the_supported_workspace_symbol_set() {
             definition_line: 1,
             definition_column: 4,
         },
+        Case {
+            name: "type from handler deferred cleanup annotation",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "type Resource\n",
+                        "  Ready\n",
+                        "end\n\n",
+                        "effect Ask\n",
+                        "  value() -> Resource\n",
+                        "end\n\n",
+                        "handler ask(seed: Resource) handles Ask\n",
+                        "  value() => begin\n",
+                        "    defer\n",
+                        "      let deferred: Resource = seed\n",
+                        "      ()\n",
+                        "    end\n",
+                        "    let nested: Resource = seed\n",
+                        "    nested\n",
+                        "  end\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 12,
+            column: 22,
+            definition_file: "main.veln",
+            definition_line: 1,
+            definition_column: 6,
+        },
     ];
 
     for case in cases {

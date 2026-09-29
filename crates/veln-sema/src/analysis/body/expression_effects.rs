@@ -53,15 +53,15 @@ impl<'a> FunctionChecker<'a> {
             } => self.infer_field_access(expr, base, field, field_span),
             ExprKind::Try(inner) => {
                 if let Some(block_span) = self.defer_blocks.last().cloned() {
-                    self.push_defer_restriction_diagnostic(
-                        "defer.propagation",
-                        "deferred block cannot use `?`".to_string(),
-                        expr.node_id.display("expr"),
-                        expr.span.clone(),
-                        "result_propagation",
-                        "Handle the `Result` inside the deferred block instead of propagating it with `?`.",
-                        &block_span,
-                    );
+                    self.push_defer_restriction_diagnostic(DeferRestrictionDiagnostic {
+                        id: "defer.propagation",
+                        message: "deferred block cannot use `?`".to_string(),
+                        node_id: expr.node_id.display("expr"),
+                        span: expr.span.clone(),
+                        reason: "result_propagation",
+                        repair: "Handle the `Result` inside the deferred block instead of propagating it with `?`.",
+                        repair_span: block_span,
+                    });
                 }
                 self.infer_try(expr, inner, expected)
             }

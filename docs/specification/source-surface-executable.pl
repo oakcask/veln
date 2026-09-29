@@ -156,8 +156,9 @@ grammar_line(190, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").
 grammar_line(200, "EffectList    ::= EffectEntry (\",\" EffectEntry)* \",\"?").
 grammar_line(205, "EffectEntry   ::= MemberPath | \"...\" Name").
 grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
-grammar_line(220, "Body          ::= (LetLine | ExprLine)*").
+grammar_line(220, "Body          ::= (LetLine | DeferStatement | ExprLine)*").
 grammar_line(230, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" Expr NL").
+grammar_line(235, "DeferStatement ::= \"defer\" NL Body \"end\" NL?").
 grammar_line(240, "LetPattern    ::= \"_\" | BindingName | ConstructorPattern | RecordPattern").
 grammar_line(250, "ExprLine      ::= Expr NL").
 grammar_line(260, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
@@ -166,8 +167,9 @@ grammar_line(266, "                  | \"<\" | \"<=\" | \">\" | \">=\" | \"<<\" 
 grammar_line(267, "                  | \"+\" | \"-\" | \"*\" | \"/\"").
 grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\" | \"~\") PrefixExpr | PostfixExpr").
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
-grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | \"(\" Expr \")\" | \"()\"").
+grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | \"(\" Expr \")\" | \"()\"").
 grammar_line(300, "                  | Record | Dict | List | Match | If").
+grammar_line(301, "BeginExpr     ::= \"begin\" NL Body \"end\"").
 grammar_line(305, "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr").
 grammar_line(307, "SchemaEncode  ::= \"encode\" MemberPath \"from\" Expr").
 grammar_line(308, "Perform       ::= \"perform\" MemberPath \"::\" Name \"(\" ArgList? \")\"").

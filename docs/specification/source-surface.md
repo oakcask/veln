@@ -45,8 +45,8 @@ provides the production notation for these forms.
   `if` / `else if` / `else` expressions, pipelines, ordinary and variadic
   calls, function type effect rows with final `...E` tails, `perform`
   operation expressions, `handle ... with ...` expressions, standard channel
-  calls, zero-argument task spawns, one-context `task::spawn_with` calls, and
-  method-call diagnostics: this page.
+  calls, cleanup-region source forms, zero-argument task spawns, one-context
+  `task::spawn_with` calls, and method-call diagnostics: this page.
 - Contract predicate grammar: this page.
 - Identifier casing for source-written module headers, ADT types,
   constructors, functions, tests, public aliases, bindings, parser recovery,
@@ -181,6 +181,26 @@ token and directs source toward ordinary functions plus explicit
 `decode Schema from view at base_offset` and `encode Schema from value`
 expressions.
 
+## Cleanup-region source forms
+
+`defer` is a direct body line whose block ends at the matching `end`. A
+`begin` expression is a value-producing lexical body and has the type of its
+final expression. Both forms preserve their source range and cleanup-block
+range for formatting and language-service navigation. A deferred block can
+reference only bindings that are in scope at its declaration.
+
+Static checking requires a deferred block to produce `()`. It rejects `?`
+inside the block and rejects a nested `defer`. Each diagnostic marks the failed
+expression or block as primary and attaches a repair hint at the containing
+deferred block. Veln has no source syntax for `return`, `break`, `continue`, or
+another explicit control transfer, so the proposed control-transfer rejection
+has no additional source case in the current grammar.
+
+These forms currently provide parsing, static checks, formatting, and
+navigation only. Core lowering reports `deferred_cleanup_runtime` as an
+unsupported expression. The runtime does not yet register deferred blocks,
+run them on region exit, or implement cleanup failure and cancellation rules.
+
 ## Diagnostics
 
 Schema-level `map to` clauses, selected mappings, mapping assignments, and
@@ -258,8 +278,9 @@ Effects       ::= "effects" "[" EffectList? "]"
 EffectList    ::= EffectEntry ("," EffectEntry)* ","?
 EffectEntry   ::= MemberPath | "..." Name
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
-Body          ::= (LetLine | ExprLine)*
+Body          ::= (LetLine | DeferStatement | ExprLine)*
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
+DeferStatement ::= "defer" NL Body "end" NL?
 LetPattern    ::= "_" | BindingName | ConstructorPattern | RecordPattern
 ExprLine      ::= Expr NL
 Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
@@ -268,8 +289,9 @@ BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="
                   | "+" | "-" | "*" | "/"
 PrefixExpr    ::= ("not" | "-" | "~") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
-PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | "(" Expr ")" | "()"
+PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | "(" Expr ")" | "()"
                   | Record | Dict | List | Match | If
+BeginExpr     ::= "begin" NL Body "end"
 SchemaDecode  ::= "decode" MemberPath "from" Expr "at" Expr
 SchemaEncode  ::= "encode" MemberPath "from" Expr
 Perform       ::= "perform" MemberPath "::" Name "(" ArgList? ")"

@@ -50,6 +50,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     invalid_binding_recoveries: Vec<InvalidBindingRecovery>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
     pub(super) local_names: BTreeMap<String, (String, SourceSpan)>,
+    local_name_scopes: Vec<Vec<String>>,
     pub(super) inferred_effects: Vec<EffectUse>,
     pub(super) inferred_return_type: Option<Type>,
     pub(super) diagnostics: Vec<Diagnostic>,
@@ -80,6 +81,16 @@ struct EffectBoundary {
     kind: &'static str,
     diagnostic_id: &'static str,
     subject: &'static str,
+}
+
+pub(super) struct DeferRestrictionDiagnostic {
+    pub(super) id: &'static str,
+    pub(super) message: String,
+    pub(super) node_id: String,
+    pub(super) span: SourceSpan,
+    pub(super) reason: &'static str,
+    pub(super) repair: &'static str,
+    pub(super) repair_span: SourceSpan,
 }
 
 impl EffectBoundary {
@@ -208,6 +219,7 @@ impl<'a> FunctionChecker<'a> {
             invalid_binding_recoveries: Vec::new(),
             omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
+            local_name_scopes: Vec::new(),
             inferred_effects: Vec::new(),
             inferred_return_type: None,
             diagnostics: Vec::new(),

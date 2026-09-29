@@ -18,15 +18,15 @@ impl<'a> FunctionChecker<'a> {
 
     fn check_defer_line(&mut self, line: &BodyLine, body: &[BodyLine], block_span: &SourceSpan) {
         if !self.defer_blocks.is_empty() {
-            self.push_defer_restriction_diagnostic(
-                "defer.nested",
-                "deferred block cannot register another deferred block".to_string(),
-                line.node_id.display("defer"),
-                line.span.clone(),
-                "nested_defer",
-                "Move the nested `defer` to a cleanup-region body.",
-                block_span,
-            );
+            self.push_defer_restriction_diagnostic(DeferRestrictionDiagnostic {
+                id: "defer.nested",
+                message: "deferred block cannot register another deferred block".to_string(),
+                node_id: line.node_id.display("defer"),
+                span: line.span.clone(),
+                reason: "nested_defer",
+                repair: "Move the nested `defer` to a cleanup-region body.",
+                repair_span: block_span.clone(),
+            });
         }
 
         self.defer_blocks.push(block_span.clone());
@@ -34,18 +34,18 @@ impl<'a> FunctionChecker<'a> {
         self.defer_blocks.pop();
 
         if actual != Type::Unknown && !is_assignable(&Type::unit(), &actual) {
-            self.push_defer_restriction_diagnostic(
-                "defer.non_unit",
-                format!(
+            self.push_defer_restriction_diagnostic(DeferRestrictionDiagnostic {
+                id: "defer.non_unit",
+                message: format!(
                     "deferred block must have type `()`, but found `{}`",
                     actual.render()
                 ),
-                line.node_id.display("defer"),
-                block_span.clone(),
-                "non_unit_result",
-                "End the deferred block with `()` so cleanup cannot replace the region value.",
-                block_span,
-            );
+                node_id: line.node_id.display("defer"),
+                span: block_span.clone(),
+                reason: "non_unit_result",
+                repair: "End the deferred block with `()` so cleanup cannot replace the region value.",
+                repair_span: block_span.clone(),
+            });
         }
     }
 
@@ -60,8 +60,8 @@ impl<'a> FunctionChecker<'a> {
     fn infer_scoped_body(&mut self, body: &[BodyLine], expected: Option<&ExpectedType>) -> Type {
         let saved_bindings = self.bindings.len();
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
-        let saved_names = self.local_names.clone();
         let saved_omitted_bindings = self.omitted_local_bindings.len();
+        self.local_name_scopes.push(Vec::new());
 
         let mut result = Type::unit();
         for (index, line) in body.iter().enumerate() {
@@ -90,37 +90,34 @@ impl<'a> FunctionChecker<'a> {
         self.bindings.truncate(saved_bindings);
         self.invalid_binding_recoveries
             .truncate(saved_invalid_binding_recoveries);
-        self.local_names = saved_names;
+        for name in self
+            .local_name_scopes
+            .pop()
+            .expect("scoped body name frame")
+        {
+            self.local_names.remove(&name);
+        }
         result
     }
 
-    pub(super) fn push_defer_restriction_diagnostic(
-        &mut self,
-        id: &'static str,
-        message: String,
-        node_id: String,
-        span: SourceSpan,
-        reason: &'static str,
-        repair: &'static str,
-        repair_span: &SourceSpan,
-    ) {
+    pub(super) fn push_defer_restriction_diagnostic(&mut self, input: DeferRestrictionDiagnostic) {
         let mut diagnostic = Diagnostic::new(
-            id,
+            input.id,
             Severity::Error,
             DiagnosticKind::Type,
-            message,
-            Some(span),
+            input.message,
+            Some(input.span),
             JsonValue::object([
                 ("phase", JsonValue::string("type_check")),
-                ("node_id", JsonValue::string(node_id)),
+                ("node_id", JsonValue::string(input.node_id)),
                 ("boundary", JsonValue::string("deferred_block")),
-                ("reason", JsonValue::string(reason)),
+                ("reason", JsonValue::string(input.reason)),
             ]),
         );
         diagnostic.related.push(JsonValue::object([
             ("kind", JsonValue::string("repair_hint")),
-            ("message", JsonValue::string(repair)),
-            ("span", span_json(repair_span)),
+            ("message", JsonValue::string(input.repair)),
+            ("span", span_json(&input.repair_span)),
         ]));
         self.diagnostics.push(diagnostic);
     }

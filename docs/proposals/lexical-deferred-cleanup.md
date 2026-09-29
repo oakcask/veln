@@ -3,19 +3,20 @@ role: proposal
 update-when: Lexical cleanup syntax, begin-scope exit behavior, task cancellation unwinding, or cleanup failure precedence is implemented or redesigned.
 ---
 
-# Lexical Deferred Cleanup
+# Lexical Deferred Cleanup Runtime
 
-Veln needs a general way to release resources when control leaves a lexical
-region. The mechanism must cover files, sockets, locks, effect handlers, spans,
-and future resources without requiring destructors or garbage-collector
-finalizers.
+Veln has source-surface and static-semantics support for lexical cleanup
+regions, but it does not yet register or execute their deferred blocks. The
+remaining work is runtime unwinding for normal, propagated-error, failure, and
+cancellation exits. The mechanism must cover files, sockets, locks, effect
+handlers, spans, and future resources without requiring destructors or
+garbage-collector finalizers.
 
 ## Outcome
 
-Add a lexical `defer` block and a value-producing `begin` expression. A
-deferred block runs when its nearest cleanup region exits. Function, test, and
-handler-operation bodies are cleanup regions. A `begin` expression introduces
-a shorter cleanup region.
+Execute each accepted `defer` block when its nearest cleanup region exits.
+Function, test, and handler-operation bodies are cleanup regions. A `begin`
+expression introduces a shorter cleanup region.
 
 ```veln
 fn load(address: String) -> Result<String, LoadError> effects [net]
@@ -58,31 +59,33 @@ Code can use ordinary `Result` matching when it needs outcome-specific work.
 The safety requirement is unconditional cleanup that cannot replace the
 region's value or control transfer.
 
-## Proposed Source Contract
+## Implemented Foundation
 
-The source grammar gains these forms:
+The current [source-surface specification](../specification/source-surface.md#cleanup-region-source-forms)
+defines and checks these forms:
 
 ```ebnf
 DeferStatement ::= "defer" NL Body "end" NL?
 BeginExpr      ::= "begin" NL Body "end"
 ```
 
-A `defer` statement must be a direct body line of a cleanup region. A nested
-expression uses `begin` when it needs its own deferred cleanup. `begin` has no
-implicit error handling. It only introduces a lexical scope and returns its
-final expression's value.
+The executable grammar, accepted and rejected fixtures, parser, formatter,
+syntax navigation, LSP, and MCP support the source forms and their spans.
+Static checking enforces capture scope, unit result, result-propagation, and
+nested-registration restrictions. The current grammar has no explicit
+`return`, `break`, `continue`, or other control-transfer form, so there is no
+separate source case for transfer out of a deferred block.
+
+## Remaining Runtime Contract
 
 When execution reaches a `defer` statement, the runtime registers its block.
 The runtime captures all referenced local bindings at that point. It does not
 execute the block at registration time. A deferred block cannot refer to a
 binding declared after the statement.
 
-A deferred block must have type `()`. Its effects contribute to the effect row
-of the containing function, test, or handler operation. The block cannot use
-`?`, register another deferred block, or initiate a control transfer out of the
-block. Fallible cleanup must handle its ordinary `Result` inside the block.
-The example helper `close_or_report` represents that explicit policy; it is not
-a new standard-library operation.
+Fallible cleanup must handle its ordinary `Result` inside the block. The
+example helper `close_or_report` represents that explicit policy; it is not a
+new standard-library operation.
 
 ## Exit and Failure Rules
 
@@ -123,16 +126,11 @@ fails.
 | C6 | A `begin` expression completes successfully. | Its cleanup runs before the expression value is bound outside the scope. | Run specification case. |
 | C7 | Cleanup fails while the region is already failing. | The original failure remains primary and cleanup failure is related context. | Human and JSON runtime-failure cases. |
 | C8 | A Veln task is cancelled while inside a cleanup region. | Task completion is not reported until registered cleanup has run. | Deterministic task-runtime case. |
-| C9 | A deferred block uses `?`, has a non-unit result, or transfers control. | Checking fails at the deferred block with a specific repair note. | Check and check-JSON cases. |
-| C10 | Formatter and language services process both new forms. | Formatting is stable and source navigation retains the cleanup block spans. | Formatter, parser, LSP, and MCP cases. |
-
 ## Verification and Promotion
 
-Implementation must update the executable source grammar and add accepted and
-rejected source fixtures before the behavior is added to the current
-specification. Runtime cases belong under `examples/specification/`. The
-current behavior must then be explained in focused source-surface and execution
-specification pages.
+Runtime cases belong under `examples/specification/`. After C1 through C8 pass,
+the execution behavior must be explained in the current execution
+specification and this proposal must be removed from the proposal catalog.
 
 Task cancellation cannot satisfy this proposal by abandoning the host thread.
 The task runtime must enter the same cleanup-unwind path used by other abrupt

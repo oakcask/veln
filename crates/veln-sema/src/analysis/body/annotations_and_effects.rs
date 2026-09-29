@@ -220,6 +220,9 @@ impl<'a> FunctionChecker<'a> {
         } else {
             self.local_names
                 .insert(name.to_string(), (node_id, span.clone()));
+            if let Some(scope) = self.local_name_scopes.last_mut() {
+                scope.push(name.to_string());
+            }
             true
         }
     }

@@ -175,3 +175,45 @@ fn cleanup_region_effects_contribute_to_the_enclosing_function() {
         );
     }
 }
+
+#[test]
+fn handler_cleanup_regions_collect_direct_and_dependent_effects() {
+    let diagnostics = diagnostics_for(concat!(
+        "effect Ask\n",
+        "  value() -> ()\n",
+        "end\n",
+        "effect Log\n",
+        "  write() -> ()\n",
+        "end\n",
+        "effect Audit\n",
+        "  record() -> ()\n",
+        "end\n",
+        "fn audit() -> ()\n",
+        "  perform Audit::record()\n",
+        "end\n",
+        "pub handler ask() handles Ask\n",
+        "  value() => begin\n",
+        "    perform Log::write()\n",
+        "    audit()\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let missing_effects = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "handler.missing_public_effect")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        missing_effects
+            .iter()
+            .any(|message| message.contains("`Log`")),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        missing_effects
+            .iter()
+            .any(|message| message.contains("`Audit`")),
+        "{diagnostics:#?}"
+    );
+}

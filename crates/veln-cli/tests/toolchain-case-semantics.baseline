@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"7fabb915ade69b890932ece918de0831872000e0"
+source_git_tree	"07eede04c009adb915f8f8afb5ad7c0db0f9578a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1708
+case_count	1709
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -3595,21 +3595,57 @@ field	expectations.diagnostics[0].id	"defer.propagation"
 field	expectations.diagnostics[0].kind	"type"
 field	expectations.diagnostics[0].message	"deferred block cannot use `?`"
 field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	3
+field	expectations.diagnostics[0].span.file	"main.veln"
+field	expectations.diagnostics[0].span.line	7
 field	expectations.diagnostics[1].id	"defer.non_unit"
 field	expectations.diagnostics[1].kind	"type"
 field	expectations.diagnostics[1].message	"deferred block must have type `()`, but found `Int`"
 field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	1
+field	expectations.diagnostics[1].span.file	"main.veln"
+field	expectations.diagnostics[1].span.line	14
 field	expectations.diagnostics[2].id	"defer.nested"
 field	expectations.diagnostics[2].kind	"type"
 field	expectations.diagnostics[2].message	"deferred block cannot register another deferred block"
 field	expectations.diagnostics[2].severity	"error"
+field	expectations.diagnostics[2].span.column	3
+field	expectations.diagnostics[2].span.file	"main.veln"
+field	expectations.diagnostics[2].span.line	21
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[10].equals	1
+field	expectations.json_assertions[10].operation	"equals"
+field	expectations.json_assertions[10].path	"diagnostics.2.related.0.span.start.column"
 field	expectations.json_assertions[1].equals	3
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.json_assertions[2].equals	"repair_hint"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.related.0.kind"
+field	expectations.json_assertions[3].equals	7
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.related.0.span.start.line"
+field	expectations.json_assertions[4].equals	1
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.0.related.0.span.start.column"
+field	expectations.json_assertions[5].equals	"repair_hint"
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"diagnostics.1.related.0.kind"
+field	expectations.json_assertions[6].equals	14
+field	expectations.json_assertions[6].operation	"equals"
+field	expectations.json_assertions[6].path	"diagnostics.1.related.0.span.start.line"
+field	expectations.json_assertions[7].equals	1
+field	expectations.json_assertions[7].operation	"equals"
+field	expectations.json_assertions[7].path	"diagnostics.1.related.0.span.start.column"
+field	expectations.json_assertions[8].equals	"repair_hint"
+field	expectations.json_assertions[8].operation	"equals"
+field	expectations.json_assertions[8].path	"diagnostics.2.related.0.kind"
+field	expectations.json_assertions[9].equals	22
+field	expectations.json_assertions[9].operation	"equals"
+field	expectations.json_assertions[9].path	"diagnostics.2.related.0.span.start.line"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":\"defer.propagation\""
 field	expectations.stdout.contains[1]	"deferred block cannot use `?`"
@@ -3626,7 +3662,22 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"681287c4f61f8aada94a0630cc79d4a9624baedfb221acb7f6f37dae3901b1d7"
+case_digest	"b0af87bca75e7c45dda6802cea1f8d5fb201b25f33dac79ed23ecabf92bb7fb2"
+case	"examples/specification/check/deferred-block-restrictions-human"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"main.veln:7:3: error[defer.propagation]: deferred block cannot use `?`"
+field	expectations.stdout.contains[1]	"note: main.veln:7:1: Handle the `Result` inside the deferred block instead of propagating it with `?`."
+field	expectations.stdout.contains[2]	"main.veln:14:1: error[defer.non_unit]: deferred block must have type `()`, but found `Int`"
+field	expectations.stdout.contains[3]	"note: main.veln:14:1: End the deferred block with `()` so cleanup cannot replace the region value."
+field	expectations.stdout.contains[4]	"main.veln:21:3: error[defer.nested]: deferred block cannot register another deferred block"
+field	expectations.stdout.contains[5]	"note: main.veln:22:1: Move the nested `defer` to a cleanup-region body."
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"5d699b3a72c591c6cadefb093feab753030800259e10d89cc6cf9ec73c96d1b0"
 case	"examples/specification/check/dependency-companion-export-boundary-json"
 field	expectations.diagnostics[0].id	"manifest.invalid_export"
 field	expectations.diagnostics[0].kind	"module"
@@ -12387,7 +12438,7 @@ field	source_errors	"forbidden"
 case_digest	"54fb5cc7f30fcd859ee00c273c8fb49db618738aed388512f0bd84cdaa6ee862"
 case	"examples/specification/fmt/cleanup-regions"
 field	expectations.exit	0
-field	expectations.file_assertions[0].equals	"fn cleanup(value: Int) -> ()\n\t()\nend\n\nfn choose(input: Int) -> Int\n\tbegin\n\t\tlet captured = input\n\t\tdefer\n\t\t\tcleanup(captured)\n\t\tend\n\t\tcaptured\n\tend\nend\n"
+field	expectations.file_assertions[0].equals	"fn cleanup(value: Int) -> ()\n\t()\nend\n\nfn choose(input: Int) -> Int\n\tbegin  # value-producing cleanup region\n\t\tlet captured = input\n\t\tdefer  # capture at registration\n\t\t\tcleanup(captured)\n\t\tend\n\t\tcaptured\n\tend\nend\n"
 field	expectations.file_assertions[0].operation	"equals"
 field	expectations.file_assertions[0].path	"main.veln"
 field	expectations.stderr.format	"empty"
@@ -12396,7 +12447,7 @@ field	invocation.command[0]	"fmt"
 field	invocation.command[1]	"main.veln"
 field	invocation.repeat	2
 field	source_errors	"forbidden"
-case_digest	"6b8aec55f2dead1b828f17ec1ab5f3f141f57e448fe3a37134527fd68f2ffa09"
+case_digest	"549e3c61960482d1c62d43c3654a4cb1146e09605c11ac1dab569f176ed53a51"
 case	"examples/specification/fmt/codec-declarations"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -61975,4 +62026,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ea38bc1b70b8acb52a8e469a4cbe0e97be35710d090e4a1406f5c3e651fdb1a3"
+aggregate_digest	"a2710bf9ddc99d8aad196d2577ac1acbf53592e5f3da28fda42a5ecfccd5b83d"

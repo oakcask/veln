@@ -3,9 +3,9 @@ fn cleanup(value: Int) -> ()
 end
 
 fn choose(input: Int) -> Int
-  begin
+  begin # value-producing cleanup region
     let captured = input
-    defer
+    defer # capture at registration
       cleanup(captured)
     end
     captured

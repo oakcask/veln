@@ -407,9 +407,16 @@ fn insert_handler_effect_dependencies(
                 .filter(|param| valid_value_binding_name(&param.name))
                 .map(|param| Binding::new(param.name.clone(), Type::Unknown)),
         );
-        let expr_context = context.expression_context(handler.module_name.as_deref(), &bindings);
         let mut dependencies = BTreeSet::new();
-        collect_expr_effect_dependencies(&clause.body, &expr_context, &mut dependencies);
+        visit_effect_expr(
+            &clause.body,
+            handler.module_name.as_deref(),
+            context,
+            &bindings,
+            &mut |expr, expr_context| {
+                collect_expr_effect_dependencies(expr, expr_context, &mut dependencies);
+            },
+        );
         for dependency in dependencies {
             graph.insert_dependency(dependency, node.clone());
         }
@@ -437,6 +444,16 @@ fn collect_private_handler_effects(
         return Vec::new();
     };
     let mut inferred = Vec::new();
+    let function_context = FunctionEffectContext {
+        uses: context.uses,
+        functions: context.functions,
+        user_effects: context.user_effects,
+        handlers: context.handlers,
+        effects_by_function: context.effects_by_function,
+        effects_by_module_path: context.effects_by_module_path,
+        companion_access_targets: context.companion_access_targets,
+        companion_effect_access_targets: context.companion_effect_access_targets,
+    };
     for clause in &decl.operation_clauses {
         let Some(operation_name) = clause.operation.as_deref() else {
             continue;
@@ -469,19 +486,15 @@ fn collect_private_handler_effects(
                     }
                 }),
         );
-        let expr_context = ExprEffectContext {
-            uses: context.uses,
-            current_module: handler.module_name.as_deref(),
-            bindings: &bindings,
-            functions: context.functions,
-            effects_by_function: context.effects_by_function,
-            effects_by_module_path: context.effects_by_module_path,
-            companion_access_targets: context.companion_access_targets,
-            companion_effect_access_targets: context.companion_effect_access_targets,
-            user_effects: context.user_effects,
-            handlers: context.handlers,
-        };
-        collect_expr_effects(&clause.body, &expr_context, &mut inferred);
+        visit_effect_expr(
+            &clause.body,
+            handler.module_name.as_deref(),
+            &function_context,
+            &bindings,
+            &mut |expr, expr_context| {
+                collect_expr_effects(expr, expr_context, &mut inferred);
+            },
+        );
     }
     inferred
 }
@@ -570,16 +583,12 @@ fn visit_effect_body_expressions(
                 expr,
                 ..
             } => {
-                let expr_context = context.expression_context(current_module, bindings);
-                visit(expr, &expr_context);
-                visit_nested_effect_regions(expr, current_module, context, bindings, visit);
+                visit_effect_expr(expr, current_module, context, bindings, visit);
                 let ty = parse_type_or_unknown(annotation.as_deref());
                 collect_pattern_bindings(pattern, &ty, bindings);
             }
             BodyLineKind::Expr { expr } => {
-                let expr_context = context.expression_context(current_module, bindings);
-                visit(expr, &expr_context);
-                visit_nested_effect_regions(expr, current_module, context, bindings, visit);
+                visit_effect_expr(expr, current_module, context, bindings, visit);
             }
             BodyLineKind::Defer { body, .. } => {
                 let mut nested_bindings = bindings.clone();
@@ -593,6 +602,18 @@ fn visit_effect_body_expressions(
             }
         }
     }
+}
+
+fn visit_effect_expr(
+    expr: &Expr,
+    current_module: Option<&str>,
+    context: &FunctionEffectContext<'_>,
+    bindings: &[Binding],
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>),
+) {
+    let expr_context = context.expression_context(current_module, bindings);
+    visit(expr, &expr_context);
+    visit_nested_effect_regions(expr, current_module, context, bindings, visit);
 }
 
 fn visit_nested_effect_regions(
