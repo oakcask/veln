@@ -252,7 +252,10 @@ impl<'a> Parser<'a> {
             }
             if self.at(TokenKind::Else) {
                 recover_cleanup_blocks_before_branch(&mut block_stack, TokenKind::If);
-            } else if at_line_start && line_starts_match_arm(&self.tokens, self.cursor) {
+            } else if depth == 0
+                && at_line_start
+                && line_starts_match_arm(&self.tokens, self.cursor)
+            {
                 recover_cleanup_blocks_before_branch(&mut block_stack, TokenKind::Match);
             }
             let token = self.bump();

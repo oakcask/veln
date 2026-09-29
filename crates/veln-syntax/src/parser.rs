@@ -31,6 +31,23 @@ use integer_literal_diagnostics::integer_literal_diagnostics;
 
 const MAX_CLEANUP_NESTING: usize = 128;
 
+#[cfg(test)]
+thread_local! {
+    static MATCH_ARM_LOOKAHEAD_TOKEN_VISITS: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_match_arm_lookahead_token_visits() {
+    MATCH_ARM_LOOKAHEAD_TOKEN_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn match_arm_lookahead_token_visits() -> usize {
+    MATCH_ARM_LOOKAHEAD_TOKEN_VISITS.get()
+}
+
 fn is_contextual_identifier(kind: TokenKind) -> bool {
     matches!(
         kind,
@@ -420,6 +437,9 @@ pub(crate) fn line_starts_match_arm(tokens: &[Token], cursor: usize) -> bool {
     let mut delimiter_depth = 0usize;
     let mut saw_satisfy_suffix = false;
     for token in &tokens[cursor..] {
+        #[cfg(test)]
+        MATCH_ARM_LOOKAHEAD_TOKEN_VISITS
+            .set(MATCH_ARM_LOOKAHEAD_TOKEN_VISITS.get().saturating_add(1));
         match token.kind {
             TokenKind::Newline | TokenKind::Eof if delimiter_depth == 0 => return false,
             TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => delimiter_depth += 1,

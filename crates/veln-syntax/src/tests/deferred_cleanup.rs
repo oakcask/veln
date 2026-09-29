@@ -676,6 +676,45 @@ fn satisfy_arrow_is_not_a_match_arm_recovery_boundary() {
 }
 
 #[test]
+fn malformed_multiline_match_recovery_lookahead_grows_linearly() {
+    fn lookahead_work(line_count: usize) -> (usize, usize) {
+        let mut text = String::from("fn malformed(value: Int) -> Int\n  match value\n");
+        for _ in 0..line_count {
+            text.push_str("    (\n");
+        }
+        text.push_str("  end\nend\n");
+        let source = SourceFile::new("cleanup.veln", text);
+        let token_count = lex(&source).tokens.len();
+
+        crate::parser::reset_match_arm_lookahead_token_visits();
+        let output = parse(&source);
+        assert_eq!(output.tree.lossless_tokens().count(), token_count);
+        (
+            crate::parser::match_arm_lookahead_token_visits(),
+            token_count,
+        )
+    }
+
+    let (shallow_work, shallow_tokens) = lookahead_work(32);
+    let (deep_work, deep_tokens) = lookahead_work(64);
+    assert!(
+        shallow_work > 0 && deep_work > shallow_work,
+        "generated malformed matches must exercise recovery lookahead: \
+         shallow={shallow_work}/{shallow_tokens}, deep={deep_work}/{deep_tokens}"
+    );
+    assert!(
+        deep_work <= shallow_work * 2,
+        "match-arm recovery lookahead must remain linear: \
+         shallow={shallow_work}/{shallow_tokens}, deep={deep_work}/{deep_tokens}"
+    );
+    assert!(
+        shallow_work <= shallow_tokens * 2 && deep_work <= deep_tokens * 2,
+        "match-arm recovery lookahead must remain proportional to input tokens: \
+         shallow={shallow_work}/{shallow_tokens}, deep={deep_work}/{deep_tokens}"
+    );
+}
+
+#[test]
 fn expression_position_defer_preserves_following_declaration_boundary() {
     for invalid_call in ["  consume(defer)\n", "  consume(\n    defer\n  )\n"] {
         let source = SourceFile::new(
