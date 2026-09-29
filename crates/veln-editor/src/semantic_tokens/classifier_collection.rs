@@ -221,7 +221,9 @@ impl<'a> Classifier<'a> {
             match token.kind {
                 TokenKind::Eof => return self.source.text().len(),
                 TokenKind::If if !is_else_if(self.tokens, index) => nested_blocks += 1,
-                TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+                TokenKind::Match | TokenKind::Handler | TokenKind::Begin | TokenKind::Defer => {
+                    nested_blocks += 1
+                }
                 TokenKind::End if nested_blocks == 0 => return token.range.start,
                 TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
                 TokenKind::FatArrow
