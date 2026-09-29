@@ -276,7 +276,9 @@ impl<'a> Parser<'a> {
             end = self.bump().range;
         }
 
-        let (expr, diagnostics) = ExprParser::new(self.source, context, &tokens).parse();
+        let (expr, diagnostics) = ExprParser::new(self.source, context, &tokens)
+            .with_cleanup_depth(self.cleanup_depth)
+            .parse();
         self.diagnostics.extend(diagnostics);
         (expr, start.cover(end))
     }

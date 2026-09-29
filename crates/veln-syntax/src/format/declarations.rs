@@ -150,7 +150,7 @@ fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &Hand
                 "{}({}) => {}",
                 clause.operation.as_deref().unwrap_or("<missing>"),
                 params,
-                format_expr_at_indent(&clause.body, 1)
+                format_expr_at_indent_with_comments(&clause.body, 1, comments)
             ),
         );
     }

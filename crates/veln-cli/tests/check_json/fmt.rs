@@ -538,6 +538,39 @@ fn fmt_formats_comments_inside_cleanup_regions_idempotently() {
 }
 
 #[test]
+fn fmt_formats_comments_inside_handler_cleanup_regions_idempotently() {
+    let project = TestProject::new("fmt-handler-cleanup-comments");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Resource\n",
+            "close()->()\n",
+            "end\n",
+            "handler cleanup() handles Resource\n",
+            "close()=>begin\n",
+            "# keep cleanup body docs\n",
+            "()\n",
+            "end\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "effect Resource\n",
+        "\tclose() -> ()\n",
+        "end\n",
+        "\n",
+        "handler cleanup() handles Resource\n",
+        "\tclose() => begin\n",
+        "\t\t# keep cleanup body docs\n",
+        "\t\t()\n",
+        "\tend\n",
+        "end\n",
+    );
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+}
+
+#[test]
 fn fmt_formats_commented_cleanup_regions_embedded_in_expressions() {
     let project = TestProject::new("fmt-embedded-cleanup-comments");
     project.write(

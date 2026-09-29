@@ -130,6 +130,43 @@ fn check_json_reports_invalid_tokens() {
 }
 
 #[test]
+fn check_json_enforces_mixed_cleanup_nesting_limit() {
+    for (total_forms, expected_status) in [(128, "ok"), (129, "error")] {
+        let mut text = String::from("fn mixed_cleanup() -> ()\n defer\n");
+        for _ in 1..total_forms {
+            text.push_str(" begin\n");
+        }
+        text.push_str(" ()\n");
+        for _ in 1..total_forms {
+            text.push_str(" end\n");
+        }
+        text.push_str(" end\nend\n");
+
+        let project = TestProject::new(&format!("mixed-cleanup-{total_forms}"));
+        project.write("main.veln", &text);
+
+        let output = project.check_json(&["main.veln"]);
+        let stdout = stdout(&output);
+
+        assert_eq!(
+            output.status.success(),
+            total_forms == 128,
+            "{}",
+            stderr(&output)
+        );
+        assert!(
+            stdout.contains(&format!("\"status\":\"{expected_status}\"")),
+            "{stdout}"
+        );
+        assert_eq!(
+            stdout.contains("\"id\":\"parse.cleanup_nesting_limit\""),
+            total_forms == 129,
+            "{stdout}"
+        );
+    }
+}
+
+#[test]
 fn check_json_orders_diagnostics_by_source_discovery_order() {
     let project = TestProject::new("ordering");
     project.write("b.veln", "fn b() -> ()\n  _\n");

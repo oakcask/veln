@@ -12,6 +12,11 @@ impl<'a> ExprParser<'a> {
         }
     }
 
+    pub(super) fn with_cleanup_depth(mut self, cleanup_depth: usize) -> Self {
+        self.cleanup_depth = cleanup_depth;
+        self
+    }
+
     pub(super) fn parse(mut self) -> (Expr, Vec<ParseDiagnostic>) {
         let expr = self.parse_expr(0);
         self.report_trailing_tokens(

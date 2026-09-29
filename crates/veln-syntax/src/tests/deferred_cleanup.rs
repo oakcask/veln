@@ -465,6 +465,67 @@ fn rejects_two_thousand_directly_nested_defer_statements_without_aborting() {
 }
 
 #[test]
+fn shares_cleanup_nesting_limit_across_defer_and_begin_parsers() {
+    for (total_forms, expect_limit) in [(128, false), (129, true)] {
+        let mut text = String::from("fn mixed_cleanup() -> ()\n defer\n");
+        for _ in 1..total_forms {
+            text.push_str(" begin\n");
+        }
+        text.push_str(" ()\n");
+        for _ in 1..total_forms {
+            text.push_str(" end\n");
+        }
+        text.push_str(" end\nend\n");
+
+        let source = SourceFile::new("mixed-cleanup.veln", text);
+        let expected_token_count = lex(&source).tokens.len();
+        let output = parse(&source);
+        let has_limit = output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.cleanup_nesting_limit");
+
+        assert_eq!(has_limit, expect_limit, "{:#?}", output.diagnostics);
+        if !expect_limit {
+            assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        }
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+    }
+}
+
+#[test]
+fn rejects_excessive_alternating_cleanup_nesting_without_aborting() {
+    let total_forms = 129;
+    let mut text = String::from("fn alternating_cleanup() -> ()\n defer\n");
+    for index in 1..total_forms {
+        if index % 2 == 0 {
+            text.push_str(" defer\n");
+        } else {
+            text.push_str(" begin\n");
+        }
+    }
+    text.push_str(" ()\n");
+    for _ in 1..total_forms {
+        text.push_str(" end\n");
+    }
+    text.push_str(" end\nend\n");
+
+    let source = SourceFile::new("alternating-cleanup.veln", text);
+    let expected_token_count = lex(&source).tokens.len();
+    let output = parse(&source);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.cleanup_nesting_limit"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+}
+
+#[test]
 fn lossless_tree_handles_large_flat_binary_expression_without_input_depth_recursion() {
     let term_count = 10_000;
     let mut text = String::from("fn flat() -> Int\n  0");
