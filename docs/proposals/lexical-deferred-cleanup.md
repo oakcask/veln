@@ -15,8 +15,9 @@ garbage-collector finalizers.
 ## Outcome
 
 Execute each accepted `defer` block when its nearest cleanup region exits.
-Function, test, and handler-operation bodies are cleanup regions. A `begin`
-expression introduces a shorter cleanup region.
+Function and test bodies are cleanup regions. A `begin` expression introduces
+a shorter cleanup region. A handler operation clause remains a single
+expression and uses `begin` when it needs a cleanup region.
 
 ```veln
 fn load(address: String) -> Result<String, LoadError> effects [net]
@@ -126,9 +127,13 @@ fails.
 | C6 | A `begin` expression completes successfully. | Its cleanup runs before the expression value is bound outside the scope. | Run specification case. |
 | C7 | Cleanup fails while the region is already failing. | The original failure remains primary and cleanup failure is related context. | Human and JSON runtime-failure cases. |
 | C8 | A Veln task is cancelled while inside a cleanup region. | Task completion is not reported until registered cleanup has run. | Deterministic task-runtime case. |
+| C9 | A successful region has a cleanup block that fails. | The first cleanup failure becomes the region failure after every cleanup block runs. | Run specification case with an event recorder and a failing cleanup. |
+| C10 | One cleanup fails before another registered cleanup runs. | The remaining cleanup still runs in reverse registration order. | Run specification case with ordered events. |
+| C11 | More than one cleanup fails while the region is already failing. | The original failure remains primary and cleanup failures are attached in execution order. | Human and JSON runtime-failure cases with ordered related failures. |
+
 ## Verification and Promotion
 
-Runtime cases belong under `examples/specification/`. After C1 through C8 pass,
+Runtime cases belong under `examples/specification/`. After C1 through C11 pass,
 the execution behavior must be explained in the current execution
 specification and this proposal must be removed from the proposal catalog.
 

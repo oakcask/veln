@@ -66,26 +66,25 @@ impl FunctionScope {
         index: usize,
     ) -> Option<ScopeShadow<'_>> {
         let offset = tokens[index].range.start;
-        self.params
-            .iter()
-            .find(|binding| binding.name == name)
-            .map(ScopeShadow::FunctionBinding)
+        self.local_bindings_by_name
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|index| &self.local_bindings[*index])
+            .filter(|binding| binding.start <= offset && offset < binding.end)
+            .max_by_key(|binding| binding.declaration_start)
+            .map(ScopeShadow::LocalBinding)
+            .or_else(|| {
+                self.params
+                    .iter()
+                    .find(|binding| binding.name == name)
+                    .map(ScopeShadow::FunctionBinding)
+            })
             .or_else(|| {
                 self.result_binding
                     .as_ref()
                     .filter(|binding| binding.name == name && is_ensure_reference(tokens, index))
                     .map(ScopeShadow::FunctionBinding)
-            })
-            .or_else(|| {
-                self.local_bindings_by_name
-                    .get(name)
-                    .into_iter()
-                    .flatten()
-                    .map(|index| &self.local_bindings[*index])
-                    .find(|binding| {
-                        binding.name == name && binding.start <= offset && offset < binding.end
-                    })
-                    .map(ScopeShadow::LocalBinding)
             })
     }
 }
@@ -310,24 +309,6 @@ fn local_binding_shadows_name(
     local_bindings(tokens, scope_start, scope_end)
         .iter()
         .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
-}
-
-fn local_binding_shadows_other_name(
-    tokens: &[Token],
-    name: &str,
-    offset: usize,
-    scope_start: usize,
-    scope_end: usize,
-    declaration_start: usize,
-) -> bool {
-    local_bindings(tokens, scope_start, scope_end)
-        .iter()
-        .any(|binding| {
-            binding.name == name
-                && binding.declaration_start != declaration_start
-                && offset >= binding.start
-                && offset < binding.end
-        })
 }
 
 fn handler_operation_clause_parameter_shadows_name(

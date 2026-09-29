@@ -1,7 +1,5 @@
 use super::*;
 
-const MAX_CLEANUP_NESTING: usize = 128;
-
 impl<'a> ExprParser<'a> {
     pub(super) fn parse_begin(&mut self) -> Expr {
         let start = self.bump().range;

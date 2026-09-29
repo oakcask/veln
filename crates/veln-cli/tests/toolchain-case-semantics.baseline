@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"07eede04c009adb915f8f8afb5ad7c0db0f9578a"
+source_git_tree	"3f41decd80527f8776e5704c042efb5133461a62"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1709
+case_count	1710
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -40061,6 +40061,17 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"b9c13557515ea7e5b76cc713f2038117314b173f1542539c85ae86f806de0457"
+case	"examples/specification/run/deferred-cleanup-runtime-boundary"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"veln: run blocked: checked program is not executable"
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"28603428101f85cc0be1d9ba8e1e3180918758288ae7dfcf2855d6c92851aeed"
 case	"examples/specification/run/derived-codec-byte-aligned-reserved-decode-boundary"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -62026,4 +62037,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"a2710bf9ddc99d8aad196d2577ac1acbf53592e5f3da28fda42a5ecfccd5b83d"
+aggregate_digest	"109fd18f56c3ece3440afa5b52e01d20d0d03fd87048f3fc3768b41ac2d967bf"

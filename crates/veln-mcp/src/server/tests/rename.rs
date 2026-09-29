@@ -204,6 +204,61 @@ fn rename_begin_local_edits_declaration_and_deferred_cleanup_references() {
 }
 
 #[test]
+fn rename_uses_innermost_binding_across_nested_cleanup_scopes() {
+    let workspace = TempWorkspace::new("rename-cleanup-region-shadowing");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn read(value: Int) -> Int\n",
+            "  let value = value\n",
+            "  begin\n",
+            "    let value = value\n",
+            "    defer\n",
+            "      let value = value\n",
+            "      value\n",
+            "    end\n",
+            "    value\n",
+            "  end\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    let cases = [
+        (2, 15, BTreeSet::from([(1, 9, 1, 14), (2, 15, 2, 20)])),
+        (
+            11,
+            4,
+            BTreeSet::from([(2, 7, 2, 12), (4, 17, 4, 22), (11, 3, 11, 8)]),
+        ),
+        (
+            9,
+            6,
+            BTreeSet::from([(4, 9, 4, 14), (6, 19, 6, 24), (9, 5, 9, 10)]),
+        ),
+        (7, 8, BTreeSet::from([(6, 11, 6, 16), (7, 7, 7, 12)])),
+    ];
+    for (line, column, expected) in cases {
+        let result = rename_result(&workspace, "main.veln", line, column, "renamed");
+        assert_eq!(result["isError"], false, "{line}:{column}: {result:#}");
+        let actual = edits(&result)
+            .iter()
+            .map(|edit| {
+                let range = &edit["range"];
+                (
+                    range["start"]["line"].as_u64().unwrap(),
+                    range["start"]["column"].as_u64().unwrap(),
+                    range["end"]["line"].as_u64().unwrap(),
+                    range["end"]["column"].as_u64().unwrap(),
+                )
+            })
+            .collect::<BTreeSet<_>>();
+        assert_eq!(actual, expected, "{line}:{column}: {result:#}");
+    }
+}
+
+#[test]
 fn rename_type_edits_function_and_handler_cleanup_annotations() {
     let workspace = TempWorkspace::new("rename-cleanup-region-type");
     workspace.write("veln.toml", "");

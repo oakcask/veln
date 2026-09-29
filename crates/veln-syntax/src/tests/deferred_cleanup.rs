@@ -94,6 +94,86 @@ fn formats_cleanup_regions_stably() {
 }
 
 #[test]
+fn embedded_begin_expressions_preserve_blocks_and_surrounding_expression_tokens() {
+    let input = concat!(
+        "fn embedded()\n",
+        " let called = consume(begin\n",
+        "  let value = 1\n",
+        "  value\n",
+        " end, 2)\n",
+        " let listed = [0, begin\n",
+        "  let value = 1\n",
+        "  value\n",
+        " end, 2]\n",
+        " let recorded = { value: begin\n",
+        "  let value = 1\n",
+        "  value\n",
+        " end, other: 2 }\n",
+        " let operated = 0 + begin\n",
+        "  let value = 1\n",
+        "  value\n",
+        " end * 2\n",
+        " let suffixed = begin\n",
+        "  let value = resource()\n",
+        "  value\n",
+        " end.field?\n",
+        " ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("embedded-cleanup.veln", input);
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let function = first_function(&output);
+    let expressions = function
+        .body
+        .iter()
+        .take(5)
+        .map(|line| match line {
+            BodyLine::Let { expr, .. } => expr,
+            _ => panic!("expected let binding"),
+        })
+        .collect::<Vec<_>>();
+    assert!(matches!(
+        expressions[0].kind,
+        ExprKind::Call { ref args, .. }
+            if args.len() == 2 && matches!(args[0].kind, ExprKind::Begin { ref body, .. } if body.len() == 2)
+    ));
+    assert!(matches!(
+        expressions[1].kind,
+        ExprKind::List(ref items)
+            if items.len() == 3 && matches!(items[1].kind, ExprKind::Begin { ref body, .. } if body.len() == 2)
+    ));
+    assert!(matches!(
+        expressions[2].kind,
+        ExprKind::Record(ref fields)
+            if fields.len() == 2 && matches!(fields[0].expr.kind, ExprKind::Begin { ref body, .. } if body.len() == 2)
+    ));
+    assert!(matches!(
+        expressions[3].kind,
+        ExprKind::Binary { ref right, .. }
+            if matches!(right.kind, ExprKind::Binary { ref left, .. }
+                if matches!(left.kind, ExprKind::Begin { ref body, .. } if body.len() == 2))
+    ));
+    assert!(matches!(
+        expressions[4].kind,
+        ExprKind::Try(ref inner)
+            if matches!(inner.kind, ExprKind::FieldAccess { ref base, .. }
+                if matches!(base.kind, ExprKind::Begin { ref body, .. } if body.len() == 2))
+    ));
+
+    let first = format_tree(&output.tree);
+    let second_source = SourceFile::new("embedded-cleanup.veln", first.clone());
+    let second_output = parse(&second_source);
+    assert!(
+        second_output.diagnostics.is_empty(),
+        "{:#?}",
+        second_output.diagnostics
+    );
+    assert_eq!(format_tree(&second_output.tree), first);
+}
+
+#[test]
 fn keeps_cleanup_header_comments_on_the_header_line() {
     let input = concat!(
         "fn demo() -> Int\n",
@@ -232,6 +312,34 @@ fn rejects_excessive_cleanup_nesting_without_aborting() {
     text.push_str("end\n");
 
     let source = SourceFile::new("deep-cleanup.veln", text);
+    let output = parse(&source);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.cleanup_nesting_limit")
+    );
+    assert_eq!(
+        output.tree.lossless_tokens().count(),
+        lex(&source).tokens.len()
+    );
+}
+
+#[test]
+fn rejects_two_thousand_directly_nested_defer_statements_without_aborting() {
+    let depth = 2_000;
+    let mut text = String::from("fn deeply_deferred() -> ()\n");
+    for _ in 0..depth {
+        text.push_str(" defer\n");
+    }
+    text.push_str(" ()\n");
+    for _ in 0..depth {
+        text.push_str(" end\n");
+    }
+    text.push_str("end\n");
+
+    let source = SourceFile::new("deep-defer.veln", text);
     let output = parse(&source);
 
     assert!(

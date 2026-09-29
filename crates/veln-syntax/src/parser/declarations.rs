@@ -13,6 +13,7 @@ impl<'a> Parser<'a> {
             tokens: parse_tokens,
             lossless_tokens: tokens,
             cursor: 0,
+            cleanup_depth: 0,
             diagnostics,
         }
     }

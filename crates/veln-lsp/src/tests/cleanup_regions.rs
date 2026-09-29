@@ -55,6 +55,68 @@ fn cleanup_regions_format_stably_and_preserve_navigation_ranges() {
 }
 
 #[test]
+fn cleanup_region_navigation_uses_innermost_shadowing_binding() {
+    let mut server = Server::default();
+    let project = TempProject::new("cleanup-region-shadowing-navigation");
+    let source = concat!(
+        "fn read(value: Int) -> Int\n",
+        "  let value = value\n",
+        "  begin\n",
+        "    let value = value\n",
+        "    defer\n",
+        "      let value = value\n",
+        "      value\n",
+        "    end\n",
+        "    value\n",
+        "  end\n",
+        "  value\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let cases = [
+        (1, 14, 0, 8, 13, 2),
+        (10, 4, 1, 6, 11, 3),
+        (8, 6, 3, 8, 13, 3),
+        (6, 8, 5, 10, 15, 2),
+    ];
+    for (line, character, declaration_line, declaration_start, declaration_end, edit_count) in cases
+    {
+        let expected_definition = format!(
+            r#""range":{{"start":{{"line":{declaration_line},"character":{declaration_start}}},"end":{{"line":{declaration_line},"character":{declaration_end}}}}}"#
+        );
+        let definition = server.handle_message(&definition_request(&main_uri, line, character));
+        assert_eq!(definition.len(), 1, "{line}:{character}");
+        assert!(
+            definition[0].contains(&expected_definition),
+            "{line}:{character}: {}",
+            definition[0]
+        );
+
+        let references = server.handle_message(&references_request(&main_uri, line, character));
+        assert_eq!(references.len(), 1, "{line}:{character}");
+        assert_eq!(
+            references[0].matches(r#""uri":"file:"#).count(),
+            edit_count,
+            "{line}:{character}: {}",
+            references[0]
+        );
+
+        let rename = server.handle_message(&rename_request(&main_uri, line, character, "renamed"));
+        assert_eq!(rename.len(), 1, "{line}:{character}");
+        assert_eq!(
+            rename[0].matches(r#""newText":"renamed""#).count(),
+            edit_count,
+            "{line}:{character}: {}",
+            rename[0]
+        );
+    }
+}
+
+#[test]
 fn cleanup_region_type_annotations_support_function_and_handler_navigation() {
     let mut server = Server::default();
     let project = TempProject::new("cleanup-region-type-navigation");

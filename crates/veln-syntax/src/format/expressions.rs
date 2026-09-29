@@ -1,7 +1,23 @@
 use super::*;
 
 pub(super) fn format_expr_at_indent(expr: &Expr, indent: usize) -> String {
-    format_expr_prec(expr, 0, ExprSide::Root, indent)
+    format_expr_at_indent_ctx(expr, indent, None)
+}
+
+pub(super) fn format_expr_at_indent_with_comments(
+    expr: &Expr,
+    indent: usize,
+    comments: &LineComments,
+) -> String {
+    format_expr_at_indent_ctx(expr, indent, Some(comments))
+}
+
+fn format_expr_at_indent_ctx(
+    expr: &Expr,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    format_expr_prec(expr, 0, ExprSide::Root, indent, comments)
 }
 
 #[derive(Clone, Copy)]
@@ -11,9 +27,15 @@ enum ExprSide {
     Right,
 }
 
-fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide, indent: usize) -> String {
+fn format_expr_prec(
+    expr: &Expr,
+    parent_prec: u8,
+    side: ExprSide,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
     let prec = expr_prec(expr);
-    let mut rendered = format_expr_inner(expr, prec, indent);
+    let mut rendered = format_expr_inner(expr, prec, indent, comments);
 
     let needs_parens = match side {
         ExprSide::Root | ExprSide::Left => prec < parent_prec,
@@ -26,7 +48,12 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide, indent: usize)
     rendered
 }
 
-fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
+fn format_expr_inner(
+    expr: &Expr,
+    prec: u8,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
     match &expr.kind {
         ExprKind::Missing => "_".to_string(),
         ExprKind::Hole { name, satisfy } => format_hole_expr(name.as_deref(), satisfy.as_ref()),
@@ -43,16 +70,20 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
                 .map(|arg| canonical_type_text(arg))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("{}<{}>", format_expr_at_indent(callee, indent), type_args)
+            format!(
+                "{}<{}>",
+                format_expr_at_indent_ctx(callee, indent, comments),
+                type_args
+            )
         }
-        ExprKind::Call { callee, args } => format_call_expr(callee, args, prec, indent),
+        ExprKind::Call { callee, args } => format_call_expr(callee, args, prec, indent, comments),
         ExprKind::Perform {
             effect,
             operation,
             args,
             ..
         } => {
-            let args = format_expr_args(args, indent);
+            let args = format_expr_args(args, indent, comments);
             format!("perform {}::{}({args})", effect.join("::"), operation)
         }
         ExprKind::Handle {
@@ -61,10 +92,10 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
             args,
             ..
         } => {
-            let args = format_expr_args(args, indent);
+            let args = format_expr_args(args, indent, comments);
             format!(
                 "handle {} with {}({args})",
-                format_expr_at_indent(body, indent),
+                format_expr_at_indent_ctx(body, indent, comments),
                 handler.join("::")
             )
         }
@@ -76,27 +107,30 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
         } => format!(
             "decode {} from {} at {}",
             schema.join("::"),
-            format_expr_at_indent(input, indent),
-            format_expr_at_indent(base, indent)
+            format_expr_at_indent_ctx(input, indent, comments),
+            format_expr_at_indent_ctx(base, indent, comments)
         ),
         ExprKind::SchemaEncode { schema, value, .. } => format!(
             "encode {} from {}",
             schema.join("::"),
-            format_expr_at_indent(value, indent)
+            format_expr_at_indent_ctx(value, indent, comments)
         ),
         ExprKind::FieldAccess { base, field, .. } => {
             format!(
                 "{}.{field}",
-                format_expr_prec(base, prec, ExprSide::Left, indent)
+                format_expr_prec(base, prec, ExprSide::Left, indent, comments)
             )
         }
         ExprKind::Try(inner) => {
-            format!("{}?", format_expr_prec(inner, prec, ExprSide::Left, indent))
+            format!(
+                "{}?",
+                format_expr_prec(inner, prec, ExprSide::Left, indent, comments)
+            )
         }
-        ExprKind::Record(fields) => format_record_expr(fields, indent),
-        ExprKind::Dict(entries) => format_dict_expr(entries, indent),
-        ExprKind::List(items) => format_list_expr(items, indent),
-        ExprKind::Match { scrutinee, arms } => format_match_expr(scrutinee, arms, indent),
+        ExprKind::Record(fields) => format_record_expr(fields, indent, comments),
+        ExprKind::Dict(entries) => format_dict_expr(entries, indent, comments),
+        ExprKind::List(items) => format_list_expr(items, indent, comments),
+        ExprKind::Match { scrutinee, arms } => format_match_expr(scrutinee, arms, indent, comments),
         ExprKind::If {
             condition,
             then_branch,
@@ -108,15 +142,34 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
             else_if_branches,
             else_branch,
             indent,
+            comments,
         ),
-        ExprKind::Begin { body, .. } => format_cleanup_region("begin", body, indent),
-        ExprKind::Prefix { op, expr: inner } => format_prefix_expr(*op, inner, prec, indent),
-        ExprKind::Binary { op, left, right } => format_binary_expr(*op, left, right, prec, indent),
+        ExprKind::Begin { body, .. } => match comments {
+            Some(comments) => {
+                format_cleanup_region_with_comments("begin", body, &expr.span, indent, comments)
+            }
+            None => format_cleanup_region("begin", body, indent),
+        },
+        ExprKind::Prefix { op, expr: inner } => {
+            format_prefix_expr(*op, inner, prec, indent, comments)
+        }
+        ExprKind::Binary { op, left, right } => {
+            format_binary_expr(*op, left, right, prec, indent, comments)
+        }
     }
 }
 
 pub(super) fn format_defer_statement(body: &[BodyLine], indent: usize) -> String {
     format_cleanup_region("defer", body, indent)
+}
+
+pub(super) fn format_defer_statement_with_comments(
+    body: &[BodyLine],
+    span: &veln_source::SourceSpan,
+    indent: usize,
+    comments: &LineComments,
+) -> String {
+    format_cleanup_region_with_comments("defer", body, span, indent, comments)
 }
 
 fn format_cleanup_region(keyword: &str, body: &[BodyLine], indent: usize) -> String {
@@ -128,6 +181,33 @@ fn format_cleanup_region(keyword: &str, body: &[BodyLine], indent: usize) -> Str
     }
     push_indent(&mut text, indent);
     text.push_str("end");
+    text
+}
+
+fn format_cleanup_region_with_comments(
+    keyword: &str,
+    body: &[BodyLine],
+    span: &veln_source::SourceSpan,
+    indent: usize,
+    comments: &LineComments,
+) -> String {
+    let mut text = keyword.to_string();
+    comments.emit_after(span.start.line, &mut text);
+    text.push('\n');
+    for line in body {
+        let (source_line, content) =
+            format_cleanup_body_line_with_comments(line, indent + 1, comments);
+        push_source_line(&mut text, comments, source_line, indent + 1, content);
+    }
+    let end_line = if span.end.column == 1 {
+        span.end.line.saturating_sub(1)
+    } else {
+        span.end.line
+    };
+    comments.emit_before(end_line, &mut text, indent + 1);
+    push_indent(&mut text, indent);
+    text.push_str("end");
+    comments.emit_after(end_line, &mut text);
     text
 }
 
@@ -153,6 +233,39 @@ fn format_cleanup_body_line(line: &BodyLine, indent: usize) -> String {
     }
 }
 
+fn format_cleanup_body_line_with_comments(
+    line: &BodyLine,
+    indent: usize,
+    comments: &LineComments,
+) -> (usize, String) {
+    match line {
+        BodyLine::Let {
+            pattern,
+            annotation,
+            expr,
+            span,
+            ..
+        } => {
+            let mut text = format!("let {}", format_pattern(pattern));
+            if let Some(annotation) = annotation {
+                text.push_str(": ");
+                text.push_str(&canonical_type_text(annotation));
+            }
+            text.push_str(" = ");
+            text.push_str(&format_expr_at_indent_with_comments(expr, indent, comments));
+            (span.start.line, text)
+        }
+        BodyLine::Expr { expr, span } => (
+            span.start.line,
+            format_expr_at_indent_with_comments(expr, indent, comments),
+        ),
+        BodyLine::Defer { body, span, .. } => (
+            span.start.line,
+            format_defer_statement_with_comments(body, span, indent, comments),
+        ),
+    }
+}
+
 fn format_hole_expr(name: Option<&str>, satisfy: Option<&crate::SatisfyClause>) -> String {
     let mut text = String::from("_");
     if let Some(name) = name {
@@ -172,22 +285,32 @@ fn format_hole_expr(name: Option<&str>, satisfy: Option<&crate::SatisfyClause>) 
     text
 }
 
-fn format_call_expr(callee: &Expr, args: &[Expr], prec: u8, indent: usize) -> String {
-    let args = format_expr_args(args, indent);
+fn format_call_expr(
+    callee: &Expr,
+    args: &[Expr],
+    prec: u8,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    let args = format_expr_args(args, indent, comments);
     format!(
         "{}({args})",
-        format_expr_prec(callee, prec, ExprSide::Left, indent)
+        format_expr_prec(callee, prec, ExprSide::Left, indent, comments)
     )
 }
 
-fn format_expr_args(args: &[Expr], indent: usize) -> String {
+fn format_expr_args(args: &[Expr], indent: usize, comments: Option<&LineComments>) -> String {
     args.iter()
-        .map(|arg| format_expr_at_indent(arg, indent))
+        .map(|arg| format_expr_at_indent_ctx(arg, indent, comments))
         .collect::<Vec<_>>()
         .join(", ")
 }
 
-fn format_record_expr(fields: &[crate::RecordField], indent: usize) -> String {
+fn format_record_expr(
+    fields: &[crate::RecordField],
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
     if fields.is_empty() {
         return "{}".to_string();
     }
@@ -197,7 +320,7 @@ fn format_record_expr(fields: &[crate::RecordField], indent: usize) -> String {
             format!(
                 "{}: {}",
                 field.name,
-                format_expr_at_indent(&field.expr, indent)
+                format_expr_at_indent_ctx(&field.expr, indent, comments)
             )
         })
         .collect::<Vec<_>>()
@@ -205,14 +328,18 @@ fn format_record_expr(fields: &[crate::RecordField], indent: usize) -> String {
     format!("{{ {fields} }}")
 }
 
-fn format_dict_expr(entries: &[crate::DictEntry], indent: usize) -> String {
+fn format_dict_expr(
+    entries: &[crate::DictEntry],
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
     let entries = entries
         .iter()
         .map(|entry| {
             format!(
                 "{}: {}",
-                format_expr_at_indent(&entry.key, indent),
-                format_expr_at_indent(&entry.value, indent)
+                format_expr_at_indent_ctx(&entry.key, indent, comments),
+                format_expr_at_indent_ctx(&entry.value, indent, comments)
             )
         })
         .collect::<Vec<_>>()
@@ -220,16 +347,21 @@ fn format_dict_expr(entries: &[crate::DictEntry], indent: usize) -> String {
     format!("{{ {entries} }}")
 }
 
-fn format_list_expr(items: &[Expr], indent: usize) -> String {
+fn format_list_expr(items: &[Expr], indent: usize, comments: Option<&LineComments>) -> String {
     let items = items
         .iter()
-        .map(|item| format_expr_at_indent(item, indent))
+        .map(|item| format_expr_at_indent_ctx(item, indent, comments))
         .collect::<Vec<_>>()
         .join(", ");
     format!("[{items}]")
 }
 
-fn format_match_expr(scrutinee: &Expr, arms: &[crate::MatchArm], indent: usize) -> String {
+fn format_match_expr(
+    scrutinee: &Expr,
+    arms: &[crate::MatchArm],
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
     if let Some(rewrite) = literal_match_rewrite(scrutinee, arms) {
         return format_literal_match_rewrite(&rewrite, indent);
     }
@@ -237,12 +369,15 @@ fn format_match_expr(scrutinee: &Expr, arms: &[crate::MatchArm], indent: usize) 
         return format_bool_match_rewrite(scrutinee, &rewrite, indent);
     }
 
-    let mut text = format!("match {}\n", format_expr_at_indent(scrutinee, indent));
+    let mut text = format!(
+        "match {}\n",
+        format_expr_at_indent_ctx(scrutinee, indent, comments)
+    );
     for arm in arms {
         push_indent(&mut text, indent + 1);
         text.push_str(&format_pattern(&arm.pattern));
         text.push_str(" => ");
-        text.push_str(&format_expr_at_indent(&arm.expr, indent + 1));
+        text.push_str(&format_expr_at_indent_ctx(&arm.expr, indent + 1, comments));
         text.push('\n');
     }
     push_indent(&mut text, indent);
@@ -464,53 +599,86 @@ fn format_if_expr(
     else_if_branches: &[crate::IfBranch],
     else_branch: &Expr,
     indent: usize,
+    comments: Option<&LineComments>,
 ) -> String {
-    let mut text = format!("if {}\n", format_expr_at_indent(condition, indent));
+    let mut text = format!(
+        "if {}\n",
+        format_expr_at_indent_ctx(condition, indent, comments)
+    );
     push_indent(&mut text, indent + 1);
-    text.push_str(&format_expr_at_indent(then_branch, indent + 1));
+    text.push_str(&format_expr_at_indent_ctx(
+        then_branch,
+        indent + 1,
+        comments,
+    ));
     text.push('\n');
     for branch in else_if_branches {
         push_indent(&mut text, indent);
         text.push_str("else if ");
-        text.push_str(&format_expr_at_indent(&branch.condition, indent));
+        text.push_str(&format_expr_at_indent_ctx(
+            &branch.condition,
+            indent,
+            comments,
+        ));
         text.push('\n');
         push_indent(&mut text, indent + 1);
-        text.push_str(&format_expr_at_indent(&branch.expr, indent + 1));
+        text.push_str(&format_expr_at_indent_ctx(
+            &branch.expr,
+            indent + 1,
+            comments,
+        ));
         text.push('\n');
     }
     push_indent(&mut text, indent);
     text.push_str("else\n");
     push_indent(&mut text, indent + 1);
-    text.push_str(&format_expr_at_indent(else_branch, indent + 1));
+    text.push_str(&format_expr_at_indent_ctx(
+        else_branch,
+        indent + 1,
+        comments,
+    ));
     text.push('\n');
     push_indent(&mut text, indent);
     text.push_str("end");
     text
 }
 
-fn format_prefix_expr(op: PrefixOp, inner: &Expr, prec: u8, indent: usize) -> String {
+fn format_prefix_expr(
+    op: PrefixOp,
+    inner: &Expr,
+    prec: u8,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
     match op {
         PrefixOp::Not => format!(
             "not {}",
-            format_expr_prec(inner, prec, ExprSide::Right, indent)
+            format_expr_prec(inner, prec, ExprSide::Right, indent, comments)
         ),
         PrefixOp::Negate => format!(
             "-{}",
-            format_expr_prec(inner, prec, ExprSide::Right, indent)
+            format_expr_prec(inner, prec, ExprSide::Right, indent, comments)
         ),
         PrefixOp::BitwiseNot => format!(
             "~{}",
-            format_expr_prec(inner, prec, ExprSide::Right, indent)
+            format_expr_prec(inner, prec, ExprSide::Right, indent, comments)
         ),
     }
 }
 
-fn format_binary_expr(op: BinaryOp, left: &Expr, right: &Expr, prec: u8, indent: usize) -> String {
+fn format_binary_expr(
+    op: BinaryOp,
+    left: &Expr,
+    right: &Expr,
+    prec: u8,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
     let op_text = binary_op_text(op);
     format!(
         "{} {op_text} {}",
-        format_expr_prec(left, prec, ExprSide::Left, indent),
-        format_expr_prec(right, prec, ExprSide::Right, indent)
+        format_expr_prec(left, prec, ExprSide::Left, indent, comments),
+        format_expr_prec(right, prec, ExprSide::Right, indent, comments)
     )
 }
 

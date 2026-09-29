@@ -406,6 +406,8 @@ impl SymbolIndex {
             return Vec::new();
         };
         let tokens = &file.tokens;
+        let scopes = function_scopes(tokens);
+        let bindings = local_bindings(tokens, symbol.scope_start, symbol.scope_end);
         let mut spans = Vec::new();
         if include_declaration {
             spans.push(symbol.declaration.clone());
@@ -423,14 +425,53 @@ impl SymbolIndex {
                         && !is_local_binding_name(tokens, *index)
                         && (symbol.kind != LocalSymbolKind::HandlerContextParameter
                             || inside_handler_operation_clause_body(tokens, token.range.start))
-                        && !local_binding_shadows_other_name(
-                            tokens,
-                            &symbol.name,
-                            token.range.start,
-                            symbol.scope_start,
-                            symbol.scope_end,
-                            symbol.declaration.start.offset,
-                        )
+                        && bindings
+                            .iter()
+                            .filter(|binding| {
+                                binding.name == symbol.name
+                                    && binding.start <= token.range.start
+                                    && token.range.start < binding.end
+                            })
+                            .max_by_key(|binding| binding.declaration_start)
+                            .is_none_or(|binding| {
+                                (binding.declaration_start, binding.declaration_end)
+                                    == (
+                                        symbol.declaration.start.offset,
+                                        symbol.declaration.end.offset,
+                                    )
+                            })
+                        && (symbol.kind != LocalSymbolKind::ValueBinding
+                            || scopes
+                                .iter()
+                                .find(|scope| {
+                                    token.range.start >= scope.body_start
+                                        && token.range.start < scope.end
+                                })
+                                .and_then(|scope| {
+                                    scope.shadowing_binding(&symbol.name, tokens, *index)
+                                })
+                                .is_some_and(|binding| {
+                                    binding.declaration_range()
+                                        == (
+                                            symbol.declaration.start.offset,
+                                            symbol.declaration.end.offset,
+                                        )
+                                })
+                            || bindings
+                                .iter()
+                                .filter(|binding| {
+                                    binding.name == symbol.name
+                                        && binding.start <= token.range.start
+                                        && token.range.start < binding.end
+                                })
+                                .max_by_key(|binding| binding.declaration_start)
+                                .is_some_and(|binding| {
+                                    (binding.declaration_start, binding.declaration_end)
+                                        == (
+                                            symbol.declaration.start.offset,
+                                            symbol.declaration.end.offset,
+                                        )
+                                }))
                         && (symbol.kind != LocalSymbolKind::HandlerContextParameter
                             || !handler_operation_clause_parameter_shadows_name(
                                 tokens,

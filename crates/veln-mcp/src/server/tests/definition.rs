@@ -187,6 +187,45 @@ fn definition_resolves_the_supported_workspace_symbol_set() {
 }
 
 #[test]
+fn definition_uses_innermost_binding_across_nested_cleanup_scopes() {
+    let workspace = TempWorkspace::new("definition-cleanup-region-shadowing");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn read(value: Int) -> Int\n",
+            "  let value = value\n",
+            "  begin\n",
+            "    let value = value\n",
+            "    defer\n",
+            "      let value = value\n",
+            "      value\n",
+            "    end\n",
+            "    value\n",
+            "  end\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    for (line, column, definition_line, definition_column) in
+        [(2, 15, 1, 9), (11, 4, 2, 7), (9, 6, 4, 9), (7, 8, 6, 11)]
+    {
+        let result = definition_result(&workspace, "main.veln", line, column);
+        assert_eq!(result["isError"], false, "{line}:{column}: {result:#}");
+        let location = &result["structuredContent"]["definition"];
+        assert_eq!(
+            location["range"]["start"]["line"], definition_line,
+            "{line}:{column}: {location:#}"
+        );
+        assert_eq!(
+            location["range"]["start"]["column"], definition_column,
+            "{line}:{column}: {location:#}"
+        );
+    }
+}
+
+#[test]
 fn definition_infers_project_and_isolates_other_sources_and_descendant_manifests() {
     let workspace = TempWorkspace::new("definition-scope");
     workspace.write("app/veln.toml", "");

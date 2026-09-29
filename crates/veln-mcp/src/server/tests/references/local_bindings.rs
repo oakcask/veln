@@ -173,6 +173,38 @@ fn references_resolve_callable_and_local_bindings() {
             ranges: vec![("main.veln", 9, 15, 9, 23), ("main.veln", 11, 5, 11, 13)],
         },
         WorkspaceSymbolCase {
+            name: "parameter shadowed across nested cleanup scopes",
+            files: nested_cleanup_shadowing_files(),
+            source: "main.veln",
+            line: 2,
+            column: 15,
+            ranges: vec![("main.veln", 2, 15, 2, 20)],
+        },
+        WorkspaceSymbolCase {
+            name: "outer local shadowed across nested cleanup scopes",
+            files: nested_cleanup_shadowing_files(),
+            source: "main.veln",
+            line: 11,
+            column: 4,
+            ranges: vec![("main.veln", 4, 17, 4, 22), ("main.veln", 11, 3, 11, 8)],
+        },
+        WorkspaceSymbolCase {
+            name: "begin local shadowed by deferred cleanup local",
+            files: nested_cleanup_shadowing_files(),
+            source: "main.veln",
+            line: 9,
+            column: 6,
+            ranges: vec![("main.veln", 6, 19, 6, 24), ("main.veln", 9, 5, 9, 10)],
+        },
+        WorkspaceSymbolCase {
+            name: "deferred cleanup innermost local",
+            files: nested_cleanup_shadowing_files(),
+            source: "main.veln",
+            line: 7,
+            column: 8,
+            ranges: vec![("main.veln", 7, 7, 7, 12)],
+        },
+        WorkspaceSymbolCase {
             name: "cleanup region type annotations in functions and handlers",
             files: vec![
                 ("veln.toml", ""),
@@ -227,6 +259,29 @@ fn references_resolve_callable_and_local_bindings() {
     ];
 
     assert_workspace_symbol_cases(cases);
+}
+
+fn nested_cleanup_shadowing_files() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("veln.toml", ""),
+        (
+            "main.veln",
+            concat!(
+                "fn read(value: Int) -> Int\n",
+                "  let value = value\n",
+                "  begin\n",
+                "    let value = value\n",
+                "    defer\n",
+                "      let value = value\n",
+                "      value\n",
+                "    end\n",
+                "    value\n",
+                "  end\n",
+                "  value\n",
+                "end\n",
+            ),
+        ),
+    ]
 }
 
 #[test]

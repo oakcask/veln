@@ -183,23 +183,34 @@ expressions.
 
 ## Cleanup-region source forms
 
-`defer` is a direct body line whose block ends at the matching `end`. A
-`begin` expression is a value-producing lexical body and has the type of its
-final expression. Both forms preserve their source range and cleanup-block
-range for formatting and language-service navigation. A deferred block can
-reference only bindings that are in scope at its declaration.
+`defer` is a direct body line whose block ends at the matching `end`. Function
+and test bodies are cleanup regions. A `begin` expression is a value-producing
+cleanup region and has the type of its final expression. Both forms preserve
+their source range and cleanup-block range for formatting and language-service
+navigation. A deferred block can reference only bindings that are in scope at
+its declaration.
+
+A handler operation clause remains one expression after `=>`; it is not itself
+a cleanup-region body. A clause uses `begin` when it needs direct `defer`
+lines. Names declared in that `begin` shadow handler and operation parameters
+for definition, reference, and rename operations until the matching `end`.
 
 Static checking requires a deferred block to produce `()`. It rejects `?`
 inside the block and rejects a nested `defer`. Each diagnostic marks the failed
 expression or block as primary and attaches a repair hint at the containing
-deferred block. Veln has no source syntax for `return`, `break`, `continue`, or
-another explicit control transfer, so the proposed control-transfer rejection
-has no additional source case in the current grammar.
+deferred block. Effects used by a deferred block or `begin` body contribute to
+the effect row of the containing function, test, or handler operation. Veln
+has no source syntax for `return`, `break`, `continue`, or another explicit
+control transfer, so a deferred block cannot currently express a transfer out
+of its body.
 
 These forms currently provide parsing, static checks, formatting, and
-navigation only. Core lowering reports `deferred_cleanup_runtime` as an
-unsupported expression. The runtime does not yet register deferred blocks,
-run them on region exit, or implement cleanup failure and cancellation rules.
+navigation only. `veln check` accepts a well-typed cleanup region, but core
+lowering records the `deferred_cleanup_runtime` blocker and `veln run` reports
+that the checked program is not executable. The runtime does not yet register
+deferred blocks, run them on region exit, or implement cleanup failure and
+cancellation rules. The toolchain harness checks this command boundary with
+the `deferred-cleanup-runtime-boundary` run case.
 
 ## Diagnostics
 

@@ -189,11 +189,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
-        if self.at(TokenKind::Match) || self.at(TokenKind::If) || self.at(TokenKind::Begin) {
-            self.parse_block_expr_for_body_line(context)
-        } else {
-            self.parse_expr_until_newline(context)
-        }
+        self.parse_expr_until_newline(context)
     }
 
     pub(super) fn parse_let_pattern(&mut self) -> Pattern {
@@ -236,54 +232,6 @@ impl<'a> Parser<'a> {
         pattern
     }
 
-    pub(super) fn parse_block_expr_for_body_line(
-        &mut self,
-        context: &'static str,
-    ) -> (Expr, TextRange) {
-        let start = self.current().range;
-        let mut end = start;
-        let mut tokens = Vec::new();
-        let mut block_depth = 0usize;
-        let mut previous_kind = None;
-        while !self.at(TokenKind::Eof) {
-            let token = self.bump();
-            end = token.range;
-            if token.kind == TokenKind::Invalid {
-                self.diagnostics.push(invalid_expression_token_diagnostic(
-                    self.source,
-                    &token,
-                    context,
-                    "end",
-                ));
-                continue;
-            }
-            if token.kind == TokenKind::Match
-                || token.kind == TokenKind::Begin
-                || token.kind == TokenKind::Defer
-                || (token.kind == TokenKind::If && previous_kind != Some(TokenKind::Else))
-            {
-                block_depth += 1;
-            }
-            if token.kind == TokenKind::End {
-                block_depth = block_depth.saturating_sub(1);
-                tokens.push(token);
-                if block_depth == 0 {
-                    if self.at(TokenKind::Newline) {
-                        end = self.bump().range;
-                    }
-                    break;
-                }
-                continue;
-            }
-            previous_kind = Some(token.kind);
-            tokens.push(token);
-        }
-
-        let (expr, diagnostics) = ExprParser::new(self.source, context, &tokens).parse();
-        self.diagnostics.extend(diagnostics);
-        (expr, start.cover(end))
-    }
-
     pub(super) fn parse_expr_until_newline(&mut self, context: &'static str) -> (Expr, TextRange) {
         let start = self.current().range;
         let mut end = start;
@@ -317,7 +265,7 @@ impl<'a> Parser<'a> {
                     context,
                     "newline",
                 ));
-            } else if token.kind != TokenKind::Newline {
+            } else if token.kind != TokenKind::Newline || block_depth > 0 {
                 tokens.push(token);
             } else {
                 end = token.range;

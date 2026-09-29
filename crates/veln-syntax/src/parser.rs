@@ -29,6 +29,8 @@ mod schemas;
 use adr_lite::collect_adr_lite_records;
 use integer_literal_diagnostics::integer_literal_diagnostics;
 
+const MAX_CLEANUP_NESTING: usize = 128;
+
 fn is_contextual_identifier(kind: TokenKind) -> bool {
     matches!(
         kind,
@@ -205,6 +207,7 @@ struct Parser<'a> {
     tokens: Vec<Token>,
     lossless_tokens: Vec<Token>,
     cursor: usize,
+    cleanup_depth: usize,
     diagnostics: Vec<ParseDiagnostic>,
 }
 

@@ -177,7 +177,7 @@ fn cleanup_region_effects_contribute_to_the_enclosing_function() {
 }
 
 #[test]
-fn handler_cleanup_regions_collect_direct_and_dependent_effects() {
+fn handler_begin_cleanup_region_collects_direct_and_dependent_effects() {
     let diagnostics = diagnostics_for(concat!(
         "effect Ask\n",
         "  value() -> ()\n",
@@ -216,4 +216,29 @@ fn handler_cleanup_regions_collect_direct_and_dependent_effects() {
             .any(|message| message.contains("`Audit`")),
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn cleanup_regions_block_executable_lowering_until_runtime_support_exists() {
+    for body in [
+        concat!("  defer\n", "    ()\n", "  end\n", "  ()\n"),
+        concat!("  begin\n", "    ()\n", "  end\n"),
+    ] {
+        let source = SourceFile::new("main.veln", format!("pub fn main() -> ()\n{body}end\n"));
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+        let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        assert!(matches!(
+            lowered.core.expect("checked core should be available").readiness,
+            CoreReadiness::Blocked(ref blockers)
+                if blockers.iter().any(|blocker| matches!(
+                    blocker,
+                    CoreBlocker::UnsupportedExpression { reason, .. }
+                        if reason == "deferred_cleanup_runtime"
+                ))
+        ));
+        assert!(lowered.ir.is_none());
+    }
 }

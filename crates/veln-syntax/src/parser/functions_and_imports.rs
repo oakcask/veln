@@ -452,7 +452,12 @@ impl<'a> Parser<'a> {
     fn parse_defer_body_line(&mut self) -> BodyLine {
         let start = self.bump().range;
         let header_end = self.expect_newline("defer_statement").range;
+        if self.cleanup_depth >= MAX_CLEANUP_NESTING {
+            return self.recover_overdeep_defer_body_line(start, header_end);
+        }
+        self.cleanup_depth += 1;
         let (body, end_present) = self.parse_declaration_body(|parser| parser.parse_body_line());
+        self.cleanup_depth -= 1;
         let end = self.previous().map_or(header_end, |token| token.range);
         let block_end = if end_present {
             self.tokens
@@ -481,5 +486,54 @@ impl<'a> Parser<'a> {
             )),
             span: self.source.span(start.cover(end)),
         }
+    }
+
+    fn recover_overdeep_defer_body_line(
+        &mut self,
+        start: TextRange,
+        header_end: TextRange,
+    ) -> BodyLine {
+        self.error_current(
+            "parse.cleanup_nesting_limit",
+            "cleanup regions are nested too deeply",
+            "defer_statement",
+            vec!["less deeply nested cleanup regions"],
+            RecoveryStrategy::CloseBlock,
+            Some("end"),
+        );
+        let end = self.skip_overdeep_cleanup_region(header_end);
+        BodyLine::Defer {
+            body: Vec::new(),
+            block_span: self.source.span(TextRange::new(header_end.end, end.start)),
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn skip_overdeep_cleanup_region(&mut self, fallback: TextRange) -> TextRange {
+        let mut depth = 1usize;
+        let mut end = fallback;
+        let mut previous_kind = None;
+        while !self.at(TokenKind::Eof) {
+            let token = self.bump();
+            let kind = token.kind;
+            match kind {
+                TokenKind::Match | TokenKind::Begin | TokenKind::Defer => depth += 1,
+                TokenKind::If if previous_kind != Some(TokenKind::Else) => depth += 1,
+                TokenKind::End => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = token.range;
+                        if self.at(TokenKind::Newline) {
+                            self.bump();
+                        }
+                        return end;
+                    }
+                }
+                _ => {}
+            }
+            previous_kind = Some(kind);
+            end = token.range;
+        }
+        end
     }
 }
