@@ -8,6 +8,7 @@ impl<'a> ExprParser<'a> {
             tokens,
             cursor: 0,
             cleanup_depth: 0,
+            control_blocks: Vec::new(),
             diagnostics: Vec::new(),
         }
     }

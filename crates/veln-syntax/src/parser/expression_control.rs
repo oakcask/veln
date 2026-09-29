@@ -10,7 +10,7 @@ impl<'a> ExprParser<'a> {
         self.cleanup_depth += 1;
         let mut body = Vec::new();
         self.eat_newlines();
-        while !self.at(TokenKind::End) && !self.is_at_end() {
+        while !self.at(TokenKind::End) && !self.at_cleanup_region_boundary() && !self.is_at_end() {
             body.push(self.parse_cleanup_body_line());
             self.eat_newlines();
         }
@@ -116,7 +116,7 @@ impl<'a> ExprParser<'a> {
         self.cleanup_depth += 1;
         let mut body = Vec::new();
         self.eat_newlines();
-        while !self.at(TokenKind::End) && !self.is_at_end() {
+        while !self.at(TokenKind::End) && !self.at_cleanup_region_boundary() && !self.is_at_end() {
             body.push(self.parse_cleanup_body_line());
             self.eat_newlines();
         }
@@ -248,10 +248,17 @@ impl<'a> ExprParser<'a> {
             .map_or_else(|| lhs_range(expr), |token| token.range)
     }
 
+    fn at_cleanup_region_boundary(&self) -> bool {
+        (self.at(TokenKind::Else) && self.control_blocks.contains(&TokenKind::If))
+            || (self.control_blocks.contains(&TokenKind::Match)
+                && line_starts_match_arm(self.tokens, self.cursor))
+    }
+
     pub(super) fn parse_match(&mut self) -> Expr {
         let start = self.bump().range;
         let scrutinee = self.parse_expr(0);
         self.eat_newlines();
+        self.control_blocks.push(TokenKind::Match);
         let mut arms = Vec::new();
         while !self.at(TokenKind::End) && !self.is_at_end() {
             if self.at(TokenKind::Newline) {
@@ -283,6 +290,7 @@ impl<'a> ExprParser<'a> {
             },
             |token| token.range,
         );
+        self.control_blocks.pop();
         Expr {
             kind: ExprKind::Match {
                 scrutinee: Box::new(scrutinee),
@@ -296,6 +304,7 @@ impl<'a> ExprParser<'a> {
         let start = self.bump().range;
         let condition = self.parse_if_condition("if condition is missing an expression");
         self.eat_newlines();
+        self.control_blocks.push(TokenKind::If);
         let then_branch = self.parse_if_branch_expr();
         self.eat_newlines();
 
@@ -349,6 +358,7 @@ impl<'a> ExprParser<'a> {
             );
             lhs_range(&else_branch)
         };
+        self.control_blocks.pop();
 
         Expr {
             kind: ExprKind::If {

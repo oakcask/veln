@@ -237,20 +237,23 @@ impl<'a> Parser<'a> {
         let mut end = start;
         let mut tokens = Vec::new();
         let mut depth = 0usize;
-        let mut block_depth = 0usize;
-        let mut outermost_block_kind = None;
+        let mut block_stack = Vec::new();
         let mut previous_kind = None;
         let mut at_line_start = false;
         while !self.at(TokenKind::Eof) {
-            if depth == 0 && block_depth == 0 && self.at(TokenKind::Newline) {
+            if depth == 0 && block_stack.is_empty() && self.at(TokenKind::Newline) {
                 break;
             }
             if self.at(TokenKind::End)
-                && block_depth > 0
-                && outermost_block_kind == Some(TokenKind::Begin)
+                && block_stack.iter().copied().any(is_cleanup_block)
                 && self.end_is_followed_by_top_level_item()
             {
                 break;
+            }
+            if self.at(TokenKind::Else) {
+                recover_cleanup_blocks_before_branch(&mut block_stack, TokenKind::If);
+            } else if at_line_start && line_starts_match_arm(&self.tokens, self.cursor) {
+                recover_cleanup_blocks_before_branch(&mut block_stack, TokenKind::Match);
             }
             let token = self.bump();
             end = token.range;
@@ -260,18 +263,15 @@ impl<'a> Parser<'a> {
                 TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                     depth = depth.saturating_sub(1);
                 }
-                TokenKind::Match | TokenKind::Begin => {
-                    if block_depth == 0 {
-                        outermost_block_kind = Some(token.kind);
-                    }
-                    block_depth += 1;
+                TokenKind::Match | TokenKind::Begin => block_stack.push(token.kind),
+                TokenKind::Defer if depth == 0 && !block_stack.is_empty() && at_line_start => {
+                    block_stack.push(token.kind);
                 }
-                TokenKind::Defer if depth == 0 && block_depth > 0 && at_line_start => {
-                    block_depth += 1;
+                TokenKind::If if previous_kind != Some(TokenKind::Else) => {
+                    block_stack.push(token.kind);
                 }
-                TokenKind::If if previous_kind != Some(TokenKind::Else) => block_depth += 1,
-                TokenKind::End if block_depth > 0 => {
-                    block_depth = block_depth.saturating_sub(1);
+                TokenKind::End if !block_stack.is_empty() => {
+                    block_stack.pop();
                 }
                 _ => {}
             }
@@ -282,7 +282,7 @@ impl<'a> Parser<'a> {
                     context,
                     "newline",
                 ));
-            } else if token.kind != TokenKind::Newline || block_depth > 0 {
+            } else if token.kind != TokenKind::Newline || !block_stack.is_empty() {
                 tokens.push(token);
             } else {
                 end = token.range;

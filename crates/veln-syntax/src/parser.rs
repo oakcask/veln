@@ -377,7 +377,67 @@ struct ExprParser<'a> {
     tokens: &'a [Token],
     cursor: usize,
     cleanup_depth: usize,
+    control_blocks: Vec<TokenKind>,
     diagnostics: Vec<ParseDiagnostic>,
+}
+
+fn is_cleanup_block(kind: TokenKind) -> bool {
+    matches!(kind, TokenKind::Begin | TokenKind::Defer)
+}
+
+fn recover_cleanup_blocks_before_branch(blocks: &mut Vec<TokenKind>, owner: TokenKind) {
+    let Some(owner_index) = blocks.iter().rposition(|kind| *kind == owner) else {
+        return;
+    };
+    if blocks[owner_index + 1..]
+        .iter()
+        .copied()
+        .any(is_cleanup_block)
+    {
+        blocks.truncate(owner_index + 1);
+    }
+}
+
+pub(crate) fn line_starts_match_arm(tokens: &[Token], cursor: usize) -> bool {
+    let Some(first) = tokens.get(cursor) else {
+        return false;
+    };
+    if !matches!(
+        first.kind,
+        TokenKind::Underscore
+            | TokenKind::String
+            | TokenKind::Int
+            | TokenKind::MalformedInt
+            | TokenKind::Float
+            | TokenKind::LParen
+            | TokenKind::LBrace
+            | TokenKind::Ident
+            | TokenKind::Hole
+    ) {
+        return false;
+    }
+
+    let mut delimiter_depth = 0usize;
+    let mut saw_satisfy_suffix = false;
+    for token in &tokens[cursor..] {
+        match token.kind {
+            TokenKind::Newline | TokenKind::Eof if delimiter_depth == 0 => return false,
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => delimiter_depth += 1,
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                delimiter_depth = delimiter_depth.saturating_sub(1);
+            }
+            TokenKind::FatArrow if delimiter_depth == 0 => return !saw_satisfy_suffix,
+            TokenKind::Ident
+                if delimiter_depth == 0
+                    && token.text == "satisfy"
+                    && token.range != first.range =>
+            {
+                saw_satisfy_suffix = true;
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 struct ContractPredicateParser<'a> {

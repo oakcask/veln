@@ -505,6 +505,177 @@ fn nested_missing_cleanup_ends_preserve_following_top_level_declaration() {
 }
 
 #[test]
+fn missing_begin_end_below_if_preserves_branch_and_declaration_boundaries() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        concat!(
+            "fn incomplete() -> ()\n",
+            " if true\n",
+            "  begin\n",
+            "   ()\n",
+            " else\n",
+            "  ()\n",
+            " end\n",
+            "end\n\n",
+            "fn following() -> Int\n",
+            " 1\n",
+            "end\n",
+        ),
+    );
+    let expected_token_count = lex(&source).tokens.len();
+
+    let output = parse(&source);
+
+    let functions = output
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Function(function) => Some(function.as_ref()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        functions
+            .iter()
+            .filter_map(|function| function.name.as_deref())
+            .collect::<Vec<_>>(),
+        ["incomplete", "following"],
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(functions.iter().all(|function| function.end_present));
+    let BodyLine::Expr { expr, .. } = &functions[0].body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::If {
+        then_branch,
+        else_branch,
+        ..
+    } = &expr.kind
+    else {
+        panic!("expected recovered if expression");
+    };
+    assert!(matches!(then_branch.kind, ExprKind::Begin { .. }));
+    assert!(matches!(else_branch.kind, ExprKind::Unit));
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>(),
+        ["parse.begin_missing_end"]
+    );
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+}
+
+#[test]
+fn missing_begin_end_below_match_preserves_arm_and_declaration_boundaries() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        concat!(
+            "fn incomplete() -> ()\n",
+            " match 0\n",
+            "  0 => begin\n",
+            "   ()\n",
+            "  1 => ()\n",
+            " end\n",
+            "end\n\n",
+            "fn following() -> Int\n",
+            " 1\n",
+            "end\n",
+        ),
+    );
+    let expected_token_count = lex(&source).tokens.len();
+
+    let output = parse(&source);
+
+    let functions = output
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Function(function) => Some(function.as_ref()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        functions
+            .iter()
+            .filter_map(|function| function.name.as_deref())
+            .collect::<Vec<_>>(),
+        ["incomplete", "following"],
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(functions.iter().all(|function| function.end_present));
+    let BodyLine::Expr { expr, .. } = &functions[0].body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("expected recovered match expression");
+    };
+    assert_eq!(arms.len(), 2);
+    assert!(matches!(arms[0].expr.kind, ExprKind::Begin { .. }));
+    assert!(matches!(arms[1].expr.kind, ExprKind::Unit));
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>(),
+        ["parse.begin_missing_end"]
+    );
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+}
+
+#[test]
+fn complete_nested_control_blocks_are_not_recovery_boundaries() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        concat!(
+            "fn complete() -> ()\n",
+            " match 0\n",
+            "  0 => begin\n",
+            "   ()\n",
+            "  end\n",
+            "  _ => begin\n",
+            "   if true\n",
+            "    ()\n",
+            "   else\n",
+            "    ()\n",
+            "   end\n",
+            "  end\n",
+            " end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        output.tree.lossless_tokens().count(),
+        lex(&source).tokens.len()
+    );
+}
+
+#[test]
+fn satisfy_arrow_is_not_a_match_arm_recovery_boundary() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        "_value satisfy candidate => candidate == 1\n",
+    );
+    let tokens = lex(&source)
+        .tokens
+        .into_iter()
+        .filter(|token| !token.kind.is_trivia())
+        .collect::<Vec<_>>();
+
+    assert!(!crate::parser::line_starts_match_arm(&tokens, 0));
+}
+
+#[test]
 fn expression_position_defer_preserves_following_declaration_boundary() {
     for invalid_call in ["  consume(defer)\n", "  consume(\n    defer\n  )\n"] {
         let source = SourceFile::new(
