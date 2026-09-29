@@ -1029,6 +1029,7 @@ struct LocalBinding {
     declaration_end: usize,
     start: usize,
     end: usize,
+    navigation_supported: bool,
 }
 
 #[derive(Debug)]

@@ -57,14 +57,10 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
 
 fn handler_operation_clause_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
     let file_end = tokens.last().map_or(0, |token| token.range.end);
-    tokens
-        .iter()
-        .enumerate()
-        .filter(|(index, token)| {
-            token.kind == TokenKind::FatArrow
-                && is_handler_operation_clause_arrow(tokens, *index)
-        })
-        .map(|(arrow_index, arrow)| {
+    handler_operation_clause_arrow_indices(tokens)
+        .into_iter()
+        .map(|arrow_index| {
+            let arrow = &tokens[arrow_index];
             let body_start = arrow.range.end;
             let end = handler_operation_clause_body_end(tokens, arrow_index, file_end);
             let local_bindings = local_bindings(tokens, body_start, end);
@@ -79,6 +75,69 @@ fn handler_operation_clause_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
             }
         })
         .collect()
+}
+
+fn handler_operation_clause_arrow_indices(tokens: &[Token]) -> Vec<usize> {
+    let mut indices = Vec::new();
+    let mut blocks = Vec::new();
+    let mut first_line_token_is_identifier = None;
+    let mut saw_lparen = false;
+    let mut saw_rparen = false;
+    let mut previous_non_layout = None;
+
+    for (index, token) in tokens.iter().enumerate() {
+        record_handler_clause_scope_token_visit();
+        if token.kind == TokenKind::FatArrow
+            && blocks.last() == Some(&TokenKind::Handler)
+            && first_line_token_is_identifier == Some(true)
+            && saw_lparen
+            && saw_rparen
+        {
+            indices.push(index);
+        }
+
+        match token.kind {
+            TokenKind::If if previous_non_layout != Some(TokenKind::Else) => {
+                blocks.push(token.kind);
+            }
+            TokenKind::Fn
+            | TokenKind::Test
+            | TokenKind::Match
+            | TokenKind::Handler
+            | TokenKind::Codec
+            | TokenKind::Begin
+            | TokenKind::Defer => blocks.push(token.kind),
+            TokenKind::End => {
+                blocks.pop();
+            }
+            _ => {}
+        }
+
+        match token.kind {
+            TokenKind::Newline => {
+                first_line_token_is_identifier = None;
+                saw_lparen = false;
+                saw_rparen = false;
+            }
+            TokenKind::Whitespace => {}
+            TokenKind::LParen => {
+                first_line_token_is_identifier.get_or_insert(false);
+                saw_lparen = true;
+            }
+            TokenKind::RParen => {
+                first_line_token_is_identifier.get_or_insert(false);
+                saw_rparen = true;
+            }
+            _ => {
+                first_line_token_is_identifier
+                    .get_or_insert(token.kind == TokenKind::Ident && is_identifier(&token.text));
+            }
+        }
+        if !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline) {
+            previous_non_layout = Some(token.kind);
+        }
+    }
+    indices
 }
 
 impl FunctionScope {
@@ -246,6 +305,7 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
                             declaration_end,
                             start: token.range.end,
                             end,
+                            navigation_supported: true,
                         });
                         binding_index
                     })
@@ -447,6 +507,7 @@ fn match_arm_pattern_binding_names(
                 declaration_end: name.2,
                 start: scope_start,
                 end: scope_end,
+                navigation_supported: false,
             });
         }
     }
@@ -487,6 +548,7 @@ fn satisfy_candidate_binding_names(
             declaration_end: candidate.range.end,
             start: tokens[arrow_index].range.end,
             end,
+            navigation_supported: true,
         });
     }
     bindings

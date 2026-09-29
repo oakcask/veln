@@ -666,6 +666,32 @@
     }
 
     #[test]
+    fn handler_clause_scope_discovery_is_linear_for_many_non_handler_arrows() {
+        fn token_visits(arrow_count: usize) -> usize {
+            let mut source_text = String::new();
+            for index in 0..arrow_count {
+                source_text.push_str(&format!("candidate{index}() => value\n"));
+            }
+            source_text.push_str("fn main(value: Int) -> Int\n  value\nend\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_handler_clause_scope_token_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", arrow_count + 2, 4)
+                .expect("function parameter should resolve");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            handler_clause_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        eprintln!("handler clause scope discovery: 128={smaller} visits, 256={larger} visits");
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
+    }
+
+    #[test]
     fn invalid_parameter_recovery_navigation_links_in_scope_uses() {
         let result = query(
             vec![source(

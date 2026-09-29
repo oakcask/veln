@@ -260,6 +260,65 @@ fn moves_begin_continuation_comments_after_the_enclosing_binary_expression() {
 }
 
 #[test]
+fn moves_begin_continuation_comments_after_every_enclosing_expression() {
+    let input = concat!(
+        "fn continued()\n",
+        " let postfix = begin\n",
+        "  value\n",
+        " end.field? # keep postfix\n",
+        " let called = consume(begin\n",
+        "  value\n",
+        " end, 2) # keep call\n",
+        " let listed = [begin\n",
+        "  value\n",
+        " end, 2] # keep list\n",
+        " let recorded = { value: begin\n",
+        "  value\n",
+        " end, other: 2 } # keep record\n",
+        " let decoded = decode Packet from begin\n",
+        "  value\n",
+        " end at 0 # keep decode\n",
+        " ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("continued-cleanup.veln", input);
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let first = format_tree(&output.tree);
+    let expected = concat!(
+        "fn continued()\n",
+        "\tlet postfix = begin\n",
+        "\t\tvalue\n",
+        "\tend.field?  # keep postfix\n",
+        "\tlet called = consume(begin\n",
+        "\t\tvalue\n",
+        "\tend, 2)  # keep call\n",
+        "\tlet listed = [begin\n",
+        "\t\tvalue\n",
+        "\tend, 2]  # keep list\n",
+        "\tlet recorded = { value: begin\n",
+        "\t\tvalue\n",
+        "\tend, other: 2 }  # keep record\n",
+        "\tlet decoded = decode Packet from begin\n",
+        "\t\tvalue\n",
+        "\tend at 0  # keep decode\n",
+        "\t()\n",
+        "end\n",
+    );
+    assert_eq!(first, expected);
+
+    let second_source = SourceFile::new("continued-cleanup.veln", first.clone());
+    let second_output = parse(&second_source);
+    assert!(
+        second_output.diagnostics.is_empty(),
+        "{:#?}",
+        second_output.diagnostics
+    );
+    assert_eq!(format_tree(&second_output.tree), first);
+}
+
+#[test]
 fn lossless_tree_exposes_cleanup_region_nodes() {
     let source = SourceFile::new("cleanup.veln", SOURCE);
     let output = parse(&source);

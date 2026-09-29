@@ -10,7 +10,7 @@ pub(super) fn format_expr_at_indent_with_comments(
     comments: &LineComments,
 ) -> String {
     let mut continued_comments = Vec::new();
-    take_continued_begin_comments(expr, comments, &mut continued_comments);
+    take_continued_begin_comments(expr, false, comments, &mut continued_comments);
     let mut text = format_expr_at_indent_ctx(expr, indent, Some(comments));
     for comment in continued_comments {
         text.push_str("  ");
@@ -21,17 +21,101 @@ pub(super) fn format_expr_at_indent_with_comments(
 
 fn take_continued_begin_comments(
     expr: &Expr,
+    has_continuation: bool,
     comments: &LineComments,
     continued_comments: &mut Vec<String>,
 ) {
-    let ExprKind::Binary { left, right, .. } = &expr.kind else {
+    if matches!(expr.kind, ExprKind::Begin { .. }) {
+        if has_continuation {
+            continued_comments.extend(comments.take_after(expr_end_line(expr)));
+        }
         return;
-    };
-    if matches!(left.kind, ExprKind::Begin { .. }) {
-        continued_comments.extend(comments.take_after(expr_end_line(left)));
     }
-    take_continued_begin_comments(left, comments, continued_comments);
-    take_continued_begin_comments(right, comments, continued_comments);
+
+    let mut visit = |child: &Expr, parent_emits_after_child| {
+        take_continued_begin_comments(
+            child,
+            has_continuation || parent_emits_after_child,
+            comments,
+            continued_comments,
+        );
+    };
+    match &expr.kind {
+        ExprKind::TypeApply { callee, .. } => visit(callee, true),
+        ExprKind::Call { callee, args } => {
+            visit(callee, true);
+            for arg in args {
+                visit(arg, true);
+            }
+        }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                visit(arg, true);
+            }
+        }
+        ExprKind::Handle { body, args, .. } => {
+            visit(body, true);
+            for arg in args {
+                visit(arg, true);
+            }
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            visit(input, true);
+            visit(base, false);
+        }
+        ExprKind::SchemaEncode { value, .. } => visit(value, false),
+        ExprKind::FieldAccess { base, .. } | ExprKind::Try(base) => visit(base, true),
+        ExprKind::Record(fields) => {
+            for field in fields {
+                visit(&field.expr, true);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                visit(&entry.key, true);
+                visit(&entry.value, true);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                visit(item, true);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            visit(scrutinee, true);
+            for arm in arms {
+                visit(&arm.expr, true);
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            visit(condition, true);
+            visit(then_branch, true);
+            for branch in else_if_branches {
+                visit(&branch.condition, true);
+                visit(&branch.expr, true);
+            }
+            visit(else_branch, true);
+        }
+        ExprKind::Prefix { expr, .. } => visit(expr, false),
+        ExprKind::Binary { left, right, .. } => {
+            visit(left, true);
+            visit(right, false);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit
+        | ExprKind::Begin { .. } => {}
+    }
 }
 
 fn expr_end_line(expr: &Expr) -> usize {

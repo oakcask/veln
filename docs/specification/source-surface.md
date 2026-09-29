@@ -59,12 +59,17 @@ provides the production notation for these forms.
 ### Static cleanup-region forms
 
 `begin` is a value-producing expression whose body introduces a lexical scope.
-Its type and value come from its final expression. A `defer` statement is a
-direct line of a function, test, or `begin` body. Its block can refer only to
-bindings that are in scope before the statement, must have type `()`, and
-cannot use `?` or contain another `defer`. A rejected deferred block reports
-the failed fact at the violating source and puts its repair note on the
-containing deferred block.
+Its type and value come from its final expression. If the body has no final
+expression, the result is `()`. A `defer` statement is a direct line of a
+function, test, or `begin` body. Its block can refer only to bindings that are
+in scope before the statement, must have type `()`, and cannot use `?` or
+contain another `defer`. A rejected deferred block reports the failed fact at
+the violating source and puts its repair note on the containing deferred
+block.
+
+Effects used in a `begin` body or deferred block contribute to the effect set
+of the enclosing function, test, or handler operation. A cleanup-region
+boundary does not handle or hide those effects.
 
 Parsing, formatting, syntax navigation, LSP, and MCP preserve both forms and
 their block ranges. A binding introduced by `let` becomes visible only after

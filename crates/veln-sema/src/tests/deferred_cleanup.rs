@@ -74,6 +74,20 @@ fn begin_returns_its_tail_value_without_leaking_local_bindings() {
 }
 
 #[test]
+fn begin_without_tail_expression_has_unit_type() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn main() -> ()\n",
+        "  let value: () = begin\n",
+        "    let local: Int = 41\n",
+        "  end\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn defer_rejects_non_unit_result_with_repair_note() {
     let diagnostics = diagnostics_for(concat!(
         "fn main() -> ()\n",

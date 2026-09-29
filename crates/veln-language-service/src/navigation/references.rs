@@ -324,12 +324,16 @@ fn type_references_in_variant_field(
     tokens: &[Token],
     field_span: &SourceSpan,
 ) -> TypeReferenceLocations {
-    let colon_offset = tokens
+    let (field_start, field_end) = token_indices_in_range(
+        tokens,
+        field_span.start.offset,
+        field_span.end.offset,
+    );
+    let colon_offset = tokens[field_start..field_end]
         .iter()
         .find(|token| {
+            record_type_reference_token_visit();
             token.kind == TokenKind::Colon
-                && token.range.start >= field_span.start.offset
-                && token.range.end <= field_span.end.offset
         })
         .map(|token| token.range.end)
         .unwrap_or(field_span.start.offset);
@@ -342,12 +346,16 @@ fn type_references_after_token_in_span(
     span: &SourceSpan,
     start_kind: TokenKind,
 ) -> TypeReferenceLocations {
-    let start_offset = tokens
+    let (span_start, span_end) = token_indices_in_range(
+        tokens,
+        span.start.offset,
+        span.end.offset,
+    );
+    let start_offset = tokens[span_start..span_end]
         .iter()
         .find(|token| {
+            record_type_reference_token_visit();
             token.kind == start_kind
-                && token.range.start >= span.start.offset
-                && token.range.end <= span.end.offset
         })
         .map(|token| token.range.end)
         .unwrap_or(span.end.offset);
@@ -361,17 +369,26 @@ fn type_references_after_token_until_token_in_span(
     start_kind: TokenKind,
     end_kind: TokenKind,
 ) -> TypeReferenceLocations {
-    let Some(start_index) = tokens.iter().position(|token| {
+    let (span_start, span_end) = token_indices_in_range(
+        tokens,
+        span.start.offset,
+        span.end.offset,
+    );
+    let Some(relative_start_index) = tokens[span_start..span_end].iter().position(|token| {
+        record_type_reference_token_visit();
         token.kind == start_kind
-            && token.range.start >= span.start.offset
-            && token.range.end <= span.end.offset
     }) else {
         return Vec::new();
     };
+    let start_index = span_start + relative_start_index;
     let start_offset = tokens[start_index].range.end;
     let end_offset = tokens[start_index + 1..]
         .iter()
-        .find(|token| token.kind == end_kind && token.range.end <= span.end.offset)
+        .take(span_end.saturating_sub(start_index + 1))
+        .find(|token| {
+            record_type_reference_token_visit();
+            token.kind == end_kind
+        })
         .map(|token| token.range.start)
         .unwrap_or(span.end.offset);
     type_reference_tokens_in_range(source, tokens, start_offset, end_offset)
@@ -391,20 +408,30 @@ fn type_reference_tokens_in_range(
     start_offset: usize,
     end_offset: usize,
 ) -> TypeReferenceLocations {
-    tokens
+    let (start_index, end_index) = token_indices_in_range(tokens, start_offset, end_offset);
+    tokens[start_index..end_index]
         .iter()
         .enumerate()
         .filter(|(_, token)| {
-            token.range.start >= start_offset
-                && token.range.end <= end_offset
-                && token.kind == TokenKind::Ident
+            record_type_reference_token_visit();
+            token.kind == TokenKind::Ident
         })
         .map(|(index, token)| {
             (
                 token.text.clone(),
-                index,
+                start_index + index,
                 source.span(token.range),
             )
         })
         .collect()
+}
+
+fn token_indices_in_range(
+    tokens: &[Token],
+    start_offset: usize,
+    end_offset: usize,
+) -> (usize, usize) {
+    let start_index = tokens.partition_point(|token| token.range.start < start_offset);
+    let end_index = tokens.partition_point(|token| token.range.end <= end_offset);
+    (start_index.min(end_index), end_index)
 }

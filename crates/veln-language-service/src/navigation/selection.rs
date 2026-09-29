@@ -155,6 +155,9 @@ impl SymbolIndex {
                 offset >= scope.body_start && offset < scope.end
             })?;
         let shadow = scope.shadowing_binding(name, tokens, token_index)?;
+        if matches!(shadow, ScopeShadow::LocalBinding(binding) if !binding.navigation_supported) {
+            return None;
+        }
         let (declaration_start, declaration_end) = shadow.declaration_range();
         let declaration = file
             .source

@@ -151,3 +151,32 @@
             assert_eq!(type_reference_collections(), 1);
         }
     }
+
+    #[test]
+    fn cleanup_annotation_type_reference_token_work_is_adjacent_linear() {
+        fn token_visits(annotation_count: usize) -> usize {
+            let mut source_text = String::from("type Item\n  Value\nend\n\nfn main(input: Item) -> Item\n  let region: Item = begin\n");
+            for index in 0..annotation_count {
+                source_text.push_str(&format!("    let value{index}: Item = input\n"));
+            }
+            source_text.push_str("    input\n  end\n  region\nend\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_type_reference_collections();
+
+            let result = query_snapshot(&snapshot, "main.veln", 1, 6)
+                .expect("declared type should resolve");
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+            assert_eq!(result.references.len(), annotation_count + 3);
+            assert_eq!(type_reference_collections(), 1);
+            type_reference_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        eprintln!("cleanup annotation indexing: 128={smaller} visits, 256={larger} visits");
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
+    }
