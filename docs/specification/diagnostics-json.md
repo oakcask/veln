@@ -47,6 +47,10 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
+`veln check --json` reports an over-limit cleanup form as
+`parse.cleanup_nesting_limit`; the parser error makes the envelope status
+`error`.
+
 Malformed integer literals use `parse.integer_literal` with the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;
 related notes may identify the accepted digit set or prefix. Invalid literal

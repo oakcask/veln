@@ -63,9 +63,9 @@ Its body accepts the same direct body lines as a function or test. A `defer`
 statement is a direct body line of a function, test, or `begin`; its own block
 therefore also parses as a body. Both forms require a closing `end`. A missing
 closing delimiter reports `parse.begin_missing_end` or
-`parse.defer_missing_end`. At most 128 cleanup forms may be nested. The next
-level reports `parse.cleanup_nesting_limit` without aborting lossless-tree
-construction.
+`parse.defer_missing_end`. At most 128 `begin` and `defer` cleanup forms may be
+nested in total; both forms share this limit. The next level reports
+`parse.cleanup_nesting_limit` without aborting lossless-tree construction.
 
 The [type rules](types.md#inference-rules), [effect boundary](effects.md#effect-labels),
 and [binding visibility](name-resolution.md#value-calls-and-shadowing) are
