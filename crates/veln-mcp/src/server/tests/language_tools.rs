@@ -192,7 +192,7 @@ fn search_docs_uses_field_tiers_token_intersection_and_bounded_excerpts() {
     assert_eq!(result["title"], "Expressions, Operators, And Patterns");
     assert!(result["excerpt"].as_str().unwrap().chars().count() <= 160);
     assert_eq!(result["prefix_truncated"], true);
-    assert_eq!(result["suffix_truncated"], false);
+    assert_eq!(result["suffix_truncated"], true);
 }
 
 #[test]
