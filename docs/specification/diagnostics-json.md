@@ -52,7 +52,10 @@ consumers must preserve diagnostic and related-note order.
 `error`. A `defer` token used where an expression is required reports
 `parse.expected_expression` at the token, with expression parser context and
 skip-token recovery. Recovery preserves the boundary of a following
-declaration.
+declaration. An unterminated `begin` or `defer` reports
+`parse.begin_missing_end` or `parse.defer_missing_end`. The missing cleanup
+delimiter does not consume an enclosing declaration's closing `end` or merge a
+following top-level declaration into the failed body.
 
 Malformed integer literals use `parse.integer_literal` with the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;

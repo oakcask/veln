@@ -65,9 +65,13 @@ therefore also parses as a body. A `defer` token in an expression position
 reports `parse.expected_expression` at that token. Recovery skips the invalid
 token without consuming a following declaration boundary. Both forms require
 a closing `end`. A missing closing delimiter reports `parse.begin_missing_end`
-or `parse.defer_missing_end`. At most 128 `begin` and `defer` cleanup forms may
-be nested in total; both forms share this limit. The next level reports
-`parse.cleanup_nesting_limit` without aborting lossless-tree construction.
+or `parse.defer_missing_end`. Recovery leaves an enclosing declaration's
+closing `end` available to that declaration and preserves the next top-level
+declaration as a separate item, including when nested cleanup forms are both
+unterminated. The lossless tree retains every source token. At most 128
+`begin` and `defer` cleanup forms may be nested in total; both forms share this
+limit. The next level reports `parse.cleanup_nesting_limit` without aborting
+lossless-tree construction.
 
 The [type rules](types.md#inference-rules), [effect boundary](effects.md#effect-labels),
 and [binding visibility](name-resolution.md#value-calls-and-shadowing) are

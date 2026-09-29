@@ -233,7 +233,11 @@ initializer can still select the preceding function identity. Handler
 operation clauses apply the same rules when their expression is a `begin`.
 These nested scopes also participate in rename conflict prediction. Renaming a
 cleanup-body local binding to a visible enclosing function parameter returns
-`rename.conflict` and no edits.
+`rename.conflict` and no edits. Equal names in disjoint sibling `begin` scopes
+do not conflict, so a rename that makes those local names equal succeeds.
+Expression-position recovery for an invalid `defer` leaves later local
+definitions, references, prepare-rename selections, and rename edits
+available.
 For a selected valid-cased, unrecovered workspace effect declaration,
 references include every structurally complete bare effect-row occurrence on
 functions, tests, handlers, and function types, every handler `handles` target,
@@ -672,8 +676,9 @@ The checked
 the invalid-position protocol boundary and repeats successful saved definition,
 prepare-rename, and rename requests after failures. The
 checked `examples/specification/lsp/cleanup-region-navigation/` transcript
-covers definition, references, rename, and an edit-free rename-conflict
-response across `begin` and `defer` lexical boundaries. The
+covers definition, references, prepare-rename, rename, an edit-free
+rename-conflict response, and an allowed equal-name rename across disjoint
+`begin` scopes. The
 paired harness in
 [`saved_navigation_conformance.rs`](../../crates/veln-cli/tests/toolchain_harness/saved_navigation_conformance.rs)
 drives LSP and MCP from one unchanged workspace, converts both adapters to

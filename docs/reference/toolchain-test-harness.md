@@ -343,7 +343,9 @@ failed requests.
 The `cleanup-region-navigation` LSP specification case uses decoded assertions
 for definition, reference, and rename locations across `begin` and `defer`
 scopes, including the boundary before a multiline `let` initializer completes,
-and for an edit-free rename conflict with an enclosing parameter.
+an edit-free rename conflict with an enclosing parameter, an allowed
+equal-name rename across disjoint sibling `begin` scopes, and prepare-rename
+selection from an outer tail use and a deferred use.
 
 The `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in
 `toolchain_harness.rs` cover MCP JSONL decoding, ID selection, pointer
@@ -370,7 +372,10 @@ an empty linked-reference set, deterministic ordering, and cursor pagination.
 The `cleanup-region-navigation` MCP specification case uses decoded assertions
 for definition, reference, and rename locations across the same cleanup-region
 scope boundaries, plus an edit-free rename conflict with an enclosing
-parameter.
+parameter and an allowed equal-name rename across disjoint sibling `begin`
+scopes. The `defer-capture-at-registration` check specification case keeps a
+binding declared before `defer` visible inside its block and requires a later
+binding to remain unresolved there.
 The `references-workspace-handler` MCP specification case uses the same
 decoded assertion model for exact handler reference locations, declaration
 inclusion, Unicode-scalar coordinates, deterministic ordering, and cursor
