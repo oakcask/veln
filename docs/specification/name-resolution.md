@@ -179,6 +179,14 @@ A wildcard let target, `_`, evaluates its expression without declaring a local
 name. It can be annotated for type checking, but it is never a resolvable
 binding.
 
+Each `begin` body introduces a nested lexical scope. Bindings declared in that
+body stop at its closing `end`. A `defer` block sees only bindings visible at
+the `defer` statement, so a later binding remains unresolved inside the block.
+A `let` binding becomes visible only after its complete initializer. When that
+initializer is a multiline `begin`, references inside the initializer continue
+to resolve to the preceding local, parameter, function, or imported identity;
+the new binding starts after the `begin` closes.
+
 ### Casing and recovery
 
 Invalid source-written type, constructor, function, public alias, and value

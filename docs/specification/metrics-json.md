@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The metrics command JSON schema or executable metrics cases change.
+update-when: The metrics JSON schema, ABC or similarity measurement contract, or executable metrics cases change.
 specification-coverage: usage=#metrics-json; behavior=#report-fields-and-ordering; limits=#partial-reports
 ---
 
@@ -161,9 +161,11 @@ ABC counts only function and test bodies. Each `let` body line increments
 decode expression, and schema encode expression increments `branches`. Each
 `if` condition, `else if` condition, `match` expression, match arm,
 short-circuit `and` or `or`, and `?` expression increments `conditionals`.
-Nested expressions contribute to the containing declaration. Declaration
-signatures, result bindings, type and effect annotations, and contract text do
-not contribute. `contracts_included` is `false` for every ABC subject.
+Nested expressions contribute to the containing declaration. `begin` and
+`defer` do not add a component by themselves; their nested body lines and
+expressions contribute recursively. Declaration signatures, result bindings,
+type and effect annotations, and contract text do not contribute.
+`contracts_included` is `false` for every ABC subject.
 
 ## Similarity records
 
@@ -184,6 +186,10 @@ body token sequences and the sequence contains at least the effective
 Generated and doctest-derived declarations are excluded. Similarity is
 advisory: it never creates a `--check` policy violation, and baseline checks do
 not fail when a duplicate pair changes together.
+
+The complete body range includes every top-level `defer` statement and its
+nested tokens. A `begin` expression is already part of its containing body
+line, so its complete nested source also participates in normalization.
 
 Similarity analysis creates one declaration fingerprint for each selected
 eligible declaration whose normalized body has at least the effective

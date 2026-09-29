@@ -13,6 +13,9 @@ selection and parse-clean module loading with the other analysis commands.
 Without `--check`, cycles, large ABC values, and duplicate bodies are
 reported but do not make a completed analysis fail.
 
+The [metrics JSON contract](metrics-json.md#abc-subjects) defines how nested
+`begin` and `defer` bodies contribute to ABC and whole-body similarity results.
+
 ## Selection and partial analysis
 
 Paths select project-owned module subjects while the complete project graph is

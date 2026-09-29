@@ -340,6 +340,9 @@ The `saved-navigation-cross-adapter` LSP specification case uses decoded
 assertions for direct `params.position` validation, invalid-coordinate errors,
 empty rename edits for invalid names, and successful navigation repeated after
 failed requests.
+The `cleanup-region-navigation` LSP specification case uses decoded assertions
+for definition, reference, and rename locations across `begin` and `defer`
+scopes, including the boundary before a multiline `let` initializer completes.
 
 The `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in
 `toolchain_harness.rs` cover MCP JSONL decoding, ID selection, pointer
@@ -363,6 +366,9 @@ The `references-recovery-navigation` MCP specification case uses decoded
 assertions for selection from a retained invalid declaration and a linked
 reference, declaration exclusion and inclusion, saved Unicode-scalar ranges,
 an empty linked-reference set, deterministic ordering, and cursor pagination.
+The `cleanup-region-navigation` MCP specification case uses decoded assertions
+for definition, reference, and rename locations across the same cleanup-region
+scope boundaries.
 The `references-workspace-handler` MCP specification case uses the same
 decoded assertion model for exact handler reference locations, declaration
 inclusion, Unicode-scalar coordinates, deterministic ordering, and cursor

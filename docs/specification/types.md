@@ -135,6 +135,17 @@ Expected types flow into holes and subexpressions from:
 - `match` arm results, `if` branch results, and constructor payload bindings
 - record pattern field bindings in `match` arms and `let` statements
 
+A `begin` expression checks its body in a nested lexical type environment. Its
+final expression supplies the `begin` type and receives the enclosing expected
+type. A body with no final expression has type `()`. Bindings declared inside
+the body do not escape it.
+
+A deferred block must have type `()`. Postfix `?` inside the block reports
+`defer.propagation`; a non-unit block reports `defer.non_unit`; and another
+`defer` inside it reports `defer.nested`. These restrictions prevent a
+deferred block from replacing the cleanup region's value or transferring
+result propagation out of the block.
+
 Typed holes use the same concrete expected-type flow as other subexpressions.
 When a hole appears under a concrete return, call argument, record field, `if`
 branch, `match` arm, or constructor payload context, the hole diagnostic and

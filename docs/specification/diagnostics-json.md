@@ -103,6 +103,21 @@ Type inference diagnostics include:
   `constraint: "empty_collection_type_context"`; match scrutinee ambiguity
   adds `candidates` and `constraint: "match_constructor_pattern_domain"`.
 
+Deferred-block restriction diagnostics use kind `type`,
+`phase: "type_check"`, `boundary: "deferred_block"`, and one of these stable
+identifier and reason pairs:
+
+| Identifier | Reason | Failed fact |
+| --- | --- | --- |
+| `defer.propagation` | `result_propagation` | Postfix `?` occurs inside a deferred block. |
+| `defer.non_unit` | `non_unit_result` | The deferred block result is not `()`. |
+| `defer.nested` | `nested_defer` | A deferred block registers another deferred block. |
+
+Each record has one `related` entry with `kind: "repair_hint"`, a repair
+message, and the containing deferred-block span. The primary span remains the
+specific propagation expression, non-unit block result, or nested `defer` that
+failed.
+
 Handler effect diagnostics use `phase: "effect"`, `boundary`, `handler`,
 `handled_effect`, nullable `operation`, and `reason`. Operation-clause
 diagnostics use `boundary: "handler_operation_clause"` and do not emit a

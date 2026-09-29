@@ -421,6 +421,15 @@ The invalid-coordinate failure creates no reference cursor and does not consume
 an existing cursor. A later request for an earlier valid saved selection reads
 the same retained snapshot and produces the same navigation result.
 
+Saved definition, references, and rename use cleanup-region lexical scopes
+from the shared language service. A local binding is selectable from a nested
+`begin` or `defer` body only while its scope contains that occurrence. A `let`
+binding starts after its complete initializer, including a multiline `begin`,
+so a same-spelled call inside the initializer can select an earlier function
+identity. The same rules apply to a `begin` used as a handler operation clause
+expression. MCP returns the resulting locations in its existing one-based
+Unicode-scalar coordinate model.
+
 The supported definition set includes workspace functions, types,
 constructors, handler context and operation-clause parameters, exact
 test-companion private-function access, and unique class-compatible invalid
@@ -714,6 +723,9 @@ The checked
 recovery selection from a declaration and reference, declaration exclusion and
 inclusion, an empty linked-reference set, saved coordinates, sorting, and
 pagination.
+The checked `examples/specification/mcp/cleanup-region-navigation/` transcript
+covers definition, references, and rename across `begin` and `defer` lexical
+boundaries.
 The checked `examples/specification/mcp/references-workspace-effect/` transcript
 demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
 pagination for workspace effect and effect-operation references.

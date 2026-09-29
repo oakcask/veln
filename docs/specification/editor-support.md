@@ -73,7 +73,8 @@ Lexical fallback also classifies `#` comments, strings, numbers, keywords, and
 operators with the matching standard LSP token types. Decimal, lowercase `0b`
 binary, and lowercase `0x` hexadecimal integer literals are each one `number`
 token. The contextual `satisfy` marker and boolean literals are highlighted as
-keywords.
+keywords. `begin` and `defer` are keyword tokens in the lexical fallback and
+the VSCode grammar.
 
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
@@ -222,6 +223,14 @@ with `null`, an empty list, or an empty rename edit as appropriate for the
 request.
 An invalid request does not change the retained snapshot or a later result for
 the same valid saved selection.
+
+Shared navigation treats `begin` and `defer` bodies as lexical scope
+boundaries. Definition, references, prepare-rename, and rename link a local
+binding to uses in nested cleanup bodies while excluding uses after the
+binding's closing `end`. A binding introduced by `let` starts after its
+complete initializer, so a same-spelled call inside a multiline `begin`
+initializer can still select the preceding function identity. Handler
+operation clauses apply the same rules when their expression is a `begin`.
 For a selected valid-cased, unrecovered workspace effect declaration,
 references include every structurally complete bare effect-row occurrence on
 functions, tests, handlers, and function types, every handler `handles` target,
@@ -659,6 +668,9 @@ The checked
 `examples/specification/lsp/saved-navigation-cross-adapter/` transcript covers
 the invalid-position protocol boundary and repeats successful saved definition,
 prepare-rename, and rename requests after failures. The
+checked `examples/specification/lsp/cleanup-region-navigation/` transcript
+covers definition, references, and rename across `begin` and `defer` lexical
+boundaries. The
 paired harness in
 [`saved_navigation_conformance.rs`](../../crates/veln-cli/tests/toolchain_harness/saved_navigation_conformance.rs)
 drives LSP and MCP from one unchanged workspace, converts both adapters to

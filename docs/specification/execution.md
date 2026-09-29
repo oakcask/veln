@@ -19,6 +19,12 @@ before applying command-specific execution or write policy. Holes, missing
 expressions, constructor or call arity failures, and recognized concurrency
 blockers prevent execution.
 
+`begin` expressions and `defer` statements can pass parsing and static
+analysis, but they add the checked-core blocker
+`deferred_cleanup_runtime`. Typed IR and backend artifacts are unavailable for
+a reachable program containing either form because runtime registration and
+unwinding are not implemented.
+
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.
 `ByteChunk`, `ByteView`, `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,

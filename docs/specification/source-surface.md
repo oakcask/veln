@@ -59,30 +59,27 @@ provides the production notation for these forms.
 ### Static cleanup-region forms
 
 `begin` is a value-producing expression whose body introduces a lexical scope.
-Its type and value come from its final expression. If the body has no final
-expression, the result is `()`. A `defer` statement is a direct line of a
-function, test, or `begin` body. Its block can refer only to bindings that are
-in scope before the statement, must have type `()`, and cannot use `?` or
-contain another `defer`. The dedicated diagnostics for a non-unit result, `?`,
-or a nested `defer` report the failed fact at the violating source and put a
-repair note on the containing deferred block. A reference to a binding declared
-after the `defer` is instead an ordinary unresolved-name error and has no
-deferred-block repair note.
+Its body accepts the same direct body lines as a function or test. A `defer`
+statement is a direct body line of a function, test, or `begin`; its own block
+therefore also parses as a body. Both forms require a closing `end`. A missing
+closing delimiter reports `parse.begin_missing_end` or
+`parse.defer_missing_end`. At most 128 cleanup forms may be nested. The next
+level reports `parse.cleanup_nesting_limit` without aborting lossless-tree
+construction.
 
-Effects used in a `begin` body or deferred block contribute to the effect set
-of the enclosing function, test, or handler operation. A cleanup-region
-boundary does not handle or hide those effects.
-
-Parsing, formatting, syntax navigation, LSP, and MCP preserve both forms and
-their block ranges. A binding introduced by `let` becomes visible only after
-its complete initializer, including a multiline `begin` initializer. Local
-definition, reference, and rename operations use that same boundary.
+The [type rules](types.md#inference-rules), [effect boundary](effects.md#effect-labels),
+and [binding visibility](name-resolution.md#value-calls-and-shadowing) are
+specified by their focused pages. Formatter behavior is specified by the
+[format command](command-fmt.md#formatting-rules). LSP and MCP navigation are
+specified by [editor support](editor-support.md#lsp-navigation-formatting-and-rename)
+and [saved workspace navigation](mcp.md#saved-workspace-navigation).
 
 These forms have a static and tooling surface only. A checked program that
-contains either form is not executable: lowering reports the
-`deferred_cleanup_runtime` blocker because the runtime does not register or
-execute deferred blocks. Runtime registration, reverse-order unwinding, exit
-coverage, and cleanup-failure precedence remain unimplemented.
+contains either form is not executable. The
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+specifies the `deferred_cleanup_runtime` blocker. Runtime registration,
+reverse-order unwinding, exit coverage, and cleanup-failure precedence remain
+unimplemented.
 
 ## Test companion sources
 
@@ -229,7 +226,9 @@ and extension-dispatch tags or lengths must name earlier decoded visible
 ## Executable Grammar
 
 The grammar below is the compact source contract. Parser implementation and
-the source-surface grammar artifact must agree with these productions.
+the source-surface grammar artifact must agree with these productions. The
+productions describe accepted form; the cleanup nesting resource limit is the
+prose contract above.
 
 <!-- source-surface-grammar:start -->
 ```text

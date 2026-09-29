@@ -20,6 +20,12 @@ supported binary-schema primitive compatibility spellings. Indentation is one
 tab per level: top-level items and closing `end` lines use level zero, and
 function body lines use level one.
 
+`begin` expressions and `defer` statements use one additional tab for each
+nested body and align their closing `end` with the form's header. They retain
+header and body comments. A comment following the closing `end` of an embedded
+`begin` moves after the complete call, collection, record, postfix, decode, or
+binary expression that continues from that `begin`.
+
 A `match` line uses its parent indentation; arms use one deeper level and its
 closing `end` aligns with the `match`. A two-arm boolean match becomes
 `if`/`else`; a false continuation becomes `else if`. A boolean match
