@@ -412,6 +412,11 @@ still owns when the handled scope exits, including exits caused by a propagated
 error or runtime unwind. Scope cleanup is a safety net, not a substitute for
 explicit close when peer-visible timing matters.
 
+The handler-owned safety net is distinct from the proposed
+[lexical deferred cleanup](lexical-deferred-cleanup.md). After that language
+mechanism is implemented, application code can register explicit close next to
+resource acquisition without changing the handler's ownership boundary.
+
 A resource must not escape its owning handled scope. A returned resource is
 already closed by scope cleanup, and a later operation under another handler
 returns `InvalidResource`.
