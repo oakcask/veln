@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"d26aaddfe64d426187f65f804c66fb04853c7f56"
+source_git_tree	"3dc3f68e21474b3a18a39781c8371d288a98083e"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1710
+case_count	1711
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -1794,6 +1794,27 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"56d8e8e411e12de37d44c9bed10a5eb21cd5bf4c91e3af86908aa97f7d376578"
+case	"examples/specification/check/cleanup-annotation-boundaries"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	24
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"type.schema_reference\""
+field	expectations.stdout.contains[1]	"\"id\":\"schema.exact_width_primitive\""
+field	expectations.stdout.contains[2]	"\"id\":\"schema.lowercase_primitive\""
+field	expectations.stdout.contains[3]	"\"use_kind\":\"local_annotation\""
+field	expectations.stdout.contains[4]	"\"reason\":\"local_annotation\""
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"ee8b2c16a6cfc576bb8db4d254ff910283206e69b1adddaab0a026d4c7414abe"
 case	"examples/specification/check/codec-declaration-diagnostics"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -62109,4 +62130,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"eb2e9753351a900ed119c7865850083ae117b1e11a5c2934bccb42918eaf9beb"
+aggregate_digest	"411ff31abdba7fde96a331e28480f0cff1e556c3d2fe86d29da4fbdb1ba6a6c6"

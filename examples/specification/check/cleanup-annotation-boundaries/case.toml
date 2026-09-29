@@ -1,0 +1,23 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"type.schema_reference\"",
+  "\"id\":\"schema.exact_width_primitive\"",
+  "\"id\":\"schema.lowercase_primitive\"",
+  "\"use_kind\":\"local_annotation\"",
+  "\"reason\":\"local_annotation\"",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 24

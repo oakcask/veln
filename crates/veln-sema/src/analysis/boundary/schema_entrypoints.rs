@@ -29,21 +29,16 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
                 &mut diagnostics,
             );
         }
-        for line in &function.body {
-            let BodyLineKind::Let {
-                annotation: Some(annotation),
-                ..
-            } = &line.kind
-            else {
-                continue;
-            };
-            push_schema_type_reference_diagnostics(
+        check_body_schema_type_references(module, current_module, &function.body, &mut diagnostics);
+    }
+
+    for handler in &module.handlers {
+        let current_module = handler.module_name.as_deref();
+        for clause in &handler.operation_clauses {
+            check_expr_schema_type_references(
                 module,
                 current_module,
-                annotation,
-                line.node_id.display("let"),
-                line.span.clone(),
-                "local_annotation",
+                &clause.body,
                 &mut diagnostics,
             );
         }
@@ -67,6 +62,55 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
     }
 
     diagnostics
+}
+
+fn check_body_schema_type_references(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    body: &[BodyLine],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for line in body {
+        match &line.kind {
+            BodyLineKind::Let {
+                annotation, expr, ..
+            } => {
+                if let Some(annotation) = annotation {
+                    push_schema_type_reference_diagnostics(
+                        module,
+                        current_module,
+                        annotation,
+                        line.node_id.display("let"),
+                        line.span.clone(),
+                        "local_annotation",
+                        diagnostics,
+                    );
+                }
+                check_expr_schema_type_references(module, current_module, expr, diagnostics);
+            }
+            BodyLineKind::Expr { expr } => {
+                check_expr_schema_type_references(module, current_module, expr, diagnostics);
+            }
+            BodyLineKind::Defer { body, .. } => {
+                check_body_schema_type_references(module, current_module, body, diagnostics);
+            }
+        }
+    }
+}
+
+fn check_expr_schema_type_references(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    expr: &Expr,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let ExprKind::Begin { body, .. } = &expr.kind {
+        check_body_schema_type_references(module, current_module, body, diagnostics);
+        return;
+    }
+    expr.for_each_child(&mut |child| {
+        check_expr_schema_type_references(module, current_module, child, diagnostics);
+    });
 }
 
 pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagnostic> {

@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 mod holes;
 
 use veln_ast::{
-    BinaryOp, BodyLineKind, ContractKind, DictEntry, Expr, ExprKind, Function, FunctionKind,
-    IfBranch, MatchArm, NodeId, Pattern, PatternField, PatternKind, RecordField, SatisfyClause,
-    SurfaceModule, Visibility,
+    BinaryOp, BodyLine, BodyLineKind, ContractKind, DictEntry, Expr, ExprKind, Function,
+    FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternField, PatternKind, RecordField,
+    SatisfyClause, SurfaceModule, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;

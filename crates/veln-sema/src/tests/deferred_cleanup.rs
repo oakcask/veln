@@ -237,6 +237,96 @@ fn handler_begin_cleanup_region_collects_direct_and_dependent_effects() {
 }
 
 #[test]
+fn schema_annotation_boundaries_cover_nested_cleanup_regions_and_handler_clauses() {
+    let diagnostics = diagnostics_for(concat!(
+        "schema Packet\n",
+        "  value: Int\n",
+        "end\n",
+        "effect Ask\n",
+        "  value() -> ()\n",
+        "end\n",
+        "fn main() -> ()\n",
+        "  let direct: Packet = ()\n",
+        "  let begun: () = begin\n",
+        "    let in_begin: Packet = ()\n",
+        "    ()\n",
+        "  end\n",
+        "  defer\n",
+        "    let in_defer: Packet = ()\n",
+        "    let nested: () = begin\n",
+        "      let deeply_nested: Packet = ()\n",
+        "      ()\n",
+        "    end\n",
+        "    ()\n",
+        "  end\n",
+        "  ()\n",
+        "end\n",
+        "handler ask() handles Ask\n",
+        "  value() => begin\n",
+        "    let in_handler: Packet = ()\n",
+        "    ()\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let boundary_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.schema_reference")
+        .collect::<Vec<_>>();
+    assert_eq!(boundary_diagnostics.len(), 5, "{diagnostics:#?}");
+    assert!(boundary_diagnostics.iter().all(|diagnostic| {
+        let details = diagnostic.details.to_json();
+        details.contains("\"schema\":\"Packet\"")
+            && details.contains("\"use_kind\":\"local_annotation\"")
+    }));
+}
+
+#[test]
+fn schema_primitive_annotation_boundaries_match_across_cleanup_regions() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn main() -> ()\n",
+        "  let direct_exact: UInt16be = ()\n",
+        "  let direct_lower: uint24be = ()\n",
+        "  let begun: () = begin\n",
+        "    let begin_exact: UInt16be = ()\n",
+        "    let begin_lower: uint24be = ()\n",
+        "    ()\n",
+        "  end\n",
+        "  defer\n",
+        "    let defer_exact: UInt16be = ()\n",
+        "    let defer_lower: uint24be = ()\n",
+        "    ()\n",
+        "  end\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let exact_boundaries = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.exact_width_primitive")
+        .collect::<Vec<_>>();
+    assert_eq!(exact_boundaries.len(), 3, "{diagnostics:#?}");
+    assert!(exact_boundaries.iter().all(|diagnostic| {
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"reason\":\"local_annotation\"")
+    }));
+
+    let lowercase_boundaries = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.lowercase_primitive")
+        .collect::<Vec<_>>();
+    assert_eq!(lowercase_boundaries.len(), 3, "{diagnostics:#?}");
+    assert!(lowercase_boundaries.iter().all(|diagnostic| {
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"reason\":\"local_annotation\"")
+    }));
+}
+
+#[test]
 fn cleanup_regions_block_executable_lowering_until_runtime_support_exists() {
     for body in [
         concat!("  defer\n", "    ()\n", "  end\n", "  ()\n"),
