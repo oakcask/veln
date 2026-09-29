@@ -1,0 +1,45 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"defer.propagation\"",
+  "deferred block cannot use `?`",
+  "Handle the `Result` inside the deferred block instead of propagating it with `?`.",
+  "\"id\":\"defer.non_unit\"",
+  "deferred block must have type `()`, but found `Int`",
+  "End the deferred block with `()` so cleanup cannot replace the region value.",
+  "\"id\":\"defer.nested\"",
+  "deferred block cannot register another deferred block",
+  "Move the nested `defer` to a cleanup-region body.",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[diagnostics]]
+id = "defer.propagation"
+severity = "error"
+kind = "type"
+message = "deferred block cannot use `?`"
+
+[[diagnostics]]
+id = "defer.non_unit"
+severity = "error"
+kind = "type"
+message = "deferred block must have type `()`, but found `Int`"
+
+[[diagnostics]]
+id = "defer.nested"
+severity = "error"
+kind = "type"
+message = "deferred block cannot register another deferred block"

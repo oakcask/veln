@@ -356,6 +356,11 @@ impl Writer {
                 self.u8(1);
                 self.expr(expr);
             }
+            BodyLineKind::Defer { body, block_span } => {
+                self.u8(2);
+                self.vec(body, Self::body_line);
+                self.span(block_span);
+            }
         }
         self.span(&value.span);
     }

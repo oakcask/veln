@@ -54,6 +54,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) inferred_return_type: Option<Type>,
     pub(super) diagnostics: Vec<Diagnostic>,
     suppressed_diagnostic_indices: BTreeSet<usize>,
+    defer_blocks: Vec<SourceSpan>,
 }
 
 pub(in crate::analysis) struct PatternBinding {
@@ -211,6 +212,7 @@ impl<'a> FunctionChecker<'a> {
             inferred_return_type: None,
             diagnostics: Vec::new(),
             suppressed_diagnostic_indices: BTreeSet::new(),
+            defer_blocks: Vec::new(),
         }
     }
 

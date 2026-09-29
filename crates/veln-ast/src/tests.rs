@@ -76,6 +76,18 @@ fn surface_wire_round_trip_preserves_expression_families() {
             "pub type Alias = api::_item\n",
             "pub schema Packet = api::packet\n",
         ),
+        concat!(
+            "fn cleanup() -> Int\n",
+            "  let resource = 1\n",
+            "  defer\n",
+            "    ()\n",
+            "  end\n",
+            "  begin\n",
+            "    let value = resource + 1\n",
+            "    value\n",
+            "  end\n",
+            "end\n",
+        ),
     ];
 
     for source in sources {

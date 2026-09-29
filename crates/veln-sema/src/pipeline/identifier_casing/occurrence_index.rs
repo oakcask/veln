@@ -181,6 +181,11 @@ impl QualifiedPathOccurrenceIndex {
                 self.collect_expr(expr, current_module, false);
             }
             veln_ast::BodyLineKind::Expr { expr } => self.collect_expr(expr, current_module, false),
+            veln_ast::BodyLineKind::Defer { body, .. } => {
+                for line in body {
+                    self.collect_body_line(line, current_module);
+                }
+            }
         }
     }
 

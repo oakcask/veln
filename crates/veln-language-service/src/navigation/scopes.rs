@@ -125,7 +125,9 @@ fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
         let index = start + relative_index;
         match token.kind {
             TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
-            TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::Match | TokenKind::Handler | TokenKind::Begin | TokenKind::Defer => {
+                nested_blocks += 1
+            }
             TokenKind::End if nested_blocks == 0 => return Some(token.range.start),
             TokenKind::End => nested_blocks -= 1,
             TokenKind::Eof => return None,
@@ -233,7 +235,13 @@ fn function_body_has_no_inner_scope_boundary(tokens: &[Token], body_start: usize
             || token.range.start >= end
             || !matches!(
                 token.kind,
-                TokenKind::If | TokenKind::Match | TokenKind::Handler | TokenKind::Else | TokenKind::End
+                TokenKind::If
+                    | TokenKind::Match
+                    | TokenKind::Handler
+                    | TokenKind::Begin
+                    | TokenKind::Defer
+                    | TokenKind::Else
+                    | TokenKind::End
             )
     })
 }
@@ -256,7 +264,9 @@ fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usi
         }
         match token.kind {
             TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
-            TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::Match | TokenKind::Handler | TokenKind::Begin | TokenKind::Defer => {
+                nested_blocks += 1
+            }
             TokenKind::Else if nested_blocks == 0 => return token.range.start,
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks -= 1,
@@ -488,7 +498,11 @@ fn inside_match(tokens: &[Token], index: usize, body_start: usize) -> bool {
         match token.kind {
             TokenKind::End => nested_blocks += 1,
             TokenKind::Match if nested_blocks == 0 => return true,
-            TokenKind::If | TokenKind::Handler | TokenKind::Match => {
+            TokenKind::If
+            | TokenKind::Handler
+            | TokenKind::Match
+            | TokenKind::Begin
+            | TokenKind::Defer => {
                 nested_blocks = nested_blocks.saturating_sub(1);
             }
             _ => {}
@@ -505,7 +519,11 @@ fn match_arm_scope_end(tokens: &[Token], start: usize, function_end: usize) -> u
             break;
         }
         match token.kind {
-            TokenKind::If | TokenKind::Match | TokenKind::Handler => nested_blocks += 1,
+            TokenKind::If
+            | TokenKind::Match
+            | TokenKind::Handler
+            | TokenKind::Begin
+            | TokenKind::Defer => nested_blocks += 1,
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks -= 1,
             TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {

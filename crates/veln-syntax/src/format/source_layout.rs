@@ -143,7 +143,9 @@ pub(super) fn function_body_end_line(function: &FunctionDecl) -> usize {
         .body
         .last()
         .map(|line| match line {
-            BodyLine::Let { span, .. } | BodyLine::Expr { span, .. } => span.start.line,
+            BodyLine::Let { span, .. }
+            | BodyLine::Expr { span, .. }
+            | BodyLine::Defer { span, .. } => span.start.line,
         })
         .or_else(|| {
             function

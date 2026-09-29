@@ -337,6 +337,8 @@ keyword_kind("handler", handler).
 keyword_kind("handles", handles).
 keyword_kind("handle", handle).
 keyword_kind("let", let).
+keyword_kind("defer", defer).
+keyword_kind("begin", begin).
 keyword_kind("end", end).
 keyword_kind("require", require).
 keyword_kind("ensure", ensure).
@@ -643,7 +645,10 @@ body(S0, S) :-
     ).
 
 body_line --> let_line.
+body_line --> defer_statement.
 body_line --> expr_line.
+
+defer_statement --> tok(defer), nl, body, tok(end), newline_opt.
 
 let_line -->
     tok(let),
@@ -722,6 +727,8 @@ next_depth(rbrace, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
 next_depth(_, Depth, Depth).
 
 next_block_depth(match, _, Block0, Block) :- !, Block is Block0 + 1.
+next_block_depth(begin, _, Block0, Block) :- !, Block is Block0 + 1.
+next_block_depth(defer, _, Block0, Block) :- !, Block is Block0 + 1.
 next_block_depth(if, Previous, Block0, Block) :- Previous \= else, !, Block is Block0 + 1.
 next_block_depth(end, _, Block0, Block) :- Block0 > 0, !, Block is Block0 - 1.
 next_block_depth(_, _, Block, Block).
@@ -756,6 +763,9 @@ primary_expr --> record_or_dict.
 primary_expr --> list_expr.
 primary_expr --> match_expr.
 primary_expr --> if_expr.
+primary_expr --> begin_expr.
+
+begin_expr --> tok(begin), nl, body, tok(end).
 
 satisfy_opt --> ident_text("satisfy"), ident, tok(fat_arrow), expr, !.
 satisfy_opt --> [].

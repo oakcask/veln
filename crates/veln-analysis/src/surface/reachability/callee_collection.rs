@@ -66,7 +66,17 @@ pub(super) fn direct_function_callees(
             &mut callees,
         );
     }
-    for line in &function.body {
+    collect_body_callees(&function.body, &context, &mut local_bindings, &mut callees);
+    callees
+}
+
+fn collect_body_callees(
+    body: &[veln_ast::BodyLine],
+    context: &FunctionCalleeContext<'_>,
+    local_bindings: &mut Vec<LocalBinding>,
+    callees: &mut Vec<ReachableFunction>,
+) {
+    for line in body {
         match &line.kind {
             veln_ast::BodyLineKind::Let {
                 pattern,
@@ -74,19 +84,22 @@ pub(super) fn direct_function_callees(
                 expr,
                 ..
             } => {
-                collect_function_callees(expr, &context, &local_bindings, &mut callees);
+                collect_function_callees(expr, context, local_bindings, callees);
                 collect_pattern_bindings(
                     pattern,
                     annotation.as_deref().and_then(function_type_shape),
-                    &mut local_bindings,
+                    local_bindings,
                 );
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_function_callees(expr, &context, &local_bindings, &mut callees);
+                collect_function_callees(expr, context, local_bindings, callees);
+            }
+            veln_ast::BodyLineKind::Defer { body, .. } => {
+                let mut defer_bindings = local_bindings.clone();
+                collect_body_callees(body, context, &mut defer_bindings, callees);
             }
         }
     }
-    callees
 }
 
 pub(super) fn collect_contract_callees(
@@ -250,6 +263,10 @@ pub(super) fn collect_function_callees(
                 collect_pattern_bindings(&arm.pattern, None, &mut arm_bindings);
                 collect_function_callees(&arm.expr, context, &arm_bindings, callees);
             }
+        }
+        ExprKind::Begin { body, .. } => {
+            let mut begin_bindings = local_bindings.to_vec();
+            collect_body_callees(body, context, &mut begin_bindings, callees);
         }
         _ => {
             if matches!(expr.kind, ExprKind::Handle { .. }) {

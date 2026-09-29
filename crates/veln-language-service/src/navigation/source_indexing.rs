@@ -266,18 +266,13 @@ fn valid_handler_reference_ranges(
     for item in &parsed.tree.items {
         match item {
             SyntaxItem::Function(function) => {
-                for line in &function.body {
-                    let expr = match line {
-                        BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => expr,
-                    };
-                    collect_handler_reference_ranges(
-                        expr,
-                        diagnostics,
-                        tokens,
-                        argument_delimiters,
-                        &mut ranges,
-                    );
-                }
+                collect_body_handler_reference_ranges(
+                    &function.body,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    &mut ranges,
+                );
             }
             SyntaxItem::Handler(handler) => {
                 for clause in &handler.operation_clauses {
@@ -294,6 +289,35 @@ fn valid_handler_reference_ranges(
         }
     }
     ranges
+}
+
+fn collect_body_handler_reference_ranges(
+    body: &[BodyLine],
+    diagnostics: &HandlerDiagnosticIndex,
+    tokens: &[Token],
+    argument_delimiters: &HandlerArgumentDelimiters,
+    ranges: &mut BTreeSet<(usize, usize)>,
+) {
+    for line in body {
+        match line {
+            BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
+                collect_handler_reference_ranges(
+                    expr,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
+            }
+            BodyLine::Defer { body, .. } => collect_body_handler_reference_ranges(
+                body,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            ),
+        }
+    }
 }
 
 fn collect_handler_reference_ranges(
@@ -470,6 +494,13 @@ fn collect_handler_reference_ranges(
                 ranges,
             );
         }
+        ExprKind::Begin { body, .. } => collect_body_handler_reference_ranges(
+            body,
+            diagnostics,
+            tokens,
+            argument_delimiters,
+            ranges,
+        ),
         ExprKind::Missing
         | ExprKind::Hole { .. }
         | ExprKind::NamePath { .. }
@@ -616,6 +647,11 @@ fn collect_body_line_effect_reference_regions(
             collect_perform_effect_regions(expr, regions);
         }
         BodyLine::Expr { expr, .. } => collect_perform_effect_regions(expr, regions),
+        BodyLine::Defer { body, .. } => {
+            for line in body {
+                collect_body_line_effect_reference_regions(line, regions);
+            }
+        }
     }
 }
 
@@ -846,6 +882,11 @@ fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>
             else_branch,
             regions,
         ),
+        ExprKind::Begin { body, .. } => {
+            for line in body {
+                collect_body_line_effect_reference_regions(line, regions);
+            }
+        }
         ExprKind::Binary { left, right, .. } => {
             collect_perform_effect_regions(left, regions);
             collect_perform_effect_regions(right, regions);
@@ -1079,12 +1120,7 @@ fn valid_schema_operation_leaf_spans(syntax: &SyntaxTree) -> Vec<SourceSpan> {
     for item in &syntax.items {
         match item {
             SyntaxItem::Function(function) => {
-                for line in &function.body {
-                    let expr = match line {
-                        BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => expr,
-                    };
-                    collect_valid_schema_operation_leaf_spans(expr, &mut spans);
-                }
+                collect_body_schema_operation_leaf_spans(&function.body, &mut spans);
             }
             SyntaxItem::Handler(handler) => {
                 for clause in &handler.operation_clauses {
@@ -1095,6 +1131,19 @@ fn valid_schema_operation_leaf_spans(syntax: &SyntaxTree) -> Vec<SourceSpan> {
         }
     }
     spans
+}
+
+fn collect_body_schema_operation_leaf_spans(body: &[BodyLine], spans: &mut Vec<SourceSpan>) {
+    for line in body {
+        match line {
+            BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
+                collect_valid_schema_operation_leaf_spans(expr, spans);
+            }
+            BodyLine::Defer { body, .. } => {
+                collect_body_schema_operation_leaf_spans(body, spans);
+            }
+        }
+    }
 }
 
 fn valid_schema_composition_leaf_spans(
@@ -1279,6 +1328,7 @@ fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<Source
             }
             collect_valid_schema_operation_leaf_spans(else_branch, spans);
         }
+        ExprKind::Begin { body, .. } => collect_body_schema_operation_leaf_spans(body, spans),
         ExprKind::Binary { left, right, .. } => {
             collect_valid_schema_operation_leaf_spans(left, spans);
             collect_valid_schema_operation_leaf_spans(right, spans);

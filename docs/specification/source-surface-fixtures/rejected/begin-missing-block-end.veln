@@ -1,0 +1,4 @@
+fn invalid(value: Int) -> Int
+	begin
+		value
+end

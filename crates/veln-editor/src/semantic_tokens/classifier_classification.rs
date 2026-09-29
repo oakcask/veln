@@ -39,6 +39,8 @@ impl<'a> Classifier<'a> {
             | TokenKind::Handles
             | TokenKind::Handle
             | TokenKind::Let
+            | TokenKind::Defer
+            | TokenKind::Begin
             | TokenKind::End
             | TokenKind::Require
             | TokenKind::Ensure

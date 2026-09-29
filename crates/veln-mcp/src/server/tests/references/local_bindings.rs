@@ -145,6 +145,33 @@ fn references_resolve_callable_and_local_bindings() {
             column: 32,
             ranges: vec![("main.veln", 2, 31, 2, 40)],
         },
+        WorkspaceSymbolCase {
+            name: "begin local captured by deferred cleanup",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "fn cleanup(value: Int) -> ()\n",
+                        "  ()\n",
+                        "end\n\n",
+                        "fn read(input: Int) -> Int\n",
+                        "  begin\n",
+                        "    let captured = input\n",
+                        "    defer\n",
+                        "      cleanup(captured)\n",
+                        "    end\n",
+                        "    captured\n",
+                        "  end\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 9,
+            column: 15,
+            ranges: vec![("main.veln", 9, 15, 9, 23), ("main.veln", 11, 5, 11, 13)],
+        },
     ];
 
     assert_workspace_symbol_cases(cases);

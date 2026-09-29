@@ -144,6 +144,11 @@ fn collect_valid_segments_from_body_line(
         veln_ast::BodyLineKind::Expr { expr } => {
             collect_valid_segments_from_expr(expr, current_module, environment, output);
         }
+        veln_ast::BodyLineKind::Defer { body, .. } => {
+            for line in body {
+                collect_valid_segments_from_body_line(line, current_module, environment, output);
+            }
+        }
     }
 }
 

@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"0c7e0a54a44559ac45fbf69d54e90a447bb25566"
+source_git_tree	"7fabb915ade69b890932ece918de0831872000e0"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1704
+case_count	1708
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -3590,6 +3590,43 @@ field	invocation.command[1]	"--json"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"c26e9cfc326626f98b0891d2f2a682cfa64d0ed54b05c89151eedb8d0da8498b"
+case	"examples/specification/check/deferred-block-restrictions"
+field	expectations.diagnostics[0].id	"defer.propagation"
+field	expectations.diagnostics[0].kind	"type"
+field	expectations.diagnostics[0].message	"deferred block cannot use `?`"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[1].id	"defer.non_unit"
+field	expectations.diagnostics[1].kind	"type"
+field	expectations.diagnostics[1].message	"deferred block must have type `()`, but found `Int`"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[2].id	"defer.nested"
+field	expectations.diagnostics[2].kind	"type"
+field	expectations.diagnostics[2].message	"deferred block cannot register another deferred block"
+field	expectations.diagnostics[2].severity	"error"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	3
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"defer.propagation\""
+field	expectations.stdout.contains[1]	"deferred block cannot use `?`"
+field	expectations.stdout.contains[2]	"Handle the `Result` inside the deferred block instead of propagating it with `?`."
+field	expectations.stdout.contains[3]	"\"id\":\"defer.non_unit\""
+field	expectations.stdout.contains[4]	"deferred block must have type `()`, but found `Int`"
+field	expectations.stdout.contains[5]	"End the deferred block with `()` so cleanup cannot replace the region value."
+field	expectations.stdout.contains[6]	"\"id\":\"defer.nested\""
+field	expectations.stdout.contains[7]	"deferred block cannot register another deferred block"
+field	expectations.stdout.contains[8]	"Move the nested `defer` to a cleanup-region body."
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"681287c4f61f8aada94a0630cc79d4a9624baedfb221acb7f6f37dae3901b1d7"
 case	"examples/specification/check/dependency-companion-export-boundary-json"
 field	expectations.diagnostics[0].id	"manifest.invalid_export"
 field	expectations.diagnostics[0].kind	"module"
@@ -12348,6 +12385,18 @@ field	invocation.command[2]	"helpers.veln"
 field	invocation.repeat	2
 field	source_errors	"forbidden"
 case_digest	"54fb5cc7f30fcd859ee00c273c8fb49db618738aed388512f0bd84cdaa6ee862"
+case	"examples/specification/fmt/cleanup-regions"
+field	expectations.exit	0
+field	expectations.file_assertions[0].equals	"fn cleanup(value: Int) -> ()\n\t()\nend\n\nfn choose(input: Int) -> Int\n\tbegin\n\t\tlet captured = input\n\t\tdefer\n\t\t\tcleanup(captured)\n\t\tend\n\t\tcaptured\n\tend\nend\n"
+field	expectations.file_assertions[0].operation	"equals"
+field	expectations.file_assertions[0].path	"main.veln"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"fmt"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	2
+field	source_errors	"forbidden"
+case_digest	"6b8aec55f2dead1b828f17ec1ab5f3f141f57e448fe3a37134527fd68f2ffa09"
 case	"examples/specification/fmt/codec-declarations"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -12413,6 +12462,39 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":422,"sha256":"5152e055874a433fe545366a571cccd284ab956fbadefa5f8700f102485c1a59"}
 field	source_errors	"expected"
 case_digest	"cec461edcd50b3f7f61aa87e5e2995015b759b414fd27d9f8e3e2429a0233c8c"
+case	"examples/specification/lsp/cleanup-region-navigation"
+field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	{"end":{"character":14,"line":7},"start":{"character":6,"line":7}}
+field	expectations.lsp_assertions[0].id	2
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result/range"
+field	expectations.lsp_assertions[1].id	3
+field	expectations.lsp_assertions[1].length	3
+field	expectations.lsp_assertions[1].operation	"length"
+field	expectations.lsp_assertions[1].path	"/result"
+field	expectations.lsp_assertions[2].equals	{"end":{"character":19,"line":9},"start":{"character":11,"line":9}}
+field	expectations.lsp_assertions[2].id	3
+field	expectations.lsp_assertions[2].operation	"equals"
+field	expectations.lsp_assertions[2].path	"/result/1/range"
+field	expectations.lsp_assertions[3].equals	{"end":{"character":10,"line":11},"start":{"character":2,"line":11}}
+field	expectations.lsp_assertions[3].id	3
+field	expectations.lsp_assertions[3].operation	"equals"
+field	expectations.lsp_assertions[3].path	"/result/2/range"
+field	expectations.lsp_assertions[4].id	4
+field	expectations.lsp_assertions[4].length	3
+field	expectations.lsp_assertions[4].operation	"length"
+field	expectations.lsp_assertions[4].path	"/result/changes/$workspace_file_uri:main.veln"
+field	expectations.lsp_assertions[5].equals	[]
+field	expectations.lsp_assertions[5].id	5
+field	expectations.lsp_assertions[5].operation	"equals"
+field	expectations.lsp_assertions[5].path	"/result"
+field	expectations.stderr.format	"empty"
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1132,"sha256":"092e9085a5e39229f356759feeb30e3ee11dba42f5d62828fe99586a9efb1b55"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
+field	source_errors	"forbidden"
+case_digest	"699477f5d098c486d93febb93741ba36f70b18736432cb93a818fcc4d95099d6"
 case	"examples/specification/lsp/companion-private-function-identity"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -16852,6 +16934,34 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":318,"sha256":"893d220f3ec22d12285e3a02a2278d6676701c615560c184d09770f0921613ae"}
 field	source_errors	"forbidden"
 case_digest	"3d76666b3e6cfbac66a03eaf8a6fb61f98f191f1a4f8e611cb01f18f2647ff3f"
+case	"examples/specification/mcp/cleanup-region-navigation"
+field	expectations.exit	0
+field	expectations.mcp_assertions[0].equals	{"end":{"column":15,"line":8},"start":{"column":7,"line":8}}
+field	expectations.mcp_assertions[0].id	2
+field	expectations.mcp_assertions[0].operation	"equals"
+field	expectations.mcp_assertions[0].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_assertions[1].id	3
+field	expectations.mcp_assertions[1].length	2
+field	expectations.mcp_assertions[1].operation	"length"
+field	expectations.mcp_assertions[1].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[2].equals	{"end":{"column":20,"line":10},"start":{"column":12,"line":10}}
+field	expectations.mcp_assertions[2].id	3
+field	expectations.mcp_assertions[2].operation	"equals"
+field	expectations.mcp_assertions[2].path	"/result/structuredContent/references/0/range"
+field	expectations.mcp_assertions[3].equals	{"end":{"column":11,"line":12},"start":{"column":3,"line":12}}
+field	expectations.mcp_assertions[3].id	3
+field	expectations.mcp_assertions[3].operation	"equals"
+field	expectations.mcp_assertions[3].path	"/result/structuredContent/references/1/range"
+field	expectations.mcp_assertions[4].id	4
+field	expectations.mcp_assertions[4].length	3
+field	expectations.mcp_assertions[4].operation	"length"
+field	expectations.mcp_assertions[4].path	"/result/structuredContent/edits"
+field	expectations.stderr.format	"empty"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":570,"sha256":"6fc3bc509409216c1a434628d3dcb190477923e9c8850367d78ca4c4835d640f"}
+field	source_errors	"forbidden"
+case_digest	"0be4f4b77e654f1c485a44e3d5b44e8aa24b468cbf2850bb0c9dc52b6579c758"
 case	"examples/specification/mcp/definition-dependency-type-alias"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].contains	"veln-pkg:///example%2Fdep/snapshot/"
@@ -61865,4 +61975,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8b0214770d8788a14f265db63e789dd0fdb55a6fdffaddb1268dead032cbfc8a"
+aggregate_digest	"ea38bc1b70b8acb52a8e469a4cbe0e97be35710d090e4a1406f5c3e651fdb1a3"

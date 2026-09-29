@@ -1,0 +1,27 @@
+fn fallible() -> Result<(), String>
+	Ok(())
+end
+
+fn propagation() -> Result<Int, String>
+	defer
+		fallible()?
+	end
+	Ok(1)
+end
+
+fn non_unit() -> Int
+	defer
+		1
+	end
+	1
+end
+
+fn nested() -> Int
+	defer
+		defer
+			()
+		end
+		()
+	end
+	1
+end

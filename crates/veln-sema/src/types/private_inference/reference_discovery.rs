@@ -90,6 +90,19 @@ fn visit_private_line_references(
         BodyLineKind::Expr { expr } => {
             visit_private_expr_references(expr, current_module, function_by_path, bindings, visitor)
         }
+        BodyLineKind::Defer { body, .. } => {
+            let mut nested_bindings = bindings.clone();
+            for line in body {
+                visit_private_line_references(
+                    line,
+                    current_module,
+                    function_by_path,
+                    &mut nested_bindings,
+                    visitor,
+                )?;
+            }
+            ControlFlow::Continue(())
+        }
     }
 }
 
@@ -122,6 +135,19 @@ fn visit_private_expr_references(
                     current_module,
                     function_by_path,
                     &arm_bindings,
+                    visitor,
+                )?;
+            }
+            ControlFlow::Continue(())
+        }
+        ExprKind::Begin { body, .. } => {
+            let mut nested_bindings = bindings.to_vec();
+            for line in body {
+                visit_private_line_references(
+                    line,
+                    current_module,
+                    function_by_path,
+                    &mut nested_bindings,
                     visitor,
                 )?;
             }

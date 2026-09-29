@@ -24,10 +24,19 @@ fn collect_function_node_ids(function: &Function, ids: &mut Vec<u32>) {
             .map(|contract| contract.node_id.as_u32()),
     );
     for line in &function.body {
-        ids.push(line.node_id.as_u32());
-        match &line.kind {
-            BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
-                collect_expr_node_ids(expr, ids);
+        collect_body_line_node_ids(line, ids);
+    }
+}
+
+fn collect_body_line_node_ids(line: &crate::BodyLine, ids: &mut Vec<u32>) {
+    ids.push(line.node_id.as_u32());
+    match &line.kind {
+        BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
+            collect_expr_node_ids(expr, ids);
+        }
+        BodyLineKind::Defer { body, .. } => {
+            for line in body {
+                collect_body_line_node_ids(line, ids);
             }
         }
     }
@@ -79,6 +88,11 @@ fn collect_expr_child_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
             else_if_branches,
             else_branch,
         } => collect_if_node_ids(condition, then_branch, else_if_branches, else_branch, ids),
+        ExprKind::Begin { body, .. } => {
+            for line in body {
+                collect_body_line_node_ids(line, ids);
+            }
+        }
         ExprKind::Prefix { expr, .. } => collect_expr_node_ids(expr, ids),
         ExprKind::Binary { left, right, .. } => {
             collect_expr_node_ids(left, ids);

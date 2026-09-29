@@ -189,7 +189,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
-        if self.at(TokenKind::Match) || self.at(TokenKind::If) {
+        if self.at(TokenKind::Match) || self.at(TokenKind::If) || self.at(TokenKind::Begin) {
             self.parse_block_expr_for_body_line(context)
         } else {
             self.parse_expr_until_newline(context)
@@ -258,6 +258,8 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if token.kind == TokenKind::Match
+                || token.kind == TokenKind::Begin
+                || token.kind == TokenKind::Defer
                 || (token.kind == TokenKind::If && previous_kind != Some(TokenKind::Else))
             {
                 block_depth += 1;
@@ -301,7 +303,7 @@ impl<'a> Parser<'a> {
                 TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                     depth = depth.saturating_sub(1);
                 }
-                TokenKind::Match => block_depth += 1,
+                TokenKind::Match | TokenKind::Begin | TokenKind::Defer => block_depth += 1,
                 TokenKind::If if previous_kind != Some(TokenKind::Else) => block_depth += 1,
                 TokenKind::End if block_depth > 0 => {
                     block_depth = block_depth.saturating_sub(1);

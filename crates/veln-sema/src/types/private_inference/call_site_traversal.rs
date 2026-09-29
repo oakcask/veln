@@ -42,7 +42,25 @@ pub(crate) fn collect_private_call_site_constraints(
         |return_type| Some(parse_type_or_unknown(Some(return_type))),
     );
 
-    for (index, line) in function.body.iter().enumerate() {
+    collect_private_call_site_body_constraints(
+        &function.body,
+        declared_return.as_ref(),
+        current_module,
+        caller_key.as_ref(),
+        &mut bindings,
+        context,
+    );
+}
+
+fn collect_private_call_site_body_constraints(
+    body: &[BodyLine],
+    tail_expected: Option<&Type>,
+    current_module: Option<&str>,
+    caller_key: Option<&FunctionKey>,
+    bindings: &mut Vec<Binding>,
+    context: &mut PrivateCallSiteConstraintContext<'_>,
+) {
+    for (index, line) in body.iter().enumerate() {
         match &line.kind {
             BodyLineKind::Let {
                 pattern,
@@ -58,8 +76,8 @@ pub(crate) fn collect_private_call_site_constraints(
                     annotation_type.as_ref(),
                     &mut PrivateCallSiteExprContext {
                         current_module,
-                        caller_key: caller_key.as_ref(),
-                        bindings: &bindings,
+                        caller_key,
+                        bindings,
                         constraints: context,
                     },
                 );
@@ -79,31 +97,35 @@ pub(crate) fn collect_private_call_site_constraints(
                         None,
                         current_module,
                         context.uses,
-                        &bindings,
+                        bindings,
                         context.returns_by_path,
                         context.adts,
                     )
                 });
-                collect_let_pattern_bindings(
-                    pattern,
-                    &ty,
-                    initializer_private_function,
-                    &mut bindings,
-                );
+                collect_let_pattern_bindings(pattern, &ty, initializer_private_function, bindings);
             }
             BodyLineKind::Expr { expr } => {
-                let expected = (index + 1 == function.body.len())
-                    .then_some(declared_return.as_ref())
-                    .flatten();
+                let expected = (index + 1 == body.len()).then_some(tail_expected).flatten();
                 collect_private_call_site_expr_constraints(
                     expr,
                     expected,
                     &mut PrivateCallSiteExprContext {
                         current_module,
-                        caller_key: caller_key.as_ref(),
-                        bindings: &bindings,
+                        caller_key,
+                        bindings,
                         constraints: context,
                     },
+                );
+            }
+            BodyLineKind::Defer { body, .. } => {
+                let mut nested_bindings = bindings.clone();
+                collect_private_call_site_body_constraints(
+                    body,
+                    Some(&Type::unit()),
+                    current_module,
+                    caller_key,
+                    &mut nested_bindings,
+                    context,
                 );
             }
         }
@@ -133,6 +155,17 @@ pub(crate) fn collect_private_call_site_expr_constraints(
         }
         ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
             collect_private_call_site_control_flow_constraints(expr, expected, context);
+        }
+        ExprKind::Begin { body, .. } => {
+            let mut nested_bindings = context.bindings.to_vec();
+            collect_private_call_site_body_constraints(
+                body,
+                expected,
+                context.current_module,
+                context.caller_key,
+                &mut nested_bindings,
+                context.constraints,
+            );
         }
         ExprKind::NamePath { segments, .. } => {
             collect_private_parameter_constraints(segments, expected, context);

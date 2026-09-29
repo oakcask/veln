@@ -51,7 +51,20 @@ impl<'a> FunctionChecker<'a> {
                 field,
                 field_span,
             } => self.infer_field_access(expr, base, field, field_span),
-            ExprKind::Try(inner) => self.infer_try(expr, inner, expected),
+            ExprKind::Try(inner) => {
+                if let Some(block_span) = self.defer_blocks.last().cloned() {
+                    self.push_defer_restriction_diagnostic(
+                        "defer.propagation",
+                        "deferred block cannot use `?`".to_string(),
+                        expr.node_id.display("expr"),
+                        expr.span.clone(),
+                        "result_propagation",
+                        "Handle the `Result` inside the deferred block instead of propagating it with `?`.",
+                        &block_span,
+                    );
+                }
+                self.infer_try(expr, inner, expected)
+            }
             ExprKind::Record(fields) => self.infer_record(expr, fields, expected),
             ExprKind::Dict(entries) => self.infer_dict(expr, entries, expected),
             ExprKind::List(items) => self.infer_list(expr, items, expected),
@@ -71,6 +84,7 @@ impl<'a> FunctionChecker<'a> {
                 else_branch,
                 expected,
             ),
+            ExprKind::Begin { body, .. } => self.infer_begin_body(body, expected),
             ExprKind::Prefix { op, expr } => self.infer_prefix(*op, expr, expected),
             ExprKind::Binary { op, left, right } => self.infer_binary(*op, left, right, expected),
         }

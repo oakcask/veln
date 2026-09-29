@@ -58,7 +58,22 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             function.module_name.as_deref(),
             spans,
         );
-        for line in &function.body {
+        self.collect_body(
+            &function.body,
+            function.module_name.as_deref(),
+            &mut local_bindings,
+            spans,
+        );
+    }
+
+    fn collect_body(
+        &mut self,
+        body: &[veln_ast::BodyLine],
+        current_module: Option<&str>,
+        local_bindings: &mut Vec<String>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) {
+        for line in body {
             match &line.kind {
                 veln_ast::BodyLineKind::Let {
                     pattern,
@@ -66,27 +81,17 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                     expr,
                     ..
                 } => {
-                    self.collect_pattern(pattern, function.module_name.as_deref(), spans);
-                    self.collect_type_annotation(
-                        annotation.as_deref(),
-                        function.module_name.as_deref(),
-                        spans,
-                    );
-                    self.collect_expr(
-                        expr,
-                        function.module_name.as_deref(),
-                        &local_bindings,
-                        spans,
-                    );
-                    collect_pattern_binding_names(pattern, &mut local_bindings);
+                    self.collect_pattern(pattern, current_module, spans);
+                    self.collect_type_annotation(annotation.as_deref(), current_module, spans);
+                    self.collect_expr(expr, current_module, local_bindings, spans);
+                    collect_pattern_binding_names(pattern, local_bindings);
                 }
                 veln_ast::BodyLineKind::Expr { expr } => {
-                    self.collect_expr(
-                        expr,
-                        function.module_name.as_deref(),
-                        &local_bindings,
-                        spans,
-                    );
+                    self.collect_expr(expr, current_module, local_bindings, spans);
+                }
+                veln_ast::BodyLineKind::Defer { body, .. } => {
+                    let mut defer_bindings = local_bindings.clone();
+                    self.collect_body(body, current_module, &mut defer_bindings, spans);
                 }
             }
         }
@@ -190,6 +195,10 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                     local_bindings,
                     spans,
                 );
+            }
+            ExprKind::Begin { body, .. } => {
+                let mut begin_bindings = local_bindings.to_vec();
+                self.collect_body(body, current_module, &mut begin_bindings, spans);
             }
             ExprKind::Binary { left, right, .. } => {
                 self.collect_expr(left, current_module, local_bindings, spans);

@@ -137,6 +137,10 @@ impl AstBuilder {
                 else_if_branches: self.lower_if_branches(else_if_branches),
                 else_branch: Box::new(self.lower_expr(else_branch)),
             }),
+            SyntaxExprKind::Begin { body, block_span } => Some(ExprKind::Begin {
+                body: body.iter().map(|line| self.lower_body_line(line)).collect(),
+                block_span: block_span.clone(),
+            }),
             _ => None,
         }
     }

@@ -10,7 +10,119 @@ impl<'a> FunctionChecker<'a> {
                 ..
             } => self.check_let_line(line, pattern, annotation.as_deref(), expr),
             BodyLineKind::Expr { expr } => self.check_expr_line(index, line, expr),
+            BodyLineKind::Defer { body, block_span } => {
+                self.check_defer_line(line, body, block_span)
+            }
         }
+    }
+
+    fn check_defer_line(&mut self, line: &BodyLine, body: &[BodyLine], block_span: &SourceSpan) {
+        if !self.defer_blocks.is_empty() {
+            self.push_defer_restriction_diagnostic(
+                "defer.nested",
+                "deferred block cannot register another deferred block".to_string(),
+                line.node_id.display("defer"),
+                line.span.clone(),
+                "nested_defer",
+                "Move the nested `defer` to a cleanup-region body.",
+                block_span,
+            );
+        }
+
+        self.defer_blocks.push(block_span.clone());
+        let actual = self.infer_scoped_body(body, None);
+        self.defer_blocks.pop();
+
+        if actual != Type::Unknown && !is_assignable(&Type::unit(), &actual) {
+            self.push_defer_restriction_diagnostic(
+                "defer.non_unit",
+                format!(
+                    "deferred block must have type `()`, but found `{}`",
+                    actual.render()
+                ),
+                line.node_id.display("defer"),
+                block_span.clone(),
+                "non_unit_result",
+                "End the deferred block with `()` so cleanup cannot replace the region value.",
+                block_span,
+            );
+        }
+    }
+
+    pub(super) fn infer_begin_body(
+        &mut self,
+        body: &[BodyLine],
+        expected: Option<&ExpectedType>,
+    ) -> Type {
+        self.infer_scoped_body(body, expected)
+    }
+
+    fn infer_scoped_body(&mut self, body: &[BodyLine], expected: Option<&ExpectedType>) -> Type {
+        let saved_bindings = self.bindings.len();
+        let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
+        let saved_names = self.local_names.clone();
+        let saved_omitted_bindings = self.omitted_local_bindings.len();
+
+        let mut result = Type::unit();
+        for (index, line) in body.iter().enumerate() {
+            match &line.kind {
+                BodyLineKind::Let {
+                    pattern,
+                    annotation,
+                    expr,
+                    ..
+                } => self.check_let_line(line, pattern, annotation.as_deref(), expr),
+                BodyLineKind::Expr { expr } => {
+                    let tail_expected = (index + 1 == body.len()).then_some(expected).flatten();
+                    let actual = self.infer_expr(expr, tail_expected);
+                    if index + 1 == body.len() {
+                        result = actual;
+                    }
+                }
+                BodyLineKind::Defer { body, block_span } => {
+                    self.check_defer_line(line, body, block_span);
+                }
+            }
+        }
+
+        self.check_omitted_local_inference_from(saved_omitted_bindings);
+        self.omitted_local_bindings.truncate(saved_omitted_bindings);
+        self.bindings.truncate(saved_bindings);
+        self.invalid_binding_recoveries
+            .truncate(saved_invalid_binding_recoveries);
+        self.local_names = saved_names;
+        result
+    }
+
+    pub(super) fn push_defer_restriction_diagnostic(
+        &mut self,
+        id: &'static str,
+        message: String,
+        node_id: String,
+        span: SourceSpan,
+        reason: &'static str,
+        repair: &'static str,
+        repair_span: &SourceSpan,
+    ) {
+        let mut diagnostic = Diagnostic::new(
+            id,
+            Severity::Error,
+            DiagnosticKind::Type,
+            message,
+            Some(span),
+            JsonValue::object([
+                ("phase", JsonValue::string("type_check")),
+                ("node_id", JsonValue::string(node_id)),
+                ("boundary", JsonValue::string("deferred_block")),
+                ("reason", JsonValue::string(reason)),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            ("message", JsonValue::string(repair)),
+            ("span", span_json(repair_span)),
+        ]));
+        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn check_let_line(
@@ -277,7 +389,11 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn check_omitted_local_inference_complete(&mut self) {
-        for omitted in &self.omitted_local_bindings {
+        self.check_omitted_local_inference_from(0);
+    }
+
+    fn check_omitted_local_inference_from(&mut self, start: usize) {
+        for omitted in &self.omitted_local_bindings[start..] {
             let inferred = self
                 .bindings
                 .iter()

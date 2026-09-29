@@ -1,6 +1,174 @@
 use super::*;
 
 impl<'a> ExprParser<'a> {
+    pub(super) fn parse_begin(&mut self) -> Expr {
+        let start = self.bump().range;
+        let header_end = self.expect_begin_newline("begin expression must continue on a new line");
+        let mut body = Vec::new();
+        self.eat_newlines();
+        while !self.at(TokenKind::End) && !self.is_at_end() {
+            body.push(self.parse_cleanup_body_line());
+            self.eat_newlines();
+        }
+        let close = self.eat(TokenKind::End);
+        if close.is_none() {
+            self.error_current(
+                "parse.begin_missing_end",
+                "begin expression is missing `end`",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+        }
+        let end = close.as_ref().map_or_else(
+            || body.last().map_or(header_end, body_line_range),
+            |token| token.range,
+        );
+        let block_end = close.as_ref().map_or(end.end, |token| token.range.start);
+        Expr {
+            kind: ExprKind::Begin {
+                body,
+                block_span: self.source.span(TextRange::new(
+                    header_end.end,
+                    block_end.max(header_end.end),
+                )),
+            },
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_cleanup_body_line(&mut self) -> BodyLine {
+        let start = self.current().range;
+        if self.at(TokenKind::Defer) {
+            return self.parse_nested_defer();
+        }
+        if self.at(TokenKind::Let) {
+            self.bump();
+            let pattern = self.parse_pattern();
+            let (annotation, annotation_paths) = if self.eat(TokenKind::Colon).is_some() {
+                let mut tokens = Vec::new();
+                let mut parts = Vec::new();
+                let mut depth = 0usize;
+                while !self.is_at_end() {
+                    if depth == 0 && (self.at(TokenKind::Equal) || self.at(TokenKind::Newline)) {
+                        break;
+                    }
+                    let token = self.bump();
+                    match token.kind {
+                        TokenKind::LParen
+                        | TokenKind::LBracket
+                        | TokenKind::LBrace
+                        | TokenKind::Less => depth += 1,
+                        TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                            depth = depth.saturating_sub(1)
+                        }
+                        kind if closing_angle_count(kind) > 0 => {
+                            depth = depth.saturating_sub(closing_angle_count(kind))
+                        }
+                        _ => {}
+                    }
+                    parts.push(token.text.clone());
+                    tokens.push(token);
+                }
+                (
+                    Some(normalize_type_text(parts)),
+                    cleanup_type_paths(self.source, &tokens),
+                )
+            } else {
+                (None, Vec::new())
+            };
+            self.expect_expr_token(
+                TokenKind::Equal,
+                "parse.let_statement",
+                "let statement is missing `=`",
+                vec!["="],
+            );
+            let expr = self.parse_expr(0);
+            let end = self.finish_cleanup_body_line(&expr);
+            return BodyLine::Let {
+                pattern,
+                annotation,
+                annotation_paths,
+                expr,
+                span: self.source.span(start.cover(end)),
+            };
+        }
+
+        let expr = self.parse_expr(0);
+        let end = self.finish_cleanup_body_line(&expr);
+        BodyLine::Expr {
+            expr,
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_nested_defer(&mut self) -> BodyLine {
+        let start = self.bump().range;
+        let header_end = self.expect_begin_newline("defer statement must continue on a new line");
+        let mut body = Vec::new();
+        self.eat_newlines();
+        while !self.at(TokenKind::End) && !self.is_at_end() {
+            body.push(self.parse_cleanup_body_line());
+            self.eat_newlines();
+        }
+        let close = self.eat(TokenKind::End);
+        if close.is_none() {
+            self.error_current(
+                "parse.defer_missing_end",
+                "defer statement is missing `end`",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+        }
+        let end = close.as_ref().map_or_else(
+            || body.last().map_or(header_end, body_line_range),
+            |token| token.range,
+        );
+        let block_end = close.as_ref().map_or(end.end, |token| token.range.start);
+        if self.at(TokenKind::Newline) {
+            self.bump();
+        }
+        BodyLine::Defer {
+            body,
+            block_span: self.source.span(TextRange::new(
+                header_end.end,
+                block_end.max(header_end.end),
+            )),
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn expect_begin_newline(&mut self, message: &'static str) -> TextRange {
+        if let Some(token) = self.eat(TokenKind::Newline) {
+            token.range
+        } else {
+            self.error_current(
+                "parse.expected_newline",
+                message,
+                vec!["newline"],
+                RecoveryStrategy::InsertToken,
+                Some("newline"),
+            );
+            self.previous()
+                .map_or(self.current().range, |token| token.range)
+        }
+    }
+
+    fn finish_cleanup_body_line(&mut self, expr: &Expr) -> TextRange {
+        if !self.at(TokenKind::Newline) && !self.at(TokenKind::End) && !self.is_at_end() {
+            self.report_trailing_tokens(
+                "parse.expected_newline",
+                "expected a newline before this token",
+            );
+            while !self.at(TokenKind::Newline) && !self.at(TokenKind::End) && !self.is_at_end() {
+                self.bump();
+            }
+        }
+        self.eat(TokenKind::Newline)
+            .map_or_else(|| lhs_range(expr), |token| token.range)
+    }
+
     pub(super) fn parse_match(&mut self) -> Expr {
         let start = self.bump().range;
         let scrutinee = self.parse_expr(0);
@@ -488,4 +656,47 @@ impl<'a> ExprParser<'a> {
         }
         segments
     }
+}
+
+fn body_line_range(line: &BodyLine) -> TextRange {
+    match line {
+        BodyLine::Let { span, .. } | BodyLine::Expr { span, .. } | BodyLine::Defer { span, .. } => {
+            TextRange::new(span.start.offset, span.end.offset)
+        }
+    }
+}
+
+fn cleanup_type_paths(source: &SourceFile, tokens: &[Token]) -> Vec<TypePathSegments> {
+    let mut paths = Vec::new();
+    let mut cursor = 0usize;
+    while cursor < tokens.len() {
+        if !matches!(tokens[cursor].kind, TokenKind::Ident | TokenKind::Hole)
+            || tokens.get(cursor + 1).map(|token| token.kind) != Some(TokenKind::DoubleColon)
+        {
+            cursor += 1;
+            continue;
+        }
+        let mut segments = vec![tokens[cursor].text.clone()];
+        let mut segment_spans = vec![source.span(tokens[cursor].range)];
+        cursor += 2;
+        while let Some(token) = tokens.get(cursor) {
+            if !matches!(token.kind, TokenKind::Ident | TokenKind::Hole) {
+                break;
+            }
+            segments.push(token.text.clone());
+            segment_spans.push(source.span(token.range));
+            cursor += 1;
+            if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::DoubleColon) {
+                break;
+            }
+            cursor += 1;
+        }
+        if segments.len() > 1 {
+            paths.push(TypePathSegments {
+                segments,
+                segment_spans,
+            });
+        }
+    }
+    paths
 }

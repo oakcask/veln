@@ -60,6 +60,11 @@ pub(crate) fn tail_expr_can_use_expected(
             .chain(else_if_branches.iter().map(|branch| &branch.expr))
             .chain(std::iter::once(else_branch.as_ref()))
             .all(|branch| tail_expr_can_use_expected(branch, expected, current_module, uses, adts)),
+        ExprKind::Begin { body, .. } => matches!(
+            body.last().map(|line| &line.kind),
+            Some(BodyLineKind::Expr { expr })
+                if tail_expr_can_use_expected(expr, expected, current_module, uses, adts)
+        ),
         _ => false,
     }
 }
@@ -75,8 +80,28 @@ pub(crate) fn infer_private_function_tail_type(
     private_inference_counters::record_body_return_scan();
 
     let mut bindings = private_function_body_bindings(function, signatures_by_path);
+    infer_private_body_type(
+        &function.body,
+        None,
+        function.module_name.as_deref(),
+        uses,
+        &mut bindings,
+        returns_by_path,
+        adts,
+    )
+}
+
+fn infer_private_body_type(
+    body: &[BodyLine],
+    expected: Option<&Type>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &mut Vec<Binding>,
+    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    adts: &AdtRegistry,
+) -> Type {
     let mut tail = Type::unit();
-    for line in &function.body {
+    for (index, line) in body.iter().enumerate() {
         match &line.kind {
             BodyLineKind::Let {
                 pattern,
@@ -91,25 +116,39 @@ pub(crate) fn infer_private_function_tail_type(
                     infer_private_signature_expr_type(
                         expr,
                         None,
-                        function.module_name.as_deref(),
+                        current_module,
                         uses,
-                        &bindings,
+                        bindings,
                         returns_by_path,
                         adts,
                     )
                 });
-                collect_pattern_bindings(pattern, &ty, &mut bindings);
+                collect_pattern_bindings(pattern, &ty, bindings);
+                tail = Type::unit();
             }
             BodyLineKind::Expr { expr } => {
                 tail = infer_private_signature_expr_type(
                     expr,
-                    None,
-                    function.module_name.as_deref(),
+                    (index + 1 == body.len()).then_some(expected).flatten(),
+                    current_module,
                     uses,
-                    &bindings,
+                    bindings,
                     returns_by_path,
                     adts,
                 );
+            }
+            BodyLineKind::Defer { body, .. } => {
+                let mut nested_bindings = bindings.clone();
+                infer_private_body_type(
+                    body,
+                    Some(&Type::unit()),
+                    current_module,
+                    uses,
+                    &mut nested_bindings,
+                    returns_by_path,
+                    adts,
+                );
+                tail = Type::unit();
             }
         }
     }
@@ -228,6 +267,18 @@ pub(crate) fn infer_private_signature_expr_type(
             expected,
             &context,
         ),
+        ExprKind::Begin { body, .. } => {
+            let mut nested_bindings = bindings.to_vec();
+            infer_private_body_type(
+                body,
+                expected,
+                current_module,
+                uses,
+                &mut nested_bindings,
+                returns_by_path,
+                adts,
+            )
+        }
         ExprKind::Prefix { expr, .. } => {
             context.infer(expr, expected);
             Type::Unknown

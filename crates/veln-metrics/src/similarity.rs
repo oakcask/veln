@@ -125,7 +125,9 @@ pub(super) fn function_body_range(function: &FunctionDecl) -> Option<TextRange> 
 
 pub(super) fn body_line_range(line: &BodyLine) -> TextRange {
     let span = match line {
-        BodyLine::Let { span, .. } | BodyLine::Expr { span, .. } => span,
+        BodyLine::Let { span, .. } | BodyLine::Expr { span, .. } | BodyLine::Defer { span, .. } => {
+            span
+        }
     };
     TextRange::new(span.start.offset, span.end.offset)
 }

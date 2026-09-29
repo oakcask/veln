@@ -160,6 +160,50 @@ fn rename_edit_set_matches_shared_language_service_locations() {
 }
 
 #[test]
+fn rename_begin_local_edits_declaration_and_deferred_cleanup_references() {
+    let workspace = TempWorkspace::new("rename-cleanup-region-local");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn cleanup(value: Int) -> ()\n",
+            "  ()\n",
+            "end\n\n",
+            "fn read(input: Int) -> Int\n",
+            "  begin\n",
+            "    let captured = input\n",
+            "    defer\n",
+            "      cleanup(captured)\n",
+            "    end\n",
+            "    captured\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let result = rename_result(&workspace, "main.veln", 9, 15, "saved");
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(edits(&result).len(), 3, "{result:#}");
+    let ranges = edits(&result)
+        .iter()
+        .map(|edit| {
+            let range = &edit["range"];
+            (
+                range["start"]["line"].as_u64().unwrap(),
+                range["start"]["column"].as_u64().unwrap(),
+                range["end"]["line"].as_u64().unwrap(),
+                range["end"]["column"].as_u64().unwrap(),
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        ranges,
+        BTreeSet::from([(7, 9, 7, 17), (9, 15, 9, 23), (11, 5, 11, 13),])
+    );
+}
+
+#[test]
 fn rename_type_alias_constructor_qualifiers_share_validated_identity() {
     let workspace = TempWorkspace::new("rename-type-alias-constructor-qualifier");
     workspace.write("veln.toml", "");

@@ -68,6 +68,21 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
         ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
             collect_private_prelude_callback_control_flow_constraints(expr, expected, context);
         }
+        ExprKind::Begin { body, .. } => {
+            let mut nested_bindings = context.bindings.to_vec();
+            collect_private_prelude_callback_body_constraints(
+                body,
+                expected,
+                context.current_module,
+                context.uses,
+                context.function_by_path,
+                context.omitted_private_returns,
+                context.returns_by_path,
+                context.adts,
+                context.changed,
+                &mut nested_bindings,
+            );
+        }
         ExprKind::NamePath { segments, .. } => {
             if let Some(expected) = expected {
                 collect_private_callback_return_constraint_for_segments(

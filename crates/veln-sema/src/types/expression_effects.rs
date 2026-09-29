@@ -72,6 +72,7 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
                 ..
             } => self.collect_handle(body, handler, args),
             ExprKind::NamePath { segments, .. } => self.collect_name_path(segments),
+            ExprKind::Begin { .. } => {}
             _ => expr.for_each_child(&mut |child| self.collect(child)),
         }
     }
@@ -157,6 +158,7 @@ impl ExprEffectCollector<'_, '_, '_> {
                 args,
                 ..
             } => self.collect_handle(body, handler, args),
+            ExprKind::Begin { .. } => {}
             _ => expr.for_each_child(&mut |child| self.collect(child)),
         }
     }

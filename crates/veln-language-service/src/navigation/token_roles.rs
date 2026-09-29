@@ -372,6 +372,8 @@ fn inside_schema_declaration(tokens: &[Token], index: usize) -> bool {
                 | TokenKind::Handler
                 | TokenKind::If
                 | TokenKind::Match
+                | TokenKind::Begin
+                | TokenKind::Defer
         ) {
             continue;
         }
@@ -663,7 +665,9 @@ fn enclosing_top_level_block_index(
             | TokenKind::If
             | TokenKind::Match
             | TokenKind::Handler
-            | TokenKind::Codec => nested_blocks = nested_blocks.saturating_sub(1),
+            | TokenKind::Codec
+            | TokenKind::Begin
+            | TokenKind::Defer => nested_blocks = nested_blocks.saturating_sub(1),
             _ => {}
         }
     }

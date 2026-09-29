@@ -30,6 +30,11 @@ impl Writer {
             | ExprKind::List(_)
             | ExprKind::Match { .. }
             | ExprKind::If { .. } => self.aggregate_expr_kind(value),
+            ExprKind::Begin { body, block_span } => {
+                self.u8(23);
+                self.vec(body, Self::body_line);
+                self.span(block_span);
+            }
             ExprKind::Prefix { .. } | ExprKind::Binary { .. } => self.operator_expr_kind(value),
         }
     }

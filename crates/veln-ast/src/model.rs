@@ -388,6 +388,10 @@ pub enum BodyLineKind {
     Expr {
         expr: Expr,
     },
+    Defer {
+        body: Vec<BodyLine>,
+        block_span: SourceSpan,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -484,6 +488,10 @@ pub enum ExprKind {
         then_branch: Box<Expr>,
         else_if_branches: Vec<IfBranch>,
         else_branch: Box<Expr>,
+    },
+    Begin {
+        body: Vec<BodyLine>,
+        block_span: SourceSpan,
     },
     Prefix {
         op: PrefixOp,

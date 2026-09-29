@@ -21,6 +21,7 @@ impl<'a> ExprParser<'a> {
             TokenKind::LBracket => self.parse_list(),
             TokenKind::Match => self.parse_match(),
             TokenKind::If => self.parse_if(),
+            TokenKind::Begin => self.parse_begin(),
             _ => self.parse_missing_primary(token),
         }
     }

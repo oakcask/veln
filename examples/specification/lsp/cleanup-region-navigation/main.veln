@@ -1,0 +1,15 @@
+fn cleanup(value: Int) -> ()
+	()
+end
+
+fn choose(input: Int) -> Int
+	let outer = input
+	let result = begin
+		let captured = outer
+		defer
+			cleanup(captured)
+		end
+		captured
+	end
+	result
+end

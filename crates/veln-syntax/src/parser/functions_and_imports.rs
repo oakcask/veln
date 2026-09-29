@@ -417,7 +417,9 @@ impl<'a> Parser<'a> {
 
     pub(super) fn parse_body_line(&mut self) -> BodyLine {
         let start = self.current().range;
-        if self.at(TokenKind::Let) {
+        if self.at(TokenKind::Defer) {
+            self.parse_defer_body_line()
+        } else if self.at(TokenKind::Let) {
             self.bump();
             let pattern = self.parse_let_pattern();
             let (annotation, annotation_paths) = if self.eat(TokenKind::Colon).is_some() {
@@ -444,6 +446,40 @@ impl<'a> Parser<'a> {
                 expr,
                 span: self.source.span(start.cover(end)),
             }
+        }
+    }
+
+    fn parse_defer_body_line(&mut self) -> BodyLine {
+        let start = self.bump().range;
+        let header_end = self.expect_newline("defer_statement").range;
+        let (body, end_present) = self.parse_declaration_body(|parser| parser.parse_body_line());
+        let end = self.previous().map_or(header_end, |token| token.range);
+        let block_end = if end_present {
+            self.tokens
+                .get(self.cursor.saturating_sub(1))
+                .filter(|token| token.kind == TokenKind::Newline)
+                .and_then(|_| self.tokens.get(self.cursor.saturating_sub(2)))
+                .map_or(end.start, |token| token.range.start)
+        } else {
+            end.end
+        };
+        if !end_present {
+            self.error_current(
+                "parse.defer_missing_end",
+                "defer statement is missing `end`",
+                "defer_statement",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+        }
+        BodyLine::Defer {
+            body,
+            block_span: self.source.span(TextRange::new(
+                header_end.end,
+                block_end.max(header_end.end),
+            )),
+            span: self.source.span(start.cover(end)),
         }
     }
 }

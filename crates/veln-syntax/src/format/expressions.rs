@@ -109,8 +109,47 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
             else_branch,
             indent,
         ),
+        ExprKind::Begin { body, .. } => format_cleanup_region("begin", body, indent),
         ExprKind::Prefix { op, expr: inner } => format_prefix_expr(*op, inner, prec, indent),
         ExprKind::Binary { op, left, right } => format_binary_expr(*op, left, right, prec, indent),
+    }
+}
+
+pub(super) fn format_defer_statement(body: &[BodyLine], indent: usize) -> String {
+    format_cleanup_region("defer", body, indent)
+}
+
+fn format_cleanup_region(keyword: &str, body: &[BodyLine], indent: usize) -> String {
+    let mut text = format!("{keyword}\n");
+    for line in body {
+        push_indent(&mut text, indent + 1);
+        text.push_str(&format_cleanup_body_line(line, indent + 1));
+        text.push('\n');
+    }
+    push_indent(&mut text, indent);
+    text.push_str("end");
+    text
+}
+
+fn format_cleanup_body_line(line: &BodyLine, indent: usize) -> String {
+    match line {
+        BodyLine::Let {
+            pattern,
+            annotation,
+            expr,
+            ..
+        } => {
+            let mut text = format!("let {}", format_pattern(pattern));
+            if let Some(annotation) = annotation {
+                text.push_str(": ");
+                text.push_str(&canonical_type_text(annotation));
+            }
+            text.push_str(" = ");
+            text.push_str(&format_expr_at_indent(expr, indent));
+            text
+        }
+        BodyLine::Expr { expr, .. } => format_expr_at_indent(expr, indent),
+        BodyLine::Defer { body, .. } => format_defer_statement(body, indent),
     }
 }
 
@@ -497,7 +536,7 @@ fn expr_prec(expr: &Expr) -> u8 {
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
         | ExprKind::Try(_) => 27,
-        ExprKind::Match { .. } | ExprKind::If { .. } => 29,
+        ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Begin { .. } => 29,
         _ => 29,
     }
 }

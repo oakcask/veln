@@ -546,7 +546,23 @@ fn visit_function_body_expressions(
     mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>),
 ) {
     let mut bindings = function_parameter_bindings(function);
-    for line in &function.body {
+    visit_effect_body_expressions(
+        &function.body,
+        function.module_name.as_deref(),
+        context,
+        &mut bindings,
+        &mut visit,
+    );
+}
+
+fn visit_effect_body_expressions(
+    body: &[veln_ast::BodyLine],
+    current_module: Option<&str>,
+    context: &FunctionEffectContext<'_>,
+    bindings: &mut Vec<Binding>,
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>),
+) {
+    for line in body {
         match &line.kind {
             BodyLineKind::Let {
                 pattern,
@@ -554,19 +570,46 @@ fn visit_function_body_expressions(
                 expr,
                 ..
             } => {
-                let expr_context =
-                    context.expression_context(function.module_name.as_deref(), &bindings);
+                let expr_context = context.expression_context(current_module, bindings);
                 visit(expr, &expr_context);
+                visit_nested_effect_regions(expr, current_module, context, bindings, visit);
                 let ty = parse_type_or_unknown(annotation.as_deref());
-                collect_pattern_bindings(pattern, &ty, &mut bindings);
+                collect_pattern_bindings(pattern, &ty, bindings);
             }
             BodyLineKind::Expr { expr } => {
-                let expr_context =
-                    context.expression_context(function.module_name.as_deref(), &bindings);
+                let expr_context = context.expression_context(current_module, bindings);
                 visit(expr, &expr_context);
+                visit_nested_effect_regions(expr, current_module, context, bindings, visit);
+            }
+            BodyLineKind::Defer { body, .. } => {
+                let mut nested_bindings = bindings.clone();
+                visit_effect_body_expressions(
+                    body,
+                    current_module,
+                    context,
+                    &mut nested_bindings,
+                    visit,
+                );
             }
         }
     }
+}
+
+fn visit_nested_effect_regions(
+    expr: &Expr,
+    current_module: Option<&str>,
+    context: &FunctionEffectContext<'_>,
+    bindings: &[Binding],
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>),
+) {
+    if let ExprKind::Begin { body, .. } = &expr.kind {
+        let mut nested_bindings = bindings.to_vec();
+        visit_effect_body_expressions(body, current_module, context, &mut nested_bindings, visit);
+        return;
+    }
+    expr.for_each_child(&mut |child| {
+        visit_nested_effect_regions(child, current_module, context, bindings, visit);
+    });
 }
 
 pub(crate) fn canonical_user_effect_label(

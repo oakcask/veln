@@ -96,6 +96,32 @@ fn definition_resolves_the_supported_workspace_symbol_set() {
             definition_line: 1,
             definition_column: 4,
         },
+        Case {
+            name: "function from deferred cleanup block",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "fn cleanup(value: Int) -> ()\n",
+                        "  ()\n",
+                        "end\n\n",
+                        "fn read(value: Int) -> Int\n",
+                        "  defer\n",
+                        "    cleanup(value)\n",
+                        "  end\n",
+                        "  value\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 7,
+            column: 6,
+            definition_file: "main.veln",
+            definition_line: 1,
+            definition_column: 4,
+        },
     ];
 
     for case in cases {

@@ -133,19 +133,32 @@ pub(super) fn collect_invalid_function_names(
     }
     collect_invalid_type_path_names(&function.return_type_paths, invalid, enclosing.clone());
     for line in &function.body {
-        match line {
-            SyntaxBodyLine::Let {
-                pattern,
-                annotation_paths,
-                expr,
-                ..
-            } => {
-                collect_invalid_pattern_names(pattern, invalid, enclosing.clone());
-                collect_invalid_type_path_names(annotation_paths, invalid, enclosing.clone());
-                collect_invalid_expr_names(expr, invalid, enclosing.clone());
-            }
-            SyntaxBodyLine::Expr { expr, .. } => {
-                collect_invalid_expr_names(expr, invalid, enclosing.clone());
+        collect_invalid_body_line_names(line, invalid, enclosing.clone());
+    }
+}
+
+fn collect_invalid_body_line_names(
+    line: &SyntaxBodyLine,
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    match line {
+        SyntaxBodyLine::Let {
+            pattern,
+            annotation_paths,
+            expr,
+            ..
+        } => {
+            collect_invalid_pattern_names(pattern, invalid, enclosing.clone());
+            collect_invalid_type_path_names(annotation_paths, invalid, enclosing.clone());
+            collect_invalid_expr_names(expr, invalid, enclosing.clone());
+        }
+        SyntaxBodyLine::Expr { expr, .. } => {
+            collect_invalid_expr_names(expr, invalid, enclosing.clone());
+        }
+        SyntaxBodyLine::Defer { body, .. } => {
+            for line in body {
+                collect_invalid_body_line_names(line, invalid, enclosing.clone());
             }
         }
     }
@@ -346,6 +359,11 @@ fn collect_invalid_expr_names(
                 invalid,
                 enclosing,
             );
+        }
+        SyntaxExprKind::Begin { body, .. } => {
+            for line in body {
+                collect_invalid_body_line_names(line, invalid, enclosing.clone());
+            }
         }
         SyntaxExprKind::Binary { left, right, .. } => {
             collect_invalid_expr_names(left, invalid, enclosing.clone());

@@ -469,34 +469,50 @@ impl AstBuilder {
             body: function
                 .body
                 .iter()
-                .map(|line| match line {
-                    SyntaxBodyLine::Let {
-                        pattern,
-                        annotation,
-                        annotation_paths,
-                        expr,
-                        span,
-                        ..
-                    } => BodyLine {
-                        node_id: self.alloc(),
-                        kind: BodyLineKind::Let {
-                            pattern: self.lower_pattern(pattern),
-                            annotation: annotation.clone(),
-                            annotation_paths: self.lower_type_paths(annotation_paths),
-                            expr: self.lower_expr(expr),
-                        },
-                        span: span.clone(),
-                    },
-                    SyntaxBodyLine::Expr { expr, span } => BodyLine {
-                        node_id: self.alloc(),
-                        kind: BodyLineKind::Expr {
-                            expr: self.lower_expr(expr),
-                        },
-                        span: span.clone(),
-                    },
-                })
+                .map(|line| self.lower_body_line(line))
                 .collect(),
             span: function.span.clone(),
+        }
+    }
+
+    fn lower_body_line(&mut self, line: &SyntaxBodyLine) -> BodyLine {
+        let node_id = self.alloc();
+        match line {
+            SyntaxBodyLine::Let {
+                pattern,
+                annotation,
+                annotation_paths,
+                expr,
+                span,
+            } => BodyLine {
+                node_id,
+                kind: BodyLineKind::Let {
+                    pattern: self.lower_pattern(pattern),
+                    annotation: annotation.clone(),
+                    annotation_paths: self.lower_type_paths(annotation_paths),
+                    expr: self.lower_expr(expr),
+                },
+                span: span.clone(),
+            },
+            SyntaxBodyLine::Expr { expr, span } => BodyLine {
+                node_id,
+                kind: BodyLineKind::Expr {
+                    expr: self.lower_expr(expr),
+                },
+                span: span.clone(),
+            },
+            SyntaxBodyLine::Defer {
+                body,
+                block_span,
+                span,
+            } => BodyLine {
+                node_id,
+                kind: BodyLineKind::Defer {
+                    body: body.iter().map(|line| self.lower_body_line(line)).collect(),
+                    block_span: block_span.clone(),
+                },
+                span: span.clone(),
+            },
         }
     }
 

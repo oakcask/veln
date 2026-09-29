@@ -18,6 +18,7 @@ fn first_function(output: &ParseOutput) -> &FunctionDecl {
 
 mod calls_and_generics;
 mod declarations_and_aliases;
+mod deferred_cleanup;
 mod effects_and_handlers;
 mod expressions;
 mod lexer_and_fixtures;

@@ -1,0 +1,5 @@
+fn invalid(value: Int) -> Int
+	defer
+		value
+	value
+end

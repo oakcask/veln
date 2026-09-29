@@ -1,0 +1,31 @@
+command = ["mcp"]
+stdin_file = "requests.jsonl"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":8,"column":7},"end":{"line":8,"column":15}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":10,"column":12},"end":{"line":10,"column":20}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":12,"column":3},"end":{"line":12,"column":11}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/edits"
+length = 3

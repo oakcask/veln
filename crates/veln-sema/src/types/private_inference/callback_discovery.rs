@@ -89,7 +89,34 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
         .return_type
         .as_deref()
         .map(|return_type| parse_type_or_unknown(Some(return_type)));
-    for (index, line) in function.body.iter().enumerate() {
+    collect_private_prelude_callback_body_constraints(
+        &function.body,
+        declared_return.as_ref(),
+        function.module_name.as_deref(),
+        uses,
+        function_by_path,
+        omitted_private_returns,
+        returns_by_path,
+        adts,
+        changed,
+        &mut bindings,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn collect_private_prelude_callback_body_constraints(
+    body: &[BodyLine],
+    tail_expected: Option<&Type>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
+    omitted_private_returns: &BTreeSet<(Option<String>, String)>,
+    returns_by_path: &mut BTreeMap<(Option<String>, String), Type>,
+    adts: &AdtRegistry,
+    changed: &mut bool,
+    bindings: &mut Vec<Binding>,
+) {
+    for (index, line) in body.iter().enumerate() {
         match &line.kind {
             BodyLineKind::Let {
                 pattern,
@@ -104,9 +131,9 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
                     expr,
                     annotation_type.as_ref(),
                     &mut PrivatePreludeCallbackConstraintContext {
-                        current_module: function.module_name.as_deref(),
+                        current_module,
                         uses,
-                        bindings: &bindings,
+                        bindings,
                         function_by_path,
                         omitted_private_returns,
                         returns_by_path,
@@ -119,32 +146,45 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
                     expr,
                     annotation_type,
                     &PrivateCallbackBindingContext {
-                        current_module: function.module_name.as_deref(),
+                        current_module,
                         uses,
                         function_by_path,
                         returns_by_path,
                         adts,
                     },
-                    &mut bindings,
+                    bindings,
                 );
             }
             BodyLineKind::Expr { expr } => {
-                let expected = (index + 1 == function.body.len())
-                    .then_some(declared_return.as_ref())
-                    .flatten();
+                let expected = (index + 1 == body.len()).then_some(tail_expected).flatten();
                 collect_private_prelude_callback_expr_constraints(
                     expr,
                     expected,
                     &mut PrivatePreludeCallbackConstraintContext {
-                        current_module: function.module_name.as_deref(),
+                        current_module,
                         uses,
-                        bindings: &bindings,
+                        bindings,
                         function_by_path,
                         omitted_private_returns,
                         returns_by_path,
                         adts,
                         changed,
                     },
+                );
+            }
+            BodyLineKind::Defer { body, .. } => {
+                let mut nested_bindings = bindings.clone();
+                collect_private_prelude_callback_body_constraints(
+                    body,
+                    Some(&Type::unit()),
+                    current_module,
+                    uses,
+                    function_by_path,
+                    omitted_private_returns,
+                    returns_by_path,
+                    adts,
+                    changed,
+                    &mut nested_bindings,
                 );
             }
         }
@@ -218,7 +258,32 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
         .return_type
         .as_deref()
         .map(|return_type| parse_type_or_unknown(Some(return_type)));
-    for (index, line) in function.body.iter().enumerate() {
+    private_prelude_callback_body_references_slot(
+        &function.body,
+        declared_return.as_ref(),
+        function.module_name.as_deref(),
+        uses,
+        omitted_private_returns,
+        returns_by_path,
+        function_by_path,
+        adts,
+        &mut bindings,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn private_prelude_callback_body_references_slot(
+    body: &[BodyLine],
+    tail_expected: Option<&Type>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    omitted_private_returns: &BTreeSet<FunctionKey>,
+    returns_by_path: &FunctionReturnMap,
+    function_by_path: &FunctionAstMap<'_>,
+    adts: &AdtRegistry,
+    bindings: &mut Vec<Binding>,
+) -> bool {
+    for (index, line) in body.iter().enumerate() {
         match &line.kind {
             BodyLineKind::Let {
                 pattern,
@@ -230,9 +295,9 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
                     .as_deref()
                     .map(|annotation| parse_type_or_unknown(Some(annotation)));
                 let reference_context = PrivatePreludeCallbackReferenceContext {
-                    current_module: function.module_name.as_deref(),
+                    current_module,
                     uses,
-                    bindings: &bindings,
+                    bindings,
                     omitted_private_returns,
                     returns_by_path,
                     function_by_path,
@@ -250,23 +315,21 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
                     expr,
                     annotation_type,
                     &PrivateCallbackBindingContext {
-                        current_module: function.module_name.as_deref(),
+                        current_module,
                         uses,
                         function_by_path,
                         returns_by_path,
                         adts,
                     },
-                    &mut bindings,
+                    bindings,
                 );
             }
             BodyLineKind::Expr { expr } => {
-                let expected = (index + 1 == function.body.len())
-                    .then_some(declared_return.as_ref())
-                    .flatten();
+                let expected = (index + 1 == body.len()).then_some(tail_expected).flatten();
                 let reference_context = PrivatePreludeCallbackReferenceContext {
-                    current_module: function.module_name.as_deref(),
+                    current_module,
                     uses,
-                    bindings: &bindings,
+                    bindings,
                     omitted_private_returns,
                     returns_by_path,
                     function_by_path,
@@ -274,6 +337,22 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
                 };
                 if private_prelude_callback_expr_references_slot(expr, expected, &reference_context)
                 {
+                    return true;
+                }
+            }
+            BodyLineKind::Defer { body, .. } => {
+                let mut nested_bindings = bindings.clone();
+                if private_prelude_callback_body_references_slot(
+                    body,
+                    Some(&Type::unit()),
+                    current_module,
+                    uses,
+                    omitted_private_returns,
+                    returns_by_path,
+                    function_by_path,
+                    adts,
+                    &mut nested_bindings,
+                ) {
                     return true;
                 }
             }
@@ -358,6 +437,20 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
         }
         ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
             private_prelude_callback_control_flow_references_slot(expr, expected, context)
+        }
+        ExprKind::Begin { body, .. } => {
+            let mut bindings = context.bindings.to_vec();
+            private_prelude_callback_body_references_slot(
+                body,
+                expected,
+                context.current_module,
+                context.uses,
+                context.omitted_private_returns,
+                context.returns_by_path,
+                context.function_by_path,
+                context.adts,
+                &mut bindings,
+            )
         }
         ExprKind::NamePath { .. }
         | ExprKind::Missing
