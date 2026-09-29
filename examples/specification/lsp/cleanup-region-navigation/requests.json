@@ -12,6 +12,8 @@
   {"jsonrpc":"2.0","id":11,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":24,"character":19},"newName":"saved"}},
   {"jsonrpc":"2.0","id":12,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":9,"character":13},"newName":"input"}},
   {"jsonrpc":"2.0","id":13,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":34,"character":3},"newName":"second"}},
-  {"jsonrpc":"2.0","id":14,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":14,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":11,"character":6}}},
+  {"jsonrpc":"2.0","id":15,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":9,"character":13}}},
+  {"jsonrpc":"2.0","id":16,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

@@ -238,10 +238,18 @@ impl<'a> Parser<'a> {
         let mut tokens = Vec::new();
         let mut depth = 0usize;
         let mut block_depth = 0usize;
+        let mut outermost_block_kind = None;
         let mut previous_kind = None;
         let mut at_line_start = false;
         while !self.at(TokenKind::Eof) {
             if depth == 0 && block_depth == 0 && self.at(TokenKind::Newline) {
+                break;
+            }
+            if self.at(TokenKind::End)
+                && block_depth == 1
+                && outermost_block_kind == Some(TokenKind::Begin)
+                && self.end_is_followed_by_top_level_item()
+            {
                 break;
             }
             let token = self.bump();
@@ -252,7 +260,12 @@ impl<'a> Parser<'a> {
                 TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                     depth = depth.saturating_sub(1);
                 }
-                TokenKind::Match | TokenKind::Begin => block_depth += 1,
+                TokenKind::Match | TokenKind::Begin => {
+                    if block_depth == 0 {
+                        outermost_block_kind = Some(token.kind);
+                    }
+                    block_depth += 1;
+                }
                 TokenKind::Defer if depth == 0 && block_depth > 0 && at_line_start => {
                     block_depth += 1;
                 }

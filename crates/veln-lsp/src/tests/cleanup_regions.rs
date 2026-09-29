@@ -24,6 +24,27 @@ fn cleanup_regions_format_stably_and_preserve_navigation_ranges() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
+    let prepared_begin_local = server.handle_message(&prepare_rename_request(&main_uri, 11, 6));
+    assert_eq!(prepared_begin_local.len(), 1);
+    assert!(
+        prepared_begin_local[0].contains(
+            r#""result":{"start":{"line":11,"character":2},"end":{"line":11,"character":10}}"#
+        ),
+        "{}",
+        prepared_begin_local[0]
+    );
+
+    let prepared_deferred_use =
+        server.handle_message(&prepare_rename_request(&main_uri, 9, 13));
+    assert_eq!(prepared_deferred_use.len(), 1);
+    assert!(
+        prepared_deferred_use[0].contains(
+            r#""result":{"start":{"line":9,"character":11},"end":{"line":9,"character":19}}"#
+        ),
+        "{}",
+        prepared_deferred_use[0]
+    );
+
     let definition = server.handle_message(&definition_request(&main_uri, 9, 13));
     assert_eq!(definition.len(), 1);
     assert!(

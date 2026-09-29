@@ -1,3 +1,8 @@
 fn invalid(value: Int) -> Int
 	defer
 		value
+end
+
+fn following() -> Int
+	1
+end

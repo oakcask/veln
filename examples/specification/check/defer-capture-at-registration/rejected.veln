@@ -1,0 +1,9 @@
+# A binding declared after a defer is not captured by that deferred block.
+fn rejects_later_binding(input: Int) -> ()
+	defer
+		let copy = declared_later
+		()
+	end
+	let declared_later = input
+	()
+end

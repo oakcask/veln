@@ -409,6 +409,51 @@ fn reports_unterminated_cleanup_regions() {
 }
 
 #[test]
+fn missing_cleanup_end_preserves_following_top_level_declaration() {
+    for (body, expected_diagnostic) in [
+        (" defer\n  release()\n", "parse.defer_missing_end"),
+        (
+            " let value = begin\n  acquire()\n",
+            "parse.begin_missing_end",
+        ),
+    ] {
+        let source = SourceFile::new(
+            "cleanup.veln",
+            format!("fn incomplete() -> ()\n{body}end\n\nfn following() -> Int\n  1\nend\n"),
+        );
+        let output = parse(&source);
+        let functions = output
+            .tree
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                SyntaxItem::Function(function) => Some(function.as_ref()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let diagnostic_ids = output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions
+                .iter()
+                .filter_map(|function| function.name.as_deref())
+                .collect::<Vec<_>>(),
+            ["incomplete", "following"]
+        );
+        assert!(functions.iter().all(|function| function.end_present));
+        assert_eq!(diagnostic_ids, [expected_diagnostic]);
+        assert_eq!(
+            output.tree.lossless_tokens().count(),
+            lex(&source).tokens.len()
+        );
+    }
+}
+
+#[test]
 fn expression_position_defer_preserves_following_declaration_boundary() {
     for invalid_call in ["  consume(defer)\n", "  consume(\n    defer\n  )\n"] {
         let source = SourceFile::new(

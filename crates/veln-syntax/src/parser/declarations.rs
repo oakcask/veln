@@ -256,6 +256,9 @@ impl<'a> Parser<'a> {
         while !self.at(TokenKind::Eof) {
             self.eat_newlines();
             if self.at(TokenKind::End) {
+                if self.cleanup_depth > 0 && self.end_is_followed_by_top_level_item() {
+                    return (items, false);
+                }
                 self.bump();
                 if self.at(TokenKind::Newline) {
                     self.bump();
@@ -272,6 +275,37 @@ impl<'a> Parser<'a> {
             }
         }
         (items, false)
+    }
+
+    pub(super) fn end_is_followed_by_top_level_item(&self) -> bool {
+        let mut cursor = self.cursor + 1;
+        while self.tokens.get(cursor).map(|token| token.kind) == Some(TokenKind::Newline) {
+            cursor += 1;
+        }
+
+        match self.tokens.get(cursor).map(|token| token.kind) {
+            Some(
+                TokenKind::Fn
+                | TokenKind::Test
+                | TokenKind::Type
+                | TokenKind::Schema
+                | TokenKind::Effect
+                | TokenKind::Handler
+                | TokenKind::Codec,
+            ) => true,
+            Some(TokenKind::Pub) => matches!(
+                self.tokens.get(cursor + 1).map(|token| token.kind),
+                Some(
+                    TokenKind::Fn
+                        | TokenKind::Type
+                        | TokenKind::Schema
+                        | TokenKind::Effect
+                        | TokenKind::Handler
+                        | TokenKind::Codec
+                )
+            ),
+            _ => false,
+        }
     }
 
     pub(super) fn parse_effect_decl(&mut self) -> EffectDecl {

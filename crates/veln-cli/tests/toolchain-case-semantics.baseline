@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"40a45ae2ed94d9355e2bec6d88acbfc57561f67a"
+source_git_tree	"fec7972a11f40abb05caec31e71da8204a80225f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1711
+case_count	1712
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -3611,6 +3611,32 @@ field	invocation.command[1]	"--json"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"c26e9cfc326626f98b0891d2f2a682cfa64d0ed54b05c89151eedb8d0da8498b"
+case	"examples/specification/check/defer-capture-at-registration"
+field	expectations.diagnostics[0].id	"name.unresolved"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"unresolved value `declared_later`"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	14
+field	expectations.diagnostics[0].span.file	"rejected.veln"
+field	expectations.diagnostics[0].span.line	4
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	1
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.unresolved\""
+field	expectations.stdout.contains[1]	"unresolved value `declared_later`"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"accepted.veln"
+field	invocation.command[3]	"rejected.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"fbda9454b995495f5d5c869745b3f8518fb8480402de47fccdb0e1f49f6ef94e"
 case	"examples/specification/check/deferred-block-restrictions"
 field	expectations.diagnostics[0].id	"defer.propagation"
 field	expectations.diagnostics[0].kind	"type"
@@ -12597,6 +12623,14 @@ field	expectations.lsp_assertions[22].equals	{"end":{"character":7,"line":34},"s
 field	expectations.lsp_assertions[22].id	13
 field	expectations.lsp_assertions[22].operation	"equals"
 field	expectations.lsp_assertions[22].path	"/result/changes/$workspace_file_uri:main.veln/1/range"
+field	expectations.lsp_assertions[23].equals	{"end":{"character":10,"line":11},"start":{"character":2,"line":11}}
+field	expectations.lsp_assertions[23].id	14
+field	expectations.lsp_assertions[23].operation	"equals"
+field	expectations.lsp_assertions[23].path	"/result"
+field	expectations.lsp_assertions[24].equals	{"end":{"character":19,"line":9},"start":{"character":11,"line":9}}
+field	expectations.lsp_assertions[24].id	15
+field	expectations.lsp_assertions[24].operation	"equals"
+field	expectations.lsp_assertions[24].path	"/result"
 field	expectations.lsp_assertions[2].equals	{"end":{"character":19,"line":9},"start":{"character":11,"line":9}}
 field	expectations.lsp_assertions[2].id	3
 field	expectations.lsp_assertions[2].operation	"equals"
@@ -12632,10 +12666,10 @@ field	expectations.lsp_assertions[9].path	"/result/changes/$workspace_file_uri:m
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2920,"sha256":"61c7eb6131a2fa1bcb9c7fa5d2adeb23801fc29485848bb24e0316d0a931af9e"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3340,"sha256":"bcfff012f67bf2658dceb7e54a9f48edccba0dc96d9ce49fa302a7756184ed65"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"aac839fab06295fa4d3aac8c1f2d1e470773f96d66361e1ba371f153ec005b00"
+case_digest	"542101baac49f0c798f744f7e96ac4abbee4cba74547fa4664898f0c8be3d449"
 case	"examples/specification/lsp/companion-private-function-identity"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62215,4 +62249,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"416ce1990a7c782af3d521ea9d18fe3963acff27f02065dbbc947a14036a5728"
+aggregate_digest	"59777ab46ac3b063b2f11671ccd3c1a160439a9d38a92b4dc3e99e21a073e706"
