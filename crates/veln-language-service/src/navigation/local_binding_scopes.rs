@@ -1,4 +1,14 @@
 fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalBinding> {
+    let defer_block_openers = defer_block_openers(tokens);
+    local_bindings_with_defer_openers(tokens, body_start, end, &defer_block_openers)
+}
+
+fn local_bindings_with_defer_openers(
+    tokens: &[Token],
+    body_start: usize,
+    end: usize,
+    defer_block_openers: &[bool],
+) -> Vec<LocalBinding> {
     let mut bindings: Vec<LocalBinding> = Vec::new();
     let mut scope_bindings = vec![Vec::new()];
     let mut pending_lets = Vec::new();
@@ -25,14 +35,26 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
                 &mut scope_bindings,
                 &mut pending_lets,
             ),
-            _ => update_local_binding_scope(tokens, index, token, &mut bindings, &mut scope_bindings),
+            _ => update_local_binding_scope(
+                tokens,
+                index,
+                token,
+                &mut bindings,
+                &mut scope_bindings,
+                defer_block_openers,
+            ),
         }
     }
 
     for scope in &mut scope_bindings {
         close_local_binding_scope(&mut bindings, scope, end);
     }
-    bindings.extend(match_arm_pattern_binding_names(tokens, body_start, end));
+    bindings.extend(match_arm_pattern_binding_names(
+        tokens,
+        body_start,
+        end,
+        defer_block_openers,
+    ));
     bindings.extend(satisfy_candidate_binding_names(tokens, body_start, end));
     bindings
 }
@@ -90,10 +112,14 @@ fn update_local_binding_scope(
     token: &Token,
     bindings: &mut [LocalBinding],
     scope_bindings: &mut Vec<Vec<usize>>,
+    defer_block_openers: &[bool],
 ) {
     match token.kind {
         TokenKind::If if !is_else_if(tokens, index) => scope_bindings.push(Vec::new()),
-        TokenKind::Match | TokenKind::Handler | TokenKind::Begin | TokenKind::Defer => {
+        TokenKind::Match | TokenKind::Handler | TokenKind::Begin => {
+            scope_bindings.push(Vec::new());
+        }
+        TokenKind::Defer if defer_block_openers[index] => {
             scope_bindings.push(Vec::new());
         }
         TokenKind::Else => close_local_binding_scope(

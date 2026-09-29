@@ -85,6 +85,32 @@ thread_local! {
     static HANDLER_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_DIAGNOSTIC_INDEX_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_DIAGNOSTIC_OVERLAP_QUERIES: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_handler_clause_body_range_index_entry() {
+    HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES.set(HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(test)]
+fn record_handler_clause_body_membership_lookup() {
+    HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS.set(HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_handler_clause_body_range_work() {
+    HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES.set(0);
+    HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn handler_clause_body_range_work() -> (usize, usize) {
+    (
+        HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES.get(),
+        HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS.get(),
+    )
 }
 
 #[cfg(test)]

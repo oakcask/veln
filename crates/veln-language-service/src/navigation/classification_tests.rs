@@ -1,6 +1,39 @@
 use super::*;
 
 #[test]
+fn defer_block_openers_require_a_direct_cleanup_body_line() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "defer\n",
+            "fn main() -> ()\n",
+            "  consume(defer)\n",
+            "  consume(\n",
+            "    defer\n",
+            "  )\n",
+            "  if true\n",
+            "    defer\n",
+            "  end\n",
+            "  defer\n",
+            "    ()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let tokens = lex(&source).tokens;
+    let openers = defer_block_openers(&tokens);
+    let classified = tokens
+        .iter()
+        .enumerate()
+        .filter(|(index, token)| token.kind == TokenKind::Defer && openers[*index])
+        .map(|(_, token)| token.range.start)
+        .collect::<Vec<_>>();
+    let expected = source.text().find("  defer\n    ()").unwrap() + 2;
+
+    assert_eq!(classified, [expected]);
+}
+
+#[test]
 fn unqualified_workspace_navigation_does_not_build_a_classification_context() {
     let dependencies = IndexedDependencies::new_direct(vec![crate::tests::dependency_snapshot(
         "example/pkg",

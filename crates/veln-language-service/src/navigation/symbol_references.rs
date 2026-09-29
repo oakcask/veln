@@ -424,7 +424,7 @@ impl SymbolIndex {
                         && !is_field_name(tokens, *index)
                         && !is_local_binding_name(tokens, *index)
                         && (symbol.kind != LocalSymbolKind::HandlerContextParameter
-                            || inside_handler_operation_clause_body(tokens, token.range.start))
+                            || file.inside_handler_operation_clause_body(token.range.start))
                         && bindings
                             .iter()
                             .filter(|binding| {

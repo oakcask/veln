@@ -598,6 +598,57 @@
     }
 
     #[test]
+    fn expression_position_defer_preserves_later_navigation_and_rename() {
+        struct Case {
+            invalid_call: &'static str,
+            local_line: usize,
+            use_line: usize,
+        }
+
+        for case in [
+            Case {
+                invalid_call: "  consume(defer)\n",
+                local_line: 3,
+                use_line: 4,
+            },
+            Case {
+                invalid_call: "  consume(\n    defer\n  )\n",
+                local_line: 5,
+                use_line: 6,
+            },
+        ] {
+            let sources = vec![source(
+                "main.veln",
+                &format!(
+                    "fn main(input: Int) -> Int\n{}  let local = input\n  local + input\nend\n",
+                    case.invalid_call
+                ),
+            )];
+
+            let parameter = query(sources.clone(), "main.veln", case.use_line, 11).unwrap();
+            assert_eq!(parameter.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(&parameter.definition, "main.veln", 1, 9);
+            assert_eq!(
+                locations(&parameter.references),
+                [
+                    ("main.veln", case.local_line, 15),
+                    ("main.veln", case.use_line, 11),
+                ]
+            );
+            assert!(validate_rename(&parameter, "renamed_input").is_ok());
+
+            let local = query(sources, "main.veln", case.use_line, 4).unwrap();
+            assert_eq!(local.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(&local.definition, "main.veln", case.local_line, 7);
+            assert_eq!(
+                locations(&local.references),
+                [("main.veln", case.use_line, 3)]
+            );
+            assert!(validate_rename(&local, "renamed_local").is_ok());
+        }
+    }
+
+    #[test]
     fn handler_clause_begin_local_links_deferred_and_tail_uses() {
         let result = query(
             vec![source(
@@ -689,6 +740,36 @@
         assert!(smaller > 0);
         assert!(larger > smaller);
         assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
+    }
+
+    #[test]
+    fn handler_clause_function_reference_lookup_scales_with_generated_clauses() {
+        fn reference_work(clause_count: usize) -> ((usize, usize), std::time::Duration) {
+            let mut source_text = String::from(
+                "fn target(value: Int) -> Int\n  value\nend\n\neffect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
+            );
+            for _ in 0..clause_count {
+                source_text.push_str("  amount(value) => target(value)\n");
+            }
+            source_text.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_handler_clause_body_range_work();
+            let started = std::time::Instant::now();
+            let result = query_snapshot(&snapshot, "main.veln", 1, 4)
+                .expect("generated function should resolve");
+            assert_eq!(result.references.len(), clause_count);
+            (handler_clause_body_range_work(), started.elapsed())
+        }
+
+        let smaller = reference_work(128);
+        let larger = reference_work(256);
+
+        eprintln!("handler clause references: 128={smaller:?}, 256={larger:?}");
+        assert_eq!(smaller.0.0, 128);
+        assert_eq!(larger.0.0, 256);
+        assert!(smaller.0.1 > 0);
+        assert!(larger.0.1 > smaller.0.1);
+        assert!(larger.0.1 <= smaller.0.1 * 2 + 32, "{smaller:?} -> {larger:?}");
     }
 
     #[test]

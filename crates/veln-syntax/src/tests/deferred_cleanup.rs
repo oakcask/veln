@@ -454,6 +454,57 @@ fn missing_cleanup_end_preserves_following_top_level_declaration() {
 }
 
 #[test]
+fn nested_missing_cleanup_ends_preserve_following_top_level_declaration() {
+    for (body, expected_diagnostics) in [
+        (
+            " let value = begin\n  defer\n   release()\n",
+            ["parse.defer_missing_end", "parse.begin_missing_end"],
+        ),
+        (
+            " defer\n  let value = begin\n   release()\n",
+            ["parse.begin_missing_end", "parse.defer_missing_end"],
+        ),
+    ] {
+        let source = SourceFile::new(
+            "cleanup.veln",
+            format!("fn incomplete() -> ()\n{body}end\n\nfn following() -> Int\n  1\nend\n"),
+        );
+        let expected_token_count = lex(&source).tokens.len();
+
+        let output = parse(&source);
+
+        let functions = output
+            .tree
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                SyntaxItem::Function(function) => Some(function.as_ref()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            functions
+                .iter()
+                .filter_map(|function| function.name.as_deref())
+                .collect::<Vec<_>>(),
+            ["incomplete", "following"],
+            "{:#?}",
+            output.diagnostics
+        );
+        assert!(functions.iter().all(|function| function.end_present));
+        assert_eq!(
+            output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id)
+                .collect::<Vec<_>>(),
+            expected_diagnostics
+        );
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+    }
+}
+
+#[test]
 fn expression_position_defer_preserves_following_declaration_boundary() {
     for invalid_call in ["  consume(defer)\n", "  consume(\n    defer\n  )\n"] {
         let source = SourceFile::new(

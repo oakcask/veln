@@ -246,7 +246,7 @@ impl<'a> Parser<'a> {
                 break;
             }
             if self.at(TokenKind::End)
-                && block_depth == 1
+                && block_depth > 0
                 && outermost_block_kind == Some(TokenKind::Begin)
                 && self.end_is_followed_by_top_level_item()
             {

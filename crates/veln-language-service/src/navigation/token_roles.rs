@@ -358,10 +358,14 @@ fn top_level_separator(indices: &[usize], tokens: &[Token], separator: TokenKind
 }
 
 fn inside_schema_declaration(tokens: &[Token], index: usize) -> bool {
+    let defer_block_openers = defer_block_openers(tokens);
     let mut nested_blocks = 0usize;
-    for token in tokens[..index].iter().rev() {
+    for (candidate_index, token) in tokens[..index].iter().enumerate().rev() {
         if token.kind == TokenKind::End {
             nested_blocks += 1;
+            continue;
+        }
+        if token.kind == TokenKind::Defer && !defer_block_openers[candidate_index] {
             continue;
         }
         if !matches!(
@@ -658,6 +662,7 @@ fn enclosing_top_level_block_index(
     index: usize,
     start_kind: TokenKind,
 ) -> Option<usize> {
+    let defer_block_openers = defer_block_openers(tokens);
     let mut nested_blocks = 0usize;
     for (candidate_index, token) in tokens[..index].iter().enumerate().rev() {
         match token.kind {
@@ -669,8 +674,10 @@ fn enclosing_top_level_block_index(
             | TokenKind::Match
             | TokenKind::Handler
             | TokenKind::Codec
-            | TokenKind::Begin
-            | TokenKind::Defer => nested_blocks = nested_blocks.saturating_sub(1),
+            | TokenKind::Begin => nested_blocks = nested_blocks.saturating_sub(1),
+            TokenKind::Defer if defer_block_openers[candidate_index] => {
+                nested_blocks = nested_blocks.saturating_sub(1)
+            }
             _ => {}
         }
     }

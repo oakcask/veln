@@ -1077,6 +1077,8 @@ fn indexed_dependency_source(
         .collect();
     let schema_composition_leaf_spans =
         valid_schema_composition_leaf_spans(&source_file, &tokens, &parsed);
+    let handler_operation_clause_body_ranges = handler_operation_clause_body_ranges(&parsed.tree);
+    let handler_clause_bindings_by_name = handler_clause_bindings_by_name(&parsed.tree);
     let file = IndexedFile {
         source: source_file,
         tokens,
@@ -1097,6 +1099,8 @@ fn indexed_dependency_source(
         ),
         handler_reference_ranges: BTreeSet::new(),
         handler_operation_clause_references: Vec::new(),
+        handler_operation_clause_body_ranges,
+        handler_clause_bindings_by_name,
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_reference_ranges: BTreeSet::new(),
@@ -1113,6 +1117,67 @@ fn indexed_dependency_source(
         },
     };
     (file, parsed)
+}
+
+fn handler_operation_clause_body_ranges(syntax: &SyntaxTree) -> Vec<(usize, usize)> {
+    let mut ranges = syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Handler(handler) => Some(&handler.operation_clauses),
+            _ => None,
+        })
+        .flatten()
+        .map(|clause| {
+            #[cfg(test)]
+            record_handler_clause_body_range_index_entry();
+            (clause.body.span.start.offset, clause.body.span.end.offset)
+        })
+        .collect::<Vec<_>>();
+    ranges.sort_unstable();
+    ranges
+}
+
+fn handler_clause_bindings_by_name(syntax: &SyntaxTree) -> BTreeMap<String, Vec<ClauseBinding>> {
+    let mut by_name = BTreeMap::new();
+    for item in &syntax.items {
+        let SyntaxItem::Handler(handler) = item else {
+            continue;
+        };
+        for param in &handler.params {
+            let binding = ClauseBinding {
+                name: param.name.clone(),
+                declaration: param.name_span.clone(),
+                start: handler.span.start.offset,
+                end: handler.span.end.offset,
+                kind: LocalSymbolKind::HandlerContextParameter,
+            };
+            by_name
+                .entry(binding.name.clone())
+                .or_insert_with(Vec::new)
+                .push(binding);
+        }
+        for (clause_index, clause) in handler.operation_clauses.iter().enumerate() {
+            let clause_scope_end = handler
+                .operation_clauses
+                .get(clause_index + 1)
+                .map_or(handler.span.end.offset, |next| next.span.start.offset);
+            for param in &clause.params {
+                let binding = ClauseBinding {
+                    name: param.name.clone(),
+                    declaration: param.name_span.clone(),
+                    start: clause.span.start.offset,
+                    end: clause_scope_end,
+                    kind: LocalSymbolKind::HandlerOperationClauseParameter,
+                };
+                by_name
+                    .entry(binding.name.clone())
+                    .or_insert_with(Vec::new)
+                    .push(binding);
+            }
+        }
+    }
+    by_name
 }
 
 fn valid_schema_operation_leaf_spans(syntax: &SyntaxTree) -> Vec<SourceSpan> {

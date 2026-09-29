@@ -66,6 +66,8 @@ struct WorkspaceSyntaxIndex {
     recovered_handler_declarations: Vec<SourceSpan>,
     handler_reference_ranges: BTreeSet<(usize, usize)>,
     handler_operation_clause_references: Vec<HandlerOperationClauseReference>,
+    handler_operation_clause_body_ranges: Vec<(usize, usize)>,
+    handler_clause_bindings_by_name: BTreeMap<String, Vec<ClauseBinding>>,
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effects: WorkspaceEffectIndex,
@@ -104,6 +106,8 @@ impl WorkspaceSyntaxIndex {
             parsed,
             &recovered_handler_declarations,
         );
+        let handler_operation_clause_body_ranges = handler_operation_clause_body_ranges(&parsed.tree);
+        let handler_clause_bindings_by_name = handler_clause_bindings_by_name(&parsed.tree);
         Self {
             tokens,
             invalid_declaration_names: invalid_name_spans(&invalid_names),
@@ -112,6 +116,8 @@ impl WorkspaceSyntaxIndex {
             recovered_handler_declarations,
             handler_reference_ranges,
             handler_operation_clause_references,
+            handler_operation_clause_body_ranges,
+            handler_clause_bindings_by_name,
             schema_operation_leaf_ranges,
             schema_composition_leaf_spans,
             effects,
@@ -142,6 +148,8 @@ fn indexed_workspace_file(
         recovered_handler_declarations: syntax.recovered_handler_declarations,
         handler_reference_ranges: syntax.handler_reference_ranges,
         handler_operation_clause_references: syntax.handler_operation_clause_references,
+        handler_operation_clause_body_ranges: syntax.handler_operation_clause_body_ranges,
+        handler_clause_bindings_by_name: syntax.handler_clause_bindings_by_name,
         schema_operation_leaf_ranges: syntax.schema_operation_leaf_ranges,
         schema_composition_leaf_spans: syntax.schema_composition_leaf_spans,
         effect_reference_ranges: syntax.effects.reference_ranges,

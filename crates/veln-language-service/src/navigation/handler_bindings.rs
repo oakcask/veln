@@ -144,15 +144,31 @@ fn handler_operation_clause_body_end(
     arrow_index: usize,
     file_end: usize,
 ) -> usize {
+    let defer_block_openers = defer_block_openers(tokens);
+    handler_operation_clause_body_end_with_defer_openers(
+        tokens,
+        arrow_index,
+        file_end,
+        &defer_block_openers,
+    )
+}
+
+fn handler_operation_clause_body_end_with_defer_openers(
+    tokens: &[Token],
+    arrow_index: usize,
+    file_end: usize,
+    defer_block_openers: &[bool],
+) -> usize {
     let mut nested_blocks = 0usize;
     for (relative_index, token) in tokens[arrow_index + 1..].iter().enumerate() {
         let index = arrow_index + 1 + relative_index;
         match token.kind {
             TokenKind::Eof => return file_end,
             TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
-            TokenKind::Match | TokenKind::Handler | TokenKind::Begin | TokenKind::Defer => {
+            TokenKind::Match | TokenKind::Handler | TokenKind::Begin => {
                 nested_blocks += 1
             }
+            TokenKind::Defer if defer_block_openers[index] => nested_blocks += 1,
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
             TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {

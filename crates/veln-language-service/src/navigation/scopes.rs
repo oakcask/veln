@@ -25,6 +25,7 @@ fn local_binding_shadowing_call_target_in_scopes<'a>(
 }
 
 fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
+    let defer_block_openers = defer_block_openers(tokens);
     let mut scopes = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
         if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
@@ -37,10 +38,12 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
         else {
             continue;
         };
-        let end = function_scope_end(tokens, index + 1).unwrap_or(body_start);
+        let end = function_scope_end_with_defer_openers(tokens, index + 1, &defer_block_openers)
+            .unwrap_or(body_start);
         let params = parameter_names(tokens, index, body_start);
         let result_binding = result_binding_name(tokens, index, body_start);
-        let local_bindings = local_bindings(tokens, body_start, end);
+        let local_bindings =
+            local_bindings_with_defer_openers(tokens, body_start, end, &defer_block_openers);
         let local_bindings_by_name = local_binding_index_by_name(&local_bindings);
         scopes.push(FunctionScope {
             body_start,
@@ -51,19 +54,35 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
             local_bindings_by_name,
         });
     }
-    scopes.extend(handler_operation_clause_scopes(tokens));
+    scopes.extend(handler_operation_clause_scopes(
+        tokens,
+        &defer_block_openers,
+    ));
     scopes
 }
 
-fn handler_operation_clause_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
+fn handler_operation_clause_scopes(
+    tokens: &[Token],
+    defer_block_openers: &[bool],
+) -> Vec<FunctionScope> {
     let file_end = tokens.last().map_or(0, |token| token.range.end);
-    handler_operation_clause_arrow_indices(tokens)
+    handler_operation_clause_arrow_indices(tokens, defer_block_openers)
         .into_iter()
         .map(|arrow_index| {
             let arrow = &tokens[arrow_index];
             let body_start = arrow.range.end;
-            let end = handler_operation_clause_body_end(tokens, arrow_index, file_end);
-            let local_bindings = local_bindings(tokens, body_start, end);
+            let end = handler_operation_clause_body_end_with_defer_openers(
+                tokens,
+                arrow_index,
+                file_end,
+                defer_block_openers,
+            );
+            let local_bindings = local_bindings_with_defer_openers(
+                tokens,
+                body_start,
+                end,
+                defer_block_openers,
+            );
             let local_bindings_by_name = local_binding_index_by_name(&local_bindings);
             FunctionScope {
                 body_start,
@@ -77,7 +96,10 @@ fn handler_operation_clause_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
         .collect()
 }
 
-fn handler_operation_clause_arrow_indices(tokens: &[Token]) -> Vec<usize> {
+fn handler_operation_clause_arrow_indices(
+    tokens: &[Token],
+    defer_block_openers: &[bool],
+) -> Vec<usize> {
     let mut indices = Vec::new();
     let mut blocks = Vec::new();
     let mut first_line_token_is_identifier = None;
@@ -105,8 +127,8 @@ fn handler_operation_clause_arrow_indices(tokens: &[Token]) -> Vec<usize> {
             | TokenKind::Match
             | TokenKind::Handler
             | TokenKind::Codec
-            | TokenKind::Begin
-            | TokenKind::Defer => blocks.push(token.kind),
+            | TokenKind::Begin => blocks.push(token.kind),
+            TokenKind::Defer if defer_block_openers[index] => blocks.push(token.kind),
             TokenKind::End => {
                 blocks.pop();
             }
@@ -205,14 +227,24 @@ impl ScopeShadow<'_> {
 }
 
 fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
+    let defer_block_openers = defer_block_openers(tokens);
+    function_scope_end_with_defer_openers(tokens, start, &defer_block_openers)
+}
+
+fn function_scope_end_with_defer_openers(
+    tokens: &[Token],
+    start: usize,
+    defer_block_openers: &[bool],
+) -> Option<usize> {
     let mut nested_blocks = 0usize;
     for (relative_index, token) in tokens[start..].iter().enumerate() {
         let index = start + relative_index;
         match token.kind {
             TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
-            TokenKind::Match | TokenKind::Handler | TokenKind::Begin | TokenKind::Defer => {
+            TokenKind::Match | TokenKind::Handler | TokenKind::Begin => {
                 nested_blocks += 1
             }
+            TokenKind::Defer if defer_block_openers[index] => nested_blocks += 1,
             TokenKind::End if nested_blocks == 0 => return Some(token.range.start),
             TokenKind::End => nested_blocks -= 1,
             TokenKind::Eof => return None,
@@ -380,14 +412,18 @@ fn match_arm_pattern_binding_names(
     tokens: &[Token],
     body_start: usize,
     function_end: usize,
+    defer_block_openers: &[bool],
 ) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
     for (index, token) in function_body_tokens(tokens, body_start, function_end) {
-        if token.kind != TokenKind::FatArrow || !inside_match(tokens, index, body_start) {
+        if token.kind != TokenKind::FatArrow
+            || !inside_match(tokens, index, body_start, defer_block_openers)
+        {
             continue;
         }
         let scope_start = token.range.end;
-        let scope_end = match_arm_scope_end(tokens, index + 1, function_end);
+        let scope_end =
+            match_arm_scope_end(tokens, index + 1, function_end, defer_block_openers);
         let pattern_start = match_arm_pattern_start(tokens, index, body_start);
         let first_pattern_token_start = tokens[..index]
             .iter()
@@ -462,12 +498,18 @@ fn function_body_tokens(
     })
 }
 
-fn inside_match(tokens: &[Token], index: usize, body_start: usize) -> bool {
+fn inside_match(
+    tokens: &[Token],
+    index: usize,
+    body_start: usize,
+    defer_block_openers: &[bool],
+) -> bool {
     let mut nested_blocks = 0usize;
-    for token in tokens[..index]
+    for (candidate_index, token) in tokens[..index]
         .iter()
+        .enumerate()
         .rev()
-        .take_while(|token| token.range.start >= body_start)
+        .take_while(|(_, token)| token.range.start >= body_start)
     {
         match token.kind {
             TokenKind::End => nested_blocks += 1,
@@ -475,8 +517,10 @@ fn inside_match(tokens: &[Token], index: usize, body_start: usize) -> bool {
             TokenKind::If
             | TokenKind::Handler
             | TokenKind::Match
-            | TokenKind::Begin
-            | TokenKind::Defer => {
+            | TokenKind::Begin => {
+                nested_blocks = nested_blocks.saturating_sub(1);
+            }
+            TokenKind::Defer if defer_block_openers[candidate_index] => {
                 nested_blocks = nested_blocks.saturating_sub(1);
             }
             _ => {}
@@ -485,7 +529,12 @@ fn inside_match(tokens: &[Token], index: usize, body_start: usize) -> bool {
     false
 }
 
-fn match_arm_scope_end(tokens: &[Token], start: usize, function_end: usize) -> usize {
+fn match_arm_scope_end(
+    tokens: &[Token],
+    start: usize,
+    function_end: usize,
+    defer_block_openers: &[bool],
+) -> usize {
     let mut nested_blocks = 0usize;
     for (relative_index, token) in tokens[start..].iter().enumerate() {
         let index = start + relative_index;
@@ -496,8 +545,8 @@ fn match_arm_scope_end(tokens: &[Token], start: usize, function_end: usize) -> u
             TokenKind::If
             | TokenKind::Match
             | TokenKind::Handler
-            | TokenKind::Begin
-            | TokenKind::Defer => nested_blocks += 1,
+            | TokenKind::Begin => nested_blocks += 1,
+            TokenKind::Defer if defer_block_openers[index] => nested_blocks += 1,
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks -= 1,
             TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {
@@ -558,6 +607,69 @@ fn is_pattern_binding_token(tokens: &[Token], index: usize) -> bool {
 fn is_else_if(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index)
         .is_some_and(|previous| previous.kind == TokenKind::Else)
+}
+
+fn defer_block_openers(tokens: &[Token]) -> Vec<bool> {
+    let mut openers = vec![false; tokens.len()];
+    let mut blocks = Vec::new();
+    let mut parentheses = 0usize;
+    let mut brackets = 0usize;
+    let mut braces = 0usize;
+    let mut line_has_non_whitespace = false;
+    let mut previous_non_layout = None;
+    for (index, token) in tokens.iter().enumerate() {
+        if token.kind == TokenKind::Defer
+            && !line_has_non_whitespace
+            && parentheses == 0
+            && brackets == 0
+            && braces == 0
+            && blocks.last().is_some_and(|kind| {
+                matches!(
+                    kind,
+                    TokenKind::Fn | TokenKind::Test | TokenKind::Begin | TokenKind::Defer
+                )
+            })
+        {
+            openers[index] = true;
+        }
+        match token.kind {
+            TokenKind::LParen => parentheses += 1,
+            TokenKind::RParen => parentheses = parentheses.saturating_sub(1),
+            TokenKind::LBracket => brackets += 1,
+            TokenKind::RBracket => brackets = brackets.saturating_sub(1),
+            TokenKind::LBrace => braces += 1,
+            TokenKind::RBrace => braces = braces.saturating_sub(1),
+            _ => {}
+        }
+        match token.kind {
+            TokenKind::If if previous_non_layout != Some(TokenKind::Else) => {
+                blocks.push(token.kind)
+            }
+            TokenKind::Fn
+            | TokenKind::Test
+            | TokenKind::Type
+            | TokenKind::Schema
+            | TokenKind::Effect
+            | TokenKind::Handler
+            | TokenKind::Codec
+            | TokenKind::Match
+            | TokenKind::Begin => blocks.push(token.kind),
+            TokenKind::Defer if openers[index] => blocks.push(token.kind),
+            TokenKind::End => {
+                blocks.pop();
+            }
+            _ => {}
+        }
+        match token.kind {
+            TokenKind::Newline => line_has_non_whitespace = false,
+            TokenKind::Whitespace => {}
+            _ => line_has_non_whitespace = true,
+        }
+        if !is_layout_token_kind(token.kind) {
+            previous_non_layout = Some(token.kind);
+        }
+    }
+    openers
 }
 
 fn token_scope(scopes: &[FunctionScope], offset: usize) -> Option<&FunctionScope> {
