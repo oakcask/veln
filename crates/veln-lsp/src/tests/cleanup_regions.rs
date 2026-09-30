@@ -138,6 +138,52 @@ fn cleanup_region_navigation_uses_innermost_shadowing_binding() {
 }
 
 #[test]
+fn unterminated_defer_preserves_following_function_navigation_scope() {
+    let mut server = Server::default();
+    let project = TempProject::new("unterminated-defer-navigation-scope");
+    let source = concat!(
+        "fn incomplete(input: Int) -> ()\n",
+        "  defer\n",
+        "    input\n",
+        "end\n",
+        "# The next declaration remains outside the recovered scope.\n",
+        "\n",
+        "fn following(parameter: Int) -> Int\n",
+        "  let local = parameter\n",
+        "  local\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for (line, character, declaration_line, declaration_start, declaration_end) in
+        [(7, 16, 6, 13, 22), (8, 3, 7, 6, 11)]
+    {
+        let definition = server.handle_message(&definition_request(&main_uri, line, character));
+        assert_eq!(definition.len(), 1, "{line}:{character}");
+        let expected_range = format!(
+            r#""range":{{"start":{{"line":{declaration_line},"character":{declaration_start}}},"end":{{"line":{declaration_line},"character":{declaration_end}}}}}"#
+        );
+        assert!(
+            definition[0].contains(&expected_range),
+            "{line}:{character}: {}",
+            definition[0]
+        );
+
+        let rename = server.handle_message(&rename_request(&main_uri, line, character, "renamed"));
+        assert_eq!(rename.len(), 1, "{line}:{character}");
+        assert_eq!(
+            rename[0].matches(r#""newText":"renamed""#).count(),
+            2,
+            "{line}:{character}: {}",
+            rename[0]
+        );
+    }
+}
+
+#[test]
 fn cleanup_region_type_annotations_support_function_and_handler_navigation() {
     let mut server = Server::default();
     let project = TempProject::new("cleanup-region-type-navigation");

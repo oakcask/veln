@@ -8,7 +8,7 @@ fn diagnostics_for(source: &str) -> Vec<Diagnostic> {
 }
 
 #[test]
-fn defer_captures_only_bindings_available_at_registration() {
+fn defer_sees_only_bindings_visible_at_the_statement() {
     let diagnostics = diagnostics_for(concat!(
         "fn main() -> ()\n",
         "  let earlier: Int = 1\n",

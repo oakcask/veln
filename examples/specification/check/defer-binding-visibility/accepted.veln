@@ -1,0 +1,9 @@
+# A deferred block can use a binding visible at the defer statement.
+fn accepts_earlier_binding(input: Int) -> ()
+	let visible = input
+	defer
+		let copy = visible
+		()
+	end
+	()
+end

@@ -1,9 +1,0 @@
-# A deferred block can capture a binding visible at its registration point.
-fn accepts_earlier_binding(input: Int) -> ()
-	let captured = input
-	defer
-		let copy = captured
-		()
-	end
-	()
-end

@@ -248,22 +248,71 @@ fn function_scope_end_with_defer_openers(
     start: usize,
     defer_block_openers: &[bool],
 ) -> Option<usize> {
-    let mut nested_blocks = 0usize;
+    let mut nested_blocks = Vec::new();
     for (relative_index, token) in tokens[start..].iter().enumerate() {
         let index = start + relative_index;
         match token.kind {
-            TokenKind::If if !is_else_if(tokens, index) => nested_blocks += 1,
+            TokenKind::If if !is_else_if(tokens, index) => nested_blocks.push(token.kind),
             TokenKind::Match | TokenKind::Handler | TokenKind::Begin => {
-                nested_blocks += 1
+                nested_blocks.push(token.kind)
             }
-            TokenKind::Defer if defer_block_openers[index] => nested_blocks += 1,
-            TokenKind::End if nested_blocks == 0 => return Some(token.range.start),
-            TokenKind::End => nested_blocks -= 1,
+            TokenKind::Defer if defer_block_openers[index] => nested_blocks.push(token.kind),
+            TokenKind::End
+                if nested_blocks.is_empty()
+                    || (nested_blocks
+                        .last()
+                        .is_some_and(|kind| matches!(kind, TokenKind::Begin | TokenKind::Defer))
+                        && end_is_followed_by_top_level_item(tokens, index)) =>
+            {
+                return Some(token.range.start);
+            }
+            TokenKind::End => {
+                nested_blocks.pop();
+            }
             TokenKind::Eof => return None,
             _ => {}
         }
     }
     None
+}
+
+fn end_is_followed_by_top_level_item(tokens: &[Token], index: usize) -> bool {
+    let Some(item_index) = next_non_trivia_index(tokens, index) else {
+        return false;
+    };
+    match tokens[item_index].kind {
+        TokenKind::Fn
+        | TokenKind::Test
+        | TokenKind::Type
+        | TokenKind::Schema
+        | TokenKind::Effect
+        | TokenKind::Handler
+        | TokenKind::Codec => true,
+        TokenKind::Pub => next_non_trivia_index(tokens, item_index).is_some_and(|index| {
+            matches!(
+                tokens[index].kind,
+                TokenKind::Fn
+                    | TokenKind::Type
+                    | TokenKind::Schema
+                    | TokenKind::Effect
+                    | TokenKind::Handler
+                    | TokenKind::Codec
+            )
+        }),
+        _ => false,
+    }
+}
+
+fn next_non_trivia_index(tokens: &[Token], index: usize) -> Option<usize> {
+    tokens[index + 1..]
+        .iter()
+        .position(|token| {
+            !matches!(
+                token.kind,
+                TokenKind::Whitespace | TokenKind::Comment | TokenKind::Newline
+            )
+        })
+        .map(|relative_index| index + 1 + relative_index)
 }
 
 fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> Vec<ScopedBinding> {

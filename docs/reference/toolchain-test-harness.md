@@ -373,8 +373,8 @@ The `cleanup-region-navigation` MCP specification case uses decoded assertions
 for definition, reference, and rename locations across the same cleanup-region
 scope boundaries, plus an edit-free rename conflict with an enclosing
 parameter and an allowed equal-name rename across disjoint sibling `begin`
-scopes. The `defer-capture-at-registration` check specification case keeps a
-binding declared before `defer` visible inside its block and requires a later
+scopes. The `defer-binding-visibility` check specification case keeps a binding
+visible at the `defer` statement visible inside its block and requires a later
 binding to remain unresolved there.
 The `references-workspace-handler` MCP specification case uses the same
 decoded assertion model for exact handler reference locations, declaration
