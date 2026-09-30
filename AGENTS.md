@@ -4,6 +4,9 @@
   default and must not branch on environment variables or system properties to
   select test behavior. Genuine process-environment operations and diagnostic
   output destinations remain permitted.
+* When implementing, changing, or reviewing effect handlers, host effect
+  boundaries, or deterministic effect test support, use
+  `$effect-handler-maintenance`.
 * Name repository-maintenance Cargo packages `veln-repo-*` and place them
   under `tools/`. Reserve other `veln-*` package names for toolchain components.
 * Do not write calendar dates in durable documentation, source, comments, or
