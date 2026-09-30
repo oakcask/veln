@@ -51,7 +51,7 @@ registered deferred blocks complete successfully.
 | --- | --- | --- |
 | C++ or Rust destruction | Cleanup follows ownership automatically. | Veln does not have the ownership and deterministic-destruction model needed to make destructor timing a language invariant. |
 | Java-style `try` and `finally` | The protected region and cleanup are explicit. | `try` suggests an exception-catching model that Veln does not expose, and several resources require deeply nested regions. |
-| Ruby-style `begin`, `ensure`, and `end` | `begin` is a value-producing region and `ensure` always runs. | `ensure` belongs to Ruby's exception-handler family and puts one cleanup clause after the protected body. Veln uses `begin` only for lexical scope; the remaining runtime work will register cleanup next to each acquisition. |
+| Ruby-style `begin`, `ensure`, and `end` | `begin` is a value-producing region and `ensure` always runs. | `ensure` belongs to Ruby's exception-handler family and puts one cleanup clause after the protected body. Veln uses `begin` only for lexical scope and registers cleanup next to each acquisition. |
 | Go-style function `defer` | Cleanup is registered next to acquisition. | Function-only lifetime keeps loop or temporary resources alive longer than necessary. |
 | D-style scope guard | Cleanup is registered next to acquisition and follows lexical lifetime. | This is the selected basis. The remaining runtime contract provides unconditional exit cleanup only. |
 | C#-style `using` | Common resource use is concise. | A single disposable protocol cannot express arbitrary effectful cleanup or cleanup that needs additional captured values. Veln can add library wrappers after the general mechanism exists. |
