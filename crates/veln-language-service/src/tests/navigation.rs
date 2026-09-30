@@ -1081,6 +1081,21 @@
                 result.selected_symbol.kind,
                 SymbolKind::HandlerContextParameter
             );
+            assert_location(&result.definition, "main.veln", 5, 16);
+            assert_eq!(result.references.len(), clause_count);
+
+            let rename_result = navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: clause_count + 5,
+                    column: 22,
+                },
+            )
+            .expect("context parameter in the final clause should be renameable");
+            assert_eq!(rename_result.definition, result.definition);
+            assert_eq!(rename_result.references, result.references);
+            assert!(validate_rename_in_snapshot(&snapshot, &rename_result, "state").is_ok());
             (handler_clause_body_range_work(), started.elapsed())
         }
 
@@ -1090,8 +1105,8 @@
         eprintln!("late handler context navigation: 128={smaller:?}, 256={larger:?}");
         assert_eq!(smaller.0.0, 128);
         assert_eq!(larger.0.0, 256);
-        assert_eq!(smaller.0.1, 129);
-        assert_eq!(larger.0.1, 257);
+        assert_eq!(smaller.0.1, 258);
+        assert_eq!(larger.0.1, 514);
         assert!(larger.0.1 <= smaller.0.1 * 2 + 1, "{smaller:?} -> {larger:?}");
     }
 

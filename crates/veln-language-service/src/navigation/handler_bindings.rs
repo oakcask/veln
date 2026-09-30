@@ -16,8 +16,7 @@ fn handler_operation_clause_symbol(
                     || (token_offset >= binding.start
                         && token_offset < binding.end
                         && (binding.kind != LocalSymbolKind::HandlerContextParameter
-                            || file.inside_handler_operation_clause_body(token_offset)
-                            || inside_handler_operation_clause_body(tokens, token_offset))
+                            || file.inside_handler_operation_clause_body(token_offset))
                         && !local_binding_shadows_name(
                             tokens,
                             &binding.name,

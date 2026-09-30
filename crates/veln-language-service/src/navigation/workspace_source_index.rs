@@ -106,7 +106,8 @@ impl WorkspaceSyntaxIndex {
             parsed,
             &recovered_handler_declarations,
         );
-        let handler_operation_clause_body_ranges = handler_operation_clause_body_ranges(&parsed.tree);
+        let handler_operation_clause_body_ranges =
+            handler_operation_clause_body_ranges(source, &tokens);
         let handler_clause_bindings_by_name = handler_clause_bindings_by_name(&parsed.tree);
         Self {
             tokens,

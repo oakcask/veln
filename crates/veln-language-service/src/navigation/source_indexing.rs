@@ -1121,7 +1121,8 @@ fn indexed_dependency_source(
         .collect();
     let schema_composition_leaf_spans =
         valid_schema_composition_leaf_spans(&source, &tokens, &parsed);
-    let handler_operation_clause_body_ranges = handler_operation_clause_body_ranges(&parsed.tree);
+    let handler_operation_clause_body_ranges =
+        handler_operation_clause_body_ranges(&source, &tokens);
     let handler_clause_bindings_by_name = handler_clause_bindings_by_name(&parsed.tree);
     let file = IndexedFile {
         source,
@@ -1163,23 +1164,32 @@ fn indexed_dependency_source(
     (file, parsed)
 }
 
-fn handler_operation_clause_body_ranges(syntax: &SyntaxTree) -> Vec<(usize, usize)> {
-    let mut ranges = syntax
-        .items
+fn handler_operation_clause_body_ranges(
+    source: &SourceFile,
+    tokens: &[Token],
+) -> Vec<(usize, usize)> {
+    let defer_block_openers = defer_block_openers(tokens);
+    let clause_headers =
+        handler_operation_clause_headers_with(tokens, &defer_block_openers, || {});
+    clause_headers
         .iter()
-        .filter_map(|item| match item {
-            SyntaxItem::Handler(handler) => Some(&handler.operation_clauses),
-            _ => None,
-        })
-        .flatten()
-        .map(|clause| {
+        .enumerate()
+        .filter(|(_, is_header)| **is_header)
+        .map(|(arrow_index, _)| {
             #[cfg(test)]
             record_handler_clause_body_range_index_entry();
-            (clause.body.span.start.offset, clause.body.span.end.offset)
+            (
+                tokens[arrow_index].range.end,
+                handler_operation_clause_body_end_with_defer_openers(
+                    tokens,
+                    arrow_index,
+                    source.text().len(),
+                    &defer_block_openers,
+                    &clause_headers,
+                ),
+            )
         })
-        .collect::<Vec<_>>();
-    ranges.sort_unstable();
-    ranges
+        .collect()
 }
 
 fn handler_clause_bindings_by_name(syntax: &SyntaxTree) -> BTreeMap<String, Vec<ClauseBinding>> {
