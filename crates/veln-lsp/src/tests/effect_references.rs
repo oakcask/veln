@@ -261,36 +261,42 @@ fn imported_workspace_effect_navigation_rejects_visibility_and_import_recovery_b
         )
     }
 
-    for (name, imports) in [
+    let project = TempProject::new("workspace-imported-effect-boundaries");
+    project.write("veln.toml", "");
+    project.write("fx.veln", "effect Remote\n  run() -> Int\nend\n");
+    project.write(
+        "first/fx.veln",
+        "pub effect Remote\n  run() -> Int\nend\n",
+    );
+    project.write(
+        "second/fx.veln",
+        "pub effect Remote\n  run() -> Int\nend\n",
+    );
+    project.write(
+        "stable.veln",
+        "pub effect Stable\n  run() -> Int\nend\n",
+    );
+    let cases = [
         ("private", "use fx\n"),
         ("ambiguous", "use first::fx\nuse second::fx\n"),
         ("duplicate", "use first::fx\nuse first::fx\n"),
         ("recovered", "use first::fx unexpected\n"),
-    ] {
-        let project = TempProject::new(&format!("workspace-imported-effect-{name}"));
-        project.write("veln.toml", "");
-        project.write("fx.veln", "effect Remote\n  run() -> Int\nend\n");
-        project.write(
-            "first/fx.veln",
-            "pub effect Remote\n  run() -> Int\nend\n",
-        );
-        project.write(
-            "second/fx.veln",
-            "pub effect Remote\n  run() -> Int\nend\n",
-        );
-        project.write(
-            "stable.veln",
-            "pub effect Stable\n  run() -> Int\nend\n",
-        );
+    ]
+    .map(|(name, imports)| {
         let source = format!(
             "use stable\n{imports}\nfn invalid() -> Int effects [fx::Remote]\n  1\nend\n\nfn valid() -> Int effects [stable::Stable]\n  1\nend\n"
         );
-        project.write("main.veln", &source);
+        let source_path = format!("boundary_{name}.veln");
+        project.write(&source_path, &source);
+        (name, source_path, source)
+    });
 
-        let root_uri = path_to_uri(&project.root);
-        let main_uri = path_to_uri(&project.root.join("main.veln"));
-        let mut server = Server::default();
-        server.handle_message(&initialize_request(&root_uri));
+    let root_uri = path_to_uri(&project.root);
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    for (name, source_path, source) in cases {
+        let main_uri = path_to_uri(&project.root.join(source_path));
         let (valid_line, valid_character) = position_of(&source, "stable::Stable", 8);
         let valid_request = references_request_with_declaration(
             &main_uri,
