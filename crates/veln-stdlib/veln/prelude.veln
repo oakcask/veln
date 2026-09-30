@@ -7,8 +7,8 @@ pub type ByteOffset = bytes::ByteOffset
 pub type ByteCount = bytes::ByteCount
 pub type ByteView = bytes::ByteView
 
-# A normalized UTC instant returned by time::wall_time() effects [time].
-# unix_seconds is relative to the Unix epoch; nanosecond is 0..999999999.
+## A normalized UTC instant returned by time::wall_time() effects [time].
+## unix_seconds is relative to the Unix epoch; nanosecond is 0..999999999.
 pub type WallTime
 end
 

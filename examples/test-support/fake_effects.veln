@@ -418,6 +418,8 @@ fn clock_result(state: Dict<String, String>, operation: String, milliseconds: In
 		end)
 	else if operation == "sleep" and enabled(state, "timeout_expired")
 		Err("transport timeout expired: injected clock")
+	else if operation == "wait" and get(state, "expected_wait_ms") != "" and milliseconds != number(state, "expected_wait_ms")
+		Err("unexpected injected clock wait duration")
 	else if operation == "wait" and enabled(state, "deadline_expired")
 		Err("transport deadline expired: injected clock")
 	else if operation == "wait_cancellable"

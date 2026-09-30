@@ -18,8 +18,8 @@ fn wall_and_deadline() -> String effects [time]
 	let deadline: Deadline = time::deadline_after_ms(5)
 	let after = time::wall_time()
 	time::wait_until(deadline)
-	if before.unix_seconds == after.unix_seconds
-		"deadline-monotonic"
+	if before.unix_seconds == 1234 and before.nanosecond == 567 and before == after
+		"deadline-monotonic wall=1234:567"
 	else
 		"unexpected"
 	end
@@ -40,6 +40,6 @@ pub fn main() -> () effects [concurrency, time, stdio]
 	let second = handle time::wall_time() with fake_effects::clock(second_state)
 	stdio::println(if second.unix_seconds < first.unix_seconds "backwards" else "unexpected" end)
 
-	let deadline_state = fixture_effects::create_clock_state(0, 0, 7)
+	let deadline_state = fixture_effects::create_deadline_clock_state(1234, 567, 700, 5)
 	stdio::println(handle wall_and_deadline() with fake_effects::clock(deadline_state))
 end
