@@ -115,6 +115,7 @@ fails.
 | C9 | More than one cleanup fails while the region is already failing. | The original failure remains primary and cleanup failures are attached in execution order. | Human and JSON runtime-failure cases with ordered related failures. |
 | C10 | A successful region has a cleanup block that fails. | The first cleanup failure becomes the region failure after every cleanup block runs. | Run specification case with an event recorder and a failing cleanup. |
 | C11 | One cleanup fails before another registered cleanup runs. | The remaining cleanup still runs in reverse registration order. | Run specification case with ordered events. |
+| C12 | A block captures a local binding and a later declaration shadows that name before the region exits. | Cleanup observes the binding value captured at registration, not the later binding found by name at exit. | Run specification case with distinct recorded values before and after shadowing. |
 
 ## Verification and Promotion
 
