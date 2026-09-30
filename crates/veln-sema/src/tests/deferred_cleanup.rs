@@ -61,6 +61,72 @@ fn defer_capture_allows_a_later_local_to_shadow_the_captured_binding() {
 }
 
 #[test]
+fn defer_capture_allows_a_later_cleanup_local_to_shadow_the_captured_binding() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn consume(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main() -> ()\n",
+        "  let value: Int = 1\n",
+        "  defer\n",
+        "    consume(value)\n",
+        "    let value: String = \"cleanup local\"\n",
+        "    ()\n",
+        "  end\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn nested_begin_defer_capture_allows_a_later_cleanup_local_to_shadow_it() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn consume(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main() -> ()\n",
+        "  let value: Int = 1\n",
+        "  defer\n",
+        "    begin\n",
+        "      consume(value)\n",
+        "      ()\n",
+        "    end\n",
+        "    let value: String = \"cleanup local\"\n",
+        "    ()\n",
+        "  end\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn nested_match_defer_capture_allows_a_later_cleanup_local_to_shadow_it() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn consume(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main() -> ()\n",
+        "  let value: Int = 1\n",
+        "  defer\n",
+        "    match true\n",
+        "      true => consume(value)\n",
+        "      false => ()\n",
+        "    end\n",
+        "    let value: String = \"cleanup local\"\n",
+        "    ()\n",
+        "  end\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn defer_capture_does_not_allow_the_replacement_binding_to_be_shadowed_again() {
     let diagnostics = diagnostics_for(concat!(
         "fn consume(value: Int) -> ()\n",

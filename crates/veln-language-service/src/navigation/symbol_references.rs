@@ -495,11 +495,9 @@ impl SymbolIndex {
                         },
                     ) && (symbol.kind != LocalSymbolKind::HandlerContextParameter
                         || !handler_operation_clause_parameter_shadows_name(
-                            tokens,
+                            file,
                             &symbol.name,
                             token.range.start,
-                            symbol.scope_start,
-                            symbol.scope_end,
                         ))
                 })
                 .map(|(index, _)| file.source.span(tokens[index].range)),

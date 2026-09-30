@@ -1055,6 +1055,47 @@
     }
 
     #[test]
+    fn late_handler_context_parameter_navigation_uses_indexed_clause_ranges() {
+        fn range_work(
+            clause_count: usize,
+        ) -> ((usize, usize), std::time::Duration) {
+            let mut source_text = String::from(
+                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust(context: Int) handles Adjust\n",
+            );
+            for _ in 0..clause_count {
+                source_text.push_str("  amount(value) => context\n");
+            }
+            source_text.push_str("end\n");
+            reset_handler_clause_body_range_work();
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            let started = std::time::Instant::now();
+
+            let result = query_snapshot(
+                &snapshot,
+                "main.veln",
+                clause_count + 5,
+                22,
+            )
+            .expect("context parameter in the final clause should resolve");
+            assert_eq!(
+                result.selected_symbol.kind,
+                SymbolKind::HandlerContextParameter
+            );
+            (handler_clause_body_range_work(), started.elapsed())
+        }
+
+        let smaller = range_work(128);
+        let larger = range_work(256);
+
+        eprintln!("late handler context navigation: 128={smaller:?}, 256={larger:?}");
+        assert_eq!(smaller.0.0, 128);
+        assert_eq!(larger.0.0, 256);
+        assert_eq!(smaller.0.1, 129);
+        assert_eq!(larger.0.1, 257);
+        assert!(larger.0.1 <= smaller.0.1 * 2 + 1, "{smaller:?} -> {larger:?}");
+    }
+
+    #[test]
     fn handler_clause_function_reference_lookup_scales_with_generated_clauses() {
         fn reference_work(clause_count: usize) -> ((usize, usize), usize, std::time::Duration) {
             let mut source_text = String::from(

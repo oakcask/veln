@@ -409,59 +409,19 @@ fn local_binding_shadows_name(
 }
 
 fn handler_operation_clause_parameter_shadows_name(
-    tokens: &[Token],
+    file: &IndexedFile,
     name: &str,
     offset: usize,
-    scope_start: usize,
-    scope_end: usize,
 ) -> bool {
-    if offset < scope_start || offset >= scope_end {
-        return false;
-    }
-    let file_end = tokens.last().map_or(scope_end, |token| token.range.end);
-    tokens.iter().enumerate().any(|(arrow_index, arrow)| {
-        if arrow.kind != TokenKind::FatArrow
-            || !is_handler_operation_clause_arrow(tokens, arrow_index)
-        {
-            return false;
-        }
-        let Some((lparen_index, rparen_index)) =
-            handler_operation_clause_parameter_range(tokens, arrow_index)
-        else {
-            return false;
-        };
-        let body_end = handler_operation_clause_body_end(tokens, arrow_index, file_end);
-        offset >= tokens[lparen_index].range.start
-            && offset < body_end
-            && handler_operation_clause_parameter_names_in_range(tokens, lparen_index, rparen_index)
-                .contains(name)
-    })
-}
-
-fn handler_operation_clause_parameter_range(
-    tokens: &[Token],
-    arrow_index: usize,
-) -> Option<(usize, usize)> {
-    let lparen_index = tokens[..arrow_index]
-        .iter()
-        .rposition(|token| token.kind == TokenKind::LParen)?;
-    let rparen_index = tokens[lparen_index + 1..arrow_index]
-        .iter()
-        .position(|token| token.kind == TokenKind::RParen)
-        .map(|index| lparen_index + 1 + index)?;
-    Some((lparen_index, rparen_index))
-}
-
-fn handler_operation_clause_parameter_names_in_range(
-    tokens: &[Token],
-    lparen_index: usize,
-    rparen_index: usize,
-) -> BTreeSet<String> {
-    tokens[lparen_index + 1..rparen_index]
-        .iter()
-        .filter(|token| token.kind == TokenKind::Ident && is_identifier(&token.text))
-        .map(|token| token.text.clone())
-        .collect()
+    file.handler_clause_bindings_by_name
+        .get(name)
+        .is_some_and(|bindings| {
+            bindings.iter().any(|binding| {
+                binding.kind == LocalSymbolKind::HandlerOperationClauseParameter
+                    && offset >= binding.start
+                    && offset < binding.end
+            })
+        })
 }
 
 fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize, usize)> {

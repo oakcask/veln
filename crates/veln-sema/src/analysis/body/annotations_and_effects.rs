@@ -236,15 +236,10 @@ impl<'a> FunctionChecker<'a> {
             .defer_capture_boundaries
             .last()
             .is_some_and(|boundary| binding_index < *boundary)
-            && let Some(captures) = self.defer_captures.last_mut()
             && let Some((binding_id, _)) = self.local_names.get(name)
         {
-            captures.insert(binding_id.clone());
+            self.captured_local_bindings.insert(binding_id.clone());
         }
-    }
-
-    pub(super) fn admit_defer_captures(&mut self, captures: BTreeSet<String>) {
-        self.captured_local_bindings.extend(captures);
     }
 
     pub(super) fn admit_value_binding(

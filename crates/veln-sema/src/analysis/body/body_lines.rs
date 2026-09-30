@@ -39,14 +39,11 @@ impl<'a> FunctionChecker<'a> {
 
         self.defer_blocks.push(block_span.clone());
         self.defer_capture_boundaries.push(self.bindings.len());
-        self.defer_captures.push(BTreeSet::new());
         let actual = self.infer_scoped_body(body, None);
-        let captures = self.defer_captures.pop().expect("defer capture frame");
         self.defer_capture_boundaries
             .pop()
             .expect("defer capture boundary");
         self.defer_blocks.pop();
-        self.admit_defer_captures(captures);
 
         if actual != Type::Unknown && !is_assignable(&Type::unit(), &actual) {
             let result_span = body
