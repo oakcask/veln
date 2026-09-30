@@ -5,13 +5,13 @@ update-when: Deferred-cleanup registration, referenced-local capture, unwinding 
 
 # Lexical Deferred Cleanup Runtime
 
-This proposal remains incomplete. Its checked source and static-semantics
-slice does not make lexical cleanup a supported language feature because the
-runtime does not register or execute deferred blocks. The remaining work is
-runtime unwinding for normal, propagated-error, failure, and cancellation
-exits. The mechanism must cover files, sockets, locks, effect handlers, spans,
-and future resources without requiring destructors or garbage-collector
-finalizers.
+This proposal remains incomplete. The compiler has an internal checked-core,
+typed-IR, and JVM foundation for registration-time capture and normal
+completion. The public readiness gate still blocks executable programs that
+contain `defer`. Public integration and unwinding for propagated errors,
+failures, and cancellation remain. The mechanism must cover files, sockets,
+locks, effect handlers, spans, and future resources without requiring
+destructors or garbage-collector finalizers.
 
 ## Outcome
 
@@ -61,20 +61,24 @@ Code can use ordinary `Result` matching when it needs outcome-specific work.
 The safety requirement is unconditional cleanup that cannot replace the
 region's value or control transfer.
 
-## Implemented Prerequisite
+## Implemented Foundation
 
 The static and tooling boundary for the source forms is current behavior in
 the [source-surface specification](../specification/source-surface.md#static-cleanup-region-forms).
-This proposal contains only the unimplemented runtime contract.
+Checked core and typed IR preserve cleanup regions, deferred blocks, and typed
+snapshots of referenced local bindings. The JVM backend internally executes
+registered blocks once in reverse registration order on normal completion. It
+transfers a successful `begin` value only after cleanup completes. Compiler and
+backend tests cover C1, C4, C5, C6, and C12 while the public readiness gate
+remains closed.
 
-## Remaining Runtime Contract
+## Remaining Runtime Integration
 
-When execution reaches a `defer` statement, the runtime registers its block.
-The capture set contains the block's free references that resolve at that
-statement to local bindings in enclosing lexical scopes. Registration snapshots
-each captured local's current value; cleanup does not retain a live binding slot
-or resolve the name again when the region exits. Registration does not execute
-the block.
+The public executable pipeline must use the implemented registration and
+normal-completion foundation without bypassing the readiness gate early. The
+remaining unwind paths must use the same registration-time snapshots. Cleanup
+must not retain a live binding slot or resolve a captured name again when the
+region exits.
 
 ## Exit and Failure Rules
 
@@ -103,22 +107,20 @@ A cleanup failure must not hide an earlier contract failure, runtime failure,
 or cancellation. Every registered block still runs after another cleanup block
 fails.
 
-## Acceptance Model
+## Remaining Acceptance Model
+
+Before the readiness gate opens, public executable evidence must cover the
+implemented normal-completion cases and the remaining cases below.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| C1 | A region completes normally after registering one block. | The block runs once before the region transfers its value. | Run specification case with an event recorder. |
 | C2 | A region propagates `Err` through `?`. | Registered blocks run before the caller observes the `Err`. | Run specification case. |
 | C3 | A region raises a contract or runtime failure. | Registered blocks run before the failure leaves the region. | Human and JSON runtime-failure cases. |
-| C4 | Three blocks are registered. | They run once each in reverse registration order. | Run specification case with ordered events. |
-| C5 | Acquisition fails before execution reaches `defer`. | The unregistered block does not run. | Run specification case. |
-| C6 | A `begin` expression completes successfully. | Its cleanup runs before the expression value is bound outside the scope. | Run specification case. |
 | C7 | Cleanup fails while the region is already failing. | The original failure remains primary and cleanup failure is related context. | Human and JSON runtime-failure cases. |
 | C8 | A Veln task is cancelled while inside a cleanup region. | Task completion is not reported until registered cleanup has run. | Deterministic task-runtime case. |
 | C9 | More than one cleanup fails while the region is already failing. | The original failure remains primary and cleanup failures are attached in execution order. | Human and JSON runtime-failure cases with ordered related failures. |
 | C10 | A successful region has a cleanup block that fails. | The first cleanup failure becomes the region failure after every cleanup block runs. | Run specification case with an event recorder and a failing cleanup. |
 | C11 | One cleanup fails before another registered cleanup runs. | The remaining cleanup still runs in reverse registration order. | Run specification case with ordered events. |
-| C12 | A block captures a local binding and a later declaration shadows that name before the region exits. | Cleanup observes the local's registration-time value snapshot, not a later binding found by name at exit. | Run specification case with distinct recorded values before and after shadowing. |
 
 ## Verification and Promotion
 

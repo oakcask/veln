@@ -405,8 +405,9 @@ impl<'a> CoreLowerer<'a> {
             .iter()
             .rposition(|binding| binding.name == name)
         {
+            let local = self.lower_local_name(expr, name, index, expected);
             self.record_defer_capture(index);
-            return self.lower_local_name(expr, name, index, expected);
+            return local;
         }
 
         match self

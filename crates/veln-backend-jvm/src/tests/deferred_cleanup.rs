@@ -91,3 +91,49 @@ fn acquisition_failure_before_registration_does_not_run_cleanup() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "");
     assert!(String::from_utf8_lossy(&output.stderr).contains("not acquired"));
 }
+
+#[test]
+fn sequential_cleanup_regions_reuse_jvm_local_slots() {
+    let mut source = String::from("pub fn main() -> ()\n");
+    for index in 0..128 {
+        source.push_str("  begin\n");
+        source.push_str(&format!("    let value_{index}: Int = {index}\n"));
+        source.push_str("    defer\n");
+        source.push_str(&format!("      let copy: Int = value_{index}\n"));
+        source.push_str("      ()\n");
+        source.push_str("    end\n");
+        source.push_str("    ()\n");
+        source.push_str("  end\n");
+    }
+    source.push_str("  ()\nend\n");
+
+    let ir = lower_deferred_cleanup_foundation_to_ir(&source);
+    generate_classfiles_with_entry(&ir, "main");
+}
+
+#[test]
+fn nested_cleanup_region_local_binding_retention_grows_linearly() {
+    fn retention_at_depth(depth: usize) -> usize {
+        let mut source = String::from("pub fn main() -> ()\n  defer\n    ()\n  end\n");
+        for level in 0..depth {
+            source.push_str(&"  ".repeat(level + 1));
+            source.push_str("begin\n");
+            source.push_str(&"  ".repeat(level + 2));
+            source.push_str(&format!("let value_{level}: Int = {level}\n"));
+        }
+        source.push_str(&"  ".repeat(depth + 1));
+        source.push_str("()\n");
+        for level in (0..depth).rev() {
+            source.push_str(&"  ".repeat(level + 1));
+            source.push_str("end\n");
+        }
+        source.push_str("end\n");
+
+        let ir = lower_deferred_cleanup_foundation_to_ir(&source);
+        crate::classfile::local_binding_retention(&ir, "main")
+    }
+
+    assert_eq!(retention_at_depth(16), 32);
+    assert_eq!(retention_at_depth(32), 64);
+    assert_eq!(retention_at_depth(64), 128);
+}

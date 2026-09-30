@@ -100,10 +100,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let result_slot = self.alloc_local();
         code.astore(value_slot);
         let end = code.new_label();
-        let saved_locals = self.locals.clone();
+        let locals_mark = self.locals.mark();
         let saved_next = self.next_local;
         for arm in arms {
-            self.locals = saved_locals.clone();
+            self.locals.rollback(locals_mark);
             self.next_local = saved_next;
             let next = code.new_label();
             self.emit_pattern_condition(code, &arm.pattern, ValueRef::Local(value_slot));
@@ -125,7 +125,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.op(0xbf);
         code.bind(end);
         code.aload(result_slot);
-        self.locals = saved_locals;
+        self.locals.rollback(locals_mark);
         self.next_local = self.next_local.max(result_slot + 1);
     }
 

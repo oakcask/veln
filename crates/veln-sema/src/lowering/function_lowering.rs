@@ -299,7 +299,12 @@ impl<'a> CoreLowerer<'a> {
         }
         let binding = self.bindings[index].clone();
         let captures = self.defer_captures.last_mut().expect("defer capture frame");
-        if captures.iter().all(|capture| capture.name != binding.name) {
+        if let Some(capture) = captures
+            .iter_mut()
+            .find(|capture| capture.name == binding.name)
+        {
+            capture.ty = binding.ty;
+        } else {
             captures.push(CoreDeferredCapture {
                 name: binding.name,
                 ty: binding.ty,
