@@ -24,6 +24,7 @@ members = [
     "tools/veln-repo-mcp-standard-library-docs",
     "tools/veln-repo-toolchain-case",
     "tools/veln-repo-toolchain-cases",
+    "tools/veln-repo-workflow-scripts",
 ]
 resolver = "3"
 

@@ -8,6 +8,7 @@ on:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
       - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
@@ -18,13 +19,13 @@ on:
       - crates/**/*.rs
       - tools/**/Cargo.toml
       - tools/**/*.rs
-      - workflow-scripts/plan-nextest-shards.mjs
       - workflow-scripts/prune-rust-test-build-caches.mjs
   pull_request:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
       - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/actions/nextest/action.yaml
       - Cargo.lock
       - Cargo.toml
@@ -35,7 +36,6 @@ on:
       - crates/**/*.rs
       - tools/**/Cargo.toml
       - tools/**/*.rs
-      - workflow-scripts/plan-nextest-shards.mjs
       - workflow-scripts/prune-rust-test-build-caches.mjs
 
 permissions:
@@ -62,11 +62,14 @@ jobs:
       shards: ${{ steps.plan.outputs.shards }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Prepare Rust workflow scripts
+        id: workflow-scripts
+        uses: ./.github/actions/cargo-workflow-scripts
       - name: Plan Rust test shards
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node workflow-scripts/plan-nextest-shards.mjs
+        run: ${{ steps.workflow-scripts.outputs.binary }} plan-nextest-shards
 
   seed-cache:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

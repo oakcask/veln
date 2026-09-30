@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - .github/workflows/signal--code-metrics.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/cargo-workflow-scripts/action.yaml
       - Cargo.lock
       - Cargo.toml
       - package.json
@@ -16,11 +18,11 @@ on:
       - tools/**/*.rs
       - workflow-scripts/check-repo-metrics.mjs
       - workflow-scripts/check-repo-metrics.test.mjs
-      - workflow-scripts/summarize-code-duplication.mjs
-      - workflow-scripts/summarize-code-duplication.test.mjs
   pull_request:
     paths:
       - .github/workflows/signal--code-metrics.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/cargo-workflow-scripts/action.yaml
       - Cargo.lock
       - Cargo.toml
       - package.json
@@ -31,8 +33,6 @@ on:
       - tools/**/*.rs
       - workflow-scripts/check-repo-metrics.mjs
       - workflow-scripts/check-repo-metrics.test.mjs
-      - workflow-scripts/summarize-code-duplication.mjs
-      - workflow-scripts/summarize-code-duplication.test.mjs
 
 permissions:
   contents: read
@@ -50,6 +50,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Prepare Rust workflow scripts
+        id: workflow-scripts
+        uses: ./.github/actions/cargo-workflow-scripts
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: ${{ env.PNPM_VERSION }}
@@ -76,5 +79,5 @@ jobs:
             --reporters json \
             --output "${RUNNER_TEMP}/jscpd" \
             --silent
-          node workflow-scripts/summarize-code-duplication.mjs \
+          ${{ steps.workflow-scripts.outputs.binary }} summarize-duplication \
             "${RUNNER_TEMP}/jscpd/jscpd-report.json"
