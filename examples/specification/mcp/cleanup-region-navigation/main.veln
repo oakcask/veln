@@ -40,3 +40,13 @@ fn sibling_cleanup_scopes() -> Int
 	end
 	left + right
 end
+
+fn incomplete(input: Int) -> ()
+	defer
+		input
+end
+
+fn following(parameter: Int) -> Int
+	let local = parameter
+	local
+end

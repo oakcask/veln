@@ -12643,6 +12643,14 @@ field	expectations.lsp_assertions[24].equals	{"end":{"character":19,"line":9},"s
 field	expectations.lsp_assertions[24].id	15
 field	expectations.lsp_assertions[24].operation	"equals"
 field	expectations.lsp_assertions[24].path	"/result"
+field	expectations.lsp_assertions[25].equals	{"end":{"character":22,"line":48},"start":{"character":13,"line":48}}
+field	expectations.lsp_assertions[25].id	16
+field	expectations.lsp_assertions[25].operation	"equals"
+field	expectations.lsp_assertions[25].path	"/result/range"
+field	expectations.lsp_assertions[26].equals	{"end":{"character":10,"line":49},"start":{"character":5,"line":49}}
+field	expectations.lsp_assertions[26].id	17
+field	expectations.lsp_assertions[26].operation	"equals"
+field	expectations.lsp_assertions[26].path	"/result/range"
 field	expectations.lsp_assertions[2].equals	{"end":{"character":19,"line":9},"start":{"character":11,"line":9}}
 field	expectations.lsp_assertions[2].id	3
 field	expectations.lsp_assertions[2].operation	"equals"
@@ -12678,10 +12686,10 @@ field	expectations.lsp_assertions[9].path	"/result/changes/$workspace_file_uri:m
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3340,"sha256":"bcfff012f67bf2658dceb7e54a9f48edccba0dc96d9ce49fa302a7756184ed65"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3755,"sha256":"f3c5301de3c5757592c13c3ccabbd0aa9537c4f7d7bde8412d90fe79fa537bec"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
-field	source_errors	"forbidden"
-case_digest	"542101baac49f0c798f744f7e96ac4abbee4cba74547fa4664898f0c8be3d449"
+field	source_errors	"expected"
+case_digest	"d905260ba76dd5235d75c7e23bd7b1aff5279d936bad3f4cd735b05a595e2ff4"
 case	"examples/specification/lsp/companion-private-function-identity"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -17178,6 +17186,14 @@ field	expectations.mcp_assertions[21].equals	{"end":{"column":8,"line":35},"star
 field	expectations.mcp_assertions[21].id	12
 field	expectations.mcp_assertions[21].operation	"equals"
 field	expectations.mcp_assertions[21].path	"/result/structuredContent/edits/1/range"
+field	expectations.mcp_assertions[22].equals	{"end":{"column":23,"line":49},"start":{"column":14,"line":49}}
+field	expectations.mcp_assertions[22].id	13
+field	expectations.mcp_assertions[22].operation	"equals"
+field	expectations.mcp_assertions[22].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_assertions[23].equals	{"end":{"column":11,"line":50},"start":{"column":6,"line":50}}
+field	expectations.mcp_assertions[23].id	14
+field	expectations.mcp_assertions[23].operation	"equals"
+field	expectations.mcp_assertions[23].path	"/result/structuredContent/definition/range"
 field	expectations.mcp_assertions[2].equals	{"end":{"column":20,"line":10},"start":{"column":12,"line":10}}
 field	expectations.mcp_assertions[2].id	3
 field	expectations.mcp_assertions[2].operation	"equals"
@@ -17213,9 +17229,9 @@ field	expectations.mcp_assertions[9].path	"/result/structuredContent/definition/
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1712,"sha256":"03c2b29b8f7439d95df96a4f5626d84eefb70827071b2c7d5e4085ba0ed61c8d"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1983,"sha256":"01c36ad72dd6f5c6cb5c1e5882040f0fa8e424e9feb31dba9c073d9750685103"}
 field	source_errors	"forbidden"
-case_digest	"dc0bbbd33df54d3ddf0d0e7773bd053dd45f331a056e513a8a5e2ca5743eca88"
+case_digest	"46494b65f3cdb591c0d24dedc091b6f4e77222004f35e85b2ee62667a96c3fb3"
 case	"examples/specification/mcp/definition-dependency-type-alias"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].contains	"veln-pkg:///example%2Fdep/snapshot/"
@@ -62261,4 +62277,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8d4087bca60f8c0179f76111738d58d58aa0e44d0a1afa68f436cb96020c1161"
+aggregate_digest	"af01d6e155146a0877189df2097a342e92a8920af8cb539fd54e99ed058ad5d8"

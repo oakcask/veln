@@ -10,3 +10,5 @@
 {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":25,"column":20,"new_name":"saved"}}}
 {"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":10,"column":13,"new_name":"input"}}}
 {"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":35,"column":4,"new_name":"second"}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":50,"column":15}}}
+{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":51,"column":2}}}

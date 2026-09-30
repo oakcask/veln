@@ -717,6 +717,132 @@
     }
 
     #[test]
+    fn cleanup_match_satisfy_arrow_keeps_candidate_and_callable_identities_separate() {
+        struct Case {
+            source: &'static str,
+            predicate_line: usize,
+            unbound_line: usize,
+            call_line: usize,
+        }
+
+        let cases = [
+            Case {
+                source: concat!(
+                    "fn helper() -> ()\n",
+                    "  ()\n",
+                    "end\n\n",
+                    "fn main(input: Int) -> ()\n",
+                    "  match input\n",
+                    "    value => begin\n",
+                    "      _value satisfy candidate => candidate > 0\n",
+                    "      candidate\n",
+                    "      helper()\n",
+                    "    end\n",
+                    "  end\n",
+                    "end\n",
+                ),
+                predicate_line: 8,
+                unbound_line: 9,
+                call_line: 10,
+            },
+            Case {
+                source: concat!(
+                    "fn helper() -> ()\n",
+                    "  ()\n",
+                    "end\n\n",
+                    "fn main(input: Int) -> ()\n",
+                    "  match input\n",
+                    "    value => begin\n",
+                    "      defer\n",
+                    "        _value satisfy candidate => candidate > 0\n",
+                    "        candidate\n",
+                    "        helper()\n",
+                    "      end\n",
+                    "      ()\n",
+                    "    end\n",
+                    "  end\n",
+                    "end\n",
+                ),
+                predicate_line: 9,
+                unbound_line: 10,
+                call_line: 11,
+            },
+        ];
+
+        for case in cases {
+            let sources = vec![source("main.veln", case.source)];
+            let predicate = query(
+                sources.clone(),
+                "main.veln",
+                case.predicate_line,
+                if case.predicate_line == 8 { 35 } else { 37 },
+            )
+            .expect("satisfy candidate use should resolve");
+            assert_eq!(predicate.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(
+                &predicate.definition,
+                "main.veln",
+                case.predicate_line,
+                if case.predicate_line == 8 { 22 } else { 24 },
+            );
+
+            assert!(
+                query(
+                    sources.clone(),
+                    "main.veln",
+                    case.unbound_line,
+                    if case.unbound_line == 9 { 8 } else { 10 },
+                )
+                .is_none(),
+                "satisfy candidate must end at the predicate line"
+            );
+
+            let callable = query(
+                sources,
+                "main.veln",
+                case.call_line,
+                if case.call_line == 10 { 8 } else { 10 },
+            )
+                .expect("following call should resolve");
+            assert_eq!(callable.selected_symbol.kind, SymbolKind::Function);
+            assert_location(&callable.definition, "main.veln", 1, 4);
+        }
+    }
+
+    #[test]
+    fn cleanup_match_arm_binding_index_grows_linearly() {
+        fn token_visits(arm_count: usize) -> usize {
+            let mut source_text = String::from("fn main(input: Int) -> Int\n  match input\n");
+            let mut selected_column = 0;
+            for index in 0..arm_count {
+                let arm = format!("    Some(value{index}) => value{index}\n");
+                selected_column = arm.find("=>").expect("arm arrow") + 4;
+                source_text.push_str(&arm);
+            }
+            source_text.push_str("  end\nend\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_binding_scope_token_visits();
+
+            let result = query_snapshot(
+                &snapshot,
+                "main.veln",
+                arm_count + 2,
+                selected_column,
+            )
+            .expect("last match-arm binding should resolve");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            local_binding_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 32, "{smaller} -> {larger}");
+    }
+
+    #[test]
     fn handler_clause_scope_discovery_is_linear_for_many_non_handler_arrows() {
         fn token_visits(arrow_count: usize) -> usize {
             let mut source_text = String::new();

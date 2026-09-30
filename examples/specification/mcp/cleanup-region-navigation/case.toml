@@ -114,3 +114,13 @@ equals = {"start":{"line":34,"column":7},"end":{"line":34,"column":12}}
 id = 12
 path = "/result/structuredContent/edits/1/range"
 equals = {"start":{"line":35,"column":3},"end":{"line":35,"column":8}}
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":49,"column":14},"end":{"line":49,"column":23}}
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":50,"column":6},"end":{"line":50,"column":11}}

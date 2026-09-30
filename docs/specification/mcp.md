@@ -433,6 +433,11 @@ conflict prediction: renaming a cleanup-body local binding to a visible
 enclosing function parameter returns `rename.conflict` and no edits. Equal
 names in disjoint sibling `begin` scopes do not conflict, so that rename
 succeeds and returns only the selected binding's edits.
+An unterminated `begin` or `defer` cannot absorb a following top-level
+declaration into its navigation scope. The following declaration's parameters
+and locals keep their own definition, reference, and rename identity. MCP
+inherits this recovery boundary from the shared language-service snapshot, as
+does the LSP adapter.
 
 The supported definition set includes workspace functions, types,
 constructors, handler context and operation-clause parameters, exact

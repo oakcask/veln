@@ -238,6 +238,13 @@ do not conflict, so a rename that makes those local names equal succeeds.
 Expression-position recovery for an invalid `defer` leaves later local
 definitions, references, prepare-rename selections, and rename edits
 available.
+When an unterminated `begin` or `defer` recovers at a following top-level
+declaration, that declaration retains its own navigation scope. Its parameters
+and local bindings resolve only within the following declaration; the open
+cleanup form cannot absorb them or link them to names in the preceding
+declaration. Definition, references, prepare-rename, and rename all inherit
+this boundary from the shared language-service snapshot. The MCP navigation
+adapters inherit the same boundary when they capture a saved snapshot.
 For a selected valid-cased, unrecovered workspace effect declaration,
 references include every structurally complete bare effect-row occurrence on
 functions, tests, handlers, and function types, every handler `handles` target,
