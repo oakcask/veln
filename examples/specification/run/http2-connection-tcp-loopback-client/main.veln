@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 use http2::connection from "std"
 use http2::core from "std"
 use transport::net from "std"
@@ -39,7 +41,7 @@ fn print_failure(failure: Http2ConnectionFailure) -> Result<(), String> effects 
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let open_stream = accept_next(listener)?
 	let open_state = http2::core::client_connection_state(0)?
@@ -53,4 +55,9 @@ pub fn main() -> Result<(), String> effects [net, stdio]
 	let _ = print_result("closed", closed_result)?
 	net::close_stream(closed_stream)
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

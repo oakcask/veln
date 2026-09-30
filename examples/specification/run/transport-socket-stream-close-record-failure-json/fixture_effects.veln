@@ -1,0 +1,5 @@
+use fake_effects
+
+pub fn create_fixture() -> { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> } effects [concurrency]
+	fake_effects::create_state({ "runtime": "production-loopback", "production_read_hex": "01;02", "event_record_failed_prefix": "close-production ", "events": "net-events.log" })
+end

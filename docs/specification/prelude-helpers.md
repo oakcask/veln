@@ -40,6 +40,12 @@ callback inference for public helper names declared by that package.
 
 ## Prelude Helpers
 
+`string::concat(left: String, right: String) -> String` is a pure
+compiler-known call that returns the left text followed by the right text.
+Empty strings contribute no characters. It does not change either input or
+insert a separator. This qualified helper is separate from the numeric `+`
+operator.
+
 Every selected module is checked with an implicit import of `std::prelude`.
 The single bootstrap exception is `std::prelude` itself. Other `std` modules
 and standard-package tests receive the same-package import.

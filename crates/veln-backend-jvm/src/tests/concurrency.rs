@@ -1,16 +1,17 @@
+use super::effect_injection::lower_with_clock;
 use super::*;
 
 #[test]
 fn bytecode_backend_reports_forced_timeout_expiry_when_java_is_available() {
-    let ir = lower_to_ir("pub fn main() -> () effects [time]\n  time::timeout_ms(5)\nend\n");
+    let ir = lower_with_clock(concat!(
+        "fn run_test() -> () effects [time]\n  time::timeout_ms(5)\nend\n",
+        "pub fn main() -> () effects [time, stdio]\n handle run_test() with failing_clock(\"sleep\", \"transport timeout expired: injected clock\")\nend\n"
+    ));
     let program = generate_classfiles_with_entry(&ir, "main");
 
-    let Some(output) = run_jvm_program_with_env_when_java_is_available(
-        "bytecode-timeout-expiry",
-        &program,
-        &[("VELN_TIME_TIMEOUT_EXPIRED", "1")],
-        &[],
-    ) else {
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-timeout-expiry", &program, &[])
+    else {
         return;
     };
 
@@ -18,26 +19,24 @@ fn bytecode_backend_reports_forced_timeout_expiry_when_java_is_available() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "");
     assert_eq!(
         String::from_utf8_lossy(&output.stderr),
-        "transport timeout expired: VELN_TIME_TIMEOUT_EXPIRED\n"
+        "transport timeout expired: injected clock\n"
     );
 }
 
 #[test]
 fn bytecode_backend_reports_forced_deadline_expiry_when_java_is_available() {
-    let ir = lower_to_ir(concat!(
-        "pub fn main() -> () effects [time]\n",
+    let ir = lower_with_clock(concat!(
+        "fn run_test() -> () effects [time]\n",
         "  let deadline: Deadline = time::deadline_after_ms(5)\n",
         "  time::wait_until(deadline)\n",
         "end\n",
+        "pub fn main() -> () effects [time, stdio]\n handle run_test() with failing_clock(\"wait\", \"transport deadline expired: injected clock\")\nend\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
 
-    let Some(output) = run_jvm_program_with_env_when_java_is_available(
-        "bytecode-deadline-expiry",
-        &program,
-        &[("VELN_TIME_DEADLINE_EXPIRED", "1")],
-        &[],
-    ) else {
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-deadline-expiry", &program, &[])
+    else {
         return;
     };
 
@@ -45,7 +44,7 @@ fn bytecode_backend_reports_forced_deadline_expiry_when_java_is_available() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "");
     assert_eq!(
         String::from_utf8_lossy(&output.stderr),
-        "transport deadline expired: VELN_TIME_DEADLINE_EXPIRED\n"
+        "transport deadline expired: injected clock\n"
     );
 }
 
@@ -212,7 +211,7 @@ fn bytecode_backend_observes_cancel_owner_status_when_java_is_available() {
 
 #[test]
 fn bytecode_backend_returns_forced_cancellable_wait_expiry_outcome_when_java_is_available() {
-    let ir = lower_to_ir(concat!(
+    let ir = lower_with_clock(concat!(
         "fn outcome_text(outcome: CancellableWaitOutcome) -> String\n",
         "  match outcome\n",
         "    prelude::CancellableWaitOutcome::WaitCompleted => \"completed\"\n",
@@ -220,19 +219,19 @@ fn bytecode_backend_returns_forced_cancellable_wait_expiry_outcome_when_java_is_
         "    prelude::CancellableWaitOutcome::WaitCancelled => \"cancelled\"\n",
         "  end\n",
         "end\n",
-        "pub fn main() -> () effects [time, stdio]\n",
+        "fn run_test() -> () effects [time, stdio]\n",
         "  let deadline: Deadline = time::deadline_after_ms(5)\n",
         "  let token: CancelToken = time::cancel_token()\n",
         "  let outcome: CancellableWaitOutcome = time::wait_until_cancellable_outcome(deadline, token)\n",
         "  stdio::println(outcome_text(outcome))\n",
         "end\n",
+        "pub fn main() -> () effects [time, stdio]\n handle run_test() with outcome_clock(1)\nend\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
 
-    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+    let Some(output) = run_jvm_program_when_java_is_available(
         "bytecode-cancellable-wait-expiry-outcome",
         &program,
-        &[("VELN_TIME_DEADLINE_EXPIRED", "1")],
         &[],
     ) else {
         return;
@@ -248,7 +247,7 @@ fn bytecode_backend_returns_forced_cancellable_wait_expiry_outcome_when_java_is_
 
 #[test]
 fn bytecode_backend_returns_forced_cancellable_wait_outcome_sequence_when_java_is_available() {
-    let ir = lower_to_ir(concat!(
+    let ir = lower_with_clock(concat!(
         "fn outcome_text(outcome: CancellableWaitOutcome) -> String\n",
         "  match outcome\n",
         "    prelude::CancellableWaitOutcome::WaitCompleted => \"completed\"\n",
@@ -256,30 +255,27 @@ fn bytecode_backend_returns_forced_cancellable_wait_outcome_sequence_when_java_i
         "    prelude::CancellableWaitOutcome::WaitCancelled => \"cancelled\"\n",
         "  end\n",
         "end\n",
-        "pub fn main() -> () effects [time, stdio]\n",
+        "fn run_test() -> () effects [time, stdio]\n",
         "  let first_deadline: Deadline = time::deadline_after_ms(0)\n",
         "  let first_token: CancelToken = time::cancel_token()\n",
-        "  let first: CancellableWaitOutcome = time::wait_until_cancellable_outcome(first_deadline, first_token)\n",
+        "  let first: CancellableWaitOutcome = handle time::wait_until_cancellable_outcome(first_deadline, first_token) with outcome_clock(0)\n",
         "  stdio::println(outcome_text(first))\n",
         "  let second_deadline: Deadline = time::deadline_after_ms(0)\n",
         "  let second_token: CancelToken = time::cancel_token()\n",
-        "  let second: CancellableWaitOutcome = time::wait_until_cancellable_outcome(second_deadline, second_token)\n",
+        "  let second: CancellableWaitOutcome = handle time::wait_until_cancellable_outcome(second_deadline, second_token) with outcome_clock(1)\n",
         "  stdio::println(outcome_text(second))\n",
         "  let third_deadline: Deadline = time::deadline_after_ms(0)\n",
         "  let third_token: CancelToken = time::cancel_token()\n",
-        "  let third: CancellableWaitOutcome = time::wait_until_cancellable_outcome(third_deadline, third_token)\n",
+        "  let third: CancellableWaitOutcome = handle time::wait_until_cancellable_outcome(third_deadline, third_token) with outcome_clock(2)\n",
         "  stdio::println(outcome_text(third))\n",
         "end\n",
+        "pub fn main() -> () effects [time, stdio]\n handle run_test() with outcome_clock(0)\nend\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
 
-    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+    let Some(output) = run_jvm_program_when_java_is_available(
         "bytecode-cancellable-wait-outcome-sequence",
         &program,
-        &[(
-            "VELN_TIME_CANCELLABLE_OUTCOMES",
-            "completed,deadline-expired,cancelled",
-        )],
         &[],
     ) else {
         return;
@@ -298,19 +294,19 @@ fn bytecode_backend_returns_forced_cancellable_wait_outcome_sequence_when_java_i
 
 #[test]
 fn bytecode_backend_reports_forced_cancellable_wait_expiry_when_java_is_available() {
-    let ir = lower_to_ir(concat!(
-        "pub fn main() -> () effects [time]\n",
+    let ir = lower_with_clock(concat!(
+        "fn run_test() -> () effects [time]\n",
         "  let deadline: Deadline = time::deadline_after_ms(5)\n",
         "  let token: CancelToken = time::cancel_token()\n",
         "  time::wait_until_cancellable(deadline, token)\n",
         "end\n",
+        "pub fn main() -> () effects [time, stdio]\n handle run_test() with outcome_clock(1)\nend\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
 
-    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+    let Some(output) = run_jvm_program_when_java_is_available(
         "bytecode-cancellable-deadline-expiry",
         &program,
-        &[("VELN_TIME_DEADLINE_EXPIRED", "1")],
         &[],
     ) else {
         return;
@@ -320,25 +316,25 @@ fn bytecode_backend_reports_forced_cancellable_wait_expiry_when_java_is_availabl
     assert_eq!(String::from_utf8_lossy(&output.stdout), "");
     assert_eq!(
         String::from_utf8_lossy(&output.stderr),
-        "transport deadline expired: VELN_TIME_DEADLINE_EXPIRED\n"
+        "transport deadline expired: injected clock\n"
     );
 }
 
 #[test]
 fn bytecode_backend_reports_forced_cancellable_wait_cancellation_when_java_is_available() {
-    let ir = lower_to_ir(concat!(
-        "pub fn main() -> () effects [time]\n",
+    let ir = lower_with_clock(concat!(
+        "fn run_test() -> () effects [time]\n",
         "  let deadline: Deadline = time::deadline_after_ms(5)\n",
         "  let token: CancelToken = time::cancel_token()\n",
         "  time::wait_until_cancellable(deadline, token)\n",
         "end\n",
+        "pub fn main() -> () effects [time, stdio]\n handle run_test() with outcome_clock(2)\nend\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
 
-    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+    let Some(output) = run_jvm_program_when_java_is_available(
         "bytecode-cancellable-wait-cancelled",
         &program,
-        &[("VELN_TIME_WAIT_CANCELLED", "1")],
         &[],
     ) else {
         return;
@@ -348,7 +344,7 @@ fn bytecode_backend_reports_forced_cancellable_wait_cancellation_when_java_is_av
     assert_eq!(String::from_utf8_lossy(&output.stdout), "");
     assert_eq!(
         String::from_utf8_lossy(&output.stderr),
-        "transport wait cancelled: VELN_TIME_WAIT_CANCELLED\n"
+        "transport wait cancelled: cancellation token\n"
     );
 }
 

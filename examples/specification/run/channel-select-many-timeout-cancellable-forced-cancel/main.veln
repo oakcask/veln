@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Cancellable receiver-list timeout selection reports runtime wait cancellation as Err.
 use stdio
 
@@ -9,7 +11,7 @@ fn result_text(selected: Result<Option<{ index : Int, value : Int }>, SelectErro
 	end
 end
 
-pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [time, concurrency, stdio]
 	let first = channel::bounded<Int>(1)
 	let second = channel::bounded<Int>(1)
 	let receivers: List<Receiver<Int>> = list_cons(first.rx, list_cons(second.rx, list_nil()))
@@ -17,4 +19,9 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	let selected = channel::select_many_timeout_cancellable(receivers, 25, token)
 	stdio::println(result_text(selected))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

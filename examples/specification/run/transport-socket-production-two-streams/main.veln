@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Production loopback listener accepts two independent streams and then ends.
 use stdio
 
@@ -30,7 +32,7 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let first = accept_next(listener)?
 	let first_count = round_trip_stream(first)
@@ -44,4 +46,9 @@ pub fn main() -> Result<(), String> effects [net, stdio]
 	stdio::print(" clean-end ")
 	stdio::println(bool_text(clean_end))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

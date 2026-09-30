@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Production loopback adapter drains pending per-stream tasks in acceptance order.
 use stdio
 
@@ -14,7 +16,7 @@ type PendingWork
 	Drained
 end
 
-fn handle_stream(context: { input: StreamInput, accepted: Int }) -> Result<HandlerOutput, String>
+fn handle_stream(context: { input : StreamInput, accepted : Int }) -> Result<HandlerOutput, String>
 	match context.accepted
 		2 => Err("handler rejected second stream")
 		_ => match context.input
@@ -24,7 +26,7 @@ fn handle_stream(context: { input: StreamInput, accepted: Int }) -> Result<Handl
 	end
 end
 
-fn run_handler_task(context: { input: StreamInput, accepted: Int }) -> Result<HandlerOutput, String> effects [concurrency]
+fn run_handler_task(context: { input : StreamInput, accepted : Int }) -> Result<HandlerOutput, String> effects [concurrency]
 	handle_stream(context)
 end
 
@@ -37,7 +39,7 @@ end
 
 fn spawn_stream_handler(stream: NetStream, accepted: Int) -> Task<Result<HandlerOutput, String>> effects [net, concurrency]
 	let context = { input: read_stream_input(stream), accepted: accepted }
-	task::spawn_with<Result<HandlerOutput, String>, { input: StreamInput, accepted: Int }>(run_handler_task, context)
+	task::spawn_with<Result<HandlerOutput, String>, {input:StreamInput, accepted:Int}>(run_handler_task, context)
 end
 
 fn accept_pending(listener: NetListener, accepted: Int) -> PendingWork effects [net, concurrency]
@@ -81,7 +83,7 @@ fn drain_one(stream: NetStream, worker: Task<Result<HandlerOutput, String>>) -> 
 	end
 end
 
-fn prepend_drain(success: Bool, tail: { drained: Int, successes: Int, failures: Int }) -> { drained: Int, successes: Int, failures: Int }
+fn prepend_drain(success: Bool, tail: { drained : Int, successes : Int, failures : Int }) -> { drained : Int, successes : Int, failures : Int }
 	if success
 		{ drained: 1 + tail.drained, successes: 1 + tail.successes, failures: tail.failures }
 	else
@@ -89,14 +91,14 @@ fn prepend_drain(success: Bool, tail: { drained: Int, successes: Int, failures: 
 	end
 end
 
-fn drain_pending(pending: PendingWork) -> { drained: Int, successes: Int, failures: Int } effects [net, concurrency]
+fn drain_pending(pending: PendingWork) -> { drained : Int, successes : Int, failures : Int } effects [net, concurrency]
 	match pending
 		Pending(stream, worker, _, tail) => prepend_drain(drain_one(stream, worker), drain_pending(tail))
 		Drained => { drained: 0, successes: 0, failures: 0 }
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, concurrency, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let pending = accept_pending(listener, 1)
 	net::close_listener(listener)
@@ -108,4 +110,9 @@ pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
 	stdio::print(" failures ")
 	stdio::println(int_to_string(summary.failures))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

@@ -1,0 +1,21 @@
+use host_effects from "std"
+
+handler fixed_clock(value: Int) handles host_effects::Clock
+	request(operation, milliseconds) => Ok(value)
+end
+
+handler failing_clock(failed_operation: String, message: String) handles host_effects::Clock
+	request(operation, milliseconds) => if operation == failed_operation
+		Err(message)
+	else
+		Ok(0)
+	end
+end
+
+handler outcome_clock(outcome: Int) handles host_effects::Clock
+	request(operation, milliseconds) => if operation == "wait_cancellable"
+		Ok(outcome)
+	else
+		Ok(0)
+	end
+end

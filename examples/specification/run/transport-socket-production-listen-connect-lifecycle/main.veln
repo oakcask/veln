@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Production loopback connects a source-owned client stream to a source-owned listener.
 use stdio
 
@@ -23,7 +25,7 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let address = "127.0.0.1:0"
 	let listener = net::listen(address)
 	let client = net::connect(address)
@@ -46,4 +48,9 @@ pub fn main() -> Result<(), String> effects [net, stdio]
 	stdio::print(" clean-end ")
 	stdio::println(bool_text(clean_end))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

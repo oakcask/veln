@@ -1,6 +1,26 @@
 use super::*;
 
 pub(crate) const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
+    runtime_symbol_with_signature(
+        "string",
+        "concat",
+        &[],
+        "runtime.string.concat",
+        StandardSignature {
+            params: &[StandardType::String, StandardType::String],
+            return_type: StandardType::String,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "fs",
+        "path",
+        &[],
+        "runtime.fs.path",
+        StandardSignature {
+            params: PARAM_STRING,
+            return_type: StandardType::Named("Path"),
+        },
+    ),
     runtime_symbol("stdio", "print", STDIO_EFFECTS, "runtime.stdio.print"),
     runtime_symbol("stdio", "println", STDIO_EFFECTS, "runtime.stdio.println"),
     runtime_symbol("stdio", "eprint", STDIO_EFFECTS, "runtime.stdio.eprint"),

@@ -1,14 +1,10 @@
-command = ["run", "--json", "main", "main.veln"]
+command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 1
 
 [requires]
 jdk = true
 
 [env]
-VELN_NET_RUNTIME = "production-loopback"
-VELN_NET_PRODUCTION_READS_HEX = "010203,0a0b"
-VELN_NET_READ_FAILED = "1"
-VELN_NET_EVENTS = "net-events.log"
 
 [stdout]
 format = "json"

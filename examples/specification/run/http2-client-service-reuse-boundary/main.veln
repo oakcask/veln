@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 use http2::connection from "std"
 use http2::core from "std"
 use http2::hpack from "std"
@@ -20,7 +22,11 @@ fn observe(response: Http2ClientResponse) -> Result<(), String> effects [stdio]
 	stdio::print("response stream ")
 	stdio::print(int_to_string(http2::connection::client_response_stream_id(response)))
 	stdio::print(" reused ")
-	stdio::print(if http2::connection::client_response_reused_connection(response) "true" else "false" end)
+	stdio::print(if http2::connection::client_response_reused_connection(response)
+		"true"
+	else
+		"false"
+	end)
 	stdio::print(" lifecycle ")
 	stdio::print(http2::connection::client_response_connection_lifecycle(response))
 	stdio::print(" active ")
@@ -52,6 +58,11 @@ fn print_failure(failure: Http2ClientServiceFailure) -> Result<(), String> effec
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, concurrency, stdio]
 	print_result(http2::connection::request_endpoint_sequence("127.0.0.1:0", requests()?, observe))
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

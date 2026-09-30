@@ -1,6 +1,14 @@
+use fixture_effects
+use fake_effects
+
 # Transport timeout expiry is a runtime failure, not schema or protocol blame.
-pub fn main() -> Result<(), String> effects [time, stdio]
+fn fixture_body() -> Result<(), String> effects [time, stdio]
 	time::timeout_ms(5)
 	stdio::println("unreachable")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

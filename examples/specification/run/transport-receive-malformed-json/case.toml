@@ -1,11 +1,10 @@
-command = ["run", "--json", "main", "main.veln"]
+command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 1
 
 [requires]
 jdk = true
 
 [env]
-VELN_NET_CHUNK_HEX = "0g"
 
 [stdout]
 format = "json"
@@ -31,7 +30,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport receive failed: malformed VELN_NET_CHUNK_HEX"
+equals = "transport receive failed: malformed injected receive chunk"
 
 [[json_assert]]
 path = "error.details.phase"

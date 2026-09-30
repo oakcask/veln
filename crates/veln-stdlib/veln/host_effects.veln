@@ -1,0 +1,8 @@
+# Lexically scoped host adapters. Unhandled operations use the real host runtime.
+pub effect Network
+	request(operation: String, subject: String, bytes: ByteChunk, remaining_ms: Int, cancelled: Bool) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+end
+
+pub effect Clock
+	request(operation: String, milliseconds: Int) -> Result<Int, String>
+end

@@ -315,7 +315,7 @@ mod tests {
             trace_hex("fixture-stream"),
             trace_hex("fixture-stream"),
             trace_hex("write_shutdown"),
-            trace_hex("could not record VELN_NET_EVENTS"),
+            trace_hex("could not record injected network events"),
         );
 
         let failure = transport_failure_from_trace(&trace).expect("transport trace should parse");

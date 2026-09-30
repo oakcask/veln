@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Production loopback stream state inspection preserves stream ownership.
 use stdio
 
@@ -19,7 +21,7 @@ fn print_state(label: String, stream: NetStream) -> () effects [net, stdio]
 	stdio::println(bool_text(net::stream_is_closed(stream)))
 end
 
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let stream = net::accept(listener)
 	print_state("open", stream)
@@ -32,4 +34,9 @@ pub fn main() -> Result<(), String> effects [net, stdio]
 	net::close_stream(stream)
 	print_state("closed", stream)
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

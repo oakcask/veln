@@ -1,5 +1,7 @@
-# Production loopback adapter reports close failures after ordered writes.
+use fixture_effects
+use fake_effects
 
+# Production loopback adapter reports close failures after ordered writes.
 type ResponseAction
 	SendBytes(bytes: ByteChunk)
 	Ignore
@@ -57,11 +59,16 @@ fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency]
+fn fixture_body() -> Result<(), String> effects [net, concurrency]
 	let listener: NetListener = net::listen("127.0.0.1:0")
 	let first_stream: NetStream = accept_next(listener)?
 	run_stream(first_stream)
 	let second_stream: NetStream = accept_next(listener)?
 	run_stream(second_stream)
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

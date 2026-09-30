@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Cancellable adapter write-drain helper reports write deadline expiry as a value.
 use stdio
 
@@ -16,7 +18,7 @@ fn write_outcome_text(outcome: StreamWriteOutcome) -> String
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, time, concurrency, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let stream = net::accept(listener)
 	let deadline = time::deadline_after_ms(100)
@@ -24,4 +26,9 @@ pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
 	let outcome = stream_adapter_drain_actions_until_cancellable(stream, handle_input, deadline, token)
 	stdio::println(write_outcome_text(outcome))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

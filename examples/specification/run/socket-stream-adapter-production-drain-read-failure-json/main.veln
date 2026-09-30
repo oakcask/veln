@@ -1,5 +1,7 @@
-# Production loopback listener drain keeps forced reads as runtime failures.
+use fixture_effects
+use fake_effects
 
+# Production loopback listener drain keeps forced reads as runtime failures.
 type ResponseAction
 	SendBytes(bytes: ByteChunk)
 	EndStream
@@ -64,8 +66,13 @@ fn run_then_drain(listener: NetListener, stream: NetStream) -> () effects [net, 
 	drain_listener(listener)
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency]
+fn fixture_body() -> Result<(), String> effects [net, concurrency]
 	let listener: NetListener = net::listen("127.0.0.1:0")
 	drain_listener(listener)
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

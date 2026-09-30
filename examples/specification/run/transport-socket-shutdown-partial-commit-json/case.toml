@@ -1,13 +1,10 @@
-command = ["run", "--json", "main", "main.veln"]
+command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 1
 
 [requires]
 jdk = true
 
 [env]
-VELN_NET_ACCEPT_STREAM = "fixture-stream"
-VELN_NET_EVENTS = "net-events.log"
-VELN_NET_EVENT_RECORD_FAILED_PREFIX = "shutdown-write"
 
 [stdout]
 format = "json"
@@ -69,7 +66,7 @@ equals = true
 
 [[json_assert]]
 path = "error.details.platform_cause"
-equals = "could not record VELN_NET_EVENTS"
+equals = "could not record injected net events"
 
 [[file_assert]]
 path = "net-events.log"

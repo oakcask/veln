@@ -1,5 +1,13 @@
+use fixture_effects
+use fake_effects
+
 # Production socket listen host failures stay runtime transport failures.
-pub fn main() -> Result<(), String> effects [net]
+fn fixture_body() -> Result<(), String> effects [net]
 	let _ = net::listen("not-a-socket-address")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

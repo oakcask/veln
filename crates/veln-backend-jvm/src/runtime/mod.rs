@@ -203,6 +203,8 @@ runtime_method_table!(concurrency_method, "channelRecv", {
 });
 
 runtime_method_table!(standard_library_method, reject_unknown "standard library builtin", {
+    "string::concat" => "stringConcat",
+    "fs::path" => "fsPath",
     "fs::read_to_string" => "fsReadToString",
     "fs::write_string" => "fsWriteString",
     "fs::exists" => "fsExists",

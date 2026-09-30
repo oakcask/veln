@@ -1,0 +1,24 @@
+use fake_effects
+use fixture_effects
+
+fn read_fresh_sequence() -> Result<(), String> effects [net]
+	let stream = net::connect("fixture")
+	let first = net::read_chunk(stream)
+	let second = net::read_chunk(stream)
+	net::close_stream(stream)
+	if byte_count_to_int(byte_chunk_count(first)) == 1 and byte_count_to_int(byte_chunk_count(second)) == 2
+		Ok(())
+	else
+		Err("effect handler state leaked between test executions")
+	end
+end
+
+test first_execution() -> Result<(), String> effects [net, concurrency, fs]
+	let state = fixture_effects::create_fixture()
+	handle read_fresh_sequence() with fake_effects::network(state)
+end
+
+test second_execution() -> Result<(), String> effects [net, concurrency, fs]
+	let state = fixture_effects::create_fixture()
+	handle read_fresh_sequence() with fake_effects::network(state)
+end

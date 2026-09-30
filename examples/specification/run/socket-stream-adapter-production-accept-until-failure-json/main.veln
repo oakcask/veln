@@ -1,8 +1,15 @@
-# Production loopback deadline accept forced failures stay runtime failures.
+use fixture_effects
+use fake_effects
 
-pub fn main() -> Result<(), String> effects [net, time]
+# Production loopback deadline accept forced failures stay runtime failures.
+fn fixture_body() -> Result<(), String> effects [net, time]
 	let listener: NetListener = net::listen("127.0.0.1:0")
 	let deadline: Deadline = time::deadline_after_ms(100)
 	let _ = net::accept_until(listener, deadline)
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

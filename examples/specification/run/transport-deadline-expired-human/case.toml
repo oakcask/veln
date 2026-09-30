@@ -1,15 +1,14 @@
-command = ["run", "main", "main.veln"]
+command = ["run", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 1
 
 [requires]
 jdk = true
 
 [env]
-VELN_TIME_DEADLINE_EXPIRED = "1"
 
 [stdout]
 format = "empty"
 
 [stderr]
 format = "text"
-contains = ["transport deadline expired: VELN_TIME_DEADLINE_EXPIRED"]
+contains = ["transport deadline expired: injected clock"]

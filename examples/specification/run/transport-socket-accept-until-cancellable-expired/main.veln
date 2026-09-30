@@ -1,3 +1,6 @@
+use fixture_effects
+use fake_effects
+
 # Cancellable deadline-aware socket accept observes an already expired deadline.
 fn emit_accept_outcome(outcome: AcceptOutcome) -> () effects [stdio]
 	match outcome
@@ -8,10 +11,15 @@ fn emit_accept_outcome(outcome: AcceptOutcome) -> () effects [stdio]
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, time, stdio]
+fn fixture_body() -> Result<(), String> effects [net, time, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let deadline = time::deadline_after_ms(0)
 	let token = time::cancel_token()
 	emit_accept_outcome(net::accept_until_cancellable(listener, deadline, token))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

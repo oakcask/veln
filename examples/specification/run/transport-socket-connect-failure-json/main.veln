@@ -1,5 +1,13 @@
+use fixture_effects
+use fake_effects
+
 # Client connect host failures stay runtime transport failures in run JSON.
-pub fn main() -> Result<(), String> effects [net]
+fn fixture_body() -> Result<(), String> effects [net]
 	let stream: NetStream = net::connect("127.0.0.1:443")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

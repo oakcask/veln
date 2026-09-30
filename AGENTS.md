@@ -1,4 +1,9 @@
 * Do not write machine-specific absolute filesystem paths in repository files.
+* Deterministic effect tests must inject scoped fake handlers written in Veln
+  through separate test support. Production handlers use real host effects by
+  default and must not branch on environment variables or system properties to
+  select test behavior. Genuine process-environment operations and diagnostic
+  output destinations remain permitted.
 * Name repository-maintenance Cargo packages `veln-repo-*` and place them
   under `tools/`. Reserve other `veln-*` package names for toolchain components.
 * Do not write calendar dates in durable documentation, source, comments, or

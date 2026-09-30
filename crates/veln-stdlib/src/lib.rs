@@ -48,6 +48,7 @@ mod tests {
         assert_eq!(
             package.exports,
             [
+                "host_effects.veln",
                 "prelude.veln",
                 "transport.veln",
                 "transport/net.veln",

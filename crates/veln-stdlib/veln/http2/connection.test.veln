@@ -1,4 +1,5 @@
 use prelude
+use host_effects
 use transport
 use http2::connection
 use http2::core
@@ -126,10 +127,65 @@ test client_reuse_decision_uses_public_lifecycle_and_capacity() -> Result<(), St
 	end
 end
 
-test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), String> effects [process, net, concurrency]
-	match process::env("VELN_NET_RUNTIME")
-		None => Ok(())
-		Some(_) => client_service_callback_failure_cleanup_result()
+test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), String> effects [net, concurrency]
+	let response = byte_chunk_from_hex("00000004000000000000000101050000000189")?
+	let trace = channel::bounded<List<{operation:String, bytes:ByteChunk}>>(1)
+	let _ = channel::send(trace.tx, list_nil())
+	let _ = handle client_service_callback_failure_cleanup_result() with callback_network(response, trace)?
+	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	callback_network_trace_matches(observed)
+end
+
+handler callback_network(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }) handles host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => callback_network_reply(response, trace, operation, bytes)
+end
+
+fn callback_network_reply(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let _ = channel::send(trace.tx, list_cons({ operation: operation, bytes: bytes }, observed))
+	{ status: "ok", value: "callback-stream", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: response, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+fn callback_network_trace_matches(trace: List<{ operation : String, bytes : ByteChunk }>) -> Result<(), String>
+	match trace
+		Cons(closed, Cons(read, Cons(request, Cons(settings, Cons(preface, Cons(connected, Nil)))))) => if connected.operation == "connect" and preface.operation == "write_chunk" and settings.operation == "write_chunk" and request.operation == "write_chunk" and read.operation == "read_chunk_or_end" and closed.operation == "close_stream"
+			if callback_write_matches(preface.bytes, "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a")? and callback_write_matches(settings.bytes, "000000040000000000")? and callback_write_matches(request.bytes, "000003010500000001828784")?
+				Ok(())
+			else
+				Err("HTTP/2 callback-failure path changed the preface, settings, or request bytes")
+			end
+		else
+			Err("HTTP/2 callback-failure path did not connect, write the request, read the response, and close in order")
+		end
+		_ => Err("HTTP/2 callback-failure path performed an unexpected number of network operations")
+	end
+end
+
+fn callback_write_matches(actual: ByteChunk, expected_hex: String) -> Result<Bool, String>
+	let expected = byte_chunk_from_hex(expected_hex)?
+	let count = byte_count_to_int(byte_chunk_count(expected))
+	if byte_count_to_int(byte_chunk_count(actual)) == count
+		callback_bytes_match_at(actual, expected, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn callback_bytes_match_at(actual: ByteChunk, expected: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else
+		callback_bytes_match_next(actual, expected, index, count)
+	end
+end
+
+fn callback_bytes_match_next(actual: ByteChunk, expected: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	let actual_byte = byte_read_u8_be(byte_view(actual, byte_offset(index)?, byte_count(1)?)?)?
+	let expected_byte = byte_read_u8_be(byte_view(expected, byte_offset(index)?, byte_count(1)?)?)?
+	if actual_byte == expected_byte
+		callback_bytes_match_at(actual, expected, index + 1, count)
+	else
+		Ok(false)
 	end
 end
 

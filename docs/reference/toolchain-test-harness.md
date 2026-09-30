@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -606,6 +606,21 @@ cargo test -p veln-cli --test toolchain_harness \
   toolchain_semantic_baseline::tests::generate_toolchain_semantic_baseline_candidate \
   -- --ignored --exact
 ```
+
+## Scoped effect fixtures
+
+Deterministic network and time cases install lexical Veln handlers around their
+fixture entry. A case containing `fixture_effects.veln` receives a copy of
+`examples/test-support/fake_effects.veln` in its temporary project. Its command
+includes both files as ordinary Veln source inputs. The fixture factory creates
+fresh state, and the entry handles its body with the selected network and clock
+handlers. Fake behavior and failure plans live in those support sources.
+
+The production executable uses real host effects when no handler is installed.
+Environment variables and system properties do not select fake behavior.
+Cases that exercise `process::env` or diagnostic output destinations can still
+configure those independent inputs. Host socket tests use real peers and
+observable socket operations rather than ambient fake selectors.
 
 ## Source-Error Guard
 
