@@ -20,9 +20,6 @@ also states it.
   unwinding for result propagation, contract or runtime failure, and task
   cancellation, including cleanup-failure precedence and continued cleanup:
   [lexical-deferred-cleanup.md](lexical-deferred-cleanup.md).
-- A standard wall-clock value for cross-process timestamps while retaining the
-  monotonic clock for durations and deadlines:
-  [wall-clock-time.md](wall-clock-time.md).
 - Call-site-aware functions and portable source-location values for diagnostics
   and library-defined instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
@@ -37,8 +34,8 @@ also states it.
 ## Blocked
 
 - Standard-library structured logs, events, metrics, traces, explicit context
-  propagation, and substitutable exporters are blocked until lexical cleanup,
-  wall-clock time, and call-site source locations are implemented:
+  propagation, and substitutable exporters are blocked until lexical cleanup
+  and call-site source locations are implemented:
   [observability.md](observability.md).
 - Generic named-type and function variance remains separate from ADT variant
   refinement and is blocked until its constructor classifications and complete

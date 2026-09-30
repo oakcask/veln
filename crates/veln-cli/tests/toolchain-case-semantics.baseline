@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"e498b9b8d58579d859b75b4e3a79c94b54b11ed5"
+source_git_tree	"829dccae9ee6cbba0a68e8e387cbebee7aba23db"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1715
+case_count	1718
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -11872,6 +11872,39 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"2dbe2bae9828378749c057dad394215c1783bae45372b8aea9590d9a32d48ec7"
+case	"examples/specification/check/transport-wall-clock-effects"
+field	expectations.diagnostics[0].id	"effect.missing_public"
+field	expectations.diagnostics[0].kind	"effect"
+field	expectations.diagnostics[0].message	"public function uses undeclared effect `time`"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	1
+field	expectations.diagnostics[0].span.file	"main.veln"
+field	expectations.diagnostics[0].span.line	2
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	1
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"4ccf9a06d5ff262dacc7ea923f654b532b1ab0ccf7b2c1b893ee2aab2c895abe"
+case	"examples/specification/check/transport-wall-clock-effects-human"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"error[effect.missing_public]: public function uses undeclared effect `time`"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"6306da68aac5e17a109ee9122149f5297b94a043741fdfa7c99ed05a4bb0d974"
 case	"examples/specification/check/type-annotation-boundaries"
 field	expectations.diagnostics[0].id	"type.public_signature_missing"
 field	expectations.diagnostics[0].kind	"type"
@@ -59636,6 +59669,29 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"8f4412763731e7839d12559a5f4858b5c20ed148b4bd46f8f2321e1713f4e00a"
+case	"examples/specification/run/transport-wall-clock"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals_file	"{\"unix_seconds\":0,\"nanosecond\":0}\n{\"unix_seconds\":-1,\"nanosecond\":999999999}\nbackwards\nmonotonic\n"
+field	expectations.json_assertions[1].operation	"equals_file"
+field	expectations.json_assertions[1].path	"stdout"
+field	expectations.json_assertions[2].equals	null
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"error"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.command[4]	"fixture_effects.veln"
+field	invocation.command[5]	"fake_effects.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"72bdfd686663d2e793e16a193205a1b51df308286ac1971d53fce7b7006d4756"
 case	"examples/specification/run/unsupported-entry-argument-type"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"veln: run entry parameter `value` cannot be supplied from a command-line argument"
@@ -61939,4 +61995,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"7fc446cabf91f6777a3e3b8cd50e2150ae5f56f2f37791b1ac0745bd84938bb8"
+aggregate_digest	"6c8cfa99cf449d785c0e3130640e5cb07ab9656c0d3499bb2ad01b0933dbc2d6"

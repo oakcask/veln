@@ -15,8 +15,8 @@ This proposal depends on:
 
 - [lexical deferred cleanup](lexical-deferred-cleanup.md), so every started
   span can finish across normal and abrupt exits;
-- [wall-clock time](wall-clock-time.md), so exported records can be correlated
-  across processes; and
+- the implemented [wall-clock boundary](../specification/effects.md#network-and-time-boundary-calls),
+  so exported records can be correlated across processes; and
 - [call-site source location](call-site-source-location.md), so library
   wrappers preserve the user's source location.
 

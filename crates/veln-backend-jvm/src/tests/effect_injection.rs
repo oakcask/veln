@@ -38,6 +38,88 @@ pub(super) fn lower_with_clock(text: &str) -> TypedProgram {
 }
 
 #[test]
+fn wall_clock_values_are_normalized_and_may_move_backwards() {
+    let ir = lower_with_clock(
+        r#"
+fn emit(value: WallTime) -> () effects [stdio]
+    stdio::println(int_to_string(value.unix_seconds))
+    stdio::println(int_to_string(value.nanosecond))
+end
+pub fn main() -> () effects [time, stdio]
+    emit(handle time::wall_time() with wall_clock(0, 0))
+    emit(handle time::wall_time() with wall_clock(0, -1))
+    emit(handle time::wall_time() with wall_clock(0, 1000000000))
+    let first = handle time::wall_time() with wall_clock(2, 0)
+    let second = handle time::wall_time() with wall_clock(1, 0)
+    stdio::println(if second.unix_seconds < first.unix_seconds
+        "backwards"
+    else
+        "unexpected"
+    end)
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let paths = program
+        .classes
+        .iter()
+        .map(|class| class.path.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        paths.len(),
+        paths
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        "duplicate JVM class paths: {paths:#?}"
+    );
+    let Some(output) = run_jvm_program_when_java_is_available("wall-clock-values", &program, &[])
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "0\n0\n-1\n999999999\n1\n0\nbackwards\n"
+    );
+}
+
+#[test]
+fn unhandled_wall_clock_reads_the_real_host_clock() {
+    let ir = lower_with_clock(
+        r#"
+pub fn main() -> () effects [time, stdio]
+    let value = time::wall_time()
+    stdio::println(if value.nanosecond >= 0 and value.nanosecond < 1000000000
+        "host wall clock normalized"
+    else
+        "invalid host wall clock"
+    end)
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available("host-wall-clock", &program, &[])
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "host wall clock normalized\n"
+    );
+}
+
+#[test]
 fn injected_clock_restores_host_default_after_exception() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

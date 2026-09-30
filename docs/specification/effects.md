@@ -261,6 +261,7 @@ net::shutdown_read(stream: NetStream) -> () effects [net]
 net::close_stream(stream: NetStream) -> () effects [net]
 net::close_listener(listener: NetListener) -> () effects [net]
 time::monotonic_ms() -> Int effects [time]
+time::wall_time() -> WallTime effects [time]
 time::timeout_ms(milliseconds: Int) -> () effects [time]
 time::deadline_after_ms(milliseconds: Int) -> Deadline effects [time]
 time::deadline_at_ms(target_ms: Int) -> Deadline effects [time]
@@ -299,7 +300,7 @@ Direct calls to
 `concurrency` because the helper owns stream I/O, deadline/cancellation
 observation, and channel routing.
 Direct calls to `time::timeout_ms`,
-`time::monotonic_ms`, `time::deadline_after_ms`,
+`time::monotonic_ms`, `time::wall_time`, `time::deadline_after_ms`,
 `time::deadline_at_ms`, `time::wait_until`,
 `time::cancel_token`,
 `time::cancel_owner`, `time::cancel_token_from`,
@@ -400,6 +401,14 @@ domain returned by `time::monotonic_ms`; `time::monotonic_ms` returns a
 host-owned monotonic millisecond counter for elapsed-time measurement without
 exposing wall-clock dates; `time::wait_until` waits until that deadline
 expires;
+`time::wall_time` returns a normalized `WallTime` record. Its `unix_seconds`
+field counts UTC seconds relative to the Unix epoch, and its `nanosecond` field
+is an `Int` in the inclusive range `0..999999999`. Instants before the epoch
+use the same normalization, so one nanosecond before the epoch is represented
+as `unix_seconds = -1` and `nanosecond = 999999999`. The host defines the
+clock resolution. Successive values can be equal or move backwards after a
+clock correction. Programs must continue to use `time::monotonic_ms` and
+`Deadline` for durations, ordering, and timeouts;
 `time::cancel_token` returns a source-visible cancellation handle;
 `time::cancel_owner` returns a source-visible cancellation owner;
 `time::cancel_token_from` exposes an observer `CancelToken` from that owner
@@ -539,6 +548,7 @@ use host_effects from "std"
 
 handler fake_clock() handles host_effects::Clock
 	request(operation, milliseconds) => Ok(42)
+	wall_time() => Ok({ unix_seconds: 0, nanosecond: 0 })
 end
 
 fn controlled_reading() -> Int effects [time]
@@ -567,6 +577,13 @@ The bridge uses these requests:
 
 An `Err(message)` becomes a runtime failure. Clock handlers must keep their
 readings and deadline calculations in the same clock domain.
+
+`Clock::wall_time()` returns one atomic
+`Result<{unix_seconds: Int, nanosecond: Int}, String>` reading. The bridge
+normalizes the returned nanosecond field into the public range and adjusts the
+seconds field with floor arithmetic. Its `Err(message)` also becomes a runtime
+failure. This operation is independent of the monotonic domain used by
+`Clock::request`.
 
 `Network::request(operation, subject, bytes, remaining_ms, cancelled)` receives
 the network operation name and its address or adapter-owned resource identity.

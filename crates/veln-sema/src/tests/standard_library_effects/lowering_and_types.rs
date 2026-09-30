@@ -129,6 +129,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             "  time::cancel(token)\n",
             "  let cancelled: Bool = time::is_cancelled(token)\n",
             "  let elapsed: Int = time::monotonic_ms()\n",
+            "  let wall: WallTime = time::wall_time()\n",
             "  let connected_stream: NetStream = net::connect(\"127.0.0.1:0\")\n",
             "  fs::read_to_string(path)\n",
             "end\n",
@@ -197,6 +198,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ("expr", "time::cancel"),
             ("let", "time::is_cancelled"),
             ("let", "time::monotonic_ms"),
+            ("let", "time::wall_time"),
             ("let", "net::connect"),
             ("return", "fs::read_to_string"),
         ]

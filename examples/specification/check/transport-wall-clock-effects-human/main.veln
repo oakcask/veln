@@ -1,0 +1,4 @@
+# Public wall-clock functions must declare the inferred time effect.
+pub fn wall_timestamp() -> WallTime
+	time::wall_time()
+end

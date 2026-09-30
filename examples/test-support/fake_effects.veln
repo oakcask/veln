@@ -445,6 +445,15 @@ end
 
 pub handler clock(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }) handles host_effects::Clock effects [concurrency]
 	request(operation, milliseconds) => request_clock(state, operation, milliseconds)
+	wall_time() => wall_time(state)
+end
+
+fn wall_time(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }) -> Result<{ unix_seconds : Int, nanosecond : Int }, String> effects [concurrency]
+	let current = take(state)
+	let seconds = number(current, "wall_seconds")
+	let nanosecond = number(current, "wall_nanosecond")
+	put(state, current)
+	Ok({ unix_seconds: seconds, nanosecond: nanosecond })
 end
 
 fn read_byte(bytes: ByteChunk, offset: ByteOffset) -> Result<Int, String>

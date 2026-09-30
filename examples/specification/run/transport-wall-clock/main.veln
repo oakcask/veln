@@ -1,0 +1,35 @@
+use fixture_effects
+use fake_effects
+
+fn emit_json(value: WallTime) -> () effects [stdio]
+	stdio::println(wall_join(["{\"unix_seconds\":", int_to_string(value.unix_seconds), ",\"nanosecond\":", int_to_string(value.nanosecond), "}"]))
+end
+
+fn wall_join(parts: Vec<String>) -> String
+	vec_fold(parts, "", wall_concatenate)
+end
+
+fn wall_concatenate(left: String, right: String) -> String
+	string::concat(left, right)
+end
+
+pub fn main() -> () effects [concurrency, time, stdio]
+	let epoch_state = fixture_effects::create_clock_state(0, 0, 7)
+	let epoch = handle time::wall_time() with fake_effects::clock(epoch_state)
+	emit_json(epoch)
+
+	let pre_epoch_state = fixture_effects::create_clock_state(0, -1, 7)
+	let pre_epoch = handle time::wall_time() with fake_effects::clock(pre_epoch_state)
+	emit_json(pre_epoch)
+
+	let first_state = fixture_effects::create_clock_state(2, 0, 7)
+	let second_state = fixture_effects::create_clock_state(1, 0, 7)
+	let first = handle time::wall_time() with fake_effects::clock(first_state)
+	let second = handle time::wall_time() with fake_effects::clock(second_state)
+	stdio::println(if second.unix_seconds < first.unix_seconds "backwards" else "unexpected" end)
+
+	let monotonic_state = fixture_effects::create_clock_state(0, 0, 7)
+	let monotonic_first = handle time::monotonic_ms() with fake_effects::clock(monotonic_state)
+	let monotonic_second = handle time::monotonic_ms() with fake_effects::clock(monotonic_state)
+	stdio::println(if monotonic_second >= monotonic_first "monotonic" else "unexpected" end)
+end

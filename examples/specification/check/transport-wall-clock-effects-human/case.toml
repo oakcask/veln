@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[effect.missing_public]: public function uses undeclared effect `time`"]
+
+[stderr]
+format = "empty"

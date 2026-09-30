@@ -181,3 +181,29 @@ fn collector_keeps_let_bindings_distinct_from_record_fields() {
         ))
     );
 }
+
+#[test]
+fn collector_classifies_wall_clock_type_call_and_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn stamp() -> WallTime effects [time]\n  let value = time::wall_time()\n  let _ = value.unix_seconds\n  value\nend\n",
+    );
+
+    let tokens = collect_text(&source);
+
+    assert!(
+        tokens
+            .iter()
+            .any(|(text, kind, _)| { text == "WallTime" && kind == &SemanticTokenType::Type })
+    );
+    assert!(
+        tokens
+            .iter()
+            .any(|(text, kind, _)| { text == "wall_time" && kind == &SemanticTokenType::Function })
+    );
+    assert!(
+        tokens.iter().any(|(text, kind, _)| {
+            text == "unix_seconds" && kind == &SemanticTokenType::Property
+        })
+    );
+}

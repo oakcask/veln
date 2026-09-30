@@ -141,3 +141,29 @@ fn monotonic_clock_requires_time_effect_with_descriptor_provenance() {
     assert!(details.contains("\"inferred_effects\":[\"time\"]"));
     assert!(details.contains("\"symbol\":\"time::monotonic_ms\""));
 }
+
+#[test]
+fn wall_clock_requires_time_effect_and_exposes_integer_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn timestamp() -> Int\n",
+            "  let value: WallTime = time::wall_time()\n",
+            "  value.unix_seconds + value.nanosecond\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `time`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"symbol\":\"time::wall_time\""));
+}

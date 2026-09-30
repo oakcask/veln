@@ -377,6 +377,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("process::cwd", "processCwd"),
         ("process::exit", "processExit"),
         ("time::monotonic_ms", "timeMonotonicMs"),
+        ("time::wall_time", "timeWallTime"),
         ("time::timeout_ms", "timeTimeoutMs"),
         ("time::deadline_after_ms", "timeDeadlineAfterMs"),
         ("time::deadline_at_ms", "timeDeadlineAtMs"),
