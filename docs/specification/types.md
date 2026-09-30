@@ -35,6 +35,7 @@ Implemented type annotations:
   `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`,
   `AcceptOutcome`, `StreamReadOutcome`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
+- the standard structural wall-clock name `WallTime`
 - records: `{name: Type, ...}`
 - function types: `fn(T) -> U`, `fn(T, U) -> V`, or `fn(T, ...U) -> V`
   with optional `effects [name, ...]`
@@ -99,6 +100,16 @@ Record type field lists may include a trailing comma, as in
 
 One record type annotation cannot declare the same field name twice. A
 duplicate field in a record type annotation is an invalid type annotation.
+
+The standard `WallTime` and `prelude::WallTime` annotations denote the
+structural record `{unix_seconds: Int, nanosecond: Int}`. Public type aliases
+that target either spelling preserve that record shape in function, local,
+effect-operation, and handler annotations. Values of that type are assignable
+to anonymous records requiring the same fields, and compatible record literals
+are assignable to it. The type checker does not normalize or range-check those
+literals; only the `time::wall_time` boundary provides normalized readings. A
+source-declared ADT named `WallTime`, and an alias that targets that ADT,
+remain nominal and do not acquire the standard record fields.
 
 Public functions must annotate every parameter and the return type. Their
 effect clause must name every inferred effect; a pure declaration omits the

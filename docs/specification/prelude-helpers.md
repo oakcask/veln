@@ -38,6 +38,12 @@ visibility, ordinary types, ADTs other than compiler-owned `Option`, `Result`,
 and `List`, and Veln helper bodies. Compiler adapters retain expected-type and
 callback inference for public helper names declared by that package.
 
+The `time::wall_time` descriptor returns the structural record type named by
+the public `std::prelude::WallTime` alias. The descriptor therefore supplies
+record-field typing without creating a compiler-owned `WallTime` constructor.
+Its `time` effect and boundary behavior are specified in
+[effects.md](effects.md#network-and-time-boundary-calls).
+
 ## Prelude Helpers
 
 `string::concat(left: String, right: String) -> String` is a pure
@@ -601,6 +607,10 @@ payload-length examples, including `WINDOW_UPDATE`.
 The package manifest exports `prelude.veln`; `compiler_support.veln` remains a
 private module. The embedded distribution bundle contains every non-test Veln
 source exactly once and excludes `*_test.veln` and `.test.veln` files.
+
+The prelude also exports `WallTime` as the structural record shape
+`{unix_seconds: Int, nanosecond: Int}`. This name is a type boundary for
+`time::wall_time`; it is not an ADT and does not add a constructor or pattern.
 
 The generic runtime diagnostic types are implemented by the private
 `std::diagnostic` module. The prelude re-exports `RuntimeDiagnostic`,

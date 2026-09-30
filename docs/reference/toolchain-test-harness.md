@@ -614,7 +614,12 @@ fixture entry. A case containing `fixture_effects.veln` receives a copy of
 `examples/test-support/fake_effects.veln` in its temporary project. Its command
 includes both files as ordinary Veln source inputs. The fixture factory creates
 fresh state, and the entry handles its body with the selected network and clock
-handlers. Fake behavior and failure plans live in those support sources.
+handlers. Fake behavior and failure plans live in those support sources. Clock
+configuration can provide one wall-clock reading or a comma-separated sequence
+of Unix-second readings plus one nanosecond field. The handler consumes a
+configured sequence in order and fails an unexpected extra read, which lets a
+case check repeated or backwards wall-clock observations without consulting the
+host clock.
 
 The production executable uses real host effects when no handler is installed.
 Environment variables and system properties do not select fake behavior.
