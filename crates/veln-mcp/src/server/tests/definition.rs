@@ -809,7 +809,7 @@ fn definition_resolves_implicit_and_explicit_standard_library_symbols() {
         assert!(uri.ends_with("/prelude.veln"), "{case}: {uri}");
         assert_eq!(
             location["range"],
-            json!({"start":{"line":98,"column":8},"end":{"line":98,"column":12}}),
+            json!({"start":{"line":104,"column":8},"end":{"line":104,"column":12}}),
             "{case}"
         );
 
