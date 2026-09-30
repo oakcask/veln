@@ -576,6 +576,38 @@ mod tests {
     }
 
     #[test]
+    fn renders_equal_sized_duplications_in_a_stable_order() {
+        let report = serde_json::json!({
+            "statistics": { "total": {
+                "sources": 6, "lines": 60, "clones": 6, "duplicatedLines": 24, "percentage": 40.0
+            }},
+            "duplicates": [
+                { "lines": 4, "tokens": 19, "firstFile": {"name": "a.rs", "start": 1}, "secondFile": {"name": "b.rs", "start": 1}},
+                { "lines": 4, "tokens": 20, "firstFile": {"name": "b.rs", "start": 1}, "secondFile": {"name": "a.rs", "start": 1}},
+                { "lines": 4, "tokens": 20, "firstFile": {"name": "a.rs", "start": 2}, "secondFile": {"name": "b.rs", "start": 1}},
+                { "lines": 4, "tokens": 20, "firstFile": {"name": "a.rs", "start": 1}, "secondFile": {"name": "c.rs", "start": 1}},
+                { "lines": 4, "tokens": 20, "firstFile": {"name": "a.rs", "start": 1}, "secondFile": {"name": "b.rs", "start": 2}},
+                { "lines": 4, "tokens": 20, "firstFile": {"name": "a.rs", "start": 1}, "secondFile": {"name": "b.rs", "start": 1}}
+            ]
+        });
+
+        let summary = render_duplication_summary(&report, 10).unwrap();
+        let expected_rows = [
+            "| 4 | 20 | `a.rs:1` | `b.rs:1` |",
+            "| 4 | 20 | `a.rs:1` | `b.rs:2` |",
+            "| 4 | 20 | `a.rs:1` | `c.rs:1` |",
+            "| 4 | 20 | `a.rs:2` | `b.rs:1` |",
+            "| 4 | 20 | `b.rs:1` | `a.rs:1` |",
+            "| 4 | 19 | `a.rs:1` | `b.rs:1` |",
+        ];
+        let positions: Vec<_> = expected_rows
+            .iter()
+            .map(|row| summary.find(row).unwrap())
+            .collect();
+        assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+    }
+
+    #[test]
     fn validates_and_escapes_duplication_reports() {
         let report = serde_json::json!({
             "statistics": { "total": {
