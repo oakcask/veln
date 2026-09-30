@@ -1,0 +1,17 @@
+fn release(value: Int) -> ()
+	()
+end
+
+test cleanup_blocked() -> ()
+	begin
+		let resource = 1
+		defer
+			release(resource)
+		end
+		()
+	end
+end
+
+test unaffected() -> ()
+	()
+end

@@ -1,0 +1,55 @@
+command = ["test", "--json", "main_test.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "blocked"
+
+[[json_assert]]
+path = "diagnostics"
+length = 0
+
+[[json_assert]]
+path = "summary.total"
+equals = 2
+
+[[json_assert]]
+path = "summary.passed"
+equals = 1
+
+[[json_assert]]
+path = "summary.blocked"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "cleanup_blocked"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "blocked"
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = "static_gate"
+
+[[json_assert]]
+path = "cases.0.diagnostics"
+length = 0
+
+[[json_assert]]
+path = "cases.1.name"
+equals = "unaffected"
+
+[[json_assert]]
+path = "cases.1.status"
+equals = "passed"

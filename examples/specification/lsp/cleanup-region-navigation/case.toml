@@ -44,7 +44,7 @@ equals = {"start":{"line":0,"character":3},"end":{"line":0,"character":10}}
 [[lsp_assert]]
 id = 7
 path = "/result"
-length = 2
+length = 5
 
 [[lsp_assert]]
 id = 7
@@ -54,7 +54,7 @@ equals = {"start":{"line":9,"character":3},"end":{"line":9,"character":10}}
 [[lsp_assert]]
 id = 8
 path = "/result/changes/$workspace_file_uri:main.veln"
-length = 2
+length = 5
 
 [[lsp_assert]]
 id = 9
@@ -140,3 +140,68 @@ equals = {"start":{"line":48,"character":13},"end":{"line":48,"character":22}}
 id = 17
 path = "/result/range"
 equals = {"start":{"line":49,"character":5},"end":{"line":49,"character":10}}
+
+[[lsp_assert]]
+id = 18
+path = "/result/range"
+equals = {"start":{"line":59,"character":6},"end":{"line":59,"character":16}}
+
+[[lsp_assert]]
+id = 19
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 19
+path = "/result/1/range"
+equals = {"start":{"line":61,"character":18},"end":{"line":61,"character":28}}
+
+[[lsp_assert]]
+id = 19
+path = "/result/2/range"
+equals = {"start":{"line":64,"character":2},"end":{"line":64,"character":12}}
+
+[[lsp_assert]]
+id = 20
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 3
+
+[[lsp_assert]]
+id = 21
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 21
+path = "/error/data/details/conflicting_declaration/range"
+equals = {"start":{"line":57,"character":28},"end":{"line":57,"character":33}}
+
+[[lsp_assert]]
+id = 22
+path = "/result/range"
+equals = {"start":{"line":59,"character":6},"end":{"line":59,"character":16}}
+
+[[lsp_assert]]
+id = 23
+path = "/result/range"
+equals = {"start":{"line":67,"character":6},"end":{"line":67,"character":16}}
+
+[[lsp_assert]]
+id = 24
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 24
+path = "/result/2/range"
+equals = {"start":{"line":71,"character":2},"end":{"line":71,"character":12}}
+
+[[lsp_assert]]
+id = 25
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 3
+
+[[lsp_assert]]
+id = 26
+path = "/result/range"
+equals = {"start":{"line":74,"character":6},"end":{"line":74,"character":18}}

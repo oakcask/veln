@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Lexical cleanup syntax, begin-scope exit behavior, task cancellation unwinding, or cleanup failure precedence is implemented or redesigned.
+update-when: Deferred-cleanup registration, referenced-local capture, unwinding on normal completion, `?` propagation, contract failure, runtime failure, or task cancellation, or cleanup-failure precedence is implemented or redesigned.
 ---
 
 # Lexical Deferred Cleanup Runtime
@@ -70,8 +70,11 @@ This proposal contains only the unimplemented runtime contract.
 ## Remaining Runtime Contract
 
 When execution reaches a `defer` statement, the runtime registers its block.
-The runtime captures all referenced local bindings at that point. It does not
-execute the block at registration time.
+The capture set contains the block's free references that resolve at that
+statement to local bindings in enclosing lexical scopes. Registration snapshots
+each captured local's current value; cleanup does not retain a live binding slot
+or resolve the name again when the region exits. Registration does not execute
+the block.
 
 ## Exit and Failure Rules
 
@@ -115,7 +118,7 @@ fails.
 | C9 | More than one cleanup fails while the region is already failing. | The original failure remains primary and cleanup failures are attached in execution order. | Human and JSON runtime-failure cases with ordered related failures. |
 | C10 | A successful region has a cleanup block that fails. | The first cleanup failure becomes the region failure after every cleanup block runs. | Run specification case with an event recorder and a failing cleanup. |
 | C11 | One cleanup fails before another registered cleanup runs. | The remaining cleanup still runs in reverse registration order. | Run specification case with ordered events. |
-| C12 | A block captures a local binding and a later declaration shadows that name before the region exits. | Cleanup observes the binding value captured at registration, not the later binding found by name at exit. | Run specification case with distinct recorded values before and after shadowing. |
+| C12 | A block captures a local binding and a later declaration shadows that name before the region exits. | Cleanup observes the local's registration-time value snapshot, not a later binding found by name at exit. | Run specification case with distinct recorded values before and after shadowing. |
 
 ## Verification and Promotion
 

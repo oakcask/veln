@@ -684,6 +684,59 @@
     }
 
     #[test]
+    fn embedded_begin_cleanup_preserves_local_scopes_across_delimiters() {
+        for (opener, closer) in [
+            ("consume(begin", "end)"),
+            ("[begin", "end]"),
+            ("{ value: begin", "end }"),
+        ] {
+            let sources = vec![source(
+                "main.veln",
+                &format!(
+                    concat!(
+                        "fn cleanup(value: Int) -> ()\n",
+                        "  ()\n",
+                        "end\n\n",
+                        "fn consume(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n\n",
+                        "fn choose(input: Int) -> Int\n",
+                        "  let outer = input\n",
+                        "  let result = {opener}\n",
+                        "    let captured = outer\n",
+                        "    defer\n",
+                        "      cleanup(captured)\n",
+                        "    end\n",
+                        "    captured\n",
+                        "  {closer}\n",
+                        "  outer\n",
+                        "end\n",
+                    ),
+                    opener = opener,
+                    closer = closer,
+                ),
+            )];
+
+            let captured = query(sources.clone(), "main.veln", 14, 16).unwrap();
+            assert_eq!(captured.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(&captured.definition, "main.veln", 12, 9);
+            assert_eq!(
+                locations(&captured.references),
+                [("main.veln", 14, 15), ("main.veln", 16, 5)]
+            );
+            assert!(validate_rename(&captured, "saved").is_ok());
+
+            let outer = query(sources, "main.veln", 18, 4).unwrap();
+            assert_eq!(outer.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(&outer.definition, "main.veln", 10, 7);
+            assert_eq!(
+                locations(&outer.references),
+                [("main.veln", 12, 20), ("main.veln", 18, 3)]
+            );
+        }
+    }
+
+    #[test]
     fn cleanup_region_local_binding_scope_index_grows_linearly() {
         fn token_visits(binding_count: usize) -> usize {
             let mut source_text = String::from(

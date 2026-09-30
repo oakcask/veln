@@ -708,6 +708,12 @@ fn is_else_if(tokens: &[Token], index: usize) -> bool {
         .is_some_and(|previous| previous.kind == TokenKind::Else)
 }
 
+#[derive(Clone, Copy)]
+struct BlockContext {
+    kind: TokenKind,
+    delimiter_depths: (usize, usize, usize),
+}
+
 fn defer_block_openers(tokens: &[Token]) -> Vec<bool> {
     let mut openers = vec![false; tokens.len()];
     let mut blocks = Vec::new();
@@ -719,14 +725,12 @@ fn defer_block_openers(tokens: &[Token]) -> Vec<bool> {
     for (index, token) in tokens.iter().enumerate() {
         if token.kind == TokenKind::Defer
             && !line_has_non_whitespace
-            && parentheses == 0
-            && brackets == 0
-            && braces == 0
-            && blocks.last().is_some_and(|kind| {
+            && blocks.last().is_some_and(|context: &BlockContext| {
                 matches!(
-                    kind,
+                    context.kind,
                     TokenKind::Fn | TokenKind::Test | TokenKind::Begin | TokenKind::Defer
                 )
+                    && context.delimiter_depths == (parentheses, brackets, braces)
             })
         {
             openers[index] = true;
@@ -742,7 +746,10 @@ fn defer_block_openers(tokens: &[Token]) -> Vec<bool> {
         }
         match token.kind {
             TokenKind::If if previous_non_layout != Some(TokenKind::Else) => {
-                blocks.push(token.kind)
+                blocks.push(BlockContext {
+                    kind: token.kind,
+                    delimiter_depths: (parentheses, brackets, braces),
+                })
             }
             TokenKind::Fn
             | TokenKind::Test
@@ -757,10 +764,19 @@ fn defer_block_openers(tokens: &[Token]) -> Vec<bool> {
                     && (!line_has_non_whitespace
                         || previous_non_layout == Some(TokenKind::Pub)) =>
             {
-                blocks.push(token.kind)
+                blocks.push(BlockContext {
+                    kind: token.kind,
+                    delimiter_depths: (parentheses, brackets, braces),
+                })
             }
-            TokenKind::Match | TokenKind::Begin => blocks.push(token.kind),
-            TokenKind::Defer if openers[index] => blocks.push(token.kind),
+            TokenKind::Match | TokenKind::Begin => blocks.push(BlockContext {
+                kind: token.kind,
+                delimiter_depths: (parentheses, brackets, braces),
+            }),
+            TokenKind::Defer if openers[index] => blocks.push(BlockContext {
+                kind: token.kind,
+                delimiter_depths: (parentheses, brackets, braces),
+            }),
             TokenKind::End => {
                 blocks.pop();
             }

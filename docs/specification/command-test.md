@@ -79,7 +79,7 @@ assertion. Runtime expectation matching and output comparison are independent.
 Static diagnostics block the suite before Java execution. Selected cases become
 blocked with reason `static_gate` in JSON. A selected case is also blocked with
 that reason when checked-core lowering finds a reachable `begin` or `defer` and
-cannot produce typed IR because `deferred_cleanup_runtime` is not implemented.
+cannot produce typed IR because deferred-cleanup execution is not implemented.
 This readiness gate does not require a diagnostic. Runtime contract failures use
 contract failure details; returned `Err(value)` uses result failure details.
 A runtime expectation passes only when the actual structured failure matches.

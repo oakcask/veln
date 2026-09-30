@@ -227,11 +227,11 @@ gate does not launch Java.
 
 A parse- and semantic-clean selected case is also blocked before Java execution
 when checked-core lowering cannot produce typed IR. A reachable `begin`
-expression or `defer` statement produces the readiness blocker
-`deferred_cleanup_runtime`; the case has `status: "blocked"` and
-`reason: "static_gate"`, while its `diagnostics` array can remain empty. This
-readiness blocker is case-local and does not itself prevent another selected
-case with complete reachable lowering from running.
+expression or `defer` statement cannot produce typed IR while deferred-cleanup
+execution is unimplemented; the case has `status: "blocked"` and `reason:
+"static_gate"`, while its `diagnostics` array can remain empty. This readiness
+blocker is case-local and does not itself prevent another selected case with
+complete reachable lowering from running.
 
 An invalid source identifier casing recovery record in an exact `.test.veln`
 companion or its target does not resolve a cross-boundary use. The selected

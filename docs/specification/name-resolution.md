@@ -180,8 +180,10 @@ name. It can be annotated for type checking, but it is never a resolvable
 binding.
 
 Each `begin` body introduces a nested lexical scope. Bindings declared in that
-body stop at its closing `end`. A `defer` block sees only bindings visible at
-the `defer` statement, so a later binding remains unresolved inside the block.
+body stop at its closing `end`. Each `defer` block has its own nested lexical
+scope, and bindings declared inside it stop at the block's closing `end`. The
+block sees only bindings visible at the `defer` statement, so a later binding
+remains unresolved inside the block.
 A `let` binding becomes visible only after its complete initializer. When that
 initializer is a multiline `begin`, references inside the initializer continue
 to resolve to the preceding local, parameter, function, or imported identity;

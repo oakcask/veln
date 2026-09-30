@@ -1,0 +1,15 @@
+# Cleanup syntax and static semantics are available before runtime unwinding.
+fn release(value: Int) -> ()
+	()
+end
+
+pub fn main() -> Int
+	let value = begin
+		let resource = 1
+		defer
+			release(resource)
+		end
+		resource
+	end
+	value
+end

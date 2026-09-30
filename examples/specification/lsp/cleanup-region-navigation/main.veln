@@ -50,3 +50,33 @@ fn following(parameter: Int) -> Int
 	let local = parameter
 	local
 end
+
+fn consume(value: Int) -> Int
+	value
+end
+
+fn embedded_cleanup_regions(input: Int) -> Int
+	let call_result = consume(begin
+		let call_value = input
+		defer
+			let deferred = call_value
+			cleanup(deferred)
+		end
+		call_value
+	end)
+	let list_result = [begin
+		let list_value = input
+		defer
+			cleanup(list_value)
+		end
+		list_value
+	end]
+	let record_result = { value: begin
+		let record_value = input
+		defer
+			cleanup(record_value)
+		end
+		record_value
+	end }
+	call_result
+end

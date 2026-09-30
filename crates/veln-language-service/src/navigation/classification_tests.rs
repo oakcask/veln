@@ -17,6 +17,24 @@ fn defer_block_openers_require_a_direct_cleanup_body_line() {
             "  defer\n",
             "    ()\n",
             "  end\n",
+            "  let call = consume(begin\n",
+            "      defer\n",
+            "        ()\n",
+            "      end\n",
+            "      ()\n",
+            "    end)\n",
+            "  let list = [begin\n",
+            "      defer\n",
+            "        ()\n",
+            "      end\n",
+            "      ()\n",
+            "    end]\n",
+            "  let record = { value: begin\n",
+            "      defer\n",
+            "        ()\n",
+            "      end\n",
+            "      ()\n",
+            "    end }\n",
             "end\n",
         ),
     );
@@ -28,9 +46,15 @@ fn defer_block_openers_require_a_direct_cleanup_body_line() {
         .filter(|(index, token)| token.kind == TokenKind::Defer && openers[*index])
         .map(|(_, token)| token.range.start)
         .collect::<Vec<_>>();
-    let expected = source.text().find("  defer\n    ()").unwrap() + 2;
+    let mut expected = vec![source.text().find("  defer\n    ()").unwrap() + 2];
+    expected.extend(
+        source
+            .text()
+            .match_indices("      defer\n        ()")
+            .map(|(offset, _)| offset + 6),
+    );
 
-    assert_eq!(classified, [expected]);
+    assert_eq!(classified, expected);
 }
 
 #[test]

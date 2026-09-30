@@ -12,3 +12,12 @@
 {"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":35,"column":4,"new_name":"second"}}}
 {"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":50,"column":15}}}
 {"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":51,"column":2}}}
+{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":62,"column":21}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":62,"column":21}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":62,"column":21,"new_name":"saved"}}}
+{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":62,"column":21,"new_name":"input"}}}
+{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":65,"column":5}}}
+{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":70,"column":14}}}
+{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":72,"column":5}}}
+{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":77,"column":16,"new_name":"recorded"}}}
+{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":79,"column":5}}}
