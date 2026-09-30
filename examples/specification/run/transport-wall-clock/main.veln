@@ -13,6 +13,18 @@ fn wall_concatenate(left: String, right: String) -> String
 	string::concat(left, right)
 end
 
+fn wall_and_deadline() -> String effects [time]
+	let before = time::wall_time()
+	let deadline: Deadline = time::deadline_after_ms(5)
+	let after = time::wall_time()
+	time::wait_until(deadline)
+	if before.unix_seconds == after.unix_seconds
+		"deadline-monotonic"
+	else
+		"unexpected"
+	end
+end
+
 pub fn main() -> () effects [concurrency, time, stdio]
 	let epoch_state = fixture_effects::create_clock_state(0, 0, 7)
 	let epoch = handle time::wall_time() with fake_effects::clock(epoch_state)
@@ -28,8 +40,6 @@ pub fn main() -> () effects [concurrency, time, stdio]
 	let second = handle time::wall_time() with fake_effects::clock(second_state)
 	stdio::println(if second.unix_seconds < first.unix_seconds "backwards" else "unexpected" end)
 
-	let monotonic_state = fixture_effects::create_clock_state(0, 0, 7)
-	let monotonic_first = handle time::monotonic_ms() with fake_effects::clock(monotonic_state)
-	let monotonic_second = handle time::monotonic_ms() with fake_effects::clock(monotonic_state)
-	stdio::println(if monotonic_second >= monotonic_first "monotonic" else "unexpected" end)
+	let deadline_state = fixture_effects::create_clock_state(0, 0, 7)
+	stdio::println(handle wall_and_deadline() with fake_effects::clock(deadline_state))
 end

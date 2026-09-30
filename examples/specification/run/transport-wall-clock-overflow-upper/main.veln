@@ -1,0 +1,8 @@
+use fixture_effects
+use fake_effects
+
+pub fn main() -> () effects [concurrency, time]
+	let state = fixture_effects::create_clock_state(9223372036854775807, 1000000000, 0)
+	let _ = handle time::wall_time() with fake_effects::clock(state)
+	()
+end

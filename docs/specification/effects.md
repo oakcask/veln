@@ -407,7 +407,9 @@ is an `Int` in the inclusive range `0..999999999`. Instants before the epoch
 use the same normalization, so one nanosecond before the epoch is represented
 as `unix_seconds = -1` and `nanosecond = 999999999`. The host defines the
 clock resolution. Successive values can be equal or move backwards after a
-clock correction. Programs must continue to use `time::monotonic_ms` and
+clock correction. `WallTime` has no source-visible constructor or pattern;
+programs obtain its record values from `time::wall_time` and read its two
+integer fields. Programs must continue to use `time::monotonic_ms` and
 `Deadline` for durations, ordering, and timeouts;
 `time::cancel_token` returns a source-visible cancellation handle;
 `time::cancel_owner` returns a source-visible cancellation owner;
@@ -581,9 +583,11 @@ readings and deadline calculations in the same clock domain.
 `Clock::wall_time()` returns one atomic
 `Result<{unix_seconds: Int, nanosecond: Int}, String>` reading. The bridge
 normalizes the returned nanosecond field into the public range and adjusts the
-seconds field with floor arithmetic. Its `Err(message)` also becomes a runtime
-failure. This operation is independent of the monotonic domain used by
-`Clock::request`.
+seconds field with floor arithmetic. If that adjustment would move
+`unix_seconds` outside the `Int` range, the read fails at runtime with
+`wall-clock seconds exceed Int range`; it does not return a wrapped instant.
+The operation's `Err(message)` also becomes a runtime failure. This operation
+is independent of the monotonic domain used by `Clock::request`.
 
 `Network::request(operation, subject, bytes, remaining_ms, cancelled)` receives
 the network operation name and its address or adapter-owned resource identity.

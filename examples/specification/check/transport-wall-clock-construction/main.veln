@@ -1,0 +1,4 @@
+# WallTime values come from the clock boundary and have no public constructor.
+pub fn forged_wall_time() -> WallTime
+	WallTimeValue(1, 2)
+end
