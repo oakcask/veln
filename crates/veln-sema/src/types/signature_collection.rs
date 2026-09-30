@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use veln_ast::{FunctionKind, SurfaceModule, UseDecl, Visibility};
+use veln_ast::{FunctionKind, HandlerDecl, SurfaceModule, UseDecl, Visibility};
 
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::normal_use_decls;
@@ -405,67 +405,98 @@ pub(super) fn handler_signatures(
         })
         .cloned()
         .collect::<Vec<_>>();
+    let context = HandlerSignatureContext {
+        uses: &uses,
+        quarantined_uses: &quarantined_uses,
+        effects,
+        adts,
+        companion_effect_access_targets,
+    };
     module
         .handlers
         .iter()
-        .filter_map(|handler| {
-            let name = handler.name.clone()?;
-            let qualified_name = if let Some(module_name) = &handler.module_name {
-                format!("{module_name}::{name}")
-            } else {
-                name.clone()
-            };
-            let effect = canonical_user_effect_label(
-                &handler.effect,
-                &uses,
-                handler.module_name.as_deref(),
-                effects,
-                companion_effect_access_targets,
-            )
-            .unwrap_or_else(|| handler.effect.join("::"));
-            Some(HandlerSignature {
-                name,
-                qualified_name,
-                module_name: handler.module_name.clone(),
-                visibility: handler.visibility,
-                params: handler
-                    .params
-                    .iter()
-                    .map(|param| {
-                        canonicalize_type_effects(
-                            parse_type_or_unknown(param.ty.as_deref()),
-                            &uses,
-                            &quarantined_uses,
-                            handler.module_name.as_deref(),
-                            effects,
-                            adts,
-                            companion_effect_access_targets,
-                        )
-                    })
-                    .collect(),
-                effect,
-                effects: canonical_declared_effects(
-                    handler.effects.clone().unwrap_or_default(),
-                    &uses,
-                    &quarantined_uses,
-                    handler.module_name.as_deref(),
-                    effects,
-                    companion_effect_access_targets,
+        .filter_map(|handler| context.signature(handler))
+        .collect()
+}
+
+struct HandlerSignatureContext<'a> {
+    uses: &'a [UseDecl],
+    quarantined_uses: &'a [UseDecl],
+    effects: &'a [EffectSignature],
+    adts: &'a AdtRegistry,
+    companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
+}
+
+impl HandlerSignatureContext<'_> {
+    fn signature(&self, handler: &HandlerDecl) -> Option<HandlerSignature> {
+        let name = handler.name.clone()?;
+        Some(HandlerSignature {
+            qualified_name: qualified_handler_name(handler.module_name.as_deref(), &name),
+            name,
+            module_name: handler.module_name.clone(),
+            visibility: handler.visibility,
+            params: handler
+                .params
+                .iter()
+                .map(|param| self.canonical_type(param.ty.as_deref(), handler))
+                .collect(),
+            effect: self.handled_effect(handler),
+            effects: self.declared_effects(handler),
+            operation_clauses: operation_clause_signatures(handler),
+        })
+    }
+
+    fn canonical_type(&self, ty: Option<&str>, handler: &HandlerDecl) -> Type {
+        canonicalize_type_effects(
+            parse_type_or_unknown(ty),
+            self.uses,
+            self.quarantined_uses,
+            handler.module_name.as_deref(),
+            self.effects,
+            self.adts,
+            self.companion_effect_access_targets,
+        )
+    }
+
+    fn handled_effect(&self, handler: &HandlerDecl) -> String {
+        canonical_user_effect_label(
+            &handler.effect,
+            self.uses,
+            handler.module_name.as_deref(),
+            self.effects,
+            self.companion_effect_access_targets,
+        )
+        .unwrap_or_else(|| handler.effect.join("::"))
+    }
+
+    fn declared_effects(&self, handler: &HandlerDecl) -> Vec<String> {
+        canonical_declared_effects(
+            handler.effects.clone().unwrap_or_default(),
+            self.uses,
+            self.quarantined_uses,
+            handler.module_name.as_deref(),
+            self.effects,
+            self.companion_effect_access_targets,
+        )
+    }
+}
+
+fn qualified_handler_name(module_name: Option<&str>, name: &str) -> String {
+    module_name.map_or_else(|| name.to_string(), |module| format!("{module}::{name}"))
+}
+
+fn operation_clause_signatures(handler: &HandlerDecl) -> Vec<HandlerOperationClauseSignature> {
+    handler
+        .operation_clauses
+        .iter()
+        .filter_map(|clause| {
+            Some(HandlerOperationClauseSignature {
+                operation: clause.operation.clone()?,
+                function: synthetic_handler_clause_function_name(
+                    handler.name.as_deref().unwrap_or("missing"),
+                    clause.operation.as_deref().unwrap_or("missing"),
                 ),
-                operation_clauses: handler
-                    .operation_clauses
-                    .iter()
-                    .filter_map(|clause| {
-                        Some(HandlerOperationClauseSignature {
-                            operation: clause.operation.clone()?,
-                            function: synthetic_handler_clause_function_name(
-                                handler.name.as_deref().unwrap_or("missing"),
-                                clause.operation.as_deref().unwrap_or("missing"),
-                            ),
-                            module_name: handler.module_name.clone(),
-                        })
-                    })
-                    .collect(),
+                module_name: handler.module_name.clone(),
             })
         })
         .collect()

@@ -122,57 +122,16 @@ impl AdtRegistry {
             .iter()
             .filter_map(source_descriptor)
             .collect::<Vec<_>>();
-        let standard_source_types = source_descriptors
-            .iter()
-            .filter(|descriptor| descriptor.module_name.as_deref() == Some("std::prelude"))
-            .map(|descriptor| descriptor.type_name.as_str())
-            .chain(
-                module
-                    .aliases
-                    .iter()
-                    .filter(|alias| {
-                        alias.kind == PublicAliasKind::Type
-                            && alias.module_name.as_deref() == Some("std::prelude")
-                    })
-                    .filter_map(|alias| alias.name.as_deref()),
-            )
-            .collect::<Vec<_>>();
-        descriptors.retain(|descriptor| {
-            matches!(descriptor.type_name.as_str(), "Option" | "Result" | "List")
-                || !standard_source_types.contains(&descriptor.type_name.as_str())
-        });
+        remove_replaced_standard_descriptors(module, &source_descriptors, &mut descriptors);
+
         let mut annotation_types = base.annotation_types.clone();
-        for descriptor in &source_descriptors {
-            if descriptor.module_name.as_deref() == Some("std::prelude")
-                && descriptor.type_name == "WallTime"
-            {
-                annotation_types.insert(descriptor_identity(descriptor), Type::wall_time());
-            }
-        }
+        extend_source_annotation_types(&source_descriptors, &mut annotation_types);
+
         let mut alias_targets = descriptors.clone();
         alias_targets.extend(source_descriptors.clone());
         let aliases = type_alias_descriptors(module, &alias_targets);
-        for alias in &module.aliases {
-            let Some(alias_name) = alias.name.as_ref() else {
-                continue;
-            };
-            let Some(target) = descriptor_for_alias_target(
-                &alias.target,
-                &normal_use_decls(module),
-                &alias_targets,
-                alias.module_name.as_deref(),
-            ) else {
-                continue;
-            };
-            let Some(annotation_type) = annotation_types.get(&descriptor_identity(target)).cloned()
-            else {
-                continue;
-            };
-            annotation_types.insert(
-                (alias.module_name.clone(), alias_name.clone()),
-                annotation_type,
-            );
-        }
+        extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
+
         descriptors.extend(aliases);
         descriptors.extend(source_descriptors);
         let mut companion_targets = base.companion_access_targets.clone();
@@ -514,6 +473,74 @@ impl AdtRegistry {
                 && use_decl.alias == *first
                 && use_decl.name == target_module
         })
+    }
+}
+
+fn remove_replaced_standard_descriptors(
+    module: &SurfaceModule,
+    source_descriptors: &[AdtDescriptor],
+    descriptors: &mut Vec<AdtDescriptor>,
+) {
+    let standard_source_types = source_descriptors
+        .iter()
+        .filter(|descriptor| descriptor.module_name.as_deref() == Some("std::prelude"))
+        .map(|descriptor| descriptor.type_name.as_str())
+        .chain(
+            module
+                .aliases
+                .iter()
+                .filter(|alias| {
+                    alias.kind == PublicAliasKind::Type
+                        && alias.module_name.as_deref() == Some("std::prelude")
+                })
+                .filter_map(|alias| alias.name.as_deref()),
+        )
+        .collect::<Vec<_>>();
+    descriptors.retain(|descriptor| {
+        matches!(descriptor.type_name.as_str(), "Option" | "Result" | "List")
+            || !standard_source_types.contains(&descriptor.type_name.as_str())
+    });
+}
+
+fn extend_source_annotation_types(
+    source_descriptors: &[AdtDescriptor],
+    annotation_types: &mut BTreeMap<(Option<String>, String), Type>,
+) {
+    for descriptor in source_descriptors {
+        if descriptor.module_name.as_deref() == Some("std::prelude")
+            && descriptor.type_name == "WallTime"
+        {
+            annotation_types.insert(descriptor_identity(descriptor), Type::wall_time());
+        }
+    }
+}
+
+fn extend_alias_annotation_types(
+    module: &SurfaceModule,
+    alias_targets: &[AdtDescriptor],
+    annotation_types: &mut BTreeMap<(Option<String>, String), Type>,
+) {
+    let uses = normal_use_decls(module);
+    for alias in &module.aliases {
+        let Some(alias_name) = alias.name.as_ref() else {
+            continue;
+        };
+        let Some(target) = descriptor_for_alias_target(
+            &alias.target,
+            &uses,
+            alias_targets,
+            alias.module_name.as_deref(),
+        ) else {
+            continue;
+        };
+        let Some(annotation_type) = annotation_types.get(&descriptor_identity(target)).cloned()
+        else {
+            continue;
+        };
+        annotation_types.insert(
+            (alias.module_name.clone(), alias_name.clone()),
+            annotation_type,
+        );
     }
 }
 
