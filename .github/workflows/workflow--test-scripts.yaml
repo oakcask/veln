@@ -65,19 +65,15 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Test workflow scripts
         run: node --test workflow-scripts/*.test.mjs
-      - name: Prepare Rust workflow-script experiment
-        id: rust-workflow-scripts
+      - name: Prepare Rust workflow scripts
+        id: workflow-scripts
         uses: ./.github/actions/cargo-workflow-scripts
-      - name: Test Rust workflow-script experiment
+      - name: Test Rust workflow scripts
         run: bash scripts/ci-run cargo test --locked -p veln-repo-workflow-scripts
-      - name: Measure cached Rust workflow-script break-even points
-        env:
-          WORKFLOW_SCRIPTS_RUST_BIN: ${{ steps.rust-workflow-scripts.outputs.binary }}
-        run: node workflow-scripts/benchmark-rust-workflow-scripts.mjs
       - name: Validate current specification explanations
         run: node workflow-scripts/check-specification.mjs
       - name: Reject unbounded Rust test commands
-        run: node workflow-scripts/check-rust-test-memory-guards.mjs .github/workflows .github/actions
+        run: ${{ steps.workflow-scripts.outputs.binary }} check-memory-guards .github/workflows .github/actions
       - name: Validate frontmatter in changed documentation
         env:
           DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}

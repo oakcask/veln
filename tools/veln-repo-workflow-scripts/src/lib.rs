@@ -1,11 +1,15 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 
 use serde_json::Value;
+
+mod duplication;
+
+pub use duplication::{escape_annotation_message, render_duplication_summary};
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct GuardFailure {
@@ -166,6 +170,87 @@ pub struct ShardPlan {
     pub required_shards: Option<u64>,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct CommandResult {
+    pub success: bool,
+    pub stdout: String,
+}
+
+pub fn download_prior_nextest_reports(
+    runner_temp: &Path,
+    mut run_command: impl FnMut(&[String]) -> io::Result<CommandResult>,
+    mut notice: impl FnMut(&str),
+) -> io::Result<Option<PathBuf>> {
+    let query_args = [
+        "run",
+        "list",
+        "--workflow",
+        "test--rust.yaml",
+        "--status",
+        "success",
+        "--limit",
+        "1",
+        "--json",
+        "databaseId",
+        "--jq",
+        ".[0].databaseId",
+    ]
+    .map(str::to_owned);
+    let query = match run_command(&query_args) {
+        Ok(result) if result.success => result,
+        _ => {
+            notice(
+                "::notice::Using fallback Rust test shards because workflow history could not be queried; rerun if shard planning repeatedly cannot access prior reports.",
+            );
+            return Ok(None);
+        }
+    };
+    let run_id = query.stdout.trim();
+    if run_id.is_empty() || run_id == "null" {
+        return Ok(None);
+    }
+
+    let download_root = create_download_directory(runner_temp)?;
+    let report_root = runner_temp.join("nextest-history");
+    let download_args = vec![
+        "run".to_owned(),
+        "download".to_owned(),
+        run_id.to_owned(),
+        "--pattern".to_owned(),
+        "nextest-junit-*".to_owned(),
+        "--dir".to_owned(),
+        download_root.to_string_lossy().into_owned(),
+    ];
+    let result = run_command(&download_args);
+    let downloaded = matches!(result, Ok(CommandResult { success: true, .. }));
+    if downloaded {
+        fs::rename(&download_root, &report_root)?;
+        return Ok(Some(report_root));
+    }
+
+    let _ = fs::remove_dir_all(&download_root);
+    notice(
+        "::notice::Using fallback Rust test shards because prior timing reports could not be downloaded; the next successful run will provide fresh reports.",
+    );
+    Ok(None)
+}
+
+fn create_download_directory(runner_temp: &Path) -> io::Result<PathBuf> {
+    static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+    loop {
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let path = runner_temp.join(format!(
+            "nextest-history-download-{}-{id}",
+            std::process::id()
+        ));
+        match fs::create_dir(&path) {
+            Ok(()) => return Ok(path),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error),
+        }
+    }
+}
+
 pub fn read_nextest_elapsed_seconds(root: &Path) -> io::Result<Vec<f64>> {
     let mut reports = Vec::new();
     collect_named_files(root, "junit.xml", &mut reports)?;
@@ -173,20 +258,27 @@ pub fn read_nextest_elapsed_seconds(root: &Path) -> io::Result<Vec<f64>> {
     let mut elapsed = Vec::new();
     for report in reports {
         let xml = fs::read_to_string(report)?;
-        let Some(tag_start) = xml.find("<testsuites") else {
+        let Some(tag_start) = xml.match_indices("<testsuites").find_map(|(index, _)| {
+            let next = xml[index + "<testsuites".len()..].chars().next();
+            next.is_none_or(|character| !character.is_alphanumeric() && character != '_')
+                .then_some(index)
+        }) else {
             continue;
         };
         let Some(tag_end_offset) = xml[tag_start..].find('>') else {
             continue;
         };
         let tag = &xml[tag_start..tag_start + tag_end_offset];
-        let Some(time_start) = tag.find("time=\"").map(|index| index + 6) else {
+        let Some(time_value) = tag
+            .split_ascii_whitespace()
+            .find_map(|attribute| attribute.strip_prefix("time=\""))
+        else {
             continue;
         };
-        let Some(time_end) = tag[time_start..].find('"') else {
+        let Some(time_end) = time_value.find('"') else {
             continue;
         };
-        if let Ok(value) = tag[time_start..time_start + time_end].parse::<f64>()
+        if let Ok(value) = time_value[..time_end].parse::<f64>()
             && value.is_finite()
             && value >= 0.0
         {
@@ -219,6 +311,32 @@ pub fn plan_shards(
     }
 }
 
+pub fn shard_numbers_json(plan: &ShardPlan) -> Value {
+    Value::Array((1..=plan.shard_count).map(Value::from).collect())
+}
+
+pub fn render_shard_summary(plan: &ShardPlan, target_seconds: u64, max_shards: u64) -> String {
+    let Some(measured_seconds) = plan.measured_seconds else {
+        return format!(
+            "No prior nextest timing was available, so this run uses {} fallback shards. A successful run will provide timings for the next plan.",
+            plan.shard_count
+        );
+    };
+    let mut summary = format!(
+        "Planned {} Rust test shards from {measured_seconds:.1} seconds of prior test time with a {target_seconds}-second target.",
+        plan.shard_count
+    );
+    if plan
+        .required_shards
+        .is_some_and(|required| required > max_shards)
+    {
+        summary.push_str(&format!(
+            " The plan was capped at {max_shards}; reduce test runtime or raise NEXTEST_MAX_SHARDS if shards keep exceeding the target."
+        ));
+    }
+    summary
+}
+
 fn collect_named_files(path: &Path, name: &str, files: &mut Vec<PathBuf>) -> io::Result<()> {
     if !path.exists() {
         return Ok(());
@@ -241,156 +359,30 @@ fn collect_named_files(path: &Path, name: &str, files: &mut Vec<PathBuf>) -> io:
     Ok(())
 }
 
-pub fn render_duplication_summary(
-    report: &Value,
-    duplicate_limit: usize,
-) -> Result<String, String> {
-    let duplicates = report
-        .get("duplicates")
-        .and_then(Value::as_array)
-        .ok_or_else(|| "expected a duplicates array".to_owned())?;
-    let total = report.pointer("/statistics/total").ok_or_else(|| {
-        "expected statistics.total.sources to be a non-negative integer".to_owned()
-    })?;
-    let sources = non_negative_integer(total, "sources")?;
-    let lines = non_negative_integer(total, "lines")?;
-    let clones = non_negative_integer(total, "clones")?;
-    let duplicated_lines = non_negative_integer(total, "duplicatedLines")?;
-    let percentage = total
-        .get("percentage")
-        .and_then(Value::as_f64)
-        .filter(|value| value.is_finite() && *value >= 0.0)
-        .ok_or_else(|| {
-            "expected statistics.total.percentage to be a non-negative finite number".to_owned()
-        })?;
-
-    let mut rows = Vec::with_capacity(duplicates.len());
-    for duplicate in duplicates {
-        rows.push(DuplicateRow::parse(duplicate)?);
-    }
-    rows.sort_by(|left, right| {
-        right
-            .lines
-            .cmp(&left.lines)
-            .then_with(|| right.tokens.cmp(&left.tokens))
-            .then_with(|| left.first_name.cmp(&right.first_name))
-            .then_with(|| left.first_start.cmp(&right.first_start))
-            .then_with(|| left.second_name.cmp(&right.second_name))
-            .then_with(|| left.second_start.cmp(&right.second_start))
-    });
-
-    let mut output = format!(
-        "## Code Duplication Refactor Signals\n\nInspect the largest exact clone pairs when changing either occurrence; consolidating shared behavior can prevent fixes from diverging. This report is advisory because some repetition is intentional.\n\n- Rust files analyzed: {sources}\n- Rust lines analyzed: {lines}\n- Exact clone pairs: {clones}\n- Duplicated lines: {duplicated_lines} ({percentage:.2}%)\n\n### Largest exact clone pairs\n\n"
-    );
-    if rows.is_empty() {
-        output.push_str("No exact clone pairs were detected.\n\n");
-        return Ok(output);
-    }
-    output.push_str(
-        "| Lines | Tokens | First occurrence | Second occurrence |\n| ---: | ---: | --- | --- |\n",
-    );
-    for row in rows.iter().take(duplicate_limit) {
-        output.push_str(&format!(
-            "| {} | {} | `{}:{}` | `{}:{}` |\n",
-            row.lines,
-            row.tokens,
-            escape_markdown(&row.first_name),
-            row.first_start,
-            escape_markdown(&row.second_name),
-            row.second_start,
-        ));
-    }
-    if rows.len() > duplicate_limit {
-        output.push_str(&format!(
-            "\n{} more clone pair(s) omitted from this summary.\n",
-            rows.len() - duplicate_limit
-        ));
-    }
-    output.push('\n');
-    Ok(output)
-}
-
-#[derive(Debug)]
-struct DuplicateRow {
-    lines: u64,
-    tokens: u64,
-    first_name: String,
-    first_start: u64,
-    second_name: String,
-    second_start: u64,
-}
-
-impl DuplicateRow {
-    fn parse(value: &Value) -> Result<Self, String> {
-        let lines = value.get("lines").and_then(Value::as_u64).ok_or_else(|| {
-            "expected each duplicate to have non-negative integer lines and tokens".to_owned()
-        })?;
-        let tokens = value.get("tokens").and_then(Value::as_u64).ok_or_else(|| {
-            "expected each duplicate to have non-negative integer lines and tokens".to_owned()
-        })?;
-        let (first_name, first_start) = file_location(value.get("firstFile"))?;
-        let (second_name, second_start) = file_location(value.get("secondFile"))?;
-        Ok(Self {
-            lines,
-            tokens,
-            first_name,
-            first_start,
-            second_name,
-            second_start,
-        })
-    }
-}
-
-fn file_location(value: Option<&Value>) -> Result<(String, u64), String> {
-    let value = value.ok_or_else(|| {
-        "expected each duplicate occurrence to have a file name and start line".to_owned()
-    })?;
-    let name = value
-        .get("name")
-        .and_then(Value::as_str)
-        .filter(|name| !name.is_empty())
-        .ok_or_else(|| {
-            "expected each duplicate occurrence to have a file name and start line".to_owned()
-        })?;
-    let start = value.get("start").and_then(Value::as_u64).ok_or_else(|| {
-        "expected each duplicate occurrence to have a file name and start line".to_owned()
-    })?;
-    Ok((name.to_owned(), start))
-}
-
-fn non_negative_integer(value: &Value, field: &str) -> Result<u64, String> {
-    value
-        .get(field)
-        .and_then(Value::as_u64)
-        .ok_or_else(|| format!("expected statistics.total.{field} to be a non-negative integer"))
-}
-
-fn escape_markdown(value: &str) -> String {
-    value.replace('|', "\\|").replace('`', "\\`")
-}
-
-pub fn shard_plan_json(plan: &ShardPlan) -> Value {
-    let mut result = BTreeMap::new();
-    result.insert("shardCount", Value::from(plan.shard_count));
-    result.insert(
-        "measuredSeconds",
-        plan.measured_seconds.map_or(Value::Null, Value::from),
-    );
-    result.insert(
-        "requiredShards",
-        plan.required_shards.map_or(Value::Null, Value::from),
-    );
-    serde_json::to_value(result).expect("serializing a map of JSON values cannot fail")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn temporary_directory(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "veln-workflow-scripts-{}-{name}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir(&root).unwrap();
+        root
+    }
 
     #[test]
     fn finds_unguarded_commands_at_source_lines() {
         let source = "steps:\n  - run: cargo test --workspace\n  - run: |\n      prepare\n      cargo nextest run --workspace\n  - run: bash scripts/ci-run cargo test --workspace\n";
         assert_eq!(unguarded_rust_test_lines(source), vec![2, 5]);
+    }
+
+    #[test]
+    fn accepts_guarded_commands_and_ignores_non_test_commands() {
+        let source = "steps:\n  - run: bash scripts/ci-run cargo test --workspace\n  - run: bash scripts/ci-run cargo nextest run --workspace\n  - run: bash scripts/ci-run cargo llvm-cov --no-report nextest --workspace\n  - run: cargo run --workspace\n";
+        assert!(unguarded_rust_test_lines(source).is_empty());
     }
 
     #[test]
@@ -414,6 +406,161 @@ mod tests {
     }
 
     #[test]
+    fn caps_shards_without_hiding_the_uncapped_requirement() {
+        let plan = plan_shards(&[1_500.0], 90, 4, 16);
+        assert_eq!(plan.shard_count, 16);
+        assert_eq!(plan.required_shards, Some(17));
+        assert_eq!(
+            shard_numbers_json(&plan),
+            serde_json::json!([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+        );
+        assert!(render_shard_summary(&plan, 90, 16).contains("capped at 16"));
+    }
+
+    #[test]
+    fn reads_only_valid_top_level_nextest_elapsed_times() {
+        let root = temporary_directory("elapsed");
+        for name in ["nextest-junit-1", "nextest-junit-2", "other", "lookalike"] {
+            fs::create_dir(root.join(name)).unwrap();
+        }
+        fs::write(
+            root.join("nextest-junit-1/junit.xml"),
+            r#"<testsuites tests="10" time="12.5"><testsuite time="99"/></testsuites>"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("nextest-junit-2/junit.xml"),
+            r#"<testsuites time="7.25" tests="8"></testsuites>"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("other/junit.xml"),
+            r#"<testsuites time="invalid"/>"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("lookalike/junit.xml"),
+            r#"<testsuitesExtra time="4.0"/><testsuites runtime="5.0"/>"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            read_nextest_elapsed_seconds(&root).unwrap(),
+            vec![12.5, 7.25]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn downloads_reports_from_latest_successful_run() {
+        let root = temporary_directory("download");
+        let mut calls = Vec::new();
+        let report_root = download_prior_nextest_reports(
+            &root,
+            |args| {
+                calls.push(args.to_vec());
+                if args.get(1).map(String::as_str) == Some("list") {
+                    return Ok(CommandResult {
+                        success: true,
+                        stdout: "12345\n".to_owned(),
+                    });
+                }
+                let download_root = PathBuf::from(args.last().unwrap());
+                fs::create_dir(download_root.join("nextest-junit-1"))?;
+                fs::write(
+                    download_root.join("nextest-junit-1/junit.xml"),
+                    "<testsuites/>",
+                )?;
+                Ok(CommandResult {
+                    success: true,
+                    stdout: String::new(),
+                })
+            },
+            |_| {},
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(
+            calls[0][..4],
+            ["run", "list", "--workflow", "test--rust.yaml"]
+        );
+        assert_eq!(calls[1][..3], ["run", "download", "12345"]);
+        assert!(report_root.join("nextest-junit-1/junit.xml").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn falls_back_and_removes_partial_downloads() {
+        let root = temporary_directory("fallback");
+        let mut notices = Vec::new();
+        let report_root = download_prior_nextest_reports(
+            &root,
+            |args| {
+                if args.get(1).map(String::as_str) == Some("list") {
+                    return Ok(CommandResult {
+                        success: true,
+                        stdout: "12345\n".to_owned(),
+                    });
+                }
+                fs::write(
+                    PathBuf::from(args.last().unwrap()).join("partial"),
+                    "partial",
+                )?;
+                Ok(CommandResult {
+                    success: false,
+                    stdout: String::new(),
+                })
+            },
+            |notice| notices.push(notice.to_owned()),
+        )
+        .unwrap();
+
+        assert_eq!(report_root, None);
+        assert_eq!(notices.len(), 1);
+        assert!(notices[0].contains("prior timing reports could not be downloaded"));
+        let remaining: Vec<_> = fs::read_dir(&root).unwrap().collect();
+        assert!(remaining.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn falls_back_when_history_is_unavailable_or_empty() {
+        let root = temporary_directory("history-unavailable");
+        let mut notices = Vec::new();
+        let unavailable = download_prior_nextest_reports(
+            &root,
+            |_| {
+                Ok(CommandResult {
+                    success: false,
+                    stdout: String::new(),
+                })
+            },
+            |notice| notices.push(notice.to_owned()),
+        )
+        .unwrap();
+        assert_eq!(unavailable, None);
+        assert!(notices[0].contains("workflow history could not be queried"));
+
+        let mut call_count = 0;
+        let empty = download_prior_nextest_reports(
+            &root,
+            |_| {
+                call_count += 1;
+                Ok(CommandResult {
+                    success: true,
+                    stdout: "null\n".to_owned(),
+                })
+            },
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(empty, None);
+        assert_eq!(call_count, 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn renders_largest_duplication_first() {
         let report = serde_json::json!({
             "statistics": { "total": {
@@ -426,5 +573,80 @@ mod tests {
         });
         let summary = render_duplication_summary(&report, 10).unwrap();
         assert!(summary.find("a.rs:3").unwrap() < summary.find("b.rs:1").unwrap());
+    }
+
+    #[test]
+    fn validates_and_escapes_duplication_reports() {
+        let report = serde_json::json!({
+            "statistics": { "total": {
+                "sources": 1, "lines": 10, "clones": 1, "duplicatedLines": 4, "percentage": 40.0
+            }},
+            "duplicates": [
+                { "lines": 4, "tokens": 20, "firstFile": {"name": "a|b`c.rs", "start": 1}, "secondFile": {"name": "d.rs", "start": 2}}
+            ]
+        });
+        let summary = render_duplication_summary(&report, 10).unwrap();
+        assert!(summary.contains("a\\|b\\`c.rs:1"));
+
+        let invalid =
+            serde_json::json!({"statistics": {"total": {"sources": 1}}, "duplicates": []});
+        assert_eq!(
+            render_duplication_summary(&invalid, 10).unwrap_err(),
+            "expected statistics.total.lines to be a non-negative integer"
+        );
+    }
+
+    #[test]
+    fn limits_duplication_details_and_renders_empty_reports() {
+        let report = serde_json::json!({
+            "statistics": { "total": {
+                "sources": 2, "lines": 40, "clones": 2, "duplicatedLines": 12, "percentage": 30.0
+            }},
+            "duplicates": [
+                { "lines": 8, "tokens": 40, "firstFile": {"name": "a.rs", "start": 3}, "secondFile": {"name": "d.rs", "start": 4}},
+                { "lines": 4, "tokens": 20, "firstFile": {"name": "b.rs", "start": 1}, "secondFile": {"name": "c.rs", "start": 2}}
+            ]
+        });
+        let summary = render_duplication_summary(&report, 1).unwrap();
+        assert!(summary.contains("a.rs:3"));
+        assert!(!summary.contains("b.rs:1"));
+        assert!(summary.contains("1 more clone pair(s) omitted"));
+
+        let empty = serde_json::json!({
+            "statistics": { "total": {
+                "sources": 2, "lines": 40, "clones": 0, "duplicatedLines": 0, "percentage": 0.0
+            }},
+            "duplicates": []
+        });
+        assert!(
+            render_duplication_summary(&empty, 10)
+                .unwrap()
+                .contains("No exact clone pairs were detected")
+        );
+    }
+
+    #[test]
+    fn rejects_incomplete_duplicate_locations() {
+        let report = serde_json::json!({
+            "statistics": { "total": {
+                "sources": 1, "lines": 10, "clones": 1, "duplicatedLines": 4, "percentage": 40.0
+            }},
+            "duplicates": [
+                { "lines": 4, "tokens": 20, "firstFile": {"name": "a.rs"}, "secondFile": {"name": "d.rs", "start": 2}}
+            ]
+        });
+        assert!(
+            render_duplication_summary(&report, 10)
+                .unwrap_err()
+                .contains("file name and start line")
+        );
+    }
+
+    #[test]
+    fn escapes_annotation_control_characters() {
+        assert_eq!(
+            escape_annotation_message("bad%value\r\nnext"),
+            "bad%25value%0D%0Anext"
+        );
     }
 }

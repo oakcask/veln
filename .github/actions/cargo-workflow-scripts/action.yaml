@@ -1,5 +1,5 @@
 name: Prepare Rust workflow scripts
-description: Restore or build the cached workflow-script experiment binary.
+description: Restore or build the cached workflow-script binary.
 
 outputs:
   binary:
