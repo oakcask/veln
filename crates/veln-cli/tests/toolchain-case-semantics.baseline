@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"05ae8b37f785ea16ee9cea91bc5f2cf8dbe73c11"
+source_git_tree	"6182d0332d0d647a24edfba6355c269cdb1965dd"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1714
@@ -3619,16 +3619,32 @@ field	expectations.diagnostics[0].severity	"error"
 field	expectations.diagnostics[0].span.column	14
 field	expectations.diagnostics[0].span.file	"rejected.veln"
 field	expectations.diagnostics[0].span.line	4
+field	expectations.diagnostics[1].id	"name.duplicate"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"duplicate local binding name `captured`"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	6
+field	expectations.diagnostics[1].span.file	"rejected.veln"
+field	expectations.diagnostics[1].span.line	19
+field	expectations.diagnostics[2].id	"name.duplicate"
+field	expectations.diagnostics[2].kind	"name"
+field	expectations.diagnostics[2].message	"duplicate pattern binding name `captured`"
+field	expectations.diagnostics[2].severity	"error"
+field	expectations.diagnostics[2].span.column	3
+field	expectations.diagnostics[2].span.file	"rejected.veln"
+field	expectations.diagnostics[2].span.line	30
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals	1
+field	expectations.json_assertions[1].equals	3
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"summary.diagnostic_count"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":\"name.unresolved\""
 field	expectations.stdout.contains[1]	"unresolved value `declared_later`"
+field	expectations.stdout.contains[2]	"duplicate local binding name `captured`"
+field	expectations.stdout.contains[3]	"duplicate pattern binding name `captured`"
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
@@ -3636,7 +3652,7 @@ field	invocation.command[2]	"accepted.veln"
 field	invocation.command[3]	"rejected.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"fbda9454b995495f5d5c869745b3f8518fb8480402de47fccdb0e1f49f6ef94e"
+case_digest	"4d11d1fdb13e248a18287d7e9ec6dedc5a98fb58474455574fd7abd1fdefba41"
 case	"examples/specification/check/deferred-block-restrictions"
 field	expectations.diagnostics[0].id	"defer.propagation"
 field	expectations.diagnostics[0].kind	"type"
@@ -62450,4 +62466,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"c9c509af5379f8e4b6a0046ceab3e60d57a4f9f911f90cb56e92bd09b0ac0fb4"
+aggregate_digest	"c1585efa561658ddca11a6f3cd6e2d862446486aaa501e9601fefad37633bf6e"

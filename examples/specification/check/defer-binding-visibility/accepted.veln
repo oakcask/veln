@@ -8,7 +8,7 @@ fn accepts_earlier_binding(input: Int) -> ()
 	()
 end
 
-# A later local can shadow a binding after defer captures its visible value.
+# A later local can shadow the binding referenced by an earlier defer.
 fn accepts_shadow_after_capture(input: Int) -> String
 	let captured = input
 	defer
