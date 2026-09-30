@@ -52,7 +52,9 @@ monotonic clocks, and wall-clock acquisition remain in the host runtime. A
 wall-clock read crosses that boundary as one normalized `WallTime` record with
 integer `unix_seconds` and `nanosecond` fields. The default reads the real host
 wall clock; a scoped Veln clock handler can replace it deterministically. Wall
-time can move backwards and is not used for deadline ordering. A handler result
+time can move backwards and is not used for deadline ordering. The
+normalization guarantee belongs to the boundary result, not to independently
+constructed records that have the same structural fields. A handler result
 whose normalization would exceed the `Int` seconds range is a runtime failure.
 `NetListener` exposes local
 endpoint text through `net::listener_local_addr`; `NetStream` exposes local and

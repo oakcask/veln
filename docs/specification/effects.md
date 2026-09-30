@@ -401,20 +401,26 @@ domain returned by `time::monotonic_ms`; `time::monotonic_ms` returns a
 host-owned monotonic millisecond counter for elapsed-time measurement without
 exposing wall-clock dates; `time::wait_until` waits until that deadline
 expires;
-`time::wall_time` returns a normalized `WallTime` record. Its `unix_seconds`
-field counts UTC seconds relative to the Unix epoch, and its `nanosecond` field
-is an `Int` in the inclusive range `0..999999999`. Instants before the epoch
-use the same normalization, so one nanosecond before the epoch is represented
-as `unix_seconds = -1` and `nanosecond = 999999999`. The host defines the
-clock resolution. Successive values can be equal or move backwards after a
-clock correction. `WallTime` has no source-visible constructor or pattern;
-programs obtain its record values from `time::wall_time` and read its two
-integer fields. The value is structurally compatible with an anonymous record
-that requires those fields. Bare `WallTime`, `prelude::WallTime`, and public
-type aliases that target either spelling denote this standard record. A
-user-defined algebraic data type also named `WallTime`, and aliases that target
-it, remain distinct nominal types and do not acquire the standard record
-fields. Programs must continue to use `time::monotonic_ms` and
+`time::wall_time` returns a normalized value with the structural `WallTime`
+record type. Its `unix_seconds` field counts UTC seconds relative to the Unix
+epoch, and its `nanosecond` field is an `Int` in the inclusive range
+`0..999999999`. Instants before the epoch use the same normalization, so one
+nanosecond before the epoch is represented as `unix_seconds = -1` and
+`nanosecond = 999999999`. The host defines the clock resolution. Successive
+values can be equal or move backwards after a clock correction.
+
+`WallTime` has no nominal constructor or pattern. It names a structural record
+shape with `unix_seconds: Int` and `nanosecond: Int` fields. A record literal
+that supplies those fields is therefore assignable to `WallTime`, and a
+`WallTime` value is assignable to an anonymous record that requires them. The
+compiler does not normalize or range-check independently constructed record
+literals; the normalization guarantee applies only to values returned by
+`time::wall_time`, including values supplied through its handler bridge. Bare
+`WallTime`, `prelude::WallTime`, and public type aliases that target either
+spelling denote this standard record. A user-defined algebraic data type also
+named `WallTime`, and aliases that target it, remain distinct nominal types and
+do not acquire the standard record fields. Programs must continue to use
+`time::monotonic_ms` and
 `Deadline` for durations, ordering, and timeouts;
 `time::cancel_token` returns a source-visible cancellation handle;
 `time::cancel_owner` returns a source-visible cancellation owner;

@@ -36,6 +36,9 @@ fn observe_backwards_clock() -> String effects [time]
 end
 
 pub fn main() -> () effects [concurrency, time, stdio]
+	let unchecked: WallTime = { unix_seconds: 0, nanosecond: -1 }
+	emit_json(unchecked)
+
 	let epoch_state = fixture_effects::create_clock_state(0, 0, 7)
 	let epoch = handle time::wall_time() with fake_effects::clock(epoch_state)
 	emit_json(epoch)

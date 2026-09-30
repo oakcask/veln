@@ -6,3 +6,8 @@ end
 pub fn timestamp_seconds() -> Int effects [time]
 	unix_seconds(time::wall_time())
 end
+
+pub fn unchecked_timestamp_seconds() -> Int
+	let value: WallTime = { unix_seconds: 0, nanosecond: -1 }
+	unix_seconds(value)
+end

@@ -149,9 +149,9 @@ length = 4
 [[mcp_assert]]
 id = 8
 path = "/result/structuredContent/references/3/uri"
-equals = "veln-pkg:///std/snapshot/2853dceb95ece33776a68a69e8c3c162d9ec51cf6470237878460dca5ec20e9d/prelude.veln"
+equals = "veln-pkg:///std/snapshot/ee818019a78e38f62b100c74ddcc3947ae98862875ccd1b168bfce0a83ebe81c/prelude.veln"
 
 [[mcp_assert]]
 id = 8
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":129,"column":8},"end":{"line":129,"column":22}}
+equals = {"start":{"line":130,"column":8},"end":{"line":130,"column":22}}
