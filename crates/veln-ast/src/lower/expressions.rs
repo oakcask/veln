@@ -103,7 +103,13 @@ impl AstBuilder {
                 field: field.clone(),
                 field_span: field_span.clone(),
             }),
-            SyntaxExprKind::Try(expr) => Some(ExprKind::Try(Box::new(self.lower_expr(expr)))),
+            SyntaxExprKind::Try {
+                expr,
+                question_span,
+            } => Some(ExprKind::Try {
+                expr: Box::new(self.lower_expr(expr)),
+                question_span: question_span.clone(),
+            }),
             _ => None,
         }
     }

@@ -24,7 +24,7 @@ impl Writer {
             ExprKind::SchemaDecode { .. }
             | ExprKind::SchemaEncode { .. }
             | ExprKind::FieldAccess { .. }
-            | ExprKind::Try(_) => self.schema_and_access_expr_kind(value),
+            | ExprKind::Try { .. } => self.schema_and_access_expr_kind(value),
             ExprKind::Record(_)
             | ExprKind::Dict(_)
             | ExprKind::List(_)
@@ -151,9 +151,13 @@ impl Writer {
                 self.string(field);
                 self.span(field_span);
             }
-            ExprKind::Try(expr) => {
+            ExprKind::Try {
+                expr,
+                question_span,
+            } => {
                 self.u8(15);
                 self.expr(expr);
+                self.span(question_span);
             }
             _ => unreachable!("non-schema or access expression passed to schema wire encoder"),
         }

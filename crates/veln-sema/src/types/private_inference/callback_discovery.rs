@@ -450,7 +450,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
-        | ExprKind::Try(_)
+        | ExprKind::Try { .. }
         | ExprKind::Prefix { .. } => {
             private_prelude_callback_wrapped_expr_references_slot(expr, expected, context)
         }
@@ -543,7 +543,7 @@ pub(crate) fn private_prelude_callback_wrapped_expr_references_slot(
         }
         ExprKind::SchemaEncode { value, .. }
         | ExprKind::FieldAccess { base: value, .. }
-        | ExprKind::Try(value)
+        | ExprKind::Try { expr: value, .. }
         | ExprKind::Prefix { expr: value, .. } => {
             private_prelude_callback_expr_references_slot(value, None, context)
         }

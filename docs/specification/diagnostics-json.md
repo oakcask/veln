@@ -127,7 +127,7 @@ identifier and reason pairs:
 
 Each record has one `related` entry with `kind: "repair_hint"`, a repair
 message, and the containing deferred-block span. The primary span remains the
-specific propagation expression, non-unit block result, or nested `defer` that
+specific propagation `?` token, non-unit block result, or nested `defer` keyword that
 failed.
 
 A schema declaration used as an ordinary local annotation type reports

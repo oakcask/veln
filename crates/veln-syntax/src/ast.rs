@@ -272,6 +272,7 @@ pub enum BodyLine {
     },
     Defer {
         body: Vec<BodyLine>,
+        keyword_span: SourceSpan,
         block_span: SourceSpan,
         span: SourceSpan,
     },
@@ -345,7 +346,10 @@ pub enum ExprKind {
         field: String,
         field_span: SourceSpan,
     },
-    Try(Box<Expr>),
+    Try {
+        expr: Box<Expr>,
+        question_span: SourceSpan,
+    },
     Record(Vec<RecordField>),
     Dict(Vec<DictEntry>),
     List(Vec<Expr>),

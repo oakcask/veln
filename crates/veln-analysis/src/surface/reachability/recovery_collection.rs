@@ -160,7 +160,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 self.collect_expr(value, current_module, local_bindings, spans);
             }
             ExprKind::FieldAccess { base, .. }
-            | ExprKind::Try(base)
+            | ExprKind::Try { expr: base, .. }
             | ExprKind::Prefix { expr: base, .. } => {
                 self.collect_expr(base, current_module, local_bindings, spans);
             }

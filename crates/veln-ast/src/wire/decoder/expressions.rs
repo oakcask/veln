@@ -95,7 +95,10 @@ impl<'a> Reader<'a> {
                 field: self.string()?,
                 field_span: self.span()?,
             }),
-            15 => Ok(ExprKind::Try(Box::new(self.expr()?))),
+            15 => Ok(ExprKind::Try {
+                expr: Box::new(self.expr()?),
+                question_span: self.span()?,
+            }),
             _ => unreachable!("non-schema or access tag passed to schema wire decoder"),
         }
     }

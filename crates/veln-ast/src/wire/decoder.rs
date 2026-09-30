@@ -507,6 +507,7 @@ impl<'a> Reader<'a> {
             1 => BodyLineKind::Expr { expr: self.expr()? },
             2 => BodyLineKind::Defer {
                 body: self.vec(Self::body_line)?,
+                keyword_span: self.span()?,
                 block_span: self.span()?,
             },
             value => return Err(format!("invalid body line kind tag {value}")),

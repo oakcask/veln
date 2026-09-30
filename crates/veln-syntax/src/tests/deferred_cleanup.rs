@@ -43,6 +43,7 @@ fn parses_cleanup_regions_and_preserves_block_spans() {
     let function = first_function(&output);
     let BodyLine::Defer {
         body,
+        keyword_span,
         block_span,
         span,
     } = &function.body[1]
@@ -50,6 +51,10 @@ fn parses_cleanup_regions_and_preserves_block_spans() {
         panic!("expected defer statement");
     };
     assert_eq!(body.len(), 1);
+    assert_eq!(
+        &SOURCE[keyword_span.start.offset..keyword_span.end.offset],
+        "defer"
+    );
     assert_eq!(
         &SOURCE[span.start.offset..span.end.offset],
         "defer\n  release(first)\n end\n"
@@ -155,12 +160,22 @@ fn embedded_begin_expressions_preserve_blocks_and_surrounding_expression_tokens(
             if matches!(right.kind, ExprKind::Binary { ref left, .. }
                 if matches!(left.kind, ExprKind::Begin { ref body, .. } if body.len() == 2))
     ));
+    let ExprKind::Try {
+        expr: inner,
+        question_span,
+    } = &expressions[4].kind
+    else {
+        panic!("expected try expression");
+    };
     assert!(matches!(
-        expressions[4].kind,
-        ExprKind::Try(ref inner)
-            if matches!(inner.kind, ExprKind::FieldAccess { ref base, .. }
-                if matches!(base.kind, ExprKind::Begin { ref body, .. } if body.len() == 2))
+        inner.kind,
+        ExprKind::FieldAccess { ref base, .. }
+            if matches!(base.kind, ExprKind::Begin { ref body, .. } if body.len() == 2)
     ));
+    assert_eq!(
+        &input[question_span.start.offset..question_span.end.offset],
+        "?"
+    );
 
     let first = format_tree(&output.tree);
     let second_source = SourceFile::new("embedded-cleanup.veln", first.clone());

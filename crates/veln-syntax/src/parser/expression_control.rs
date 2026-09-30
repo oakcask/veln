@@ -141,6 +141,7 @@ impl<'a> ExprParser<'a> {
         }
         BodyLine::Defer {
             body,
+            keyword_span: self.source.span(start),
             block_span: self.source.span(TextRange::new(
                 header_end.end,
                 block_end.max(header_end.end),
@@ -169,6 +170,7 @@ impl<'a> ExprParser<'a> {
         }
         BodyLine::Defer {
             body: Vec::new(),
+            keyword_span: self.source.span(start),
             block_span: self.source.span(TextRange::new(header_end.end, end.start)),
             span: self.source.span(start.cover(end)),
         }

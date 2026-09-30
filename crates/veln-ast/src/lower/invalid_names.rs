@@ -315,7 +315,7 @@ fn collect_invalid_expr_names(
         ),
         SyntaxExprKind::TypeApply { callee, .. }
         | SyntaxExprKind::FieldAccess { base: callee, .. }
-        | SyntaxExprKind::Try(callee)
+        | SyntaxExprKind::Try { expr: callee, .. }
         | SyntaxExprKind::Prefix { expr: callee, .. } => {
             collect_invalid_expr_names(callee, invalid, enclosing);
         }

@@ -30,7 +30,7 @@ impl Expr {
             ExprKind::TypeApply { callee: expr, .. }
             | ExprKind::SchemaEncode { value: expr, .. }
             | ExprKind::FieldAccess { base: expr, .. }
-            | ExprKind::Try(expr)
+            | ExprKind::Try { expr, .. }
             | ExprKind::Prefix { expr, .. } => visitor(expr)?,
             ExprKind::Perform { args, .. } | ExprKind::List(args) => {
                 for arg in args {

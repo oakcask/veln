@@ -132,7 +132,7 @@ fn parses_try_prefix_and_pipeline_precedence() {
             expr,
         } if matches!(
             &expr.kind,
-            ExprKind::Try(inner)
+            ExprKind::Try { expr: inner, .. }
                 if matches!(&inner.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["input".to_string()])
         )
     ));

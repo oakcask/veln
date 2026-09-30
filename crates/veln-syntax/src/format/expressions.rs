@@ -64,7 +64,7 @@ fn take_continued_begin_comments(
             visit(base, false);
         }
         ExprKind::SchemaEncode { value, .. } => visit(value, false),
-        ExprKind::FieldAccess { base, .. } | ExprKind::Try(base) => visit(base, true),
+        ExprKind::FieldAccess { base, .. } | ExprKind::Try { expr: base, .. } => visit(base, true),
         ExprKind::Record(fields) => {
             for field in fields {
                 visit(&field.expr, true);
@@ -235,7 +235,7 @@ fn format_expr_inner(
                 format_expr_prec(base, prec, ExprSide::Left, indent, comments)
             )
         }
-        ExprKind::Try(inner) => {
+        ExprKind::Try { expr: inner, .. } => {
             format!(
                 "{}?",
                 format_expr_prec(inner, prec, ExprSide::Left, indent, comments)
@@ -817,7 +817,7 @@ fn expr_prec(expr: &Expr) -> u8 {
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
-        | ExprKind::Try(_) => 27,
+        | ExprKind::Try { .. } => 27,
         ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Begin { .. } => 29,
         _ => 29,
     }

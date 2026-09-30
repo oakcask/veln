@@ -36,7 +36,7 @@ impl<'a> CoreLowerer<'a> {
                 self.lower_schema_encode(expr, schema, value)
             }
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
-            ExprKind::Try(inner) => self.lower_try(expr, inner, expected),
+            ExprKind::Try { expr: inner, .. } => self.lower_try(expr, inner, expected),
             ExprKind::Record(fields) => self.lower_record(expr, fields, expected),
             ExprKind::Dict(entries) => self.lower_dict(expr, entries, expected),
             ExprKind::List(items) => self.lower_list(expr, items, expected),

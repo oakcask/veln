@@ -263,7 +263,7 @@ fn queue_cleanup_expr_children<'a>(
         ExprKind::TypeApply { callee, .. }
         | ExprKind::SchemaEncode { value: callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
+        | ExprKind::Try { expr: callee, .. }
         | ExprKind::Prefix { expr: callee, .. } => {
             pending.push(CleanupReferenceWork::Expr(callee));
         }
@@ -339,7 +339,7 @@ fn queue_structured_cleanup_expr_children<'a>(
         ExprKind::TypeApply { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
-        | ExprKind::Try(_)
+        | ExprKind::Try { .. }
         | ExprKind::Prefix { .. }
         | ExprKind::Call { .. }
         | ExprKind::Handle { .. }

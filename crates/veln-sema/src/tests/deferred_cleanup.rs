@@ -132,6 +132,16 @@ fn defer_rejects_result_propagation_with_repair_note() {
         .find(|diagnostic| diagnostic.id == "defer.propagation")
         .expect("result propagation in deferred block should be rejected");
     assert_eq!(diagnostic.message, "deferred block cannot use `?`");
+    let span = diagnostic.span.as_ref().expect("question-mark span");
+    assert_eq!(
+        (
+            span.start.line,
+            span.start.column,
+            span.end.line,
+            span.end.column
+        ),
+        (6, 12, 6, 13)
+    );
     assert_eq!(diagnostic.related.len(), 1);
     assert!(diagnostic.related[0].to_json().contains("repair_hint"));
 }
@@ -157,6 +167,16 @@ fn defer_rejects_nested_registration_with_repair_note() {
     assert_eq!(
         diagnostic.message,
         "deferred block cannot register another deferred block"
+    );
+    let span = diagnostic.span.as_ref().expect("nested defer keyword span");
+    assert_eq!(
+        (
+            span.start.line,
+            span.start.column,
+            span.end.line,
+            span.end.column
+        ),
+        (3, 5, 3, 10)
     );
     assert_eq!(diagnostic.related.len(), 1);
     let related = diagnostic.related[0].to_json();

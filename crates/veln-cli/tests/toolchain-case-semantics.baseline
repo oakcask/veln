@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"fec7972a11f40abb05caec31e71da8204a80225f"
+source_git_tree	"2afb635815ecb5b5f8912dd595e826530fe07742"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1712
@@ -3642,7 +3642,7 @@ field	expectations.diagnostics[0].id	"defer.propagation"
 field	expectations.diagnostics[0].kind	"type"
 field	expectations.diagnostics[0].message	"deferred block cannot use `?`"
 field	expectations.diagnostics[0].severity	"error"
-field	expectations.diagnostics[0].span.column	3
+field	expectations.diagnostics[0].span.column	13
 field	expectations.diagnostics[0].span.file	"main.veln"
 field	expectations.diagnostics[0].span.line	7
 field	expectations.diagnostics[1].id	"defer.non_unit"
@@ -3663,36 +3663,48 @@ field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[10].equals	1
+field	expectations.json_assertions[10].equals	14
 field	expectations.json_assertions[10].operation	"equals"
-field	expectations.json_assertions[10].path	"diagnostics.2.related.0.span.start.column"
+field	expectations.json_assertions[10].path	"diagnostics.1.related.0.span.start.line"
+field	expectations.json_assertions[11].equals	1
+field	expectations.json_assertions[11].operation	"equals"
+field	expectations.json_assertions[11].path	"diagnostics.1.related.0.span.start.column"
+field	expectations.json_assertions[12].equals	"repair_hint"
+field	expectations.json_assertions[12].operation	"equals"
+field	expectations.json_assertions[12].path	"diagnostics.2.related.0.kind"
+field	expectations.json_assertions[13].equals	21
+field	expectations.json_assertions[13].operation	"equals"
+field	expectations.json_assertions[13].path	"diagnostics.2.related.0.span.start.line"
+field	expectations.json_assertions[14].equals	1
+field	expectations.json_assertions[14].operation	"equals"
+field	expectations.json_assertions[14].path	"diagnostics.2.related.0.span.start.column"
 field	expectations.json_assertions[1].equals	3
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"summary.diagnostic_count"
-field	expectations.json_assertions[2].equals	"repair_hint"
+field	expectations.json_assertions[2].equals	7
 field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"diagnostics.0.related.0.kind"
-field	expectations.json_assertions[3].equals	7
+field	expectations.json_assertions[2].path	"diagnostics.0.span.end.line"
+field	expectations.json_assertions[3].equals	14
 field	expectations.json_assertions[3].operation	"equals"
-field	expectations.json_assertions[3].path	"diagnostics.0.related.0.span.start.line"
-field	expectations.json_assertions[4].equals	1
+field	expectations.json_assertions[3].path	"diagnostics.0.span.end.column"
+field	expectations.json_assertions[4].equals	21
 field	expectations.json_assertions[4].operation	"equals"
-field	expectations.json_assertions[4].path	"diagnostics.0.related.0.span.start.column"
-field	expectations.json_assertions[5].equals	"repair_hint"
+field	expectations.json_assertions[4].path	"diagnostics.2.span.end.line"
+field	expectations.json_assertions[5].equals	8
 field	expectations.json_assertions[5].operation	"equals"
-field	expectations.json_assertions[5].path	"diagnostics.1.related.0.kind"
-field	expectations.json_assertions[6].equals	14
+field	expectations.json_assertions[5].path	"diagnostics.2.span.end.column"
+field	expectations.json_assertions[6].equals	"repair_hint"
 field	expectations.json_assertions[6].operation	"equals"
-field	expectations.json_assertions[6].path	"diagnostics.1.related.0.span.start.line"
-field	expectations.json_assertions[7].equals	1
+field	expectations.json_assertions[6].path	"diagnostics.0.related.0.kind"
+field	expectations.json_assertions[7].equals	7
 field	expectations.json_assertions[7].operation	"equals"
-field	expectations.json_assertions[7].path	"diagnostics.1.related.0.span.start.column"
-field	expectations.json_assertions[8].equals	"repair_hint"
+field	expectations.json_assertions[7].path	"diagnostics.0.related.0.span.start.line"
+field	expectations.json_assertions[8].equals	1
 field	expectations.json_assertions[8].operation	"equals"
-field	expectations.json_assertions[8].path	"diagnostics.2.related.0.kind"
-field	expectations.json_assertions[9].equals	21
+field	expectations.json_assertions[8].path	"diagnostics.0.related.0.span.start.column"
+field	expectations.json_assertions[9].equals	"repair_hint"
 field	expectations.json_assertions[9].operation	"equals"
-field	expectations.json_assertions[9].path	"diagnostics.2.related.0.span.start.line"
+field	expectations.json_assertions[9].path	"diagnostics.1.related.0.kind"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":\"defer.propagation\""
 field	expectations.stdout.contains[1]	"deferred block cannot use `?`"
@@ -3709,11 +3721,11 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"dc22921705383049b27941e0cc900975af61a388123276fa84a09d366900139b"
+case_digest	"31f0d4635479528238cb5da875860525638cbfbc3d23912d90142d96b7d999f8"
 case	"examples/specification/check/deferred-block-restrictions-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"main.veln:7:3: error[defer.propagation]: deferred block cannot use `?`"
+field	expectations.stdout.contains[0]	"main.veln:7:13: error[defer.propagation]: deferred block cannot use `?`"
 field	expectations.stdout.contains[1]	"note: main.veln:7:1: Handle the `Result` inside the deferred block instead of propagating it with `?`."
 field	expectations.stdout.contains[2]	"main.veln:14:3: error[defer.non_unit]: deferred block must have type `()`, but found `Int`"
 field	expectations.stdout.contains[3]	"note: main.veln:14:1: End the deferred block with `()` so cleanup cannot replace the region value."
@@ -3724,7 +3736,7 @@ field	invocation.command[0]	"check"
 field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"9e62a6b348bd3926f6da60b323fdfb258076da28358671bb66d83df6d0a4cbf2"
+case_digest	"ac0f09277228a616d27891583425a756736c1784699fed5904888fc7d03ad521"
 case	"examples/specification/check/dependency-companion-export-boundary-json"
 field	expectations.diagnostics[0].id	"manifest.invalid_export"
 field	expectations.diagnostics[0].kind	"module"
@@ -62249,4 +62261,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"59777ab46ac3b063b2f11671ccd3c1a160439a9d38a92b4dc3e99e21a073e706"
+aggregate_digest	"4178731ec67b793d46f68c5c9ae59067209fa4a22642ec07fe75d6cc805117f9"

@@ -100,6 +100,52 @@ fn surface_wire_round_trip_preserves_expression_families() {
 }
 
 #[test]
+fn surface_wire_round_trip_preserves_cleanup_introducer_spans() {
+    let source = concat!(
+        "fn parse() -> Result<(), String>\n",
+        "  Ok(())\n",
+        "end\n",
+        "fn cleanup() -> ()\n",
+        "  defer\n",
+        "    parse()?\n",
+        "  end\n",
+        "  ()\n",
+        "end\n",
+    );
+    let module = lower_source(source);
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    let BodyLineKind::Defer {
+        body,
+        keyword_span,
+        block_span,
+    } = &decoded.functions[1].body[0].kind
+    else {
+        panic!("expected defer statement");
+    };
+    assert_eq!(
+        &source[keyword_span.start.offset..keyword_span.end.offset],
+        "defer"
+    );
+    assert_eq!(
+        &source[block_span.start.offset..block_span.end.offset],
+        "    parse()?\n  "
+    );
+
+    let BodyLineKind::Expr { expr } = &body[0].kind else {
+        panic!("expected deferred expression");
+    };
+    let ExprKind::Try { question_span, .. } = &expr.kind else {
+        panic!("expected try expression");
+    };
+    assert_eq!(
+        &source[question_span.start.offset..question_span.end.offset],
+        "?"
+    );
+}
+
+#[test]
 fn surface_wire_discards_legacy_codec_declarations_without_shifting_following_fields() {
     let canonical = lower_source("fn main() -> ()\n  ()\nend\n");
     let mut legacy = encode_surface_module(&canonical);
@@ -592,7 +638,7 @@ fn lowers_nested_expression_edge_cases() {
             expr,
         } if matches!(
             &expr.kind,
-            ExprKind::Try(inner)
+            ExprKind::Try { expr: inner, .. }
                 if matches!(&inner.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["input".to_string()])
         )
     ));

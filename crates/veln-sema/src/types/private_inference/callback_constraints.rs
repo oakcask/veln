@@ -62,7 +62,7 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
-        | ExprKind::Try(_)
+        | ExprKind::Try { .. }
         | ExprKind::Prefix { .. } => {
             collect_private_prelude_callback_wrapped_expr_constraints(expr, expected, context);
         }
@@ -182,7 +182,7 @@ pub(crate) fn collect_private_prelude_callback_wrapped_expr_constraints(
             collect_private_prelude_callback_expr_constraints(value, None, context);
         }
         ExprKind::FieldAccess { base, .. }
-        | ExprKind::Try(base)
+        | ExprKind::Try { expr: base, .. }
         | ExprKind::Prefix { expr: base, .. } => {
             collect_private_prelude_callback_expr_constraints(base, None, context);
         }

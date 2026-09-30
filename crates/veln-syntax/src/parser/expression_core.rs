@@ -62,7 +62,10 @@ impl<'a> ExprParser<'a> {
                 let token = self.bump();
                 lhs = Expr {
                     span: self.source.span(lhs_range(&lhs).cover(token.range)),
-                    kind: ExprKind::Try(Box::new(lhs)),
+                    kind: ExprKind::Try {
+                        expr: Box::new(lhs),
+                        question_span: self.source.span(token.range),
+                    },
                 };
                 continue;
             }
@@ -226,7 +229,10 @@ impl<'a> ExprParser<'a> {
         let token = self.bump();
         Expr {
             span: self.source.span(lhs_range(&expr).cover(token.range)),
-            kind: ExprKind::Try(Box::new(expr)),
+            kind: ExprKind::Try {
+                expr: Box::new(expr),
+                question_span: self.source.span(token.range),
+            },
         }
     }
 

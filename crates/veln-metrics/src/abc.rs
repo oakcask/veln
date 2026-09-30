@@ -149,8 +149,8 @@ pub(super) fn count_expr(expr: &Expr, vector: &mut AbcVector) {
             vector.branches += 1;
             count_expr(value, vector);
         }
-        ExprKind::FieldAccess { base, .. } | ExprKind::Try(base) => {
-            if matches!(expr.kind, ExprKind::Try(_)) {
+        ExprKind::FieldAccess { base, .. } | ExprKind::Try { expr: base, .. } => {
+            if matches!(expr.kind, ExprKind::Try { .. }) {
                 vector.conditionals += 1;
             }
             count_expr(base, vector);

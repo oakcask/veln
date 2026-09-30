@@ -50,7 +50,7 @@ fn expr_children(expr: &Expr) -> ExprChildren<'_> {
         ExprKind::TypeApply { callee: child, .. }
         | ExprKind::SchemaEncode { value: child, .. }
         | ExprKind::FieldAccess { base: child, .. }
-        | ExprKind::Try(child)
+        | ExprKind::Try { expr: child, .. }
         | ExprKind::Prefix { expr: child, .. } => ExprChildren::One(child),
         ExprKind::SchemaDecode {
             input: left,

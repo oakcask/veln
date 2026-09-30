@@ -76,7 +76,7 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
         }
         veln_ast::ExprKind::TypeApply { callee, .. }
         | veln_ast::ExprKind::FieldAccess { base: callee, .. }
-        | veln_ast::ExprKind::Try(callee)
+        | veln_ast::ExprKind::Try { expr: callee, .. }
         | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
             collect_recovered_qualified_segments_from_expr(
                 callee,
@@ -194,7 +194,7 @@ pub(super) fn collect_recovered_qualified_function_segments_from_expr(
         }
         veln_ast::ExprKind::TypeApply { callee, .. }
         | veln_ast::ExprKind::FieldAccess { base: callee, .. }
-        | veln_ast::ExprKind::Try(callee)
+        | veln_ast::ExprKind::Try { expr: callee, .. }
         | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
             collect_recovered_qualified_function_segments_from_expr(
                 callee,

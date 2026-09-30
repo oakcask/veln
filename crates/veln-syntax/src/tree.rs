@@ -308,6 +308,7 @@ fn build_body_line_node(line: &BodyLine, tokens: &[Token]) -> SyntaxNode {
             body,
             block_span,
             span,
+            ..
         } => build_cleanup_region_node(
             SyntaxNodeKind::DeferStatement,
             span_range(span),
@@ -404,7 +405,7 @@ fn collect_outer_begin_exprs<'a>(expr: &'a Expr, begins: &mut Vec<&'a Expr>) {
             ExprKind::TypeApply { callee, .. }
             | ExprKind::SchemaEncode { value: callee, .. }
             | ExprKind::FieldAccess { base: callee, .. }
-            | ExprKind::Try(callee)
+            | ExprKind::Try { expr: callee, .. }
             | ExprKind::Prefix { expr: callee, .. } => pending.push(callee),
             ExprKind::Call { callee, args }
             | ExprKind::Handle {

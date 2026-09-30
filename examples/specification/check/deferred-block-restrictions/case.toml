@@ -35,7 +35,7 @@ message = "deferred block cannot use `?`"
 [diagnostics.span]
 file = "main.veln"
 line = 7
-column = 3
+column = 13
 
 [[diagnostics]]
 id = "defer.non_unit"
@@ -58,6 +58,22 @@ message = "deferred block cannot register another deferred block"
 file = "main.veln"
 line = 21
 column = 3
+
+[[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 14
+
+[[json_assert]]
+path = "diagnostics.2.span.end.line"
+equals = 21
+
+[[json_assert]]
+path = "diagnostics.2.span.end.column"
+equals = 8
 
 [[json_assert]]
 path = "diagnostics.0.related.0.kind"

@@ -10,19 +10,27 @@ impl<'a> FunctionChecker<'a> {
                 ..
             } => self.check_let_line(line, pattern, annotation.as_deref(), expr),
             BodyLineKind::Expr { expr } => self.check_expr_line(index, line, expr),
-            BodyLineKind::Defer { body, block_span } => {
-                self.check_defer_line(line, body, block_span)
-            }
+            BodyLineKind::Defer {
+                body,
+                keyword_span,
+                block_span,
+            } => self.check_defer_line(line, body, keyword_span, block_span),
         }
     }
 
-    fn check_defer_line(&mut self, line: &BodyLine, body: &[BodyLine], block_span: &SourceSpan) {
+    fn check_defer_line(
+        &mut self,
+        line: &BodyLine,
+        body: &[BodyLine],
+        keyword_span: &SourceSpan,
+        block_span: &SourceSpan,
+    ) {
         if let Some(containing_block_span) = self.defer_blocks.last().cloned() {
             self.push_defer_restriction_diagnostic(DeferRestrictionDiagnostic {
                 id: "defer.nested",
                 message: "deferred block cannot register another deferred block".to_string(),
                 node_id: line.node_id.display("defer"),
-                span: line.span.clone(),
+                span: keyword_span.clone(),
                 reason: "nested_defer",
                 repair: "Move the nested `defer` to a cleanup-region body.",
                 repair_span: containing_block_span,
@@ -86,8 +94,12 @@ impl<'a> FunctionChecker<'a> {
                         result = actual;
                     }
                 }
-                BodyLineKind::Defer { body, block_span } => {
-                    self.check_defer_line(line, body, block_span);
+                BodyLineKind::Defer {
+                    body,
+                    keyword_span,
+                    block_span,
+                } => {
+                    self.check_defer_line(line, body, keyword_span, block_span);
                 }
             }
         }

@@ -342,7 +342,7 @@ fn collect_handler_reference_ranges(
     match &expr.kind {
         ExprKind::TypeApply { callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
+        | ExprKind::Try { expr: callee, .. }
         | ExprKind::Prefix { expr: callee, .. }
         | ExprKind::SchemaEncode { value: callee, .. } => {
             collect_handler_reference_ranges(
@@ -833,7 +833,7 @@ fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>
         }
         ExprKind::TypeApply { callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
+        | ExprKind::Try { expr: callee, .. }
         | ExprKind::Prefix { expr: callee, .. } => {
             collect_perform_effect_regions(callee, regions);
         }
@@ -1380,7 +1380,7 @@ fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<Source
         }
         ExprKind::TypeApply { callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
+        | ExprKind::Try { expr: callee, .. }
         | ExprKind::Prefix { expr: callee, .. } => {
             collect_valid_schema_operation_leaf_spans(callee, spans);
         }

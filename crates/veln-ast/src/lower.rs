@@ -503,12 +503,14 @@ impl AstBuilder {
             },
             SyntaxBodyLine::Defer {
                 body,
+                keyword_span,
                 block_span,
                 span,
             } => BodyLine {
                 node_id,
                 kind: BodyLineKind::Defer {
                     body: body.iter().map(|line| self.lower_body_line(line)).collect(),
+                    keyword_span: keyword_span.clone(),
                     block_span: block_span.clone(),
                 },
                 span: span.clone(),
