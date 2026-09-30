@@ -423,7 +423,11 @@ the same retained snapshot and produces the same navigation result.
 
 Saved definition, references, and rename use cleanup-region lexical scopes
 from the shared language service. A local binding is selectable from a nested
-`begin` or `defer` body only while its scope contains that occurrence. A `let`
+`begin` or `defer` body only while its scope contains that occurrence.
+These boundaries apply when `begin` appears in a call argument, list element,
+or record field value. References from a deferred block keep the captured
+binding identity after a later `let` shadows its name, as specified by
+[name resolution](name-resolution.md#value-calls-and-shadowing). A `let`
 binding starts after its complete initializer, including a multiline `begin`,
 so a same-spelled call inside the initializer can select an earlier function
 identity. The same rules apply to a `begin` used as a handler operation clause
@@ -734,7 +738,8 @@ inclusion, an empty linked-reference set, saved coordinates, sorting, and
 pagination.
 The checked `examples/specification/mcp/cleanup-region-navigation/` transcript
 covers definition, references, rename, an edit-free rename-conflict response,
-and an allowed equal-name rename across disjoint `begin` scopes.
+an allowed equal-name rename across disjoint `begin` scopes, and nested cleanup
+scopes in call arguments, list elements, and record field values.
 The checked `examples/specification/mcp/references-workspace-effect/` transcript
 demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
 pagination for workspace effect and effect-operation references.

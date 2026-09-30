@@ -227,9 +227,14 @@ the same valid saved selection.
 Shared navigation treats `begin` and `defer` bodies as lexical scope
 boundaries. Definition, references, prepare-rename, and rename link a local
 binding to uses in nested cleanup bodies while excluding uses after the
-binding's closing `end`. A binding introduced by `let` starts after its
-complete initializer, so a same-spelled call inside a multiline `begin`
-initializer can still select the preceding function identity. Handler
+binding's closing `end`. These boundaries apply wherever `begin` is an
+expression, including call arguments, list elements, and record field values.
+References from a deferred block keep the captured binding identity after a
+later `let` shadows its name, as specified by
+[name resolution](name-resolution.md#value-calls-and-shadowing). A binding
+introduced by `let` starts after its complete initializer, so a same-spelled
+call inside a multiline `begin` initializer can still select the preceding
+function identity. Handler
 operation clauses apply the same rules when their expression is a `begin`.
 These nested scopes also participate in rename conflict prediction. Renaming a
 cleanup-body local binding to a visible enclosing function parameter returns
@@ -685,7 +690,8 @@ prepare-rename, and rename requests after failures. The
 checked `examples/specification/lsp/cleanup-region-navigation/` transcript
 covers definition, references, prepare-rename, rename, an edit-free
 rename-conflict response, and an allowed equal-name rename across disjoint
-`begin` scopes. The
+`begin` scopes. It also covers nested cleanup scopes in call arguments, list
+elements, and record field values. The
 paired harness in
 [`saved_navigation_conformance.rs`](../../crates/veln-cli/tests/toolchain_harness/saved_navigation_conformance.rs)
 drives LSP and MCP from one unchanged workspace, converts both adapters to
