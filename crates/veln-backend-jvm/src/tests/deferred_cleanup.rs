@@ -93,6 +93,101 @@ fn acquisition_failure_before_registration_does_not_run_cleanup() {
 }
 
 #[test]
+fn bytecode_backend_result_propagation_unwinds_registered_function_cleanups_only() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"function failure\")\n",
+        "end\n",
+        "fn worker() -> Result<(), String> effects [stdio]\n",
+        "  let captured = \"captured before propagation\"\n",
+        "  defer\n",
+        "    stdio::println(captured)\n",
+        "  end\n",
+        "  let captured = \"shadowed before propagation\"\n",
+        "  let value = fail()?\n",
+        "  defer\n",
+        "    stdio::println(\"registered too late\")\n",
+        "  end\n",
+        "  Ok(())\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  match worker()\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"caller observed error\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-function-propagation",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "captured before propagation\ncaller observed error\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_result_propagation_unwinds_nested_regions_inside_out_in_reverse_order() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"nested failure\")\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let captured = \"outer captured\"\n",
+        "  defer\n",
+        "    stdio::println(captured)\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(\"outer second\")\n",
+        "  end\n",
+        "  let captured = \"outer shadowed\"\n",
+        "  let value = begin\n",
+        "    let inner_captured = \"inner captured\"\n",
+        "    defer\n",
+        "      stdio::println(inner_captured)\n",
+        "    end\n",
+        "    defer\n",
+        "      stdio::println(\"inner second\")\n",
+        "    end\n",
+        "    let inner_captured = \"inner shadowed\"\n",
+        "    let ignored = fail()?\n",
+        "    defer\n",
+        "      stdio::println(\"registered too late\")\n",
+        "    end\n",
+        "    ()\n",
+        "  end\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-nested-propagation",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "inner second\ninner captured\nouter second\nouter captured\n"
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("nested failure"));
+}
+
+#[test]
 fn sequential_cleanup_regions_reuse_jvm_local_slots() {
     let mut source = String::from("pub fn main() -> ()\n");
     for index in 0..128 {

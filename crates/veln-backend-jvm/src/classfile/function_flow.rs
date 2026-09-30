@@ -8,6 +8,7 @@ pub(super) struct FunctionBytecodeEmitter<'a, 'program> {
     pub(super) max_local: u16,
     pub(super) tail_loop_start: Option<usize>,
     pub(super) active_handler_frames: usize,
+    active_cleanup_regions: Vec<Vec<RegisteredCleanup>>,
 }
 
 pub(super) struct LocalBindings {
@@ -74,8 +75,9 @@ impl LocalBindings {
     }
 }
 
-struct RegisteredCleanup<'a> {
-    block: &'a IrDeferredBlock,
+#[derive(Clone)]
+struct RegisteredCleanup {
+    block: IrDeferredBlock,
     captures: BTreeMap<String, u16>,
 }
 
@@ -108,6 +110,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             max_local: function.params.len() as u16,
             tail_loop_start: None,
             active_handler_frames: 0,
+            active_cleanup_regions: Vec::new(),
         }
     }
 
@@ -167,20 +170,37 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_region(&mut self, code: &mut MethodCode, body: &[IrStmt], function: bool) -> bool {
-        let mut cleanups = Vec::new();
+        self.active_cleanup_regions.push(Vec::new());
+        let mut returns = false;
         for stmt in body {
             match &stmt.kind {
-                IrStmtKind::Defer(block) => cleanups.push(self.register_cleanup(code, block)),
+                IrStmtKind::Defer(block) => {
+                    let cleanup = self.register_cleanup(code, block);
+                    self.active_cleanup_regions
+                        .last_mut()
+                        .expect("active cleanup region")
+                        .push(cleanup);
+                }
                 IrStmtKind::Return { value } => {
-                    if function && cleanups.is_empty() {
+                    let has_cleanups = self
+                        .active_cleanup_regions
+                        .last()
+                        .is_some_and(|cleanups| !cleanups.is_empty());
+                    if function && !has_cleanups {
                         if self.emit_tail_expr(code, value) {
-                            return true;
+                            returns = true;
+                            break;
                         }
                     } else {
                         self.emit_expr(code, value);
                     }
                     let result = self.alloc_local();
                     code.astore(result);
+                    let cleanups = self
+                        .active_cleanup_regions
+                        .last()
+                        .expect("active cleanup region")
+                        .clone();
                     for cleanup in cleanups.iter().rev() {
                         self.emit_registered_cleanup(code, cleanup);
                     }
@@ -191,19 +211,23 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     if function {
                         code.op(0xb0);
                     }
-                    return true;
+                    returns = true;
+                    break;
                 }
                 _ => self.emit_stmt(code, stmt),
             }
         }
-        false
+        self.active_cleanup_regions
+            .pop()
+            .expect("active cleanup region");
+        returns
     }
 
-    fn register_cleanup<'block>(
+    fn register_cleanup(
         &mut self,
         code: &mut MethodCode,
-        block: &'block IrDeferredBlock,
-    ) -> RegisteredCleanup<'block> {
+        block: &IrDeferredBlock,
+    ) -> RegisteredCleanup {
         let mut captures = BTreeMap::new();
         for capture in &block.captures {
             self.emit_local(code, &capture.name);
@@ -211,10 +235,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             code.astore(slot);
             captures.insert(capture.name.clone(), slot);
         }
-        RegisteredCleanup { block, captures }
+        RegisteredCleanup {
+            block: block.clone(),
+            captures,
+        }
     }
 
-    fn emit_registered_cleanup(&mut self, code: &mut MethodCode, cleanup: &RegisteredCleanup<'_>) {
+    fn emit_registered_cleanup(&mut self, code: &mut MethodCode, cleanup: &RegisteredCleanup) {
         let locals_mark = self.locals.mark();
         let saved_next = self.next_local;
         for (name, slot) in &cleanup.captures {
@@ -234,6 +261,15 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         }
         self.locals.rollback(locals_mark);
         self.next_local = saved_next;
+    }
+
+    pub(super) fn emit_active_cleanup_regions(&mut self, code: &mut MethodCode) {
+        let regions = self.active_cleanup_regions.clone();
+        for region in regions.iter().rev() {
+            for cleanup in region.iter().rev() {
+                self.emit_registered_cleanup(code, cleanup);
+            }
+        }
     }
 
     fn emit_cleanup_region(&mut self, code: &mut MethodCode, body: &[IrStmt]) {

@@ -27,12 +27,15 @@ or backend artifacts for a reachable program containing either form.
 Behind this readiness gate, checked core and typed IR represent cleanup
 regions, deferred blocks, and registration-time snapshots of referenced local
 bindings. The JVM backend executes blocks that were reached and registered
-exactly once in reverse registration order when a region completes normally.
-It transfers a successful `begin` value only after that region's cleanup
-completes. This internal foundation is not a supported executable source
-feature. Public pipeline integration and cleanup for propagated `Err` values,
-contract or runtime failure, task cancellation, and cleanup failure remain
-unimplemented.
+exactly once in reverse registration order when a region completes normally or
+postfix `?` propagates an `Err`. Propagation unwinds an inner region before its
+enclosing region and does not run blocks after the propagating expression. Both
+paths use the registration-time snapshots. The backend transfers a successful
+`begin` value only after that region's cleanup completes. This internal
+foundation is not a supported executable source feature. Public pipeline
+integration and cleanup for contract or runtime failure and task cancellation
+remain unimplemented. Cleanup-failure precedence and continued cleanup after a
+cleanup failure are also unimplemented.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.

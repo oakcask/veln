@@ -86,9 +86,11 @@ not executable when its reachable program contains either form. The
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries)
 specifies the `deferred_cleanup_runtime` blocker. Behind that gate, the
 compiler and JVM backend implement registration-time local snapshots and
-reverse-registration-order cleanup for normal completion. Public pipeline
-integration, other exit paths, cleanup-failure precedence, and continued
-cleanup after a cleanup failure remain unimplemented.
+reverse-registration-order cleanup for normal completion and postfix `?`
+propagation. Propagation runs reached blocks in the innermost region before its
+enclosing regions. Public pipeline integration, contract failure, runtime
+failure, cancellation, cleanup-failure precedence, and continued cleanup after
+a cleanup failure remain unimplemented.
 
 ## Test companion sources
 

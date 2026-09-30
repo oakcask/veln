@@ -6,12 +6,13 @@ update-when: Deferred-cleanup registration, referenced-local capture, unwinding 
 # Lexical Deferred Cleanup Runtime
 
 This proposal remains incomplete. The compiler has an internal checked-core,
-typed-IR, and JVM foundation for registration-time capture and normal
-completion. The public readiness gate still blocks executable programs that
-have a selected entry that can reach `begin` or `defer`. Public integration and
-unwinding for propagated errors, failures, and cancellation remain. The
-mechanism must cover files, sockets, locks, effect handlers, spans, and future
-resources without requiring destructors or garbage-collector finalizers.
+typed-IR, and JVM foundation for registration-time capture, normal completion,
+and `Err` propagation through postfix `?`. The public readiness gate still
+blocks executable programs that have a selected entry that can reach `begin`
+or `defer`. Public integration and unwinding for contract failure, runtime
+failure, and cancellation remain. The mechanism must cover files, sockets,
+locks, effect handlers, spans, and future resources without requiring
+destructors or garbage-collector finalizers.
 
 ## Outcome
 
@@ -67,18 +68,23 @@ The static and tooling boundary for the source forms is current behavior in
 the [source-surface specification](../specification/source-surface.md#static-cleanup-region-forms).
 Checked core and typed IR preserve cleanup regions, deferred blocks, and typed
 snapshots of referenced local bindings. The JVM backend internally executes
-registered blocks once in reverse registration order on normal completion. It
-transfers a successful `begin` value only after cleanup completes. Compiler and
-backend tests cover C1, C4, C5, C6, and C12 while the public readiness gate
-remains closed.
+registered blocks once in reverse registration order on normal completion and
+when postfix `?` propagates an `Err`. Propagation unwinds an inner region before
+its enclosing region and executes only blocks reached before the propagating
+expression. Both paths use the registration-time snapshots. A successful
+`begin` transfers its value only after cleanup completes. Compiler and backend
+tests cover C1, C2, C4, C5, C6, and C12 while the public readiness gate remains
+closed.
 
 ## Remaining Runtime Integration
 
 The public executable pipeline must use the implemented registration and
-normal-completion foundation without bypassing the readiness gate early. The
-remaining unwind paths must use the same registration-time snapshots. Cleanup
-must not retain a live binding slot or resolve a captured name again when the
-region exits.
+result-propagation foundation without bypassing the readiness gate early. The
+remaining contract-failure, runtime-failure, and cancellation paths must use
+the same registration-time snapshots. Cleanup must not retain a live binding
+slot or resolve a captured name again when the region exits. Cleanup-failure
+precedence and continued cleanup after a cleanup failure also remain
+unimplemented.
 
 ## Exit and Failure Rules
 
@@ -110,9 +116,9 @@ fails.
 ## Remaining Acceptance Model
 
 Before the readiness gate opens, public executable evidence must cover the
-implemented normal-completion cases and the remaining cases below. Internal
-compiler and backend coverage for C1, C4, C5, C6, and C12 is complete, but it
-does not replace the public-pipeline evidence planned in this table.
+implemented internal cases and the remaining cases below. Internal compiler
+and backend coverage for C1, C2, C4, C5, C6, and C12 is complete, but it does
+not replace the public-pipeline evidence planned in this table.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |

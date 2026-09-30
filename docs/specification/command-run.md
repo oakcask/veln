@@ -39,8 +39,8 @@ A reachable `begin` expression or `defer` statement blocks execution at
 checked-core readiness with `deferred_cleanup_runtime`. This happens before
 cache configuration, classfile generation, or backend launch, even when static
 checking otherwise succeeds. The internal checked-core, typed-IR, and JVM
-normal-completion foundation for deferred cleanup does not bypass this public
-command gate.
+normal-completion and result-propagation foundation for deferred cleanup does
+not bypass this public command gate.
 
 The reachable program is lowered to typed IR and JVM classfiles. Ordinary
 execution does not write Java source or invoke a Java source compiler. Missing
