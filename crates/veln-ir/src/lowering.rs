@@ -392,19 +392,39 @@ fn lower_call_target(
     node_id: NodeId,
     target: &CoreCallTarget,
 ) -> Result<IrCallTarget, IrLowerError> {
+    if let Some(target) = lower_schema_call_target(target) {
+        return Ok(target);
+    }
+    lower_non_schema_call_target(node_id, target)
+}
+
+fn lower_schema_call_target(target: &CoreCallTarget) -> Option<IrCallTarget> {
     match target {
-        CoreCallTarget::Function(name) => Ok(IrCallTarget::Function(name.clone())),
-        CoreCallTarget::SchemaDecode(name) => Ok(IrCallTarget::SchemaDecode(name.clone())),
-        CoreCallTarget::SchemaDecodeStep(name) => Ok(IrCallTarget::SchemaDecodeStep(name.clone())),
+        CoreCallTarget::SchemaDecode(name) => Some(IrCallTarget::SchemaDecode(name.clone())),
+        CoreCallTarget::SchemaDecodeStep(name) => {
+            Some(IrCallTarget::SchemaDecodeStep(name.clone()))
+        }
         CoreCallTarget::SchemaNeutralDecode(name) => {
-            Ok(IrCallTarget::SchemaNeutralDecode(name.clone()))
+            Some(IrCallTarget::SchemaNeutralDecode(name.clone()))
         }
         CoreCallTarget::SchemaNeutralEncode(name) => {
-            Ok(IrCallTarget::SchemaNeutralEncode(name.clone()))
+            Some(IrCallTarget::SchemaNeutralEncode(name.clone()))
         }
-        CoreCallTarget::SchemaEncode(name) => Ok(IrCallTarget::SchemaEncode(name.clone())),
-        CoreCallTarget::SchemaEncodeStep(name) => Ok(IrCallTarget::SchemaEncodeStep(name.clone())),
-        CoreCallTarget::SchemaValidate(name) => Ok(IrCallTarget::SchemaValidate(name.clone())),
+        CoreCallTarget::SchemaEncode(name) => Some(IrCallTarget::SchemaEncode(name.clone())),
+        CoreCallTarget::SchemaEncodeStep(name) => {
+            Some(IrCallTarget::SchemaEncodeStep(name.clone()))
+        }
+        CoreCallTarget::SchemaValidate(name) => Some(IrCallTarget::SchemaValidate(name.clone())),
+        _ => None,
+    }
+}
+
+fn lower_non_schema_call_target(
+    node_id: NodeId,
+    target: &CoreCallTarget,
+) -> Result<IrCallTarget, IrLowerError> {
+    match target {
+        CoreCallTarget::Function(name) => Ok(IrCallTarget::Function(name.clone())),
         CoreCallTarget::StdioBuiltin(name) => Ok(IrCallTarget::StdioBuiltin(name.clone())),
         CoreCallTarget::ConcurrencyBuiltin(name) => {
             Ok(IrCallTarget::ConcurrencyBuiltin(name.clone()))
@@ -418,6 +438,15 @@ fn lower_call_target(
             node_id,
             symbol: symbol.clone(),
         }),
+        CoreCallTarget::SchemaDecode(_)
+        | CoreCallTarget::SchemaDecodeStep(_)
+        | CoreCallTarget::SchemaNeutralDecode(_)
+        | CoreCallTarget::SchemaNeutralEncode(_)
+        | CoreCallTarget::SchemaEncode(_)
+        | CoreCallTarget::SchemaEncodeStep(_)
+        | CoreCallTarget::SchemaValidate(_) => {
+            unreachable!("schema call targets are lowered before this fallback")
+        }
     }
 }
 
