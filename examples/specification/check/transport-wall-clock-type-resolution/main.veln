@@ -1,0 +1,27 @@
+# Bare, qualified, and aliased standard wall times share one record type.
+pub type Reading = WallTime
+pub type QualifiedReading = prelude::WallTime
+
+effect ClockRelay
+	round_trip(value: WallTime) -> prelude::WallTime
+	read() -> Reading
+end
+
+handler clock_relay() handles ClockRelay effects [time]
+	round_trip(value) => value
+	read() => time::wall_time()
+end
+
+fn relay(value: QualifiedReading) -> Reading effects [ClockRelay]
+	let echoed = perform ClockRelay::round_trip(value)
+	let fresh = perform ClockRelay::read()
+	if fresh.nanosecond >= 0 echoed else fresh end
+end
+
+pub fn timestamp_seconds() -> Int effects [time]
+	let bare: WallTime = time::wall_time()
+	let qualified: prelude::WallTime = bare
+	let aliased: QualifiedReading = qualified
+	let relayed = handle relay(aliased) with clock_relay()
+	relayed.unix_seconds + relayed.nanosecond
+end

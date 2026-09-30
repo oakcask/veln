@@ -1,5 +1,6 @@
 use super::super::signature_collection::{
-    effect_signatures, handler_signatures, ordinary_function_signatures,
+    canonicalize_effect_signature_types, effect_signatures, handler_signatures,
+    ordinary_function_signatures,
 };
 use super::*;
 
@@ -317,6 +318,12 @@ fn declaration_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> 
         &mut companion_effect_access_targets,
         base.map(|base| &base.companion_effect_access_targets),
     );
+    canonicalize_effect_signature_types(
+        module,
+        &mut effects,
+        &adts,
+        &companion_effect_access_targets,
+    );
     DeclarationFacts {
         effects,
         adts,
@@ -332,6 +339,7 @@ fn declared_callable_facts(
     let mut handlers = handler_signatures(
         module,
         &declarations.effects,
+        &declarations.adts,
         &declarations.companion_effect_access_targets,
     );
     extend_with_base_facts(&mut handlers, base.map(|base| &base.handlers));

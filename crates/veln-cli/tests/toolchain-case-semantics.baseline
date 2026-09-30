@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"14efe2dd67183dcdf56a52dcc97a9c1b713b46d2"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1723
+case_count	1724
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -11971,6 +11971,22 @@ field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"dbc2ed4d01d67e8655623e1da575458e28b75adf6c2959a217b25eee4b1a46df"
 case	"examples/specification/check/transport-wall-clock-record-type"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"ok"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	0
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"15d41c1d00ba95afe844c6b0eadd32ff350236dd76510ab310ab3c41ec48f3e1"
+case	"examples/specification/check/transport-wall-clock-type-resolution"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
 field	expectations.json_assertions[0].operation	"equals"
@@ -62134,4 +62150,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"cd44a9a2919de680f1c60e807f5f1bc86fde4ecc7eac8d0052caf0f474c8c752"
+aggregate_digest	"05cca34dd48baa37ee51cbf10a5ab8644d316a128d00a51ef9f12267803d1a17"

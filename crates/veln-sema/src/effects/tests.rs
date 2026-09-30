@@ -230,12 +230,7 @@ fn net_write_signatures_come_from_standard_descriptors() {
 #[test]
 fn time_deadline_signatures_come_from_standard_descriptors() {
     assert_standard_signature("time", "monotonic_ms", Vec::new(), Type::int());
-    assert_standard_signature(
-        "time",
-        "wall_time",
-        Vec::new(),
-        Type::wall_time(),
-    );
+    assert_standard_signature("time", "wall_time", Vec::new(), Type::wall_time());
     assert_standard_signature("time", "timeout_ms", vec![Type::int()], Type::unit());
     for name in ["deadline_after_ms", "deadline_at_ms"] {
         assert_standard_signature(

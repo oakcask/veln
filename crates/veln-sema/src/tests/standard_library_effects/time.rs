@@ -218,3 +218,33 @@ fn user_defined_wall_time_does_not_gain_standard_record_fields() {
     );
     assert!(lowered.ir.is_none());
 }
+
+#[test]
+fn alias_of_user_defined_wall_time_remains_nominal() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type WallTime\n",
+            "  Other\n",
+            "end\n",
+            "pub type LocalWallTime = WallTime\n",
+            "pub fn timestamp(value: LocalWallTime) -> Int\n",
+            "  value.unix_seconds\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.field_missing"
+                && diagnostic.message == "type `LocalWallTime` has no field `unix_seconds`"
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(lowered.ir.is_none());
+}

@@ -113,13 +113,15 @@ pub(super) fn canonicalize_type_effects(
     match ty {
         Type::Named { name, args } => {
             let descriptor = adts.descriptor_for_type_path(&name, args.len(), current_module, uses);
-            if name == "WallTime"
-                && args.is_empty()
-                && descriptor.is_none_or(|descriptor| {
-                    descriptor.module_name.as_deref() == Some("std::prelude")
-                })
-            {
-                return Type::wall_time();
+            if args.is_empty() {
+                if let Some(annotation_type) = descriptor
+                    .and_then(|descriptor| adts.annotation_type_for_descriptor(descriptor))
+                {
+                    return annotation_type.clone();
+                }
+                if name == "WallTime" && descriptor.is_none() {
+                    return Type::wall_time();
+                }
             }
             let Some(canonical_name) = descriptor
                 .map(|descriptor| descriptor.type_name.clone())
@@ -343,9 +345,55 @@ pub(super) fn effect_signatures(module: &SurfaceModule) -> Vec<EffectSignature> 
         .collect()
 }
 
+pub(super) fn canonicalize_effect_signature_types(
+    module: &SurfaceModule,
+    effects: &mut [EffectSignature],
+    adts: &AdtRegistry,
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
+) {
+    let uses = normal_use_decls(module);
+    let quarantined_uses = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    let effect_catalog = effects.to_vec();
+    for effect in effects {
+        for operation in &mut effect.operations {
+            operation.params = std::mem::take(&mut operation.params)
+                .into_iter()
+                .map(|ty| {
+                    canonicalize_type_effects(
+                        ty,
+                        &uses,
+                        &quarantined_uses,
+                        effect.module_name.as_deref(),
+                        &effect_catalog,
+                        adts,
+                        companion_effect_access_targets,
+                    )
+                })
+                .collect();
+            operation.return_type = canonicalize_type_effects(
+                std::mem::replace(&mut operation.return_type, Type::Unknown),
+                &uses,
+                &quarantined_uses,
+                effect.module_name.as_deref(),
+                &effect_catalog,
+                adts,
+                companion_effect_access_targets,
+            );
+        }
+    }
+}
+
 pub(super) fn handler_signatures(
     module: &SurfaceModule,
     effects: &[EffectSignature],
+    adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<HandlerSignature> {
     let uses = normal_use_decls(module);
@@ -383,7 +431,17 @@ pub(super) fn handler_signatures(
                 params: handler
                     .params
                     .iter()
-                    .map(|param| parse_type_or_unknown(param.ty.as_deref()))
+                    .map(|param| {
+                        canonicalize_type_effects(
+                            parse_type_or_unknown(param.ty.as_deref()),
+                            &uses,
+                            &quarantined_uses,
+                            handler.module_name.as_deref(),
+                            effects,
+                            adts,
+                            companion_effect_access_targets,
+                        )
+                    })
                     .collect(),
                 effect,
                 effects: canonical_declared_effects(

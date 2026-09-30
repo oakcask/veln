@@ -156,12 +156,18 @@ fn lower_surface_module_to_core_if(
                                         .params
                                         .iter()
                                         .map(|param| {
-                                            core_type(&parse_type_or_unknown(param.ty.as_deref()))
+                                            core_type(&environment.canonicalize_type_annotation(
+                                                parse_type_or_unknown(param.ty.as_deref()),
+                                                effect.module_name.as_deref(),
+                                            ))
                                         })
                                         .collect(),
-                                    return_type: core_type(&parse_type_or_unknown(
-                                        operation.return_type.as_deref(),
-                                    )),
+                                    return_type: core_type(
+                                        &environment.canonicalize_type_annotation(
+                                            parse_type_or_unknown(operation.return_type.as_deref()),
+                                            effect.module_name.as_deref(),
+                                        ),
+                                    ),
                                     span: operation.span.clone(),
                                 })
                             })

@@ -410,9 +410,11 @@ clock resolution. Successive values can be equal or move backwards after a
 clock correction. `WallTime` has no source-visible constructor or pattern;
 programs obtain its record values from `time::wall_time` and read its two
 integer fields. The value is structurally compatible with an anonymous record
-that requires those fields. A user-defined algebraic data type also named
-`WallTime` remains a distinct nominal type and does not acquire the standard
-record fields. Programs must continue to use `time::monotonic_ms` and
+that requires those fields. Bare `WallTime`, `prelude::WallTime`, and public
+type aliases that target either spelling denote this standard record. A
+user-defined algebraic data type also named `WallTime`, and aliases that target
+it, remain distinct nominal types and do not acquire the standard record
+fields. Programs must continue to use `time::monotonic_ms` and
 `Deadline` for durations, ordering, and timeouts;
 `time::cancel_token` returns a source-visible cancellation handle;
 `time::cancel_owner` returns a source-visible cancellation owner;
@@ -814,3 +816,5 @@ sections.
 - Wall-clock record type boundaries:
   `examples/specification/check/transport-wall-clock-record-type/` and
   `examples/specification/check/transport-wall-clock-name-shadowing/`.
+- Qualified, aliased, and user-effect wall-clock type positions:
+  `examples/specification/check/transport-wall-clock-type-resolution/`.
