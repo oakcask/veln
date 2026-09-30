@@ -452,126 +452,230 @@ fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String,
     names
 }
 
+struct MatchArmRange {
+    pattern_start_index: usize,
+    arrow_index: usize,
+    scope_end: usize,
+}
+
+enum MatchArmBlock {
+    Match { last_arm: Option<usize> },
+    Other,
+}
+
 fn match_arm_pattern_binding_names(
     tokens: &[Token],
     body_start: usize,
     function_end: usize,
     defer_block_openers: &[bool],
 ) -> Vec<LocalBinding> {
-    struct MatchArmRange {
-        pattern_start_index: usize,
-        arrow_index: usize,
-        scope_end: usize,
-    }
-
-    enum Block {
-        Match { last_arm: Option<usize> },
-        Other,
-    }
-
     let first_index = tokens.partition_point(|token| token.range.start < body_start);
     let end_index = tokens.partition_point(|token| token.range.start < function_end);
-    let mut previous_non_layout = vec![None; end_index - first_index];
+    let (previous_non_layout, next_non_layout) =
+        non_layout_neighbors(tokens, first_index, end_index);
+    let arms = match_arm_ranges(
+        tokens,
+        first_index,
+        end_index,
+        function_end,
+        defer_block_openers,
+        &previous_non_layout,
+    );
+    match_arm_bindings(
+        tokens,
+        first_index,
+        &arms,
+        &previous_non_layout,
+        &next_non_layout,
+    )
+}
+
+fn non_layout_neighbors(
+    tokens: &[Token],
+    first_index: usize,
+    end_index: usize,
+) -> (Vec<Option<usize>>, Vec<Option<usize>>) {
+    let mut previous = vec![None; end_index - first_index];
     let mut last_non_layout = None;
     for (relative_index, token) in tokens[first_index..end_index].iter().enumerate() {
         record_local_binding_scope_token_visit();
-        previous_non_layout[relative_index] = last_non_layout;
+        previous[relative_index] = last_non_layout;
         if !is_layout_token_kind(token.kind) {
             last_non_layout = Some(first_index + relative_index);
         }
     }
-    let mut next_non_layout = vec![None; end_index - first_index];
+    let mut next = vec![None; end_index - first_index];
     let mut following_non_layout = None;
     for (relative_index, token) in tokens[first_index..end_index].iter().enumerate().rev() {
         record_local_binding_scope_token_visit();
-        next_non_layout[relative_index] = following_non_layout;
+        next[relative_index] = following_non_layout;
         if !is_layout_token_kind(token.kind) {
             following_non_layout = Some(first_index + relative_index);
         }
     }
+    (previous, next)
+}
+
+fn match_arm_ranges(
+    tokens: &[Token],
+    first_index: usize,
+    end_index: usize,
+    function_end: usize,
+    defer_block_openers: &[bool],
+    previous_non_layout: &[Option<usize>],
+) -> Vec<MatchArmRange> {
     let mut blocks = Vec::new();
     let mut arms: Vec<MatchArmRange> = Vec::new();
     let mut line_start_index = first_index;
-
+    let arrow_context = MatchArmArrowContext {
+        tokens,
+        first_index,
+        function_end,
+        previous_non_layout,
+    };
     for (relative_index, token) in tokens[first_index..end_index].iter().enumerate() {
         record_local_binding_scope_token_visit();
         let index = first_index + relative_index;
-
         let previous_index = previous_non_layout[relative_index];
-        let satisfy_arrow = token.kind == TokenKind::FatArrow
-            && previous_index.is_some_and(|candidate_index| {
-                tokens[candidate_index].kind == TokenKind::Ident
-                    && previous_non_layout[candidate_index - first_index].is_some_and(
-                        |satisfy_index| {
-                            tokens[satisfy_index].kind == TokenKind::Ident
-                                && tokens[satisfy_index].text == "satisfy"
-                        },
-                    )
-            });
-        if token.kind == TokenKind::FatArrow
-            && !satisfy_arrow
-            && let Some(Block::Match { last_arm }) = blocks.last_mut()
-        {
-            if let Some(previous_arm) = *last_arm {
-                arms[previous_arm].scope_end = tokens[line_start_index].range.start;
-            }
-            let arm_index = arms.len();
-            arms.push(MatchArmRange {
-                pattern_start_index: line_start_index,
-                arrow_index: index,
-                scope_end: function_end,
-            });
-            *last_arm = Some(arm_index);
-        }
-
-        match token.kind {
-            TokenKind::If
-                if previous_index.is_none_or(|index| tokens[index].kind != TokenKind::Else) =>
-            {
-                blocks.push(Block::Other)
-            }
-            TokenKind::Match => blocks.push(Block::Match { last_arm: None }),
-            TokenKind::Handler | TokenKind::Begin => blocks.push(Block::Other),
-            TokenKind::Defer if defer_block_openers[index] => blocks.push(Block::Other),
-            TokenKind::End => {
-                if let Some(Block::Match {
-                    last_arm: Some(last_arm),
-                }) = blocks.pop()
-                {
-                    arms[last_arm].scope_end = token.range.start;
-                }
-            }
-            _ => {}
-        }
-
+        arrow_context.record(index, line_start_index, &mut blocks, &mut arms);
+        update_match_arm_blocks(
+            tokens,
+            index,
+            previous_index,
+            defer_block_openers,
+            &mut blocks,
+            &mut arms,
+        );
         if token.kind == TokenKind::Newline {
             line_start_index = index + 1;
         }
     }
+    arms
+}
+
+struct MatchArmArrowContext<'a> {
+    tokens: &'a [Token],
+    first_index: usize,
+    function_end: usize,
+    previous_non_layout: &'a [Option<usize>],
+}
+
+impl MatchArmArrowContext<'_> {
+    fn record(
+        &self,
+        index: usize,
+        line_start_index: usize,
+        blocks: &mut [MatchArmBlock],
+        arms: &mut Vec<MatchArmRange>,
+    ) {
+        if self.tokens[index].kind != TokenKind::FatArrow || self.is_satisfy(index) {
+            return;
+        }
+        let Some(MatchArmBlock::Match { last_arm }) = blocks.last_mut() else {
+            return;
+        };
+        if let Some(previous_arm) = *last_arm {
+            arms[previous_arm].scope_end = self.tokens[line_start_index].range.start;
+        }
+        let arm_index = arms.len();
+        arms.push(MatchArmRange {
+            pattern_start_index: line_start_index,
+            arrow_index: index,
+            scope_end: self.function_end,
+        });
+        *last_arm = Some(arm_index);
+    }
+
+    fn is_satisfy(&self, index: usize) -> bool {
+        self.previous_non_layout[index - self.first_index].is_some_and(|candidate_index| {
+            self.tokens[candidate_index].kind == TokenKind::Ident
+                && self.previous_non_layout[candidate_index - self.first_index].is_some_and(
+                    |satisfy_index| {
+                        self.tokens[satisfy_index].kind == TokenKind::Ident
+                            && self.tokens[satisfy_index].text == "satisfy"
+                    },
+                )
+            })
+    }
+}
+
+fn update_match_arm_blocks(
+    tokens: &[Token],
+    index: usize,
+    previous_index: Option<usize>,
+    defer_block_openers: &[bool],
+    blocks: &mut Vec<MatchArmBlock>,
+    arms: &mut [MatchArmRange],
+) {
+    match tokens[index].kind {
+        TokenKind::If
+            if previous_index.is_none_or(|previous| tokens[previous].kind != TokenKind::Else) =>
+        {
+            blocks.push(MatchArmBlock::Other)
+        }
+        TokenKind::Match => blocks.push(MatchArmBlock::Match { last_arm: None }),
+        TokenKind::Handler | TokenKind::Begin => blocks.push(MatchArmBlock::Other),
+        TokenKind::Defer if defer_block_openers[index] => blocks.push(MatchArmBlock::Other),
+        TokenKind::End => {
+            if let Some(MatchArmBlock::Match {
+                last_arm: Some(last_arm),
+            }) = blocks.pop()
+            {
+                arms[last_arm].scope_end = tokens[index].range.start;
+            }
+        }
+        _ => {}
+    }
+}
+
+fn match_arm_bindings(
+    tokens: &[Token],
+    first_index: usize,
+    arms: &[MatchArmRange],
+    previous_non_layout: &[Option<usize>],
+    next_non_layout: &[Option<usize>],
+) -> Vec<LocalBinding> {
+    arms.iter()
+        .flat_map(|arm| {
+            match_arm_bindings_in_range(
+                tokens,
+                first_index,
+                arm,
+                previous_non_layout,
+                next_non_layout,
+            )
+        })
+        .collect()
+}
+
+fn match_arm_bindings_in_range(
+    tokens: &[Token],
+    first_index: usize,
+    arm: &MatchArmRange,
+    previous_non_layout: &[Option<usize>],
+    next_non_layout: &[Option<usize>],
+) -> Vec<LocalBinding> {
+    let first_pattern_token_start = tokens[arm.pattern_start_index..arm.arrow_index]
+        .iter()
+        .inspect(|_| record_local_binding_scope_token_visit())
+        .find(|token| !is_layout_token_kind(token.kind))
+        .map(|token| token.range.start);
 
     let mut bindings = Vec::new();
-    for arm in arms {
-        let first_pattern_token_start = tokens[arm.pattern_start_index..arm.arrow_index]
-            .iter()
-            .inspect(|_| record_local_binding_scope_token_visit())
-            .find(|token| !is_layout_token_kind(token.kind))
-            .map(|token| token.range.start);
-        for index in arm.pattern_start_index..arm.arrow_index {
-            record_local_binding_scope_token_visit();
-            let token = &tokens[index];
-            let relative_index = index - first_index;
-            let is_binding = token.kind == TokenKind::Ident
-                && is_identifier(&token.text)
-                && token.text != "true"
-                && token.text != "false"
-                && previous_non_layout[relative_index]
-                    .is_none_or(|previous| tokens[previous].kind != TokenKind::DoubleColon)
-                && next_non_layout[relative_index].is_none_or(|next| {
-                    !matches!(tokens[next].kind, TokenKind::DoubleColon | TokenKind::Colon)
-                });
-            if !is_binding {
-                continue;
-            }
+    for index in arm.pattern_start_index..arm.arrow_index {
+        record_local_binding_scope_token_visit();
+        let token = &tokens[index];
+        let relative_index = index - first_index;
+        let is_binding = token.kind == TokenKind::Ident
+            && is_identifier(&token.text)
+            && token.text != "true"
+            && token.text != "false"
+            && previous_non_layout[relative_index]
+                .is_none_or(|previous| tokens[previous].kind != TokenKind::DoubleColon)
+            && next_non_layout[relative_index].is_none_or(|next| {
+                !matches!(tokens[next].kind, TokenKind::DoubleColon | TokenKind::Colon)
+            });
+        if is_binding {
             bindings.push(LocalBinding {
                 name: token.text.clone(),
                 declaration_start: token.range.start,

@@ -407,52 +407,15 @@ impl SymbolIndex {
         };
         let tokens = &file.tokens;
         let scopes = function_scopes(tokens);
-        let value_scope = (symbol.kind == LocalSymbolKind::ValueBinding)
-            .then(|| {
-                scopes.iter().find(|scope| {
-                    record_local_reference_scope_candidate_visit();
-                    scope.body_start == symbol.declaration_scope_start
-                        && scope.end == symbol.declaration_scope_end
-                })
-            })
-            .flatten();
+        let value_scope = local_reference_value_scope(symbol, &scopes);
         let scoped_bindings = local_bindings(tokens, symbol.scope_start, symbol.scope_end);
         let scoped_bindings_by_name = local_binding_index_by_name(&scoped_bindings);
-        let reference_token_indices = tokens
-            .iter()
-            .enumerate()
-            .filter(|(index, token)| {
-                token.text == symbol.name
-                    && token.kind == TokenKind::Ident
-                    && token.range.start >= symbol.scope_start
-                    && token.range.start < symbol.scope_end
-                    && !is_field_name(tokens, *index)
-                    && !is_local_binding_name(tokens, *index)
-                    && (symbol.kind != LocalSymbolKind::HandlerContextParameter
-                        || file.inside_handler_operation_clause_body(token.range.start))
-            })
-            .map(|(index, _)| index)
-            .collect::<Vec<_>>();
-        let (binding_candidates, binding_indices) = value_scope.map_or_else(
-            || {
-                (
-                    scoped_bindings.as_slice(),
-                    scoped_bindings_by_name
-                        .get(&symbol.name)
-                        .map(Vec::as_slice)
-                        .unwrap_or_default(),
-                )
-            },
-            |scope| {
-                (
-                    scope.local_bindings.as_slice(),
-                    scope
-                        .local_bindings_by_name
-                        .get(&symbol.name)
-                        .map(Vec::as_slice)
-                        .unwrap_or_default(),
-                )
-            },
+        let reference_token_indices = local_reference_token_indices(file, symbol);
+        let (binding_candidates, binding_indices) = local_reference_binding_candidates(
+            symbol,
+            value_scope,
+            &scoped_bindings,
+            &scoped_bindings_by_name,
         );
         let active_bindings = active_local_bindings_for_reference_tokens(
             binding_candidates,
@@ -473,32 +436,15 @@ impl SymbolIndex {
                 .into_iter()
                 .zip(active_bindings)
                 .filter(|(index, active_binding)| {
-                    let token = &tokens[*index];
-                    active_binding.map_or_else(
-                        || {
-                            symbol.kind != LocalSymbolKind::ValueBinding
-                                || value_scope
-                                    .and_then(|scope| {
-                                        scope.shadowing_function_binding(
-                                            &symbol.name,
-                                            tokens,
-                                            *index,
-                                        )
-                                    })
-                                    .is_some_and(|binding| {
-                                        binding.declaration_range() == selected_declaration
-                                    })
-                        },
-                        |binding| {
-                            (binding.declaration_start, binding.declaration_end)
-                                == selected_declaration
-                        },
-                    ) && (symbol.kind != LocalSymbolKind::HandlerContextParameter
-                        || !handler_operation_clause_parameter_shadows_name(
-                            file,
-                            &symbol.name,
-                            token.range.start,
-                        ))
+                    local_reference_matches_symbol(
+                        file,
+                        symbol,
+                        value_scope,
+                        tokens,
+                        *index,
+                        *active_binding,
+                        selected_declaration,
+                    )
                 })
                 .map(|(index, _)| file.source.span(tokens[index].range)),
         );
@@ -1062,6 +1008,109 @@ impl SymbolIndex {
         }
         qualifiers
     }
+}
+
+fn local_reference_value_scope<'a>(
+    symbol: &LocalSymbol,
+    scopes: &'a [FunctionScope],
+) -> Option<&'a FunctionScope> {
+    (symbol.kind == LocalSymbolKind::ValueBinding)
+        .then(|| {
+            scopes.iter().find(|scope| {
+                record_local_reference_scope_candidate_visit();
+                scope.body_start == symbol.declaration_scope_start
+                    && scope.end == symbol.declaration_scope_end
+            })
+        })
+        .flatten()
+}
+
+fn local_reference_token_indices(file: &IndexedFile, symbol: &LocalSymbol) -> Vec<usize> {
+    file.tokens
+        .iter()
+        .enumerate()
+        .filter(|(index, token)| {
+            local_reference_candidate(file, symbol, &file.tokens, *index, token)
+        })
+        .map(|(index, _)| index)
+        .collect()
+}
+
+fn local_reference_binding_candidates<'a>(
+    symbol: &LocalSymbol,
+    value_scope: Option<&'a FunctionScope>,
+    scoped_bindings: &'a [LocalBinding],
+    scoped_bindings_by_name: &'a BTreeMap<String, Vec<usize>>,
+) -> (&'a [LocalBinding], &'a [usize]) {
+    value_scope.map_or_else(
+        || {
+            (
+                scoped_bindings,
+                scoped_bindings_by_name
+                    .get(&symbol.name)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
+            )
+        },
+        |scope| {
+            (
+                scope.local_bindings.as_slice(),
+                scope
+                    .local_bindings_by_name
+                    .get(&symbol.name)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
+            )
+        },
+    )
+}
+
+fn local_reference_candidate(
+    file: &IndexedFile,
+    symbol: &LocalSymbol,
+    tokens: &[Token],
+    index: usize,
+    token: &Token,
+) -> bool {
+    token.text == symbol.name
+        && token.kind == TokenKind::Ident
+        && token.range.start >= symbol.scope_start
+        && token.range.start < symbol.scope_end
+        && !is_field_name(tokens, index)
+        && !is_local_binding_name(tokens, index)
+        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+            || file.inside_handler_operation_clause_body(token.range.start))
+}
+
+fn local_reference_matches_symbol(
+    file: &IndexedFile,
+    symbol: &LocalSymbol,
+    value_scope: Option<&FunctionScope>,
+    tokens: &[Token],
+    index: usize,
+    active_binding: Option<&LocalBinding>,
+    selected_declaration: (usize, usize),
+) -> bool {
+    let binding_matches = active_binding.map_or_else(
+        || {
+            symbol.kind != LocalSymbolKind::ValueBinding
+                || value_scope
+                    .and_then(|scope| {
+                        scope.shadowing_function_binding(&symbol.name, tokens, index)
+                    })
+                    .is_some_and(|binding| binding.declaration_range() == selected_declaration)
+        },
+        |binding| {
+            (binding.declaration_start, binding.declaration_end) == selected_declaration
+        },
+    );
+    binding_matches
+        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+            || !handler_operation_clause_parameter_shadows_name(
+                file,
+                &symbol.name,
+                tokens[index].range.start,
+            ))
 }
 
 fn active_local_bindings_for_reference_tokens<'a>(
