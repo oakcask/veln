@@ -8,9 +8,9 @@ update-when: Deferred-cleanup registration, referenced-local capture, unwinding 
 This proposal remains incomplete. The compiler has an internal checked-core,
 typed-IR, and JVM foundation for registration-time capture and normal
 completion. The public readiness gate still blocks executable programs that
-contain `defer`. Public integration and unwinding for propagated errors,
-failures, and cancellation remain. The mechanism must cover files, sockets,
-locks, effect handlers, spans, and future resources without requiring
+contain `begin` or `defer`. Public integration and unwinding for propagated
+errors, failures, and cancellation remain. The mechanism must cover files,
+sockets, locks, effect handlers, spans, and future resources without requiring
 destructors or garbage-collector finalizers.
 
 ## Outcome
