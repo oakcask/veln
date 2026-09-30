@@ -7,7 +7,8 @@ on:
     paths:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .agents/skills/veln-language/**
-      - .github/actions/**/action.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/workflows/*.yaml
       - AGENTS.md
       - crates/veln-mcp/schemas/mcp/v1/*.json
@@ -15,6 +16,10 @@ on:
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - tools/veln-repo-workflow-scripts/**
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.json
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.sha256
       - workflow-scripts/fixtures/veln-language/**
@@ -23,7 +28,8 @@ on:
     paths:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .agents/skills/veln-language/**
-      - .github/actions/**/action.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/workflows/*.yaml
       - AGENTS.md
       - crates/veln-mcp/schemas/mcp/v1/*.json
@@ -31,6 +37,10 @@ on:
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - tools/veln-repo-workflow-scripts/**
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.json
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.sha256
       - workflow-scripts/fixtures/veln-language/**
@@ -55,6 +65,15 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Test workflow scripts
         run: node --test workflow-scripts/*.test.mjs
+      - name: Prepare Rust workflow-script experiment
+        id: rust-workflow-scripts
+        uses: ./.github/actions/cargo-workflow-scripts
+      - name: Test Rust workflow-script experiment
+        run: bash scripts/ci-run cargo test --locked -p veln-repo-workflow-scripts
+      - name: Measure cached Rust workflow-script break-even points
+        env:
+          WORKFLOW_SCRIPTS_RUST_BIN: ${{ steps.rust-workflow-scripts.outputs.binary }}
+        run: node workflow-scripts/benchmark-rust-workflow-scripts.mjs
       - name: Validate current specification explanations
         run: node workflow-scripts/check-specification.mjs
       - name: Reject unbounded Rust test commands
