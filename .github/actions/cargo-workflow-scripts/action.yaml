@@ -1,0 +1,36 @@
+name: Prepare Rust workflow scripts
+description: Restore or build the cached workflow-script experiment binary.
+
+outputs:
+  binary:
+    description: Repository-relative path to the prepared binary.
+    value: ${{ steps.path.outputs.binary }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare Cargo dependencies
+      uses: ./.github/actions/cargo-dependencies
+    - name: Restore workflow-script binary
+      id: cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: .cache/veln-repo-workflow-scripts
+        key: workflow-scripts-rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'Cargo.toml', 'tools/veln-repo-workflow-scripts/**') }}
+    - name: Build workflow-script binary
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        cargo build --locked --release -p veln-repo-workflow-scripts
+        mkdir -p .cache/veln-repo-workflow-scripts
+        cp target/release/veln-repo-workflow-scripts .cache/veln-repo-workflow-scripts/veln-repo-workflow-scripts
+    - name: Save workflow-script binary
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: .cache/veln-repo-workflow-scripts
+        key: workflow-scripts-rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'Cargo.toml', 'tools/veln-repo-workflow-scripts/**') }}
+    - name: Publish workflow-script binary path
+      id: path
+      shell: bash
+      run: echo "binary=.cache/veln-repo-workflow-scripts/veln-repo-workflow-scripts" >> "${GITHUB_OUTPUT}"
