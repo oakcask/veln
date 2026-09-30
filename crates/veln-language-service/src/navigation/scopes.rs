@@ -66,8 +66,11 @@ fn handler_operation_clause_scopes(
     defer_block_openers: &[bool],
 ) -> Vec<FunctionScope> {
     let file_end = tokens.last().map_or(0, |token| token.range.end);
-    handler_operation_clause_arrow_indices(tokens, defer_block_openers)
-        .into_iter()
+    let clause_headers = handler_operation_clause_headers(tokens, defer_block_openers);
+    clause_headers
+        .iter()
+        .enumerate()
+        .filter_map(|(index, is_header)| is_header.then_some(index))
         .map(|arrow_index| {
             let arrow = &tokens[arrow_index];
             let body_start = arrow.range.end;
@@ -76,6 +79,7 @@ fn handler_operation_clause_scopes(
                 arrow_index,
                 file_end,
                 defer_block_openers,
+                &clause_headers,
             );
             let local_bindings = local_bindings_with_defer_openers(
                 tokens,
@@ -96,58 +100,41 @@ fn handler_operation_clause_scopes(
         .collect()
 }
 
-fn handler_operation_clause_arrow_indices(
+fn handler_operation_clause_headers(
     tokens: &[Token],
     defer_block_openers: &[bool],
-) -> Vec<usize> {
-    handler_operation_clause_arrow_indices_with(
+) -> Vec<bool> {
+    handler_operation_clause_headers_with(
         tokens,
         defer_block_openers,
         record_handler_clause_scope_token_visit,
     )
 }
 
-fn handler_operation_clause_arrow_indices_with(
-    tokens: &[Token],
-    defer_block_openers: &[bool],
-    record_token_visit: impl FnMut(),
-) -> Vec<usize> {
-    handler_top_level_arrow_indices_with(tokens, defer_block_openers, record_token_visit)
-        .into_iter()
-        .filter(|arrow_index| {
-            let line_tokens = line_tokens_before(tokens, *arrow_index);
-            line_tokens
-                .iter()
-                .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
-                .is_some_and(|token| {
-                    token.kind == TokenKind::Ident && is_identifier(&token.text)
-                })
-                && line_tokens
-                    .iter()
-                    .any(|token| token.kind == TokenKind::LParen)
-                && line_tokens
-                    .iter()
-                    .any(|token| token.kind == TokenKind::RParen)
-        })
-        .collect()
-}
-
-fn handler_top_level_arrow_indices_with(
+fn handler_operation_clause_headers_with(
     tokens: &[Token],
     defer_block_openers: &[bool],
     mut record_token_visit: impl FnMut(),
-) -> Vec<usize> {
-    let mut indices = Vec::new();
+) -> Vec<bool> {
+    let mut headers = vec![false; tokens.len()];
     let mut blocks = Vec::new();
     let mut line_has_non_whitespace = false;
+    let mut first_line_token_is_identifier = None;
+    let mut saw_lparen = false;
+    let mut saw_rparen = false;
+    let mut saw_fat_arrow = false;
     let mut previous_non_layout = None;
 
     for (index, token) in tokens.iter().enumerate() {
         record_token_visit();
         if token.kind == TokenKind::FatArrow
             && blocks.last() == Some(&TokenKind::Handler)
+            && !saw_fat_arrow
+            && first_line_token_is_identifier == Some(true)
+            && saw_lparen
+            && saw_rparen
         {
-            indices.push(index);
+            headers[index] = true;
         }
 
         match token.kind {
@@ -168,15 +155,40 @@ fn handler_top_level_arrow_indices_with(
         }
 
         match token.kind {
-            TokenKind::Newline => line_has_non_whitespace = false,
+            TokenKind::Newline => {
+                line_has_non_whitespace = false;
+                first_line_token_is_identifier = None;
+                saw_lparen = false;
+                saw_rparen = false;
+                saw_fat_arrow = false;
+            }
             TokenKind::Whitespace => {}
-            _ => line_has_non_whitespace = true,
+            TokenKind::LParen => {
+                line_has_non_whitespace = true;
+                first_line_token_is_identifier.get_or_insert(false);
+                saw_lparen = true;
+            }
+            TokenKind::RParen => {
+                line_has_non_whitespace = true;
+                first_line_token_is_identifier.get_or_insert(false);
+                saw_rparen = true;
+            }
+            TokenKind::FatArrow => {
+                line_has_non_whitespace = true;
+                first_line_token_is_identifier.get_or_insert(false);
+                saw_fat_arrow = true;
+            }
+            _ => {
+                line_has_non_whitespace = true;
+                first_line_token_is_identifier
+                    .get_or_insert(token.kind == TokenKind::Ident && is_identifier(&token.text));
+            }
         }
         if !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline) {
             previous_non_layout = Some(token.kind);
         }
     }
-    indices
+    headers
 }
 
 impl FunctionScope {
@@ -525,19 +537,20 @@ fn match_arm_pattern_binding_names(
                         },
                     )
             });
-        if token.kind == TokenKind::FatArrow && !satisfy_arrow {
-            if let Some(Block::Match { last_arm }) = blocks.last_mut() {
-                if let Some(previous_arm) = *last_arm {
-                    arms[previous_arm].scope_end = tokens[line_start_index].range.start;
-                }
-                let arm_index = arms.len();
-                arms.push(MatchArmRange {
-                    pattern_start_index: line_start_index,
-                    arrow_index: index,
-                    scope_end: function_end,
-                });
-                *last_arm = Some(arm_index);
+        if token.kind == TokenKind::FatArrow
+            && !satisfy_arrow
+            && let Some(Block::Match { last_arm }) = blocks.last_mut()
+        {
+            if let Some(previous_arm) = *last_arm {
+                arms[previous_arm].scope_end = tokens[line_start_index].range.start;
             }
+            let arm_index = arms.len();
+            arms.push(MatchArmRange {
+                pattern_start_index: line_start_index,
+                arrow_index: index,
+                scope_end: function_end,
+            });
+            *last_arm = Some(arm_index);
         }
 
         match token.kind {

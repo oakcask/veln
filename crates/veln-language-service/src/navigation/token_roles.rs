@@ -52,17 +52,6 @@ fn is_satisfy_candidate_binding_name(tokens: &[Token], index: usize) -> bool {
         && next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::FatArrow)
 }
 
-fn is_satisfy_arrow(tokens: &[Token], index: usize) -> bool {
-    let Some(candidate_index) = previous_non_layout_index(tokens, index) else {
-        return false;
-    };
-    if tokens[candidate_index].kind != TokenKind::Ident {
-        return false;
-    }
-    previous_non_layout_token(tokens, candidate_index)
-        .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "satisfy")
-}
-
 fn is_field_name(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Dot)
         || next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)

@@ -843,29 +843,36 @@
     }
 
     #[test]
-    fn handler_clause_scope_discovery_is_linear_for_many_non_handler_arrows() {
-        fn token_visits(arrow_count: usize) -> usize {
-            let mut source_text = String::new();
-            for index in 0..arrow_count {
-                source_text.push_str(&format!("candidate{index}() => value\n"));
+    fn handler_clause_scope_discovery_is_linear_for_many_arrows_on_one_line() {
+        fn token_visits(arrow_count: usize) -> (usize, usize) {
+            let mut source_text = String::from("handler invalid() handles Invalid\n  clause() ");
+            for _ in 0..arrow_count {
+                source_text.push_str("=> value ");
             }
-            source_text.push_str("fn main(value: Int) -> Int\n  value\nend\n");
+            source_text.push_str("\nend\n\nfn main(value: Int) -> Int\n  value\nend\n");
             let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
             reset_handler_clause_scope_token_visits();
+            reset_handler_clause_binding_token_visits();
 
-            let result = query_snapshot(&snapshot, "main.veln", arrow_count + 2, 4)
+            let result = query_snapshot(&snapshot, "main.veln", 6, 4)
                 .expect("function parameter should resolve");
             assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
-            handler_clause_scope_token_visits()
+            (
+                handler_clause_scope_token_visits(),
+                handler_clause_binding_token_visits(),
+            )
         }
 
         let smaller = token_visits(128);
         let larger = token_visits(256);
 
-        eprintln!("handler clause scope discovery: 128={smaller} visits, 256={larger} visits");
-        assert!(smaller > 0);
-        assert!(larger > smaller);
-        assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
+        eprintln!("handler clause indexing: 128={smaller:?} visits, 256={larger:?} visits");
+        assert!(smaller.0 > 0);
+        assert!(larger.0 > smaller.0);
+        assert!(larger.0 <= smaller.0 * 2 + 64, "{smaller:?} -> {larger:?}");
+        assert!(smaller.1 > 0);
+        assert!(larger.1 > smaller.1);
+        assert!(larger.1 <= smaller.1 * 2 + 64, "{smaller:?} -> {larger:?}");
     }
 
     #[test]

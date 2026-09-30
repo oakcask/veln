@@ -48,11 +48,16 @@ fn handler_operation_clause_bindings_for_source(
     let defer_block_openers = defer_block_openers(tokens);
     record_handler_clause_binding_token_visits(tokens.len());
     let mut clause_bindings = Vec::new();
-    for arrow_index in handler_top_level_arrow_indices_with(
+    let clause_headers = handler_operation_clause_headers_with(
         tokens,
         &defer_block_openers,
         || record_handler_clause_binding_token_visits(1),
-    ) {
+    );
+    for arrow_index in clause_headers
+        .iter()
+        .enumerate()
+        .filter_map(|(index, is_header)| is_header.then_some(index))
+    {
         let arrow = &tokens[arrow_index];
         let line_start_index = line_start_index(tokens, arrow_index);
         let body_end = handler_operation_clause_body_end_with_defer_openers_and_visit(
@@ -60,6 +65,7 @@ fn handler_operation_clause_bindings_for_source(
             arrow_index,
             source.text().len(),
             &defer_block_openers,
+            &clause_headers,
             || record_handler_clause_binding_token_visits(1),
         );
         let Some(lparen_index) = tokens[line_start_index..arrow_index]
@@ -169,11 +175,13 @@ fn handler_operation_clause_body_end(
     file_end: usize,
 ) -> usize {
     let defer_block_openers = defer_block_openers(tokens);
+    let clause_headers = handler_operation_clause_headers_with(tokens, &defer_block_openers, || {});
     handler_operation_clause_body_end_with_defer_openers(
         tokens,
         arrow_index,
         file_end,
         &defer_block_openers,
+        &clause_headers,
     )
 }
 
@@ -182,12 +190,14 @@ fn handler_operation_clause_body_end_with_defer_openers(
     arrow_index: usize,
     file_end: usize,
     defer_block_openers: &[bool],
+    clause_headers: &[bool],
 ) -> usize {
     handler_operation_clause_body_end_with_defer_openers_and_visit(
         tokens,
         arrow_index,
         file_end,
         defer_block_openers,
+        clause_headers,
         || {},
     )
 }
@@ -197,6 +207,7 @@ fn handler_operation_clause_body_end_with_defer_openers_and_visit(
     arrow_index: usize,
     file_end: usize,
     defer_block_openers: &[bool],
+    clause_headers: &[bool],
     mut record_token_visit: impl FnMut(),
 ) -> usize {
     let mut nested_blocks = 0usize;
@@ -212,7 +223,7 @@ fn handler_operation_clause_body_end_with_defer_openers_and_visit(
             TokenKind::Defer if defer_block_openers[index] => nested_blocks += 1,
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
-            TokenKind::FatArrow if nested_blocks == 0 && !is_satisfy_arrow(tokens, index) => {
+            TokenKind::FatArrow if nested_blocks == 0 && clause_headers[index] => {
                 return match_arm_pattern_start_from_arrow(tokens, token.range.start);
             }
             _ => {}
