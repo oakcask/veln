@@ -110,17 +110,24 @@ fails.
 ## Remaining Acceptance Model
 
 Before the readiness gate opens, public executable evidence must cover the
-implemented normal-completion cases and the remaining cases below.
+implemented normal-completion cases and the remaining cases below. Internal
+compiler and backend coverage for C1, C4, C5, C6, and C12 is complete, but it
+does not replace the public-pipeline evidence planned in this table.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
+| C1 | A region completes normally after registering one block. | The block runs once before the region transfers its value. | Run specification case with an event recorder. |
 | C2 | A region propagates `Err` through `?`. | Registered blocks run before the caller observes the `Err`. | Run specification case. |
 | C3 | A region raises a contract or runtime failure. | Registered blocks run before the failure leaves the region. | Human and JSON runtime-failure cases. |
+| C4 | Three blocks are registered. | They run once each in reverse registration order. | Run specification case with ordered events. |
+| C5 | Acquisition fails before execution reaches `defer`. | The unregistered block does not run. | Run specification case. |
+| C6 | A `begin` expression completes successfully. | Its cleanup runs before the expression value is bound outside the scope. | Run specification case. |
 | C7 | Cleanup fails while the region is already failing. | The original failure remains primary and cleanup failure is related context. | Human and JSON runtime-failure cases. |
 | C8 | A Veln task is cancelled while inside a cleanup region. | Task completion is not reported until registered cleanup has run. | Deterministic task-runtime case. |
 | C9 | More than one cleanup fails while the region is already failing. | The original failure remains primary and cleanup failures are attached in execution order. | Human and JSON runtime-failure cases with ordered related failures. |
 | C10 | A successful region has a cleanup block that fails. | The first cleanup failure becomes the region failure after every cleanup block runs. | Run specification case with an event recorder and a failing cleanup. |
 | C11 | One cleanup fails before another registered cleanup runs. | The remaining cleanup still runs in reverse registration order. | Run specification case with ordered events. |
+| C12 | A block captures a local binding and a later declaration shadows that name before the region exits. | Cleanup observes the local's registration-time value snapshot, not a later binding found by name at exit. | Run specification case with distinct recorded values before and after shadowing. |
 
 ## Verification and Promotion
 
