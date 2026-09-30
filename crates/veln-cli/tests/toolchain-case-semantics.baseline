@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"2eae76ff1398ac10c74be3440a62f2f713586164"
+source_git_tree	"05ae8b37f785ea16ee9cea91bc5f2cf8dbe73c11"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1714
@@ -8344,6 +8344,9 @@ field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	1
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"effect.missing_public"
 field	expectations.stdout.contains[1]	"public function uses undeclared effect `stdio`"
@@ -8353,7 +8356,7 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"a0de10914c7ecc61f9562f1e4ab72c62ee077d86c50efb9c380171a46b6219ac"
+case_digest	"0c079706314ffffe3b41599f82d1e29cf3e2ffbe71d1715ca416f02a50a9ad56"
 case	"examples/specification/check/lexical-handler-public-effect-declarations"
 field	expectations.diagnostics[0].id	"handler.missing_public_effect"
 field	expectations.diagnostics[0].kind	"effect"
@@ -62447,4 +62450,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"f44691690cdf34ce3d32c4fc638a4fbf79de71f001cb8721858b8810edb489d6"
+aggregate_digest	"c9c509af5379f8e4b6a0046ceab3e60d57a4f9f911f90cb56e92bd09b0ac0fb4"

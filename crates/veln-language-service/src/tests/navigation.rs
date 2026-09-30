@@ -770,6 +770,40 @@
     }
 
     #[test]
+    fn local_reference_scope_lookup_is_linear_with_preceding_functions_and_references() {
+        fn candidate_visits(size: usize) -> usize {
+            let mut source_text = String::new();
+            for index in 0..size {
+                source_text.push_str(&format!(
+                    "fn prior{index}() -> ()\n  ()\nend\n\n"
+                ));
+            }
+            let main_line = source_text.lines().count() + 1;
+            source_text.push_str("fn main(input: Int) -> Int\n  let selected = input\n");
+            for _ in 0..size {
+                source_text.push_str("  selected\n");
+            }
+            source_text.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_reference_scope_candidate_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", main_line + size + 1, 4)
+                .expect("last local reference should resolve");
+            assert_eq!(result.references.len(), size);
+            let visits = local_reference_scope_candidate_visits();
+            eprintln!("local reference scope lookup: size={size} candidate_visits={visits}");
+            visits
+        }
+
+        let smaller = candidate_visits(32);
+        let larger = candidate_visits(64);
+
+        assert!(smaller > 0);
+        assert!(larger >= smaller);
+        assert!(larger <= smaller * 2 + 4, "{smaller} -> {larger}");
+    }
+
+    #[test]
     fn cleanup_match_satisfy_arrow_keeps_candidate_and_callable_identities_separate() {
         struct Case {
             source: &'static str,

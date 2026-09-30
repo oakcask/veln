@@ -15,6 +15,14 @@ fn compute() -> Int effects [Ask]
 	perform Ask::value()
 end
 
+fn compute_in_region() -> Int
+	handle begin
+		perform Ask::value()
+	end with ask(41)
+end
+
 pub fn run_case() -> Int
-	handle compute() with ask(41)
+	let direct = handle compute() with ask(41)
+	let begun = compute_in_region()
+	direct + begun
 end

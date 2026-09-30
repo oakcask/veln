@@ -413,7 +413,8 @@ fn insert_handler_effect_dependencies(
             handler.module_name.as_deref(),
             context,
             &mut bindings,
-            &mut |expr, expr_context| {
+            &[],
+            &mut |expr, expr_context, _| {
                 collect_expr_effect_dependencies(expr, expr_context, &mut dependencies);
             },
         );
@@ -491,8 +492,17 @@ fn collect_private_handler_effects(
             handler.module_name.as_deref(),
             &function_context,
             &mut bindings,
-            &mut |expr, expr_context| {
+            &[],
+            &mut |expr, expr_context, handled_effects| {
+                let before = inferred.len();
                 collect_expr_effects(expr, expr_context, &mut inferred);
+                if !handled_effects.is_empty() {
+                    let retained = inferred
+                        .drain(before..)
+                        .filter(|effect| !handled_effects.contains(effect))
+                        .collect::<Vec<_>>();
+                    inferred.extend(retained);
+                }
             },
         );
     }
@@ -536,8 +546,16 @@ fn collect_function_body_effects(
         .get(&function_key)
         .cloned()
         .unwrap_or_default();
-    visit_function_body_expressions(function, context, |expr, expr_context| {
+    visit_function_body_expressions(function, context, |expr, expr_context, handled_effects| {
+        let before = inferred.len();
         collect_expr_effects(expr, expr_context, &mut inferred);
+        if !handled_effects.is_empty() {
+            let retained = inferred
+                .drain(before..)
+                .filter(|effect| !handled_effects.contains(effect))
+                .collect::<Vec<_>>();
+            inferred.extend(retained);
+        }
     });
     inferred
 }
@@ -547,7 +565,7 @@ fn function_effect_dependencies(
     context: &FunctionEffectContext<'_>,
 ) -> BTreeSet<EffectDependencyNode> {
     let mut dependencies = BTreeSet::new();
-    visit_function_body_expressions(function, context, |expr, expr_context| {
+    visit_function_body_expressions(function, context, |expr, expr_context, _| {
         collect_expr_effect_dependencies(expr, expr_context, &mut dependencies);
     });
     dependencies
@@ -556,7 +574,7 @@ fn function_effect_dependencies(
 fn visit_function_body_expressions(
     function: &Function,
     context: &FunctionEffectContext<'_>,
-    mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>),
+    mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
 ) {
     let mut bindings = function_parameter_bindings(function);
     visit_effect_body_expressions(
@@ -564,6 +582,7 @@ fn visit_function_body_expressions(
         function.module_name.as_deref(),
         context,
         &mut bindings,
+        &[],
         &mut visit,
     );
 }
@@ -573,7 +592,8 @@ fn visit_effect_body_expressions(
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut Vec<Binding>,
-    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>),
+    handled_effects: &[String],
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
 ) {
     for line in body {
         match &line.kind {
@@ -583,17 +603,38 @@ fn visit_effect_body_expressions(
                 expr,
                 ..
             } => {
-                visit_effect_expr(expr, current_module, context, bindings, visit);
+                visit_effect_expr(
+                    expr,
+                    current_module,
+                    context,
+                    bindings,
+                    handled_effects,
+                    visit,
+                );
                 let ty = parse_type_or_unknown(annotation.as_deref());
                 collect_pattern_bindings(pattern, &ty, bindings);
             }
             BodyLineKind::Expr { expr } => {
-                visit_effect_expr(expr, current_module, context, bindings, visit);
+                visit_effect_expr(
+                    expr,
+                    current_module,
+                    context,
+                    bindings,
+                    handled_effects,
+                    visit,
+                );
             }
             BodyLineKind::Defer { body, .. } => {
                 let binding_count = bindings.len();
                 record_scoped_binding_count(bindings);
-                visit_effect_body_expressions(body, current_module, context, bindings, visit);
+                visit_effect_body_expressions(
+                    body,
+                    current_module,
+                    context,
+                    bindings,
+                    handled_effects,
+                    visit,
+                );
                 bindings.truncate(binding_count);
             }
         }
@@ -605,11 +646,19 @@ fn visit_effect_expr(
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut Vec<Binding>,
-    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>),
+    handled_effects: &[String],
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
 ) {
     let expr_context = context.expression_context(current_module, bindings);
-    visit(expr, &expr_context);
-    visit_nested_effect_regions(expr, current_module, context, bindings, visit);
+    visit(expr, &expr_context, handled_effects);
+    visit_nested_effect_regions(
+        expr,
+        current_module,
+        context,
+        bindings,
+        handled_effects,
+        visit,
+    );
 }
 
 fn visit_nested_effect_regions(
@@ -617,18 +666,64 @@ fn visit_nested_effect_regions(
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut Vec<Binding>,
-    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>),
+    handled_effects: &[String],
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
 ) {
-    if let ExprKind::Begin { body, .. } = &expr.kind {
-        let binding_count = bindings.len();
-        record_scoped_binding_count(bindings);
-        visit_effect_body_expressions(body, current_module, context, bindings, visit);
-        bindings.truncate(binding_count);
-        return;
+    match &expr.kind {
+        ExprKind::Begin { body, .. } => {
+            let binding_count = bindings.len();
+            record_scoped_binding_count(bindings);
+            visit_effect_body_expressions(
+                body,
+                current_module,
+                context,
+                bindings,
+                handled_effects,
+                visit,
+            );
+            bindings.truncate(binding_count);
+        }
+        ExprKind::Handle {
+            body,
+            handler,
+            args,
+            ..
+        } => {
+            for arg in args {
+                visit_nested_effect_regions(
+                    arg,
+                    current_module,
+                    context,
+                    bindings,
+                    handled_effects,
+                    visit,
+                );
+            }
+            let expr_context = context.expression_context(current_module, bindings);
+            let mut body_handled_effects = handled_effects.to_vec();
+            if let Some(handler) = handler_for_path(handler, &expr_context) {
+                body_handled_effects.push(handler.effect.clone());
+            }
+            visit_nested_effect_regions(
+                body,
+                current_module,
+                context,
+                bindings,
+                &body_handled_effects,
+                visit,
+            );
+        }
+        _ => expr.for_each_child(&mut |child| {
+            visit_nested_effect_regions(
+                child,
+                current_module,
+                context,
+                bindings,
+                handled_effects,
+                visit,
+            );
+        }),
     }
-    expr.for_each_child(&mut |child| {
-        visit_nested_effect_regions(child, current_module, context, bindings, visit);
-    });
 }
 
 pub(crate) fn canonical_user_effect_label(

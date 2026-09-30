@@ -257,6 +257,28 @@ fn handler_begin_cleanup_region_collects_direct_and_dependent_effects() {
 }
 
 #[test]
+fn handled_begin_effect_does_not_escape_through_private_function_inference() {
+    let diagnostics = diagnostics_for(concat!(
+        "effect Ask\n",
+        "  value() -> Int\n",
+        "end\n",
+        "handler answer() handles Ask\n",
+        "  value() => 1\n",
+        "end\n",
+        "fn handled() -> Int\n",
+        "  handle begin\n",
+        "    perform Ask::value()\n",
+        "  end with answer()\n",
+        "end\n",
+        "pub fn main() -> Int\n",
+        "  handled()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn schema_annotation_boundaries_cover_nested_cleanup_regions_and_handler_clauses() {
     let diagnostics = diagnostics_for(concat!(
         "schema Packet\n",

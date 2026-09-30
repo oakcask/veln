@@ -407,6 +407,15 @@ impl SymbolIndex {
         };
         let tokens = &file.tokens;
         let scopes = function_scopes(tokens);
+        let value_scope = (symbol.kind == LocalSymbolKind::ValueBinding)
+            .then(|| {
+                scopes.iter().find(|scope| {
+                    record_local_reference_scope_candidate_visit();
+                    scope.body_start == symbol.declaration_scope_start
+                        && scope.end == symbol.declaration_scope_end
+                })
+            })
+            .flatten();
         let bindings = local_bindings(tokens, symbol.scope_start, symbol.scope_end);
         let mut spans = Vec::new();
         if include_declaration {
@@ -441,12 +450,7 @@ impl SymbolIndex {
                                     )
                             })
                         && (symbol.kind != LocalSymbolKind::ValueBinding
-                            || scopes
-                                .iter()
-                                .find(|scope| {
-                                    token.range.start >= scope.body_start
-                                        && token.range.start < scope.end
-                                })
+                            || value_scope
                                 .and_then(|scope| {
                                     scope.shadowing_binding(&symbol.name, tokens, *index)
                                 })

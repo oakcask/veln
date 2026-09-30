@@ -44,6 +44,7 @@ mod classification_tests;
 #[cfg(test)]
 thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+    static LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static LOCAL_BINDING_SCOPE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_CLAUSE_SCOPE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_CLAUSE_BINDING_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
@@ -462,6 +463,24 @@ pub(crate) fn schema_operation_qualified_lookup_work() -> (usize, usize) {
 #[cfg(test)]
 fn record_function_scope_collection() {
     FUNCTION_SCOPE_COLLECTIONS.set(FUNCTION_SCOPE_COLLECTIONS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_local_reference_scope_candidate_visit() {
+    LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.set(LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_local_reference_scope_candidate_visit() {}
+
+#[cfg(test)]
+pub(crate) fn reset_local_reference_scope_candidate_visits() {
+    LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn local_reference_scope_candidate_visits() -> usize {
+    LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.get()
 }
 
 #[cfg(test)]
