@@ -100,20 +100,52 @@ fn handler_operation_clause_arrow_indices(
     tokens: &[Token],
     defer_block_openers: &[bool],
 ) -> Vec<usize> {
+    handler_operation_clause_arrow_indices_with(
+        tokens,
+        defer_block_openers,
+        record_handler_clause_scope_token_visit,
+    )
+}
+
+fn handler_operation_clause_arrow_indices_with(
+    tokens: &[Token],
+    defer_block_openers: &[bool],
+    record_token_visit: impl FnMut(),
+) -> Vec<usize> {
+    handler_top_level_arrow_indices_with(tokens, defer_block_openers, record_token_visit)
+        .into_iter()
+        .filter(|arrow_index| {
+            let line_tokens = line_tokens_before(tokens, *arrow_index);
+            line_tokens
+                .iter()
+                .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+                .is_some_and(|token| {
+                    token.kind == TokenKind::Ident && is_identifier(&token.text)
+                })
+                && line_tokens
+                    .iter()
+                    .any(|token| token.kind == TokenKind::LParen)
+                && line_tokens
+                    .iter()
+                    .any(|token| token.kind == TokenKind::RParen)
+        })
+        .collect()
+}
+
+fn handler_top_level_arrow_indices_with(
+    tokens: &[Token],
+    defer_block_openers: &[bool],
+    mut record_token_visit: impl FnMut(),
+) -> Vec<usize> {
     let mut indices = Vec::new();
     let mut blocks = Vec::new();
-    let mut first_line_token_is_identifier = None;
-    let mut saw_lparen = false;
-    let mut saw_rparen = false;
+    let mut line_has_non_whitespace = false;
     let mut previous_non_layout = None;
 
     for (index, token) in tokens.iter().enumerate() {
-        record_handler_clause_scope_token_visit();
+        record_token_visit();
         if token.kind == TokenKind::FatArrow
             && blocks.last() == Some(&TokenKind::Handler)
-            && first_line_token_is_identifier == Some(true)
-            && saw_lparen
-            && saw_rparen
         {
             indices.push(index);
         }
@@ -122,12 +154,12 @@ fn handler_operation_clause_arrow_indices(
             TokenKind::If if previous_non_layout != Some(TokenKind::Else) => {
                 blocks.push(token.kind);
             }
-            TokenKind::Fn
-            | TokenKind::Test
-            | TokenKind::Match
-            | TokenKind::Handler
-            | TokenKind::Codec
-            | TokenKind::Begin => blocks.push(token.kind),
+            TokenKind::Fn | TokenKind::Test | TokenKind::Handler | TokenKind::Codec
+                if !line_has_non_whitespace || previous_non_layout == Some(TokenKind::Pub) =>
+            {
+                blocks.push(token.kind)
+            }
+            TokenKind::Match | TokenKind::Begin => blocks.push(token.kind),
             TokenKind::Defer if defer_block_openers[index] => blocks.push(token.kind),
             TokenKind::End => {
                 blocks.pop();
@@ -136,24 +168,9 @@ fn handler_operation_clause_arrow_indices(
         }
 
         match token.kind {
-            TokenKind::Newline => {
-                first_line_token_is_identifier = None;
-                saw_lparen = false;
-                saw_rparen = false;
-            }
+            TokenKind::Newline => line_has_non_whitespace = false,
             TokenKind::Whitespace => {}
-            TokenKind::LParen => {
-                first_line_token_is_identifier.get_or_insert(false);
-                saw_lparen = true;
-            }
-            TokenKind::RParen => {
-                first_line_token_is_identifier.get_or_insert(false);
-                saw_rparen = true;
-            }
-            _ => {
-                first_line_token_is_identifier
-                    .get_or_insert(token.kind == TokenKind::Ident && is_identifier(&token.text));
-            }
+            _ => line_has_non_whitespace = true,
         }
         if !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline) {
             previous_non_layout = Some(token.kind);
@@ -224,11 +241,6 @@ impl ScopeShadow<'_> {
             }
         }
     }
-}
-
-fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
-    let defer_block_openers = defer_block_openers(tokens);
-    function_scope_end_with_defer_openers(tokens, start, &defer_block_openers)
 }
 
 fn function_scope_end_with_defer_openers(
@@ -658,8 +670,15 @@ fn defer_block_openers(tokens: &[Token]) -> Vec<bool> {
             | TokenKind::Effect
             | TokenKind::Handler
             | TokenKind::Codec
-            | TokenKind::Match
-            | TokenKind::Begin => blocks.push(token.kind),
+                if parentheses == 0
+                    && brackets == 0
+                    && braces == 0
+                    && (!line_has_non_whitespace
+                        || previous_non_layout == Some(TokenKind::Pub)) =>
+            {
+                blocks.push(token.kind)
+            }
+            TokenKind::Match | TokenKind::Begin => blocks.push(token.kind),
             TokenKind::Defer if openers[index] => blocks.push(token.kind),
             TokenKind::End => {
                 blocks.pop();

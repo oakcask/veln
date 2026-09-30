@@ -753,7 +753,7 @@
             }
             source_text.push_str("end\n");
             let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
-            reset_local_binding_scope_token_visits();
+            reset_handler_clause_binding_token_visits();
 
             let result = query_snapshot(&snapshot, "main.veln", 6, 20)
                 .expect("handler clause parameter should resolve");
@@ -761,13 +761,13 @@
                 result.selected_symbol.kind,
                 SymbolKind::HandlerOperationClauseParameter
             );
-            local_binding_scope_token_visits()
+            handler_clause_binding_token_visits()
         }
 
         let smaller = token_visits(128);
         let larger = token_visits(256);
 
-        eprintln!("handler clause local bindings: 128={smaller} visits, 256={larger} visits");
+        eprintln!("handler clause binding reconstruction: 128={smaller} visits, 256={larger} visits");
         assert!(smaller > 0);
         assert!(larger > smaller);
         assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");

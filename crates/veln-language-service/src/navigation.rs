@@ -46,6 +46,7 @@ thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static LOCAL_BINDING_SCOPE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_CLAUSE_SCOPE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_CLAUSE_BINDING_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static CONSTRUCTOR_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
@@ -478,6 +479,24 @@ fn record_handler_clause_scope_token_visit() {
 
 #[cfg(not(test))]
 fn record_handler_clause_scope_token_visit() {}
+
+#[cfg(test)]
+fn record_handler_clause_binding_token_visits(count: usize) {
+    HANDLER_CLAUSE_BINDING_TOKEN_VISITS.set(HANDLER_CLAUSE_BINDING_TOKEN_VISITS.get() + count);
+}
+
+#[cfg(not(test))]
+fn record_handler_clause_binding_token_visits(_count: usize) {}
+
+#[cfg(test)]
+pub(crate) fn reset_handler_clause_binding_token_visits() {
+    HANDLER_CLAUSE_BINDING_TOKEN_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn handler_clause_binding_token_visits() -> usize {
+    HANDLER_CLAUSE_BINDING_TOKEN_VISITS.get()
+}
 
 #[cfg(test)]
 pub(crate) fn reset_handler_clause_scope_token_visits() {
