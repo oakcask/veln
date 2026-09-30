@@ -87,6 +87,12 @@ impl TestProject {
 
     pub(super) fn copy_fixtures(&self, case_dir: &Path) {
         copy_fixture_dir(case_dir, case_dir, &self.root);
+        if case_dir.join("fixture_effects.veln").is_file() {
+            let support = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/test-support/fake_effects.veln");
+            fs::copy(&support, self.root.join("fake_effects.veln"))
+                .expect("shared Veln fake effect handlers should be copied");
+        }
     }
 
     pub(super) fn source_diagnostic_artifact_path(&self, run_index: usize) -> PathBuf {

@@ -210,6 +210,11 @@ Direct calls to these functions infer the `fs` effect. A public function or
 test that calls one of them directly or through a private helper must declare
 `fs` in its `effects [...]` list.
 
+`fs::path(text: String) -> Path` constructs a path value from host path text
+without reading or writing the file system. It is pure and does not infer
+`fs`. Host-invalid path text can fail at runtime. Relative paths are resolved
+by the file-system operation against the current working directory.
+
 `Path` is a source-visible named type at this boundary. Runtime path values are
 backend-owned values that can be passed between implemented `fs` and `process`
 calls, but assignment compatibility does not allow `String` and `Path` to cross
@@ -306,12 +311,14 @@ function or test that calls one of them directly or through a private helper
 must declare each matching non-empty effect in its `effects [...]` list.
 
 This boundary is intentionally narrow. `net::receive_chunk`
-returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
-chunk to the host runtime; `net::listen` returns a source-visible
+returns an immutable `ByteChunk` read from host standard input;
+`net::send_chunk` writes outgoing raw bytes to host standard output;
+an injected network handler can supply these chunk operations instead.
+`net::listen` returns a source-visible
 `NetListener`; `net::connect` and `net::accept` return distinct
 source-visible `NetStream` handles.
-The default runtime path uses the configured adapter: `net::connect(address)`
-records a client connection attempt and returns an owned stream whose peer
+The default runtime path uses real host sockets: `net::connect(address)`
+opens a client connection and returns an owned stream whose peer
 endpoint text is the requested address; `net::accept_or_end`
 returns `Some(stream)` for an accepted stream and `None` when the
 listener reaches a clean end; `net::accept_until`
@@ -367,91 +374,25 @@ Connected and accepted streams expose endpoint text through
 write-capable, and closed status through `net::stream_can_read`,
 `net::stream_can_write`, and `net::stream_is_closed`, and use the same read,
 write, write-side shutdown, read-side shutdown, and close helpers. State
-inspection returns `Bool` values without consuming stream ownership. Forced
-connection failure remains a runtime transport failure.
-Configured listeners expose their local endpoint text through
+inspection returns `Bool` values without consuming stream ownership. Connection failure remains a runtime transport failure.
+Listeners expose their local endpoint text through
 `net::listener_local_addr` before accept work without exposing host socket
 handles, closing the listener, or changing later accepted streams.
-When `VELN_NET_RUNTIME` is `production-loopback`, the same public calls own a
-host loopback listener and deterministic loopback stream sequence:
-`net::listen` binds the requested host and port,
-`net::listener_local_addr` reports the bound listener endpoint text,
-`net::connect` returns a
-deterministic client-side loopback stream, `net::accept` and
-`net::accept_or_end` accept a loopback client as a `NetStream`,
-`net::accept_until` accepts before the supplied deadline or reports clean
-listener end as `None`, `net::read_chunk` and `net::read_chunk_or_end` read
-bytes from that stream, `net::read_chunk_until` reads bytes before the
-supplied deadline or reports clean stream end as `None`, `net::write_chunk`
-writes bytes back to the stream, `net::write_chunks` writes each chunk in
-source list order, `net::shutdown_write` shuts down the stream write side
-without replacing the read clean-end path, `net::shutdown_read` shuts down the
-stream read side so later optional reads report clean end while the write side
-can still write, `net::stream_can_read`, `net::stream_can_write`, and
-`net::stream_is_closed` observe the stream state before and after those
-shutdowns and after full close, `net::close_stream` closes the owned stream,
-state inspection can still observe the closed handle, later read, write, or
-shutdown transport operations on that stale handle fail as runtime transport
-failures, and a following optional or deadline-aware accept can observe clean
-listener end.
-When a source program opens a production-loopback listener and then calls
-`net::connect` with the same source-visible address value while that listener
-is still open, the client stream is paired with that listener. A following
-`net::accept` or `net::accept_or_end` returns the server-side `NetStream`;
-both handles are source-owned, both use the same read, write, endpoint,
-write-side shutdown, and close helpers, and both must be closed explicitly by
-source code that owns them. The runtime records the listener, client connect,
-accept, byte reads and writes, stream closes, clean listener end, and listener
-close on the same production event path. Connection, accept, read, write, and
-close failures remain runtime transport failures.
-When `VELN_NET_RUNTIME` is `external`, `net::listen` owns a host listener
-without starting a synthetic client, and `net::connect` opens a host connection
-without consulting the runtime's listener registry. Accepted and connected
-host sockets remain encapsulated by `NetListener` and `NetStream`; source code
-uses the existing endpoint inspection, read, write, shutdown, deadline,
-cancellation, state inspection, and close calls under the same coarse `net`,
-`time`, and `concurrency` effects. Bind and connection failures retain the
-structured transport payload and do not create source-visible handles.
-External host bind and connection failures retain the structured transport
-payload and do not create a source-visible handle.
-`net::close_listener` closes the owned production listener or in-memory
-loopback listener state without closing already accepted `NetStream` handles;
-any later accept call on that listener fails through the same runtime
-transport boundary. Production-loopback connected streams use the same
-endpoint, read, write, shutdown, and close lifecycle as accepted production
-streams.
-Adapter-owned production loopback paths can handle multiple accepted
-streams independently through ordinary `StreamInput` and response-action
-values, route them through the existing `concurrency` boundary, project only
-ordered `SendBytes` actions to `net::write_chunk`, close each stream, and
-drain the listener until clean end. A production multi-chunk routing path
-keeps configured read chunk boundaries within one accepted stream, exposes
-each read as an ordinary `StreamInput.Chunk` routed through the same channel
-boundary, calls a pure handler for each chunk and clean end, and projects the
-ordered `SendBytes` response actions through `net::write_chunks` under the
-same coarse `net` and `concurrency` effects. The multi-event adapter
-task-helper variant routes those stream events through the same channel
-boundary and an adapter-owned task helper. That helper carries adapter-owned
-route and trace metadata through `task::spawn_with<Result, Context>`,
-preserves event sequence, and calls the pure handler without exposing
-`NetStream` access. A companion per-stream handler-failure path treats a
-handler-returned `Err` from that task boundary as an ordinary
-adapter-owned action value, closes the accepted stream, observes clean
-listener end, and does not call `net::write_chunks` for that failed stream.
-The effect boundary rejects adapter entry points that omit either
-label while leaving the public handler boundary effect-free. A forced
-production read failure on that same
-multi-chunk routing path remains a runtime transport failure after production
-accept and before any chunk routing, response writes, stream close, or clean
-listener end is recorded. The deadline-aware production adapter
-uses the same handler/action boundary through `net::accept_until` and
-`net::read_chunk_until`, adds only the existing coarse `time` effect label,
-writes ordered response bytes, closes the stream, and then observes clean
-listener end through a following deadline-aware accept. Forced production read
-failure on the listener-drain path, and forced production accept or read
-failure through the deadline-aware paths, remain runtime transport failures.
-This production path uses the same coarse `net` and `time` effects as the
-configured deadline-aware path.
+Without an injected handler, `net::listen` binds a real host listener and
+`net::connect` opens a real host connection. Listening does not start a
+synthetic client. Accepted and connected host sockets remain encapsulated by
+`NetListener` and `NetStream`. Source code uses the same endpoint inspection,
+read, write, shutdown, deadline, cancellation, and close calls for loopback
+and remote connections. Bind and connection failures retain the structured
+transport payload and do not create source-visible handles.
+
+`net::close_listener` closes its listener without closing already accepted
+streams. A later accept through the closed listener fails. Each accepted or
+connected stream has independent ownership and must be closed by its owner.
+Socket reads follow available host bytes and do not preserve peer write
+boundaries. Adapter source can route each read through channels and tasks,
+produce ordered response actions, and drain streams until clean end.
+
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::deadline_at_ms` creates a `Deadline`
 from an absolute monotonic millisecond value in the same host-owned clock
@@ -477,18 +418,15 @@ compatibility; and
 handle is cancelled first.
 `time::wait_until_cancellable_outcome` uses the same deadline and token values
 and returns `WaitCompleted`, `WaitDeadlineExpired`, or `WaitCancelled` as an
-ordinary `CancellableWaitOutcome` value for adapter-owned branching. Malformed
-host-fed receive or read bytes, failed outgoing send, write, stream close, or
-listener close event recording, forced listen, accept, read, write, close,
-timeout, deadline expiry through runtime-failure waits, or cancellable-wait
-cancellation failures through the runtime-failure wait are transport runtime
-failures, not schema, codec, or peer protocol diagnostics.
+ordinary `CancellableWaitOutcome` value for adapter-owned branching. Host
+I/O failures and failures returned by injected adapters remain transport
+runtime failures, not schema, codec, or peer protocol diagnostics.
 `net::accept_until_cancellable` returns
 `AcceptStream(stream)` for an accepted stream, `AcceptEnd` for clean listener
 end, `AcceptDeadlineExpired` for accept deadline expiry, and `AcceptCancelled`
-for token cancellation. Forced accept failure through `net::accept_until`
+for token cancellation. Accept failure through `net::accept_until`
 or `net::accept_until_cancellable`
-and forced read failure through `net::read_chunk_until` or
+and read failure through `net::read_chunk_until` or
 `net::read_chunk_until_cancellable` remain runtime failures; only deadline
 expiry reported by those optional paths becomes `None` or
 `ReadDeadlineExpired`, and token cancellation through the cancellable read
@@ -589,6 +527,78 @@ adapter calls `channel::select_many_timeout_cancellable` and declares both
 `time` and `concurrency`; and socket wrappers around cancellable routing
 declare `net`, `time`, and `concurrency`. The handler itself remains free of
 transport effects.
+
+## Scoped host adapters
+
+The standard `host_effects` module exposes nominal `Network` and `Clock`
+effects for substituting the host boundary. Install an ordinary Veln lexical
+handler around the calls that need controlled results:
+
+```veln
+use host_effects from "std"
+
+handler fake_clock() handles host_effects::Clock
+	request(operation, milliseconds) => Ok(42)
+end
+
+fn controlled_reading() -> Int effects [time]
+	handle time::monotonic_ms() with fake_clock()
+end
+```
+
+The clock handler supplies the monotonic millisecond reading in this example.
+The underlying call still contributes the coarse `time` effect. Host adapter
+injection does not remove coarse `net` or `time` requirements from callers.
+Without a handler, clock operations use the real host clock and waits, and
+socket operations use real host sockets, and chunk-only receive/send operations
+use host standard input/output. Environment variables and system
+properties do not select fake results.
+
+`Clock::request(operation, milliseconds)` returns `Result<Int, String>`.
+The bridge uses these requests:
+
+| Operation | Input | Meaning of `Ok(value)` |
+| --- | --- | --- |
+| `now` | `0` | Monotonic milliseconds. |
+| `sleep` | Requested timeout milliseconds. | The wait completed; the integer is ignored. |
+| `wait` | Remaining deadline milliseconds. | The wait completed; the integer is ignored. |
+| `cancelled` | `0` | Nonzero requests token cancellation. |
+| `wait_cancellable` | Remaining deadline milliseconds. | `0` completes, `1` reports deadline expiry, and `2` reports cancellation. |
+
+An `Err(message)` becomes a runtime failure. Clock handlers must keep their
+readings and deadline calculations in the same clock domain.
+
+`Network::request(operation, subject, bytes, remaining_ms, cancelled)` receives
+the network operation name and its address or adapter-owned resource identity.
+Write operations supply the outgoing bytes. `remaining_ms` is `-1` without a
+deadline and otherwise the remaining duration; `cancelled` reports the supplied
+token state. The reply is an ordinary record with these fields:
+
+| Fields | Bridge interpretation |
+| --- | --- |
+| `status` | `ok` supplies a successful result; `end`, `deadline`, and `cancelled` select the corresponding accept or read outcome, or deadline/cancellation write outcome. `error` raises a transport failure. |
+| `value` | Created resource identity or endpoint/state query text. Boolean queries use `true` or `false`. |
+| `bytes` | Received bytes for a successful read. |
+| `local`, `peer` | Endpoint text; empty text means unavailable failure context. |
+| `category`, `phase`, `cause` | Failure category, lifecycle phase, and related cause. |
+| `input_committed`, `output_committed`, `ownership_committed` | Failure commit facts: `0` means false, `1` means true, and a negative value means unknown. |
+
+Handlers supply the complete typed reply record declared by the standard
+module. This adapter boundary does not expose host sockets or remove caller
+responsibility for resource lifecycle. The supported operation and outcome
+combinations are those of the network calls described above.
+
+Nested handlers shadow the corresponding outer handler during their body.
+Leaving a handled body restores the outer handler, including after failure.
+Spawned tasks inherit the handlers active when they are created. Independent
+executions must construct independent fake state. Network handles retain the
+adapter that created them, so operations through those handles continue to use
+that adapter rather than changing resource identity when a scope ends.
+
+Repository deterministic tests keep fake behavior in separate Veln support
+sources and pass those sources with the fixture to the compiler. The default
+runtime contains the host adapter bridge; fake input sequences and failure
+plans belong to the injected Veln handler.
 
 ## Process Calls
 

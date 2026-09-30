@@ -63,6 +63,22 @@ fn fs_and_process_signatures_come_from_standard_descriptors() {
 }
 
 #[test]
+fn pure_standard_calls_have_signatures_and_empty_effect_rows() {
+    assert_standard_signature("fs", "path", vec![Type::string()], path_type());
+    assert_standard_signature(
+        "string",
+        "concat",
+        vec![Type::string(), Type::string()],
+        Type::string(),
+    );
+    for (module, name) in [("fs", "path"), ("string", "concat")] {
+        assert_eq!(standard_library_effects(&path(module, name)), Some(&[][..]));
+        assert!(!is_stdio_call(&path(module, name)));
+        assert!(!is_concurrency_call(&path(module, name)));
+    }
+}
+
+#[test]
 fn net_listener_signatures_come_from_standard_descriptors() {
     assert_standard_signature("net", "listen", vec![Type::string()], net_listener_type());
     assert_standard_signature(

@@ -329,6 +329,8 @@ fn java_method_name_helpers_map_builtin_surface_names() {
     }
 
     for (surface, method) in [
+        ("string::concat", "stringConcat"),
+        ("fs::path", "fsPath"),
         ("fs::read_to_string", "fsReadToString"),
         ("fs::write_string", "fsWriteString"),
         ("fs::exists", "fsExists"),

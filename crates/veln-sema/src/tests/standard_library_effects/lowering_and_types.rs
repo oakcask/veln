@@ -1,6 +1,81 @@
 use super::*;
 
 #[test]
+fn pure_source_less_calls_lower_with_string_and_path_types() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(left: String, right: String) -> Path\n",
+            "  let joined: String = string::concat(left, right)\n",
+            "  fs::path(joined)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("pure calls should build checked core");
+    let main = &core.functions[0];
+    assert!(main.effects.is_empty());
+    let CoreStmtKind::Let { expr, .. } = &main.body[0].kind else {
+        panic!("expected concatenated string binding");
+    };
+    assert_eq!(expr.ty, CoreType::string());
+    let CoreStmtKind::Return { expr } = &main.body[1].kind else {
+        panic!("expected path return");
+    };
+    assert_eq!(expr.ty, CoreType::named("Path", Vec::new()));
+    let ir = lowered
+        .ir
+        .expect("pure calls should lower to executable IR");
+    assert!(ir.functions[0].effects.is_empty());
+    assert_eq!(
+        standard_library_builtin_calls(&ir.functions[0]),
+        [("let", "string::concat"), ("return", "fs::path")]
+    );
+}
+
+#[test]
+fn pure_source_less_calls_reject_wrong_argument_and_result_types() {
+    for (expression, return_type, expected) in [
+        ("fs::path(1)", "Path", "expected `String`, but found `Int`"),
+        (
+            "string::concat(1, \"right\")",
+            "String",
+            "expected `String`, but found `Int`",
+        ),
+        (
+            "string::concat(\"left\", 1)",
+            "String",
+            "expected `String`, but found `Int`",
+        ),
+        (
+            "fs::path(\"relative\")",
+            "String",
+            "expected `String`, but found `Path`",
+        ),
+        (
+            "string::concat(\"left\", \"right\")",
+            "Path",
+            "expected `Path`, but found `String`",
+        ),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("pub fn main() -> {return_type}\n  {expression}\nend\n"),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+        let diagnostics = analyze_surface_module(&module);
+        assert_eq!(diagnostics.len(), 1, "{expression}: {diagnostics:#?}");
+        assert_eq!(diagnostics[0].id, "type.mismatch", "{expression}");
+        assert_eq!(diagnostics[0].message, expected, "{expression}");
+    }
+}
+
+#[test]
 fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
     let source = SourceFile::new(
         "main.veln",

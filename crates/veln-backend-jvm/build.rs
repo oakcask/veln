@@ -24,6 +24,9 @@ fn main() {
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("out dir"));
     let runtime_dir = out_dir.join("runtime");
+    if runtime_dir.exists() {
+        fs::remove_dir_all(&runtime_dir).expect("failed to remove stale generated runtime classes; check build output permissions before retrying so removed runtime implementations cannot remain in the bundle");
+    }
     fs::create_dir_all(&runtime_dir).expect("runtime output dir should be created");
     fs::write(runtime_dir.join("VelnRuntime.java"), runtime_source)
         .expect("runtime source should be written");

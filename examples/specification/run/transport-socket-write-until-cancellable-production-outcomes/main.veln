@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Production loopback cancellable deadline-aware writes return adapter values.
 use stdio
 
@@ -43,11 +45,16 @@ fn write_cancel_decision() -> Result<String, String> effects [net, time]
 	Ok(close_and_return(listener, stream, write_outcome_text(net::write_chunk_until_cancellable(stream, outgoing, deadline, token))))
 end
 
-pub fn main() -> Result<(), String> effects [net, time, stdio]
+fn fixture_body() -> Result<(), String> effects [net, time, stdio]
 	stdio::print(write_success_decision()?)
 	stdio::print(",")
 	stdio::print(write_deadline_decision()?)
 	stdio::print(",")
 	stdio::println(write_cancel_decision()?)
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

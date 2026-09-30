@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Adapter-owned ordering combines ordinary handler actions before chunk-list writes.
 use stdio
 
@@ -146,7 +148,7 @@ fn print_result(label: String, result: { actions : List<ResponseAction>, next_st
 	stdio::print(bool_text(result.next_state.ended))
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, concurrency, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let first_trailer = byte_chunk_from_hex("a001")?
 	let second_trailer = byte_chunk_from_hex("a002")?
@@ -161,4 +163,9 @@ pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
 	stdio::print(" clean-end ")
 	stdio::println(bool_text(clean_end))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

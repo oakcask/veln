@@ -5,7 +5,6 @@ exit = 1
 jdk = true
 
 [env]
-VELN_NET_RUNTIME = "external"
 
 [stdout]
 format = "json"

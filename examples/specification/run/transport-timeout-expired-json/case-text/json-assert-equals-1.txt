@@ -1,1 +1,1 @@
-transport timeout expired: VELN_TIME_TIMEOUT_EXPIRED
+transport timeout expired: injected clock

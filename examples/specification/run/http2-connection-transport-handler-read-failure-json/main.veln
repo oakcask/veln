@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 use transport from "std"
 use transport::net from "std"
 
@@ -12,10 +14,15 @@ fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let listener: NetListener = net::listen("127.0.0.1:0")
 	let stream: NetStream = accept_next(listener)?
 	let _ = handle read_from_duplex() with transport::net::net_stream(stream)
 	stdio::println("unreachable")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

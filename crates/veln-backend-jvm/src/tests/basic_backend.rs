@@ -344,13 +344,9 @@ fn external_socket_client_uses_an_unregistered_host_listener_when_java_is_availa
             .expect("host listener should half-close its response");
     });
 
-    let output = run_jvm_program_with_env_when_java_is_available(
-        "external-socket-client",
-        &program,
-        &[("VELN_NET_RUNTIME", "external")],
-        &[&address],
-    )
-    .expect("java availability was checked");
+    let output =
+        run_jvm_program_when_java_is_available("external-socket-client", &program, &[&address])
+            .expect("java availability was checked");
 
     host.join().expect("host listener should finish");
     assert!(
@@ -434,13 +430,9 @@ fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_av
         assert_eq!(response, [0x0a, 0x0b]);
     });
 
-    let output = run_jvm_program_with_env_when_java_is_available(
-        "external-socket-listener",
-        &program,
-        &[("VELN_NET_RUNTIME", "external")],
-        &[&address],
-    )
-    .expect("java availability was checked");
+    let output =
+        run_jvm_program_when_java_is_available("external-socket-listener", &program, &[&address])
+            .expect("java availability was checked");
 
     host.join().expect("host client should finish");
     assert!(

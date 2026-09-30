@@ -1,0 +1,15 @@
+handler fixed_network(label: String, chunk: ByteChunk) handles host_effects::Network
+	request(operation, subject, bytes, remaining_ms, cancelled) => {
+		status: "ok",
+		value: label,
+		local: label,
+		peer: label,
+		bytes: chunk,
+		category: "",
+		phase: "",
+		input_committed: 0,
+		output_committed: 0,
+		ownership_committed: 0,
+		cause: ""
+	}
+end

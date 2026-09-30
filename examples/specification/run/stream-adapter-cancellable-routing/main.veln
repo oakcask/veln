@@ -1,11 +1,13 @@
+use fixture_effects
+use fake_effects
 # Adapter-owned cancellable waits route ordinary stream response values.
 use stdio
 
 type ResponseAction
-	SendBytes {stream_id: Int, bytes: ByteChunk}
-	EndStream {stream_id: Int}
-	RetryAfterDeadline {stream_id: Int}
-	CleanupAfterCancel {stream_id: Int}
+	SendBytes { stream_id: Int, bytes: ByteChunk }
+	EndStream { stream_id: Int }
+	RetryAfterDeadline { stream_id: Int }
+	CleanupAfterCancel { stream_id: Int }
 end
 
 fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
@@ -50,7 +52,7 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [time, concurrency, stdio]
 	let payload = byte_chunk_from_hex("0a0b")?
 	let ready_deadline = time::deadline_after_ms(0)
 	let ready_token = time::cancel_token()
@@ -60,7 +62,6 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	stdio::print(int_to_string(action_score(ready.actions)))
 	stdio::print(" chunks ")
 	stdio::println(int_to_string(ready.next_state.chunks))
-
 	let deadline_expired_deadline = time::deadline_after_ms(0)
 	let deadline_expired_token = time::cancel_token()
 	let deadline_expired = route_with_cancellable_wait(6, Chunk(payload), ready.next_state, deadline_expired_deadline, deadline_expired_token)
@@ -69,7 +70,6 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	stdio::print(int_to_string(action_score(deadline_expired.actions)))
 	stdio::print(" chunks ")
 	stdio::println(int_to_string(deadline_expired.next_state.chunks))
-
 	let cancel_deadline = time::deadline_after_ms(0)
 	let cancel_token = time::cancel_token()
 	time::cancel(cancel_token)
@@ -80,4 +80,9 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	stdio::print(" ended ")
 	stdio::println(bool_text(cancelled.next_state.ended))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

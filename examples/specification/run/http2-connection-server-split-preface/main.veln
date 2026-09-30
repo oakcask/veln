@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 use http2::connection from "std"
 use http2::core from "std"
 use transport::net from "std"
@@ -43,9 +45,14 @@ fn run_one(listener: NetListener, label: String) -> Result<(), String> effects [
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let _ = run_one(listener, "split")?
 	let _ = run_one(listener, "complete")?
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

@@ -1,9 +1,12 @@
+use fixture_effects
+use fake_effects
+
 # Socket-boundary calls use listener and stream handles under the net effect.
 fn read_stream(stream: NetStream) -> ByteChunk effects [net]
 	net::read_chunk(stream)
 end
 
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let stream = net::accept(listener)
 	let incoming = read_stream(stream)
@@ -12,4 +15,9 @@ pub fn main() -> Result<(), String> effects [net, stdio]
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(outgoing))))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

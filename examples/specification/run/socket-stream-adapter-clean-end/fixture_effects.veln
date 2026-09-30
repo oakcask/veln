@@ -1,0 +1,5 @@
+use fake_effects
+
+pub fn create_fixture() -> { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> } effects [concurrency]
+	fake_effects::create_state({ "accept_stream": "fixture-stream", "read_chunks_hex": "010203,0a0b", "events": "net-events.log" })
+end

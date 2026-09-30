@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Production loopback adapter routes multiple streams and repeated chunks.
 use stdio
 
@@ -146,7 +148,7 @@ fn print_stream_summary(label: String, routed: { actions : List<ResponseAction>,
 	stdio::print(" ")
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, concurrency, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let first_stream = accept_next(listener)?
 	let first = accepted_lifecycle(first_stream)?
@@ -158,4 +160,9 @@ pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
 	stdio::print("clean-end ")
 	stdio::println(bool_text(clean_end))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

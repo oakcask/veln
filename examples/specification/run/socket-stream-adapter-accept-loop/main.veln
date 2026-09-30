@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Adapter accept-loop helper owns listener and accepted stream lifecycles.
 use stdio
 
@@ -8,9 +10,14 @@ fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, concurrency, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	stream_adapter_accept_loop(listener, handle_input)
 	stdio::println("loop-complete")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

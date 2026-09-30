@@ -1,11 +1,10 @@
-command = ["run", "--json", "main", "main.veln"]
+command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 1
 
 [requires]
 jdk = true
 
 [env]
-VELN_TIME_TIMEOUT_EXPIRED = "1"
 
 [stdout]
 format = "json"
@@ -31,7 +30,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport timeout expired: VELN_TIME_TIMEOUT_EXPIRED"
+equals = "transport timeout expired: injected clock"
 
 [[json_assert]]
 path = "error.details.phase"

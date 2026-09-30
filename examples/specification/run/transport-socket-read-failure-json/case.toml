@@ -1,11 +1,10 @@
-command = ["run", "--json", "main", "main.veln"]
+command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 1
 
 [requires]
 jdk = true
 
 [env]
-VELN_NET_READ_FAILED = "1"
 
 [stdout]
 format = "json"
@@ -83,4 +82,4 @@ equals = false
 
 [[json_assert]]
 path = "error.details.platform_cause"
-equals = "VELN_NET_READ_FAILED"
+equals = "injected read failure"

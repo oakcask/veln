@@ -73,10 +73,7 @@ pub(crate) fn concurrency_call_effects(
 
 pub(crate) fn standard_library_origin(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
     let symbol = qualified_symbol(segments)?;
-    if symbol.effects.is_empty()
-        || symbol.effects.contains(&"stdio")
-        || symbol.effects.contains(&"concurrency")
-    {
+    if symbol.effects.contains(&"stdio") || symbol.effects.contains(&"concurrency") {
         return None;
     }
     call_origin(symbol, callee)
@@ -165,10 +162,7 @@ pub(crate) fn is_stdio_call(segments: &[String]) -> bool {
 
 pub(crate) fn standard_library_effects(segments: &[String]) -> Option<&'static [&'static str]> {
     let symbol = qualified_symbol(segments)?;
-    if symbol.effects.is_empty()
-        || symbol.effects.contains(&"stdio")
-        || symbol.effects.contains(&"concurrency")
-    {
+    if symbol.effects.contains(&"stdio") || symbol.effects.contains(&"concurrency") {
         return None;
     }
     Some(symbol.effects)

@@ -1,13 +1,15 @@
+use fixture_effects
+use fake_effects
 use stdio
 
 schema Http2FrameHeaderWire
 	format binary
 
-	length: UInt24be
-	kind: UInt8
-	flags: UInt8
-	stream_reserved: ReservedBits(1, 0)
-	stream_id: UInt31be
+	length: uint24be
+	kind: uint8
+	flags: uint8
+	stream_reserved: uint1 reserves 0
+	stream_id: uint31be
 end
 
 type ResponseAction
@@ -39,7 +41,7 @@ type AdapterProjection
 end
 
 fn encode_frame_header(length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ByteChunk, EncodeError>
-	byte_encode_http2_frame_header_wire({length: length, kind: kind, flags: flags, stream_id: stream_id})
+	byte_encode_http2_frame_header_wire({ length: length, kind: kind, flags: flags, stream_id: stream_id })
 end
 
 fn handler_response() -> Result<List<ResponseAction>, String>
@@ -301,10 +303,15 @@ fn print_projection_fields(accepted: Int, rejected: Int, context: Http2SendConte
 	stdio::println(final_state_label(context))
 end
 
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let stream = net::accept(listener)
 	let projection = run_adapter(stream, handler_response()?)?
 	print_projection(projection)
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Production adapter cleanup owns cancellation while draining listener streams.
 use stdio
 
@@ -101,7 +103,7 @@ end
 fn route_and_handle(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, input: StreamInput, state: { chunks : Int, ended : Bool, trailer : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool, trailer : ByteChunk } } effects [concurrency]
 	let routed = route_input(route, input)
 	let context = { input: routed, state: state }
-	let worker = task::spawn_with<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool, trailer : ByteChunk } }, { input : StreamInput, state : { chunks : Int, ended : Bool, trailer : ByteChunk } }>(run_handler_task, context)
+	let worker = task::spawn_with<{actions:List<ResponseAction>, next_state:{chunks:Int, ended:Bool, trailer:ByteChunk}}, {input:StreamInput, state:{chunks:Int, ended:Bool, trailer:ByteChunk}}>(run_handler_task, context)
 	match task::join(worker)
 		Ok(value) => value
 		Err(_) => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
@@ -332,7 +334,7 @@ fn print_midstream_summary(label: String, summary: { read : String, actions : Li
 	stdio::print(int_to_string(cleanup_count(summary.actions)))
 end
 
-pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, time, concurrency, stdio]
 	let success_trailer = byte_chunk_from_hex("a0")?
 	let cancel_trailer = byte_chunk_from_hex("ff")?
 	let midcancel_trailer = byte_chunk_from_hex("55")?
@@ -346,4 +348,9 @@ pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
 	print_midstream_summary("midcancel", midcancel)
 	stdio::println("")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

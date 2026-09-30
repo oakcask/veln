@@ -1,11 +1,13 @@
+use fixture_effects
+use fake_effects
 # Adapter-owned cancellable waits route deadline expiry into response values.
 use stdio
 
 type ResponseAction
-	SendBytes {stream_id: Int, bytes: ByteChunk}
-	EndStream {stream_id: Int}
-	RetryAfterDeadline {stream_id: Int}
-	CleanupAfterCancel {stream_id: Int}
+	SendBytes { stream_id: Int, bytes: ByteChunk }
+	EndStream { stream_id: Int }
+	RetryAfterDeadline { stream_id: Int }
+	CleanupAfterCancel { stream_id: Int }
 end
 
 fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
@@ -42,7 +44,7 @@ fn action_score(actions: List<ResponseAction>) -> Int
 	end
 end
 
-pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [time, concurrency, stdio]
 	let payload = byte_chunk_from_hex("0c0d0e")?
 	let deadline = time::deadline_after_ms(5)
 	let token = time::cancel_token()
@@ -53,4 +55,9 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	stdio::print(" chunks ")
 	stdio::println(int_to_string(routed.next_state.chunks))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

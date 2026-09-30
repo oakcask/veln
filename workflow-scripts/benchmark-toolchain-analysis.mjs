@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,12 +28,8 @@ export const DEFAULT_WORKLOADS = [
     id: "http2_connection",
     commandKind: "veln",
     cwd: "examples/specification/run/http2-connection-application-unsupported-request-json",
-    args: ["run", "--json", "main", "main.veln"],
-    env: {
-      VELN_NET_RUNTIME: "production-loopback",
-      VELN_NET_PRODUCTION_READS_HEX:
-        "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010400000001828784",
-    },
+    args: ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"],
+    fakeEffects: true,
   },
 ];
 
@@ -594,10 +590,19 @@ export function parseUserCpuSeconds(stderr, command) {
 }
 
 function prepareWorkloads(repoRoot, sizes, generatedRoot) {
-  const workloads = DEFAULT_WORKLOADS.map((workload) => ({
-    ...workload,
-    cwd: resolve(repoRoot, workload.cwd),
-  }));
+  const workloads = DEFAULT_WORKLOADS.map((workload) => {
+    let cwd = resolve(repoRoot, workload.cwd);
+    if (workload.fakeEffects) {
+      const fixtureRoot = mkdtempSync(join(generatedRoot, `${workload.id}-`));
+      cpSync(cwd, fixtureRoot, { recursive: true });
+      copyFileSync(
+        join(repoRoot, "examples/test-support/fake_effects.veln"),
+        join(fixtureRoot, "fake_effects.veln"),
+      );
+      cwd = fixtureRoot;
+    }
+    return { ...workload, cwd, displayCwd: workload.cwd };
+  });
   sizes.forEach((size, index) => {
     const actualCwd = mkdtempSync(join(generatedRoot, `generated-${index + 1}-`));
     const generated = generateAnnotatedModuleGraph(actualCwd, size);

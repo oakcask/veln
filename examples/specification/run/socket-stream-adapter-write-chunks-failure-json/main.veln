@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Adapter-owned write-chunks failures stay runtime transport failures.
 use stdio
 
@@ -76,11 +78,16 @@ fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, concurrency, stdio]
 	let listener: NetListener = net::listen("127.0.0.1:0")
 	let trailer: ByteChunk = byte_chunk_from_hex("a001")?
 	let stream: NetStream = accept_next(listener)?
 	let _ = ordered_stream_response(stream, trailer)?
 	stdio::println("unreachable")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

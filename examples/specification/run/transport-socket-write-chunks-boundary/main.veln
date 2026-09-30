@@ -1,4 +1,7 @@
-pub fn main() -> Result<(), String> effects [net, stdio]
+use fixture_effects
+use fake_effects
+
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let stream = net::accept(listener)
 	let first = byte_chunk_from_hex("0a0b")?
@@ -7,4 +10,9 @@ pub fn main() -> Result<(), String> effects [net, stdio]
 	net::write_chunks(stream, chunks)
 	stdio::println("written")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

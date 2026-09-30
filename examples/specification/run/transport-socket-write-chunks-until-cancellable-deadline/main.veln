@@ -1,3 +1,6 @@
+use fixture_effects
+use fake_effects
+
 # Cancellable deadline-aware socket chunk-list write reports deadline expiry as a value.
 fn write_outcome_text(outcome: StreamWriteOutcome) -> String
 	match outcome
@@ -7,7 +10,7 @@ fn write_outcome_text(outcome: StreamWriteOutcome) -> String
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, time, stdio]
+fn fixture_body() -> Result<(), String> effects [net, time, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let stream = net::accept(listener)
 	let first = byte_chunk_from_hex("0a0b")?
@@ -17,4 +20,9 @@ pub fn main() -> Result<(), String> effects [net, time, stdio]
 	let token = time::cancel_token()
 	stdio::println(write_outcome_text(net::write_chunks_until_cancellable(stream, chunks, deadline, token)))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

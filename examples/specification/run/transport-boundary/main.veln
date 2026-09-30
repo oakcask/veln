@@ -1,9 +1,12 @@
+use fixture_effects
+use fake_effects
+
 # Transport-boundary calls expose host-fed chunks, outgoing chunks, and timeouts.
 fn receive_host_chunk() -> ByteChunk effects [net]
 	net::receive_chunk()
 end
 
-pub fn main() -> Result<(), String> effects [net, time, stdio]
+fn fixture_body() -> Result<(), String> effects [net, time, stdio]
 	let incoming = receive_host_chunk()
 	let outgoing = byte_chunk_from_hex("0a0b")?
 	let deadline = time::deadline_after_ms(0)
@@ -15,4 +18,9 @@ pub fn main() -> Result<(), String> effects [net, time, stdio]
 	stdio::println("timeout")
 	stdio::println("deadline")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

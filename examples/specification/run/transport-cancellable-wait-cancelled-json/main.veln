@@ -1,8 +1,16 @@
+use fixture_effects
+use fake_effects
+
 # Cancellable wait cancellation remains transport runtime blame.
-pub fn main() -> Result<(), String> effects [time, stdio]
+fn fixture_body() -> Result<(), String> effects [time, stdio]
 	let deadline: Deadline = time::deadline_after_ms(5)
 	let token: CancelToken = time::cancel_token()
 	time::wait_until_cancellable(deadline, token)
 	stdio::println("unreachable")
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Production loopback deadline-aware lifecycle keeps handlers on ordinary values.
 use stdio
 
@@ -144,7 +146,7 @@ fn empty_summary() -> { streams : Int, chunks : Int, ended : Int, writes : Int, 
 	{ streams: 0, chunks: 0, ended: 0, writes: 0, end_actions: 0, clean_end: false }
 end
 
-pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, time, concurrency, stdio]
 	let listener = net::listen("127.0.0.1:0")
 	let summary = drain_listener(listener, empty_summary())?
 	stdio::print("streams ")
@@ -160,4 +162,9 @@ pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
 	stdio::print(" clean-end ")
 	stdio::println(bool_text(summary.clean_end))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

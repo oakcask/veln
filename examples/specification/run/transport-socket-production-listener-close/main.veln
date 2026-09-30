@@ -1,7 +1,9 @@
+use fixture_effects
+use fake_effects
 # Production listener close releases the listener without closing accepted streams.
 use stdio
 
-pub fn main() -> NetStream effects [net, stdio]
+fn fixture_body() -> NetStream effects [net, stdio]
 	let listener: NetListener = net::listen("127.0.0.1:0")
 	let stream: NetStream = net::accept(listener)
 	net::close_listener(listener)
@@ -10,4 +12,9 @@ pub fn main() -> NetStream effects [net, stdio]
 	net::close_stream(stream)
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
 	net::accept(listener)
+end
+
+pub fn main() -> NetStream effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

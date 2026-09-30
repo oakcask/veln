@@ -1,7 +1,9 @@
+use fixture_effects
+use fake_effects
 # Production loopback connect returns an owned stream with endpoint text.
 use stdio
 
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let stream = net::connect("127.0.0.1:0")
 	let local = net::stream_local_addr(stream)
 	let peer = net::stream_peer_addr(stream)
@@ -16,4 +18,9 @@ pub fn main() -> Result<(), String> effects [net, stdio]
 	stdio::print(" bytes ")
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

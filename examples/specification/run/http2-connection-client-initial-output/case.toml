@@ -1,13 +1,10 @@
-command = ["run", "--json", "main", "main.veln"]
+command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 0
 
 [requires]
 jdk = true
 
 [env]
-VELN_NET_RUNTIME = "production-loopback"
-VELN_NET_PRODUCTION_READS_HEX = "000006040000000000000500008000"
-VELN_NET_PRODUCTION_CLIENT_WRITES = "client-writes.hex"
 
 [stdout]
 format = "json"

@@ -46,16 +46,15 @@ peer endpoint text through `net::stream_local_addr` and
 resources, or change ownership.
 
 A listener accepts streams until clean listener end or a host failure.
-`net::read_chunk_or_end` returns a chunk or clean end. The synthetic transport
-returns configured chunks separately; host socket reads follow the bytes
-available from the socket and do not preserve peer write boundaries. A write
+`net::read_chunk_or_end` returns a chunk or clean end. Injected network handlers can return separate chunks; default host socket
+reads follow the bytes available from the socket and do not preserve peer
+write boundaries. A write
 preserves list order. Stream close and listener close are explicit ownership
 operations. Read shutdown preserves write ownership and makes later optional
 reads clean end; write shutdown makes later writes transport failures. A
 closed handle remains invalid, and operations through it return transport
-failures without reopening the resource. Loopback and external transports use
-the same source-visible result shapes; external transport binds and connects
-real host sockets and has no synthetic fallback.
+failures without reopening the resource. Loopback and remote connections use the same source-visible result shapes.
+The default transport binds and connects real host sockets.
 
 Host listen, connect, accept, read, write, shutdown, stream-close, and
 listener-close failures expose one structured transport payload. It retains
@@ -73,7 +72,7 @@ closure to its caller. `stream_adapter_accept_loop` accepts, drains, writes,
 closes each stream once, and closes the listener after clean end.
 `stream_adapter_drain_actions_until_cancellable` uses the supplied `Deadline`
 and `CancelToken`; deadline and cancellation are ordinary outcome values,
-while host writes remain transport failures. A forced read failure stops the
+while host writes remain transport failures. A read failure stops the
 cycle before later routing or cleanup actions.
 
 For a concurrent stream service that drains in acceptance order, retain each

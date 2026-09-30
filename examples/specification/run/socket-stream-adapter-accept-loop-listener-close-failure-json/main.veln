@@ -1,3 +1,6 @@
+use fixture_effects
+use fake_effects
+
 # Adapter accept-loop forced listener close failures stay runtime transport failures.
 fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
 	match input
@@ -6,8 +9,13 @@ fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, concurrency]
+fn fixture_body() -> Result<(), String> effects [net, concurrency]
 	let listener: NetListener = net::listen("127.0.0.1:0")
 	stream_adapter_accept_loop(listener, handle_input)
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

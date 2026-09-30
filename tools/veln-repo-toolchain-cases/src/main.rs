@@ -87,7 +87,7 @@ fn check_source_surface(repo_root: &Path) -> Result<CheckReport, String> {
             continue;
         }
         case_count += 1;
-        sources.extend(selected_sources(&manifest, &case_dir)?);
+        sources.extend(selected_sources(&manifest, &case_dir, &repo_root)?);
     }
 
     if sources.is_empty() {
@@ -123,7 +123,11 @@ fn check_source_surface(repo_root: &Path) -> Result<CheckReport, String> {
     })
 }
 
-fn selected_sources(manifest: &CaseManifest, case_dir: &Path) -> Result<Vec<PathBuf>, String> {
+fn selected_sources(
+    manifest: &CaseManifest,
+    case_dir: &Path,
+    repo_root: &Path,
+) -> Result<Vec<PathBuf>, String> {
     let command_root = manifest.command_root(case_dir);
     let package_root = veln_project::select_package_root(&command_root).map_err(|error| {
         format!(
@@ -131,18 +135,36 @@ fn selected_sources(manifest: &CaseManifest, case_dir: &Path) -> Result<Vec<Path
             case_dir.display()
         )
     })?;
-    let inputs = manifest.selected_source_inputs(case_dir, &package_root);
+    let mut inputs = manifest.selected_source_inputs(case_dir, &package_root);
+    for input in &mut inputs {
+        if !input.is_absolute() {
+            *input = package_root.join(&*input);
+        }
+    }
+    // The execution harness materializes this shared source in the copied case.
+    // Check its repository source while discovering the ordinary case inputs.
+    let shared_fake = package_root.join("fake_effects.veln");
+    let has_shared_fake = case_dir.join("fixture_effects.veln").is_file()
+        && !shared_fake.exists()
+        && inputs.contains(&shared_fake);
+    if has_shared_fake {
+        inputs.retain(|input| input != &shared_fake);
+    }
     let project = Project::discover(package_root, &inputs).map_err(|error| {
             format!(
                 "{}: discover accepted toolchain sources before checking the executable grammar: {error}",
                 case_dir.display()
             )
         })?;
-    Ok(project
+    let mut sources: Vec<_> = project
         .files
         .into_iter()
         .map(|source| project.root.join(source.path().as_str()))
-        .collect())
+        .collect();
+    if has_shared_fake {
+        sources.push(repo_root.join("examples/test-support/fake_effects.veln"));
+    }
+    Ok(sources)
 }
 
 fn repository_relative(path: &Path) -> bool {
@@ -166,5 +188,39 @@ mod tests {
         )));
         assert!(!repository_relative(Path::new("../outside")));
         assert!(!repository_relative(Path::new("/outside")));
+    }
+
+    #[test]
+    fn injected_fixture_checks_shared_fake_and_local_sources() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .unwrap();
+        let case_dir = repo_root.join(
+            "examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel",
+        );
+        let manifest_path = case_dir.join("case.toml");
+        let text = fs::read_to_string(&manifest_path).unwrap();
+        let manifest =
+            CaseManifest::parse_for_accepted_source_selection(&manifest_path, &text).unwrap();
+        let sources = selected_sources(&manifest, &case_dir, &repo_root).unwrap();
+        assert_eq!(sources.len(), 3);
+        assert!(sources.contains(&case_dir.join("main.veln")));
+        assert!(sources.contains(&case_dir.join("fixture_effects.veln")));
+        assert!(sources.contains(&repo_root.join("examples/test-support/fake_effects.veln")));
+    }
+
+    #[test]
+    fn unmarked_case_does_not_replace_missing_source_with_shared_fake() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .unwrap();
+        let manifest = CaseManifest::parse_for_accepted_source_selection(
+            Path::new("case.toml"),
+            "command = [\"check\", \"fake_effects.veln\"]\n",
+        )
+        .unwrap();
+        assert!(selected_sources(&manifest, &repo_root, &repo_root).is_err());
     }
 }

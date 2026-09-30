@@ -302,8 +302,12 @@
         Object call(Object... args);
     }
 
-    private static final ThreadLocal<java.util.List<HandlerFrame>> HANDLERS =
-        new ThreadLocal<java.util.List<HandlerFrame>>() {
+    private static final InheritableThreadLocal<java.util.List<HandlerFrame>> HANDLERS =
+        new InheritableThreadLocal<java.util.List<HandlerFrame>>() {
+            @Override
+            protected java.util.List<HandlerFrame> childValue(java.util.List<HandlerFrame> parent) {
+                return new java.util.ArrayList<HandlerFrame>(parent);
+            }
             @Override
             protected java.util.List<HandlerFrame> initialValue() {
                 return new java.util.ArrayList<HandlerFrame>();
@@ -337,23 +341,27 @@
         return UNIT;
     }
 
-    public static Object perform(String effect, String operation, Object[] args) {
+    private static HandlerFrame findHandler(String effect) {
         java.util.List<HandlerFrame> stack = HANDLERS.get();
-        for (int index = stack.size() - 1; index >= 0; index -= 1) {
-            HandlerFrame frame = stack.get(index);
-            if (!frame.effect.equals(effect)) {
-                continue;
-            }
-            Fn provider = frame.providers.get(operation);
-            if (provider == null) {
-                break;
-            }
-            Object[] providerArgs = new Object[frame.context.length + args.length];
-            System.arraycopy(frame.context, 0, providerArgs, 0, frame.context.length);
-            System.arraycopy(args, 0, providerArgs, frame.context.length, args.length);
-            return provider.call(providerArgs);
+        for (int index = stack.size() - 1; index >= 0; index--) {
+            if (stack.get(index).effect.equals(effect)) return stack.get(index);
         }
-        throw new IllegalStateException("unhandled effect operation " + effect + "::" + operation);
+        return null;
+    }
+
+    private static Object invokeHandler(HandlerFrame frame, String operation, Object[] args) {
+        Fn provider = frame.providers.get(operation);
+        if (provider == null) throw new IllegalStateException("missing effect operation " + operation);
+        Object[] providerArgs = new Object[frame.context.length + args.length];
+        System.arraycopy(frame.context, 0, providerArgs, 0, frame.context.length);
+        System.arraycopy(args, 0, providerArgs, frame.context.length, args.length);
+        return provider.call(providerArgs);
+    }
+
+    public static Object perform(String effect, String operation, Object[] args) {
+        HandlerFrame frame = findHandler(effect);
+        if (frame == null) throw new IllegalStateException("unhandled effect operation " + effect + "::" + operation);
+        return invokeHandler(frame, operation, args);
     }
     public static Result ok(Object value) {
         return Result.ok(value);

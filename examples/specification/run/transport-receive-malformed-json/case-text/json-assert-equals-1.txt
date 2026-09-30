@@ -1,1 +1,1 @@
-transport receive failed: malformed VELN_NET_CHUNK_HEX
+transport receive failed: malformed injected receive chunk

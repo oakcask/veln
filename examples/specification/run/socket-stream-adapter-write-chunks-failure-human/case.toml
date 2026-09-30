@@ -1,14 +1,10 @@
-command = ["run", "main", "main.veln"]
+command = ["run", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 1
 
 [requires]
 jdk = true
 
 [env]
-VELN_NET_RUNTIME = "production-loopback"
-VELN_NET_PRODUCTION_READS_HEX = "0102"
-VELN_NET_WRITE_FAILED = "1"
-VELN_NET_EVENTS = "net-events.log"
 
 [stdout]
 format = "empty"

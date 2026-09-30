@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Cancellation cleanup closes the adapter-owned stream without failing.
 use stdio
 
@@ -113,7 +115,7 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net, time, concurrency, stdio]
 	let routed = lifecycle_result("127.0.0.1:0")?
 	stdio::print(routed.outcome)
 	stdio::print(" actions ")
@@ -127,4 +129,9 @@ pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
 	stdio::print(" cleanup ")
 	stdio::println(int_to_string(cleanup_count(routed.actions)))
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

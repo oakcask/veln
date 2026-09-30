@@ -25,6 +25,8 @@ static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 mod basic_backend;
 mod collections_and_tail_recursion;
 mod concurrency;
+mod effect_boundary_policy;
+mod effect_injection;
 mod harness_constants;
 mod java_helpers_and_mapping;
 mod result_diagnostic_harness;

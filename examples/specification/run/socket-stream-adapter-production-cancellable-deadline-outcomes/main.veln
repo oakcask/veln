@@ -1,3 +1,5 @@
+use fixture_effects
+use fake_effects
 # Production loopback cancellable deadline outcomes remain adapter decisions.
 use stdio
 
@@ -74,7 +76,7 @@ fn read_cancel_from_stream(listener: NetListener, stream: NetStream, deadline: D
 	Ok(close_and_return(listener, stream, read_outcome_text(net::read_chunk_until_cancellable(stream, deadline, token))))
 end
 
-pub fn main() -> Result<(), String> effects [net, time, stdio]
+fn fixture_body() -> Result<(), String> effects [net, time, stdio]
 	stdio::print("accept ")
 	stdio::print(accept_deadline_decision())
 	stdio::print(",")
@@ -84,4 +86,9 @@ pub fn main() -> Result<(), String> effects [net, time, stdio]
 	stdio::print(",")
 	stdio::println(read_cancel_decision()?)
 	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+	let state = fixture_effects::create_fixture()
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end
