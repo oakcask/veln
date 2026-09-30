@@ -94,7 +94,50 @@ pub struct IrFunction {
     pub return_type: CoreType,
     pub effects: Vec<String>,
     pub contracts: Vec<IrContract>,
-    pub body: Vec<IrStmt>,
+    pub body: IrCleanupRegion,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IrCleanupRegion {
+    pub statements: Vec<IrStmt>,
+}
+
+impl IrCleanupRegion {
+    pub fn new(statements: Vec<IrStmt>) -> Self {
+        Self { statements }
+    }
+}
+
+impl std::ops::Deref for IrCleanupRegion {
+    type Target = [IrStmt];
+
+    fn deref(&self) -> &Self::Target {
+        &self.statements
+    }
+}
+
+impl std::ops::DerefMut for IrCleanupRegion {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.statements
+    }
+}
+
+impl<'a> IntoIterator for &'a IrCleanupRegion {
+    type Item = &'a IrStmt;
+    type IntoIter = std::slice::Iter<'a, IrStmt>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.statements.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut IrCleanupRegion {
+    type Item = &'a mut IrStmt;
+    type IntoIter = std::slice::IterMut<'a, IrStmt>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.statements.iter_mut()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -132,6 +175,19 @@ pub enum IrStmtKind {
     Return {
         value: IrExpr,
     },
+    Defer(IrDeferredBlock),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IrDeferredBlock {
+    pub captures: Vec<IrDeferredCapture>,
+    pub body: Vec<IrStmt>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IrDeferredCapture {
+    pub name: String,
+    pub ty: CoreType,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -190,6 +246,9 @@ pub enum IrExprKind {
     Match {
         scrutinee: Box<IrExpr>,
         arms: Vec<IrMatchArm>,
+    },
+    CleanupRegion {
+        region: IrCleanupRegion,
     },
     Prefix {
         op: PrefixOp,

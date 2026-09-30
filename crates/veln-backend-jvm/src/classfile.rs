@@ -4,10 +4,10 @@ use std::rc::Rc;
 
 use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
-    ContractObligationStatus, IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind,
-    IrFunction, IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField, IrPatternKind,
-    IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt, IrStmtKind,
-    TypedProgram,
+    ContractObligationStatus, IrCallTarget, IrContract, IrDeferredBlock, IrDictEntry, IrExpr,
+    IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField,
+    IrPatternKind, IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt,
+    IrStmtKind, TypedProgram,
 };
 use veln_literals::parse_integer_literal;
 
@@ -43,6 +43,25 @@ use method_code::*;
 const PROGRAM_MAJOR_VERSION: u16 = 49;
 const JAVA_LANG_OBJECT: &str = "java/lang/Object";
 const VELN_ENTRY: &str = "VelnEntry";
+
+#[cfg(test)]
+pub(crate) fn local_binding_retention(program: &TypedProgram, function_name: &str) -> usize {
+    let options = SanitizedOptions {
+        program_class: "VelnProgram".to_string(),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    let emitter = ClassfileEmitter::new(program, options);
+    let function = program
+        .functions
+        .iter()
+        .find(|function| function.name == function_name)
+        .expect("function for local binding retention");
+    let class = ClassBuilder::new(&emitter.options.program_class);
+    let mut code = MethodCode::new(Rc::clone(&class.constant_pool));
+    let mut function_emitter = FunctionBytecodeEmitter::new(&emitter, function);
+    function_emitter.emit(&mut code);
+    function_emitter.locals.peak_retained_entry_count()
+}
 
 pub(crate) struct ClassfileEmitter<'a> {
     program: &'a TypedProgram,

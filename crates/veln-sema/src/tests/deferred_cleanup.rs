@@ -577,6 +577,99 @@ fn cleanup_regions_block_executable_lowering_until_runtime_support_exists() {
 }
 
 #[test]
+fn cleanup_foundation_is_preserved_in_checked_core_behind_the_readiness_gate() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Int\n",
+            "  let value = 1\n",
+            "  defer\n",
+            "    let copy = value\n",
+            "    ()\n",
+            "  end\n",
+            "  let value = 2\n",
+            "  let result = begin\n",
+            "    value\n",
+            "  end\n",
+            "  result\n",
+            "end\n",
+            "test cleanup() -> ()\n",
+            "  defer\n",
+            "    ()\n",
+            "  end\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(lowered.ir.is_none());
+    let core = lowered.core.expect("checked core should be available");
+    assert!(matches!(core.readiness, CoreReadiness::Blocked(_)));
+
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main core function");
+    let CoreStmtKind::Defer(block) = &main.body[1].kind else {
+        panic!("function body should retain deferred registration");
+    };
+    assert!(matches!(
+        block.captures.as_slice(),
+        [capture] if capture.name == "value" && capture.ty == CoreType::int()
+    ));
+    let CoreStmtKind::Let { expr, .. } = &main.body[3].kind else {
+        panic!("begin value binding should lower as a let");
+    };
+    assert!(matches!(expr.kind, CoreExprKind::CleanupRegion { .. }));
+
+    let cleanup_test = core
+        .functions
+        .iter()
+        .find(|function| function.name == "cleanup")
+        .expect("test core function");
+    assert!(matches!(cleanup_test.body[0].kind, CoreStmtKind::Defer(_)));
+}
+
+#[test]
+fn deferred_capture_uses_the_refined_local_binding_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn consume(value: Int) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn cleanup(value) -> ()\n",
+            "  defer\n",
+            "    consume(value)\n",
+            "  end\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be available");
+    let cleanup = core
+        .functions
+        .iter()
+        .find(|function| function.name == "cleanup")
+        .expect("cleanup core function");
+    let CoreStmtKind::Defer(block) = &cleanup.body[0].kind else {
+        panic!("cleanup body should retain deferred registration");
+    };
+    assert!(matches!(
+        block.captures.as_slice(),
+        [capture] if capture.name == "value" && capture.ty == CoreType::int()
+    ));
+}
+
+#[test]
 fn nested_cleanup_binding_environment_retention_grows_linearly() {
     fn source_with_depth(depth: usize) -> String {
         let mut source = String::from("fn identity(value)\n");

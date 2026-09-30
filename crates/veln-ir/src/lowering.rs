@@ -5,9 +5,9 @@ use veln_core::{
 };
 
 use crate::{
-    IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider,
-    IrMatchArm, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt,
-    IrStmtKind, TypedProgram,
+    IrCallTarget, IrCleanupRegion, IrContract, IrDeferredBlock, IrDeferredCapture, IrDictEntry,
+    IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm, IrParam, IrPattern,
+    IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,11 +64,13 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
                 span: contract.span.clone(),
             })
             .collect(),
-        body: function
-            .body
-            .iter()
-            .map(lower_stmt)
-            .collect::<Result<Vec<_>, _>>()?,
+        body: IrCleanupRegion::new(
+            function
+                .body
+                .iter()
+                .map(lower_stmt)
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
     })
 }
 
@@ -87,6 +89,21 @@ fn lower_stmt(stmt: &CoreStmt) -> Result<IrStmt, IrLowerError> {
             CoreStmtKind::Return { expr } => IrStmtKind::Return {
                 value: lower_expr(expr)?,
             },
+            CoreStmtKind::Defer(block) => IrStmtKind::Defer(IrDeferredBlock {
+                captures: block
+                    .captures
+                    .iter()
+                    .map(|capture| IrDeferredCapture {
+                        name: capture.name.clone(),
+                        ty: capture.ty.clone(),
+                    })
+                    .collect(),
+                body: block
+                    .body
+                    .iter()
+                    .map(lower_stmt)
+                    .collect::<Result<Vec<_>, _>>()?,
+            }),
         },
     })
 }
@@ -238,6 +255,14 @@ fn lower_collection_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerE
         CoreExprKind::Dict(entries) => lower_dict_expr(entries).map(Some),
         CoreExprKind::List(items) => Ok(Some(IrExprKind::List(lower_exprs(items)?))),
         CoreExprKind::Match { scrutinee, arms } => lower_match_expr(scrutinee, arms).map(Some),
+        CoreExprKind::CleanupRegion { region } => Ok(Some(IrExprKind::CleanupRegion {
+            region: IrCleanupRegion::new(
+                region
+                    .iter()
+                    .map(lower_stmt)
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+        })),
         _ => Ok(None),
     }
 }
@@ -367,19 +392,39 @@ fn lower_call_target(
     node_id: NodeId,
     target: &CoreCallTarget,
 ) -> Result<IrCallTarget, IrLowerError> {
+    if let Some(target) = lower_schema_call_target(target) {
+        return Ok(target);
+    }
+    lower_non_schema_call_target(node_id, target)
+}
+
+fn lower_schema_call_target(target: &CoreCallTarget) -> Option<IrCallTarget> {
     match target {
-        CoreCallTarget::Function(name) => Ok(IrCallTarget::Function(name.clone())),
-        CoreCallTarget::SchemaDecode(name) => Ok(IrCallTarget::SchemaDecode(name.clone())),
-        CoreCallTarget::SchemaDecodeStep(name) => Ok(IrCallTarget::SchemaDecodeStep(name.clone())),
+        CoreCallTarget::SchemaDecode(name) => Some(IrCallTarget::SchemaDecode(name.clone())),
+        CoreCallTarget::SchemaDecodeStep(name) => {
+            Some(IrCallTarget::SchemaDecodeStep(name.clone()))
+        }
         CoreCallTarget::SchemaNeutralDecode(name) => {
-            Ok(IrCallTarget::SchemaNeutralDecode(name.clone()))
+            Some(IrCallTarget::SchemaNeutralDecode(name.clone()))
         }
         CoreCallTarget::SchemaNeutralEncode(name) => {
-            Ok(IrCallTarget::SchemaNeutralEncode(name.clone()))
+            Some(IrCallTarget::SchemaNeutralEncode(name.clone()))
         }
-        CoreCallTarget::SchemaEncode(name) => Ok(IrCallTarget::SchemaEncode(name.clone())),
-        CoreCallTarget::SchemaEncodeStep(name) => Ok(IrCallTarget::SchemaEncodeStep(name.clone())),
-        CoreCallTarget::SchemaValidate(name) => Ok(IrCallTarget::SchemaValidate(name.clone())),
+        CoreCallTarget::SchemaEncode(name) => Some(IrCallTarget::SchemaEncode(name.clone())),
+        CoreCallTarget::SchemaEncodeStep(name) => {
+            Some(IrCallTarget::SchemaEncodeStep(name.clone()))
+        }
+        CoreCallTarget::SchemaValidate(name) => Some(IrCallTarget::SchemaValidate(name.clone())),
+        _ => None,
+    }
+}
+
+fn lower_non_schema_call_target(
+    node_id: NodeId,
+    target: &CoreCallTarget,
+) -> Result<IrCallTarget, IrLowerError> {
+    match target {
+        CoreCallTarget::Function(name) => Ok(IrCallTarget::Function(name.clone())),
         CoreCallTarget::StdioBuiltin(name) => Ok(IrCallTarget::StdioBuiltin(name.clone())),
         CoreCallTarget::ConcurrencyBuiltin(name) => {
             Ok(IrCallTarget::ConcurrencyBuiltin(name.clone()))
@@ -393,6 +438,15 @@ fn lower_call_target(
             node_id,
             symbol: symbol.clone(),
         }),
+        CoreCallTarget::SchemaDecode(_)
+        | CoreCallTarget::SchemaDecodeStep(_)
+        | CoreCallTarget::SchemaNeutralDecode(_)
+        | CoreCallTarget::SchemaNeutralEncode(_)
+        | CoreCallTarget::SchemaEncode(_)
+        | CoreCallTarget::SchemaEncodeStep(_)
+        | CoreCallTarget::SchemaValidate(_) => {
+            unreachable!("schema call targets are lowered before this fallback")
+        }
     }
 }
 

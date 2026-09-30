@@ -5,8 +5,17 @@ pub(crate) fn classify_tail_recursion(function: &IrFunction) -> TailRecursionEli
         return TailRecursionEligibility::RuntimeReturnContract;
     }
     let mut facts = TailRecursionFacts::default();
+    let region_has_cleanup = function
+        .body
+        .iter()
+        .any(|stmt| matches!(stmt.kind, IrStmtKind::Defer(_)));
     for stmt in &function.body {
-        scan_stmt_tail_recursion(stmt, &function.name, &mut facts);
+        match &stmt.kind {
+            IrStmtKind::Return { value } => {
+                scan_expr_tail_recursion(value, &function.name, !region_has_cleanup, &mut facts);
+            }
+            _ => scan_stmt_tail_recursion(stmt, &function.name, &mut facts),
+        }
     }
     if facts.has_indirect_value_call {
         return TailRecursionEligibility::IndirectValueCall;
@@ -43,6 +52,11 @@ fn scan_stmt_tail_recursion(stmt: &IrStmt, function: &str, facts: &mut TailRecur
             scan_expr_tail_recursion(value, function, false, facts);
         }
         IrStmtKind::Return { value } => scan_expr_tail_recursion(value, function, true, facts),
+        IrStmtKind::Defer(block) => {
+            for stmt in &block.body {
+                scan_stmt_tail_recursion(stmt, function, facts);
+            }
+        }
     }
 }
 
@@ -120,6 +134,22 @@ fn scan_expr_tail_recursion(
         IrExprKind::Binary { left, right, .. } => {
             scan_expr_tail_recursion(left, function, false, facts);
             scan_expr_tail_recursion(right, function, false, facts);
+        }
+        IrExprKind::CleanupRegion { region } => {
+            for stmt in region {
+                match &stmt.kind {
+                    IrStmtKind::Let { value, .. }
+                    | IrStmtKind::Expr { value }
+                    | IrStmtKind::Return { value } => {
+                        scan_expr_tail_recursion(value, function, false, facts);
+                    }
+                    IrStmtKind::Defer(block) => {
+                        for stmt in &block.body {
+                            scan_stmt_tail_recursion(stmt, function, facts);
+                        }
+                    }
+                }
+            }
         }
         IrExprKind::Local(_)
         | IrExprKind::BoolLiteral(_)

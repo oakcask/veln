@@ -38,8 +38,51 @@ pub struct CoreFunction {
     pub return_type: CoreType,
     pub effects: Vec<String>,
     pub contracts: Vec<CoreContract>,
-    pub body: Vec<CoreStmt>,
+    pub body: CoreCleanupRegion,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreCleanupRegion {
+    pub statements: Vec<CoreStmt>,
+}
+
+impl CoreCleanupRegion {
+    pub fn new(statements: Vec<CoreStmt>) -> Self {
+        Self { statements }
+    }
+}
+
+impl std::ops::Deref for CoreCleanupRegion {
+    type Target = [CoreStmt];
+
+    fn deref(&self) -> &Self::Target {
+        &self.statements
+    }
+}
+
+impl std::ops::DerefMut for CoreCleanupRegion {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.statements
+    }
+}
+
+impl<'a> IntoIterator for &'a CoreCleanupRegion {
+    type Item = &'a CoreStmt;
+    type IntoIter = std::slice::Iter<'a, CoreStmt>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.statements.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut CoreCleanupRegion {
+    type Item = &'a mut CoreStmt;
+    type IntoIter = std::slice::IterMut<'a, CoreStmt>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.statements.iter_mut()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -85,6 +128,19 @@ pub enum CoreStmtKind {
     Return {
         expr: CoreExpr,
     },
+    Defer(CoreDeferredBlock),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreDeferredBlock {
+    pub captures: Vec<CoreDeferredCapture>,
+    pub body: Vec<CoreStmt>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreDeferredCapture {
+    pub name: String,
+    pub ty: CoreType,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -147,6 +203,9 @@ pub enum CoreExprKind {
     Match {
         scrutinee: Box<CoreExpr>,
         arms: Vec<CoreMatchArm>,
+    },
+    CleanupRegion {
+        region: CoreCleanupRegion,
     },
     Prefix {
         op: PrefixOp,

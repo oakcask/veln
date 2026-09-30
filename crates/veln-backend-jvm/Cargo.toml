@@ -10,6 +10,7 @@ veln-ir.workspace = true
 veln-literals.workspace = true
 
 [dev-dependencies]
+veln-core.workspace = true
 veln-sema.workspace = true
 veln-source.workspace = true
 veln-stdlib.workspace = true

@@ -144,11 +144,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     pub(super) fn emit_ensure_checks_for_result(&mut self, code: &mut MethodCode, result: u16) {
-        let previous = self
-            .function
-            .return_binding
-            .as_ref()
-            .map(|binding| (binding.clone(), self.locals.insert(binding.clone(), result)));
+        let locals_mark = self.locals.mark();
+        if let Some(binding) = &self.function.return_binding {
+            self.locals.insert(binding.clone(), result);
+        }
         for contract in self.function.contracts.iter().filter(|contract| {
             matches!(
                 contract.kind,
@@ -157,13 +156,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         }) {
             self.emit_contract_check(code, contract, ContractCheckPosition::Return);
         }
-        if let Some((binding, old)) = previous {
-            if let Some(old) = old {
-                self.locals.insert(binding, old);
-            } else {
-                self.locals.remove(&binding);
-            }
-        }
+        self.locals.rollback(locals_mark);
     }
 
     pub(super) fn bind_local(&mut self, name: &str) -> u16 {

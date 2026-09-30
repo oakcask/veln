@@ -264,6 +264,15 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
+        if let ExprKind::NamePath { segments, .. } = &callee.kind
+            && let [name] = segments.as_slice()
+            && let Some(index) = self
+                .bindings
+                .iter()
+                .rposition(|binding| binding.name == *name)
+        {
+            self.record_defer_capture(index);
+        }
         let signature = self.core_call_signature(callee, expected);
         if let Some(signature) = &signature {
             self.validate_call_arity(

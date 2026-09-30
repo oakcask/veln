@@ -21,9 +21,18 @@ blockers prevent execution.
 
 `begin` expressions and `defer` statements can pass parsing and static
 analysis, but they add the checked-core blocker
-`deferred_cleanup_runtime`. Typed IR and backend artifacts are unavailable for
-a reachable program containing either form because runtime registration and
-unwinding are not implemented.
+`deferred_cleanup_runtime`. Public commands therefore do not produce typed IR
+or backend artifacts for a reachable program containing either form.
+
+Behind this readiness gate, checked core and typed IR represent cleanup
+regions, deferred blocks, and registration-time snapshots of referenced local
+bindings. The JVM backend executes blocks that were reached and registered
+exactly once in reverse registration order when a region completes normally.
+It transfers a successful `begin` value only after that region's cleanup
+completes. This internal foundation is not a supported executable source
+feature. Public pipeline integration and cleanup for propagated `Err` values,
+contract or runtime failure, task cancellation, and cleanup failure remain
+unimplemented.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.

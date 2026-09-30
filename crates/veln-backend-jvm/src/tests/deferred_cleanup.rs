@@ -1,0 +1,139 @@
+use super::*;
+
+#[test]
+fn normal_completion_runs_registered_cleanup_once_in_reverse_order_with_snapshots() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  let captured = \"first\"\n",
+        "  defer\n",
+        "    stdio::println(captured)\n",
+        "  end\n",
+        "  let captured = \"shadowed\"\n",
+        "  defer\n",
+        "    stdio::println(\"second\")\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(\"third\")\n",
+        "  end\n",
+        "  stdio::println(\"body\")\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("deferred-cleanup-normal-order", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "body\nthird\nsecond\nfirst\n"
+    );
+}
+
+#[test]
+fn begin_cleanup_finishes_before_its_value_is_transferred() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  let value = begin\n",
+        "    defer\n",
+        "      stdio::println(\"cleanup\")\n",
+        "    end\n",
+        "    \"value\"\n",
+        "  end\n",
+        "  stdio::println(value)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("deferred-cleanup-begin-value", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "cleanup\nvalue\n");
+}
+
+#[test]
+fn acquisition_failure_before_registration_does_not_run_cleanup() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn acquire() -> Result<Int, String>\n",
+        "  Err(\"not acquired\")\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let resource = acquire()?\n",
+        "  defer\n",
+        "    stdio::println(int_to_string(resource))\n",
+        "  end\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-acquisition-failure",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("not acquired"));
+}
+
+#[test]
+fn sequential_cleanup_regions_reuse_jvm_local_slots() {
+    let mut source = String::from("pub fn main() -> ()\n");
+    for index in 0..128 {
+        source.push_str("  begin\n");
+        source.push_str(&format!("    let value_{index}: Int = {index}\n"));
+        source.push_str("    defer\n");
+        source.push_str(&format!("      let copy: Int = value_{index}\n"));
+        source.push_str("      ()\n");
+        source.push_str("    end\n");
+        source.push_str("    ()\n");
+        source.push_str("  end\n");
+    }
+    source.push_str("  ()\nend\n");
+
+    let ir = lower_deferred_cleanup_foundation_to_ir(&source);
+    generate_classfiles_with_entry(&ir, "main");
+}
+
+#[test]
+fn nested_cleanup_region_local_binding_retention_grows_linearly() {
+    fn retention_at_depth(depth: usize) -> usize {
+        let mut source = String::from("pub fn main() -> ()\n  defer\n    ()\n  end\n");
+        for level in 0..depth {
+            source.push_str(&"  ".repeat(level + 1));
+            source.push_str("begin\n");
+            source.push_str(&"  ".repeat(level + 2));
+            source.push_str(&format!("let value_{level}: Int = {level}\n"));
+        }
+        source.push_str(&"  ".repeat(depth + 1));
+        source.push_str("()\n");
+        for level in (0..depth).rev() {
+            source.push_str(&"  ".repeat(level + 1));
+            source.push_str("end\n");
+        }
+        source.push_str("end\n");
+
+        let ir = lower_deferred_cleanup_foundation_to_ir(&source);
+        crate::classfile::local_binding_retention(&ir, "main")
+    }
+
+    assert_eq!(retention_at_depth(16), 32);
+    assert_eq!(retention_at_depth(32), 64);
+    assert_eq!(retention_at_depth(64), 128);
+}

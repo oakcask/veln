@@ -56,15 +56,18 @@ impl<'a> CoreLowerer<'a> {
                 else_branch,
                 expected,
             ),
-            ExprKind::Begin { .. } => {
+            ExprKind::Begin { body, .. } => {
                 self.blockers.push(CoreBlocker::UnsupportedExpression {
                     node_id: expr.node_id,
                     reason: "deferred_cleanup_runtime".to_string(),
                 });
+                let (body, ty) = self.lower_scoped_body(body, expected);
                 self.core_expr(
                     expr,
-                    expected.cloned().unwrap_or(CoreType::Unknown),
-                    CoreExprKind::Missing,
+                    ty,
+                    CoreExprKind::CleanupRegion {
+                        region: CoreCleanupRegion::new(body),
+                    },
                 )
             }
             ExprKind::Prefix { op, expr: inner } => self.lower_prefix(expr, *op, inner, expected),
@@ -402,7 +405,9 @@ impl<'a> CoreLowerer<'a> {
             .iter()
             .rposition(|binding| binding.name == name)
         {
-            return self.lower_local_name(expr, name, index, expected);
+            let local = self.lower_local_name(expr, name, index, expected);
+            self.record_defer_capture(index);
+            return local;
         }
 
         match self

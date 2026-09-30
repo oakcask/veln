@@ -14,7 +14,7 @@ fn blocked_readiness_returns_first_blocker_before_lowering_body() {
     };
     let program = CheckedProgram {
         functions: vec![CoreFunction {
-            body: vec![core_stmt(
+            body: CoreCleanupRegion::new(vec![core_stmt(
                 &surface.body[2],
                 CoreStmtKind::Return {
                     expr: core_expr(
@@ -26,7 +26,7 @@ fn blocked_readiness_returns_first_blocker_before_lowering_body() {
                         },
                     ),
                 },
-            )],
+            )]),
             ..function_shell(surface)
         }],
         effects: Vec::new(),
@@ -46,7 +46,7 @@ fn complete_program_reports_unresolved_call_target_with_call_node() {
     let call = expr_line(&surface.body[0]);
     let (callee, _args) = call_parts(call);
     let program = complete_program(vec![CoreFunction {
-        body: vec![core_stmt(
+        body: CoreCleanupRegion::new(vec![core_stmt(
             &surface.body[0],
             CoreStmtKind::Return {
                 expr: core_expr(
@@ -58,7 +58,7 @@ fn complete_program_reports_unresolved_call_target_with_call_node() {
                     },
                 ),
             },
-        )],
+        )]),
         ..function_shell(surface)
     }]);
 
@@ -93,12 +93,12 @@ fn complete_program_rejects_missing_and_hole_expressions() {
         ),
     ] {
         let program = complete_program(vec![CoreFunction {
-            body: vec![core_stmt(
+            body: CoreCleanupRegion::new(vec![core_stmt(
                 &surface.body[0],
                 CoreStmtKind::Return {
                     expr: core_expr(expr, CoreType::Unknown, kind),
                 },
-            )],
+            )]),
             ..function_shell(surface)
         }]);
 
@@ -120,7 +120,7 @@ fn complete_program_reports_missing_expression_from_nested_record_field() {
     let ready = named_field(fields, "ready");
     let value = named_field(fields, "value");
     let program = complete_program(vec![CoreFunction {
-        body: vec![core_stmt(
+        body: CoreCleanupRegion::new(vec![core_stmt(
             return_line,
             CoreStmtKind::Return {
                 expr: core_expr(
@@ -149,7 +149,7 @@ fn complete_program_reports_missing_expression_from_nested_record_field() {
                     ]),
                 ),
             },
-        )],
+        )]),
         ..function_shell(surface)
     }]);
 
@@ -170,7 +170,7 @@ fn complete_program_reports_unresolved_call_target_from_nested_call_argument() {
     let (_outer_callee, outer_args) = call_parts(outer_call);
     let inner_call = &outer_args[0];
     let program = complete_program(vec![CoreFunction {
-        body: vec![core_stmt(
+        body: CoreCleanupRegion::new(vec![core_stmt(
             return_line,
             CoreStmtKind::Return {
                 expr: core_expr(
@@ -189,7 +189,7 @@ fn complete_program_reports_unresolved_call_target_from_nested_call_argument() {
                     },
                 ),
             },
-        )],
+        )]),
         ..function_shell(surface)
     }]);
 

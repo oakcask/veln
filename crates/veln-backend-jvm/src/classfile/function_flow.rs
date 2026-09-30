@@ -3,11 +3,80 @@ use super::*;
 pub(super) struct FunctionBytecodeEmitter<'a, 'program> {
     pub(super) program: &'a ClassfileEmitter<'program>,
     pub(super) function: &'a IrFunction,
-    pub(super) locals: BTreeMap<String, u16>,
+    pub(super) locals: LocalBindings,
     pub(super) next_local: u16,
     pub(super) max_local: u16,
     pub(super) tail_loop_start: Option<usize>,
     pub(super) active_handler_frames: usize,
+}
+
+pub(super) struct LocalBindings {
+    values: BTreeMap<String, u16>,
+    changes: Vec<LocalBindingChange>,
+    #[cfg(test)]
+    peak_retained_entry_count: usize,
+}
+
+struct LocalBindingChange {
+    name: String,
+    previous: Option<u16>,
+}
+
+impl LocalBindings {
+    fn new(values: BTreeMap<String, u16>) -> Self {
+        #[cfg(test)]
+        let peak_retained_entry_count = values.len();
+        Self {
+            values,
+            changes: Vec::new(),
+            #[cfg(test)]
+            peak_retained_entry_count,
+        }
+    }
+
+    pub(super) fn mark(&self) -> usize {
+        self.changes.len()
+    }
+
+    pub(super) fn insert(&mut self, name: String, slot: u16) {
+        let previous = self.values.insert(name.clone(), slot);
+        self.changes.push(LocalBindingChange { name, previous });
+        #[cfg(test)]
+        {
+            self.peak_retained_entry_count = self
+                .peak_retained_entry_count
+                .max(self.values.len() + self.changes.len());
+        }
+    }
+
+    pub(super) fn get(&self, name: &str) -> Option<&u16> {
+        self.values.get(name)
+    }
+
+    pub(super) fn contains_key(&self, name: &str) -> bool {
+        self.values.contains_key(name)
+    }
+
+    pub(super) fn rollback(&mut self, mark: usize) {
+        while self.changes.len() > mark {
+            let change = self.changes.pop().expect("local binding change");
+            if let Some(previous) = change.previous {
+                self.values.insert(change.name, previous);
+            } else {
+                self.values.remove(&change.name);
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn peak_retained_entry_count(&self) -> usize {
+        self.peak_retained_entry_count
+    }
+}
+
+struct RegisteredCleanup<'a> {
+    block: &'a IrDeferredBlock,
+    captures: BTreeMap<String, u16>,
 }
 
 #[derive(Clone, Copy)]
@@ -34,7 +103,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         Self {
             program,
             function,
-            locals,
+            locals: LocalBindings::new(locals),
             next_local: function.params.len() as u16,
             max_local: function.params.len() as u16,
             tail_loop_start: None,
@@ -57,13 +126,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         {
             self.emit_contract_check(code, contract, ContractCheckPosition::Entry);
         }
-        for stmt in &self.function.body {
-            self.emit_stmt(code, stmt);
-        }
-        if !matches!(
-            self.function.body.last().map(|stmt| &stmt.kind),
-            Some(IrStmtKind::Return { .. })
-        ) {
+        if !self.emit_region(code, &self.function.body, true) {
             code.getstatic(
                 &self.program.options.runtime_class,
                 "UNIT",
@@ -97,7 +160,90 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 }
                 code.op(0xb0);
             }
+            IrStmtKind::Defer(_) => {
+                unreachable!("defer registration is emitted by its cleanup region")
+            }
         }
+    }
+
+    fn emit_region(&mut self, code: &mut MethodCode, body: &[IrStmt], function: bool) -> bool {
+        let mut cleanups = Vec::new();
+        for stmt in body {
+            match &stmt.kind {
+                IrStmtKind::Defer(block) => cleanups.push(self.register_cleanup(code, block)),
+                IrStmtKind::Return { value } => {
+                    if function && cleanups.is_empty() {
+                        if self.emit_tail_expr(code, value) {
+                            return true;
+                        }
+                    } else {
+                        self.emit_expr(code, value);
+                    }
+                    let result = self.alloc_local();
+                    code.astore(result);
+                    for cleanup in cleanups.iter().rev() {
+                        self.emit_registered_cleanup(code, cleanup);
+                    }
+                    if function && self.has_ensure_contracts() {
+                        self.emit_ensure_checks_for_result(code, result);
+                    }
+                    code.aload(result);
+                    if function {
+                        code.op(0xb0);
+                    }
+                    return true;
+                }
+                _ => self.emit_stmt(code, stmt),
+            }
+        }
+        false
+    }
+
+    fn register_cleanup<'block>(
+        &mut self,
+        code: &mut MethodCode,
+        block: &'block IrDeferredBlock,
+    ) -> RegisteredCleanup<'block> {
+        let mut captures = BTreeMap::new();
+        for capture in &block.captures {
+            self.emit_local(code, &capture.name);
+            let slot = self.alloc_local();
+            code.astore(slot);
+            captures.insert(capture.name.clone(), slot);
+        }
+        RegisteredCleanup { block, captures }
+    }
+
+    fn emit_registered_cleanup(&mut self, code: &mut MethodCode, cleanup: &RegisteredCleanup<'_>) {
+        let locals_mark = self.locals.mark();
+        let saved_next = self.next_local;
+        for (name, slot) in &cleanup.captures {
+            self.locals.insert(name.clone(), *slot);
+        }
+        for stmt in &cleanup.block.body {
+            match &stmt.kind {
+                IrStmtKind::Return { value } => {
+                    self.emit_expr(code, value);
+                    code.op(0x57);
+                }
+                IrStmtKind::Defer(_) => {
+                    unreachable!("nested deferred registration is rejected before backend lowering")
+                }
+                _ => self.emit_stmt(code, stmt),
+            }
+        }
+        self.locals.rollback(locals_mark);
+        self.next_local = saved_next;
+    }
+
+    fn emit_cleanup_region(&mut self, code: &mut MethodCode, body: &[IrStmt]) {
+        let locals_mark = self.locals.mark();
+        let saved_next = self.next_local;
+        if !self.emit_region(code, body, false) {
+            self.emit_unit(code);
+        }
+        self.locals.rollback(locals_mark);
+        self.next_local = saved_next;
     }
 
     pub(super) fn emit_tail_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) -> bool {
@@ -147,11 +293,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let result_slot = self.alloc_local();
         code.astore(value_slot);
         let end = code.new_label();
-        let saved_locals = self.locals.clone();
+        let locals_mark = self.locals.mark();
         let saved_next = self.next_local;
         let mut has_value_arm = false;
         for arm in arms {
-            self.locals = saved_locals.clone();
+            self.locals.rollback(locals_mark);
             self.next_local = saved_next;
             let next = code.new_label();
             self.emit_pattern_condition(code, &arm.pattern, ValueRef::Local(value_slot));
@@ -173,7 +319,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "(Ljava/lang/String;)V",
         );
         code.op(0xbf);
-        self.locals = saved_locals;
+        self.locals.rollback(locals_mark);
         self.next_local = self.next_local.max(result_slot + 1);
         if has_value_arm {
             code.bind(end);
@@ -218,6 +364,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrExprKind::Dict(entries) => self.emit_dict(code, entries),
             IrExprKind::List(items) => self.emit_list(code, items),
             IrExprKind::Match { scrutinee, arms } => self.emit_match(code, scrutinee, arms),
+            IrExprKind::CleanupRegion { region } => self.emit_cleanup_region(code, region),
             IrExprKind::Prefix { op, expr } => self.emit_prefix(code, *op, expr),
             IrExprKind::Binary { op, left, right } => self.emit_binary(code, *op, left, right),
         }

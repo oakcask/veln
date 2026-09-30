@@ -5,13 +5,13 @@ update-when: Deferred-cleanup registration, referenced-local capture, unwinding 
 
 # Lexical Deferred Cleanup Runtime
 
-This proposal remains incomplete. Its checked source and static-semantics
-slice does not make lexical cleanup a supported language feature because the
-runtime does not register or execute deferred blocks. The remaining work is
-runtime unwinding for normal, propagated-error, failure, and cancellation
-exits. The mechanism must cover files, sockets, locks, effect handlers, spans,
-and future resources without requiring destructors or garbage-collector
-finalizers.
+This proposal remains incomplete. The compiler has an internal checked-core,
+typed-IR, and JVM foundation for registration-time capture and normal
+completion. The public readiness gate still blocks executable programs that
+have a selected entry that can reach `begin` or `defer`. Public integration and
+unwinding for propagated errors, failures, and cancellation remain. The
+mechanism must cover files, sockets, locks, effect handlers, spans, and future
+resources without requiring destructors or garbage-collector finalizers.
 
 ## Outcome
 
@@ -51,7 +51,7 @@ registered deferred blocks complete successfully.
 | --- | --- | --- |
 | C++ or Rust destruction | Cleanup follows ownership automatically. | Veln does not have the ownership and deterministic-destruction model needed to make destructor timing a language invariant. |
 | Java-style `try` and `finally` | The protected region and cleanup are explicit. | `try` suggests an exception-catching model that Veln does not expose, and several resources require deeply nested regions. |
-| Ruby-style `begin`, `ensure`, and `end` | `begin` is a value-producing region and `ensure` always runs. | `ensure` belongs to Ruby's exception-handler family and puts one cleanup clause after the protected body. Veln uses `begin` only for lexical scope; the remaining runtime work will register cleanup next to each acquisition. |
+| Ruby-style `begin`, `ensure`, and `end` | `begin` is a value-producing region and `ensure` always runs. | `ensure` belongs to Ruby's exception-handler family and puts one cleanup clause after the protected body. Veln uses `begin` only for lexical scope and registers cleanup next to each acquisition. |
 | Go-style function `defer` | Cleanup is registered next to acquisition. | Function-only lifetime keeps loop or temporary resources alive longer than necessary. |
 | D-style scope guard | Cleanup is registered next to acquisition and follows lexical lifetime. | This is the selected basis. The remaining runtime contract provides unconditional exit cleanup only. |
 | C#-style `using` | Common resource use is concise. | A single disposable protocol cannot express arbitrary effectful cleanup or cleanup that needs additional captured values. Veln can add library wrappers after the general mechanism exists. |
@@ -61,20 +61,24 @@ Code can use ordinary `Result` matching when it needs outcome-specific work.
 The safety requirement is unconditional cleanup that cannot replace the
 region's value or control transfer.
 
-## Implemented Prerequisite
+## Implemented Foundation
 
 The static and tooling boundary for the source forms is current behavior in
 the [source-surface specification](../specification/source-surface.md#static-cleanup-region-forms).
-This proposal contains only the unimplemented runtime contract.
+Checked core and typed IR preserve cleanup regions, deferred blocks, and typed
+snapshots of referenced local bindings. The JVM backend internally executes
+registered blocks once in reverse registration order on normal completion. It
+transfers a successful `begin` value only after cleanup completes. Compiler and
+backend tests cover C1, C4, C5, C6, and C12 while the public readiness gate
+remains closed.
 
-## Remaining Runtime Contract
+## Remaining Runtime Integration
 
-When execution reaches a `defer` statement, the runtime registers its block.
-The capture set contains the block's free references that resolve at that
-statement to local bindings in enclosing lexical scopes. Registration snapshots
-each captured local's current value; cleanup does not retain a live binding slot
-or resolve the name again when the region exits. Registration does not execute
-the block.
+The public executable pipeline must use the implemented registration and
+normal-completion foundation without bypassing the readiness gate early. The
+remaining unwind paths must use the same registration-time snapshots. Cleanup
+must not retain a live binding slot or resolve a captured name again when the
+region exits.
 
 ## Exit and Failure Rules
 
@@ -103,7 +107,12 @@ A cleanup failure must not hide an earlier contract failure, runtime failure,
 or cancellation. Every registered block still runs after another cleanup block
 fails.
 
-## Acceptance Model
+## Remaining Acceptance Model
+
+Before the readiness gate opens, public executable evidence must cover the
+implemented normal-completion cases and the remaining cases below. Internal
+compiler and backend coverage for C1, C4, C5, C6, and C12 is complete, but it
+does not replace the public-pipeline evidence planned in this table.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
