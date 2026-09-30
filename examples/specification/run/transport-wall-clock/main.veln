@@ -25,6 +25,16 @@ fn wall_and_deadline() -> String effects [time]
 	end
 end
 
+fn observe_backwards_clock() -> String effects [time]
+	let first = time::wall_time()
+	let second = time::wall_time()
+	if first.unix_seconds == 2 and first.nanosecond == 0 and second.unix_seconds == 1 and second.nanosecond == 0
+		"backwards"
+	else
+		"unexpected"
+	end
+end
+
 pub fn main() -> () effects [concurrency, time, stdio]
 	let epoch_state = fixture_effects::create_clock_state(0, 0, 7)
 	let epoch = handle time::wall_time() with fake_effects::clock(epoch_state)
@@ -34,11 +44,8 @@ pub fn main() -> () effects [concurrency, time, stdio]
 	let pre_epoch = handle time::wall_time() with fake_effects::clock(pre_epoch_state)
 	emit_json(pre_epoch)
 
-	let first_state = fixture_effects::create_clock_state(2, 0, 7)
-	let second_state = fixture_effects::create_clock_state(1, 0, 7)
-	let first = handle time::wall_time() with fake_effects::clock(first_state)
-	let second = handle time::wall_time() with fake_effects::clock(second_state)
-	stdio::println(if second.unix_seconds < first.unix_seconds "backwards" else "unexpected" end)
+	let backwards_state = fixture_effects::create_backwards_clock_state()
+	stdio::println(handle observe_backwards_clock() with fake_effects::clock(backwards_state))
 
 	let deadline_state = fixture_effects::create_deadline_clock_state(1234, 567, 700, 5)
 	stdio::println(handle wall_and_deadline() with fake_effects::clock(deadline_state))

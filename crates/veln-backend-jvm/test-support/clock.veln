@@ -31,3 +31,14 @@ handler wall_clock(seconds: Int, nanosecond: Int) handles host_effects::Clock
 	request(operation, milliseconds) => Ok(0)
 	wall_time() => Ok({ unix_seconds: seconds, nanosecond: nanosecond })
 end
+
+handler backwards_wall_clock(state: { tx : Sender<Int>, rx : Receiver<Int> }) handles host_effects::Clock effects [concurrency]
+	request(operation, milliseconds) => Ok(0)
+	wall_time() => next_backwards_wall_time(state)
+end
+
+fn next_backwards_wall_time(state: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<{ unix_seconds : Int, nanosecond : Int }, String> effects [concurrency]
+	let seconds = option_unwrap_or(channel::recv(state.rx), 0)
+	let _ = channel::send(state.tx, seconds - 1)
+	Ok({ unix_seconds: seconds, nanosecond: 0 })
+end

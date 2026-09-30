@@ -452,10 +452,29 @@ end
 
 fn wall_time(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }) -> Result<{ unix_seconds : Int, nanosecond : Int }, String> effects [concurrency]
 	let current = take(state)
-	let seconds = number(current, "wall_seconds")
-	let nanosecond = number(current, "wall_nanosecond")
-	put(state, current)
+	let index = number(current, "wall_index")
+	let sequence = get(current, "wall_seconds_sequence")
+	if sequence == ""
+		wall_time_value(state, current, number(current, "wall_seconds"), number(current, "wall_nanosecond"))
+	else
+		match part(sequence, ",", index)
+			Some(text) => match string_parse_int(text)
+				Ok(seconds) => wall_time_value(state, dict_insert(current, "wall_index", int_to_string(index + 1)), seconds, number(current, "wall_nanosecond"))
+				Err(_) => wall_time_error(state, current, "invalid injected wall clock sequence")
+			end
+			None => wall_time_error(state, current, "unexpected injected wall clock read")
+		end
+	end
+end
+
+fn wall_time_value(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }, next: Dict<String, String>, seconds: Int, nanosecond: Int) -> Result<{ unix_seconds : Int, nanosecond : Int }, String> effects [concurrency]
+	put(state, next)
 	Ok({ unix_seconds: seconds, nanosecond: nanosecond })
+end
+
+fn wall_time_error(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }, current: Dict<String, String>, message: String) -> Result<{ unix_seconds : Int, nanosecond : Int }, String> effects [concurrency]
+	put(state, current)
+	Err(message)
 end
 
 fn read_byte(bytes: ByteChunk, offset: ByteOffset) -> Result<Int, String>

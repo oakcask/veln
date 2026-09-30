@@ -45,17 +45,22 @@ fn emit(value: WallTime) -> () effects [stdio]
     stdio::println(int_to_string(value.unix_seconds))
     stdio::println(int_to_string(value.nanosecond))
 end
-pub fn main() -> () effects [time, stdio]
-    emit(handle time::wall_time() with wall_clock(0, 0))
-    emit(handle time::wall_time() with wall_clock(0, -1))
-    emit(handle time::wall_time() with wall_clock(0, 1000000000))
-    let first = handle time::wall_time() with wall_clock(2, 0)
-    let second = handle time::wall_time() with wall_clock(1, 0)
-    stdio::println(if second.unix_seconds < first.unix_seconds
+fn observe_backwards_clock() -> String effects [time]
+    let first = time::wall_time()
+    let second = time::wall_time()
+    if first.unix_seconds == 2 and first.nanosecond == 0 and second.unix_seconds == 1 and second.nanosecond == 0
         "backwards"
     else
         "unexpected"
-    end)
+    end
+end
+pub fn main() -> () effects [time, concurrency, stdio]
+    emit(handle time::wall_time() with wall_clock(0, 0))
+    emit(handle time::wall_time() with wall_clock(0, -1))
+    emit(handle time::wall_time() with wall_clock(0, 1000000000))
+    let state = channel::bounded<Int>(1)
+    let _ = channel::send(state.tx, 2)
+    stdio::println(handle observe_backwards_clock() with backwards_wall_clock(state))
 end
 "#,
     );
