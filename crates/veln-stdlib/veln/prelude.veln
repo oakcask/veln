@@ -8,7 +8,8 @@ pub type ByteCount = bytes::ByteCount
 pub type ByteView = bytes::ByteView
 
 ## The structural record shape returned by time::wall_time() effects [time].
-## Boundary results use Unix seconds and a normalized 0..999999999 nanosecond.
+## Its unix_seconds: Int field counts from the Unix epoch in UTC.
+## Its nanosecond: Int field is normalized to 0..999999999 on boundary results.
 ## Compatible record literals are not normalized or range-checked.
 pub type WallTime
 end
