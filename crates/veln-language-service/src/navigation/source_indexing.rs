@@ -1051,6 +1051,47 @@ fn append_recovered_dependency_imports(
     append_surface_module(dependency_module, source_module);
 }
 
+struct ParsedDependencySource {
+    source: SourceFile,
+    tokens: Vec<Token>,
+    module: String,
+    uses: BTreeSet<String>,
+    external_uses: BTreeSet<(String, String)>,
+    import_aliases: BTreeMap<String, String>,
+    external_import_aliases: BTreeMap<String, (String, String)>,
+    invalid_declaration_names: Vec<SourceSpan>,
+    navigation_isolated: bool,
+    parsed: ParseOutput,
+}
+
+fn parse_dependency_source(
+    source: &veln_project::CapturedPackageSource,
+) -> ParsedDependencySource {
+    let text =
+        std::str::from_utf8(source.bytes()).expect("captured package source text is valid UTF-8");
+    let source_file = SourceFile::new(source.path(), text);
+    let path_module = module_name_from_path(source.path());
+    let navigation_isolated = path_module_invalid_for_navigation(path_module.as_deref());
+    let module = explicit_module_name(text).or(path_module).unwrap_or_default();
+    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(text);
+    let parsed = parse(&source_file);
+    let invalid_declaration_names = invalid_name_spans(&invalid_declaration_names(&parsed));
+    let tokens = lex(&source_file).tokens;
+
+    ParsedDependencySource {
+        source: source_file,
+        tokens,
+        module,
+        uses,
+        external_uses,
+        import_aliases,
+        external_import_aliases,
+        invalid_declaration_names,
+        navigation_isolated,
+        parsed,
+    }
+}
+
 fn indexed_dependency_source(
     dependency: &DirectDependencySnapshot,
     source: &veln_project::CapturedPackageSource,
@@ -1061,26 +1102,29 @@ fn indexed_dependency_source(
     #[cfg(test)]
     record_dependency_source_parse();
 
-    let text =
-        std::str::from_utf8(source.bytes()).expect("captured package source text is valid UTF-8");
-    let source_file = SourceFile::new(source.path(), text);
-    let path_module = module_name_from_path(source.path());
-    let navigation_isolated = path_module_invalid_for_navigation(path_module.as_deref());
-    let module = explicit_module_name(text).or(path_module).unwrap_or_default();
-    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(text);
-    let parsed = parse(&source_file);
-    let invalid_declaration_names = invalid_declaration_names(&parsed);
-    let tokens = lex(&source_file).tokens;
+    let exported = dependency.exported_sources.contains(source.path());
+    let ParsedDependencySource {
+        source,
+        tokens,
+        module,
+        uses,
+        external_uses,
+        import_aliases,
+        external_import_aliases,
+        invalid_declaration_names,
+        navigation_isolated,
+        parsed,
+    } = parse_dependency_source(source);
     let schema_operation_leaf_ranges = valid_schema_operation_leaf_spans(&parsed.tree)
         .into_iter()
         .map(|span| (span.start.offset, span.end.offset))
         .collect();
     let schema_composition_leaf_spans =
-        valid_schema_composition_leaf_spans(&source_file, &tokens, &parsed);
+        valid_schema_composition_leaf_spans(&source, &tokens, &parsed);
     let handler_operation_clause_body_ranges = handler_operation_clause_body_ranges(&parsed.tree);
     let handler_clause_bindings_by_name = handler_clause_bindings_by_name(&parsed.tree);
     let file = IndexedFile {
-        source: source_file,
+        source,
         tokens,
         module,
         companion_target_module: None,
@@ -1090,7 +1134,7 @@ fn indexed_dependency_source(
         external_import_aliases,
         schema_alias_external_imports: Vec::new(),
         workspace_imports: Vec::new(),
-        invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
+        invalid_declaration_names,
         recovery_symbols: Vec::new(),
         recovered_effect_declarations: recovered_effect_declarations(&parsed.tree),
         recovered_handler_declarations: recovered_handler_declarations(
@@ -1112,7 +1156,7 @@ fn indexed_dependency_source(
         origin: IndexedOrigin::Package {
             identity: dependency.identity.as_str().to_string(),
             uri: uri.to_string(),
-            exported: dependency.exported_sources.contains(source.path()),
+            exported,
             standard_library: dependency.standard_library,
         },
     };
