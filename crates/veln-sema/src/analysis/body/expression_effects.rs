@@ -6,24 +6,10 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if let Some(inferred) = self.infer_atomic_expr(expr, expected) {
+            return inferred;
+        }
         match &expr.kind {
-            ExprKind::Missing => Type::Unknown,
-            ExprKind::Hole { name, satisfy } => {
-                if let Some(satisfy) = satisfy {
-                    self.check_satisfy_clause(expr, satisfy, expected);
-                }
-                self.push_hole_diagnostic(expr, name.as_deref(), satisfy.as_ref(), expected);
-                expected
-                    .map(|expected| expected.ty.clone())
-                    .unwrap_or(Type::Unknown)
-            }
-            ExprKind::NamePath { segments, .. } => self.infer_name_path(segments, expr, expected),
-            ExprKind::StringLiteral(_) => Type::string(),
-            ExprKind::IntLiteral(_) => Type::int(),
-            ExprKind::FloatLiteral(_) => Type::float(),
-            ExprKind::BoolLiteral(_) => Type::bool(),
-            ExprKind::Unit => Type::unit(),
-            ExprKind::TypeApply { .. } => Type::Unknown,
             ExprKind::Call { callee, args } => self.infer_call(expr, callee, args, expected),
             ExprKind::Perform {
                 effect,
@@ -54,20 +40,7 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Try {
                 expr: inner,
                 question_span,
-            } => {
-                if let Some(block_span) = self.defer_blocks.last().cloned() {
-                    self.push_defer_restriction_diagnostic(DeferRestrictionDiagnostic {
-                        id: "defer.propagation",
-                        message: "deferred block cannot use `?`".to_string(),
-                        node_id: expr.node_id.display("expr"),
-                        span: question_span.clone(),
-                        reason: "result_propagation",
-                        repair: "Handle the `Result` inside the deferred block instead of propagating it with `?`.",
-                        repair_span: block_span,
-                    });
-                }
-                self.infer_try(expr, inner, expected)
-            }
+            } => self.infer_try_with_defer_restriction(expr, inner, question_span, expected),
             ExprKind::Record(fields) => self.infer_record(expr, fields, expected),
             ExprKind::Dict(entries) => self.infer_dict(expr, entries, expected),
             ExprKind::List(items) => self.infer_list(expr, items, expected),
@@ -90,7 +63,64 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Begin { body, .. } => self.infer_begin_body(body, expected),
             ExprKind::Prefix { op, expr } => self.infer_prefix(*op, expr, expected),
             ExprKind::Binary { op, left, right } => self.infer_binary(*op, left, right, expected),
+            ExprKind::Missing
+            | ExprKind::Hole { .. }
+            | ExprKind::NamePath { .. }
+            | ExprKind::StringLiteral(_)
+            | ExprKind::IntLiteral(_)
+            | ExprKind::FloatLiteral(_)
+            | ExprKind::BoolLiteral(_)
+            | ExprKind::Unit
+            | ExprKind::TypeApply { .. } => unreachable!("atomic expression handled above"),
         }
+    }
+
+    fn infer_atomic_expr(&mut self, expr: &Expr, expected: Option<&ExpectedType>) -> Option<Type> {
+        match &expr.kind {
+            ExprKind::Missing => Some(Type::Unknown),
+            ExprKind::Hole { name, satisfy } => {
+                if let Some(satisfy) = satisfy {
+                    self.check_satisfy_clause(expr, satisfy, expected);
+                }
+                self.push_hole_diagnostic(expr, name.as_deref(), satisfy.as_ref(), expected);
+                Some(
+                    expected
+                        .map(|expected| expected.ty.clone())
+                        .unwrap_or(Type::Unknown),
+                )
+            }
+            ExprKind::NamePath { segments, .. } => {
+                Some(self.infer_name_path(segments, expr, expected))
+            }
+            ExprKind::StringLiteral(_) => Some(Type::string()),
+            ExprKind::IntLiteral(_) => Some(Type::int()),
+            ExprKind::FloatLiteral(_) => Some(Type::float()),
+            ExprKind::BoolLiteral(_) => Some(Type::bool()),
+            ExprKind::Unit => Some(Type::unit()),
+            ExprKind::TypeApply { .. } => Some(Type::Unknown),
+            _ => None,
+        }
+    }
+
+    fn infer_try_with_defer_restriction(
+        &mut self,
+        expr: &Expr,
+        inner: &Expr,
+        question_span: &SourceSpan,
+        expected: Option<&ExpectedType>,
+    ) -> Type {
+        if let Some(block_span) = self.defer_blocks.last().cloned() {
+            self.push_defer_restriction_diagnostic(DeferRestrictionDiagnostic {
+                id: "defer.propagation",
+                message: "deferred block cannot use `?`".to_string(),
+                node_id: expr.node_id.display("expr"),
+                span: question_span.clone(),
+                reason: "result_propagation",
+                repair: "Handle the `Result` inside the deferred block instead of propagating it with `?`.",
+                repair_span: block_span,
+            });
+        }
+        self.infer_try(expr, inner, expected)
     }
 
     pub(super) fn infer_perform(

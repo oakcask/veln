@@ -1399,49 +1399,25 @@
             ),
         )]);
 
-        let type_result = query_snapshot(&snapshot, "main.veln", 17, 18).unwrap();
-        assert_eq!(type_result.selected_symbol.kind, SymbolKind::Type);
-        assert_location(&type_result.definition, "main.veln", 13, 6);
-
-        let constructor_result = query_snapshot(&snapshot, "main.veln", 19, 4).unwrap();
-        assert_eq!(constructor_result.selected_symbol.kind, SymbolKind::Constructor);
-        assert_location(&constructor_result.definition, "main.veln", 14, 3);
-
-        let function_result = query_snapshot(&snapshot, "main.veln", 17, 4).unwrap();
-        assert_eq!(function_result.selected_symbol.kind, SymbolKind::Function);
-        assert_location(&function_result.definition, "main.veln", 17, 4);
-
-        let binding_result = query_snapshot(&snapshot, "main.veln", 19, 10).unwrap();
-        assert_eq!(binding_result.selected_symbol.kind, SymbolKind::ValueBinding);
-        assert_location(&binding_result.definition, "main.veln", 18, 7);
-
-        let schema_result = query_snapshot(&snapshot, "main.veln", 40, 24).unwrap();
-        assert_eq!(schema_result.selected_symbol.kind, SymbolKind::Schema);
-        assert_location(&schema_result.definition, "main.veln", 22, 8);
-
-        let effect_list_result = query_snapshot(&snapshot, "main.veln", 38, 57).unwrap();
-        assert_eq!(effect_list_result.selected_symbol.kind, SymbolKind::Effect);
-        assert_location(&effect_list_result.definition, "main.veln", 26, 8);
-
-        let perform_effect_result = query_snapshot(&snapshot, "main.veln", 42, 32).unwrap();
-        assert_eq!(perform_effect_result.selected_symbol.kind, SymbolKind::Effect);
-        assert_location(&perform_effect_result.definition, "main.veln", 26, 8);
-
-        let operation_result = query_snapshot(&snapshot, "main.veln", 42, 49).unwrap();
-        assert_eq!(
-            operation_result.selected_symbol.kind,
-            SymbolKind::EffectOperation
-        );
-        assert_location(&operation_result.definition, "main.veln", 27, 3);
-
-        let handler_result = query_snapshot(&snapshot, "main.veln", 42, 72).unwrap();
-        assert_eq!(handler_result.selected_symbol.kind, SymbolKind::Handler);
-        assert_location(&handler_result.definition, "main.veln", 30, 9);
-
-        let shadowing_binding_result = query_snapshot(&snapshot, "main.veln", 41, 18).unwrap();
-        assert_eq!(
-            shadowing_binding_result.selected_symbol.kind,
-            SymbolKind::ValueBinding
-        );
-        assert_location(&shadowing_binding_result.definition, "main.veln", 39, 7);
+        for (line, column, expected_kind, definition_line, definition_column) in [
+            (17, 18, SymbolKind::Type, 13, 6),
+            (19, 4, SymbolKind::Constructor, 14, 3),
+            (17, 4, SymbolKind::Function, 17, 4),
+            (19, 10, SymbolKind::ValueBinding, 18, 7),
+            (40, 24, SymbolKind::Schema, 22, 8),
+            (38, 57, SymbolKind::Effect, 26, 8),
+            (42, 32, SymbolKind::Effect, 26, 8),
+            (42, 49, SymbolKind::EffectOperation, 27, 3),
+            (42, 72, SymbolKind::Handler, 30, 9),
+            (41, 18, SymbolKind::ValueBinding, 39, 7),
+        ] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, expected_kind);
+            assert_location(
+                &result.definition,
+                "main.veln",
+                definition_line,
+                definition_column,
+            );
+        }
     }
