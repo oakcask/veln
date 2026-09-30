@@ -51,7 +51,14 @@ fn assert_index_metadata(index_resource: &Value) {
 fn assert_index_text_links_hidden_module(resources: &[Value], index_text: &str) -> String {
     assert!(index_text.starts_with("# Package Documentation: std\n\n"));
     assert!(index_text.contains("- Package identity: std"));
-    assert!(index_text.contains("- Exported modules: prelude"));
+    let exported_modules: BTreeSet<_> = index_text
+        .lines()
+        .find_map(|line| line.strip_prefix("- Exported modules: "))
+        .unwrap()
+        .split(", ")
+        .collect();
+    assert!(exported_modules.contains("prelude"));
+    assert!(exported_modules.contains("host_effects"));
     let module_uri = linked_package_doc_uri(index_text, "/module/");
     assert_unlisted(resources, &module_uri);
     module_uri
