@@ -58,6 +58,15 @@ shared diagnostic envelope with `schema_version: 1`, `status: "error"`,
 program `stdout` or `stderr` fields. Any CLI diagnostic rendering on stderr is
 separate from the JSON contract.
 
+Checked-core readiness can also stop a diagnostic-free run. When the selected
+entry can reach a `begin` expression or `defer` statement, lowering records
+`deferred_cleanup_runtime` and does not produce typed IR. The command emits the
+shared diagnostic envelope with `schema_version: 1`, `status: "ok"`, and an
+empty `diagnostics` array on stdout, writes
+`veln: run blocked: checked program is not executable` on stderr, and exits
+unsuccessfully. This envelope is not a `veln-run-json/v0` run report and has no
+captured program `stdout` or `stderr` fields.
+
 The gate examines the selected entry closure. It includes reachable
 declarations, aliases, type and constructor paths, handler bindings and
 clauses, written imports, source-path-derived module identities, and loaded

@@ -138,8 +138,9 @@ the case is reported with `status: "failed"`,
 - `actual`: the actual runtime failure record, or `null` when execution
   succeeded
 
-Static diagnostics still block execution before runtime expectation matching;
-the doctest case is then reported with `status: "blocked"` and
+Static gates still block execution before runtime expectation matching. This
+includes diagnostics and a checked-core readiness blocker that prevents typed
+IR. The doctest case is then reported with `status: "blocked"` and
 `reason: "static_gate"`. The implemented runtime expectation kinds are limited
 to contract, ensure, and result failures. There is no test JSON expectation
 record for arbitrary panics, raw stderr matching, or process exit status.
@@ -223,6 +224,14 @@ identifier casing diagnostics outside the selected test analysis set are not
 reported by that invocation and do not block the selected suite.
 Source-path-derived module identity casing follows the same gate; a blocking
 gate does not launch Java.
+
+A parse- and semantic-clean selected case is also blocked before Java execution
+when checked-core lowering cannot produce typed IR. A reachable `begin`
+expression or `defer` statement produces the readiness blocker
+`deferred_cleanup_runtime`; the case has `status: "blocked"` and
+`reason: "static_gate"`, while its `diagnostics` array can remain empty. This
+readiness blocker is case-local and does not itself prevent another selected
+case with complete reachable lowering from running.
 
 An invalid source identifier casing recovery record in an exact `.test.veln`
 companion or its target does not resolve a cross-boundary use. The selected
