@@ -117,6 +117,8 @@ impl<'a> FunctionChecker<'a> {
             .local_name_scopes
             .pop()
             .expect("scoped body name frame")
+            .into_iter()
+            .rev()
         {
             if let Some(previous) = previous {
                 self.local_names.insert(name, previous);

@@ -469,6 +469,53 @@ fn missing_cleanup_end_preserves_following_top_level_declaration() {
 }
 
 #[test]
+fn missing_cleanup_end_in_final_declaration_preserves_the_declaration_end() {
+    for (declaration, expected_diagnostic) in [
+        (
+            "fn incomplete() -> ()\n defer\n  release()\nend\n",
+            "parse.defer_missing_end",
+        ),
+        (
+            "fn incomplete() -> ()\n begin\n  ()\nend\n",
+            "parse.begin_missing_end",
+        ),
+        (
+            "test incomplete() -> ()\n defer\n  release()\nend\n",
+            "parse.defer_missing_end",
+        ),
+        (
+            "test incomplete() -> ()\n begin\n  ()\nend\n",
+            "parse.begin_missing_end",
+        ),
+    ] {
+        let source = SourceFile::new("cleanup.veln", declaration);
+        let expected_token_count = lex(&source).tokens.len();
+
+        let output = parse(&source);
+        let function = output
+            .tree
+            .items
+            .iter()
+            .find_map(|item| match item {
+                SyntaxItem::Function(function) => Some(function.as_ref()),
+                _ => None,
+            })
+            .expect("function or test declaration");
+
+        assert!(function.end_present, "{:#?}", output.diagnostics);
+        assert_eq!(
+            output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id)
+                .collect::<Vec<_>>(),
+            [expected_diagnostic]
+        );
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+    }
+}
+
+#[test]
 fn nested_missing_cleanup_ends_preserve_following_top_level_declaration() {
     for (body, expected_diagnostics) in [
         (

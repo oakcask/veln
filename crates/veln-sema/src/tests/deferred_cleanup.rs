@@ -234,6 +234,29 @@ fn begin_returns_its_tail_value_without_leaking_local_bindings() {
 }
 
 #[test]
+fn begin_restores_the_outer_name_after_repeated_local_shadowing() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn consume(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main() -> String\n",
+        "  begin\n",
+        "    let value: Int = 1\n",
+        "    defer\n",
+        "      consume(value)\n",
+        "    end\n",
+        "    let value: String = \"replacement\"\n",
+        "    ()\n",
+        "  end\n",
+        "  let value: String = \"after begin\"\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn begin_without_tail_expression_has_unit_type() {
     let diagnostics = diagnostics_for(concat!(
         "fn main() -> ()\n",

@@ -770,6 +770,33 @@
     }
 
     #[test]
+    fn malformed_same_line_let_scope_index_grows_linearly() {
+        fn token_visits(let_count: usize) -> usize {
+            let mut source_text = String::from("fn main(input: Int) -> Int\n  input\n  ");
+            for _ in 0..let_count {
+                source_text.push_str("let ");
+            }
+            source_text.push_str("\nend\n");
+            let snapshot =
+                EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_binding_scope_token_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", 2, 4)
+                .expect("function parameter should resolve before malformed input");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            local_binding_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        eprintln!("same-line let indexing: 128={smaller} visits, 256={larger} visits");
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 32, "{smaller} -> {larger}");
+    }
+
+    #[test]
     fn local_reference_scope_lookup_is_linear_with_preceding_functions_and_references() {
         fn candidate_visits(size: usize) -> usize {
             let mut source_text = String::new();

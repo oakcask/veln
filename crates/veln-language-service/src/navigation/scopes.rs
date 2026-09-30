@@ -429,6 +429,7 @@ fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String,
     let mut depth = 0usize;
     let mut index = let_index + 1;
     while index < tokens.len() {
+        record_local_binding_scope_token_visit();
         let token = &tokens[index];
         if token.kind == TokenKind::Eof || token.kind == TokenKind::Newline {
             break;

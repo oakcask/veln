@@ -13,6 +13,7 @@ fn local_bindings_with_defer_openers(
     let mut scope_bindings = vec![Vec::new()];
     let mut pending_lets = Vec::new();
     let first_index = tokens.partition_point(|token| token.range.start < body_start);
+    let mut line_has_non_layout = false;
 
     for (relative_index, token) in tokens[first_index..].iter().enumerate() {
         if token.range.start >= end {
@@ -21,7 +22,7 @@ fn local_bindings_with_defer_openers(
         record_local_binding_scope_token_visit();
         let index = first_index + relative_index;
         match token.kind {
-            TokenKind::Let => record_pending_let(
+            TokenKind::Let if !line_has_non_layout => record_pending_let(
                 tokens,
                 index,
                 token,
@@ -29,12 +30,15 @@ fn local_bindings_with_defer_openers(
                 &scope_bindings,
                 &mut pending_lets,
             ),
-            TokenKind::Newline => activate_pending_lets(
-                token.range.end,
-                &mut bindings,
-                &mut scope_bindings,
-                &mut pending_lets,
-            ),
+            TokenKind::Newline => {
+                activate_pending_lets(
+                    token.range.end,
+                    &mut bindings,
+                    &mut scope_bindings,
+                    &mut pending_lets,
+                );
+                line_has_non_layout = false;
+            }
             _ => update_local_binding_scope(
                 tokens,
                 index,
@@ -43,6 +47,9 @@ fn local_bindings_with_defer_openers(
                 &mut scope_bindings,
                 defer_block_openers,
             ),
+        }
+        if !is_layout_token_kind(token.kind) {
+            line_has_non_layout = true;
         }
     }
 

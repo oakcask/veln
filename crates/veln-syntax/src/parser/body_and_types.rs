@@ -30,7 +30,7 @@ impl ExpressionLineCollector {
         }
         parser.at(TokenKind::End)
             && self.block_stack.iter().copied().any(is_cleanup_block)
-            && parser.end_is_followed_by_top_level_item()
+            && parser.end_closes_enclosing_declaration()
     }
 
     fn recover_before_branch(&mut self, parser: &Parser<'_>) {
