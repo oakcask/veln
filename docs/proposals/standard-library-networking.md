@@ -15,7 +15,7 @@ effect with `net::system()`.
 
 This keeps two concerns separate:
 
-- `net::Io` is the substitutable contract used by application and protocol
+- `net::IO` is the substitutable contract used by application and protocol
   code.
 - The existing host `net` and `time` effects remain the trusted runtime
   boundary used by the system handler.
@@ -137,7 +137,7 @@ pub type ByteCount = prelude::ByteCount
 
 `Listener` and `Stream` are public names for runtime-backed opaque resource
 references. Their representation is not source-constructible, serializable,
-or a cross-process identity. A reference belongs to the `net::Io` handler that
+or a cross-process identity. A reference belongs to the `net::IO` handler that
 created it. Passing it to a different handler returns `InvalidResource`.
 
 `ByteCount` is non-negative. The existing byte-chunk conversion helpers are
@@ -193,10 +193,10 @@ For an operation whose declared result is `Result`, `Busy` and
 `InvalidResource` are returned through `Err`. For `write`, those failures are
 `WriteFailed(0, error)`.
 
-### The `net::Io` effect
+### The `net::IO` effect
 
 ```veln
-pub effect Io
+pub effect IO
 	resolve(address: Address) -> Result<List<Endpoint>, NetError>
 	listen(address: Address) -> Result<Listener, NetError>
 	connect(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError>
@@ -217,24 +217,24 @@ The effect operations are the complete handler contract. Application code uses
 the following functions:
 
 ```veln
-pub fn resolve(address: Address) -> Result<List<Endpoint>, NetError> effects [net::Io]
-pub fn listen(address: Address) -> Result<Listener, NetError> effects [net::Io]
-pub fn connect(address: Address) -> Result<Stream, NetError> effects [net::Io]
-pub fn connect_with(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [net::Io]
-pub fn accept(listener: Listener) -> Result<Stream, NetError> effects [net::Io]
-pub fn accept_with(listener: Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [net::Io]
-pub fn listener_address(listener: Listener) -> Result<Endpoint, NetError> effects [net::Io]
-pub fn close_listener(listener: Listener) -> Result<(), NetError> effects [net::Io]
-pub fn read(stream: Stream) -> Result<ReadOutcome, NetError> effects [net::Io]
-pub fn read_with(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError> effects [net::Io]
-pub fn write(stream: Stream, bytes: ByteChunk) -> WriteOutcome effects [net::Io]
-pub fn write_with(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteOutcome effects [net::Io]
-pub fn local_address(stream: Stream) -> Result<Endpoint, NetError> effects [net::Io]
-pub fn peer_address(stream: Stream) -> Result<Endpoint, NetError> effects [net::Io]
-pub fn shutdown_read(stream: Stream) -> Result<(), NetError> effects [net::Io]
-pub fn shutdown_write(stream: Stream) -> Result<(), NetError> effects [net::Io]
-pub fn close_stream(stream: Stream) -> Result<(), NetError> effects [net::Io]
-pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [net::Io]
+pub fn resolve(address: Address) -> Result<List<Endpoint>, NetError> effects [net::IO]
+pub fn listen(address: Address) -> Result<Listener, NetError> effects [net::IO]
+pub fn connect(address: Address) -> Result<Stream, NetError> effects [net::IO]
+pub fn connect_with(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [net::IO]
+pub fn accept(listener: Listener) -> Result<Stream, NetError> effects [net::IO]
+pub fn accept_with(listener: Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [net::IO]
+pub fn listener_address(listener: Listener) -> Result<Endpoint, NetError> effects [net::IO]
+pub fn close_listener(listener: Listener) -> Result<(), NetError> effects [net::IO]
+pub fn read(stream: Stream) -> Result<ReadOutcome, NetError> effects [net::IO]
+pub fn read_with(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError> effects [net::IO]
+pub fn write(stream: Stream, bytes: ByteChunk) -> WriteOutcome effects [net::IO]
+pub fn write_with(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteOutcome effects [net::IO]
+pub fn local_address(stream: Stream) -> Result<Endpoint, NetError> effects [net::IO]
+pub fn peer_address(stream: Stream) -> Result<Endpoint, NetError> effects [net::IO]
+pub fn shutdown_read(stream: Stream) -> Result<(), NetError> effects [net::IO]
+pub fn shutdown_write(stream: Stream) -> Result<(), NetError> effects [net::IO]
+pub fn close_stream(stream: Stream) -> Result<(), NetError> effects [net::IO]
+pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [net::IO]
 ```
 
 The short `connect`, `accept`, `read`, and `write` functions perform their
@@ -276,26 +276,26 @@ unbounded retry loop.
 The module exports:
 
 ```veln
-pub handler system() handles net::Io effects [net, time]
+pub handler system() handles net::IO effects [net, time]
 ```
 
 The handler translates portable operations to private host intrinsics. The
 private intrinsics are compiler/runtime implementation details and are not
-source-resolvable package APIs. Handling `net::Io` therefore removes that
+source-resolvable package APIs. Handling `net::IO` therefore removes that
 effect and introduces only the host `net` and `time` effects.
 
 The handler has one fixed effect set, so an untimed operation also introduces
 host `time`. This first contract accepts that conservative effect because
 splitting timed and untimed operations across handlers would split ownership
 of the same resources. A later change may remove the extra host effect only if
-handler effect inference can do so without changing the `net::Io` API.
+handler effect inference can do so without changing the `net::IO` API.
 
-Reusable code declares `net::Io`:
+Reusable code declares `net::IO`:
 
 ```veln
 use net from "std"
 
-fn serve_once(address: net::Address) -> Result<(), net::NetError> effects [net::Io]
+fn serve_once(address: net::Address) -> Result<(), net::NetError> effects [net::IO]
 	let listener = net::listen(address)?
 	let stream = net::accept(listener)?
 	let incoming = net::read(stream)?
@@ -318,13 +318,13 @@ end
 ```
 
 No system handler is inserted implicitly for an arbitrary function. The entry
-point must apply it, or a caller must propagate `net::Io`. This keeps network
+point must apply it, or a caller must propagate `net::IO`. This keeps network
 authority visible during composition and makes missing-handler behavior a
 static effect error.
 
 ### Test handlers
 
-The runtime conformance harness supplies a deterministic `net::Io` handler.
+The runtime conformance harness supplies a deterministic `net::IO` handler.
 Like the system handler, it is trusted to create opaque `Listener` and `Stream`
 references. It is test infrastructure, not an exported standard-package
 module. A source-defined handler may deny, trace, or delegate operations, but
@@ -428,13 +428,13 @@ two independently maintained network APIs.
 
 1. Add private host intrinsics under a namespace that source imports cannot
    resolve.
-2. Implement and export `net.veln`, its `net::Io` wrappers, and `net::system()`.
+2. Implement and export `net.veln`, its `net::IO` wrappers, and `net::system()`.
 3. Update standard-library code to import `net` and handle or propagate
-   `net::Io` at its intended boundary.
+   `net::IO` at its intended boundary.
 4. Keep the existing compiler-known `net::...` spellings only as a temporary
    compatibility lowering when no imported module owns `net`.
 5. Emit one migration diagnostic that points to `use net from "std"`, the
-   `net::Io` effect, and the `net::system()` boundary.
+   `net::IO` effect, and the `net::system()` boundary.
 6. Remove the compatibility lowering after all checked examples and standard
    package sources use the exported module.
 
@@ -452,9 +452,9 @@ already exist or pass.
 | Concern | Input or event | Required observation | Intended evidence |
 | --- | --- | --- | --- |
 | Export | `use net from "std"` | `net::listen` and every declared public type resolve to `std::net` | package and check cases under `examples/specification/` |
-| Effects | A public function calls `net::listen` without `net::Io` | Static diagnostic names `net::Io` and the call site | check cases |
-| System handling | A `net::Io` block is handled with `net::system()` | The remaining effects are host `net` and `time` | check cases and semantic tests |
-| No implicit authority | An entry point leaves `net::Io` unhandled | Static failure; the runner does not install a handler | check and run cases |
+| Effects | A public function calls `net::listen` without `net::IO` | Static diagnostic names `net::IO` and the call site | check cases |
+| System handling | A `net::IO` block is handled with `net::system()` | The remaining effects are host `net` and `time` | check cases and semantic tests |
+| No implicit authority | An entry point leaves `net::IO` unhandled | Static failure; the runner does not install a handler | check and run cases |
 | Address parsing | Bracketed IPv6 and a valid port are split and rejoined | Stable host and port values | standard-library doctests |
 | Address rejection | Port is out of range or IPv6 is ambiguous | `InvalidAddress`; no network operation is recorded | doctests and runtime conformance test |
 | Resolution | A name maps to repeated endpoints | Order is preserved and exact duplicates are removed | runtime conformance test |
@@ -485,7 +485,7 @@ as current behavior. Then add the smallest focused current specification pages
 for:
 
 - the exported `std::net` API and error contract;
-- the `net::Io` and `net::system()` effect boundary;
+- the `net::IO` and `net::system()` effect boundary;
 - listener and stream lifecycle transitions;
 - the `transport::DuplexStream` adapter boundary.
 
