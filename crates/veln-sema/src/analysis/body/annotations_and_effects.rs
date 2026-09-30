@@ -205,10 +205,11 @@ impl<'a> FunctionChecker<'a> {
         node_id: String,
         span: SourceSpan,
         declaration_kind: &'static str,
+        may_shadow_defer_capture: bool,
     ) -> bool {
         let previous = self.local_names.get(name).cloned();
         if let Some((first_node_id, first_span)) = previous.as_ref()
-            && !self.shadowable_local_names.contains(name)
+            && !(may_shadow_defer_capture && self.captured_local_bindings.contains(first_node_id))
         {
             self.diagnostics.push(duplicate_name_diagnostic(
                 name,
@@ -236,19 +237,14 @@ impl<'a> FunctionChecker<'a> {
             .last()
             .is_some_and(|boundary| binding_index < *boundary)
             && let Some(captures) = self.defer_captures.last_mut()
+            && let Some((binding_id, _)) = self.local_names.get(name)
         {
-            captures.insert(name.to_string());
+            captures.insert(binding_id.clone());
         }
     }
 
     pub(super) fn admit_defer_captures(&mut self, captures: BTreeSet<String>) {
-        for name in captures {
-            if self.shadowable_local_names.insert(name.clone())
-                && let Some(scope) = self.shadowable_name_scopes.last_mut()
-            {
-                scope.push(name);
-            }
-        }
+        self.captured_local_bindings.extend(captures);
     }
 
     pub(super) fn admit_value_binding(
@@ -267,7 +263,7 @@ impl<'a> FunctionChecker<'a> {
                 });
             return;
         }
-        if !self.declare_local_name(name, node_id, span, declaration_kind) {
+        if !self.declare_local_name(name, node_id, span, declaration_kind, false) {
             return;
         }
         self.bindings.push(Binding::new(name.to_string(), ty));

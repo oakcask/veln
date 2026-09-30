@@ -84,7 +84,6 @@ impl<'a> FunctionChecker<'a> {
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         let saved_omitted_bindings = self.omitted_local_bindings.len();
         self.local_name_scopes.push(Vec::new());
-        self.shadowable_name_scopes.push(Vec::new());
 
         let mut result = Type::unit();
         for (index, line) in body.iter().enumerate() {
@@ -127,13 +126,6 @@ impl<'a> FunctionChecker<'a> {
             } else {
                 self.local_names.remove(&name);
             }
-        }
-        for name in self
-            .shadowable_name_scopes
-            .pop()
-            .expect("scoped body shadow frame")
-        {
-            self.shadowable_local_names.remove(&name);
         }
         result
     }
@@ -228,6 +220,7 @@ impl<'a> FunctionChecker<'a> {
             binding.node_id.display("pattern"),
             binding.span.clone(),
             "local binding",
+            true,
         ) {
             return;
         }

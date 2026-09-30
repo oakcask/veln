@@ -61,6 +61,57 @@ fn defer_capture_allows_a_later_local_to_shadow_the_captured_binding() {
 }
 
 #[test]
+fn defer_capture_does_not_allow_the_replacement_binding_to_be_shadowed_again() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn consume(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main() -> String\n",
+        "  let value: Int = 1\n",
+        "  defer\n",
+        "    consume(value)\n",
+        "  end\n",
+        "  let value: String = \"first replacement\"\n",
+        "  let value: String = \"second replacement\"\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.duplicate"
+                && diagnostic.message == "duplicate local binding name `value`"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn defer_capture_does_not_allow_a_match_pattern_to_shadow_the_binding() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn consume(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main(value: Int) -> Int\n",
+        "  defer\n",
+        "    consume(value)\n",
+        "  end\n",
+        "  match value\n",
+        "    value => value\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.duplicate"
+                && diagnostic.message == "duplicate pattern binding name `value`"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn nested_begin_allows_a_later_local_to_shadow_its_defer_capture() {
     let diagnostics = diagnostics_for(concat!(
         "fn consume(value: Int) -> ()\n",

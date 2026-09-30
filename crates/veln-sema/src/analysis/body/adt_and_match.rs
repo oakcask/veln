@@ -190,7 +190,6 @@ impl<'a> FunctionChecker<'a> {
         let saved_bindings = self.bindings.len();
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         self.local_name_scopes.push(Vec::new());
-        self.shadowable_name_scopes.push(Vec::new());
 
         self.declare_match_pattern_bindings(&arm.pattern, scrutinee_type);
         self.infer_match_arm_result(match_expr, arm, expected, result_type);
@@ -204,13 +203,6 @@ impl<'a> FunctionChecker<'a> {
             } else {
                 self.local_names.remove(&name);
             }
-        }
-        for name in self
-            .shadowable_name_scopes
-            .pop()
-            .expect("match arm shadow frame")
-        {
-            self.shadowable_local_names.remove(&name);
         }
     }
 
@@ -229,6 +221,7 @@ impl<'a> FunctionChecker<'a> {
                 binding.node_id.display("pattern"),
                 binding.span,
                 "pattern binding",
+                false,
             ) {
                 continue;
             }
