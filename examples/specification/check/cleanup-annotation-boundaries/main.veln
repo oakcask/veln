@@ -1,0 +1,35 @@
+schema Packet
+	value: Int
+end
+
+effect Ask
+	value() -> ()
+end
+
+fn main() -> ()
+	let direct_packet: Packet = ()
+	let direct_exact: UInt16be = ()
+	let direct_lower: uint24be = ()
+	let begun: () = begin
+		let begin_packet: Packet = ()
+		let begin_exact: UInt16be = ()
+		let begin_lower: uint24be = ()
+		()
+	end
+	defer
+		let defer_packet: Packet = ()
+		let defer_exact: UInt16be = ()
+		let defer_lower: uint24be = ()
+		()
+	end
+	()
+end
+
+handler ask() handles Ask
+	value() => begin
+		let handler_packet: Packet = ()
+		let handler_exact: UInt16be = ()
+		let handler_lower: uint24be = ()
+		()
+	end
+end

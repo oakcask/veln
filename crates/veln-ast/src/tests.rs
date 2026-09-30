@@ -76,6 +76,18 @@ fn surface_wire_round_trip_preserves_expression_families() {
             "pub type Alias = api::_item\n",
             "pub schema Packet = api::packet\n",
         ),
+        concat!(
+            "fn cleanup() -> Int\n",
+            "  let resource = 1\n",
+            "  defer\n",
+            "    ()\n",
+            "  end\n",
+            "  begin\n",
+            "    let value = resource + 1\n",
+            "    value\n",
+            "  end\n",
+            "end\n",
+        ),
     ];
 
     for source in sources {
@@ -85,6 +97,52 @@ fn surface_wire_round_trip_preserves_expression_families() {
 
         assert_eq!(encode_surface_module(&decoded), encoded);
     }
+}
+
+#[test]
+fn surface_wire_round_trip_preserves_cleanup_introducer_spans() {
+    let source = concat!(
+        "fn parse() -> Result<(), String>\n",
+        "  Ok(())\n",
+        "end\n",
+        "fn cleanup() -> ()\n",
+        "  defer\n",
+        "    parse()?\n",
+        "  end\n",
+        "  ()\n",
+        "end\n",
+    );
+    let module = lower_source(source);
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    let BodyLineKind::Defer {
+        body,
+        keyword_span,
+        block_span,
+    } = &decoded.functions[1].body[0].kind
+    else {
+        panic!("expected defer statement");
+    };
+    assert_eq!(
+        &source[keyword_span.start.offset..keyword_span.end.offset],
+        "defer"
+    );
+    assert_eq!(
+        &source[block_span.start.offset..block_span.end.offset],
+        "    parse()?\n  "
+    );
+
+    let BodyLineKind::Expr { expr } = &body[0].kind else {
+        panic!("expected deferred expression");
+    };
+    let ExprKind::Try { question_span, .. } = &expr.kind else {
+        panic!("expected try expression");
+    };
+    assert_eq!(
+        &source[question_span.start.offset..question_span.end.offset],
+        "?"
+    );
 }
 
 #[test]
@@ -580,7 +638,7 @@ fn lowers_nested_expression_edge_cases() {
             expr,
         } if matches!(
             &expr.kind,
-            ExprKind::Try(inner)
+            ExprKind::Try { expr: inner, .. }
                 if matches!(&inner.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["input".to_string()])
         )
     ));

@@ -17,6 +17,9 @@ use crate::types::signatures::{
     FunctionSignature, SchemaReferenceErrorKind, UserEffectPathResolution,
 };
 
+type LocalNameDeclaration = (String, SourceSpan);
+type ScopedLocalName = (String, Option<LocalNameDeclaration>);
+
 pub(crate) fn check_function_body(
     function: &Function,
     environment: &TypeEnvironment,
@@ -49,11 +52,15 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) bindings: Vec<Binding>,
     invalid_binding_recoveries: Vec<InvalidBindingRecovery>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
-    pub(super) local_names: BTreeMap<String, (String, SourceSpan)>,
+    pub(super) local_names: BTreeMap<String, LocalNameDeclaration>,
+    local_name_scopes: Vec<Vec<ScopedLocalName>>,
+    captured_local_bindings: BTreeSet<String>,
+    defer_capture_boundaries: Vec<usize>,
     pub(super) inferred_effects: Vec<EffectUse>,
     pub(super) inferred_return_type: Option<Type>,
     pub(super) diagnostics: Vec<Diagnostic>,
     suppressed_diagnostic_indices: BTreeSet<usize>,
+    defer_blocks: Vec<SourceSpan>,
 }
 
 pub(in crate::analysis) struct PatternBinding {
@@ -79,6 +86,16 @@ struct EffectBoundary {
     kind: &'static str,
     diagnostic_id: &'static str,
     subject: &'static str,
+}
+
+pub(super) struct DeferRestrictionDiagnostic {
+    pub(super) id: &'static str,
+    pub(super) message: String,
+    pub(super) node_id: String,
+    pub(super) span: SourceSpan,
+    pub(super) reason: &'static str,
+    pub(super) repair: &'static str,
+    pub(super) repair_span: SourceSpan,
 }
 
 impl EffectBoundary {
@@ -207,10 +224,14 @@ impl<'a> FunctionChecker<'a> {
             invalid_binding_recoveries: Vec::new(),
             omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
+            local_name_scopes: Vec::new(),
+            captured_local_bindings: BTreeSet::new(),
+            defer_capture_boundaries: Vec::new(),
             inferred_effects: Vec::new(),
             inferred_return_type: None,
             diagnostics: Vec::new(),
             suppressed_diagnostic_indices: BTreeSet::new(),
+            defer_blocks: Vec::new(),
         }
     }
 

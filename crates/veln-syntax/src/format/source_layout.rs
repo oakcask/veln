@@ -16,8 +16,13 @@ pub(super) fn push_source_line(
 ) {
     comments.emit_before(source_line, out, indent);
     push_indent(out, indent);
-    out.push_str(&content);
-    comments.emit_after(source_line, out);
+    for (index, line) in content.split('\n').enumerate() {
+        if index > 0 {
+            out.push('\n');
+        }
+        out.push_str(line);
+        comments.emit_after(source_line + index, out);
+    }
     out.push('\n');
 }
 
@@ -119,6 +124,13 @@ impl LineComments {
         }
     }
 
+    pub(super) fn take_after(&self, source_line: usize) -> Vec<String> {
+        self.after
+            .borrow_mut()
+            .remove(&source_line)
+            .unwrap_or_default()
+    }
+
     pub(super) fn has_comment_in_span(&self, span: &veln_source::SourceSpan) -> bool {
         let start = span.start.line;
         let end = if span.end.column == 1 {
@@ -143,7 +155,9 @@ pub(super) fn function_body_end_line(function: &FunctionDecl) -> usize {
         .body
         .last()
         .map(|line| match line {
-            BodyLine::Let { span, .. } | BodyLine::Expr { span, .. } => span.start.line,
+            BodyLine::Let { span, .. }
+            | BodyLine::Expr { span, .. }
+            | BodyLine::Defer { span, .. } => span.start.line,
         })
         .or_else(|| {
             function

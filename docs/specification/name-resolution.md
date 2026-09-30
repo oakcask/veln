@@ -179,6 +179,19 @@ A wildcard let target, `_`, evaluates its expression without declaring a local
 name. It can be annotated for type checking, but it is never a resolvable
 binding.
 
+Each `begin` body introduces a nested lexical scope. Bindings declared in that
+body stop at its closing `end`. Each `defer` block has its own nested lexical
+scope, and bindings declared inside it stop at the block's closing `end`. The
+block sees only bindings visible at the `defer` statement, so a later binding
+remains unresolved inside the block. When the block references a visible
+binding, it captures that binding identity. A later `let` may shadow the
+captured binding. References in the deferred block keep the captured identity,
+while references after the later `let` resolve to the new binding.
+A `let` binding becomes visible only after its complete initializer. When that
+initializer is a multiline `begin`, references inside the initializer continue
+to resolve to the preceding local, parameter, function, or imported identity;
+the new binding starts after the `begin` closes.
+
 ### Casing and recovery
 
 Invalid source-written type, constructor, function, public alias, and value
@@ -239,7 +252,9 @@ constructor roles. Qualified type paths in function parameters, function
 returns, local annotations, handler parameters, handler operation parameter
 types, effect operation parameter and return types, ADT positional payload
 fields, ADT record payload fields, and schema fields use the same segment
-records. Qualified nominal effect paths inside function type
+records. This includes local annotations in nested `begin` and `defer` bodies
+and in a `begin` used as a handler operation clause. Qualified nominal effect
+paths inside function type
 `effects [...]` annotations are effect paths, not qualified type paths, and do
 not produce source identifier casing diagnostics. An unresolved or
 ambiguous intermediate segment is not assigned a role from spelling alone.
@@ -286,7 +301,8 @@ Current duplicate checks reject:
 - duplicate parameter names in one function
 - a result binding that duplicates a parameter name
 - duplicate `let` names in the same function value scope, including names that
-  duplicate parameters
+  duplicate parameters, unless an earlier `defer` block captured the binding
+  that the later `let` shadows
 - duplicate field names in one record literal
 - duplicate pattern binding names in one match arm, including names that
   duplicate bindings already visible at the arm
@@ -405,5 +421,7 @@ not become fallback targets.
 
 - Name and import analysis: `crates/veln-analysis/src/surface/` and
   `crates/veln-sema/src/name_recovery.rs`.
+- Deferred binding visibility:
+  `examples/specification/check/defer-binding-visibility/`.
 - Casing and source-path diagnostics: `crates/veln-sema/src/pipeline/identifier_casing/`.
 - Source-less descriptors and lookup routes: [source-less-lookup.md](source-less-lookup.md).

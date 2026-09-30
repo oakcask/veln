@@ -19,6 +19,18 @@ pub(super) fn collect_recovered_qualified_segments_from_body_line(
                 invalid,
             );
         }
+        veln_ast::BodyLineKind::Defer { body, .. } => {
+            for line in body {
+                collect_recovered_qualified_segments_from_body_line(
+                    line,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    push,
+                    invalid,
+                );
+            }
+        }
     }
 }
 
@@ -64,7 +76,7 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
         }
         veln_ast::ExprKind::TypeApply { callee, .. }
         | veln_ast::ExprKind::FieldAccess { base: callee, .. }
-        | veln_ast::ExprKind::Try(callee)
+        | veln_ast::ExprKind::Try { expr: callee, .. }
         | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
             collect_recovered_qualified_segments_from_expr(
                 callee,
@@ -93,6 +105,18 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
                 invalid,
             );
         }
+        veln_ast::ExprKind::Begin { body, .. } => {
+            for line in body {
+                collect_recovered_qualified_segments_from_body_line(
+                    line,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    push,
+                    invalid,
+                );
+            }
+        }
         _ => {}
     }
 }
@@ -113,6 +137,17 @@ pub(super) fn collect_recovered_qualified_function_segments_from_body_line(
                 environment,
                 invalid,
             );
+        }
+        veln_ast::BodyLineKind::Defer { body, .. } => {
+            for line in body {
+                collect_recovered_qualified_function_segments_from_body_line(
+                    line,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
         }
     }
 }
@@ -159,7 +194,7 @@ pub(super) fn collect_recovered_qualified_function_segments_from_expr(
         }
         veln_ast::ExprKind::TypeApply { callee, .. }
         | veln_ast::ExprKind::FieldAccess { base: callee, .. }
-        | veln_ast::ExprKind::Try(callee)
+        | veln_ast::ExprKind::Try { expr: callee, .. }
         | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
             collect_recovered_qualified_function_segments_from_expr(
                 callee,
@@ -207,6 +242,17 @@ pub(super) fn collect_recovered_qualified_function_segments_from_expr(
                 );
             }
         }
+        veln_ast::ExprKind::Begin { body, .. } => {
+            for line in body {
+                collect_recovered_qualified_function_segments_from_body_line(
+                    line,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+        }
         _ => {}
     }
 }
@@ -227,6 +273,17 @@ pub(super) fn collect_recovered_qualified_type_segments_from_body_line(
                 environment,
                 invalid,
             );
+        }
+        veln_ast::BodyLineKind::Defer { body, .. } => {
+            for line in body {
+                collect_recovered_qualified_type_segments_from_body_line(
+                    line,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
         }
     }
 }
@@ -269,6 +326,18 @@ pub(super) fn collect_recovered_qualified_type_segments_from_expr(
                 environment,
                 invalid,
             );
+        }
+        veln_ast::ExprKind::Begin { body, .. } => {
+            for line in body {
+                collect_recovered_qualified_type_segments_from_body_line(
+                    line,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+            return;
         }
         _ => {}
     }

@@ -1,6 +1,6 @@
 #[cfg(test)]
 use std::cell::Cell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap};
 use std::sync::{Arc, OnceLock};
 
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
@@ -33,6 +33,7 @@ include!("navigation/recovery_declarations.rs");
 include!("navigation/handler_bindings.rs");
 include!("navigation/references.rs");
 include!("navigation/scopes.rs");
+include!("navigation/local_binding_scopes.rs");
 include!("navigation/token_roles.rs");
 include!("navigation/source_paths.rs");
 
@@ -43,7 +44,13 @@ mod classification_tests;
 #[cfg(test)]
 thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+    static LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
+    static LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS: Cell<usize> = const { Cell::new(0) };
+    static LOCAL_BINDING_SCOPE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_CLAUSE_SCOPE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_CLAUSE_BINDING_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+    static TYPE_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static CONSTRUCTOR_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
@@ -81,6 +88,51 @@ thread_local! {
     static HANDLER_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_DIAGNOSTIC_INDEX_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_DIAGNOSTIC_OVERLAP_QUERIES: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static FUNCTION_SCOPE_LOOKUP_COMPARISONS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_function_scope_lookup_comparison() {
+    FUNCTION_SCOPE_LOOKUP_COMPARISONS.set(FUNCTION_SCOPE_LOOKUP_COMPARISONS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_function_scope_lookup_comparison() {}
+
+#[cfg(test)]
+pub(crate) fn reset_function_scope_lookup_comparisons() {
+    FUNCTION_SCOPE_LOOKUP_COMPARISONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn function_scope_lookup_comparisons() -> usize {
+    FUNCTION_SCOPE_LOOKUP_COMPARISONS.get()
+}
+
+#[cfg(test)]
+fn record_handler_clause_body_range_index_entry() {
+    HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES.set(HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(test)]
+fn record_handler_clause_body_membership_lookup() {
+    HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS.set(HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_handler_clause_body_range_work() {
+    HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES.set(0);
+    HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn handler_clause_body_range_work() -> (usize, usize) {
+    (
+        HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES.get(),
+        HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS.get(),
+    )
 }
 
 #[cfg(test)]
@@ -434,6 +486,97 @@ fn record_function_scope_collection() {
 }
 
 #[cfg(test)]
+fn record_local_reference_scope_candidate_visit() {
+    LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.set(LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_local_reference_scope_candidate_visit() {}
+
+#[cfg(test)]
+fn record_local_reference_binding_candidate_comparison() {
+    LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS
+        .set(LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_local_reference_binding_candidate_comparison() {}
+
+#[cfg(test)]
+pub(crate) fn reset_local_reference_scope_candidate_visits() {
+    LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn local_reference_scope_candidate_visits() -> usize {
+    LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn reset_local_reference_binding_candidate_comparisons() {
+    LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn local_reference_binding_candidate_comparisons() -> usize {
+    LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS.get()
+}
+
+#[cfg(test)]
+fn record_local_binding_scope_token_visit() {
+    LOCAL_BINDING_SCOPE_TOKEN_VISITS.set(LOCAL_BINDING_SCOPE_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_local_binding_scope_token_visit() {}
+
+#[cfg(test)]
+fn record_handler_clause_scope_token_visit() {
+    HANDLER_CLAUSE_SCOPE_TOKEN_VISITS.set(HANDLER_CLAUSE_SCOPE_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_handler_clause_scope_token_visit() {}
+
+#[cfg(test)]
+fn record_handler_clause_binding_token_visits(count: usize) {
+    HANDLER_CLAUSE_BINDING_TOKEN_VISITS.set(HANDLER_CLAUSE_BINDING_TOKEN_VISITS.get() + count);
+}
+
+#[cfg(not(test))]
+fn record_handler_clause_binding_token_visits(_count: usize) {}
+
+#[cfg(test)]
+pub(crate) fn reset_handler_clause_binding_token_visits() {
+    HANDLER_CLAUSE_BINDING_TOKEN_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn handler_clause_binding_token_visits() -> usize {
+    HANDLER_CLAUSE_BINDING_TOKEN_VISITS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn reset_handler_clause_scope_token_visits() {
+    HANDLER_CLAUSE_SCOPE_TOKEN_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn handler_clause_scope_token_visits() -> usize {
+    HANDLER_CLAUSE_SCOPE_TOKEN_VISITS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn reset_local_binding_scope_token_visits() {
+    LOCAL_BINDING_SCOPE_TOKEN_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn local_binding_scope_token_visits() -> usize {
+    LOCAL_BINDING_SCOPE_TOKEN_VISITS.get()
+}
+
+#[cfg(test)]
 pub(crate) fn reset_function_scope_collections() {
     FUNCTION_SCOPE_COLLECTIONS.set(0);
 }
@@ -449,13 +592,27 @@ fn record_type_reference_collection() {
 }
 
 #[cfg(test)]
+fn record_type_reference_token_visit() {
+    TYPE_REFERENCE_TOKEN_VISITS.set(TYPE_REFERENCE_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_type_reference_token_visit() {}
+
+#[cfg(test)]
 pub(crate) fn reset_type_reference_collections() {
     TYPE_REFERENCE_COLLECTIONS.set(0);
+    TYPE_REFERENCE_TOKEN_VISITS.set(0);
 }
 
 #[cfg(test)]
 pub(crate) fn type_reference_collections() -> usize {
     TYPE_REFERENCE_COLLECTIONS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn type_reference_token_visits() -> usize {
+    TYPE_REFERENCE_TOKEN_VISITS.get()
 }
 
 #[cfg(test)]

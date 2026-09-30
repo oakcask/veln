@@ -181,6 +181,11 @@ impl QualifiedPathOccurrenceIndex {
                 self.collect_expr(expr, current_module, false);
             }
             veln_ast::BodyLineKind::Expr { expr } => self.collect_expr(expr, current_module, false),
+            veln_ast::BodyLineKind::Defer { body, .. } => {
+                for line in body {
+                    self.collect_body_line(line, current_module);
+                }
+            }
         }
     }
 
@@ -203,7 +208,7 @@ impl QualifiedPathOccurrenceIndex {
             }
             veln_ast::ExprKind::TypeApply { callee, .. }
             | veln_ast::ExprKind::FieldAccess { base: callee, .. }
-            | veln_ast::ExprKind::Try(callee)
+            | veln_ast::ExprKind::Try { expr: callee, .. }
             | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
                 self.collect_expr(callee, current_module, call_role);
             }

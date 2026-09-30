@@ -463,8 +463,11 @@ pub(super) fn dedup_reachable_invalid_name_spans(spans: &mut Vec<ReachableInvali
     });
 }
 
-pub(super) fn collect_pattern_binding_names(pattern: &Pattern, bindings: &mut Vec<String>) {
-    pattern.for_each_binding(&mut |name| bindings.push(name.to_string()));
+pub(super) fn collect_pattern_binding_names(
+    pattern: &Pattern,
+    bindings: &mut Vec<LocalNameBinding>,
+) {
+    pattern.for_each_binding(&mut |name| bindings.push(LocalNameBinding(name.to_string())));
 }
 
 pub(super) fn span_contains(container: &SourceSpan, span: &SourceSpan) -> bool {

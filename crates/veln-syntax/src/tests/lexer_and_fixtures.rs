@@ -138,6 +138,24 @@ fn rejected_source_surface_fixtures_produce_diagnostics() {
             "{} should produce at least one parse diagnostic",
             fixture.display()
         );
+
+        let expected_diagnostic = match fixture.file_name().and_then(|name| name.to_str()) {
+            Some("begin-missing-block-end.veln") => Some("parse.begin_missing_end"),
+            Some("defer-expression-position.veln") => Some("parse.expected_expression"),
+            Some("defer-missing-block-end.veln") => Some("parse.defer_missing_end"),
+            _ => None,
+        };
+        if let Some(expected_diagnostic) = expected_diagnostic {
+            assert!(
+                output
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.id == expected_diagnostic),
+                "{} should produce {expected_diagnostic}: {:#?}",
+                fixture.display(),
+                output.diagnostics
+            );
+        }
     }
 }
 

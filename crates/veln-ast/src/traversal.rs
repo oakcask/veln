@@ -30,7 +30,7 @@ impl Expr {
             ExprKind::TypeApply { callee: expr, .. }
             | ExprKind::SchemaEncode { value: expr, .. }
             | ExprKind::FieldAccess { base: expr, .. }
-            | ExprKind::Try(expr)
+            | ExprKind::Try { expr, .. }
             | ExprKind::Prefix { expr, .. } => visitor(expr)?,
             ExprKind::Perform { args, .. } | ExprKind::List(args) => {
                 for arg in args {
@@ -77,6 +77,9 @@ impl Expr {
                 }
                 visitor(else_branch)?;
             }
+            ExprKind::Begin { body, .. } => {
+                visit_body_exprs(body, visitor)?;
+            }
             ExprKind::Missing
             | ExprKind::Hole { .. }
             | ExprKind::NamePath { .. }
@@ -88,4 +91,19 @@ impl Expr {
         }
         ControlFlow::Continue(())
     }
+}
+
+fn visit_body_exprs<'a, B>(
+    body: &'a [crate::BodyLine],
+    visitor: &mut impl FnMut(&'a Expr) -> ControlFlow<B>,
+) -> ControlFlow<B> {
+    for line in body {
+        match &line.kind {
+            crate::BodyLineKind::Let { expr, .. } | crate::BodyLineKind::Expr { expr } => {
+                visitor(expr)?;
+            }
+            crate::BodyLineKind::Defer { body, .. } => visit_body_exprs(body, visitor)?,
+        }
+    }
+    ControlFlow::Continue(())
 }

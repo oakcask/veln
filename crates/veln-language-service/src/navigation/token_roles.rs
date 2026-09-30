@@ -52,17 +52,6 @@ fn is_satisfy_candidate_binding_name(tokens: &[Token], index: usize) -> bool {
         && next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::FatArrow)
 }
 
-fn is_satisfy_arrow(tokens: &[Token], index: usize) -> bool {
-    let Some(candidate_index) = previous_non_layout_index(tokens, index) else {
-        return false;
-    };
-    if tokens[candidate_index].kind != TokenKind::Ident {
-        return false;
-    }
-    previous_non_layout_token(tokens, candidate_index)
-        .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "satisfy")
-}
-
 fn is_field_name(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Dot)
         || next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
@@ -115,7 +104,10 @@ fn is_bare_function_reference_token(
         && !is_handler_operation_clause_operation_name(tokens, index)
         && (is_call_target_token(tokens, index)
             || token_scope(scopes, tokens[index].range.start)
-                .is_some_and(|scope| !scope.shadows(name, tokens, index))
+                .is_some_and(|scope| {
+                    !inside_handler_operation_clause_body(tokens, tokens[index].range.start)
+                        && !scope.shadows(name, tokens, index)
+                })
             || is_handler_operation_clause_call_target(tokens, index)
             || is_function_alias_target_reference(tokens, index, name)
             || is_codec_implementation_function_reference(tokens, index, name))
@@ -355,10 +347,14 @@ fn top_level_separator(indices: &[usize], tokens: &[Token], separator: TokenKind
 }
 
 fn inside_schema_declaration(tokens: &[Token], index: usize) -> bool {
+    let defer_block_openers = defer_block_openers(tokens);
     let mut nested_blocks = 0usize;
-    for token in tokens[..index].iter().rev() {
+    for (candidate_index, token) in tokens[..index].iter().enumerate().rev() {
         if token.kind == TokenKind::End {
             nested_blocks += 1;
+            continue;
+        }
+        if token.kind == TokenKind::Defer && !defer_block_openers[candidate_index] {
             continue;
         }
         if !matches!(
@@ -372,6 +368,8 @@ fn inside_schema_declaration(tokens: &[Token], index: usize) -> bool {
                 | TokenKind::Handler
                 | TokenKind::If
                 | TokenKind::Match
+                | TokenKind::Begin
+                | TokenKind::Defer
         ) {
             continue;
         }
@@ -653,6 +651,7 @@ fn enclosing_top_level_block_index(
     index: usize,
     start_kind: TokenKind,
 ) -> Option<usize> {
+    let defer_block_openers = defer_block_openers(tokens);
     let mut nested_blocks = 0usize;
     for (candidate_index, token) in tokens[..index].iter().enumerate().rev() {
         match token.kind {
@@ -663,7 +662,11 @@ fn enclosing_top_level_block_index(
             | TokenKind::If
             | TokenKind::Match
             | TokenKind::Handler
-            | TokenKind::Codec => nested_blocks = nested_blocks.saturating_sub(1),
+            | TokenKind::Codec
+            | TokenKind::Begin => nested_blocks = nested_blocks.saturating_sub(1),
+            TokenKind::Defer if defer_block_openers[candidate_index] => {
+                nested_blocks = nested_blocks.saturating_sub(1)
+            }
             _ => {}
         }
     }

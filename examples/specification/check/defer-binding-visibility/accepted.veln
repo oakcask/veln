@@ -1,0 +1,33 @@
+# A deferred block can use a binding visible at the defer statement.
+fn accepts_earlier_binding(input: Int) -> ()
+	let visible = input
+	defer
+		let copy = visible
+		()
+	end
+	()
+end
+
+# A later local can shadow the binding referenced by an earlier defer.
+fn accepts_shadow_after_capture(input: Int) -> String
+	let captured = input
+	defer
+		let copy = captured
+		()
+	end
+	let captured = "later"
+	captured
+end
+
+# The same capture boundary applies inside a nested begin scope.
+fn accepts_nested_shadow_after_capture(input: Int) -> String
+	let captured = input
+	defer
+		let copy = captured
+		()
+	end
+	begin
+		let captured = "later"
+		captured
+	end
+end

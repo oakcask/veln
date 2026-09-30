@@ -67,6 +67,26 @@ fn search_docs_ranks_exact_prefix_and_ties_by_uri_bytes() {
 }
 
 #[test]
+fn search_docs_discovers_cleanup_region_forms() {
+    let workspace = TempWorkspace::new("search-cleanup-regions");
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+
+    for query in ["begin", "defer"] {
+        let result = search(&mut server, json!({"query": query, "limit": 1}));
+        let first = &result["structuredContent"]["results"][0];
+        assert_eq!(first["title"], "Expressions, Operators, And Patterns");
+        assert_eq!(first["excerpt"], query);
+
+        let document = read_doc(&mut server, first["uri"].as_str().unwrap());
+        let text = document["structuredContent"]["text"].as_str().unwrap();
+        assert!(text.contains("BeginExpr"));
+        assert!(text.contains("DeferStatement"));
+        assert!(text.contains("static and tooling surfaces only"));
+        assert!(text.contains("deferred_cleanup_runtime"));
+    }
+}
+
+#[test]
 fn search_docs_normalizes_case_unicode_whitespace_tokens_and_limits() {
     let workspace = TempWorkspace::new("search-normalization");
     let mut server = initialized_server_with_embedded_resources(&workspace);
@@ -172,7 +192,7 @@ fn search_docs_uses_field_tiers_token_intersection_and_bounded_excerpts() {
     assert_eq!(result["title"], "Expressions, Operators, And Patterns");
     assert!(result["excerpt"].as_str().unwrap().chars().count() <= 160);
     assert_eq!(result["prefix_truncated"], true);
-    assert_eq!(result["suffix_truncated"], false);
+    assert_eq!(result["suffix_truncated"], true);
 }
 
 #[test]
@@ -190,30 +210,7 @@ fn read_doc_matches_resource_reads_and_rejects_unknown_uris_as_tool_errors() {
         .unwrap()
         .clone();
     for resource in [index, topic] {
-        let uri = resource["uri"].as_str().unwrap();
-        let resource_read = server
-            .handle_request(
-                json!({"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":uri}}),
-            )
-            .unwrap();
-        let doc_read = server
-            .handle_request(json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":uri}}}))
-            .unwrap();
-        let structured = &doc_read["result"]["structuredContent"];
-        assert_eq!(structured["uri"], uri);
-        assert_eq!(structured["name"], resource["name"]);
-        assert_eq!(structured["title"], resource["title"]);
-        assert_eq!(structured.get("description"), resource.get("description"));
-        assert_eq!(structured["mimeType"], resource["mimeType"]);
-        assert_eq!(
-            structured["text"],
-            resource_read["result"]["contents"][0]["text"]
-        );
-        assert_eq!(
-            structured["mimeType"],
-            resource_read["result"]["contents"][0]["mimeType"]
-        );
-        assert_eq!(doc_read["result"]["isError"], false);
+        assert_listed_doc_tool_equals_resource(&mut server, &resource);
     }
 
     let digest = veln_repo_language_reference::checked_catalog_digest();
@@ -241,23 +238,7 @@ fn read_doc_matches_resource_reads_and_rejects_unknown_uris_as_tool_errors() {
         ),
     ];
     for (case, uri) in rejection_cases {
-        let missing = server
-            .handle_request(json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":uri}}}))
-            .unwrap();
-        assert!(missing.get("error").is_none(), "{case}");
-        assert_eq!(missing["result"]["isError"], true, "{case}");
-        assert_eq!(
-            missing["result"]["structuredContent"]["code"], "resource_not_found",
-            "{case}"
-        );
-        assert_eq!(
-            missing["result"]["structuredContent"]["details"]["uri"],
-            uri
-        );
-        assert!(
-            missing["result"]["structuredContent"].get("text").is_none(),
-            "{case}"
-        );
+        assert_read_doc_resource_not_found(&mut server, case, &uri);
     }
 }
 
@@ -851,6 +832,11 @@ fn package_search_uses_catalog_field_tiers_and_retains_distinct_snapshots() {
 
 #[test]
 fn package_tool_state_is_preserved_across_capacity_and_capture_failures() {
+    assert_package_tool_state_preserved_across_capacity_failure();
+    assert_package_tool_state_preserved_across_capture_failure();
+}
+
+fn assert_package_tool_state_preserved_across_capacity_failure() {
     let workspace = TempWorkspace::new("package-tool-failure-state");
     write_documented_workspace(&workspace);
     let mut server = initialized_server_with_embedded_resources(&workspace);
@@ -885,7 +871,9 @@ fn package_tool_state_is_preserved_across_capacity_and_capture_failures() {
         json!({"query": "overflow rejected text", "scope": "package", "limit": 50}),
     );
     assert_eq!(rejected["structuredContent"]["results"], json!([]));
+}
 
+fn assert_package_tool_state_preserved_across_capture_failure() {
     let capture_workspace = TempWorkspace::new("package-tool-capture-failure-state");
     write_documented_workspace(&capture_workspace);
     let mut capture_server = initialized_server_with_embedded_resources(&capture_workspace);
@@ -1176,6 +1164,15 @@ fn assert_doc_tool_equals_resource(server: &mut Server, uri: &str) -> Value {
         resource["result"]["contents"][0]["text"]
     );
     structured.clone()
+}
+
+fn assert_listed_doc_tool_equals_resource(server: &mut Server, resource: &Value) {
+    let uri = resource["uri"].as_str().unwrap();
+    let structured = assert_doc_tool_equals_resource(server, uri);
+    assert_eq!(structured["name"], resource["name"]);
+    assert_eq!(structured["title"], resource["title"]);
+    assert_eq!(structured.get("description"), resource.get("description"));
+    assert_eq!(structured["mimeType"], resource["mimeType"]);
 }
 
 fn assert_read_doc_resource_not_found(server: &mut Server, case: &str, uri: &str) {

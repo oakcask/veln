@@ -450,6 +450,36 @@ fn prelude_helper_result_context_reports_conflicting_callback_return_type() {
 }
 
 #[test]
+fn begin_body_conflicting_callback_return_constraints_converge() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn empty_items(value: Int)\n",
+            "  []\n",
+            "end\n",
+            "pub fn main() -> ()\n",
+            "  begin\n",
+            "    let ints: Vec<Vec<Int>> = vec_map([1], empty_items)\n",
+            "    let strings: Vec<Vec<String>> = vec_map([1], empty_items)\n",
+            "    ()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `fn(Int) -> Vec<String>`, but found `fn(Int) -> Vec<Int>`"
+    );
+}
+
+#[test]
 fn prelude_helper_input_types_infer_private_callback_parameters() {
     let source = SourceFile::new(
         "main.veln",

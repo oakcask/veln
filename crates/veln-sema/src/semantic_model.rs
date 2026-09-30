@@ -19,11 +19,50 @@ pub(crate) struct EffectUse {
     pub(crate) symbol: String,
 }
 
-#[derive(Clone)]
+#[cfg_attr(not(test), derive(Clone))]
 pub(crate) struct Binding {
     pub(crate) name: String,
     pub(crate) ty: Type,
     pub(crate) private_function_value: Option<FunctionKey>,
+}
+
+#[cfg(test)]
+thread_local! {
+    static BINDING_CLONES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static MAX_SCOPED_BINDINGS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+impl Clone for Binding {
+    fn clone(&self) -> Self {
+        BINDING_CLONES.set(BINDING_CLONES.get() + 1);
+        Self {
+            name: self.name.clone(),
+            ty: self.ty.clone(),
+            private_function_value: self.private_function_value.clone(),
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn reset_binding_clone_count() {
+    BINDING_CLONES.set(0);
+    MAX_SCOPED_BINDINGS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn binding_clone_count() -> usize {
+    BINDING_CLONES.get()
+}
+
+#[cfg(test)]
+pub(crate) fn record_scoped_binding_count(count: usize) {
+    MAX_SCOPED_BINDINGS.set(MAX_SCOPED_BINDINGS.get().max(count));
+}
+
+#[cfg(test)]
+pub(crate) fn max_scoped_binding_count() -> usize {
+    MAX_SCOPED_BINDINGS.get()
 }
 
 impl Binding {

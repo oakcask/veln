@@ -80,6 +80,35 @@ fn definition_resolves_the_supported_workspace_symbol_set() {
             definition_column: 8,
         },
         Case {
+            name: "handler clause begin local",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value() -> Int\n",
+                        "end\n\n",
+                        "handler ask() handles Ask\n",
+                        "  value() => begin\n",
+                        "    let captured = 1\n",
+                        "    defer\n",
+                        "      captured\n",
+                        "    end\n",
+                        "    captured\n",
+                        "  end\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 9,
+            column: 8,
+            definition_file: "main.veln",
+            definition_line: 7,
+            definition_column: 9,
+        },
+        Case {
             name: "exact companion private function",
             files: vec![
                 ("veln.toml", ""),
@@ -95,6 +124,65 @@ fn definition_resolves_the_supported_workspace_symbol_set() {
             definition_file: "math.veln",
             definition_line: 1,
             definition_column: 4,
+        },
+        Case {
+            name: "function from deferred cleanup block",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "fn cleanup(value: Int) -> ()\n",
+                        "  ()\n",
+                        "end\n\n",
+                        "fn read(value: Int) -> Int\n",
+                        "  defer\n",
+                        "    cleanup(value)\n",
+                        "  end\n",
+                        "  value\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 7,
+            column: 6,
+            definition_file: "main.veln",
+            definition_line: 1,
+            definition_column: 4,
+        },
+        Case {
+            name: "type from handler deferred cleanup annotation",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "type Resource\n",
+                        "  Ready\n",
+                        "end\n\n",
+                        "effect Ask\n",
+                        "  value() -> Resource\n",
+                        "end\n\n",
+                        "handler ask(seed: Resource) handles Ask\n",
+                        "  value() => begin\n",
+                        "    defer\n",
+                        "      let deferred: Resource = seed\n",
+                        "      ()\n",
+                        "    end\n",
+                        "    let nested: Resource = seed\n",
+                        "    nested\n",
+                        "  end\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 12,
+            column: 22,
+            definition_file: "main.veln",
+            definition_line: 1,
+            definition_column: 6,
         },
     ];
 
@@ -123,6 +211,45 @@ fn definition_resolves_the_supported_workspace_symbol_set() {
             location["range"]["start"]["column"], case.definition_column,
             "{}",
             case.name
+        );
+    }
+}
+
+#[test]
+fn definition_uses_innermost_binding_across_nested_cleanup_scopes() {
+    let workspace = TempWorkspace::new("definition-cleanup-region-shadowing");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn read(value: Int) -> Int\n",
+            "  let value = value\n",
+            "  begin\n",
+            "    let value = value\n",
+            "    defer\n",
+            "      let value = value\n",
+            "      value\n",
+            "    end\n",
+            "    value\n",
+            "  end\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    for (line, column, definition_line, definition_column) in
+        [(2, 15, 1, 9), (11, 4, 2, 7), (9, 6, 4, 9), (7, 8, 6, 11)]
+    {
+        let result = definition_result(&workspace, "main.veln", line, column);
+        assert_eq!(result["isError"], false, "{line}:{column}: {result:#}");
+        let location = &result["structuredContent"]["definition"];
+        assert_eq!(
+            location["range"]["start"]["line"], definition_line,
+            "{line}:{column}: {location:#}"
+        );
+        assert_eq!(
+            location["range"]["start"]["column"], definition_column,
+            "{line}:{column}: {location:#}"
         );
     }
 }

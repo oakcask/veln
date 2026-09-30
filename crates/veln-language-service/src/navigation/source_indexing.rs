@@ -266,18 +266,13 @@ fn valid_handler_reference_ranges(
     for item in &parsed.tree.items {
         match item {
             SyntaxItem::Function(function) => {
-                for line in &function.body {
-                    let expr = match line {
-                        BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => expr,
-                    };
-                    collect_handler_reference_ranges(
-                        expr,
-                        diagnostics,
-                        tokens,
-                        argument_delimiters,
-                        &mut ranges,
-                    );
-                }
+                collect_body_handler_reference_ranges(
+                    &function.body,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    &mut ranges,
+                );
             }
             SyntaxItem::Handler(handler) => {
                 for clause in &handler.operation_clauses {
@@ -294,6 +289,35 @@ fn valid_handler_reference_ranges(
         }
     }
     ranges
+}
+
+fn collect_body_handler_reference_ranges(
+    body: &[BodyLine],
+    diagnostics: &HandlerDiagnosticIndex,
+    tokens: &[Token],
+    argument_delimiters: &HandlerArgumentDelimiters,
+    ranges: &mut BTreeSet<(usize, usize)>,
+) {
+    for line in body {
+        match line {
+            BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
+                collect_handler_reference_ranges(
+                    expr,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
+            }
+            BodyLine::Defer { body, .. } => collect_body_handler_reference_ranges(
+                body,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            ),
+        }
+    }
 }
 
 fn collect_handler_reference_ranges(
@@ -318,7 +342,7 @@ fn collect_handler_reference_ranges(
     match &expr.kind {
         ExprKind::TypeApply { callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
+        | ExprKind::Try { expr: callee, .. }
         | ExprKind::Prefix { expr: callee, .. }
         | ExprKind::SchemaEncode { value: callee, .. } => {
             collect_handler_reference_ranges(
@@ -470,6 +494,13 @@ fn collect_handler_reference_ranges(
                 ranges,
             );
         }
+        ExprKind::Begin { body, .. } => collect_body_handler_reference_ranges(
+            body,
+            diagnostics,
+            tokens,
+            argument_delimiters,
+            ranges,
+        ),
         ExprKind::Missing
         | ExprKind::Hole { .. }
         | ExprKind::NamePath { .. }
@@ -616,6 +647,11 @@ fn collect_body_line_effect_reference_regions(
             collect_perform_effect_regions(expr, regions);
         }
         BodyLine::Expr { expr, .. } => collect_perform_effect_regions(expr, regions),
+        BodyLine::Defer { body, .. } => {
+            for line in body {
+                collect_body_line_effect_reference_regions(line, regions);
+            }
+        }
     }
 }
 
@@ -797,7 +833,7 @@ fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>
         }
         ExprKind::TypeApply { callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
+        | ExprKind::Try { expr: callee, .. }
         | ExprKind::Prefix { expr: callee, .. } => {
             collect_perform_effect_regions(callee, regions);
         }
@@ -846,6 +882,11 @@ fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>
             else_branch,
             regions,
         ),
+        ExprKind::Begin { body, .. } => {
+            for line in body {
+                collect_body_line_effect_reference_regions(line, regions);
+            }
+        }
         ExprKind::Binary { left, right, .. } => {
             collect_perform_effect_regions(left, regions);
             collect_perform_effect_regions(right, regions);
@@ -1010,6 +1051,47 @@ fn append_recovered_dependency_imports(
     append_surface_module(dependency_module, source_module);
 }
 
+struct ParsedDependencySource {
+    source: SourceFile,
+    tokens: Vec<Token>,
+    module: String,
+    uses: BTreeSet<String>,
+    external_uses: BTreeSet<(String, String)>,
+    import_aliases: BTreeMap<String, String>,
+    external_import_aliases: BTreeMap<String, (String, String)>,
+    invalid_declaration_names: Vec<SourceSpan>,
+    navigation_isolated: bool,
+    parsed: ParseOutput,
+}
+
+fn parse_dependency_source(
+    source: &veln_project::CapturedPackageSource,
+) -> ParsedDependencySource {
+    let text =
+        std::str::from_utf8(source.bytes()).expect("captured package source text is valid UTF-8");
+    let source_file = SourceFile::new(source.path(), text);
+    let path_module = module_name_from_path(source.path());
+    let navigation_isolated = path_module_invalid_for_navigation(path_module.as_deref());
+    let module = explicit_module_name(text).or(path_module).unwrap_or_default();
+    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(text);
+    let parsed = parse(&source_file);
+    let invalid_declaration_names = invalid_name_spans(&invalid_declaration_names(&parsed));
+    let tokens = lex(&source_file).tokens;
+
+    ParsedDependencySource {
+        source: source_file,
+        tokens,
+        module,
+        uses,
+        external_uses,
+        import_aliases,
+        external_import_aliases,
+        invalid_declaration_names,
+        navigation_isolated,
+        parsed,
+    }
+}
+
 fn indexed_dependency_source(
     dependency: &DirectDependencySnapshot,
     source: &veln_project::CapturedPackageSource,
@@ -1020,24 +1102,30 @@ fn indexed_dependency_source(
     #[cfg(test)]
     record_dependency_source_parse();
 
-    let text =
-        std::str::from_utf8(source.bytes()).expect("captured package source text is valid UTF-8");
-    let source_file = SourceFile::new(source.path(), text);
-    let path_module = module_name_from_path(source.path());
-    let navigation_isolated = path_module_invalid_for_navigation(path_module.as_deref());
-    let module = explicit_module_name(text).or(path_module).unwrap_or_default();
-    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(text);
-    let parsed = parse(&source_file);
-    let invalid_declaration_names = invalid_declaration_names(&parsed);
-    let tokens = lex(&source_file).tokens;
+    let exported = dependency.exported_sources.contains(source.path());
+    let ParsedDependencySource {
+        source,
+        tokens,
+        module,
+        uses,
+        external_uses,
+        import_aliases,
+        external_import_aliases,
+        invalid_declaration_names,
+        navigation_isolated,
+        parsed,
+    } = parse_dependency_source(source);
     let schema_operation_leaf_ranges = valid_schema_operation_leaf_spans(&parsed.tree)
         .into_iter()
         .map(|span| (span.start.offset, span.end.offset))
         .collect();
     let schema_composition_leaf_spans =
-        valid_schema_composition_leaf_spans(&source_file, &tokens, &parsed);
+        valid_schema_composition_leaf_spans(&source, &tokens, &parsed);
+    let handler_operation_clause_body_ranges =
+        handler_operation_clause_body_ranges(&source, &tokens);
+    let handler_clause_bindings_by_name = handler_clause_bindings_by_name(&parsed.tree);
     let file = IndexedFile {
-        source: source_file,
+        source,
         tokens,
         module,
         companion_target_module: None,
@@ -1047,7 +1135,7 @@ fn indexed_dependency_source(
         external_import_aliases,
         schema_alias_external_imports: Vec::new(),
         workspace_imports: Vec::new(),
-        invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
+        invalid_declaration_names,
         recovery_symbols: Vec::new(),
         recovered_effect_declarations: recovered_effect_declarations(&parsed.tree),
         recovered_handler_declarations: recovered_handler_declarations(
@@ -1056,6 +1144,8 @@ fn indexed_dependency_source(
         ),
         handler_reference_ranges: BTreeSet::new(),
         handler_operation_clause_references: Vec::new(),
+        handler_operation_clause_body_ranges,
+        handler_clause_bindings_by_name,
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_reference_ranges: BTreeSet::new(),
@@ -1067,11 +1157,81 @@ fn indexed_dependency_source(
         origin: IndexedOrigin::Package {
             identity: dependency.identity.as_str().to_string(),
             uri: uri.to_string(),
-            exported: dependency.exported_sources.contains(source.path()),
+            exported,
             standard_library: dependency.standard_library,
         },
     };
     (file, parsed)
+}
+
+fn handler_operation_clause_body_ranges(
+    source: &SourceFile,
+    tokens: &[Token],
+) -> Vec<(usize, usize)> {
+    let defer_block_openers = defer_block_openers(tokens);
+    let clause_headers =
+        handler_operation_clause_headers_with(tokens, &defer_block_openers, || {});
+    clause_headers
+        .iter()
+        .enumerate()
+        .filter(|(_, is_header)| **is_header)
+        .map(|(arrow_index, _)| {
+            #[cfg(test)]
+            record_handler_clause_body_range_index_entry();
+            (
+                tokens[arrow_index].range.end,
+                handler_operation_clause_body_end_with_defer_openers(
+                    tokens,
+                    arrow_index,
+                    source.text().len(),
+                    &defer_block_openers,
+                    &clause_headers,
+                ),
+            )
+        })
+        .collect()
+}
+
+fn handler_clause_bindings_by_name(syntax: &SyntaxTree) -> BTreeMap<String, Vec<ClauseBinding>> {
+    let mut by_name = BTreeMap::new();
+    for item in &syntax.items {
+        let SyntaxItem::Handler(handler) = item else {
+            continue;
+        };
+        for param in &handler.params {
+            let binding = ClauseBinding {
+                name: param.name.clone(),
+                declaration: param.name_span.clone(),
+                start: handler.span.start.offset,
+                end: handler.span.end.offset,
+                kind: LocalSymbolKind::HandlerContextParameter,
+            };
+            by_name
+                .entry(binding.name.clone())
+                .or_insert_with(Vec::new)
+                .push(binding);
+        }
+        for (clause_index, clause) in handler.operation_clauses.iter().enumerate() {
+            let clause_scope_end = handler
+                .operation_clauses
+                .get(clause_index + 1)
+                .map_or(handler.span.end.offset, |next| next.span.start.offset);
+            for param in &clause.params {
+                let binding = ClauseBinding {
+                    name: param.name.clone(),
+                    declaration: param.name_span.clone(),
+                    start: clause.span.start.offset,
+                    end: clause_scope_end,
+                    kind: LocalSymbolKind::HandlerOperationClauseParameter,
+                };
+                by_name
+                    .entry(binding.name.clone())
+                    .or_insert_with(Vec::new)
+                    .push(binding);
+            }
+        }
+    }
+    by_name
 }
 
 fn valid_schema_operation_leaf_spans(syntax: &SyntaxTree) -> Vec<SourceSpan> {
@@ -1079,12 +1239,7 @@ fn valid_schema_operation_leaf_spans(syntax: &SyntaxTree) -> Vec<SourceSpan> {
     for item in &syntax.items {
         match item {
             SyntaxItem::Function(function) => {
-                for line in &function.body {
-                    let expr = match line {
-                        BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => expr,
-                    };
-                    collect_valid_schema_operation_leaf_spans(expr, &mut spans);
-                }
+                collect_body_schema_operation_leaf_spans(&function.body, &mut spans);
             }
             SyntaxItem::Handler(handler) => {
                 for clause in &handler.operation_clauses {
@@ -1095,6 +1250,19 @@ fn valid_schema_operation_leaf_spans(syntax: &SyntaxTree) -> Vec<SourceSpan> {
         }
     }
     spans
+}
+
+fn collect_body_schema_operation_leaf_spans(body: &[BodyLine], spans: &mut Vec<SourceSpan>) {
+    for line in body {
+        match line {
+            BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
+                collect_valid_schema_operation_leaf_spans(expr, spans);
+            }
+            BodyLine::Defer { body, .. } => {
+                collect_body_schema_operation_leaf_spans(body, spans);
+            }
+        }
+    }
 }
 
 fn valid_schema_composition_leaf_spans(
@@ -1222,7 +1390,7 @@ fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<Source
         }
         ExprKind::TypeApply { callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try(callee)
+        | ExprKind::Try { expr: callee, .. }
         | ExprKind::Prefix { expr: callee, .. } => {
             collect_valid_schema_operation_leaf_spans(callee, spans);
         }
@@ -1279,6 +1447,7 @@ fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<Source
             }
             collect_valid_schema_operation_leaf_spans(else_branch, spans);
         }
+        ExprKind::Begin { body, .. } => collect_body_schema_operation_leaf_spans(body, spans),
         ExprKind::Binary { left, right, .. } => {
             collect_valid_schema_operation_leaf_spans(left, spans);
             collect_valid_schema_operation_leaf_spans(right, spans);

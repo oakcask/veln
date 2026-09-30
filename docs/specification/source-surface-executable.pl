@@ -156,8 +156,9 @@ grammar_line(190, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").
 grammar_line(200, "EffectList    ::= EffectEntry (\",\" EffectEntry)* \",\"?").
 grammar_line(205, "EffectEntry   ::= MemberPath | \"...\" Name").
 grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
-grammar_line(220, "Body          ::= (LetLine | ExprLine)*").
+grammar_line(220, "Body          ::= (LetLine | DeferStatement | ExprLine)*").
 grammar_line(230, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" Expr NL").
+grammar_line(235, "DeferStatement ::= \"defer\" NL Body \"end\" NL?").
 grammar_line(240, "LetPattern    ::= \"_\" | BindingName | ConstructorPattern | RecordPattern").
 grammar_line(250, "ExprLine      ::= Expr NL").
 grammar_line(260, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
@@ -166,8 +167,9 @@ grammar_line(266, "                  | \"<\" | \"<=\" | \">\" | \">=\" | \"<<\" 
 grammar_line(267, "                  | \"+\" | \"-\" | \"*\" | \"/\"").
 grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\" | \"~\") PrefixExpr | PostfixExpr").
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
-grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | \"(\" Expr \")\" | \"()\"").
+grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | \"(\" Expr \")\" | \"()\"").
 grammar_line(300, "                  | Record | Dict | List | Match | If").
+grammar_line(301, "BeginExpr     ::= \"begin\" NL Body \"end\"").
 grammar_line(305, "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr").
 grammar_line(307, "SchemaEncode  ::= \"encode\" MemberPath \"from\" Expr").
 grammar_line(308, "Perform       ::= \"perform\" MemberPath \"::\" Name \"(\" ArgList? \")\"").
@@ -337,6 +339,8 @@ keyword_kind("handler", handler).
 keyword_kind("handles", handles).
 keyword_kind("handle", handle).
 keyword_kind("let", let).
+keyword_kind("defer", defer).
+keyword_kind("begin", begin).
 keyword_kind("end", end).
 keyword_kind("require", require).
 keyword_kind("ensure", ensure).
@@ -643,7 +647,10 @@ body(S0, S) :-
     ).
 
 body_line --> let_line.
+body_line --> defer_statement.
 body_line --> expr_line.
+
+defer_statement --> tok(defer), nl, body, tok(end), newline_opt.
 
 let_line -->
     tok(let),
@@ -669,7 +676,7 @@ collect_expr_line([], [], 0, 0, _, Acc, Acc) :- !.
 collect_expr_line([Token | Rest], S, Depth0, Block0, Previous, Acc0, Acc) :-
     Token = t(Kind, _),
     next_depth(Kind, Depth0, Depth),
-    next_block_depth(Kind, Previous, Block0, Block),
+    next_block_depth(Kind, Previous, Depth0, Block0, Block),
     collect_expr_line(Rest, S, Depth, Block, Kind, [Token | Acc0], Acc).
 
 line_tokens(Tokens, S0, S) :-
@@ -721,10 +728,12 @@ next_depth(rbracket, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
 next_depth(rbrace, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
 next_depth(_, Depth, Depth).
 
-next_block_depth(match, _, Block0, Block) :- !, Block is Block0 + 1.
-next_block_depth(if, Previous, Block0, Block) :- Previous \= else, !, Block is Block0 + 1.
-next_block_depth(end, _, Block0, Block) :- Block0 > 0, !, Block is Block0 - 1.
-next_block_depth(_, _, Block, Block).
+next_block_depth(match, _, _, Block0, Block) :- !, Block is Block0 + 1.
+next_block_depth(begin, _, _, Block0, Block) :- !, Block is Block0 + 1.
+next_block_depth(defer, nl, 0, Block0, Block) :- !, Block is Block0 + 1.
+next_block_depth(if, Previous, _, Block0, Block) :- Previous \= else, !, Block is Block0 + 1.
+next_block_depth(end, _, _, Block0, Block) :- Block0 > 0, !, Block is Block0 - 1.
+next_block_depth(_, _, _, Block, Block).
 
 expr --> prefix_expr, binary_tail.
 binary_tail --> binary_op, prefix_expr, !, binary_tail.
@@ -756,6 +765,9 @@ primary_expr --> record_or_dict.
 primary_expr --> list_expr.
 primary_expr --> match_expr.
 primary_expr --> if_expr.
+primary_expr --> begin_expr.
+
+begin_expr --> tok(begin), nl, body, tok(end).
 
 satisfy_opt --> ident_text("satisfy"), ident, tok(fat_arrow), expr, !.
 satisfy_opt --> [].

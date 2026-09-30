@@ -570,6 +570,612 @@
     }
 
     #[test]
+    fn local_binding_scope_starts_after_a_multiline_initializer() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "fn value() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "fn main() -> Int\n",
+                "  let value: Int = begin\n",
+                "    value()\n",
+                "  end\n",
+                "  value\n",
+                "end\n",
+            ),
+        )];
+
+        let initializer = query(sources.clone(), "main.veln", 7, 6).unwrap();
+        assert_eq!(initializer.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&initializer.definition, "main.veln", 1, 4);
+        assert_eq!(locations(&initializer.references), [("main.veln", 7, 5)]);
+
+        let local = query(sources, "main.veln", 9, 4).unwrap();
+        assert_eq!(local.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&local.definition, "main.veln", 6, 7);
+        assert_eq!(locations(&local.references), [("main.veln", 9, 3)]);
+    }
+
+    #[test]
+    fn expression_position_defer_preserves_later_navigation_and_rename() {
+        struct Case {
+            invalid_call: &'static str,
+            local_line: usize,
+            use_line: usize,
+        }
+
+        for case in [
+            Case {
+                invalid_call: "  consume(defer)\n",
+                local_line: 3,
+                use_line: 4,
+            },
+            Case {
+                invalid_call: "  consume(\n    defer\n  )\n",
+                local_line: 5,
+                use_line: 6,
+            },
+        ] {
+            let sources = vec![source(
+                "main.veln",
+                &format!(
+                    "fn main(input: Int) -> Int\n{}  let local = input\n  local + input\nend\n",
+                    case.invalid_call
+                ),
+            )];
+
+            let parameter = query(sources.clone(), "main.veln", case.use_line, 11).unwrap();
+            assert_eq!(parameter.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(&parameter.definition, "main.veln", 1, 9);
+            assert_eq!(
+                locations(&parameter.references),
+                [
+                    ("main.veln", case.local_line, 15),
+                    ("main.veln", case.use_line, 11),
+                ]
+            );
+            assert!(validate_rename(&parameter, "renamed_input").is_ok());
+
+            let local = query(sources, "main.veln", case.use_line, 4).unwrap();
+            assert_eq!(local.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(&local.definition, "main.veln", case.local_line, 7);
+            assert_eq!(
+                locations(&local.references),
+                [("main.veln", case.use_line, 3)]
+            );
+            assert!(validate_rename(&local, "renamed_local").is_ok());
+        }
+    }
+
+    #[test]
+    fn handler_clause_begin_local_links_deferred_and_tail_uses() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "effect Ask\n",
+                    "  value() -> Int\n",
+                    "end\n\n",
+                    "handler ask() handles Ask\n",
+                    "  value() => begin\n",
+                    "    let captured = 1\n",
+                    "    defer\n",
+                    "      captured\n",
+                    "    end\n",
+                    "    captured\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            9,
+            8,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 7, 9);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 9, 7), ("main.veln", 11, 5)]
+        );
+        assert!(validate_rename(&result, "saved").is_ok());
+    }
+
+    #[test]
+    fn embedded_begin_cleanup_preserves_local_scopes_across_delimiters() {
+        for (opener, closer) in [
+            ("consume(begin", "end)"),
+            ("[begin", "end]"),
+            ("{ value: begin", "end }"),
+        ] {
+            let sources = vec![source(
+                "main.veln",
+                &format!(
+                    concat!(
+                        "fn cleanup(value: Int) -> ()\n",
+                        "  ()\n",
+                        "end\n\n",
+                        "fn consume(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n\n",
+                        "fn choose(input: Int) -> Int\n",
+                        "  let outer = input\n",
+                        "  let result = {opener}\n",
+                        "    let captured = outer\n",
+                        "    defer\n",
+                        "      cleanup(captured)\n",
+                        "    end\n",
+                        "    captured\n",
+                        "  {closer}\n",
+                        "  outer\n",
+                        "end\n",
+                    ),
+                    opener = opener,
+                    closer = closer,
+                ),
+            )];
+
+            let captured = query(sources.clone(), "main.veln", 14, 16).unwrap();
+            assert_eq!(captured.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(&captured.definition, "main.veln", 12, 9);
+            assert_eq!(
+                locations(&captured.references),
+                [("main.veln", 14, 15), ("main.veln", 16, 5)]
+            );
+            assert!(validate_rename(&captured, "saved").is_ok());
+
+            let outer = query(sources, "main.veln", 18, 4).unwrap();
+            assert_eq!(outer.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(&outer.definition, "main.veln", 10, 7);
+            assert_eq!(
+                locations(&outer.references),
+                [("main.veln", 12, 20), ("main.veln", 18, 3)]
+            );
+        }
+    }
+
+    #[test]
+    fn cleanup_region_local_binding_scope_index_grows_linearly() {
+        fn token_visits(binding_count: usize) -> usize {
+            let mut source_text = String::from(
+                "fn main(input: Int) -> Int\n  let region: Int = begin\n    input\n  end\n",
+            );
+            for index in 0..binding_count {
+                source_text.push_str(&format!("  let value{index}: Int = input\n"));
+            }
+            source_text.push_str(&format!("  value{}\nend\n", binding_count - 1));
+            let snapshot =
+                EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_binding_scope_token_visits();
+
+            let result = query_snapshot(
+                &snapshot,
+                "main.veln",
+                binding_count + 5,
+                4,
+            )
+            .expect("last local binding should resolve");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            local_binding_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 32, "{smaller} -> {larger}");
+    }
+
+    #[test]
+    fn malformed_same_line_let_scope_index_grows_linearly() {
+        fn token_visits(let_count: usize) -> usize {
+            let mut source_text = String::from("fn main(input: Int) -> Int\n  input\n  ");
+            for _ in 0..let_count {
+                source_text.push_str("let ");
+            }
+            source_text.push_str("\nend\n");
+            let snapshot =
+                EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_binding_scope_token_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", 2, 4)
+                .expect("function parameter should resolve before malformed input");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            local_binding_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        eprintln!("same-line let indexing: 128={smaller} visits, 256={larger} visits");
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 32, "{smaller} -> {larger}");
+    }
+
+    #[test]
+    fn local_reference_scope_lookup_is_linear_with_preceding_functions_and_references() {
+        fn candidate_visits(size: usize) -> usize {
+            let mut source_text = String::new();
+            for index in 0..size {
+                source_text.push_str(&format!(
+                    "fn prior{index}() -> ()\n  ()\nend\n\n"
+                ));
+            }
+            let main_line = source_text.lines().count() + 1;
+            source_text.push_str("fn main(input: Int) -> Int\n  let selected = input\n");
+            for _ in 0..size {
+                source_text.push_str("  selected\n");
+            }
+            source_text.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_reference_scope_candidate_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", main_line + size + 1, 4)
+                .expect("last local reference should resolve");
+            assert_eq!(result.references.len(), size);
+            let visits = local_reference_scope_candidate_visits();
+            eprintln!("local reference scope lookup: size={size} candidate_visits={visits}");
+            visits
+        }
+
+        let smaller = candidate_visits(32);
+        let larger = candidate_visits(64);
+
+        assert!(smaller > 0);
+        assert!(larger >= smaller);
+        assert!(larger <= smaller * 2 + 4, "{smaller} -> {larger}");
+    }
+
+    #[test]
+    fn cleanup_local_reference_binding_candidate_work_is_adjacent_linear() {
+        fn candidate_comparisons(size: usize) -> usize {
+            let mut source_text = String::from(
+                "fn main(input: Int) -> Int\n  let shared = input\n",
+            );
+            for index in 0..size {
+                source_text.push_str(&format!(
+                    "  let region{index}: Int = begin\n    let shared = input\n    shared\n  end\n  shared\n"
+                ));
+            }
+            source_text.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_reference_binding_candidate_comparisons();
+
+            let result = query_snapshot(&snapshot, "main.veln", size * 5 + 2, 4)
+                .expect("outer local reference should resolve");
+            assert_eq!(result.references.len(), size);
+            local_reference_binding_candidate_comparisons()
+        }
+
+        let smaller = candidate_comparisons(32);
+        let larger = candidate_comparisons(64);
+
+        eprintln!(
+            "cleanup local reference candidate comparisons: 32={smaller}, 64={larger}"
+        );
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 16, "{smaller} -> {larger}");
+    }
+
+    #[test]
+    fn cleanup_match_satisfy_arrow_keeps_candidate_and_callable_identities_separate() {
+        struct Case {
+            source: &'static str,
+            predicate_line: usize,
+            unbound_line: usize,
+            call_line: usize,
+        }
+
+        let cases = [
+            Case {
+                source: concat!(
+                    "fn helper() -> ()\n",
+                    "  ()\n",
+                    "end\n\n",
+                    "fn main(input: Int) -> ()\n",
+                    "  match input\n",
+                    "    value => begin\n",
+                    "      _value satisfy candidate => candidate > 0\n",
+                    "      candidate\n",
+                    "      helper()\n",
+                    "    end\n",
+                    "  end\n",
+                    "end\n",
+                ),
+                predicate_line: 8,
+                unbound_line: 9,
+                call_line: 10,
+            },
+            Case {
+                source: concat!(
+                    "fn helper() -> ()\n",
+                    "  ()\n",
+                    "end\n\n",
+                    "fn main(input: Int) -> ()\n",
+                    "  match input\n",
+                    "    value => begin\n",
+                    "      defer\n",
+                    "        _value satisfy candidate => candidate > 0\n",
+                    "        candidate\n",
+                    "        helper()\n",
+                    "      end\n",
+                    "      ()\n",
+                    "    end\n",
+                    "  end\n",
+                    "end\n",
+                ),
+                predicate_line: 9,
+                unbound_line: 10,
+                call_line: 11,
+            },
+        ];
+
+        for case in cases {
+            let sources = vec![source("main.veln", case.source)];
+            let predicate = query(
+                sources.clone(),
+                "main.veln",
+                case.predicate_line,
+                if case.predicate_line == 8 { 35 } else { 37 },
+            )
+            .expect("satisfy candidate use should resolve");
+            assert_eq!(predicate.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(
+                &predicate.definition,
+                "main.veln",
+                case.predicate_line,
+                if case.predicate_line == 8 { 22 } else { 24 },
+            );
+
+            assert!(
+                query(
+                    sources.clone(),
+                    "main.veln",
+                    case.unbound_line,
+                    if case.unbound_line == 9 { 8 } else { 10 },
+                )
+                .is_none(),
+                "satisfy candidate must end at the predicate line"
+            );
+
+            let callable = query(
+                sources,
+                "main.veln",
+                case.call_line,
+                if case.call_line == 10 { 8 } else { 10 },
+            )
+                .expect("following call should resolve");
+            assert_eq!(callable.selected_symbol.kind, SymbolKind::Function);
+            assert_location(&callable.definition, "main.veln", 1, 4);
+        }
+    }
+
+    #[test]
+    fn cleanup_match_arm_binding_index_grows_linearly() {
+        fn token_visits(arm_count: usize) -> usize {
+            let mut source_text = String::from("fn main(input: Int) -> Int\n  match input\n");
+            let mut selected_column = 0;
+            for index in 0..arm_count {
+                let arm = format!("    Some(value{index}) => value{index}\n");
+                selected_column = arm.find("=>").expect("arm arrow") + 4;
+                source_text.push_str(&arm);
+            }
+            source_text.push_str("  end\nend\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_binding_scope_token_visits();
+
+            let result = query_snapshot(
+                &snapshot,
+                "main.veln",
+                arm_count + 2,
+                selected_column,
+            )
+            .expect("last match-arm binding should resolve");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            local_binding_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 32, "{smaller} -> {larger}");
+    }
+
+    #[test]
+    fn handler_clause_scope_discovery_is_linear_for_many_arrows_on_one_line() {
+        fn token_visits(arrow_count: usize) -> (usize, usize) {
+            let mut source_text = String::from("handler invalid() handles Invalid\n  clause() ");
+            for _ in 0..arrow_count {
+                source_text.push_str("=> value ");
+            }
+            source_text.push_str("\nend\n\nfn main(value: Int) -> Int\n  value\nend\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_handler_clause_scope_token_visits();
+            reset_handler_clause_binding_token_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", 6, 4)
+                .expect("function parameter should resolve");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            (
+                handler_clause_scope_token_visits(),
+                handler_clause_binding_token_visits(),
+            )
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        eprintln!("handler clause indexing: 128={smaller:?} visits, 256={larger:?} visits");
+        assert!(smaller.0 > 0);
+        assert!(larger.0 > smaller.0);
+        assert!(larger.0 <= smaller.0 * 2 + 64, "{smaller:?} -> {larger:?}");
+        assert!(smaller.1 > 0);
+        assert!(larger.1 > smaller.1);
+        assert!(larger.1 <= smaller.1 * 2 + 64, "{smaller:?} -> {larger:?}");
+    }
+
+    #[test]
+    fn handler_clause_scope_boundaries_grow_linearly_with_clause_count() {
+        fn token_visits(clause_count: usize) -> usize {
+            let mut source_text = String::from(
+                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
+            );
+            for _ in 0..clause_count {
+                source_text.push_str("  amount(value) => value\n");
+            }
+            let main_line = clause_count + 9;
+            source_text.push_str("end\n\nfn main(value: Int) -> Int\n  value\nend\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_handler_clause_scope_token_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", main_line, 4)
+                .expect("function parameter should resolve");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            handler_clause_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        eprintln!("handler clause scope boundaries: 128={smaller} visits, 256={larger} visits");
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
+    }
+
+    #[test]
+    fn handler_clause_local_binding_collection_grows_linearly() {
+        fn token_visits(clause_count: usize) -> usize {
+            let mut source_text = String::from(
+                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
+            );
+            for _ in 0..clause_count {
+                source_text.push_str("  amount(value) => value\n");
+            }
+            source_text.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_handler_clause_binding_token_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", 6, 20)
+                .expect("handler clause parameter should resolve");
+            assert_eq!(
+                result.selected_symbol.kind,
+                SymbolKind::HandlerOperationClauseParameter
+            );
+            handler_clause_binding_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        eprintln!("handler clause binding reconstruction: 128={smaller} visits, 256={larger} visits");
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
+    }
+
+    #[test]
+    fn late_handler_context_parameter_navigation_uses_indexed_clause_ranges() {
+        fn range_work(
+            clause_count: usize,
+        ) -> ((usize, usize), std::time::Duration) {
+            let mut source_text = String::from(
+                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust(context: Int) handles Adjust\n",
+            );
+            for _ in 0..clause_count {
+                source_text.push_str("  amount(value) => context\n");
+            }
+            source_text.push_str("end\n");
+            reset_handler_clause_body_range_work();
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            let started = std::time::Instant::now();
+
+            let result = query_snapshot(
+                &snapshot,
+                "main.veln",
+                clause_count + 5,
+                22,
+            )
+            .expect("context parameter in the final clause should resolve");
+            assert_eq!(
+                result.selected_symbol.kind,
+                SymbolKind::HandlerContextParameter
+            );
+            assert_location(&result.definition, "main.veln", 5, 16);
+            assert_eq!(result.references.len(), clause_count);
+
+            let rename_result = navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: clause_count + 5,
+                    column: 22,
+                },
+            )
+            .expect("context parameter in the final clause should be renameable");
+            assert_eq!(rename_result.definition, result.definition);
+            assert_eq!(rename_result.references, result.references);
+            assert!(validate_rename_in_snapshot(&snapshot, &rename_result, "state").is_ok());
+            (handler_clause_body_range_work(), started.elapsed())
+        }
+
+        let smaller = range_work(128);
+        let larger = range_work(256);
+
+        eprintln!("late handler context navigation: 128={smaller:?}, 256={larger:?}");
+        assert_eq!(smaller.0.0, 128);
+        assert_eq!(larger.0.0, 256);
+        assert_eq!(smaller.0.1, 258);
+        assert_eq!(larger.0.1, 514);
+        assert!(larger.0.1 <= smaller.0.1 * 2 + 1, "{smaller:?} -> {larger:?}");
+    }
+
+    #[test]
+    fn handler_clause_function_reference_lookup_scales_with_generated_clauses() {
+        fn reference_work(clause_count: usize) -> ((usize, usize), usize, std::time::Duration) {
+            let mut source_text = String::from(
+                "fn target(value: Int) -> Int\n  value\nend\n\neffect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
+            );
+            for _ in 0..clause_count {
+                source_text.push_str("  amount(value) => target(value)\n");
+            }
+            source_text.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_handler_clause_body_range_work();
+            reset_function_scope_lookup_comparisons();
+            let started = std::time::Instant::now();
+            let result = query_snapshot(&snapshot, "main.veln", 1, 4)
+                .expect("generated function should resolve");
+            assert_eq!(result.references.len(), clause_count);
+            (
+                handler_clause_body_range_work(),
+                function_scope_lookup_comparisons(),
+                started.elapsed(),
+            )
+        }
+
+        let smaller = reference_work(128);
+        let larger = reference_work(256);
+
+        eprintln!("handler clause references: 128={smaller:?}, 256={larger:?}");
+        assert_eq!(smaller.0.0, 128);
+        assert_eq!(larger.0.0, 256);
+        assert!(smaller.0.1 > 0);
+        assert!(larger.0.1 > smaller.0.1);
+        assert!(larger.0.1 <= smaller.0.1 * 2 + 32, "{smaller:?} -> {larger:?}");
+        assert!(smaller.1 > 0);
+        assert!(larger.1 > smaller.1);
+        assert!(larger.1 <= smaller.1 * 5 / 2 + 64, "{smaller:?} -> {larger:?}");
+    }
+
+    #[test]
     fn invalid_parameter_recovery_navigation_links_in_scope_uses() {
         let result = query(
             vec![source(
@@ -793,49 +1399,25 @@
             ),
         )]);
 
-        let type_result = query_snapshot(&snapshot, "main.veln", 17, 18).unwrap();
-        assert_eq!(type_result.selected_symbol.kind, SymbolKind::Type);
-        assert_location(&type_result.definition, "main.veln", 13, 6);
-
-        let constructor_result = query_snapshot(&snapshot, "main.veln", 19, 4).unwrap();
-        assert_eq!(constructor_result.selected_symbol.kind, SymbolKind::Constructor);
-        assert_location(&constructor_result.definition, "main.veln", 14, 3);
-
-        let function_result = query_snapshot(&snapshot, "main.veln", 17, 4).unwrap();
-        assert_eq!(function_result.selected_symbol.kind, SymbolKind::Function);
-        assert_location(&function_result.definition, "main.veln", 17, 4);
-
-        let binding_result = query_snapshot(&snapshot, "main.veln", 19, 10).unwrap();
-        assert_eq!(binding_result.selected_symbol.kind, SymbolKind::ValueBinding);
-        assert_location(&binding_result.definition, "main.veln", 18, 7);
-
-        let schema_result = query_snapshot(&snapshot, "main.veln", 40, 24).unwrap();
-        assert_eq!(schema_result.selected_symbol.kind, SymbolKind::Schema);
-        assert_location(&schema_result.definition, "main.veln", 22, 8);
-
-        let effect_list_result = query_snapshot(&snapshot, "main.veln", 38, 57).unwrap();
-        assert_eq!(effect_list_result.selected_symbol.kind, SymbolKind::Effect);
-        assert_location(&effect_list_result.definition, "main.veln", 26, 8);
-
-        let perform_effect_result = query_snapshot(&snapshot, "main.veln", 42, 32).unwrap();
-        assert_eq!(perform_effect_result.selected_symbol.kind, SymbolKind::Effect);
-        assert_location(&perform_effect_result.definition, "main.veln", 26, 8);
-
-        let operation_result = query_snapshot(&snapshot, "main.veln", 42, 49).unwrap();
-        assert_eq!(
-            operation_result.selected_symbol.kind,
-            SymbolKind::EffectOperation
-        );
-        assert_location(&operation_result.definition, "main.veln", 27, 3);
-
-        let handler_result = query_snapshot(&snapshot, "main.veln", 42, 72).unwrap();
-        assert_eq!(handler_result.selected_symbol.kind, SymbolKind::Handler);
-        assert_location(&handler_result.definition, "main.veln", 30, 9);
-
-        let shadowing_binding_result = query_snapshot(&snapshot, "main.veln", 41, 18).unwrap();
-        assert_eq!(
-            shadowing_binding_result.selected_symbol.kind,
-            SymbolKind::ValueBinding
-        );
-        assert_location(&shadowing_binding_result.definition, "main.veln", 39, 7);
+        for (line, column, expected_kind, definition_line, definition_column) in [
+            (17, 18, SymbolKind::Type, 13, 6),
+            (19, 4, SymbolKind::Constructor, 14, 3),
+            (17, 4, SymbolKind::Function, 17, 4),
+            (19, 10, SymbolKind::ValueBinding, 18, 7),
+            (40, 24, SymbolKind::Schema, 22, 8),
+            (38, 57, SymbolKind::Effect, 26, 8),
+            (42, 32, SymbolKind::Effect, 26, 8),
+            (42, 49, SymbolKind::EffectOperation, 27, 3),
+            (42, 72, SymbolKind::Handler, 30, 9),
+            (41, 18, SymbolKind::ValueBinding, 39, 7),
+        ] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, expected_kind);
+            assert_location(
+                &result.definition,
+                "main.veln",
+                definition_line,
+                definition_column,
+            );
+        }
     }

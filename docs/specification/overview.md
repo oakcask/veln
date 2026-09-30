@@ -26,6 +26,12 @@ The following behavior is fixed for the implemented slice:
   [diagnostics-json.md](diagnostics-json.md).
 - Human diagnostics keep the primary message focused on the failed fact at the
   reported span; causes, provenance, and repair hints belong in related notes.
+- `begin` expressions and `defer` statements have a fixed source, static
+  semantics, formatting, and navigation surface. A reachable use remains
+  non-executable and blocks checked-core and typed-IR readiness with
+  `deferred_cleanup_runtime`; runtime registration and unwinding remain
+  proposal work. See [source-surface.md](source-surface.md#static-cleanup-region-forms)
+  and [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 - `NodeId` values are session-local and deterministic for a single parse/lower
   pass. They are stable enough for diagnostics in one command result, but are
   not persistent source IDs.

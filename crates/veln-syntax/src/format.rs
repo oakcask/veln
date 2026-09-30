@@ -17,7 +17,8 @@ pub use declarations::format_tree;
 pub use type_text::canonical_type_text;
 
 use expressions::{
-    bool_match_rewrite, format_expr_at_indent, format_pattern, literal_match_rewrite,
+    bool_match_rewrite, format_defer_statement_with_comments, format_expr_at_indent_with_comments,
+    format_pattern, literal_match_rewrite,
 };
 use source_layout::*;
 use type_text::{canonical_predicate_text, canonical_schema_field_type_text};

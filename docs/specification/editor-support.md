@@ -73,7 +73,8 @@ Lexical fallback also classifies `#` comments, strings, numbers, keywords, and
 operators with the matching standard LSP token types. Decimal, lowercase `0b`
 binary, and lowercase `0x` hexadecimal integer literals are each one `number`
 token. The contextual `satisfy` marker and boolean literals are highlighted as
-keywords.
+keywords. `begin` and `defer` are keyword tokens in the lexical fallback and
+the VSCode grammar.
 
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
@@ -222,6 +223,33 @@ with `null`, an empty list, or an empty rename edit as appropriate for the
 request.
 An invalid request does not change the retained snapshot or a later result for
 the same valid saved selection.
+
+Shared navigation treats `begin` and `defer` bodies as lexical scope
+boundaries. Definition, references, prepare-rename, and rename link a local
+binding to uses in nested cleanup bodies while excluding uses after the
+binding's closing `end`. These boundaries apply wherever `begin` is an
+expression, including call arguments, list elements, and record field values.
+References from a deferred block keep the captured binding identity after a
+later `let` shadows its name, as specified by
+[name resolution](name-resolution.md#value-calls-and-shadowing). A binding
+introduced by `let` starts after its complete initializer, so a same-spelled
+call inside a multiline `begin` initializer can still select the preceding
+function identity. Handler
+operation clauses apply the same rules when their expression is a `begin`.
+These nested scopes also participate in rename conflict prediction. Renaming a
+cleanup-body local binding to a visible enclosing function parameter returns
+`rename.conflict` and no edits. Equal names in disjoint sibling `begin` scopes
+do not conflict, so a rename that makes those local names equal succeeds.
+Expression-position recovery for an invalid `defer` leaves later local
+definitions, references, prepare-rename selections, and rename edits
+available.
+When an unterminated `begin` or `defer` recovers at a following top-level
+declaration, that declaration retains its own navigation scope. Its parameters
+and local bindings resolve only within the following declaration; the open
+cleanup form cannot absorb them or link them to names in the preceding
+declaration. Definition, references, prepare-rename, and rename all inherit
+this boundary from the shared language-service snapshot. The MCP navigation
+adapters inherit the same boundary when they capture a saved snapshot.
 For a selected valid-cased, unrecovered workspace effect declaration,
 references include every structurally complete bare effect-row occurrence on
 functions, tests, handlers, and function types, every handler `handles` target,
@@ -659,6 +687,11 @@ The checked
 `examples/specification/lsp/saved-navigation-cross-adapter/` transcript covers
 the invalid-position protocol boundary and repeats successful saved definition,
 prepare-rename, and rename requests after failures. The
+checked `examples/specification/lsp/cleanup-region-navigation/` transcript
+covers definition, references, prepare-rename, rename, an edit-free
+rename-conflict response, and an allowed equal-name rename across disjoint
+`begin` scopes. It also covers nested cleanup scopes in call arguments, list
+elements, and record field values. The
 paired harness in
 [`saved_navigation_conformance.rs`](../../crates/veln-cli/tests/toolchain_harness/saved_navigation_conformance.rs)
 drives LSP and MCP from one unchanged workspace, converts both adapters to

@@ -230,15 +230,23 @@ pub fn compare_expected_output(case: &mut TestCase) {
 pub fn stdio_call_spans(module: &SurfaceModule) -> BTreeMap<(String, String), SourceSpan> {
     let mut spans = BTreeMap::new();
     for function in &module.functions {
-        for line in &function.body {
-            match &line.kind {
-                BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
-                    collect_stdio_call_spans(expr, &mut spans);
-                }
-            }
-        }
+        collect_body_stdio_call_spans(&function.body, &mut spans);
     }
     spans
+}
+
+fn collect_body_stdio_call_spans(
+    body: &[veln_ast::BodyLine],
+    spans: &mut BTreeMap<(String, String), SourceSpan>,
+) {
+    for line in body {
+        match &line.kind {
+            BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
+                collect_stdio_call_spans(expr, spans);
+            }
+            BodyLineKind::Defer { body, .. } => collect_body_stdio_call_spans(body, spans),
+        }
+    }
 }
 
 pub fn stdio_events_from_output(output: &Output, source: &TestCaseSource) -> Vec<JsonValue> {

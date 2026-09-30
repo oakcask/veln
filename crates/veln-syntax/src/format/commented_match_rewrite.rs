@@ -7,6 +7,7 @@ pub(super) fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &Lin
             BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
                 expr_has_commented_match_rewrite(expr, comments)
             }
+            BodyLine::Defer { body, .. } => body_lines_have_commented_match_rewrite(body, comments),
         }),
         SyntaxItem::Schema(_) | SyntaxItem::Effect(_) | SyntaxItem::Handler(_) => false,
         SyntaxItem::Type(_) | SyntaxItem::PublicAlias(_) => false,
@@ -41,6 +42,7 @@ enum ExprChildren<'a> {
         else_if_branches: &'a [crate::IfBranch],
         else_branch: &'a Expr,
     },
+    Body(&'a [BodyLine]),
 }
 
 fn expr_children(expr: &Expr) -> ExprChildren<'_> {
@@ -48,7 +50,7 @@ fn expr_children(expr: &Expr) -> ExprChildren<'_> {
         ExprKind::TypeApply { callee: child, .. }
         | ExprKind::SchemaEncode { value: child, .. }
         | ExprKind::FieldAccess { base: child, .. }
-        | ExprKind::Try(child)
+        | ExprKind::Try { expr: child, .. }
         | ExprKind::Prefix { expr: child, .. } => ExprChildren::One(child),
         ExprKind::SchemaDecode {
             input: left,
@@ -75,6 +77,7 @@ fn expr_children(expr: &Expr) -> ExprChildren<'_> {
             else_if_branches,
             else_branch,
         },
+        ExprKind::Begin { body, .. } => ExprChildren::Body(body),
         ExprKind::Missing
         | ExprKind::Hole { .. }
         | ExprKind::NamePath { .. }
@@ -116,7 +119,17 @@ fn expr_children_have_commented_match_rewrite(expr: &Expr, comments: &LineCommen
             else_branch,
             comments,
         ),
+        ExprChildren::Body(body) => body_lines_have_commented_match_rewrite(body, comments),
     }
+}
+
+fn body_lines_have_commented_match_rewrite(body: &[BodyLine], comments: &LineComments) -> bool {
+    body.iter().any(|line| match line {
+        BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
+            expr_has_commented_match_rewrite(expr, comments)
+        }
+        BodyLine::Defer { body, .. } => body_lines_have_commented_match_rewrite(body, comments),
+    })
 }
 
 fn expr_slice_has_commented_match_rewrite(exprs: &[Expr], comments: &LineComments) -> bool {

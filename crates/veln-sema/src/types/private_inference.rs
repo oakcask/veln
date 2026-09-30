@@ -13,6 +13,7 @@ use crate::adt::{type_operations as adt, unification};
 use crate::name_recovery::{normal_use_decls, public_alias_has_invalid_target_leaf};
 use crate::semantic_model::{Binding, FunctionKey, Type};
 use crate::type_syntax::parse_type_or_unknown;
+use crate::types::record_scoped_binding_count;
 use crate::types::signatures::{FunctionSignature, MatchScrutineePatternInference};
 use crate::types::symbols::imported_use_for_path;
 
@@ -24,6 +25,7 @@ mod callback_discovery;
 mod expression_inference;
 mod orchestration;
 mod reference_discovery;
+mod scoped_body_inference;
 
 pub(crate) use aliases_and_bindings::*;
 pub(crate) use call_site_resolution::*;
@@ -33,6 +35,7 @@ pub(crate) use callback_discovery::*;
 pub(crate) use expression_inference::*;
 pub(crate) use orchestration::*;
 pub(crate) use reference_discovery::*;
+pub(crate) use scoped_body_inference::*;
 
 fn valid_value_binding_name(name: &str) -> bool {
     name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)

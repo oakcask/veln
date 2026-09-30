@@ -122,3 +122,50 @@ fn type_applied_unresolved_calls_do_not_gain_function_casing_roles() {
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn cleanup_region_annotations_keep_qualified_type_segments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use helper\n",
+            "effect Ask\n",
+            "  value() -> ()\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  begin\n",
+            "    let in_begin: helper::Item = ()\n",
+            "    defer\n",
+            "      let in_defer: helper::Item = ()\n",
+            "      ()\n",
+            "    end\n",
+            "    ()\n",
+            "  end\n",
+            "end\n",
+            "handler ask() handles Ask\n",
+            "  value() => begin\n",
+            "    let in_handler: helper::Item = ()\n",
+            "    ()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let helper = SourceFile::new("helper.veln", "pub type Item\n  pub Empty\nend\n");
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = merged_modules_with_names([("main", source), ("helper", helper)]);
+    let observed = classified_project_qualified_path_segments(&module)
+        .into_iter()
+        .filter(|segment| segment.span.file.as_str() == "main.veln" && segment.name == "Item")
+        .map(|segment| (segment.role, segment.span.start.line))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        observed,
+        [
+            (veln_ast::NameClass::Type, 7),
+            (veln_ast::NameClass::Type, 9),
+            (veln_ast::NameClass::Type, 17),
+        ]
+    );
+}

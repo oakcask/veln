@@ -51,3 +51,18 @@ fn annotation_and_contract_only(value: Int) -> result: Int
 	ensure result >= 0
 	value
 end
+
+fn cleanup_counted(value: Int) -> Int
+	begin
+		let captured = done(value)
+		defer
+			done(captured)
+			()
+		end
+		if captured == 0
+			done(captured)
+		else
+			done(value)
+		end
+	end
+end

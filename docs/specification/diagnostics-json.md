@@ -47,6 +47,18 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
+`veln check --json` reports an over-limit cleanup form as
+`parse.cleanup_nesting_limit`; the parser error makes the envelope status
+`error`. A `defer` token used where an expression is required reports
+`parse.expected_expression` at the token, with expression parser context and
+skip-token recovery. Recovery preserves the boundary of a following
+declaration. An unterminated `begin` or `defer` reports
+`parse.begin_missing_end` or `parse.defer_missing_end`. The missing cleanup
+delimiter does not consume an enclosing declaration's closing `end`, an
+enclosing `if` expression's following `else` branch, or an enclosing `match`
+expression's following arm. It does not merge a following top-level
+declaration into the failed body.
+
 Malformed integer literals use `parse.integer_literal` with the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;
 related notes may identify the accepted digit set or prefix. Invalid literal
@@ -102,6 +114,29 @@ Type inference diagnostics include:
   empty collection ambiguity adds `collection`, `inferred_type`, and
   `constraint: "empty_collection_type_context"`; match scrutinee ambiguity
   adds `candidates` and `constraint: "match_constructor_pattern_domain"`.
+
+Deferred-block restriction diagnostics use kind `type`,
+`phase: "type_check"`, `boundary: "deferred_block"`, and one of these stable
+identifier and reason pairs:
+
+| Identifier | Reason | Failed fact |
+| --- | --- | --- |
+| `defer.propagation` | `result_propagation` | Postfix `?` occurs inside a deferred block. |
+| `defer.non_unit` | `non_unit_result` | The deferred block result is not `()`. |
+| `defer.nested` | `nested_defer` | A deferred block registers another deferred block. |
+
+Each record has one `related` entry with `kind: "repair_hint"`, a repair
+message, and the containing deferred-block span. The primary span remains the
+specific propagation `?` token, non-unit block result, or nested `defer` keyword that
+failed.
+
+A schema declaration used as an ordinary local annotation type reports
+`type.schema_reference` with `schema` and `use_kind: "local_annotation"`.
+Exact-width and lowercase schema primitives in the same position report
+`schema.exact_width_primitive` or `schema.lowercase_primitive` with `primitive`
+and `reason: "local_annotation"`. These producer rules apply inside nested
+`begin` and `defer` bodies and inside a `begin` used as a handler operation
+clause.
 
 Handler effect diagnostics use `phase: "effect"`, `boundary`, `handler`,
 `handled_effect`, nullable `operation`, and `reason`. Operation-clause

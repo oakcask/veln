@@ -134,6 +134,13 @@ creation expressions expose their job effect rows at the call expression, so a
 lexical handler around the task creation expression can discharge a handled
 nominal job effect before the runnable entry boundary is checked.
 
+Effects in a `begin` body and in every deferred block contribute to the
+enclosing function, test, or handler operation clause. A cleanup-region
+boundary does not discharge or hide an effect. A `begin` used as a handler
+operation clause expression therefore contributes both its direct effects and
+the effects of calls made from its body and deferred blocks to that handler's
+retained effect set.
+
 The exported standard `transport` module declares this public nominal effect:
 
 ```veln

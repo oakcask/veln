@@ -811,6 +811,8 @@ struct IndexedFile {
     recovered_handler_declarations: Vec<SourceSpan>,
     handler_reference_ranges: BTreeSet<(usize, usize)>,
     handler_operation_clause_references: Vec<HandlerOperationClauseReference>,
+    handler_operation_clause_body_ranges: Vec<(usize, usize)>,
+    handler_clause_bindings_by_name: BTreeMap<String, Vec<ClauseBinding>>,
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effect_reference_ranges: BTreeSet<(usize, usize)>,
@@ -838,6 +840,18 @@ struct GenericEffectBinder {
 }
 
 impl IndexedFile {
+    fn inside_handler_operation_clause_body(&self, offset: usize) -> bool {
+        #[cfg(test)]
+        record_handler_clause_body_membership_lookup();
+        let index = self
+            .handler_operation_clause_body_ranges
+            .partition_point(|(start, _)| *start <= offset);
+        index.checked_sub(1).is_some_and(|index| {
+            let (start, end) = self.handler_operation_clause_body_ranges[index];
+            offset >= start && offset < end
+        })
+    }
+
     fn generic_effect_binder_shadows(&self, name: &str, offset: usize) -> bool {
         let index = self
             .generic_effect_binders
@@ -1009,6 +1023,7 @@ type TypeReferenceLocations = Vec<(String, usize, SourceSpan)>;
 struct FunctionScope {
     body_start: usize,
     end: usize,
+    is_handler_clause: bool,
     params: Vec<ScopedBinding>,
     result_binding: Option<ScopedBinding>,
     local_bindings: Vec<LocalBinding>,
@@ -1029,9 +1044,10 @@ struct LocalBinding {
     declaration_end: usize,
     start: usize,
     end: usize,
+    navigation_supported: bool,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct ClauseBinding {
     name: String,
     declaration: SourceSpan,

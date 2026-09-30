@@ -7,8 +7,15 @@ impl<'a> ExprParser<'a> {
             context,
             tokens,
             cursor: 0,
+            cleanup_depth: 0,
+            control_blocks: Vec::new(),
             diagnostics: Vec::new(),
         }
+    }
+
+    pub(super) fn with_cleanup_depth(mut self, cleanup_depth: usize) -> Self {
+        self.cleanup_depth = cleanup_depth;
+        self
     }
 
     pub(super) fn parse(mut self) -> (Expr, Vec<ParseDiagnostic>) {
@@ -55,7 +62,10 @@ impl<'a> ExprParser<'a> {
                 let token = self.bump();
                 lhs = Expr {
                     span: self.source.span(lhs_range(&lhs).cover(token.range)),
-                    kind: ExprKind::Try(Box::new(lhs)),
+                    kind: ExprKind::Try {
+                        expr: Box::new(lhs),
+                        question_span: self.source.span(token.range),
+                    },
                 };
                 continue;
             }
@@ -219,7 +229,10 @@ impl<'a> ExprParser<'a> {
         let token = self.bump();
         Expr {
             span: self.source.span(lhs_range(&expr).cover(token.range)),
-            kind: ExprKind::Try(Box::new(expr)),
+            kind: ExprKind::Try {
+                expr: Box::new(expr),
+                question_span: self.source.span(token.range),
+            },
         }
     }
 

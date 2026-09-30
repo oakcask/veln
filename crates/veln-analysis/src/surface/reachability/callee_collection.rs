@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(super) struct LocalBinding {
     pub(super) name: String,
     pub(super) function_shape: Option<FunctionShape>,
@@ -66,7 +66,17 @@ pub(super) fn direct_function_callees(
             &mut callees,
         );
     }
-    for line in &function.body {
+    collect_body_callees(&function.body, &context, &mut local_bindings, &mut callees);
+    callees
+}
+
+fn collect_body_callees(
+    body: &[veln_ast::BodyLine],
+    context: &FunctionCalleeContext<'_>,
+    local_bindings: &mut Vec<LocalBinding>,
+    callees: &mut Vec<ReachableFunction>,
+) {
+    for line in body {
         match &line.kind {
             veln_ast::BodyLineKind::Let {
                 pattern,
@@ -74,19 +84,23 @@ pub(super) fn direct_function_callees(
                 expr,
                 ..
             } => {
-                collect_function_callees(expr, &context, &local_bindings, &mut callees);
+                collect_function_callees(expr, context, local_bindings, callees);
                 collect_pattern_bindings(
                     pattern,
                     annotation.as_deref().and_then(function_type_shape),
-                    &mut local_bindings,
+                    local_bindings,
                 );
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_function_callees(expr, &context, &local_bindings, &mut callees);
+                collect_function_callees(expr, context, local_bindings, callees);
+            }
+            veln_ast::BodyLineKind::Defer { body, .. } => {
+                let binding_count = local_bindings.len();
+                collect_body_callees(body, context, local_bindings, callees);
+                local_bindings.truncate(binding_count);
             }
         }
     }
-    callees
 }
 
 pub(super) fn collect_contract_callees(
@@ -220,7 +234,7 @@ pub(super) fn collect_contract_function_value_references(
 pub(super) fn collect_function_callees(
     expr: &Expr,
     context: &FunctionCalleeContext<'_>,
-    local_bindings: &[LocalBinding],
+    local_bindings: &mut Vec<LocalBinding>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     match &expr.kind {
@@ -246,10 +260,16 @@ pub(super) fn collect_function_callees(
         ExprKind::Match { scrutinee, arms } => {
             collect_function_callees(scrutinee, context, local_bindings, callees);
             for arm in arms {
-                let mut arm_bindings = local_bindings.to_vec();
-                collect_pattern_bindings(&arm.pattern, None, &mut arm_bindings);
-                collect_function_callees(&arm.expr, context, &arm_bindings, callees);
+                let binding_count = local_bindings.len();
+                collect_pattern_bindings(&arm.pattern, None, local_bindings);
+                collect_function_callees(&arm.expr, context, local_bindings, callees);
+                local_bindings.truncate(binding_count);
             }
+        }
+        ExprKind::Begin { body, .. } => {
+            let binding_count = local_bindings.len();
+            collect_body_callees(body, context, local_bindings, callees);
+            local_bindings.truncate(binding_count);
         }
         _ => {
             if matches!(expr.kind, ExprKind::Handle { .. }) {

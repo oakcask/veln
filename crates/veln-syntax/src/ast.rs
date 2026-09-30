@@ -270,6 +270,12 @@ pub enum BodyLine {
         expr: Expr,
         span: SourceSpan,
     },
+    Defer {
+        body: Vec<BodyLine>,
+        keyword_span: SourceSpan,
+        block_span: SourceSpan,
+        span: SourceSpan,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -340,7 +346,10 @@ pub enum ExprKind {
         field: String,
         field_span: SourceSpan,
     },
-    Try(Box<Expr>),
+    Try {
+        expr: Box<Expr>,
+        question_span: SourceSpan,
+    },
     Record(Vec<RecordField>),
     Dict(Vec<DictEntry>),
     List(Vec<Expr>),
@@ -353,6 +362,10 @@ pub enum ExprKind {
         then_branch: Box<Expr>,
         else_if_branches: Vec<IfBranch>,
         else_branch: Box<Expr>,
+    },
+    Begin {
+        body: Vec<BodyLine>,
+        block_span: SourceSpan,
     },
     Prefix {
         op: PrefixOp,

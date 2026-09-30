@@ -296,6 +296,7 @@ impl SymbolIndex {
                             .iter()
                             .find(|binding| {
                                 binding.name == requested_name
+                                    && binding.end == selected.scope_end
                                     && !same_span(
                                         &local_binding_declaration(file, binding),
                                         &selected.declaration,

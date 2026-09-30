@@ -18,6 +18,10 @@ impl<'a> Reader<'a> {
             12..=15 => self.schema_and_access_expr_kind(tag),
             16..=20 => self.aggregate_expr_kind(tag),
             21..=22 => self.operator_expr_kind(tag),
+            23 => Ok(ExprKind::Begin {
+                body: self.vec(Self::body_line)?,
+                block_span: self.span()?,
+            }),
             value => Err(format!("invalid expr kind tag {value}")),
         }
     }
@@ -91,7 +95,10 @@ impl<'a> Reader<'a> {
                 field: self.string()?,
                 field_span: self.span()?,
             }),
-            15 => Ok(ExprKind::Try(Box::new(self.expr()?))),
+            15 => Ok(ExprKind::Try {
+                expr: Box::new(self.expr()?),
+                question_span: self.span()?,
+            }),
             _ => unreachable!("non-schema or access tag passed to schema wire decoder"),
         }
     }

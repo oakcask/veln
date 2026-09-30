@@ -20,3 +20,21 @@ fn renamed() -> Int
   let other = add(1, 2)
   other
 end
+
+fn cleanup_first() -> Int
+  begin
+    defer
+      let _ = add(1, 2)
+    end
+    add(3, 4)
+  end
+end
+
+fn cleanup_second() -> Int
+  begin
+    defer
+      let _ = add(1, 2)
+    end
+    add(3, 4)
+  end
+end

@@ -22,7 +22,7 @@ pub(crate) fn private_call_site_non_target_params(
     segments: &[String],
     args: &[Expr],
     expected: Option<&Type>,
-    context: &PrivateCallSiteExprContext<'_, '_>,
+    context: &mut PrivateCallSiteExprContext<'_, '_>,
 ) -> Vec<Type> {
     if let ConstructorLookup::Found(constructor) = context.constraints.adts.constructor(
         segments,

@@ -1,8 +1,8 @@
 use veln_source::{SourceSpan, TextRange};
 
 use crate::{
-    BodyLine, EffectDecl, FunctionDecl, HandlerDecl, ModuleDecl, PublicAliasDecl, SchemaDecl,
-    SyntaxItem, Token, TokenKind, TypeDecl, UseDecl,
+    BodyLine, EffectDecl, Expr, ExprKind, FunctionDecl, HandlerDecl, ModuleDecl, PublicAliasDecl,
+    SchemaDecl, SyntaxItem, Token, TokenKind, TypeDecl, UseDecl,
 };
 
 #[derive(Clone, Debug)]
@@ -69,6 +69,7 @@ pub enum SyntaxNodeKind {
     FunctionDecl,
     EffectDecl,
     HandlerDecl,
+    HandlerOperationClause,
     TypeDecl,
     SchemaDecl,
     PublicAliasDecl,
@@ -77,6 +78,9 @@ pub enum SyntaxNodeKind {
     Body,
     LetStatement,
     ExprLine,
+    DeferStatement,
+    BeginExpr,
+    CleanupBody,
 }
 
 #[derive(Clone, Debug)]
@@ -198,14 +202,14 @@ impl TopLevelNode<'_> {
         }
     }
 
-    fn into_syntax_node(self, tokens: Vec<Token>) -> SyntaxNode {
+    fn into_syntax_node(self, tokens: &[Token]) -> SyntaxNode {
         let range = self.range();
         match self {
             Self::Module(_) => token_node(SyntaxNodeKind::ModuleDecl, range, tokens),
             Self::Use(_) => token_node(SyntaxNodeKind::UseDecl, range, tokens),
             Self::Function(function) => build_lossless_function(function, tokens),
             Self::Effect(_) => token_node(SyntaxNodeKind::EffectDecl, range, tokens),
-            Self::Handler(_) => token_node(SyntaxNodeKind::HandlerDecl, range, tokens),
+            Self::Handler(handler) => build_lossless_handler(handler, tokens),
             Self::Type(_) => token_node(SyntaxNodeKind::TypeDecl, range, tokens),
             Self::Schema(_) => token_node(SyntaxNodeKind::SchemaDecl, range, tokens),
             Self::PublicAlias(_) => token_node(SyntaxNodeKind::PublicAliasDecl, range, tokens),
@@ -213,7 +217,26 @@ impl TopLevelNode<'_> {
     }
 }
 
-fn build_lossless_function(function: &FunctionDecl, tokens: Vec<Token>) -> SyntaxNode {
+fn build_lossless_handler(handler: &HandlerDecl, tokens: &[Token]) -> SyntaxNode {
+    let range = span_range(&handler.span);
+    let mut children = Vec::new();
+    let mut cursor = 0usize;
+    for clause in &handler.operation_clauses {
+        let clause_range = span_range(&clause.span);
+        push_tokens_before(tokens, &mut cursor, clause_range.start, &mut children);
+        let clause_tokens = take_tokens_in_range(tokens, &mut cursor, clause_range);
+        children.push(SyntaxElement::Node(build_expr_container_node(
+            SyntaxNodeKind::HandlerOperationClause,
+            clause_range,
+            clause_tokens,
+            &clause.body,
+        )));
+    }
+    push_remaining_tokens(tokens, &mut cursor, &mut children);
+    SyntaxNode::new(SyntaxNodeKind::HandlerDecl, range, children)
+}
+
+fn build_lossless_function(function: &FunctionDecl, tokens: &[Token]) -> SyntaxNode {
     let range = span_range(&function.span);
     let mut children = Vec::new();
     let mut cursor = 0;
@@ -224,7 +247,7 @@ fn build_lossless_function(function: &FunctionDecl, tokens: Vec<Token>) -> Synta
         .map(|token| token.range.end)
     {
         let signature_tokens = take_tokens_in_range(
-            &tokens,
+            tokens,
             &mut cursor,
             TextRange::new(range.start, signature_end),
         );
@@ -237,8 +260,8 @@ fn build_lossless_function(function: &FunctionDecl, tokens: Vec<Token>) -> Synta
 
     for contract in &function.contracts {
         let contract_range = span_range(&contract.span);
-        push_tokens_before(&tokens, &mut cursor, contract_range.start, &mut children);
-        let contract_tokens = take_tokens_in_range(&tokens, &mut cursor, contract_range);
+        push_tokens_before(tokens, &mut cursor, contract_range.start, &mut children);
+        let contract_tokens = take_tokens_in_range(tokens, &mut cursor, contract_range);
         children.push(SyntaxElement::Node(token_node(
             SyntaxNodeKind::ContractClause,
             contract_range,
@@ -249,17 +272,10 @@ fn build_lossless_function(function: &FunctionDecl, tokens: Vec<Token>) -> Synta
     if !function.body.is_empty() {
         let mut body_children = Vec::new();
         for line in &function.body {
-            let (line_range, kind) = match line {
-                BodyLine::Let { span, .. } => (span_range(span), SyntaxNodeKind::LetStatement),
-                BodyLine::Expr { span, .. } => (span_range(span), SyntaxNodeKind::ExprLine),
-            };
-            push_body_tokens_before(&tokens, &mut cursor, line_range.start, &mut body_children);
-            let line_tokens = take_tokens_in_range(&tokens, &mut cursor, line_range);
-            body_children.push(SyntaxElement::Node(token_node(
-                kind,
-                line_range,
-                line_tokens,
-            )));
+            let line_range = body_line_range(line);
+            push_body_tokens_before(tokens, &mut cursor, line_range.start, &mut body_children);
+            let line_tokens = take_tokens_in_range(tokens, &mut cursor, line_range);
+            body_children.push(SyntaxElement::Node(build_body_line_node(line, line_tokens)));
         }
         while tokens
             .get(cursor)
@@ -276,15 +292,180 @@ fn build_lossless_function(function: &FunctionDecl, tokens: Vec<Token>) -> Synta
         )));
     }
 
-    push_remaining_tokens(&tokens, &mut cursor, &mut children);
+    push_remaining_tokens(tokens, &mut cursor, &mut children);
     SyntaxNode::new(SyntaxNodeKind::FunctionDecl, range, children)
 }
 
-fn token_node(kind: SyntaxNodeKind, range: TextRange, tokens: Vec<Token>) -> SyntaxNode {
+fn build_body_line_node(line: &BodyLine, tokens: &[Token]) -> SyntaxNode {
+    match line {
+        BodyLine::Let { expr, span, .. } => {
+            build_expr_container_node(SyntaxNodeKind::LetStatement, span_range(span), tokens, expr)
+        }
+        BodyLine::Expr { expr, span } => {
+            build_expr_container_node(SyntaxNodeKind::ExprLine, span_range(span), tokens, expr)
+        }
+        BodyLine::Defer {
+            body,
+            block_span,
+            span,
+            ..
+        } => build_cleanup_region_node(
+            SyntaxNodeKind::DeferStatement,
+            span_range(span),
+            span_range(block_span),
+            tokens,
+            body,
+        ),
+    }
+}
+
+fn build_expr_container_node(
+    kind: SyntaxNodeKind,
+    range: TextRange,
+    tokens: &[Token],
+    expr: &Expr,
+) -> SyntaxNode {
+    let mut begin_exprs = Vec::new();
+    collect_outer_begin_exprs(expr, &mut begin_exprs);
+    begin_exprs.sort_by_key(|expr| expr.span.start.offset);
+    let mut children = Vec::new();
+    let mut cursor = 0usize;
+    for begin in begin_exprs {
+        let begin_range = span_range(&begin.span);
+        push_tokens_before(tokens, &mut cursor, begin_range.start, &mut children);
+        let begin_tokens = take_tokens_in_range(tokens, &mut cursor, begin_range);
+        children.push(SyntaxElement::Node(build_begin_expr_node(
+            begin,
+            begin_tokens,
+        )));
+    }
+    push_remaining_tokens(tokens, &mut cursor, &mut children);
+    SyntaxNode::new(kind, range, children)
+}
+
+fn build_begin_expr_node(expr: &Expr, tokens: &[Token]) -> SyntaxNode {
+    let ExprKind::Begin { body, block_span } = &expr.kind else {
+        unreachable!("begin-expression node requires begin expression")
+    };
+    build_cleanup_region_node(
+        SyntaxNodeKind::BeginExpr,
+        span_range(&expr.span),
+        span_range(block_span),
+        tokens,
+        body,
+    )
+}
+
+fn build_cleanup_region_node(
+    kind: SyntaxNodeKind,
+    range: TextRange,
+    block_range: TextRange,
+    tokens: &[Token],
+    body: &[BodyLine],
+) -> SyntaxNode {
+    let mut children = Vec::new();
+    let mut cursor = 0usize;
+    push_tokens_before(tokens, &mut cursor, block_range.start, &mut children);
+    let block_tokens = take_tokens_in_range(tokens, &mut cursor, block_range);
+    children.push(SyntaxElement::Node(build_cleanup_body_node(
+        block_range,
+        block_tokens,
+        body,
+    )));
+    push_remaining_tokens(tokens, &mut cursor, &mut children);
+    SyntaxNode::new(kind, range, children)
+}
+
+fn build_cleanup_body_node(range: TextRange, tokens: &[Token], body: &[BodyLine]) -> SyntaxNode {
+    let mut children = Vec::new();
+    let mut cursor = 0usize;
+    for line in body {
+        let line_range = body_line_range(line);
+        push_tokens_before(tokens, &mut cursor, line_range.start, &mut children);
+        let line_tokens = take_tokens_in_range(tokens, &mut cursor, line_range);
+        children.push(SyntaxElement::Node(build_body_line_node(line, line_tokens)));
+    }
+    push_remaining_tokens(tokens, &mut cursor, &mut children);
+    SyntaxNode::new(SyntaxNodeKind::CleanupBody, range, children)
+}
+
+fn body_line_range(line: &BodyLine) -> TextRange {
+    match line {
+        BodyLine::Let { span, .. } | BodyLine::Expr { span, .. } | BodyLine::Defer { span, .. } => {
+            span_range(span)
+        }
+    }
+}
+
+fn collect_outer_begin_exprs<'a>(expr: &'a Expr, begins: &mut Vec<&'a Expr>) {
+    let mut pending = vec![expr];
+    while let Some(expr) = pending.pop() {
+        match &expr.kind {
+            ExprKind::Begin { .. } => begins.push(expr),
+            ExprKind::TypeApply { callee, .. }
+            | ExprKind::SchemaEncode { value: callee, .. }
+            | ExprKind::FieldAccess { base: callee, .. }
+            | ExprKind::Try { expr: callee, .. }
+            | ExprKind::Prefix { expr: callee, .. } => pending.push(callee),
+            ExprKind::Call { callee, args }
+            | ExprKind::Handle {
+                body: callee, args, ..
+            } => {
+                pending.push(callee);
+                pending.extend(args);
+            }
+            ExprKind::Perform { args, .. } | ExprKind::List(args) => pending.extend(args),
+            ExprKind::SchemaDecode { input, base, .. }
+            | ExprKind::Binary {
+                left: input,
+                right: base,
+                ..
+            } => {
+                pending.push(input);
+                pending.push(base);
+            }
+            ExprKind::Record(fields) => pending.extend(fields.iter().map(|field| &field.expr)),
+            ExprKind::Dict(entries) => {
+                for entry in entries {
+                    pending.push(&entry.key);
+                    pending.push(&entry.value);
+                }
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                pending.push(scrutinee);
+                pending.extend(arms.iter().map(|arm| &arm.expr));
+            }
+            ExprKind::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => {
+                pending.push(condition);
+                pending.push(then_branch);
+                for branch in else_if_branches {
+                    pending.push(&branch.condition);
+                    pending.push(&branch.expr);
+                }
+                pending.push(else_branch);
+            }
+            ExprKind::Missing
+            | ExprKind::Hole { .. }
+            | ExprKind::NamePath { .. }
+            | ExprKind::StringLiteral(_)
+            | ExprKind::IntLiteral(_)
+            | ExprKind::FloatLiteral(_)
+            | ExprKind::BoolLiteral(_)
+            | ExprKind::Unit => {}
+        }
+    }
+}
+
+fn token_node(kind: SyntaxNodeKind, range: TextRange, tokens: &[Token]) -> SyntaxNode {
     SyntaxNode::new(
         kind,
         range,
-        tokens.into_iter().map(SyntaxElement::Token).collect(),
+        tokens.iter().cloned().map(SyntaxElement::Token).collect(),
     )
 }
 
@@ -317,16 +498,19 @@ fn push_body_tokens_before(
     }
 }
 
-fn take_tokens_in_range(tokens: &[Token], cursor: &mut usize, range: TextRange) -> Vec<Token> {
-    let mut taken = Vec::new();
+fn take_tokens_in_range<'a>(
+    tokens: &'a [Token],
+    cursor: &mut usize,
+    range: TextRange,
+) -> &'a [Token] {
+    let start = *cursor;
     while tokens
         .get(*cursor)
         .is_some_and(|token| token.range.start >= range.start && token.range.end <= range.end)
     {
-        taken.push(tokens[*cursor].clone());
         *cursor += 1;
     }
-    taken
+    &tokens[start..*cursor]
 }
 
 fn push_remaining_tokens(tokens: &[Token], cursor: &mut usize, children: &mut Vec<SyntaxElement>) {

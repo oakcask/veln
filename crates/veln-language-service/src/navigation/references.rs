@@ -15,8 +15,13 @@ fn call_references(file: &IndexedFile, name: &str) -> Vec<SourceSpan> {
                 && !is_local_binding_name(tokens, *index)
                 && !is_handler_operation_clause_operation_name(tokens, *index)
                 && (token_scope(&scopes, token.range.start)
-                    .is_some_and(|scope| !scope.shadows(name, tokens, *index))
-                    || handler_function_reference_is_unshadowed(file, tokens, *index, name)
+                    .is_some_and(|scope| {
+                        !file.inside_handler_operation_clause_body(token.range.start)
+                            && !scope.shadows(name, tokens, *index)
+                    })
+                    || handler_function_reference_is_unshadowed(
+                        file, tokens, &scopes, *index, name,
+                    )
                     || is_function_alias_target_reference(tokens, *index, name)
                     || is_codec_implementation_function_reference(tokens, *index, name))
         })
@@ -75,7 +80,7 @@ fn type_reference_locations_in_item(
 ) -> TypeReferenceLocations {
     match item {
         SyntaxItem::Function(function) => type_references_in_function(source, tokens, function),
-        SyntaxItem::Handler(handler) => type_references_in_params(source, tokens, &handler.params),
+        SyntaxItem::Handler(handler) => type_references_in_handler(source, tokens, handler),
         SyntaxItem::Effect(effect) => effect
             .operations
             .iter()
@@ -123,6 +128,23 @@ fn type_references_in_function(
         tokens,
         &function.body,
     ));
+    spans
+}
+
+fn type_references_in_handler(
+    source: &SourceFile,
+    tokens: &[Token],
+    handler: &veln_syntax::HandlerDecl,
+) -> TypeReferenceLocations {
+    let mut spans = type_references_in_params(source, tokens, &handler.params);
+    for clause in &handler.operation_clauses {
+        spans.extend(type_references_in_params(source, tokens, &clause.params));
+        spans.extend(type_references_in_cleanup_expr(
+            source,
+            tokens,
+            &clause.body,
+        ));
+    }
     spans
 }
 
@@ -180,22 +202,184 @@ fn type_references_in_body_lines(
     tokens: &[Token],
     body: &[BodyLine],
 ) -> TypeReferenceLocations {
-    body.iter()
-        .flat_map(|line| match line {
-            BodyLine::Let {
-                annotation: Some(_),
-                span,
-                ..
-            } => type_references_after_token_until_token_in_span(
-                source,
-                tokens,
-                span,
-                TokenKind::Colon,
-                TokenKind::Equal,
-            ),
-            _ => Vec::new(),
-        })
-        .collect()
+    collect_type_references_in_cleanup(
+        source,
+        tokens,
+        body.iter().rev().map(CleanupReferenceWork::BodyLine),
+    )
+}
+
+fn type_references_in_cleanup_expr(
+    source: &SourceFile,
+    tokens: &[Token],
+    expr: &Expr,
+) -> TypeReferenceLocations {
+    collect_type_references_in_cleanup(
+        source,
+        tokens,
+        std::iter::once(CleanupReferenceWork::Expr(expr)),
+    )
+}
+
+enum CleanupReferenceWork<'a> {
+    BodyLine(&'a BodyLine),
+    Expr(&'a Expr),
+}
+
+fn collect_type_references_in_cleanup<'a>(
+    source: &SourceFile,
+    tokens: &[Token],
+    initial: impl IntoIterator<Item = CleanupReferenceWork<'a>>,
+) -> TypeReferenceLocations {
+    let mut spans = Vec::new();
+    let mut pending = initial.into_iter().collect::<Vec<_>>();
+    while let Some(work) = pending.pop() {
+        match work {
+            CleanupReferenceWork::BodyLine(line) => {
+                collect_type_references_in_cleanup_line(
+                    source,
+                    tokens,
+                    line,
+                    &mut spans,
+                    &mut pending,
+                );
+            }
+            CleanupReferenceWork::Expr(expr) => match &expr.kind {
+                ExprKind::Begin { body, .. } => {
+                    pending.extend(body.iter().rev().map(CleanupReferenceWork::BodyLine));
+                }
+                _ => queue_cleanup_expr_children(expr, &mut pending),
+            },
+        }
+    }
+    spans
+}
+
+fn queue_cleanup_expr_children<'a>(
+    expr: &'a Expr,
+    pending: &mut Vec<CleanupReferenceWork<'a>>,
+) {
+    match &expr.kind {
+        ExprKind::TypeApply { callee, .. }
+        | ExprKind::SchemaEncode { value: callee, .. }
+        | ExprKind::FieldAccess { base: callee, .. }
+        | ExprKind::Try { expr: callee, .. }
+        | ExprKind::Prefix { expr: callee, .. } => {
+            pending.push(CleanupReferenceWork::Expr(callee));
+        }
+        ExprKind::Call { callee, args }
+        | ExprKind::Handle {
+            body: callee, args, ..
+        } => {
+            pending.push(CleanupReferenceWork::Expr(callee));
+            pending.extend(args.iter().map(CleanupReferenceWork::Expr));
+        }
+        ExprKind::Perform { args, .. } | ExprKind::List(args) => {
+            pending.extend(args.iter().map(CleanupReferenceWork::Expr));
+        }
+        ExprKind::SchemaDecode { input, base, .. }
+        | ExprKind::Binary {
+            left: input,
+            right: base,
+            ..
+        } => {
+            pending.push(CleanupReferenceWork::Expr(input));
+            pending.push(CleanupReferenceWork::Expr(base));
+        }
+        _ => queue_structured_cleanup_expr_children(expr, pending),
+    }
+}
+
+fn queue_structured_cleanup_expr_children<'a>(
+    expr: &'a Expr,
+    pending: &mut Vec<CleanupReferenceWork<'a>>,
+) {
+    match &expr.kind {
+        ExprKind::Record(fields) => pending.extend(
+            fields
+                .iter()
+                .map(|field| CleanupReferenceWork::Expr(&field.expr)),
+        ),
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                pending.push(CleanupReferenceWork::Expr(&entry.key));
+                pending.push(CleanupReferenceWork::Expr(&entry.value));
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            pending.push(CleanupReferenceWork::Expr(scrutinee));
+            pending.extend(
+                arms.iter()
+                    .map(|arm| CleanupReferenceWork::Expr(&arm.expr)),
+            );
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            pending.push(CleanupReferenceWork::Expr(condition));
+            pending.push(CleanupReferenceWork::Expr(then_branch));
+            for branch in else_if_branches {
+                pending.push(CleanupReferenceWork::Expr(&branch.condition));
+                pending.push(CleanupReferenceWork::Expr(&branch.expr));
+            }
+            pending.push(CleanupReferenceWork::Expr(else_branch));
+        }
+        ExprKind::Begin { .. }
+        | ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+        ExprKind::TypeApply { .. }
+        | ExprKind::SchemaEncode { .. }
+        | ExprKind::FieldAccess { .. }
+        | ExprKind::Try { .. }
+        | ExprKind::Prefix { .. }
+        | ExprKind::Call { .. }
+        | ExprKind::Handle { .. }
+        | ExprKind::Perform { .. }
+        | ExprKind::List(_)
+        | ExprKind::SchemaDecode { .. }
+        | ExprKind::Binary { .. } => unreachable!("linear expression children handled first"),
+    }
+}
+
+fn collect_type_references_in_cleanup_line<'a>(
+    source: &SourceFile,
+    tokens: &[Token],
+    line: &'a BodyLine,
+    spans: &mut TypeReferenceLocations,
+    pending: &mut Vec<CleanupReferenceWork<'a>>,
+) {
+    match line {
+        BodyLine::Let {
+            annotation,
+            expr,
+            span,
+            ..
+        } => {
+            if annotation.is_some() {
+                spans.extend(type_references_after_token_until_token_in_span(
+                    source,
+                    tokens,
+                    span,
+                    TokenKind::Colon,
+                    TokenKind::Equal,
+                ));
+            }
+            pending.push(CleanupReferenceWork::Expr(expr));
+        }
+        BodyLine::Expr { expr, .. } => pending.push(CleanupReferenceWork::Expr(expr)),
+        BodyLine::Defer { body, .. } => {
+            pending.extend(body.iter().rev().map(CleanupReferenceWork::BodyLine));
+        }
+    }
 }
 
 fn type_references_in_variant_field(
@@ -203,12 +387,16 @@ fn type_references_in_variant_field(
     tokens: &[Token],
     field_span: &SourceSpan,
 ) -> TypeReferenceLocations {
-    let colon_offset = tokens
+    let (field_start, field_end) = token_indices_in_range(
+        tokens,
+        field_span.start.offset,
+        field_span.end.offset,
+    );
+    let colon_offset = tokens[field_start..field_end]
         .iter()
         .find(|token| {
+            record_type_reference_token_visit();
             token.kind == TokenKind::Colon
-                && token.range.start >= field_span.start.offset
-                && token.range.end <= field_span.end.offset
         })
         .map(|token| token.range.end)
         .unwrap_or(field_span.start.offset);
@@ -221,12 +409,16 @@ fn type_references_after_token_in_span(
     span: &SourceSpan,
     start_kind: TokenKind,
 ) -> TypeReferenceLocations {
-    let start_offset = tokens
+    let (span_start, span_end) = token_indices_in_range(
+        tokens,
+        span.start.offset,
+        span.end.offset,
+    );
+    let start_offset = tokens[span_start..span_end]
         .iter()
         .find(|token| {
+            record_type_reference_token_visit();
             token.kind == start_kind
-                && token.range.start >= span.start.offset
-                && token.range.end <= span.end.offset
         })
         .map(|token| token.range.end)
         .unwrap_or(span.end.offset);
@@ -240,17 +432,26 @@ fn type_references_after_token_until_token_in_span(
     start_kind: TokenKind,
     end_kind: TokenKind,
 ) -> TypeReferenceLocations {
-    let Some(start_index) = tokens.iter().position(|token| {
+    let (span_start, span_end) = token_indices_in_range(
+        tokens,
+        span.start.offset,
+        span.end.offset,
+    );
+    let Some(relative_start_index) = tokens[span_start..span_end].iter().position(|token| {
+        record_type_reference_token_visit();
         token.kind == start_kind
-            && token.range.start >= span.start.offset
-            && token.range.end <= span.end.offset
     }) else {
         return Vec::new();
     };
+    let start_index = span_start + relative_start_index;
     let start_offset = tokens[start_index].range.end;
     let end_offset = tokens[start_index + 1..]
         .iter()
-        .find(|token| token.kind == end_kind && token.range.end <= span.end.offset)
+        .take(span_end.saturating_sub(start_index + 1))
+        .find(|token| {
+            record_type_reference_token_visit();
+            token.kind == end_kind
+        })
         .map(|token| token.range.start)
         .unwrap_or(span.end.offset);
     type_reference_tokens_in_range(source, tokens, start_offset, end_offset)
@@ -270,20 +471,30 @@ fn type_reference_tokens_in_range(
     start_offset: usize,
     end_offset: usize,
 ) -> TypeReferenceLocations {
-    tokens
+    let (start_index, end_index) = token_indices_in_range(tokens, start_offset, end_offset);
+    tokens[start_index..end_index]
         .iter()
         .enumerate()
         .filter(|(_, token)| {
-            token.range.start >= start_offset
-                && token.range.end <= end_offset
-                && token.kind == TokenKind::Ident
+            record_type_reference_token_visit();
+            token.kind == TokenKind::Ident
         })
         .map(|(index, token)| {
             (
                 token.text.clone(),
-                index,
+                start_index + index,
                 source.span(token.range),
             )
         })
         .collect()
+}
+
+fn token_indices_in_range(
+    tokens: &[Token],
+    start_offset: usize,
+    end_offset: usize,
+) -> (usize, usize) {
+    let start_index = tokens.partition_point(|token| token.range.start < start_offset);
+    let end_index = tokens.partition_point(|token| token.range.end <= end_offset);
+    (start_index.min(end_index), end_index)
 }

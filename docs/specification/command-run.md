@@ -35,6 +35,11 @@ dependency declaration blocks the run; unreachable declarations in an imported
 dependency and diagnostics in an unimported manifest dependency do not. An
 unreachable local function does not block the selected entry.
 
+A reachable `begin` expression or `defer` statement blocks execution at
+checked-core readiness with `deferred_cleanup_runtime`. This happens before
+cache configuration, classfile generation, or backend launch, even when static
+checking otherwise succeeds.
+
 The reachable program is lowered to typed IR and JVM classfiles. Ordinary
 execution does not write Java source or invoke a Java source compiler. Missing
 Java before class loading is a JDK setup failure.

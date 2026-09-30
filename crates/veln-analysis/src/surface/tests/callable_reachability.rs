@@ -32,6 +32,37 @@ fn nested_callee_collection_keeps_match_bindings_local() {
 }
 
 #[test]
+fn nested_cleanup_reachability_uses_scoped_binding_stack() {
+    let depth = 64;
+    let mut source = String::from(
+        "fn helper() -> Int\n  1\nend\nfn shadowed() -> Int\n  2\nend\npub fn main() -> Int\n",
+    );
+    for level in 0..depth {
+        source.push_str(&"  ".repeat(level + 1));
+        source.push_str("begin\n");
+        source.push_str(&"  ".repeat(level + 2));
+        source.push_str(&format!("let shadowed: Int = {level}\n"));
+    }
+    source.push_str(&"  ".repeat(depth + 1));
+    source.push_str("helper()\n");
+    for level in (0..depth).rev() {
+        source.push_str(&"  ".repeat(level + 1));
+        source.push_str("end\n");
+    }
+    source.push_str("end\n");
+
+    let module = lower(&source);
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    let functions = reachable
+        .functions
+        .iter()
+        .filter_map(|function| function.name.as_deref())
+        .collect::<Vec<_>>();
+
+    assert_eq!(functions, ["helper", "main"]);
+}
+
+#[test]
 fn test_entry_can_reach_function_callee() {
     let module = lower(concat!(
         "test foo() -> ()\n",

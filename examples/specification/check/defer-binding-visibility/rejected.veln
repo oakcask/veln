@@ -1,0 +1,32 @@
+# A deferred block cannot use a binding declared after the defer statement.
+fn rejects_later_binding(input: Int) -> ()
+	defer
+		let copy = declared_later
+		()
+	end
+	let declared_later = input
+	()
+end
+
+# Only the binding captured by defer can be shadowed. Its replacement cannot.
+fn rejects_repeated_shadow_after_capture(input: Int) -> String
+	let captured = input
+	defer
+		let copy = captured
+		()
+	end
+	let captured = "first replacement"
+	let captured = "second replacement"
+	captured
+end
+
+# A capture does not exempt other declaration kinds from duplicate checks.
+fn rejects_match_pattern_shadow_after_capture(captured: Int) -> Int
+	defer
+		let copy = captured
+		()
+	end
+	match captured
+		captured => captured
+	end
+end

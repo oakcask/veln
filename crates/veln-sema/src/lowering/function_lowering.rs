@@ -217,6 +217,12 @@ impl<'a> CoreLowerer<'a> {
                         span: line.span.clone(),
                     });
                 }
+                BodyLineKind::Defer { .. } => {
+                    self.blockers.push(CoreBlocker::UnsupportedExpression {
+                        node_id: line.node_id,
+                        reason: "deferred_cleanup_runtime".to_string(),
+                    });
+                }
             }
         }
         if !has_tail_expression {

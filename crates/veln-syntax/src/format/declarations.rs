@@ -150,7 +150,7 @@ fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &Hand
                 "{}({}) => {}",
                 clause.operation.as_deref().unwrap_or("<missing>"),
                 params,
-                format_expr_at_indent(&clause.body, 1)
+                format_expr_at_indent_with_comments(&clause.body, 1, comments)
             ),
         );
     }
@@ -450,12 +450,12 @@ fn format_function_contracts(out: &mut String, comments: &LineComments, function
 
 fn format_function_body(out: &mut String, comments: &LineComments, function: &FunctionDecl) {
     for line in &function.body {
-        let (source_line, content) = format_body_line(line);
+        let (source_line, content) = format_body_line(line, 1, comments);
         push_source_line(out, comments, source_line, 1, content);
     }
 }
 
-fn format_body_line(line: &BodyLine) -> (usize, String) {
+fn format_body_line(line: &BodyLine, indent: usize, comments: &LineComments) -> (usize, String) {
     match line {
         BodyLine::Let {
             pattern,
@@ -471,10 +471,17 @@ fn format_body_line(line: &BodyLine) -> (usize, String) {
                 content.push_str(&canonical_type_text(annotation));
             }
             content.push_str(" = ");
-            content.push_str(&format_expr_at_indent(expr, 1));
+            content.push_str(&format_expr_at_indent_with_comments(expr, indent, comments));
             (span.start.line, content)
         }
-        BodyLine::Expr { expr, span } => (span.start.line, format_expr_at_indent(expr, 1)),
+        BodyLine::Expr { expr, span } => (
+            span.start.line,
+            format_expr_at_indent_with_comments(expr, indent, comments),
+        ),
+        BodyLine::Defer { body, span, .. } => (
+            span.start.line,
+            format_defer_statement_with_comments(body, span, indent, comments),
+        ),
     }
 }
 

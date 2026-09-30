@@ -1,0 +1,21 @@
+fn cleanup(value: Int) -> ()
+	()
+end
+
+fn choose(input: Int) -> Int
+	begin  # value-producing cleanup region
+		let captured = input
+		defer  # earlier binding is visible in this block
+			cleanup(captured)
+		end
+		captured
+	end
+end
+
+fn combine(left: Int, right: Int) -> Int
+	begin
+		left
+	end + begin
+		right
+	end  # retain the complete addition
+end

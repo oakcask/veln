@@ -1,0 +1,207 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+source_errors = "expected"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+equals = {"start":{"line":7,"character":6},"end":{"line":7,"character":14}}
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/range"
+equals = {"start":{"line":9,"character":11},"end":{"line":9,"character":19}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/range"
+equals = {"start":{"line":11,"character":2},"end":{"line":11,"character":10}}
+
+[[lsp_assert]]
+id = 4
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 3
+
+[[lsp_assert]]
+id = 5
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 6
+path = "/result/range"
+equals = {"start":{"line":0,"character":3},"end":{"line":0,"character":10}}
+
+[[lsp_assert]]
+id = 7
+path = "/result"
+length = 5
+
+[[lsp_assert]]
+id = 7
+path = "/result/1/range"
+equals = {"start":{"line":9,"character":3},"end":{"line":9,"character":10}}
+
+[[lsp_assert]]
+id = 8
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 5
+
+[[lsp_assert]]
+id = 9
+path = "/result/range"
+equals = {"start":{"line":22,"character":6},"end":{"line":22,"character":14}}
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 10
+path = "/result/1/range"
+equals = {"start":{"line":24,"character":18},"end":{"line":24,"character":26}}
+
+[[lsp_assert]]
+id = 10
+path = "/result/2/range"
+equals = {"start":{"line":27,"character":2},"end":{"line":27,"character":10}}
+
+[[lsp_assert]]
+id = 11
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 3
+
+[[lsp_assert]]
+id = 12
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 12
+path = "/error/data/details/symbol_class"
+equals = "value_binding"
+
+[[lsp_assert]]
+id = 12
+path = "/error/data/details/requested_name"
+equals = "input"
+
+[[lsp_assert]]
+id = 12
+path = "/error/data/details/conflicting_declaration/range"
+equals = {"start":{"line":4,"character":10},"end":{"line":4,"character":15}}
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 2
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:main.veln/0/range"
+equals = {"start":{"line":33,"character":6},"end":{"line":33,"character":11}}
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:main.veln/1/range"
+equals = {"start":{"line":34,"character":2},"end":{"line":34,"character":7}}
+
+[[lsp_assert]]
+id = 14
+path = "/result"
+equals = {"start":{"line":11,"character":2},"end":{"line":11,"character":10}}
+
+[[lsp_assert]]
+id = 15
+path = "/result"
+equals = {"start":{"line":9,"character":11},"end":{"line":9,"character":19}}
+
+[[lsp_assert]]
+id = 16
+path = "/result/range"
+equals = {"start":{"line":48,"character":13},"end":{"line":48,"character":22}}
+
+[[lsp_assert]]
+id = 17
+path = "/result/range"
+equals = {"start":{"line":49,"character":5},"end":{"line":49,"character":10}}
+
+[[lsp_assert]]
+id = 18
+path = "/result/range"
+equals = {"start":{"line":59,"character":6},"end":{"line":59,"character":16}}
+
+[[lsp_assert]]
+id = 19
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 19
+path = "/result/1/range"
+equals = {"start":{"line":61,"character":18},"end":{"line":61,"character":28}}
+
+[[lsp_assert]]
+id = 19
+path = "/result/2/range"
+equals = {"start":{"line":64,"character":2},"end":{"line":64,"character":12}}
+
+[[lsp_assert]]
+id = 20
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 3
+
+[[lsp_assert]]
+id = 21
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 21
+path = "/error/data/details/conflicting_declaration/range"
+equals = {"start":{"line":57,"character":28},"end":{"line":57,"character":33}}
+
+[[lsp_assert]]
+id = 22
+path = "/result/range"
+equals = {"start":{"line":59,"character":6},"end":{"line":59,"character":16}}
+
+[[lsp_assert]]
+id = 23
+path = "/result/range"
+equals = {"start":{"line":67,"character":6},"end":{"line":67,"character":16}}
+
+[[lsp_assert]]
+id = 24
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 24
+path = "/result/2/range"
+equals = {"start":{"line":71,"character":2},"end":{"line":71,"character":12}}
+
+[[lsp_assert]]
+id = 25
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 3
+
+[[lsp_assert]]
+id = 26
+path = "/result/range"
+equals = {"start":{"line":74,"character":6},"end":{"line":74,"character":18}}

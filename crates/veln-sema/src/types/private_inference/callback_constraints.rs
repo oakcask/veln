@@ -36,10 +36,11 @@ pub(crate) fn private_callback_return_constraint_can_update(
 pub(crate) struct PrivatePreludeCallbackConstraintContext<'a> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
-    pub(crate) bindings: &'a [Binding],
+    pub(crate) bindings: &'a mut Vec<Binding>,
     pub(crate) function_by_path: &'a BTreeMap<(Option<String>, String), &'a Function>,
     pub(crate) omitted_private_returns: &'a BTreeSet<(Option<String>, String)>,
     pub(crate) returns_by_path: &'a mut BTreeMap<(Option<String>, String), Type>,
+    pub(crate) selected_callback_returns: &'a mut BTreeSet<(Option<String>, String)>,
     pub(crate) adts: &'a AdtRegistry,
     pub(crate) changed: &'a mut bool,
 }
@@ -61,12 +62,30 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
-        | ExprKind::Try(_)
+        | ExprKind::Try { .. }
         | ExprKind::Prefix { .. } => {
             collect_private_prelude_callback_wrapped_expr_constraints(expr, expected, context);
         }
         ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
             collect_private_prelude_callback_control_flow_constraints(expr, expected, context);
+        }
+        ExprKind::Begin { body, .. } => {
+            let binding_count = context.bindings.len();
+            record_scoped_binding_count(context.bindings);
+            collect_private_prelude_callback_body_constraints(
+                body,
+                expected,
+                context.current_module,
+                context.uses,
+                context.function_by_path,
+                context.omitted_private_returns,
+                context.returns_by_path,
+                context.selected_callback_returns,
+                context.adts,
+                context.changed,
+                context.bindings,
+            );
+            context.bindings.truncate(binding_count);
         }
         ExprKind::NamePath { segments, .. } => {
             if let Some(expected) = expected {
@@ -163,7 +182,7 @@ pub(crate) fn collect_private_prelude_callback_wrapped_expr_constraints(
             collect_private_prelude_callback_expr_constraints(value, None, context);
         }
         ExprKind::FieldAccess { base, .. }
-        | ExprKind::Try(base)
+        | ExprKind::Try { expr: base, .. }
         | ExprKind::Prefix { expr: base, .. } => {
             collect_private_prelude_callback_expr_constraints(base, None, context);
         }
@@ -223,7 +242,7 @@ pub(crate) fn collect_private_prelude_callback_call_constraints(
         callee,
         args,
         expected,
-        &PrivateSignatureInferContext {
+        &mut PrivateSignatureInferContext {
             current_module: context.current_module,
             uses: context.uses,
             bindings: context.bindings,
@@ -244,7 +263,7 @@ pub(crate) fn private_prelude_callback_call_params(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
     function_by_path: &FunctionAstMap<'_>,
 ) -> Option<Vec<Type>> {
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
@@ -347,6 +366,9 @@ pub(crate) fn collect_private_callback_return_constraint_for_segments(
         return;
     };
     if !private_tail_can_use_expected(function, return_type, context.uses, context.adts) {
+        return;
+    }
+    if !context.selected_callback_returns.insert(key.clone()) {
         return;
     }
     if context.returns_by_path.get(&key) == Some(return_type) {

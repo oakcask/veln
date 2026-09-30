@@ -36,7 +36,7 @@ impl<'a> CoreLowerer<'a> {
                 self.lower_schema_encode(expr, schema, value)
             }
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
-            ExprKind::Try(inner) => self.lower_try(expr, inner, expected),
+            ExprKind::Try { expr: inner, .. } => self.lower_try(expr, inner, expected),
             ExprKind::Record(fields) => self.lower_record(expr, fields, expected),
             ExprKind::Dict(entries) => self.lower_dict(expr, entries, expected),
             ExprKind::List(items) => self.lower_list(expr, items, expected),
@@ -56,6 +56,17 @@ impl<'a> CoreLowerer<'a> {
                 else_branch,
                 expected,
             ),
+            ExprKind::Begin { .. } => {
+                self.blockers.push(CoreBlocker::UnsupportedExpression {
+                    node_id: expr.node_id,
+                    reason: "deferred_cleanup_runtime".to_string(),
+                });
+                self.core_expr(
+                    expr,
+                    expected.cloned().unwrap_or(CoreType::Unknown),
+                    CoreExprKind::Missing,
+                )
+            }
             ExprKind::Prefix { op, expr: inner } => self.lower_prefix(expr, *op, inner, expected),
             ExprKind::Binary { op, left, right } => {
                 self.lower_binary(expr, *op, left, right, expected)

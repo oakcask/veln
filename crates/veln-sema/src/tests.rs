@@ -10,6 +10,7 @@ mod contract_order_split_proofs;
 mod contract_rejections_and_result_scope;
 mod contract_static_boolean_proofs;
 mod declarations_and_names;
+mod deferred_cleanup;
 mod effect_rows;
 mod identifier_casing;
 mod identifier_casing_selection_boundaries;

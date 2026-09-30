@@ -407,9 +407,19 @@ fn insert_handler_effect_dependencies(
                 .filter(|param| valid_value_binding_name(&param.name))
                 .map(|param| Binding::new(param.name.clone(), Type::Unknown)),
         );
-        let expr_context = context.expression_context(handler.module_name.as_deref(), &bindings);
         let mut dependencies = BTreeSet::new();
-        collect_expr_effect_dependencies(&clause.body, &expr_context, &mut dependencies);
+        let mut handled_effects = ActiveHandledEffects::default();
+        visit_effect_expr(
+            &clause.body,
+            handler.module_name.as_deref(),
+            context,
+            &mut bindings,
+            &mut handled_effects,
+            false,
+            &mut |expr, expr_context, _| {
+                collect_expr_effect_dependencies(expr, expr_context, &mut dependencies);
+            },
+        );
         for dependency in dependencies {
             graph.insert_dependency(dependency, node.clone());
         }
@@ -437,6 +447,16 @@ fn collect_private_handler_effects(
         return Vec::new();
     };
     let mut inferred = Vec::new();
+    let function_context = FunctionEffectContext {
+        uses: context.uses,
+        functions: context.functions,
+        user_effects: context.user_effects,
+        handlers: context.handlers,
+        effects_by_function: context.effects_by_function,
+        effects_by_module_path: context.effects_by_module_path,
+        companion_access_targets: context.companion_access_targets,
+        companion_effect_access_targets: context.companion_effect_access_targets,
+    };
     for clause in &decl.operation_clauses {
         let Some(operation_name) = clause.operation.as_deref() else {
             continue;
@@ -469,19 +489,26 @@ fn collect_private_handler_effects(
                     }
                 }),
         );
-        let expr_context = ExprEffectContext {
-            uses: context.uses,
-            current_module: handler.module_name.as_deref(),
-            bindings: &bindings,
-            functions: context.functions,
-            effects_by_function: context.effects_by_function,
-            effects_by_module_path: context.effects_by_module_path,
-            companion_access_targets: context.companion_access_targets,
-            companion_effect_access_targets: context.companion_effect_access_targets,
-            user_effects: context.user_effects,
-            handlers: context.handlers,
-        };
-        collect_expr_effects(&clause.body, &expr_context, &mut inferred);
+        let mut handled_effects = ActiveHandledEffects::default();
+        visit_effect_expr(
+            &clause.body,
+            handler.module_name.as_deref(),
+            &function_context,
+            &mut bindings,
+            &mut handled_effects,
+            true,
+            &mut |expr, expr_context, handled_effects| {
+                let before = inferred.len();
+                collect_expr_effects(expr, expr_context, &mut inferred);
+                if !handled_effects.is_empty() {
+                    let retained = inferred
+                        .drain(before..)
+                        .filter(|effect| !handled_effects.contains(effect))
+                        .collect::<Vec<_>>();
+                    inferred.extend(retained);
+                }
+            },
+        );
     }
     inferred
 }
@@ -523,9 +550,22 @@ fn collect_function_body_effects(
         .get(&function_key)
         .cloned()
         .unwrap_or_default();
-    visit_function_body_expressions(function, context, |expr, expr_context| {
-        collect_expr_effects(expr, expr_context, &mut inferred);
-    });
+    visit_function_body_expressions(
+        function,
+        context,
+        true,
+        |expr, expr_context, handled_effects| {
+            let before = inferred.len();
+            collect_expr_effects(expr, expr_context, &mut inferred);
+            if !handled_effects.is_empty() {
+                let retained = inferred
+                    .drain(before..)
+                    .filter(|effect| !handled_effects.contains(effect))
+                    .collect::<Vec<_>>();
+                inferred.extend(retained);
+            }
+        },
+    );
     inferred
 }
 
@@ -534,7 +574,7 @@ fn function_effect_dependencies(
     context: &FunctionEffectContext<'_>,
 ) -> BTreeSet<EffectDependencyNode> {
     let mut dependencies = BTreeSet::new();
-    visit_function_body_expressions(function, context, |expr, expr_context| {
+    visit_function_body_expressions(function, context, false, |expr, expr_context, _| {
         collect_expr_effect_dependencies(expr, expr_context, &mut dependencies);
     });
     dependencies
@@ -543,10 +583,32 @@ fn function_effect_dependencies(
 fn visit_function_body_expressions(
     function: &Function,
     context: &FunctionEffectContext<'_>,
-    mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>),
+    track_handled_effects: bool,
+    mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
 ) {
     let mut bindings = function_parameter_bindings(function);
-    for line in &function.body {
+    let mut handled_effects = ActiveHandledEffects::default();
+    visit_effect_body_expressions(
+        &function.body,
+        function.module_name.as_deref(),
+        context,
+        &mut bindings,
+        &mut handled_effects,
+        track_handled_effects,
+        &mut visit,
+    );
+}
+
+fn visit_effect_body_expressions(
+    body: &[veln_ast::BodyLine],
+    current_module: Option<&str>,
+    context: &FunctionEffectContext<'_>,
+    bindings: &mut Vec<Binding>,
+    handled_effects: &mut ActiveHandledEffects,
+    track_handled_effects: bool,
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
+) {
+    for line in body {
         match &line.kind {
             BodyLineKind::Let {
                 pattern,
@@ -554,16 +616,180 @@ fn visit_function_body_expressions(
                 expr,
                 ..
             } => {
-                let expr_context =
-                    context.expression_context(function.module_name.as_deref(), &bindings);
-                visit(expr, &expr_context);
+                visit_effect_expr(
+                    expr,
+                    current_module,
+                    context,
+                    bindings,
+                    handled_effects,
+                    track_handled_effects,
+                    visit,
+                );
                 let ty = parse_type_or_unknown(annotation.as_deref());
-                collect_pattern_bindings(pattern, &ty, &mut bindings);
+                collect_pattern_bindings(pattern, &ty, bindings);
             }
             BodyLineKind::Expr { expr } => {
-                let expr_context =
-                    context.expression_context(function.module_name.as_deref(), &bindings);
-                visit(expr, &expr_context);
+                visit_effect_expr(
+                    expr,
+                    current_module,
+                    context,
+                    bindings,
+                    handled_effects,
+                    track_handled_effects,
+                    visit,
+                );
+            }
+            BodyLineKind::Defer { body, .. } => {
+                let binding_count = bindings.len();
+                record_scoped_binding_count(bindings);
+                visit_effect_body_expressions(
+                    body,
+                    current_module,
+                    context,
+                    bindings,
+                    handled_effects,
+                    track_handled_effects,
+                    visit,
+                );
+                bindings.truncate(binding_count);
+            }
+        }
+    }
+}
+
+fn visit_effect_expr(
+    expr: &Expr,
+    current_module: Option<&str>,
+    context: &FunctionEffectContext<'_>,
+    bindings: &mut Vec<Binding>,
+    handled_effects: &mut ActiveHandledEffects,
+    track_handled_effects: bool,
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
+) {
+    let expr_context = context.expression_context(current_module, bindings);
+    visit(expr, &expr_context, handled_effects);
+    visit_nested_effect_regions(
+        expr,
+        current_module,
+        context,
+        bindings,
+        handled_effects,
+        track_handled_effects,
+        visit,
+    );
+}
+
+fn visit_nested_effect_regions(
+    expr: &Expr,
+    current_module: Option<&str>,
+    context: &FunctionEffectContext<'_>,
+    bindings: &mut Vec<Binding>,
+    handled_effects: &mut ActiveHandledEffects,
+    track_handled_effects: bool,
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
+) {
+    match &expr.kind {
+        ExprKind::Begin { body, .. } => {
+            let binding_count = bindings.len();
+            record_scoped_binding_count(bindings);
+            visit_effect_body_expressions(
+                body,
+                current_module,
+                context,
+                bindings,
+                handled_effects,
+                track_handled_effects,
+                visit,
+            );
+            bindings.truncate(binding_count);
+        }
+        ExprKind::Handle {
+            body,
+            handler,
+            args,
+            ..
+        } => {
+            for arg in args {
+                visit_nested_effect_regions(
+                    arg,
+                    current_module,
+                    context,
+                    bindings,
+                    handled_effects,
+                    track_handled_effects,
+                    visit,
+                );
+            }
+            let handled_effect_count = handled_effects.len();
+            if track_handled_effects {
+                let expr_context = context.expression_context(current_module, bindings);
+                if let Some(handler) = handler_for_path(handler, &expr_context) {
+                    #[cfg(test)]
+                    effect_inference_counters::record_handled_effect_stack_work(1);
+                    handled_effects.push(handler.effect.clone());
+                }
+            }
+            visit_nested_effect_regions(
+                body,
+                current_module,
+                context,
+                bindings,
+                handled_effects,
+                track_handled_effects,
+                visit,
+            );
+            handled_effects.truncate(handled_effect_count);
+        }
+        _ => expr.for_each_child(&mut |child| {
+            visit_nested_effect_regions(
+                child,
+                current_module,
+                context,
+                bindings,
+                handled_effects,
+                track_handled_effects,
+                visit,
+            );
+        }),
+    }
+}
+
+#[derive(Default)]
+struct ActiveHandledEffects {
+    stack: Vec<String>,
+    ref_counts: HashMap<String, usize>,
+}
+
+impl ActiveHandledEffects {
+    fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        self.stack.len()
+    }
+
+    fn contains(&self, effect: &str) -> bool {
+        #[cfg(test)]
+        effect_inference_counters::record_handled_effect_membership_work();
+        self.ref_counts.contains_key(effect)
+    }
+
+    fn push(&mut self, effect: String) {
+        *self.ref_counts.entry(effect.clone()).or_default() += 1;
+        self.stack.push(effect);
+    }
+
+    fn truncate(&mut self, len: usize) {
+        while self.stack.len() > len {
+            let effect = self.stack.pop().expect("handled effect stack is non-empty");
+            let count = self
+                .ref_counts
+                .get_mut(&effect)
+                .expect("handled effect ref count exists");
+            *count -= 1;
+            if *count == 0 {
+                self.ref_counts.remove(&effect);
             }
         }
     }

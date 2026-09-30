@@ -76,6 +76,10 @@ impl SymbolIndex {
             && let Some(conflict) = handler_binding_conflict_for_function_reference(
                 file,
                 &file.tokens,
+                scope_cache
+                    .get(file_path)
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]),
                 token_index,
                 requested_name,
             )
@@ -226,14 +230,13 @@ impl SymbolIndex {
 fn handler_function_reference_is_unshadowed(
     file: &IndexedFile,
     tokens: &[Token],
+    scopes: &[FunctionScope],
     index: usize,
     name: &str,
 ) -> bool {
-    let file_end = tokens.last().map_or(tokens[index].range.end, |token| token.range.end);
-    let offset = tokens[index].range.start;
-    handler_function_reference_token(tokens, index, name)
-        && !local_binding_shadows_name(tokens, name, offset, 0, file_end)
-        && !handler_binding_shadows_function_reference(file, tokens, index, name)
+    handler_function_reference_token(file, tokens, index, name)
+        && !local_binding_shadows_call_target_in_scopes(scopes, tokens, index, name)
+        && !handler_binding_shadows_function_reference(file, tokens, scopes, index, name)
 }
 
 fn function_reference_candidate_after_rename(
@@ -250,9 +253,16 @@ fn function_reference_candidate_after_rename(
     {
         return false;
     }
-    is_bare_function_reference_token(&file.tokens, file_scopes, index, requested_name)
+    (!file.inside_handler_operation_clause_body(token.range.start)
+        && is_bare_function_reference_token(&file.tokens, file_scopes, index, requested_name))
         || file_has_handler_references
-            && handler_function_reference_is_unshadowed(file, &file.tokens, index, requested_name)
+            && handler_function_reference_is_unshadowed(
+                file,
+                &file.tokens,
+                file_scopes,
+                index,
+                requested_name,
+            )
 }
 
 fn function_reference_resolution_unchanged(
@@ -270,15 +280,26 @@ fn function_reference_resolution_unchanged(
         token_index,
         requested_name,
     ) || file_has_handler_references
-        && handler_binding_shadows_function_reference(file, &file.tokens, token_index, requested_name)
+        && handler_binding_shadows_function_reference(
+            file,
+            &file.tokens,
+            file_scopes,
+            token_index,
+            requested_name,
+        )
         || index.function_local_resolution_unchanged(file, selected, requested_name)
 }
 
-fn handler_function_reference_token(tokens: &[Token], index: usize, name: &str) -> bool {
+fn handler_function_reference_token(
+    file: &IndexedFile,
+    tokens: &[Token],
+    index: usize,
+    name: &str,
+) -> bool {
     tokens[index].text == name
         && tokens[index].kind == TokenKind::Ident
         && is_identifier(&tokens[index].text)
-        && inside_handler_operation_clause_body(tokens, tokens[index].range.start)
+        && file.inside_handler_operation_clause_body(tokens[index].range.start)
         && previous_non_layout_token(tokens, index)
             .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
         && !is_field_name(tokens, index)
@@ -297,10 +318,11 @@ fn handler_function_reference_token(tokens: &[Token], index: usize, name: &str) 
 fn handler_binding_conflict_for_function_reference(
     file: &IndexedFile,
     tokens: &[Token],
+    scopes: &[FunctionScope],
     index: usize,
     name: &str,
 ) -> Option<(NavigationLocation, RenameAffectedScope)> {
-    let binding = handler_shadowing_binding(file, tokens, index, name)?;
+    let binding = handler_shadowing_binding(file, tokens, scopes, index, name)?;
     Some((
         workspace_location(binding.declaration),
         RenameAffectedScope::Lexical {
@@ -314,27 +336,31 @@ fn handler_binding_conflict_for_function_reference(
 fn handler_binding_shadows_function_reference(
     file: &IndexedFile,
     tokens: &[Token],
+    scopes: &[FunctionScope],
     index: usize,
     name: &str,
 ) -> bool {
-    handler_shadowing_binding(file, tokens, index, name).is_some()
+    handler_shadowing_binding(file, tokens, scopes, index, name).is_some()
 }
 
 fn handler_shadowing_binding(
     file: &IndexedFile,
     tokens: &[Token],
+    scopes: &[FunctionScope],
     index: usize,
     name: &str,
 ) -> Option<ClauseBinding> {
     let offset = tokens[index].range.start;
-    handler_operation_clause_bindings(file, tokens)
+    file.handler_clause_bindings_by_name
+        .get(name)
         .into_iter()
+        .flatten()
         .find(|binding| {
-            binding.name == name
-                && offset >= binding.start
+            offset >= binding.start
                 && offset < binding.end
                 && (binding.kind != LocalSymbolKind::HandlerContextParameter
-                    || inside_handler_operation_clause_body(tokens, offset))
-                && !local_binding_shadows_name(tokens, name, offset, binding.start, binding.end)
+                    || file.inside_handler_operation_clause_body(offset))
+                && !local_binding_shadows_call_target_in_scopes(scopes, tokens, index, name)
         })
+        .cloned()
 }

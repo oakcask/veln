@@ -421,6 +421,28 @@ The invalid-coordinate failure creates no reference cursor and does not consume
 an existing cursor. A later request for an earlier valid saved selection reads
 the same retained snapshot and produces the same navigation result.
 
+Saved definition, references, and rename use cleanup-region lexical scopes
+from the shared language service. A local binding is selectable from a nested
+`begin` or `defer` body only while its scope contains that occurrence.
+These boundaries apply when `begin` appears in a call argument, list element,
+or record field value. References from a deferred block keep the captured
+binding identity after a later `let` shadows its name, as specified by
+[name resolution](name-resolution.md#value-calls-and-shadowing). A `let`
+binding starts after its complete initializer, including a multiline `begin`,
+so a same-spelled call inside the initializer can select an earlier function
+identity. The same rules apply to a `begin` used as a handler operation clause
+expression. MCP returns the resulting locations in its existing one-based
+Unicode-scalar coordinate model. The same scope boundaries drive rename
+conflict prediction: renaming a cleanup-body local binding to a visible
+enclosing function parameter returns `rename.conflict` and no edits. Equal
+names in disjoint sibling `begin` scopes do not conflict, so that rename
+succeeds and returns only the selected binding's edits.
+An unterminated `begin` or `defer` cannot absorb a following top-level
+declaration into its navigation scope. The following declaration's parameters
+and locals keep their own definition, reference, and rename identity. MCP
+inherits this recovery boundary from the shared language-service snapshot, as
+does the LSP adapter.
+
 The supported definition set includes workspace functions, types,
 constructors, handler context and operation-clause parameters, exact
 test-companion private-function access, and unique class-compatible invalid
@@ -714,6 +736,10 @@ The checked
 recovery selection from a declaration and reference, declaration exclusion and
 inclusion, an empty linked-reference set, saved coordinates, sorting, and
 pagination.
+The checked `examples/specification/mcp/cleanup-region-navigation/` transcript
+covers definition, references, rename, an edit-free rename-conflict response,
+an allowed equal-name rename across disjoint `begin` scopes, and nested cleanup
+scopes in call arguments, list elements, and record field values.
 The checked `examples/specification/mcp/references-workspace-effect/` transcript
 demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
 pagination for workspace effect and effect-operation references.

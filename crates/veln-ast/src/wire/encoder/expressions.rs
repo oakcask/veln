@@ -24,12 +24,17 @@ impl Writer {
             ExprKind::SchemaDecode { .. }
             | ExprKind::SchemaEncode { .. }
             | ExprKind::FieldAccess { .. }
-            | ExprKind::Try(_) => self.schema_and_access_expr_kind(value),
+            | ExprKind::Try { .. } => self.schema_and_access_expr_kind(value),
             ExprKind::Record(_)
             | ExprKind::Dict(_)
             | ExprKind::List(_)
             | ExprKind::Match { .. }
             | ExprKind::If { .. } => self.aggregate_expr_kind(value),
+            ExprKind::Begin { body, block_span } => {
+                self.u8(23);
+                self.vec(body, Self::body_line);
+                self.span(block_span);
+            }
             ExprKind::Prefix { .. } | ExprKind::Binary { .. } => self.operator_expr_kind(value),
         }
     }
@@ -146,9 +151,13 @@ impl Writer {
                 self.string(field);
                 self.span(field_span);
             }
-            ExprKind::Try(expr) => {
+            ExprKind::Try {
+                expr,
+                question_span,
+            } => {
                 self.u8(15);
                 self.expr(expr);
+                self.span(question_span);
             }
             _ => unreachable!("non-schema or access expression passed to schema wire encoder"),
         }

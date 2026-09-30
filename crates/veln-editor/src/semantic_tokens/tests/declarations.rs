@@ -376,6 +376,46 @@ fn collector_classifies_multiline_handler_operation_clause_bodies() {
         SemanticTokenModifiers::empty().bits()
     )));
 }
+
+#[test]
+fn collector_bounds_handler_operation_cleanup_regions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Resource\n",
+            "  access(value: Int) -> Int\n",
+            "  fallback() -> Int\n",
+            "end\n",
+            "\n",
+            "handler resource() handles Resource\n",
+            "  access(value) => begin\n",
+            "    defer\n",
+            "      release(value)\n",
+            "    end\n",
+            "    value\n",
+            "  end\n",
+            "  fallback() => 0\n",
+            "end\n",
+        ),
+    );
+
+    let tokens = collect_text(&source);
+    let readonly_parameter = SemanticTokenModifiers::empty()
+        .with(SemanticTokenModifier::Readonly)
+        .bits();
+
+    assert!(tokens.contains(&(
+        "value".to_string(),
+        SemanticTokenType::Parameter,
+        readonly_parameter
+    )));
+    assert!(tokens.contains(&(
+        "fallback".to_string(),
+        SemanticTokenType::Property,
+        SemanticTokenModifiers::empty().bits()
+    )));
+}
+
 #[test]
 fn collector_bounds_handler_operation_clause_else_if_bodies() {
     let source = SourceFile::new(

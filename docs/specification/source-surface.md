@@ -46,7 +46,8 @@ provides the production notation for these forms.
   calls, function type effect rows with final `...E` tails, `perform`
   operation expressions, `handle ... with ...` expressions, standard channel
   calls, zero-argument task spawns, one-context `task::spawn_with` calls, and
-  method-call diagnostics: this page.
+  method-call diagnostics: this page. The static-only `begin` and `defer`
+  source boundary is described below.
 - Contract predicate grammar: this page.
 - Identifier casing for source-written module headers, ADT types,
   constructors, functions, tests, public aliases, bindings, parser recovery,
@@ -54,6 +55,38 @@ provides the production notation for these forms.
   [names-effects.md](names-effects.md).
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
+
+### Static cleanup-region forms
+
+`begin` is a value-producing expression whose body introduces a lexical scope.
+Its body accepts the same direct body lines as a function or test. A `defer`
+statement is a direct body line of a function, test, or `begin`; its own block
+therefore also parses as a body. A `defer` token in an expression position
+reports `parse.expected_expression` at that token. Recovery skips the invalid
+token without consuming a following declaration boundary. Both forms require
+a closing `end`. A missing closing delimiter reports `parse.begin_missing_end`
+or `parse.defer_missing_end`. Recovery leaves an enclosing declaration's
+closing `end` available to that declaration. Within an `if` or `match`, it also
+leaves the following `else` branch or match arm available to the enclosing
+expression. It preserves the next top-level declaration as a separate item,
+including when nested cleanup forms are both unterminated. The lossless tree
+retains every source token. At most 128 `begin` and `defer` cleanup forms may be
+nested in total; both forms share this limit. The next level reports
+`parse.cleanup_nesting_limit` without aborting lossless-tree construction.
+
+The [type rules](types.md#inference-rules), [effect boundary](effects.md#effect-labels),
+and [binding visibility](name-resolution.md#value-calls-and-shadowing) are
+specified by their focused pages. Formatter behavior is specified by the
+[format command](command-fmt.md#formatting-rules). LSP and MCP navigation are
+specified by [editor support](editor-support.md#lsp-navigation-formatting-and-rename)
+and [saved workspace navigation](mcp.md#saved-workspace-navigation).
+
+These forms have a static and tooling surface only. A selected entry is not
+executable when its reachable program contains either form. The
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+specifies the `deferred_cleanup_runtime` blocker. Runtime registration,
+reverse-order unwinding, exit coverage, and cleanup-failure precedence remain
+unimplemented.
 
 ## Test companion sources
 
@@ -200,7 +233,9 @@ and extension-dispatch tags or lengths must name earlier decoded visible
 ## Executable Grammar
 
 The grammar below is the compact source contract. Parser implementation and
-the source-surface grammar artifact must agree with these productions.
+the source-surface grammar artifact must agree with these productions. The
+productions describe accepted form; the cleanup nesting resource limit is the
+prose contract above.
 
 <!-- source-surface-grammar:start -->
 ```text
@@ -258,8 +293,9 @@ Effects       ::= "effects" "[" EffectList? "]"
 EffectList    ::= EffectEntry ("," EffectEntry)* ","?
 EffectEntry   ::= MemberPath | "..." Name
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
-Body          ::= (LetLine | ExprLine)*
+Body          ::= (LetLine | DeferStatement | ExprLine)*
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
+DeferStatement ::= "defer" NL Body "end" NL?
 LetPattern    ::= "_" | BindingName | ConstructorPattern | RecordPattern
 ExprLine      ::= Expr NL
 Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
@@ -268,8 +304,9 @@ BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="
                   | "+" | "-" | "*" | "/"
 PrefixExpr    ::= ("not" | "-" | "~") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
-PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | "(" Expr ")" | "()"
+PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | "(" Expr ")" | "()"
                   | Record | Dict | List | Match | If
+BeginExpr     ::= "begin" NL Body "end"
 SchemaDecode  ::= "decode" MemberPath "from" Expr "at" Expr
 SchemaEncode  ::= "encode" MemberPath "from" Expr
 Perform       ::= "perform" MemberPath "::" Name "(" ArgList? ")"

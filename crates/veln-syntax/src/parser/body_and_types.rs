@@ -1,5 +1,89 @@
 use super::*;
 
+struct ExpressionLineCollector {
+    start: TextRange,
+    end: TextRange,
+    tokens: Vec<Token>,
+    delimiter_depth: usize,
+    block_stack: Vec<TokenKind>,
+    previous_kind: Option<TokenKind>,
+    at_line_start: bool,
+}
+
+impl ExpressionLineCollector {
+    fn new(start: TextRange) -> Self {
+        Self {
+            start,
+            end: start,
+            tokens: Vec::new(),
+            delimiter_depth: 0,
+            block_stack: Vec::new(),
+            previous_kind: None,
+            at_line_start: false,
+        }
+    }
+
+    fn stops_before(&self, parser: &Parser<'_>) -> bool {
+        if self.delimiter_depth == 0 && self.block_stack.is_empty() && parser.at(TokenKind::Newline)
+        {
+            return true;
+        }
+        parser.at(TokenKind::End)
+            && self.block_stack.iter().copied().any(is_cleanup_block)
+            && parser.end_closes_enclosing_declaration()
+    }
+
+    fn recover_before_branch(&mut self, parser: &Parser<'_>) {
+        if parser.at(TokenKind::Else) {
+            recover_cleanup_blocks_before_branch(&mut self.block_stack, TokenKind::If);
+        } else if self.delimiter_depth == 0
+            && self.at_line_start
+            && line_starts_match_arm(&parser.tokens, parser.cursor)
+        {
+            recover_cleanup_blocks_before_branch(&mut self.block_stack, TokenKind::Match);
+        }
+    }
+
+    fn push(&mut self, token: Token) {
+        self.end = token.range;
+        let token_kind = token.kind;
+        match token_kind {
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+                self.delimiter_depth += 1;
+            }
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                self.delimiter_depth = self.delimiter_depth.saturating_sub(1);
+            }
+            TokenKind::Match | TokenKind::Begin => self.block_stack.push(token_kind),
+            TokenKind::Defer
+                if self.delimiter_depth == 0
+                    && !self.block_stack.is_empty()
+                    && self.at_line_start =>
+            {
+                self.block_stack.push(token_kind);
+            }
+            TokenKind::If if self.previous_kind != Some(TokenKind::Else) => {
+                self.block_stack.push(token_kind);
+            }
+            TokenKind::End if !self.block_stack.is_empty() => {
+                self.block_stack.pop();
+            }
+            _ => {}
+        }
+        if token_kind != TokenKind::Invalid
+            && (token_kind != TokenKind::Newline || !self.block_stack.is_empty())
+        {
+            self.tokens.push(token);
+        }
+        self.at_line_start = token_kind == TokenKind::Newline;
+        self.previous_kind = Some(token_kind);
+    }
+
+    fn range(&self) -> TextRange {
+        self.start.cover(self.end)
+    }
+}
+
 impl<'a> Parser<'a> {
     pub(super) fn parse_written_module_path(
         &mut self,
@@ -189,11 +273,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
-        if self.at(TokenKind::Match) || self.at(TokenKind::If) {
-            self.parse_block_expr_for_body_line(context)
-        } else {
-            self.parse_expr_until_newline(context)
-        }
+        self.parse_expr_until_newline(context)
     }
 
     pub(super) fn parse_let_pattern(&mut self) -> Pattern {
@@ -236,78 +316,14 @@ impl<'a> Parser<'a> {
         pattern
     }
 
-    pub(super) fn parse_block_expr_for_body_line(
-        &mut self,
-        context: &'static str,
-    ) -> (Expr, TextRange) {
-        let start = self.current().range;
-        let mut end = start;
-        let mut tokens = Vec::new();
-        let mut block_depth = 0usize;
-        let mut previous_kind = None;
-        while !self.at(TokenKind::Eof) {
-            let token = self.bump();
-            end = token.range;
-            if token.kind == TokenKind::Invalid {
-                self.diagnostics.push(invalid_expression_token_diagnostic(
-                    self.source,
-                    &token,
-                    context,
-                    "end",
-                ));
-                continue;
-            }
-            if token.kind == TokenKind::Match
-                || (token.kind == TokenKind::If && previous_kind != Some(TokenKind::Else))
-            {
-                block_depth += 1;
-            }
-            if token.kind == TokenKind::End {
-                block_depth = block_depth.saturating_sub(1);
-                tokens.push(token);
-                if block_depth == 0 {
-                    if self.at(TokenKind::Newline) {
-                        end = self.bump().range;
-                    }
-                    break;
-                }
-                continue;
-            }
-            previous_kind = Some(token.kind);
-            tokens.push(token);
-        }
-
-        let (expr, diagnostics) = ExprParser::new(self.source, context, &tokens).parse();
-        self.diagnostics.extend(diagnostics);
-        (expr, start.cover(end))
-    }
-
     pub(super) fn parse_expr_until_newline(&mut self, context: &'static str) -> (Expr, TextRange) {
-        let start = self.current().range;
-        let mut end = start;
-        let mut tokens = Vec::new();
-        let mut depth = 0usize;
-        let mut block_depth = 0usize;
-        let mut previous_kind = None;
+        let mut collector = ExpressionLineCollector::new(self.current().range);
         while !self.at(TokenKind::Eof) {
-            if depth == 0 && block_depth == 0 && self.at(TokenKind::Newline) {
+            if collector.stops_before(self) {
                 break;
             }
+            collector.recover_before_branch(self);
             let token = self.bump();
-            end = token.range;
-            let token_kind = token.kind;
-            match token.kind {
-                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
-                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                    depth = depth.saturating_sub(1);
-                }
-                TokenKind::Match => block_depth += 1,
-                TokenKind::If if previous_kind != Some(TokenKind::Else) => block_depth += 1,
-                TokenKind::End if block_depth > 0 => {
-                    block_depth = block_depth.saturating_sub(1);
-                }
-                _ => {}
-            }
             if token.kind == TokenKind::Invalid {
                 self.diagnostics.push(invalid_expression_token_diagnostic(
                     self.source,
@@ -315,20 +331,18 @@ impl<'a> Parser<'a> {
                     context,
                     "newline",
                 ));
-            } else if token.kind != TokenKind::Newline {
-                tokens.push(token);
-            } else {
-                end = token.range;
             }
-            previous_kind = Some(token_kind);
+            collector.push(token);
         }
         if self.at(TokenKind::Newline) {
-            end = self.bump().range;
+            collector.end = self.bump().range;
         }
 
-        let (expr, diagnostics) = ExprParser::new(self.source, context, &tokens).parse();
+        let (expr, diagnostics) = ExprParser::new(self.source, context, &collector.tokens)
+            .with_cleanup_depth(self.cleanup_depth)
+            .parse();
         self.diagnostics.extend(diagnostics);
-        (expr, start.cover(end))
+        (expr, collector.range())
     }
     fn type_paths_from_tokens(&self, tokens: &[Token]) -> Vec<TypePathSegments> {
         let mut paths = Vec::new();

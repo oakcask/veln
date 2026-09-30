@@ -144,6 +144,11 @@ fn collect_valid_segments_from_body_line(
         veln_ast::BodyLineKind::Expr { expr } => {
             collect_valid_segments_from_expr(expr, current_module, environment, output);
         }
+        veln_ast::BodyLineKind::Defer { body, .. } => {
+            for line in body {
+                collect_valid_segments_from_body_line(line, current_module, environment, output);
+            }
+        }
     }
 }
 
@@ -196,6 +201,11 @@ fn collect_valid_segments_from_expr(
                     output,
                 );
                 collect_valid_segments_from_expr(&arm.expr, current_module, environment, output);
+            }
+        }
+        veln_ast::ExprKind::Begin { body, .. } => {
+            for line in body {
+                collect_valid_segments_from_body_line(line, current_module, environment, output);
             }
         }
         _ => expr.for_each_child(&mut |child| {

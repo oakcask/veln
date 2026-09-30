@@ -492,3 +492,116 @@ fn fmt_attaches_comments_to_imports_contracts_and_end_lines() {
     );
     project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
 }
+
+#[test]
+fn fmt_formats_comments_inside_cleanup_regions_idempotently() {
+    let project = TestProject::new("fmt-cleanup-comments");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn   main ( value : Int ) -> Int\n",
+            "begin # region\n",
+            "# capture docs\n",
+            "let captured=value # captured\n",
+            "# defer docs\n",
+            "defer # cleanup\n",
+            "# cleanup body docs\n",
+            "()\n",
+            "# cleanup end docs\n",
+            "end # cleanup end\n",
+            "# result docs\n",
+            "captured\n",
+            "# region end docs\n",
+            "end # region end\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "fn main(value: Int) -> Int\n",
+        "\tbegin  # region\n",
+        "\t\t# capture docs\n",
+        "\t\tlet captured = value  # captured\n",
+        "\t\t# defer docs\n",
+        "\t\tdefer  # cleanup\n",
+        "\t\t\t# cleanup body docs\n",
+        "\t\t\t()\n",
+        "\t\t\t# cleanup end docs\n",
+        "\t\tend  # cleanup end\n",
+        "\t\t# result docs\n",
+        "\t\tcaptured\n",
+        "\t\t# region end docs\n",
+        "\tend  # region end\n",
+        "end\n",
+    );
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+}
+
+#[test]
+fn fmt_formats_comments_inside_handler_cleanup_regions_idempotently() {
+    let project = TestProject::new("fmt-handler-cleanup-comments");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Resource\n",
+            "close()->()\n",
+            "end\n",
+            "handler cleanup() handles Resource\n",
+            "close()=>begin\n",
+            "# keep cleanup body docs\n",
+            "()\n",
+            "end\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "effect Resource\n",
+        "\tclose() -> ()\n",
+        "end\n",
+        "\n",
+        "handler cleanup() handles Resource\n",
+        "\tclose() => begin\n",
+        "\t\t# keep cleanup body docs\n",
+        "\t\t()\n",
+        "\tend\n",
+        "end\n",
+    );
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+}
+
+#[test]
+fn fmt_formats_commented_cleanup_regions_embedded_in_expressions() {
+    let project = TestProject::new("fmt-embedded-cleanup-comments");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn embedded() -> ()\n",
+            "let called=consume(begin\n",
+            "# call body docs\n",
+            "1\n",
+            "end,2)\n",
+            "let listed=[0,begin\n",
+            "# list body docs\n",
+            "2\n",
+            "end,3]\n",
+            "()\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "fn embedded() -> ()\n",
+        "\tlet called = consume(begin\n",
+        "\t\t# call body docs\n",
+        "\t\t1\n",
+        "\tend, 2)\n",
+        "\tlet listed = [0, begin\n",
+        "\t\t# list body docs\n",
+        "\t\t2\n",
+        "\tend, 3]\n",
+        "\t()\n",
+        "end\n",
+    );
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+}

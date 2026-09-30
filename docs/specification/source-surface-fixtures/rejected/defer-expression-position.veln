@@ -1,0 +1,7 @@
+fn invalid() -> ()
+	consume(defer)
+end
+
+fn following() -> Int
+	1
+end

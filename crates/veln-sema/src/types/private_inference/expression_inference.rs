@@ -1,247 +1,156 @@
 use super::*;
 
-pub(crate) fn private_tail_can_use_expected(
-    function: &Function,
-    expected: &Type,
-    uses: &[UseDecl],
-    adts: &AdtRegistry,
-) -> bool {
-    let Some(BodyLineKind::Expr { expr }) = function.body.last().map(|line| &line.kind) else {
-        return false;
-    };
-    tail_expr_can_use_expected(expr, expected, function.module_name.as_deref(), uses, adts)
-}
-
-pub(crate) fn tail_expr_can_use_expected(
-    expr: &Expr,
-    expected: &Type,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    adts: &AdtRegistry,
-) -> bool {
-    match &expr.kind {
-        ExprKind::List(_) => expected.vec_part().is_some(),
-        ExprKind::Dict(_) => expected.dict_parts().is_some(),
-        ExprKind::Record(fields) => {
-            if fields.is_empty() && expected.dict_parts().is_some() {
-                return true;
-            }
-            !fields.is_empty()
-                && fields
-                    .iter()
-                    .all(|field| expected.record_field(&field.name).is_some())
-        }
-        ExprKind::NamePath { segments, .. } => {
-            matches!(
-                adts.nullary_constructor(segments, current_module, uses),
-                ConstructorLookup::Found(constructor)
-                    if unification::adt_args(expected, constructor.descriptor).is_some()
-            )
-        }
-        ExprKind::Call { callee, .. } => {
-            let ExprKind::NamePath { segments, .. } = &callee.kind else {
-                return false;
-            };
-            matches!(
-                adts.constructor(segments, current_module, uses),
-                ConstructorLookup::Found(constructor)
-                    if unification::adt_args(expected, constructor.descriptor).is_some()
-            )
-        }
-        ExprKind::Match { arms, .. } => arms
-            .iter()
-            .all(|arm| tail_expr_can_use_expected(&arm.expr, expected, current_module, uses, adts)),
-        ExprKind::If {
-            then_branch,
-            else_if_branches,
-            else_branch,
-            ..
-        } => std::iter::once(then_branch.as_ref())
-            .chain(else_if_branches.iter().map(|branch| &branch.expr))
-            .chain(std::iter::once(else_branch.as_ref()))
-            .all(|branch| tail_expr_can_use_expected(branch, expected, current_module, uses, adts)),
-        _ => false,
-    }
-}
-
-pub(crate) fn infer_private_function_tail_type(
-    function: &veln_ast::Function,
-    uses: &[UseDecl],
-    signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
-    adts: &AdtRegistry,
-) -> Type {
-    #[cfg(test)]
-    private_inference_counters::record_body_return_scan();
-
-    let mut bindings = private_function_body_bindings(function, signatures_by_path);
-    let mut tail = Type::unit();
-    for line in &function.body {
-        match &line.kind {
-            BodyLineKind::Let {
-                pattern,
-                annotation,
-                expr,
-                ..
-            } => {
-                let annotation_type = annotation
-                    .as_deref()
-                    .map(|annotation| parse_type_or_unknown(Some(annotation)));
-                let ty = annotation_type.unwrap_or_else(|| {
-                    infer_private_signature_expr_type(
-                        expr,
-                        None,
-                        function.module_name.as_deref(),
-                        uses,
-                        &bindings,
-                        returns_by_path,
-                        adts,
-                    )
-                });
-                collect_pattern_bindings(pattern, &ty, &mut bindings);
-            }
-            BodyLineKind::Expr { expr } => {
-                tail = infer_private_signature_expr_type(
-                    expr,
-                    None,
-                    function.module_name.as_deref(),
-                    uses,
-                    &bindings,
-                    returns_by_path,
-                    adts,
-                );
-            }
-        }
-    }
-    tail
-}
-
-pub(crate) fn private_function_body_bindings(
-    function: &veln_ast::Function,
-    signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
-) -> Vec<Binding> {
-    let signature = function
-        .name
-        .as_ref()
-        .and_then(|name| signatures_by_path.get(&(function.module_name.clone(), name.clone())));
-    function
-        .params
-        .iter()
-        .enumerate()
-        .filter(|(_, param)| valid_value_binding_name(&param.name))
-        .map(|(index, param)| {
-            let ty = if param.is_variadic {
-                signature
-                    .and_then(|signature| signature.variadic.clone())
-                    .map(|ty| Type::named("List", vec![ty]))
-                    .unwrap_or_else(|| function_body_param_type(param))
-            } else {
-                signature
-                    .and_then(|signature| signature.params.get(index).cloned())
-                    .unwrap_or_else(|| function_body_param_type(param))
-            };
-            Binding::new(param.name.clone(), ty)
-        })
-        .collect()
-}
-
 pub(crate) fn infer_private_signature_expr_type(
     expr: &Expr,
     expected: Option<&Type>,
     current_module: Option<&str>,
     uses: &[UseDecl],
-    bindings: &[Binding],
+    bindings: &mut Vec<Binding>,
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
-    let context = PrivateSignatureInferContext {
+    let mut context = PrivateSignatureInferContext {
         current_module,
         uses,
         bindings,
         returns_by_path,
         adts,
     };
+    if let Some(ty) = infer_private_leaf_type(expr) {
+        return ty;
+    }
+    if let Some(ty) = infer_private_branch_type(expr, expected, &mut context) {
+        return ty;
+    }
+    if let Some(ty) = infer_private_value_type(expr, expected, &mut context) {
+        return ty;
+    }
+    if let Some(ty) = infer_private_schema_type(expr, expected, &mut context) {
+        return ty;
+    }
     match &expr.kind {
-        ExprKind::Missing | ExprKind::Hole { .. } | ExprKind::TypeApply { .. } => Type::Unknown,
-        ExprKind::StringLiteral(_) => Type::string(),
-        ExprKind::IntLiteral(_) => Type::int(),
-        ExprKind::FloatLiteral(_) => Type::float(),
-        ExprKind::BoolLiteral(_) => Type::bool(),
-        ExprKind::Unit => Type::unit(),
-        ExprKind::NamePath { segments, .. } => infer_private_signature_name_type(
-            segments,
-            expected,
-            current_module,
-            uses,
-            bindings,
-            returns_by_path,
-            adts,
-        ),
-        ExprKind::List(items) => infer_private_list_type(items, expected, &context),
-        ExprKind::Dict(entries) => infer_private_dict_type(entries, expected, &context),
-        ExprKind::Record(fields) => infer_private_record_type(fields, expected, &context),
-        ExprKind::Call { callee, args } => {
-            infer_private_signature_call_type(callee, args, expected, &context)
-        }
-        ExprKind::Perform { args, .. } => {
-            for arg in args {
-                context.infer(arg, None);
-            }
+        ExprKind::Prefix { expr, .. } => {
+            context.infer(expr, expected);
             Type::Unknown
         }
-        ExprKind::Handle { body, args, .. } => {
-            for arg in args {
-                context.infer(arg, None);
-            }
-            context.infer(body, expected)
+        ExprKind::Binary { op, left, right } => {
+            infer_private_binary_type(*op, left, right, expected, &mut context)
         }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            context.infer(input, Some(&Type::named("ByteView", Vec::new())));
-            context.infer(base, Some(&Type::named("ByteOffset", Vec::new())));
-            Type::Unknown
+        _ => unreachable!("delegated expressions return before operator inference"),
+    }
+}
+
+fn infer_private_leaf_type(expr: &Expr) -> Option<Type> {
+    match &expr.kind {
+        ExprKind::Missing | ExprKind::Hole { .. } | ExprKind::TypeApply { .. } => {
+            Some(Type::Unknown)
         }
-        ExprKind::SchemaEncode { value, .. } => {
-            context.infer(value, None);
-            Type::Unknown
-        }
-        ExprKind::FieldAccess { base, field, .. } => context
-            .infer(base, None)
-            .record_field(field)
-            .cloned()
-            .unwrap_or(Type::Unknown),
-        ExprKind::Try(inner) => expected.cloned().unwrap_or_else(|| {
-            let inner_type = context.infer(inner, None);
-            adt::result_parts(&inner_type).map_or(Type::Unknown, |(value, _)| value.clone())
-        }),
+        ExprKind::StringLiteral(_) => Some(Type::string()),
+        ExprKind::IntLiteral(_) => Some(Type::int()),
+        ExprKind::FloatLiteral(_) => Some(Type::float()),
+        ExprKind::BoolLiteral(_) => Some(Type::bool()),
+        ExprKind::Unit => Some(Type::unit()),
+        _ => None,
+    }
+}
+
+fn infer_private_branch_type(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_>,
+) -> Option<Type> {
+    match &expr.kind {
         ExprKind::Match { scrutinee, arms } => {
-            infer_private_match_type(scrutinee, arms, expected, &context)
+            Some(infer_private_match_type(scrutinee, arms, expected, context))
         }
         ExprKind::If {
             then_branch,
             else_if_branches,
             else_branch,
             ..
-        } => infer_private_if_result_type(
+        } => Some(infer_private_if_result_type(
             then_branch,
             else_if_branches,
             else_branch,
             expected,
-            &context,
+            context,
+        )),
+        ExprKind::Begin { body, .. } => Some(context.infer_body(body, expected)),
+        _ => None,
+    }
+}
+
+fn infer_private_value_type(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_>,
+) -> Option<Type> {
+    match &expr.kind {
+        ExprKind::NamePath { segments, .. } => Some(infer_private_signature_name_type(
+            segments,
+            expected,
+            context.current_module,
+            context.uses,
+            context.bindings,
+            context.returns_by_path,
+            context.adts,
+        )),
+        ExprKind::List(items) => Some(infer_private_list_type(items, expected, context)),
+        ExprKind::Dict(entries) => Some(infer_private_dict_type(entries, expected, context)),
+        ExprKind::Record(fields) => Some(infer_private_record_type(fields, expected, context)),
+        ExprKind::Call { callee, args } => Some(infer_private_signature_call_type(
+            callee, args, expected, context,
+        )),
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                context.infer(arg, None);
+            }
+            Some(Type::Unknown)
+        }
+        ExprKind::Handle { body, args, .. } => {
+            for arg in args {
+                context.infer(arg, None);
+            }
+            Some(context.infer(body, expected))
+        }
+        _ => None,
+    }
+}
+
+fn infer_private_schema_type(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_>,
+) -> Option<Type> {
+    match &expr.kind {
+        ExprKind::SchemaDecode { input, base, .. } => {
+            context.infer(input, Some(&Type::named("ByteView", Vec::new())));
+            context.infer(base, Some(&Type::named("ByteOffset", Vec::new())));
+            Some(Type::Unknown)
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            context.infer(value, None);
+            Some(Type::Unknown)
+        }
+        ExprKind::FieldAccess { base, field, .. } => Some(
+            context
+                .infer(base, None)
+                .record_field(field)
+                .cloned()
+                .unwrap_or(Type::Unknown),
         ),
-        ExprKind::Prefix { expr, .. } => {
-            context.infer(expr, expected);
-            Type::Unknown
-        }
-        ExprKind::Binary { op, left, right } => {
-            infer_private_binary_type(*op, left, right, expected, &context)
-        }
+        ExprKind::Try { expr: inner, .. } => Some(expected.cloned().unwrap_or_else(|| {
+            let inner_type = context.infer(inner, None);
+            adt::result_parts(&inner_type).map_or(Type::Unknown, |(value, _)| value.clone())
+        })),
+        _ => None,
     }
 }
 
 pub(crate) fn infer_private_list_type(
     items: &[Expr],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     let mut item_type = expected
         .and_then(Type::vec_part)
@@ -259,7 +168,7 @@ pub(crate) fn infer_private_list_type(
 pub(crate) fn infer_private_dict_type(
     entries: &[DictEntry],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     let (mut key_type, mut value_type) = expected
         .and_then(Type::dict_parts)
@@ -282,7 +191,7 @@ pub(crate) fn infer_private_dict_type(
 pub(crate) fn infer_private_record_type(
     fields: &[RecordField],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     if fields.is_empty()
         && let Some(expected) = expected
@@ -309,7 +218,7 @@ pub(crate) fn infer_private_match_type(
     scrutinee: &Expr,
     arms: &[MatchArm],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     let scrutinee_expected = match infer_match_scrutinee_type_from_constructor_patterns(
         arms,
@@ -337,7 +246,7 @@ pub(crate) fn infer_private_if_result_type(
     else_if_branches: &[IfBranch],
     else_branch: &Expr,
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     for branch_expr in std::iter::once(then_branch)
@@ -357,7 +266,7 @@ pub(crate) fn infer_private_binary_type(
     left: &Expr,
     right: &Expr,
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     match op {
         veln_ast::BinaryOp::Equal
@@ -605,13 +514,13 @@ pub(crate) fn infer_private_signature_name_type(
 pub(crate) struct PrivateSignatureInferContext<'a> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
-    pub(crate) bindings: &'a [Binding],
+    pub(crate) bindings: &'a mut Vec<Binding>,
     pub(crate) returns_by_path: &'a BTreeMap<(Option<String>, String), Type>,
     pub(crate) adts: &'a AdtRegistry,
 }
 
 impl PrivateSignatureInferContext<'_> {
-    pub(crate) fn infer(&self, expr: &Expr, expected: Option<&Type>) -> Type {
+    pub(crate) fn infer(&mut self, expr: &Expr, expected: Option<&Type>) -> Type {
         infer_private_signature_expr_type(
             expr,
             expected,
@@ -622,13 +531,29 @@ impl PrivateSignatureInferContext<'_> {
             self.adts,
         )
     }
+
+    fn infer_body(&mut self, body: &[BodyLine], expected: Option<&Type>) -> Type {
+        let binding_count = self.bindings.len();
+        record_scoped_binding_count(self.bindings);
+        let ty = infer_private_body_type(
+            body,
+            expected,
+            self.current_module,
+            self.uses,
+            self.bindings,
+            self.returns_by_path,
+            self.adts,
+        );
+        self.bindings.truncate(binding_count);
+        ty
+    }
 }
 
 pub(crate) fn infer_private_signature_call_type(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     if let ExprKind::NamePath { segments, .. } = &callee.kind {
         if let ConstructorLookup::Found(constructor) =

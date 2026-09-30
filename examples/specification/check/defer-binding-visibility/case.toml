@@ -1,0 +1,50 @@
+command = ["check", "--json", "accepted.veln", "rejected.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.unresolved\"", "unresolved value `declared_later`", "duplicate local binding name `captured`", "duplicate pattern binding name `captured`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `declared_later`"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 4
+column = 14
+
+[[diagnostics]]
+id = "name.duplicate"
+severity = "error"
+kind = "name"
+message = "duplicate local binding name `captured`"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 19
+column = 6
+
+[[diagnostics]]
+id = "name.duplicate"
+severity = "error"
+kind = "name"
+message = "duplicate pattern binding name `captured`"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 30
+column = 3

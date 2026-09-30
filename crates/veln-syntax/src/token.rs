@@ -34,6 +34,8 @@ pub enum TokenKind {
     Handles,
     Handle,
     Let,
+    Defer,
+    Begin,
     End,
     Require,
     Ensure,
@@ -117,6 +119,8 @@ impl TokenKind {
         Self::Handles,
         Self::Handle,
         Self::Let,
+        Self::Defer,
+        Self::Begin,
         Self::End,
         Self::Require,
         Self::Ensure,
@@ -260,6 +264,14 @@ pub const PUBLIC_KEYWORDS: &[PublicToken] = &[
     PublicToken {
         kind: TokenKind::Let,
         spelling: "let",
+    },
+    PublicToken {
+        kind: TokenKind::Defer,
+        spelling: "defer",
+    },
+    PublicToken {
+        kind: TokenKind::Begin,
+        spelling: "begin",
     },
     PublicToken {
         kind: TokenKind::End,
@@ -512,6 +524,8 @@ const TOKEN_LABELS: &[&str] = &[
     "handles",
     "handle",
     "let",
+    "defer",
+    "begin",
     "end",
     "require",
     "ensure",

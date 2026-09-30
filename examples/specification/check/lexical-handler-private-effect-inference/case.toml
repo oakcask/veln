@@ -12,6 +12,10 @@ format = "empty"
 path = "status"
 equals = "error"
 
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
 [[diagnostics]]
 id = "effect.missing_public"
 severity = "error"

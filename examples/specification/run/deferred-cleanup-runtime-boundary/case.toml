@@ -1,0 +1,9 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["veln: run blocked: checked program is not executable"]

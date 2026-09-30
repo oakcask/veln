@@ -92,16 +92,21 @@ pub(super) fn abc_contract_subject_count(
 
 pub(super) fn abc_vector(function: &FunctionDecl) -> AbcVector {
     let mut vector = AbcVector::default();
-    for line in &function.body {
+    count_body(&function.body, &mut vector);
+    vector
+}
+
+fn count_body(body: &[BodyLine], vector: &mut AbcVector) {
+    for line in body {
         match line {
             BodyLine::Let { expr, .. } => {
                 vector.assignments += 1;
-                count_expr(expr, &mut vector);
+                count_expr(expr, vector);
             }
-            BodyLine::Expr { expr, .. } => count_expr(expr, &mut vector),
+            BodyLine::Expr { expr, .. } => count_expr(expr, vector),
+            BodyLine::Defer { body, .. } => count_body(body, vector),
         }
     }
-    vector
 }
 
 pub(super) fn count_expr(expr: &Expr, vector: &mut AbcVector) {
@@ -144,8 +149,8 @@ pub(super) fn count_expr(expr: &Expr, vector: &mut AbcVector) {
             vector.branches += 1;
             count_expr(value, vector);
         }
-        ExprKind::FieldAccess { base, .. } | ExprKind::Try(base) => {
-            if matches!(expr.kind, ExprKind::Try(_)) {
+        ExprKind::FieldAccess { base, .. } | ExprKind::Try { expr: base, .. } => {
+            if matches!(expr.kind, ExprKind::Try { .. }) {
                 vector.conditionals += 1;
             }
             count_expr(base, vector);
@@ -188,6 +193,7 @@ pub(super) fn count_expr(expr: &Expr, vector: &mut AbcVector) {
             }
             count_expr(else_branch, vector);
         }
+        ExprKind::Begin { body, .. } => count_body(body, vector),
         ExprKind::Prefix { expr, .. } => count_expr(expr, vector),
         ExprKind::Binary { op, left, right } => {
             if matches!(op, BinaryOp::And | BinaryOp::Or) {
