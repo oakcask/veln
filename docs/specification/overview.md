@@ -29,9 +29,12 @@ The following behavior is fixed for the implemented slice:
 - `begin` expressions and `defer` statements have a fixed source, static
   semantics, formatting, and navigation surface. A reachable use remains
   non-executable and blocks checked-core and typed-IR readiness with
-  `deferred_cleanup_runtime`; runtime registration and unwinding remain
-  proposal work. See [source-surface.md](source-surface.md#static-cleanup-region-forms)
-  and [execution.md](execution.md#runtime-readiness-and-host-boundaries).
+  `deferred_cleanup_runtime`. An internal checked-core, typed-IR, and JVM
+  foundation implements registration-time capture and reverse-order cleanup
+  on normal completion. Public integration and the remaining failure and
+  cancellation paths remain proposal work. See
+  [source-surface.md](source-surface.md#static-cleanup-region-forms) and
+  [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 - `NodeId` values are session-local and deterministic for a single parse/lower
   pass. They are stable enough for diagnostics in one command result, but are
   not persistent source IDs.

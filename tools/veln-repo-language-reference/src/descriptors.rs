@@ -108,7 +108,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             body: &[
                 "The expression grammar selection is production-based and does not duplicate a hand-maintained grammar.",
                 "The selected examples cover typed operators and lexical cleanup-region formatting.",
-                "The begin and defer forms are static and tooling surfaces only. A reachable use prevents checked-core execution readiness with deferred_cleanup_runtime because cleanup registration and unwinding are not implemented.",
+                "The begin and defer forms have public static and tooling surfaces only. A reachable use prevents checked-core execution readiness with deferred_cleanup_runtime while public runtime integration is incomplete. Behind that gate, the compiler and JVM backend implement registration-time local snapshots and reverse-registration-order cleanup for normal completion; other exits and cleanup failures remain unimplemented.",
             ],
             related: &["lexical-structure", "types-inference-constructors", "holes"],
             grammar: &[

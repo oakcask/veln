@@ -60,8 +60,10 @@ separate from the JSON contract.
 
 Checked-core readiness can also stop a diagnostic-free run. When the selected
 entry can reach a `begin` expression or `defer` statement, checked-core
-lowering does not produce typed IR because deferred-cleanup execution is not
-implemented. The command emits the shared diagnostic envelope with
+lowering records `deferred_cleanup_runtime`, and the public command does not
+produce typed IR while runtime integration remains incomplete. The internal
+normal-completion compiler and JVM foundation does not bypass this gate. The
+command emits the shared diagnostic envelope with
 `schema_version: 1`, `status: "ok"`, and an empty `diagnostics` array on stdout,
 writes
 `veln: run blocked: checked program is not executable` on stderr, and exits
