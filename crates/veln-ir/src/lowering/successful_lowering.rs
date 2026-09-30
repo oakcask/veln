@@ -51,7 +51,7 @@ fn lower_complete_program_preserves_function_shape_and_calls() {
         return_type: result_unit.clone(),
         effects: vec!["stdio".to_string()],
         contracts: Vec::new(),
-        body: vec![
+        body: CoreCleanupRegion::new(vec![
             core_stmt(
                 let_line,
                 CoreStmtKind::Let {
@@ -98,7 +98,7 @@ fn lower_complete_program_preserves_function_shape_and_calls() {
                     ),
                 },
             ),
-        ],
+        ]),
         span: surface.span.clone(),
     }]);
 
@@ -209,7 +209,7 @@ fn lower_preserves_contracts_result_binding_dict_match_and_builtin_targets() {
             obligation_status: ContractObligationStatus::RuntimeRequired,
             span: surface.contracts[0].span.clone(),
         }],
-        body: vec![
+        body: CoreCleanupRegion::new(vec![
             core_stmt(
                 selected_line,
                 CoreStmtKind::Let {
@@ -318,7 +318,7 @@ fn lower_preserves_contracts_result_binding_dict_match_and_builtin_targets() {
                     ),
                 },
             ),
-        ],
+        ]),
         ..function_shell(surface)
     }]);
 

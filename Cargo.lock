@@ -367,6 +367,7 @@ name = "veln-backend-jvm"
 version = "0.1.0"
 dependencies = [
  "veln-ast",
+ "veln-core",
  "veln-ir",
  "veln-literals",
  "veln-sema",

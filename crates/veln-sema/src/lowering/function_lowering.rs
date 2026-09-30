@@ -9,6 +9,8 @@ impl<'a> CoreLowerer<'a> {
             blockers: Vec::new(),
             diagnostics: Vec::new(),
             generated_local_count: 0,
+            defer_capture_boundaries: Vec::new(),
+            defer_captures: Vec::new(),
         }
     }
 
@@ -31,7 +33,7 @@ impl<'a> CoreLowerer<'a> {
             return_type,
             effects: self.lower_effects(),
             contracts,
-            body,
+            body: CoreCleanupRegion::new(body),
             span: self.function.span.clone(),
         }
     }
@@ -178,9 +180,30 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lower_body(&mut self, return_type: &CoreType) -> Vec<CoreStmt> {
+        let source_body = self.function.body.clone();
+        self.lower_body_lines(&source_body, Some(return_type), false)
+            .0
+    }
+
+    pub(super) fn lower_scoped_body(
+        &mut self,
+        source_body: &[BodyLine],
+        expected: Option<&CoreType>,
+    ) -> (Vec<CoreStmt>, CoreType) {
+        self.lower_body_lines(source_body, expected, true)
+    }
+
+    fn lower_body_lines(
+        &mut self,
+        source_body: &[BodyLine],
+        expected: Option<&CoreType>,
+        scoped: bool,
+    ) -> (Vec<CoreStmt>, CoreType) {
+        let saved_bindings = self.bindings.len();
         let mut body = Vec::new();
         let mut has_tail_expression = false;
-        for (index, line) in self.function.body.iter().enumerate() {
+        let mut result_type = expected.cloned().unwrap_or_else(CoreType::unit);
+        for (index, line) in source_body.iter().enumerate() {
             match &line.kind {
                 BodyLineKind::Let {
                     pattern,
@@ -203,10 +226,13 @@ impl<'a> CoreLowerer<'a> {
                     );
                 }
                 BodyLineKind::Expr { expr } => {
-                    let is_tail = index + 1 == self.function.body.len();
+                    let is_tail = index + 1 == source_body.len();
                     has_tail_expression = is_tail;
-                    let expected = is_tail.then_some(return_type);
-                    let lowered = self.lower_expr(expr, expected);
+                    let tail_expected = is_tail.then_some(expected).flatten();
+                    let lowered = self.lower_expr(expr, tail_expected);
+                    if is_tail {
+                        result_type = lowered.ty.clone();
+                    }
                     body.push(CoreStmt {
                         node_id: line.node_id,
                         kind: if is_tail {
@@ -217,10 +243,29 @@ impl<'a> CoreLowerer<'a> {
                         span: line.span.clone(),
                     });
                 }
-                BodyLineKind::Defer { .. } => {
+                BodyLineKind::Defer {
+                    body: deferred_body,
+                    ..
+                } => {
                     self.blockers.push(CoreBlocker::UnsupportedExpression {
                         node_id: line.node_id,
                         reason: "deferred_cleanup_runtime".to_string(),
+                    });
+                    self.defer_capture_boundaries.push(self.bindings.len());
+                    self.defer_captures.push(Vec::new());
+                    let (deferred_body, _) =
+                        self.lower_scoped_body(deferred_body, Some(&CoreType::unit()));
+                    let captures = self.defer_captures.pop().expect("defer capture frame");
+                    self.defer_capture_boundaries
+                        .pop()
+                        .expect("defer capture boundary");
+                    body.push(CoreStmt {
+                        node_id: line.node_id,
+                        kind: CoreStmtKind::Defer(CoreDeferredBlock {
+                            captures,
+                            body: deferred_body,
+                        }),
+                        span: line.span.clone(),
                     });
                 }
             }
@@ -231,7 +276,7 @@ impl<'a> CoreLowerer<'a> {
                 kind: CoreStmtKind::Return {
                     expr: CoreExpr {
                         node_id: self.function.node_id,
-                        ty: CoreType::unit(),
+                        ty: result_type.clone(),
                         kind: CoreExprKind::Unit,
                         span: self.function.span.clone(),
                     },
@@ -239,7 +284,27 @@ impl<'a> CoreLowerer<'a> {
                 span: self.function.span.clone(),
             });
         }
-        body
+        if scoped {
+            self.bindings.truncate(saved_bindings);
+        }
+        (body, result_type)
+    }
+
+    pub(super) fn record_defer_capture(&mut self, index: usize) {
+        let Some(boundary) = self.defer_capture_boundaries.last().copied() else {
+            return;
+        };
+        if index >= boundary {
+            return;
+        }
+        let binding = self.bindings[index].clone();
+        let captures = self.defer_captures.last_mut().expect("defer capture frame");
+        if captures.iter().all(|capture| capture.name != binding.name) {
+            captures.push(CoreDeferredCapture {
+                name: binding.name,
+                ty: binding.ty,
+            });
+        }
     }
 
     pub(super) fn lower_let_pattern(

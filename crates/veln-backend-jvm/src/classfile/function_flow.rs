@@ -10,6 +10,11 @@ pub(super) struct FunctionBytecodeEmitter<'a, 'program> {
     pub(super) active_handler_frames: usize,
 }
 
+struct RegisteredCleanup<'a> {
+    block: &'a IrDeferredBlock,
+    captures: BTreeMap<String, u16>,
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum ContractCheckPosition {
     Entry,
@@ -57,13 +62,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         {
             self.emit_contract_check(code, contract, ContractCheckPosition::Entry);
         }
-        for stmt in &self.function.body {
-            self.emit_stmt(code, stmt);
-        }
-        if !matches!(
-            self.function.body.last().map(|stmt| &stmt.kind),
-            Some(IrStmtKind::Return { .. })
-        ) {
+        if !self.emit_region(code, &self.function.body, true) {
             code.getstatic(
                 &self.program.options.runtime_class,
                 "UNIT",
@@ -97,7 +96,88 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 }
                 code.op(0xb0);
             }
+            IrStmtKind::Defer(_) => {
+                unreachable!("defer registration is emitted by its cleanup region")
+            }
         }
+    }
+
+    fn emit_region(&mut self, code: &mut MethodCode, body: &[IrStmt], function: bool) -> bool {
+        let mut cleanups = Vec::new();
+        for stmt in body {
+            match &stmt.kind {
+                IrStmtKind::Defer(block) => cleanups.push(self.register_cleanup(code, block)),
+                IrStmtKind::Return { value } => {
+                    if function && cleanups.is_empty() {
+                        if self.emit_tail_expr(code, value) {
+                            return true;
+                        }
+                    } else {
+                        self.emit_expr(code, value);
+                    }
+                    let result = self.alloc_local();
+                    code.astore(result);
+                    for cleanup in cleanups.iter().rev() {
+                        self.emit_registered_cleanup(code, cleanup);
+                    }
+                    if function && self.has_ensure_contracts() {
+                        self.emit_ensure_checks_for_result(code, result);
+                    }
+                    code.aload(result);
+                    if function {
+                        code.op(0xb0);
+                    }
+                    return true;
+                }
+                _ => self.emit_stmt(code, stmt),
+            }
+        }
+        false
+    }
+
+    fn register_cleanup<'block>(
+        &mut self,
+        code: &mut MethodCode,
+        block: &'block IrDeferredBlock,
+    ) -> RegisteredCleanup<'block> {
+        let mut captures = BTreeMap::new();
+        for capture in &block.captures {
+            self.emit_local(code, &capture.name);
+            let slot = self.alloc_local();
+            code.astore(slot);
+            captures.insert(capture.name.clone(), slot);
+        }
+        RegisteredCleanup { block, captures }
+    }
+
+    fn emit_registered_cleanup(&mut self, code: &mut MethodCode, cleanup: &RegisteredCleanup<'_>) {
+        let saved_locals = self.locals.clone();
+        let saved_next = self.next_local;
+        self.locals.extend(cleanup.captures.clone());
+        for stmt in &cleanup.block.body {
+            match &stmt.kind {
+                IrStmtKind::Return { value } => {
+                    self.emit_expr(code, value);
+                    code.op(0x57);
+                }
+                IrStmtKind::Defer(_) => {
+                    unreachable!("nested deferred registration is rejected before backend lowering")
+                }
+                _ => self.emit_stmt(code, stmt),
+            }
+        }
+        self.locals = saved_locals;
+        self.next_local = saved_next;
+    }
+
+    fn emit_cleanup_region(&mut self, code: &mut MethodCode, body: &[IrStmt]) {
+        let saved_locals = self.locals.clone();
+        let saved_next = self.next_local;
+        if !self.emit_region(code, body, false) {
+            self.emit_unit(code);
+        }
+        self.locals = saved_locals;
+        self.next_local = saved_next.max(self.next_local);
     }
 
     pub(super) fn emit_tail_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) -> bool {
@@ -218,6 +298,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrExprKind::Dict(entries) => self.emit_dict(code, entries),
             IrExprKind::List(items) => self.emit_list(code, items),
             IrExprKind::Match { scrutinee, arms } => self.emit_match(code, scrutinee, arms),
+            IrExprKind::CleanupRegion { region } => self.emit_cleanup_region(code, region),
             IrExprKind::Prefix { op, expr } => self.emit_prefix(code, *op, expr),
             IrExprKind::Binary { op, left, right } => self.emit_binary(code, *op, left, right),
         }

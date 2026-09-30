@@ -5,9 +5,9 @@ use veln_ast::{
     lower_surface_ast,
 };
 use veln_core::{
-    ContractObligationStatus, CoreContract, CoreDictEntry, CoreFunction, CoreMatchArm, CoreParam,
-    CorePattern, CorePatternField, CorePatternKind, CoreReadiness, CoreRecordField, CoreStmtKind,
-    CoreType,
+    ContractObligationStatus, CoreCleanupRegion, CoreContract, CoreDictEntry, CoreFunction,
+    CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind, CoreReadiness,
+    CoreRecordField, CoreStmtKind, CoreType,
 };
 use veln_source::SourceFile;
 use veln_syntax::parse;
@@ -58,7 +58,7 @@ fn function_shell(function: &Function) -> CoreFunction {
         return_type: CoreType::unit(),
         effects: Vec::new(),
         contracts: Vec::new(),
-        body: Vec::new(),
+        body: CoreCleanupRegion::new(Vec::new()),
         span: function.span.clone(),
     }
 }

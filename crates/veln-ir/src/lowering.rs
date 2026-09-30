@@ -5,9 +5,9 @@ use veln_core::{
 };
 
 use crate::{
-    IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider,
-    IrMatchArm, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt,
-    IrStmtKind, TypedProgram,
+    IrCallTarget, IrCleanupRegion, IrContract, IrDeferredBlock, IrDeferredCapture, IrDictEntry,
+    IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm, IrParam, IrPattern,
+    IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,11 +64,13 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
                 span: contract.span.clone(),
             })
             .collect(),
-        body: function
-            .body
-            .iter()
-            .map(lower_stmt)
-            .collect::<Result<Vec<_>, _>>()?,
+        body: IrCleanupRegion::new(
+            function
+                .body
+                .iter()
+                .map(lower_stmt)
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
     })
 }
 
@@ -87,6 +89,21 @@ fn lower_stmt(stmt: &CoreStmt) -> Result<IrStmt, IrLowerError> {
             CoreStmtKind::Return { expr } => IrStmtKind::Return {
                 value: lower_expr(expr)?,
             },
+            CoreStmtKind::Defer(block) => IrStmtKind::Defer(IrDeferredBlock {
+                captures: block
+                    .captures
+                    .iter()
+                    .map(|capture| IrDeferredCapture {
+                        name: capture.name.clone(),
+                        ty: capture.ty.clone(),
+                    })
+                    .collect(),
+                body: block
+                    .body
+                    .iter()
+                    .map(lower_stmt)
+                    .collect::<Result<Vec<_>, _>>()?,
+            }),
         },
     })
 }
@@ -238,6 +255,14 @@ fn lower_collection_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerE
         CoreExprKind::Dict(entries) => lower_dict_expr(entries).map(Some),
         CoreExprKind::List(items) => Ok(Some(IrExprKind::List(lower_exprs(items)?))),
         CoreExprKind::Match { scrutinee, arms } => lower_match_expr(scrutinee, arms).map(Some),
+        CoreExprKind::CleanupRegion { region } => Ok(Some(IrExprKind::CleanupRegion {
+            region: IrCleanupRegion::new(
+                region
+                    .iter()
+                    .map(lower_stmt)
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+        })),
         _ => Ok(None),
     }
 }

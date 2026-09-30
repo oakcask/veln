@@ -3,10 +3,11 @@ use veln_ast::{
     HandlerDecl, IfBranch, MatchArm, Pattern, PatternKind, RecordField, SurfaceModule, Visibility,
 };
 use veln_core::{
-    CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreContract,
-    CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
-    CoreHandlerProvider, CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind,
-    CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
+    CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreCleanupRegion,
+    CoreContract, CoreDeferredBlock, CoreDeferredCapture, CoreDictEntry, CoreEffectDecl,
+    CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction, CoreHandlerProvider,
+    CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind, CoreReadiness,
+    CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;
@@ -53,6 +54,8 @@ struct CoreLowerer<'a> {
     blockers: Vec<CoreBlocker>,
     diagnostics: Vec<Diagnostic>,
     generated_local_count: usize,
+    defer_capture_boundaries: Vec<usize>,
+    defer_captures: Vec<Vec<CoreDeferredCapture>>,
 }
 
 pub(crate) struct CoreLoweringOutput {

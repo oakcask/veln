@@ -9,6 +9,7 @@ fn standard_library_builtin_calls(function: &veln_ir::IrFunction) -> Vec<(&'stat
                 IrStmtKind::Let { value, .. } => ("let", value),
                 IrStmtKind::Expr { value } => ("expr", value),
                 IrStmtKind::Return { value } => ("return", value),
+                IrStmtKind::Defer(_) => panic!("unexpected deferred block in builtin call fixture"),
             };
             let IrExprKind::Call {
                 target: IrCallTarget::StandardLibraryBuiltin(symbol),

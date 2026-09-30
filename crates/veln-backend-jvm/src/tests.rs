@@ -15,7 +15,8 @@ use crate::java::{
 use crate::runtime::{concurrency_method, prelude_method, standard_library_method, stdio_method};
 use crate::*;
 use veln_ast::lower_surface_ast_with_module_identity;
-use veln_ir::{IrCallTarget, IrExpr, IrExprKind, IrStmtKind, TypedProgram};
+use veln_core::CoreReadiness;
+use veln_ir::{IrCallTarget, IrExpr, IrExprKind, IrStmtKind, TypedProgram, lower_checked_core};
 use veln_sema::lower_checked_surface_module;
 use veln_source::{SourceFile, TextRange};
 use veln_syntax::parse;
@@ -25,6 +26,7 @@ static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 mod basic_backend;
 mod collections_and_tail_recursion;
 mod concurrency;
+mod deferred_cleanup;
 mod effect_boundary_policy;
 mod effect_injection;
 mod harness_constants;
@@ -55,6 +57,35 @@ fn lower_to_ir(text: &str) -> TypedProgram {
         lowered.diagnostics
     );
     lowered.ir.expect("source should lower to typed IR")
+}
+
+fn lower_deferred_cleanup_foundation_to_ir(text: &str) -> TypedProgram {
+    let source = SourceFile::new("main.veln", text);
+    let parsed = parse(&source);
+    assert!(
+        parsed.diagnostics.is_empty(),
+        "parse diagnostics: {:#?}",
+        parsed.diagnostics
+    );
+    let module = lower_surface_ast_with_module_identity(
+        &parsed.tree,
+        "main".to_string(),
+        source.span(TextRange::at(0)),
+    );
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "semantic diagnostics: {:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "public readiness gate must remain closed"
+    );
+    let mut core = lowered.core.expect("checked core should be available");
+    assert!(matches!(core.readiness, CoreReadiness::Blocked(_)));
+    core.readiness = CoreReadiness::Complete;
+    lower_checked_core(&core).expect("cleanup foundation should lower internally")
 }
 
 fn temp_dir(name: &str) -> std::path::PathBuf {
