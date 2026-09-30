@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Wall-clock time values, the standard time effect, timestamp precision, or runtime clock substitution is implemented or redesigned.
+update-when: Wall-clock time values, the standard time effect, timestamp precision, runtime clock substitution, or the temporary wall-clock test override is implemented, redesigned, or removed.
 ---
 
 # Wall-clock Time
@@ -52,14 +52,52 @@ class or a local time zone.
 | T4 | Code uses `wall_time` without declaring or handling `time`. | Effect checking reports the missing `time` effect at the call. | Check and check-JSON cases. |
 | T5 | The same source uses wall and monotonic clocks. | Wall time supplies timestamps; monotonic time continues to supply deadline ordering. | Run specification case. |
 | T6 | JSON output represents a wall time. | Seconds and nanoseconds are emitted as integer fields without locale-dependent text. | Checked JSON fixture. |
+| T7 | Repository-owned runtime tests need exact wall-clock readings before a controlled host-clock seam exists. | Tests may use the temporary `VELN_TIME_WALL_CLOCK` process environment override. The override is not a public Veln or runtime interface. | JVM runtime tests and executable specification cases owned by this repository. |
+| T8 | A Veln `time` effect handler supplies controlled wall-clock readings around code that calls `time::wall_time`. | The controlled cases cover the epoch boundary, a pre-epoch instant, equal readings, and backwards-moving readings without consulting the live machine clock. The handled body does not retain the handled `time` effect. | Executable specification cases that install a lexical fake-clock handler. |
+| T9 | The replacement evidence passes without the temporary override. | Production runtime code does not read `VELN_TIME_WALL_CLOCK`, repository tests and examples do not set it, and the live-clock path still returns a normalized `WallTime`. | A repository search for the removed name, deterministic runtime cases, and one live-clock smoke test that does not assert an exact timestamp. |
+
+## Temporary Verification Seam
+
+The first implementation may use `VELN_TIME_WALL_CLOCK` to supply controlled
+readings to repository-owned JVM tests and executable specification cases. This
+is a temporary implementation aid. Its name, input grammar, sequence behavior,
+and failure behavior are not compatibility commitments. Current specification
+pages and standard-library package documentation must not teach users to set
+it.
+
+The production path continues to read the host wall clock when the override is
+absent. Tests of that path must check only stable invariants, such as normalized
+nanoseconds and representable signed seconds. They must not compare the result
+with an exact live-machine timestamp or require successive wall-clock readings
+to increase.
+
+Replace the process-wide override with a Veln effect handler for the existing
+`time` effect. The handler supplies the fake wall-clock readings to the handled
+body. This is the durable verification path for exact values, including
+pre-epoch and backwards-moving readings. It also verifies that wall-clock
+access remains substitutable through the same effect boundary as the other
+time operations.
+
+Keep the system handler test separate. It verifies only that the live host path
+returns a normalized `WallTime`; it does not assert an exact timestamp or
+ordering between calls. After the effect-handler evidence passes, remove the
+environment lookup and migrate every test and executable case that names the
+override.
+
+Do not close this proposal while the runtime or repository evidence still
+depends on `VELN_TIME_WALL_CLOCK`. If the public wall-clock API lands first,
+reduce this page and its catalog entry to the remaining test-seam replacement
+and removal work instead of deleting it.
 
 ## Verification and Promotion
 
-The runtime tests need a controlled clock adapter; they must not assert a live
-machine timestamp. Implementation must add the standard symbol, lowering,
-effect metadata, runtime adapter, editor surface, and package documentation.
-After the cases pass, the current execution and standard-library specification
-pages become the authority.
+The exact-value tests need a lexical fake-clock handler; they must not assert a
+live machine timestamp. Implementation must add the standard symbol, lowering,
+effect metadata, runtime adapter, editor surface, package documentation, and
+handler substitution needed by T8. After the public API cases pass, the current
+execution and standard-library specification pages become the authority for
+wall-clock behavior. This proposal remains open only for the handler-based
+replacement and temporary test-seam removal until T8 and T9 also pass.
 
 ## Non-goals
 

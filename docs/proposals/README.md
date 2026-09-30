@@ -22,7 +22,8 @@ also states it.
   cleanup-failure precedence and continued cleanup:
   [lexical-deferred-cleanup.md](lexical-deferred-cleanup.md).
 - A standard wall-clock value for cross-process timestamps while retaining the
-  monotonic clock for durations and deadlines:
+  monotonic clock for durations and deadlines, followed by an effect-handler
+  fake clock and removal of the temporary environment-backed test seam:
   [wall-clock-time.md](wall-clock-time.md).
 - Call-site-aware functions and portable source-location values for diagnostics
   and library-defined instrumentation:
