@@ -743,6 +743,37 @@
     }
 
     #[test]
+    fn handler_clause_local_binding_collection_grows_linearly() {
+        fn token_visits(clause_count: usize) -> usize {
+            let mut source_text = String::from(
+                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
+            );
+            for _ in 0..clause_count {
+                source_text.push_str("  amount(value) => value\n");
+            }
+            source_text.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_binding_scope_token_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", 6, 20)
+                .expect("handler clause parameter should resolve");
+            assert_eq!(
+                result.selected_symbol.kind,
+                SymbolKind::HandlerOperationClauseParameter
+            );
+            local_binding_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        eprintln!("handler clause local bindings: 128={smaller} visits, 256={larger} visits");
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
+    }
+
+    #[test]
     fn handler_clause_function_reference_lookup_scales_with_generated_clauses() {
         fn reference_work(clause_count: usize) -> ((usize, usize), std::time::Duration) {
             let mut source_text = String::from(

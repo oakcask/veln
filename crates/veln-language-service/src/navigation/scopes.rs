@@ -493,9 +493,15 @@ fn function_body_tokens(
     body_start: usize,
     function_end: usize,
 ) -> impl Iterator<Item = (usize, &Token)> {
-    tokens.iter().enumerate().filter(move |(_, token)| {
-        token.range.start >= body_start && token.range.start < function_end
-    })
+    let first_index = tokens.partition_point(|token| token.range.start < body_start);
+    let end_index = tokens.partition_point(|token| token.range.start < function_end);
+    tokens[first_index..end_index]
+        .iter()
+        .enumerate()
+        .map(move |(relative_index, token)| {
+            record_local_binding_scope_token_visit();
+            (first_index + relative_index, token)
+        })
 }
 
 fn inside_match(
