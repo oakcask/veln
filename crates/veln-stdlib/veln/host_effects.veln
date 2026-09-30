@@ -5,4 +5,5 @@ end
 
 pub effect Clock
 	request(operation: String, milliseconds: Int) -> Result<Int, String>
+	wall_time() -> Result<{ unix_seconds : Int, nanosecond : Int }, String>
 end

@@ -175,6 +175,14 @@ forms.
 The `AcceptOutcome` standard ADT constructors are available through the same
 bare, type-qualified, prelude-qualified, and prelude-type-qualified forms.
 
+In type annotations, bare `WallTime` selects the implicit public
+`std::prelude` type when no source type or type alias with that spelling wins.
+`prelude::WallTime` selects the same standard type through the explicit prelude
+qualifier when `prelude` does not resolve as a written import. A same-module
+source type or type alias named `WallTime` shadows only the bare standard name,
+so aliases targeting that local declaration retain its nominal identity
+instead of the standard structural record shape.
+
 A wildcard let target, `_`, evaluates its expression without declaring a local
 name. It can be annotated for type checking, but it is never a resolvable
 binding.

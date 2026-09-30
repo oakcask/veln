@@ -875,6 +875,27 @@
         return findHandler(CLOCK_EFFECT) == null ? System.nanoTime() : clockRequest("now", 0L) * 1000000L;
     }
     public static Object timeMonotonicMs() { return Long.valueOf(monotonicNanos() / 1000000L); }
+    public static Object timeWallTime() {
+        if (findHandler(CLOCK_EFFECT) != null) {
+            Object reply = perform(CLOCK_EFFECT, "wall_time", new Object[0]);
+            if (isErr(reply)) throw new RuntimeFailure(asString(asResult(reply).value));
+            Object value = unwrapOk(reply);
+            long seconds = asLong(recordField(value, "unix_seconds"));
+            long nanosecond = asLong(recordField(value, "nanosecond"));
+            long carry = Math.floorDiv(nanosecond, 1000000000L);
+            try { seconds = Math.addExact(seconds, carry); }
+            catch (ArithmeticException error) { throw new RuntimeFailure("wall-clock seconds exceed Int range"); }
+            return record(
+                "unix_seconds", Long.valueOf(seconds),
+                "nanosecond", Long.valueOf(Math.floorMod(nanosecond, 1000000000L))
+            );
+        }
+        java.time.Instant instant = java.time.Instant.now();
+        return record(
+            "unix_seconds", Long.valueOf(instant.getEpochSecond()),
+            "nanosecond", Long.valueOf(instant.getNano())
+        );
+    }
     public static Object timeTimeoutMs(Object milliseconds) {
         long value = asLong(milliseconds);
         if (findHandler(CLOCK_EFFECT) != null) { clockRequest("sleep", value); return UNIT; }

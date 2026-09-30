@@ -165,6 +165,13 @@ impl Type {
         Self::named("Unit", Vec::new())
     }
 
+    pub(crate) fn wall_time() -> Self {
+        Self::Record(vec![
+            ("unix_seconds".to_string(), Self::int()),
+            ("nanosecond".to_string(), Self::int()),
+        ])
+    }
+
     #[cfg(test)]
     pub(crate) fn result(value: Type, error: Type) -> Self {
         Self::named("Result", vec![value, error])

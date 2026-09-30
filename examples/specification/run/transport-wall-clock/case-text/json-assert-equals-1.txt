@@ -1,0 +1,5 @@
+{"unix_seconds":0,"nanosecond":-1}
+{"unix_seconds":0,"nanosecond":0}
+{"unix_seconds":-1,"nanosecond":999999999}
+backwards
+deadline-monotonic wall=1234:567

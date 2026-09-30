@@ -1,0 +1,13 @@
+use fake_effects
+
+pub fn create_clock_state(seconds: Int, nanosecond: Int, monotonic: Int) -> { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> } effects [concurrency]
+	fake_effects::create_state({ "wall_seconds": int_to_string(seconds), "wall_nanosecond": int_to_string(nanosecond), "now": int_to_string(monotonic) })
+end
+
+pub fn create_backwards_clock_state() -> { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> } effects [concurrency]
+	fake_effects::create_state({ "wall_seconds_sequence": "2,1", "wall_nanosecond": "0", "now": "7" })
+end
+
+pub fn create_deadline_clock_state(seconds: Int, nanosecond: Int, monotonic: Int, expected_wait_ms: Int) -> { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> } effects [concurrency]
+	fake_effects::create_state({ "wall_seconds": int_to_string(seconds), "wall_nanosecond": int_to_string(nanosecond), "now": int_to_string(monotonic), "expected_wait_ms": int_to_string(expected_wait_ms) })
+end

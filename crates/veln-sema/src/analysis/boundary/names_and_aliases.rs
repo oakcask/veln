@@ -8,7 +8,8 @@ use veln_source::SourceSpan;
 
 use super::module_boundaries::{
     alias_kind_mismatch_diagnostic, duplicate_name_diagnostic, function_target,
-    private_alias_diagnostic, type_target, unresolved_alias_diagnostic,
+    normal_imported_module_for_path, private_alias_diagnostic, type_target,
+    unresolved_alias_diagnostic,
 };
 
 type SeenNames = BTreeMap<(Option<String>, String), (String, SourceSpan)>;
@@ -307,12 +308,29 @@ pub(super) fn check_type_alias_target(
     alias: &veln_ast::PublicAlias,
     module_name: Option<&str>,
 ) -> Option<Diagnostic> {
-    if type_target(module, &alias.target, module_name).is_some() {
+    if type_target(module, &alias.target, module_name).is_some()
+        || is_standard_wall_time_target(module, &alias.target, module_name)
+    {
         None
     } else if function_target(module, &alias.target, module_name).is_some() {
         Some(alias_kind_mismatch_diagnostic(alias, "type", "function"))
     } else {
         Some(unresolved_alias_diagnostic(alias, "type"))
+    }
+}
+
+fn is_standard_wall_time_target(
+    module: &SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> bool {
+    match segments {
+        [name] => name == "WallTime",
+        [_, .., name] if name == "WallTime" => {
+            normal_imported_module_for_path(module, &segments[..segments.len() - 1], current_module)
+                .is_some_and(|module_name| module_name == "std::prelude")
+        }
+        _ => false,
     }
 }
 

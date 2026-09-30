@@ -48,7 +48,11 @@ impl<'a> CoreLowerer<'a> {
                 let mut ty = signature
                     .and_then(|function| function.params.get(index))
                     .map(core_type)
-                    .unwrap_or_else(|| core_type(&parse_type_or_unknown(param.ty.as_deref())));
+                    .unwrap_or_else(|| {
+                        param.ty.as_deref().map_or(CoreType::Unknown, |annotation| {
+                            self.core_type_annotation(annotation)
+                        })
+                    });
                 if param.is_variadic {
                     ty = signature
                         .and_then(|function| function.variadic.as_ref())
@@ -75,7 +79,12 @@ impl<'a> CoreLowerer<'a> {
             .function_for(self.function)
             .map(|function| core_type(&function.return_type))
             .unwrap_or_else(|| {
-                core_type(&parse_type_or_unknown(self.function.return_type.as_deref()))
+                self.function
+                    .return_type
+                    .as_deref()
+                    .map_or(CoreType::Unknown, |annotation| {
+                        self.core_type_annotation(annotation)
+                    })
             })
     }
 
@@ -268,8 +277,7 @@ impl<'a> CoreLowerer<'a> {
         expr: &Expr,
         body: &mut Vec<CoreStmt>,
     ) {
-        let expected =
-            annotation.map(|annotation| core_type(&parse_type_or_unknown(Some(annotation))));
+        let expected = annotation.map(|annotation| self.core_type_annotation(annotation));
         let lowered = self.lower_expr(expr, expected.as_ref());
         let ty = expected.unwrap_or_else(|| lowered.ty.clone());
         self.lower_let_pattern(line.node_id, &line.span, pattern, lowered, ty, body);

@@ -1,0 +1,13 @@
+# The public wall-clock value is a structural record at the type boundary.
+fn unix_seconds(value: { unix_seconds : Int, nanosecond : Int }) -> Int
+	value.unix_seconds
+end
+
+pub fn timestamp_seconds() -> Int effects [time]
+	unix_seconds(time::wall_time())
+end
+
+pub fn unchecked_timestamp_seconds() -> Int
+	let value: WallTime = { unix_seconds: 0, nanosecond: -1 }
+	unix_seconds(value)
+end

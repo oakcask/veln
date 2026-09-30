@@ -119,6 +119,12 @@ fn standard_type(spec: &StandardType) -> Option<Type> {
             standard_type(value)?,
             standard_type(error)?,
         )),
+        StandardType::Record(fields) => Some(Type::Record(
+            fields
+                .iter()
+                .map(|(name, ty)| Some(((*name).to_string(), standard_type(ty)?)))
+                .collect::<Option<Vec<_>>>()?,
+        )),
     }
 }
 

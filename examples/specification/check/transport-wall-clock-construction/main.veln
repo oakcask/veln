@@ -1,0 +1,4 @@
+# WallTime has no named constructor; ordinary record literals remain compatible.
+pub fn forged_wall_time() -> WallTime
+	WallTimeValue(1, 2)
+end

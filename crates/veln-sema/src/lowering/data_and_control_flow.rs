@@ -29,7 +29,7 @@ impl<'a> CoreLowerer<'a> {
             .return_type
             .as_deref()
             .and_then(|return_type| parse_type_annotation(return_type).ok())
-            .map(|ty| core_type(&ty))
+            .map(|ty| self.parsed_core_type(ty))
             .and_then(|ty| {
                 adt::core_result_parts(&ty).map(|(value, error)| (value.clone(), error.clone()))
             });

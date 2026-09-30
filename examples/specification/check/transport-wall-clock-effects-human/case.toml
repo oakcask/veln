@@ -1,0 +1,12 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "main.veln:2:1: error[effect.missing_public]: public function uses undeclared effect `time`",
+  "note: main.veln:3:2: Call to `time::wall_time` requires this effect.",
+]
+
+[stderr]
+format = "empty"

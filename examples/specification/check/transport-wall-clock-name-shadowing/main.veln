@@ -1,0 +1,8 @@
+# A user ADT with the same spelling does not acquire the standard record fields.
+type WallTime
+	Other
+end
+
+pub fn unix_seconds(value: WallTime) -> Int
+	value.unix_seconds
+end

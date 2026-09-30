@@ -21,6 +21,7 @@ pub(crate) struct AdtRegistry {
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     companion_access_targets: BTreeMap<String, String>,
+    annotation_types: BTreeMap<(Option<String>, String), Type>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,6 +35,26 @@ impl AdtRegistry {
     pub(super) fn from_parts(
         descriptors: Vec<AdtDescriptor>,
         companion_access_targets: BTreeMap<String, String>,
+    ) -> Self {
+        let annotation_types = descriptors
+            .iter()
+            .filter(|descriptor| {
+                descriptor.module_name.as_deref() == Some("std::prelude")
+                    && descriptor.type_name == "WallTime"
+            })
+            .map(|descriptor| (descriptor_identity(descriptor), Type::wall_time()))
+            .collect();
+        Self::from_parts_with_annotation_types(
+            descriptors,
+            companion_access_targets,
+            annotation_types,
+        )
+    }
+
+    fn from_parts_with_annotation_types(
+        descriptors: Vec<AdtDescriptor>,
+        companion_access_targets: BTreeMap<String, String>,
+        annotation_types: BTreeMap<(Option<String>, String), Type>,
     ) -> Self {
         let mut descriptors_by_type_name = HashMap::<String, Vec<usize>>::new();
         let mut variants_by_name = HashMap::<String, Vec<(usize, usize)>>::new();
@@ -54,6 +75,7 @@ impl AdtRegistry {
             descriptors_by_type_name,
             variants_by_name,
             companion_access_targets,
+            annotation_types,
         }
     }
 
@@ -100,35 +122,32 @@ impl AdtRegistry {
             .iter()
             .filter_map(source_descriptor)
             .collect::<Vec<_>>();
-        let standard_source_types = source_descriptors
-            .iter()
-            .filter(|descriptor| descriptor.module_name.as_deref() == Some("std::prelude"))
-            .map(|descriptor| descriptor.type_name.as_str())
-            .chain(
-                module
-                    .aliases
-                    .iter()
-                    .filter(|alias| {
-                        alias.kind == PublicAliasKind::Type
-                            && alias.module_name.as_deref() == Some("std::prelude")
-                    })
-                    .filter_map(|alias| alias.name.as_deref()),
-            )
-            .collect::<Vec<_>>();
-        descriptors.retain(|descriptor| {
-            matches!(descriptor.type_name.as_str(), "Option" | "Result" | "List")
-                || !standard_source_types.contains(&descriptor.type_name.as_str())
-        });
-        let aliases = type_alias_descriptors(module, &source_descriptors);
+        remove_replaced_standard_descriptors(module, &source_descriptors, &mut descriptors);
+
+        let mut annotation_types = base.annotation_types.clone();
+        extend_source_annotation_types(&source_descriptors, &mut annotation_types);
+
+        let mut alias_targets = descriptors.clone();
+        alias_targets.extend(source_descriptors.clone());
+        let aliases = type_alias_descriptors(module, &alias_targets);
+        extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
+
         descriptors.extend(aliases);
         descriptors.extend(source_descriptors);
         let mut companion_targets = base.companion_access_targets.clone();
         companion_targets.extend(companion_access_targets(module));
-        Self::from_parts(descriptors, companion_targets)
+        Self::from_parts_with_annotation_types(descriptors, companion_targets, annotation_types)
     }
 
     pub(crate) fn descriptors(&self) -> &[AdtDescriptor] {
         &self.descriptors
+    }
+
+    pub(crate) fn annotation_type_for_descriptor(
+        &self,
+        descriptor: &AdtDescriptor,
+    ) -> Option<&Type> {
+        self.annotation_types.get(&descriptor_identity(descriptor))
     }
 
     pub(crate) fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
@@ -151,7 +170,21 @@ impl AdtRegistry {
             })
             .map(|(module, target)| (module.clone(), target.clone()))
             .collect();
-        Self::from_parts(descriptors, companion_access_targets)
+        let annotation_types = self
+            .annotation_types
+            .iter()
+            .filter(|((module_name, _), _)| {
+                module_name
+                    .as_ref()
+                    .is_none_or(|module_name| module_names.contains(module_name))
+            })
+            .map(|(identity, ty)| (identity.clone(), ty.clone()))
+            .collect();
+        Self::from_parts_with_annotation_types(
+            descriptors,
+            companion_access_targets,
+            annotation_types,
+        )
     }
 
     pub(crate) fn descriptor_for_type(&self, ty: &Type) -> Option<&AdtDescriptor> {
@@ -443,6 +476,74 @@ impl AdtRegistry {
     }
 }
 
+fn remove_replaced_standard_descriptors(
+    module: &SurfaceModule,
+    source_descriptors: &[AdtDescriptor],
+    descriptors: &mut Vec<AdtDescriptor>,
+) {
+    let standard_source_types = source_descriptors
+        .iter()
+        .filter(|descriptor| descriptor.module_name.as_deref() == Some("std::prelude"))
+        .map(|descriptor| descriptor.type_name.as_str())
+        .chain(
+            module
+                .aliases
+                .iter()
+                .filter(|alias| {
+                    alias.kind == PublicAliasKind::Type
+                        && alias.module_name.as_deref() == Some("std::prelude")
+                })
+                .filter_map(|alias| alias.name.as_deref()),
+        )
+        .collect::<Vec<_>>();
+    descriptors.retain(|descriptor| {
+        matches!(descriptor.type_name.as_str(), "Option" | "Result" | "List")
+            || !standard_source_types.contains(&descriptor.type_name.as_str())
+    });
+}
+
+fn extend_source_annotation_types(
+    source_descriptors: &[AdtDescriptor],
+    annotation_types: &mut BTreeMap<(Option<String>, String), Type>,
+) {
+    for descriptor in source_descriptors {
+        if descriptor.module_name.as_deref() == Some("std::prelude")
+            && descriptor.type_name == "WallTime"
+        {
+            annotation_types.insert(descriptor_identity(descriptor), Type::wall_time());
+        }
+    }
+}
+
+fn extend_alias_annotation_types(
+    module: &SurfaceModule,
+    alias_targets: &[AdtDescriptor],
+    annotation_types: &mut BTreeMap<(Option<String>, String), Type>,
+) {
+    let uses = normal_use_decls(module);
+    for alias in &module.aliases {
+        let Some(alias_name) = alias.name.as_ref() else {
+            continue;
+        };
+        let Some(target) = descriptor_for_alias_target(
+            &alias.target,
+            &uses,
+            alias_targets,
+            alias.module_name.as_deref(),
+        ) else {
+            continue;
+        };
+        let Some(annotation_type) = annotation_types.get(&descriptor_identity(target)).cloned()
+        else {
+            continue;
+        };
+        annotation_types.insert(
+            (alias.module_name.clone(), alias_name.clone()),
+            annotation_type,
+        );
+    }
+}
+
 fn prefer_current_module_constructors<'a>(
     matches: &mut Vec<AdtConstructor<'a>>,
     segments: &[String],
@@ -536,7 +637,17 @@ fn descriptor_for_alias_target<'a>(
     match segments {
         [name] => descriptors
             .iter()
-            .find(|descriptor| descriptor.type_name == *name),
+            .rev()
+            .find(|descriptor| {
+                descriptor.type_name == *name && descriptor.module_name.as_deref() == current_module
+            })
+            .or_else(|| {
+                descriptors.iter().find(|descriptor| {
+                    descriptor.type_name == *name
+                        && descriptor.module_name.as_deref() == Some("std::prelude")
+                        && descriptor.visibility == Visibility::Public
+                })
+            }),
         [_, .., name] => {
             let import_path = &segments[..segments.len() - 1];
             let module_path = import_path.join("::");
@@ -553,6 +664,10 @@ fn descriptor_for_alias_target<'a>(
         }
         _ => None,
     }
+}
+
+fn descriptor_identity(descriptor: &AdtDescriptor) -> (Option<String>, String) {
+    (descriptor.module_name.clone(), descriptor.type_name.clone())
 }
 
 #[cfg(test)]

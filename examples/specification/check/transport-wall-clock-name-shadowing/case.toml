@@ -1,0 +1,27 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "type.field_missing"
+severity = "error"
+kind = "type"
+message = "type `WallTime` has no field `unix_seconds`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 7
+column = 8

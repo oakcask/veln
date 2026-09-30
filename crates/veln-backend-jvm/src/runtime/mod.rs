@@ -242,6 +242,7 @@ runtime_method_table!(standard_library_method, reject_unknown "standard library 
     "process::cwd" => "processCwd",
     "process::exit" => "processExit",
     "time::monotonic_ms" => "timeMonotonicMs",
+    "time::wall_time" => "timeWallTime",
     "time::timeout_ms" => "timeTimeoutMs",
     "time::deadline_after_ms" => "timeDeadlineAfterMs",
     "time::deadline_at_ms" => "timeDeadlineAtMs",

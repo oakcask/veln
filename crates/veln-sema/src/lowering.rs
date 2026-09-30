@@ -1,6 +1,7 @@
 use veln_ast::{
-    BinaryOp, BodyLine, BodyLineKind, DictEntry, Expr, ExprKind, Function, FunctionKind,
-    HandlerDecl, IfBranch, MatchArm, Pattern, PatternKind, RecordField, SurfaceModule, Visibility,
+    BinaryOp, BodyLine, BodyLineKind, DictEntry, EffectDecl, EffectOperationDecl, Expr, ExprKind,
+    Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, Pattern, PatternKind, RecordField,
+    SurfaceModule, Visibility,
 };
 use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreCleanupRegion,
@@ -58,9 +59,42 @@ struct CoreLowerer<'a> {
     defer_captures: Vec<Vec<CoreDeferredCapture>>,
 }
 
+impl CoreLowerer<'_> {
+    fn core_type_annotation(&self, annotation: &str) -> CoreType {
+        let ty = parse_type_or_unknown(Some(annotation));
+        let ty = self
+            .environment
+            .canonicalize_type_annotation(ty, self.function.module_name.as_deref());
+        core_type(&ty)
+    }
+
+    fn parsed_core_type(&self, ty: Type) -> CoreType {
+        let ty = self
+            .environment
+            .canonicalize_type_annotation(ty, self.function.module_name.as_deref());
+        core_type(&ty)
+    }
+}
+
 pub(crate) struct CoreLoweringOutput {
     pub(crate) program: CheckedProgram,
     pub(crate) diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Default)]
+struct LoweredFunctions {
+    functions: Vec<CoreFunction>,
+    blockers: Vec<CoreBlocker>,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl LoweredFunctions {
+    fn push(&mut self, function: &Function, environment: &TypeEnvironment) {
+        let mut lowerer = CoreLowerer::new(function, environment);
+        self.functions.push(lowerer.lower_function());
+        self.blockers.extend(lowerer.blockers);
+        self.diagnostics.extend(lowerer.diagnostics);
+    }
 }
 
 pub(crate) fn lower_surface_module_to_core(
@@ -94,73 +128,83 @@ fn lower_surface_module_to_core_if(
     environment: &TypeEnvironment,
     include: impl Fn(&Function) -> bool,
 ) -> CoreLoweringOutput {
-    let mut blockers = Vec::new();
-    let mut diagnostics = Vec::new();
-    let mut functions = module
-        .functions
-        .iter()
-        .filter(|function| include(function))
-        .map(|function| {
-            let mut lowerer = CoreLowerer::new(function, environment);
-            let lowered = lowerer.lower_function();
-            blockers.extend(lowerer.blockers);
-            diagnostics.extend(lowerer.diagnostics);
-            lowered
-        })
-        .collect::<Vec<_>>();
-    for handler in &module.handlers {
-        for function in lower_handler_clause_functions(handler, environment) {
-            let mut lowerer = CoreLowerer::new(&function, environment);
-            let lowered = lowerer.lower_function();
-            blockers.extend(lowerer.blockers);
-            diagnostics.extend(lowerer.diagnostics);
-            functions.push(lowered);
-        }
-    }
+    let LoweredFunctions {
+        functions,
+        blockers,
+        diagnostics,
+    } = lower_module_functions(module, environment, include);
+    let readiness = if blockers.is_empty() {
+        CoreReadiness::Complete
+    } else {
+        CoreReadiness::Blocked(blockers)
+    };
     CoreLoweringOutput {
         program: CheckedProgram {
             functions,
             effects: module
                 .effects
                 .iter()
-                .filter_map(|effect| {
-                    Some(CoreEffectDecl {
-                        node_id: effect.node_id,
-                        name: effect.name.clone()?,
-                        visibility: effect.visibility,
-                        operations: effect
-                            .operations
-                            .iter()
-                            .filter_map(|operation| {
-                                Some(CoreEffectOperationDecl {
-                                    node_id: operation.node_id,
-                                    name: operation.name.clone()?,
-                                    params: operation
-                                        .params
-                                        .iter()
-                                        .map(|param| {
-                                            core_type(&parse_type_or_unknown(param.ty.as_deref()))
-                                        })
-                                        .collect(),
-                                    return_type: core_type(&parse_type_or_unknown(
-                                        operation.return_type.as_deref(),
-                                    )),
-                                    span: operation.span.clone(),
-                                })
-                            })
-                            .collect(),
-                        span: effect.span.clone(),
-                    })
-                })
+                .filter_map(|effect| lower_effect_decl(effect, environment))
                 .collect(),
-            readiness: if blockers.is_empty() {
-                CoreReadiness::Complete
-            } else {
-                CoreReadiness::Blocked(blockers)
-            },
+            readiness,
         },
         diagnostics,
     }
+}
+
+fn lower_module_functions(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    include: impl Fn(&Function) -> bool,
+) -> LoweredFunctions {
+    let mut lowered = LoweredFunctions::default();
+    for function in module.functions.iter().filter(|function| include(function)) {
+        lowered.push(function, environment);
+    }
+    for handler in &module.handlers {
+        for function in lower_handler_clause_functions(handler, environment) {
+            lowered.push(&function, environment);
+        }
+    }
+    lowered
+}
+
+fn lower_effect_decl(effect: &EffectDecl, environment: &TypeEnvironment) -> Option<CoreEffectDecl> {
+    Some(CoreEffectDecl {
+        node_id: effect.node_id,
+        name: effect.name.clone()?,
+        visibility: effect.visibility,
+        operations: effect
+            .operations
+            .iter()
+            .filter_map(|operation| lower_effect_operation(operation, effect, environment))
+            .collect(),
+        span: effect.span.clone(),
+    })
+}
+
+fn lower_effect_operation(
+    operation: &EffectOperationDecl,
+    effect: &EffectDecl,
+    environment: &TypeEnvironment,
+) -> Option<CoreEffectOperationDecl> {
+    let lower_type = |annotation| {
+        core_type(&environment.canonicalize_type_annotation(
+            parse_type_or_unknown(annotation),
+            effect.module_name.as_deref(),
+        ))
+    };
+    Some(CoreEffectOperationDecl {
+        node_id: operation.node_id,
+        name: operation.name.clone()?,
+        params: operation
+            .params
+            .iter()
+            .map(|param| lower_type(param.ty.as_deref()))
+            .collect(),
+        return_type: lower_type(operation.return_type.as_deref()),
+        span: operation.span.clone(),
+    })
 }
 
 fn lower_handler_clause_functions(
