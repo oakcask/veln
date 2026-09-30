@@ -22,7 +22,7 @@ end
 
 fn hidden_requires_catch_all(value: Signal<Int>) -> String
 	match value
-		library::Hidden => "hidden"
+		# Every public variant is present, but the private variant still needs coverage.
 		library::Idle => "idle"
 		library::Signal::Emit(_) => "emit"
 	end
