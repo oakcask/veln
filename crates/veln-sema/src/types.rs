@@ -67,6 +67,7 @@ pub(crate) mod effect_inference_counters {
         static FUNCTION_BODY_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
         static HANDLER_OPERATION_CLAUSE_EVALUATIONS: Cell<usize> = const { Cell::new(0) };
         static CHANGED_REEVALUATIONS: Cell<usize> = const { Cell::new(0) };
+        static HANDLED_EFFECT_STACK_WORK: Cell<usize> = const { Cell::new(0) };
     }
 
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -75,6 +76,7 @@ pub(crate) mod effect_inference_counters {
         pub(crate) function_body_collections: usize,
         pub(crate) handler_operation_clause_evaluations: usize,
         pub(crate) changed_reevaluations: usize,
+        pub(crate) handled_effect_stack_work: usize,
     }
 
     pub(crate) fn reset() {
@@ -82,6 +84,7 @@ pub(crate) mod effect_inference_counters {
         FUNCTION_BODY_COLLECTIONS.set(0);
         HANDLER_OPERATION_CLAUSE_EVALUATIONS.set(0);
         CHANGED_REEVALUATIONS.set(0);
+        HANDLED_EFFECT_STACK_WORK.set(0);
     }
 
     pub(crate) fn snapshot() -> Snapshot {
@@ -90,6 +93,7 @@ pub(crate) mod effect_inference_counters {
             function_body_collections: FUNCTION_BODY_COLLECTIONS.get(),
             handler_operation_clause_evaluations: HANDLER_OPERATION_CLAUSE_EVALUATIONS.get(),
             changed_reevaluations: CHANGED_REEVALUATIONS.get(),
+            handled_effect_stack_work: HANDLED_EFFECT_STACK_WORK.get(),
         }
     }
 
@@ -107,6 +111,10 @@ pub(crate) mod effect_inference_counters {
 
     pub(super) fn record_changed_reevaluation() {
         CHANGED_REEVALUATIONS.set(CHANGED_REEVALUATIONS.get() + 1);
+    }
+
+    pub(super) fn record_handled_effect_stack_work(entries: usize) {
+        HANDLED_EFFECT_STACK_WORK.set(HANDLED_EFFECT_STACK_WORK.get() + entries);
     }
 }
 

@@ -224,7 +224,12 @@ fn handler_operation_clause_body_end_with_defer_openers_and_visit(
             TokenKind::End if nested_blocks == 0 => return token.range.start,
             TokenKind::End => nested_blocks = nested_blocks.saturating_sub(1),
             TokenKind::FatArrow if nested_blocks == 0 && clause_headers[index] => {
-                return match_arm_pattern_start_from_arrow(tokens, token.range.start);
+                return match_arm_pattern_start_with_visit(
+                    tokens,
+                    index,
+                    0,
+                    &mut record_token_visit,
+                );
             }
             _ => {}
         }

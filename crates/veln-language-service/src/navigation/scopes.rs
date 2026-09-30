@@ -74,12 +74,13 @@ fn handler_operation_clause_scopes(
         .map(|arrow_index| {
             let arrow = &tokens[arrow_index];
             let body_start = arrow.range.end;
-            let end = handler_operation_clause_body_end_with_defer_openers(
+            let end = handler_operation_clause_body_end_with_defer_openers_and_visit(
                 tokens,
                 arrow_index,
                 file_end,
                 defer_block_openers,
                 &clause_headers,
+                record_handler_clause_scope_token_visit,
             );
             let local_bindings = local_bindings_with_defer_openers(
                 tokens,
@@ -674,21 +675,22 @@ fn function_body_tokens(
 }
 
 fn match_arm_pattern_start(tokens: &[Token], arrow_index: usize, body_start: usize) -> usize {
+    match_arm_pattern_start_with_visit(tokens, arrow_index, body_start, || {})
+}
+
+fn match_arm_pattern_start_with_visit(
+    tokens: &[Token],
+    arrow_index: usize,
+    body_start: usize,
+    mut record_token_visit: impl FnMut(),
+) -> usize {
     tokens[..arrow_index]
         .iter()
         .rev()
+        .inspect(|_| record_token_visit())
         .take_while(|token| token.range.start >= body_start)
         .find(|token| token.kind == TokenKind::Newline || token.kind == TokenKind::Match)
         .map_or(body_start, |token| token.range.end)
-}
-
-fn match_arm_pattern_start_from_arrow(tokens: &[Token], arrow_start: usize) -> usize {
-    tokens
-        .iter()
-        .position(|token| token.range.start == arrow_start)
-        .map_or(arrow_start, |index| {
-            match_arm_pattern_start(tokens, index, 0)
-        })
 }
 
 fn is_pattern_binding_token(tokens: &[Token], index: usize) -> bool {

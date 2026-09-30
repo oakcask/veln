@@ -408,12 +408,14 @@ fn insert_handler_effect_dependencies(
                 .map(|param| Binding::new(param.name.clone(), Type::Unknown)),
         );
         let mut dependencies = BTreeSet::new();
+        let mut handled_effects = Vec::new();
         visit_effect_expr(
             &clause.body,
             handler.module_name.as_deref(),
             context,
             &mut bindings,
-            &[],
+            &mut handled_effects,
+            false,
             &mut |expr, expr_context, _| {
                 collect_expr_effect_dependencies(expr, expr_context, &mut dependencies);
             },
@@ -487,12 +489,14 @@ fn collect_private_handler_effects(
                     }
                 }),
         );
+        let mut handled_effects = Vec::new();
         visit_effect_expr(
             &clause.body,
             handler.module_name.as_deref(),
             &function_context,
             &mut bindings,
-            &[],
+            &mut handled_effects,
+            true,
             &mut |expr, expr_context, handled_effects| {
                 let before = inferred.len();
                 collect_expr_effects(expr, expr_context, &mut inferred);
@@ -546,17 +550,22 @@ fn collect_function_body_effects(
         .get(&function_key)
         .cloned()
         .unwrap_or_default();
-    visit_function_body_expressions(function, context, |expr, expr_context, handled_effects| {
-        let before = inferred.len();
-        collect_expr_effects(expr, expr_context, &mut inferred);
-        if !handled_effects.is_empty() {
-            let retained = inferred
-                .drain(before..)
-                .filter(|effect| !handled_effects.contains(effect))
-                .collect::<Vec<_>>();
-            inferred.extend(retained);
-        }
-    });
+    visit_function_body_expressions(
+        function,
+        context,
+        true,
+        |expr, expr_context, handled_effects| {
+            let before = inferred.len();
+            collect_expr_effects(expr, expr_context, &mut inferred);
+            if !handled_effects.is_empty() {
+                let retained = inferred
+                    .drain(before..)
+                    .filter(|effect| !handled_effects.contains(effect))
+                    .collect::<Vec<_>>();
+                inferred.extend(retained);
+            }
+        },
+    );
     inferred
 }
 
@@ -565,7 +574,7 @@ fn function_effect_dependencies(
     context: &FunctionEffectContext<'_>,
 ) -> BTreeSet<EffectDependencyNode> {
     let mut dependencies = BTreeSet::new();
-    visit_function_body_expressions(function, context, |expr, expr_context, _| {
+    visit_function_body_expressions(function, context, false, |expr, expr_context, _| {
         collect_expr_effect_dependencies(expr, expr_context, &mut dependencies);
     });
     dependencies
@@ -574,15 +583,18 @@ fn function_effect_dependencies(
 fn visit_function_body_expressions(
     function: &Function,
     context: &FunctionEffectContext<'_>,
+    track_handled_effects: bool,
     mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
 ) {
     let mut bindings = function_parameter_bindings(function);
+    let mut handled_effects = Vec::new();
     visit_effect_body_expressions(
         &function.body,
         function.module_name.as_deref(),
         context,
         &mut bindings,
-        &[],
+        &mut handled_effects,
+        track_handled_effects,
         &mut visit,
     );
 }
@@ -592,7 +604,8 @@ fn visit_effect_body_expressions(
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut Vec<Binding>,
-    handled_effects: &[String],
+    handled_effects: &mut Vec<String>,
+    track_handled_effects: bool,
     visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
 ) {
     for line in body {
@@ -609,6 +622,7 @@ fn visit_effect_body_expressions(
                     context,
                     bindings,
                     handled_effects,
+                    track_handled_effects,
                     visit,
                 );
                 let ty = parse_type_or_unknown(annotation.as_deref());
@@ -621,6 +635,7 @@ fn visit_effect_body_expressions(
                     context,
                     bindings,
                     handled_effects,
+                    track_handled_effects,
                     visit,
                 );
             }
@@ -633,6 +648,7 @@ fn visit_effect_body_expressions(
                     context,
                     bindings,
                     handled_effects,
+                    track_handled_effects,
                     visit,
                 );
                 bindings.truncate(binding_count);
@@ -646,17 +662,19 @@ fn visit_effect_expr(
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut Vec<Binding>,
-    handled_effects: &[String],
+    handled_effects: &mut Vec<String>,
+    track_handled_effects: bool,
     visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
 ) {
     let expr_context = context.expression_context(current_module, bindings);
-    visit(expr, &expr_context, handled_effects);
+    visit(expr, &expr_context, handled_effects.as_slice());
     visit_nested_effect_regions(
         expr,
         current_module,
         context,
         bindings,
         handled_effects,
+        track_handled_effects,
         visit,
     );
 }
@@ -666,7 +684,8 @@ fn visit_nested_effect_regions(
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut Vec<Binding>,
-    handled_effects: &[String],
+    handled_effects: &mut Vec<String>,
+    track_handled_effects: bool,
     visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
 ) {
     match &expr.kind {
@@ -679,6 +698,7 @@ fn visit_nested_effect_regions(
                 context,
                 bindings,
                 handled_effects,
+                track_handled_effects,
                 visit,
             );
             bindings.truncate(binding_count);
@@ -696,22 +716,29 @@ fn visit_nested_effect_regions(
                     context,
                     bindings,
                     handled_effects,
+                    track_handled_effects,
                     visit,
                 );
             }
-            let expr_context = context.expression_context(current_module, bindings);
-            let mut body_handled_effects = handled_effects.to_vec();
-            if let Some(handler) = handler_for_path(handler, &expr_context) {
-                body_handled_effects.push(handler.effect.clone());
+            let handled_effect_count = handled_effects.len();
+            if track_handled_effects {
+                let expr_context = context.expression_context(current_module, bindings);
+                if let Some(handler) = handler_for_path(handler, &expr_context) {
+                    #[cfg(test)]
+                    effect_inference_counters::record_handled_effect_stack_work(1);
+                    handled_effects.push(handler.effect.clone());
+                }
             }
             visit_nested_effect_regions(
                 body,
                 current_module,
                 context,
                 bindings,
-                &body_handled_effects,
+                handled_effects,
+                track_handled_effects,
                 visit,
             );
+            handled_effects.truncate(handled_effect_count);
         }
         _ => expr.for_each_child(&mut |child| {
             visit_nested_effect_regions(
@@ -720,6 +747,7 @@ fn visit_nested_effect_regions(
                 context,
                 bindings,
                 handled_effects,
+                track_handled_effects,
                 visit,
             );
         }),

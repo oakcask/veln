@@ -477,6 +477,41 @@ fn bounded_effect_inference_work_grows_linearly_for_unrelated_annotated_modules(
 }
 
 #[test]
+fn nested_handler_effect_stack_work_grows_linearly() {
+    fn work_count(depth: usize) -> usize {
+        let mut expression = "perform Ask::value()".to_string();
+        for _ in 0..depth {
+            expression = format!("handle {expression} with ask()");
+        }
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "effect Ask\n  value() -> Int\nend\n\
+                 handler ask() handles Ask\n  value() => 1\nend\n\
+                 pub fn main() -> Int\n  {expression}\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+
+        crate::types::effect_inference_counters::reset();
+        let diagnostics = analyze_surface_module(&module);
+        let counters = crate::types::effect_inference_counters::snapshot();
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        counters.handled_effect_stack_work
+    }
+
+    const N: usize = 8;
+    let work_n = work_count(N);
+    let work_2n = work_count(2 * N);
+
+    assert_eq!(work_n, N);
+    assert_eq!(work_2n, 2 * N);
+}
+
+#[test]
 fn effect_provenance_reports_omitted_equivalent_paths() {
     let source = SourceFile::new(
         "main.veln",

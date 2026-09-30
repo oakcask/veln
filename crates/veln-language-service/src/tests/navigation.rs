@@ -963,6 +963,35 @@
     }
 
     #[test]
+    fn handler_clause_scope_boundaries_grow_linearly_with_clause_count() {
+        fn token_visits(clause_count: usize) -> usize {
+            let mut source_text = String::from(
+                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
+            );
+            for _ in 0..clause_count {
+                source_text.push_str("  amount(value) => value\n");
+            }
+            let main_line = clause_count + 9;
+            source_text.push_str("end\n\nfn main(value: Int) -> Int\n  value\nend\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_handler_clause_scope_token_visits();
+
+            let result = query_snapshot(&snapshot, "main.veln", main_line, 4)
+                .expect("function parameter should resolve");
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            handler_clause_scope_token_visits()
+        }
+
+        let smaller = token_visits(128);
+        let larger = token_visits(256);
+
+        eprintln!("handler clause scope boundaries: 128={smaller} visits, 256={larger} visits");
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 64, "{smaller} -> {larger}");
+    }
+
+    #[test]
     fn handler_clause_local_binding_collection_grows_linearly() {
         fn token_visits(clause_count: usize) -> usize {
             let mut source_text = String::from(
