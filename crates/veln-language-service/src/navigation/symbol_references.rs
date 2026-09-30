@@ -416,76 +416,93 @@ impl SymbolIndex {
                 })
             })
             .flatten();
-        let bindings = local_bindings(tokens, symbol.scope_start, symbol.scope_end);
+        let scoped_bindings = local_bindings(tokens, symbol.scope_start, symbol.scope_end);
+        let scoped_bindings_by_name = local_binding_index_by_name(&scoped_bindings);
+        let reference_token_indices = tokens
+            .iter()
+            .enumerate()
+            .filter(|(index, token)| {
+                token.text == symbol.name
+                    && token.kind == TokenKind::Ident
+                    && token.range.start >= symbol.scope_start
+                    && token.range.start < symbol.scope_end
+                    && !is_field_name(tokens, *index)
+                    && !is_local_binding_name(tokens, *index)
+                    && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+                        || file.inside_handler_operation_clause_body(token.range.start))
+            })
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        let (binding_candidates, binding_indices) = value_scope.map_or_else(
+            || {
+                (
+                    scoped_bindings.as_slice(),
+                    scoped_bindings_by_name
+                        .get(&symbol.name)
+                        .map(Vec::as_slice)
+                        .unwrap_or_default(),
+                )
+            },
+            |scope| {
+                (
+                    scope.local_bindings.as_slice(),
+                    scope
+                        .local_bindings_by_name
+                        .get(&symbol.name)
+                        .map(Vec::as_slice)
+                        .unwrap_or_default(),
+                )
+            },
+        );
+        let active_bindings = active_local_bindings_for_reference_tokens(
+            binding_candidates,
+            binding_indices,
+            tokens,
+            &reference_token_indices,
+        );
+        let selected_declaration = (
+            symbol.declaration.start.offset,
+            symbol.declaration.end.offset,
+        );
         let mut spans = Vec::new();
         if include_declaration {
             spans.push(symbol.declaration.clone());
         }
         spans.extend(
-            tokens
-                .iter()
-                .enumerate()
-                .filter(|(index, token)| {
-                    token.text == symbol.name
-                        && token.kind == TokenKind::Ident
-                        && token.range.start >= symbol.scope_start
-                        && token.range.start < symbol.scope_end
-                        && !is_field_name(tokens, *index)
-                        && !is_local_binding_name(tokens, *index)
-                        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
-                            || file.inside_handler_operation_clause_body(token.range.start))
-                        && bindings
-                            .iter()
-                            .filter(|binding| {
-                                binding.name == symbol.name
-                                    && binding.start <= token.range.start
-                                    && token.range.start < binding.end
-                            })
-                            .max_by_key(|binding| binding.declaration_start)
-                            .is_none_or(|binding| {
-                                (binding.declaration_start, binding.declaration_end)
-                                    == (
-                                        symbol.declaration.start.offset,
-                                        symbol.declaration.end.offset,
-                                    )
-                            })
-                        && (symbol.kind != LocalSymbolKind::ValueBinding
-                            || value_scope
-                                .and_then(|scope| {
-                                    scope.shadowing_binding(&symbol.name, tokens, *index)
-                                })
-                                .is_some_and(|binding| {
-                                    binding.declaration_range()
-                                        == (
-                                            symbol.declaration.start.offset,
-                                            symbol.declaration.end.offset,
+            reference_token_indices
+                .into_iter()
+                .zip(active_bindings)
+                .filter(|(index, active_binding)| {
+                    let token = &tokens[*index];
+                    active_binding.map_or_else(
+                        || {
+                            symbol.kind != LocalSymbolKind::ValueBinding
+                                || value_scope
+                                    .and_then(|scope| {
+                                        scope.shadowing_function_binding(
+                                            &symbol.name,
+                                            tokens,
+                                            *index,
                                         )
-                                })
-                            || bindings
-                                .iter()
-                                .filter(|binding| {
-                                    binding.name == symbol.name
-                                        && binding.start <= token.range.start
-                                        && token.range.start < binding.end
-                                })
-                                .max_by_key(|binding| binding.declaration_start)
-                                .is_some_and(|binding| {
-                                    (binding.declaration_start, binding.declaration_end)
-                                        == (
-                                            symbol.declaration.start.offset,
-                                            symbol.declaration.end.offset,
-                                        )
-                                }))
-                        && (symbol.kind != LocalSymbolKind::HandlerContextParameter
-                            || !handler_operation_clause_parameter_shadows_name(
-                                tokens,
-                                &symbol.name,
-                                token.range.start,
-                                symbol.scope_start,
-                                symbol.scope_end,
-                            ))
+                                    })
+                                    .is_some_and(|binding| {
+                                        binding.declaration_range() == selected_declaration
+                                    })
+                        },
+                        |binding| {
+                            (binding.declaration_start, binding.declaration_end)
+                                == selected_declaration
+                        },
+                    ) && (symbol.kind != LocalSymbolKind::HandlerContextParameter
+                        || !handler_operation_clause_parameter_shadows_name(
+                            tokens,
+                            &symbol.name,
+                            token.range.start,
+                            symbol.scope_start,
+                            symbol.scope_end,
+                        ))
                 })
-                .map(|(_, token)| file.source.span(token.range)),
+                .map(|(index, _)| file.source.span(tokens[index].range)),
         );
         spans.sort_by_key(|span| span.start.offset);
         spans.dedup_by_key(|span| (span.start.offset, span.end.offset));
@@ -1047,6 +1064,47 @@ impl SymbolIndex {
         }
         qualifiers
     }
+}
+
+fn active_local_bindings_for_reference_tokens<'a>(
+    bindings: &'a [LocalBinding],
+    binding_indices: &[usize],
+    tokens: &[Token],
+    token_indices: &[usize],
+) -> Vec<Option<&'a LocalBinding>> {
+    let mut ordered_binding_indices = binding_indices.to_vec();
+    ordered_binding_indices.sort_unstable_by_key(|index| {
+        let binding = &bindings[*index];
+        (binding.start, binding.declaration_start)
+    });
+    let mut next_binding = 0;
+    let mut active = BinaryHeap::new();
+
+    token_indices
+        .iter()
+        .map(|token_index| {
+            let offset = tokens[*token_index].range.start;
+            while let Some(binding_index) = ordered_binding_indices.get(next_binding) {
+                record_local_reference_binding_candidate_comparison();
+                let binding = &bindings[*binding_index];
+                if binding.start > offset {
+                    break;
+                }
+                active.push((binding.declaration_start, *binding_index));
+                next_binding += 1;
+            }
+            while let Some((_, binding_index)) = active.peek() {
+                record_local_reference_binding_candidate_comparison();
+                if bindings[*binding_index].end > offset {
+                    break;
+                }
+                active.pop();
+            }
+            active
+                .peek()
+                .map(|(_, binding_index)| &bindings[*binding_index])
+        })
+        .collect()
 }
 
 fn effect_operation_references_in_file(

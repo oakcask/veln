@@ -17,6 +17,9 @@ use crate::types::signatures::{
     FunctionSignature, SchemaReferenceErrorKind, UserEffectPathResolution,
 };
 
+type LocalNameDeclaration = (String, SourceSpan);
+type ScopedLocalName = (String, Option<LocalNameDeclaration>);
+
 pub(crate) fn check_function_body(
     function: &Function,
     environment: &TypeEnvironment,
@@ -49,8 +52,12 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) bindings: Vec<Binding>,
     invalid_binding_recoveries: Vec<InvalidBindingRecovery>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
-    pub(super) local_names: BTreeMap<String, (String, SourceSpan)>,
-    local_name_scopes: Vec<Vec<String>>,
+    pub(super) local_names: BTreeMap<String, LocalNameDeclaration>,
+    local_name_scopes: Vec<Vec<ScopedLocalName>>,
+    shadowable_local_names: BTreeSet<String>,
+    shadowable_name_scopes: Vec<Vec<String>>,
+    defer_capture_boundaries: Vec<usize>,
+    defer_captures: Vec<BTreeSet<String>>,
     pub(super) inferred_effects: Vec<EffectUse>,
     pub(super) inferred_return_type: Option<Type>,
     pub(super) diagnostics: Vec<Diagnostic>,
@@ -220,6 +227,10 @@ impl<'a> FunctionChecker<'a> {
             omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
             local_name_scopes: Vec::new(),
+            shadowable_local_names: BTreeSet::new(),
+            shadowable_name_scopes: Vec::new(),
+            defer_capture_boundaries: Vec::new(),
+            defer_captures: Vec::new(),
             inferred_effects: Vec::new(),
             inferred_return_type: None,
             diagnostics: Vec::new(),

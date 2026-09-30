@@ -212,12 +212,19 @@ impl FunctionScope {
             .filter(|binding| binding.start <= offset && offset < binding.end)
             .max_by_key(|binding| binding.declaration_start)
             .map(ScopeShadow::LocalBinding)
-            .or_else(|| {
-                self.params
-                    .iter()
-                    .find(|binding| binding.name == name)
-                    .map(ScopeShadow::FunctionBinding)
-            })
+            .or_else(|| self.shadowing_function_binding(name, tokens, index))
+    }
+
+    fn shadowing_function_binding(
+        &self,
+        name: &str,
+        tokens: &[Token],
+        index: usize,
+    ) -> Option<ScopeShadow<'_>> {
+        self.params
+            .iter()
+            .find(|binding| binding.name == name)
+            .map(ScopeShadow::FunctionBinding)
             .or_else(|| {
                 self.result_binding
                     .as_ref()

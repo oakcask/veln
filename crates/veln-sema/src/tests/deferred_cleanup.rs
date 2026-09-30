@@ -42,6 +42,46 @@ fn defer_sees_only_bindings_visible_at_the_statement() {
 }
 
 #[test]
+fn defer_capture_allows_a_later_local_to_shadow_the_captured_binding() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn consume(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main() -> String\n",
+        "  let value: Int = 1\n",
+        "  defer\n",
+        "    consume(value)\n",
+        "  end\n",
+        "  let value: String = \"later\"\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn nested_begin_allows_a_later_local_to_shadow_its_defer_capture() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn consume(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main() -> String\n",
+        "  let value: Int = 1\n",
+        "  defer\n",
+        "    consume(value)\n",
+        "  end\n",
+        "  begin\n",
+        "    let value: String = \"later\"\n",
+        "    value\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn begin_returns_its_tail_value_without_leaking_local_bindings() {
     let diagnostics = diagnostics_for(concat!(
         "fn main() -> Int\n",

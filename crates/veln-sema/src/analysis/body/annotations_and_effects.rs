@@ -206,7 +206,10 @@ impl<'a> FunctionChecker<'a> {
         span: SourceSpan,
         declaration_kind: &'static str,
     ) -> bool {
-        if let Some((first_node_id, first_span)) = self.local_names.get(name) {
+        let previous = self.local_names.get(name).cloned();
+        if let Some((first_node_id, first_span)) = previous.as_ref()
+            && !self.shadowable_local_names.contains(name)
+        {
             self.diagnostics.push(duplicate_name_diagnostic(
                 name,
                 "value",
@@ -221,9 +224,30 @@ impl<'a> FunctionChecker<'a> {
             self.local_names
                 .insert(name.to_string(), (node_id, span.clone()));
             if let Some(scope) = self.local_name_scopes.last_mut() {
-                scope.push(name.to_string());
+                scope.push((name.to_string(), previous));
             }
             true
+        }
+    }
+
+    pub(super) fn record_defer_capture(&mut self, binding_index: usize, name: &str) {
+        if self
+            .defer_capture_boundaries
+            .last()
+            .is_some_and(|boundary| binding_index < *boundary)
+            && let Some(captures) = self.defer_captures.last_mut()
+        {
+            captures.insert(name.to_string());
+        }
+    }
+
+    pub(super) fn admit_defer_captures(&mut self, captures: BTreeSet<String>) {
+        for name in captures {
+            if self.shadowable_local_names.insert(name.clone())
+                && let Some(scope) = self.shadowable_name_scopes.last_mut()
+            {
+                scope.push(name);
+            }
         }
     }
 

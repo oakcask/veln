@@ -408,7 +408,7 @@ fn insert_handler_effect_dependencies(
                 .map(|param| Binding::new(param.name.clone(), Type::Unknown)),
         );
         let mut dependencies = BTreeSet::new();
-        let mut handled_effects = Vec::new();
+        let mut handled_effects = ActiveHandledEffects::default();
         visit_effect_expr(
             &clause.body,
             handler.module_name.as_deref(),
@@ -489,7 +489,7 @@ fn collect_private_handler_effects(
                     }
                 }),
         );
-        let mut handled_effects = Vec::new();
+        let mut handled_effects = ActiveHandledEffects::default();
         visit_effect_expr(
             &clause.body,
             handler.module_name.as_deref(),
@@ -584,10 +584,10 @@ fn visit_function_body_expressions(
     function: &Function,
     context: &FunctionEffectContext<'_>,
     track_handled_effects: bool,
-    mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
+    mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
 ) {
     let mut bindings = function_parameter_bindings(function);
-    let mut handled_effects = Vec::new();
+    let mut handled_effects = ActiveHandledEffects::default();
     visit_effect_body_expressions(
         &function.body,
         function.module_name.as_deref(),
@@ -604,9 +604,9 @@ fn visit_effect_body_expressions(
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut Vec<Binding>,
-    handled_effects: &mut Vec<String>,
+    handled_effects: &mut ActiveHandledEffects,
     track_handled_effects: bool,
-    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
 ) {
     for line in body {
         match &line.kind {
@@ -662,12 +662,12 @@ fn visit_effect_expr(
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut Vec<Binding>,
-    handled_effects: &mut Vec<String>,
+    handled_effects: &mut ActiveHandledEffects,
     track_handled_effects: bool,
-    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
 ) {
     let expr_context = context.expression_context(current_module, bindings);
-    visit(expr, &expr_context, handled_effects.as_slice());
+    visit(expr, &expr_context, handled_effects);
     visit_nested_effect_regions(
         expr,
         current_module,
@@ -684,9 +684,9 @@ fn visit_nested_effect_regions(
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut Vec<Binding>,
-    handled_effects: &mut Vec<String>,
+    handled_effects: &mut ActiveHandledEffects,
     track_handled_effects: bool,
-    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &[String]),
+    visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
 ) {
     match &expr.kind {
         ExprKind::Begin { body, .. } => {
@@ -751,6 +751,47 @@ fn visit_nested_effect_regions(
                 visit,
             );
         }),
+    }
+}
+
+#[derive(Default)]
+struct ActiveHandledEffects {
+    stack: Vec<String>,
+    ref_counts: HashMap<String, usize>,
+}
+
+impl ActiveHandledEffects {
+    fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        self.stack.len()
+    }
+
+    fn contains(&self, effect: &str) -> bool {
+        #[cfg(test)]
+        effect_inference_counters::record_handled_effect_membership_work();
+        self.ref_counts.contains_key(effect)
+    }
+
+    fn push(&mut self, effect: String) {
+        *self.ref_counts.entry(effect.clone()).or_default() += 1;
+        self.stack.push(effect);
+    }
+
+    fn truncate(&mut self, len: usize) {
+        while self.stack.len() > len {
+            let effect = self.stack.pop().expect("handled effect stack is non-empty");
+            let count = self
+                .ref_counts
+                .get_mut(&effect)
+                .expect("handled effect ref count exists");
+            *count -= 1;
+            if *count == 0 {
+                self.ref_counts.remove(&effect);
+            }
+        }
     }
 }
 

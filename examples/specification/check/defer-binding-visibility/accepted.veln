@@ -7,3 +7,27 @@ fn accepts_earlier_binding(input: Int) -> ()
 	end
 	()
 end
+
+# A later local can shadow a binding after defer captures its visible value.
+fn accepts_shadow_after_capture(input: Int) -> String
+	let captured = input
+	defer
+		let copy = captured
+		()
+	end
+	let captured = "later"
+	captured
+end
+
+# The same capture boundary applies inside a nested begin scope.
+fn accepts_nested_shadow_after_capture(input: Int) -> String
+	let captured = input
+	defer
+		let copy = captured
+		()
+	end
+	begin
+		let captured = "later"
+		captured
+	end
+end

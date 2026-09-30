@@ -38,8 +38,15 @@ impl<'a> FunctionChecker<'a> {
         }
 
         self.defer_blocks.push(block_span.clone());
+        self.defer_capture_boundaries.push(self.bindings.len());
+        self.defer_captures.push(BTreeSet::new());
         let actual = self.infer_scoped_body(body, None);
+        let captures = self.defer_captures.pop().expect("defer capture frame");
+        self.defer_capture_boundaries
+            .pop()
+            .expect("defer capture boundary");
         self.defer_blocks.pop();
+        self.admit_defer_captures(captures);
 
         if actual != Type::Unknown && !is_assignable(&Type::unit(), &actual) {
             let result_span = body
@@ -77,6 +84,7 @@ impl<'a> FunctionChecker<'a> {
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         let saved_omitted_bindings = self.omitted_local_bindings.len();
         self.local_name_scopes.push(Vec::new());
+        self.shadowable_name_scopes.push(Vec::new());
 
         let mut result = Type::unit();
         for (index, line) in body.iter().enumerate() {
@@ -109,12 +117,23 @@ impl<'a> FunctionChecker<'a> {
         self.bindings.truncate(saved_bindings);
         self.invalid_binding_recoveries
             .truncate(saved_invalid_binding_recoveries);
-        for name in self
+        for (name, previous) in self
             .local_name_scopes
             .pop()
             .expect("scoped body name frame")
         {
-            self.local_names.remove(&name);
+            if let Some(previous) = previous {
+                self.local_names.insert(name, previous);
+            } else {
+                self.local_names.remove(&name);
+            }
+        }
+        for name in self
+            .shadowable_name_scopes
+            .pop()
+            .expect("scoped body shadow frame")
+        {
+            self.shadowable_local_names.remove(&name);
         }
         result
     }

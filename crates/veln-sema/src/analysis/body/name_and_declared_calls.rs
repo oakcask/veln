@@ -150,6 +150,7 @@ impl<'a> FunctionChecker<'a> {
             .bindings
             .iter()
             .rposition(|binding| binding.name == name)?;
+        self.record_defer_capture(index, name);
         let current = self.bindings[index].ty.clone();
         if matches!(current, Type::Record(ref fields) if fields.is_empty())
             && let Some(expected) = expected
@@ -206,11 +207,12 @@ impl<'a> FunctionChecker<'a> {
         let [name] = segments.as_slice() else {
             return None;
         };
-        let binding = self
+        let binding_index = self
             .bindings
             .iter()
-            .rev()
-            .find(|binding| binding.name == *name)?;
+            .rposition(|binding| binding.name == *name)?;
+        self.record_defer_capture(binding_index, name);
+        let binding = &self.bindings[binding_index];
         let Type::Function {
             params,
             variadic,

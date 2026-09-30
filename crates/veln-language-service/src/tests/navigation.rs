@@ -804,6 +804,38 @@
     }
 
     #[test]
+    fn cleanup_local_reference_binding_candidate_work_is_adjacent_linear() {
+        fn candidate_comparisons(size: usize) -> usize {
+            let mut source_text = String::from(
+                "fn main(input: Int) -> Int\n  let shared = input\n",
+            );
+            for index in 0..size {
+                source_text.push_str(&format!(
+                    "  let region{index}: Int = begin\n    let shared = input\n    shared\n  end\n  shared\n"
+                ));
+            }
+            source_text.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_local_reference_binding_candidate_comparisons();
+
+            let result = query_snapshot(&snapshot, "main.veln", size * 5 + 2, 4)
+                .expect("outer local reference should resolve");
+            assert_eq!(result.references.len(), size);
+            local_reference_binding_candidate_comparisons()
+        }
+
+        let smaller = candidate_comparisons(32);
+        let larger = candidate_comparisons(64);
+
+        eprintln!(
+            "cleanup local reference candidate comparisons: 32={smaller}, 64={larger}"
+        );
+        assert!(smaller > 0);
+        assert!(larger > smaller);
+        assert!(larger <= smaller * 2 + 16, "{smaller} -> {larger}");
+    }
+
+    #[test]
     fn cleanup_match_satisfy_arrow_keeps_candidate_and_callable_identities_separate() {
         struct Case {
             source: &'static str,

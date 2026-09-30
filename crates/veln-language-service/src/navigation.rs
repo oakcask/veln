@@ -1,6 +1,6 @@
 #[cfg(test)]
 use std::cell::Cell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap};
 use std::sync::{Arc, OnceLock};
 
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
@@ -45,6 +45,7 @@ mod classification_tests;
 thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
+    static LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS: Cell<usize> = const { Cell::new(0) };
     static LOCAL_BINDING_SCOPE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_CLAUSE_SCOPE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static HANDLER_CLAUSE_BINDING_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
@@ -474,6 +475,15 @@ fn record_local_reference_scope_candidate_visit() {
 fn record_local_reference_scope_candidate_visit() {}
 
 #[cfg(test)]
+fn record_local_reference_binding_candidate_comparison() {
+    LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS
+        .set(LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_local_reference_binding_candidate_comparison() {}
+
+#[cfg(test)]
 pub(crate) fn reset_local_reference_scope_candidate_visits() {
     LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.set(0);
 }
@@ -481,6 +491,16 @@ pub(crate) fn reset_local_reference_scope_candidate_visits() {
 #[cfg(test)]
 pub(crate) fn local_reference_scope_candidate_visits() -> usize {
     LOCAL_REFERENCE_SCOPE_CANDIDATE_VISITS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn reset_local_reference_binding_candidate_comparisons() {
+    LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn local_reference_binding_candidate_comparisons() -> usize {
+    LOCAL_REFERENCE_BINDING_CANDIDATE_COMPARISONS.get()
 }
 
 #[cfg(test)]
