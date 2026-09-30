@@ -234,7 +234,7 @@ fn time_deadline_signatures_come_from_standard_descriptors() {
         "time",
         "wall_time",
         Vec::new(),
-        Type::named("WallTime", Vec::new()),
+        Type::wall_time(),
     );
     assert_standard_signature("time", "timeout_ms", vec![Type::int()], Type::unit());
     for name in ["deadline_after_ms", "deadline_at_ms"] {

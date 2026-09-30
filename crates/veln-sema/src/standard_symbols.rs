@@ -98,6 +98,7 @@ pub(crate) enum StandardType {
     List(&'static StandardType),
     Option(&'static StandardType),
     Result(&'static StandardType, &'static StandardType),
+    Record(&'static [(&'static str, StandardType)]),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -121,6 +122,10 @@ const BOOL_TYPE: StandardType = StandardType::Bool;
 const PATH_TYPE: StandardType = StandardType::Named("Path");
 const FS_ERROR_TYPE: StandardType = StandardType::Named("FsError");
 const PROCESS_ERROR_TYPE: StandardType = StandardType::Named("ProcessError");
+const WALL_TIME_TYPE: StandardType = StandardType::Record(&[
+    ("unix_seconds", StandardType::Int),
+    ("nanosecond", StandardType::Int),
+]);
 const BYTE_CHUNK_TYPE: StandardType = StandardType::Named("ByteChunk");
 const NET_STREAM_TYPE: StandardType = StandardType::Named("NetStream");
 const ACCEPT_OUTCOME_TYPE: StandardType = StandardType::Named("AcceptOutcome");

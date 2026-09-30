@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"14efe2dd67183dcdf56a52dcc97a9c1b713b46d2"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1721
+case_count	1723
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -11947,6 +11947,45 @@ field	invocation.command[1]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"7552a36d5fe17152f77afb09ab48634c573cc7cb3c90ca57aff852a6974a7c98"
+case	"examples/specification/check/transport-wall-clock-name-shadowing"
+field	expectations.diagnostics[0].id	"type.field_missing"
+field	expectations.diagnostics[0].kind	"type"
+field	expectations.diagnostics[0].message	"type `WallTime` has no field `unix_seconds`"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	8
+field	expectations.diagnostics[0].span.file	"main.veln"
+field	expectations.diagnostics[0].span.line	7
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	1
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"dbc2ed4d01d67e8655623e1da575458e28b75adf6c2959a217b25eee4b1a46df"
+case	"examples/specification/check/transport-wall-clock-record-type"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"ok"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	0
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"15d41c1d00ba95afe844c6b0eadd32ff350236dd76510ab310ab3c41ec48f3e1"
 case	"examples/specification/check/type-annotation-boundaries"
 field	expectations.diagnostics[0].id	"type.public_signature_missing"
 field	expectations.diagnostics[0].kind	"type"
@@ -59716,7 +59755,7 @@ field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"{\"unix_seconds\":0,\"nanosecond\":0}\n{\"unix_seconds\":-1,\"nanosecond\":999999999}\nbackwards\ndeadline-monotonic\n"
+field	expectations.json_assertions[1].equals_file	"{\"unix_seconds\":0,\"nanosecond\":0}\n{\"unix_seconds\":-1,\"nanosecond\":999999999}\nbackwards\ndeadline-monotonic wall=1234:567\n"
 field	expectations.json_assertions[1].operation	"equals_file"
 field	expectations.json_assertions[1].path	"stdout"
 field	expectations.json_assertions[2].equals	null
@@ -59733,7 +59772,7 @@ field	invocation.command[5]	"fake_effects.veln"
 field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
-case_digest	"c4c70731806da8b6cfbda113c5b41d36b3f9b3b94ced405a68a54e636ea4d189"
+case_digest	"e33a70d07ad26324d70dcef9cf7d8162d239f2f9add472e9f2e9467e654b2fdd"
 case	"examples/specification/run/transport-wall-clock-overflow-lower"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"failed"
@@ -62095,4 +62134,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"6df3f0f2146e7ac8340accbe85b72b268b1bf84bf465e0055133fc4b14451916"
+aggregate_digest	"cd44a9a2919de680f1c60e807f5f1bc86fde4ecc7eac8d0052caf0f474c8c752"

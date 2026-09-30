@@ -112,8 +112,16 @@ pub(super) fn canonicalize_type_effects(
 ) -> Type {
     match ty {
         Type::Named { name, args } => {
-            let Some(canonical_name) = adts
-                .descriptor_for_type_path(&name, args.len(), current_module, uses)
+            let descriptor = adts.descriptor_for_type_path(&name, args.len(), current_module, uses);
+            if name == "WallTime"
+                && args.is_empty()
+                && descriptor.is_none_or(|descriptor| {
+                    descriptor.module_name.as_deref() == Some("std::prelude")
+                })
+            {
+                return Type::wall_time();
+            }
+            let Some(canonical_name) = descriptor
                 .map(|descriptor| descriptor.type_name.clone())
                 .or_else(|| {
                     canonical_type_name_without_descriptor(

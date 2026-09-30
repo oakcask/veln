@@ -507,7 +507,7 @@ pub(crate) const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.time.wall_time",
         StandardSignature {
             params: &[],
-            return_type: StandardType::Named("WallTime"),
+            return_type: WALL_TIME_TYPE,
         },
     ),
     runtime_symbol_with_signature(

@@ -58,6 +58,23 @@ struct CoreLowerer<'a> {
     defer_captures: Vec<Vec<CoreDeferredCapture>>,
 }
 
+impl CoreLowerer<'_> {
+    fn core_type_annotation(&self, annotation: &str) -> CoreType {
+        let ty = parse_type_or_unknown(Some(annotation));
+        let ty = self
+            .environment
+            .canonicalize_type_annotation(ty, self.function.module_name.as_deref());
+        core_type(&ty)
+    }
+
+    fn parsed_core_type(&self, ty: Type) -> CoreType {
+        let ty = self
+            .environment
+            .canonicalize_type_annotation(ty, self.function.module_name.as_deref());
+        core_type(&ty)
+    }
+}
+
 pub(crate) struct CoreLoweringOutput {
     pub(crate) program: CheckedProgram,
     pub(crate) diagnostics: Vec<Diagnostic>,

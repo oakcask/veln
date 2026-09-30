@@ -409,7 +409,10 @@ as `unix_seconds = -1` and `nanosecond = 999999999`. The host defines the
 clock resolution. Successive values can be equal or move backwards after a
 clock correction. `WallTime` has no source-visible constructor or pattern;
 programs obtain its record values from `time::wall_time` and read its two
-integer fields. Programs must continue to use `time::monotonic_ms` and
+integer fields. The value is structurally compatible with an anonymous record
+that requires those fields. A user-defined algebraic data type also named
+`WallTime` remains a distinct nominal type and does not acquire the standard
+record fields. Programs must continue to use `time::monotonic_ms` and
 `Deadline` for durations, ordering, and timeouts;
 `time::cancel_token` returns a source-visible cancellation handle;
 `time::cancel_owner` returns a source-visible cancellation owner;
@@ -808,3 +811,6 @@ sections.
 - Effect inference and handlers: `crates/veln-sema/src/effects.rs` and
   `crates/veln-sema/src/effect_rows.rs`.
 - Compiler-known signatures: `crates/veln-sema/src/standard_symbols/`.
+- Wall-clock record type boundaries:
+  `examples/specification/check/transport-wall-clock-record-type/` and
+  `examples/specification/check/transport-wall-clock-name-shadowing/`.

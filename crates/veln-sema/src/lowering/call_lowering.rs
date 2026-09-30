@@ -210,12 +210,12 @@ impl<'a> CoreLowerer<'a> {
             let explicit_item = type_args
                 .first()
                 .and_then(|type_arg| parse_type_annotation(type_arg).ok())
-                .map(|ty| core_type(&ty));
+                .map(|ty| self.parsed_core_type(ty));
             let explicit_context = type_args
                 .get(1)
                 .filter(|_| matches!(segments, [module, name] if module == "task" && name == "spawn_with"))
                 .and_then(|type_arg| parse_type_annotation(type_arg).ok())
-                .map(|ty| core_type(&ty));
+                .map(|ty| self.parsed_core_type(ty));
             let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
             let signature = core_concurrency_signature(
                 segments,

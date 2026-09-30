@@ -167,3 +167,54 @@ fn wall_clock_requires_time_effect_and_exposes_integer_fields() {
     let details = diagnostics[0].details.to_json();
     assert!(details.contains("\"symbol\":\"time::wall_time\""));
 }
+
+#[test]
+fn wall_clock_value_is_assignable_to_its_structural_record_shape() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn seconds(value: {unix_seconds: Int, nanosecond: Int}) -> Int\n",
+            "  value.unix_seconds\n",
+            "end\n",
+            "pub fn timestamp() -> Int effects [time]\n",
+            "  seconds(time::wall_time())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(lowered.ir.is_some());
+}
+
+#[test]
+fn user_defined_wall_time_does_not_gain_standard_record_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type WallTime\n",
+            "  Other\n",
+            "end\n",
+            "pub fn timestamp(value: WallTime) -> Int\n",
+            "  value.unix_seconds\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.field_missing"
+                && diagnostic.message == "type `WallTime` has no field `unix_seconds`"
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(lowered.ir.is_none());
+}

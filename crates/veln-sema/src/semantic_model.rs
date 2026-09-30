@@ -1,5 +1,3 @@
-use std::sync::OnceLock;
-
 use veln_ast::NodeId;
 use veln_source::SourceSpan;
 
@@ -167,6 +165,13 @@ impl Type {
         Self::named("Unit", Vec::new())
     }
 
+    pub(crate) fn wall_time() -> Self {
+        Self::Record(vec![
+            ("unix_seconds".to_string(), Self::int()),
+            ("nanosecond".to_string(), Self::int()),
+        ])
+    }
+
     #[cfg(test)]
     pub(crate) fn result(value: Type, error: Type) -> Self {
         Self::named("Result", vec![value, error])
@@ -262,11 +267,6 @@ impl Type {
             Self::Record(fields) => fields
                 .iter()
                 .find_map(|(name, ty)| (name == field_name).then_some(ty)),
-            Self::Named { name, args } if name == "WallTime" && args.is_empty() => {
-                static WALL_TIME_FIELD_TYPE: OnceLock<Type> = OnceLock::new();
-                matches!(field_name, "unix_seconds" | "nanosecond")
-                    .then(|| WALL_TIME_FIELD_TYPE.get_or_init(Type::int))
-            }
             _ => None,
         }
     }
