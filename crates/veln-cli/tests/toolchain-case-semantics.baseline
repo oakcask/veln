@@ -15011,7 +15011,7 @@ field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
 field	expectations.stdout.contains[1]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/"
-field	expectations.stdout.contains[2]	"/prelude.veln\",\"range\":{\"start\":{\"line\":102,\"character\":7},\"end\":{\"line\":102,\"character\":11}}"
+field	expectations.stdout.contains[2]	"/prelude.veln\",\"range\":{\"start\":{\"line\":103,\"character\":7},\"end\":{\"line\":103,\"character\":11}}"
 field	expectations.stdout.contains[3]	"\"id\":3,\"result\":null"
 field	expectations.stdout.not_contains[0]	"\"id\":2,\"result\":null"
 field	expectations.stdout.not_contains[1]	"crates/veln-stdlib"
