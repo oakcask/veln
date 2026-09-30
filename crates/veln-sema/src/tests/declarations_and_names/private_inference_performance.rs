@@ -12,6 +12,39 @@ fn private_function_may_omit_boundary_annotations_when_inference_is_complete() {
 }
 
 #[test]
+fn recursive_begin_return_inference_stops_at_recursive_type_growth() {
+    private_inference_counters::reset();
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn left()\n",
+            "  begin\n",
+            "    [right()]\n",
+            "  end\n",
+            "end\n",
+            "\n",
+            "fn right()\n",
+            "  begin\n",
+            "    [left()]\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = private_inference_counters::snapshot();
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id == "type.private_inference_incomplete"
+            && diagnostic.message.contains("return type")
+    }));
+    assert_eq!(counters.body_return_scans, 6, "{counters:#?}");
+}
+
+#[test]
 fn fully_annotated_private_modules_do_not_scan_private_inference_bodies() {
     private_inference_counters::reset();
     let module = merged_modules(

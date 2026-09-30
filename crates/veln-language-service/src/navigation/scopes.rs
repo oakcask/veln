@@ -18,9 +18,7 @@ fn local_binding_shadowing_call_target_in_scopes<'a>(
     name: &str,
 ) -> Option<ScopeShadow<'a>> {
     let offset = tokens[index].range.start;
-    scopes
-        .iter()
-        .find(|scope| offset >= scope.body_start && offset < scope.end)
+    token_scope(scopes, offset)
         .and_then(|scope| scope.shadowing_binding(name, tokens, index))
 }
 
@@ -48,12 +46,15 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
         scopes.push(FunctionScope {
             body_start,
             end,
+            is_handler_clause: false,
             params,
             result_binding,
             local_bindings,
             local_bindings_by_name,
         });
     }
+    // Keep clauses as a source-ordered suffix so lookup can binary-search them
+    // without changing the precedence of ordinary scopes.
     scopes.extend(handler_operation_clause_scopes(
         tokens,
         &defer_block_openers,
@@ -92,6 +93,7 @@ fn handler_operation_clause_scopes(
             FunctionScope {
                 body_start,
                 end,
+                is_handler_clause: true,
                 params: Vec::new(),
                 result_binding: None,
                 local_bindings,
@@ -804,7 +806,24 @@ fn defer_block_openers(tokens: &[Token]) -> Vec<bool> {
 }
 
 fn token_scope(scopes: &[FunctionScope], offset: usize) -> Option<&FunctionScope> {
-    scopes
-        .iter()
-        .find(|scope| offset >= scope.body_start && offset < scope.end)
+    let first_handler_clause = scopes.partition_point(|scope| {
+        record_function_scope_lookup_comparison();
+        !scope.is_handler_clause
+    });
+    if let Some(scope) = scopes[..first_handler_clause].iter().find(|scope| {
+        record_function_scope_lookup_comparison();
+        offset >= scope.body_start && offset < scope.end
+    }) {
+        return Some(scope);
+    }
+
+    let clause_scopes = &scopes[first_handler_clause..];
+    let index = clause_scopes.partition_point(|scope| {
+        record_function_scope_lookup_comparison();
+        scope.body_start <= offset
+    });
+    index
+        .checked_sub(1)
+        .map(|index| &clause_scopes[index])
+        .filter(|scope| offset < scope.end)
 }

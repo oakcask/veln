@@ -1056,7 +1056,7 @@
 
     #[test]
     fn handler_clause_function_reference_lookup_scales_with_generated_clauses() {
-        fn reference_work(clause_count: usize) -> ((usize, usize), std::time::Duration) {
+        fn reference_work(clause_count: usize) -> ((usize, usize), usize, std::time::Duration) {
             let mut source_text = String::from(
                 "fn target(value: Int) -> Int\n  value\nend\n\neffect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
             );
@@ -1066,11 +1066,16 @@
             source_text.push_str("end\n");
             let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
             reset_handler_clause_body_range_work();
+            reset_function_scope_lookup_comparisons();
             let started = std::time::Instant::now();
             let result = query_snapshot(&snapshot, "main.veln", 1, 4)
                 .expect("generated function should resolve");
             assert_eq!(result.references.len(), clause_count);
-            (handler_clause_body_range_work(), started.elapsed())
+            (
+                handler_clause_body_range_work(),
+                function_scope_lookup_comparisons(),
+                started.elapsed(),
+            )
         }
 
         let smaller = reference_work(128);
@@ -1082,6 +1087,9 @@
         assert!(smaller.0.1 > 0);
         assert!(larger.0.1 > smaller.0.1);
         assert!(larger.0.1 <= smaller.0.1 * 2 + 32, "{smaller:?} -> {larger:?}");
+        assert!(smaller.1 > 0);
+        assert!(larger.1 > smaller.1);
+        assert!(larger.1 <= smaller.1 * 5 / 2 + 64, "{smaller:?} -> {larger:?}");
     }
 
     #[test]

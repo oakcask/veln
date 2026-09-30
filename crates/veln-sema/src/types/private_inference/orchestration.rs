@@ -47,9 +47,37 @@ pub(crate) fn infer_private_function_body_return_types(
             if !type_has_unknown(&signature.return_type) {
                 continue;
             }
+            if inferred_type_contains(&inferred, &signature.return_type) {
+                continue;
+            }
             signature.return_type = inferred;
             changed = true;
         }
+    }
+}
+
+fn inferred_type_contains(inferred: &Type, current: &Type) -> bool {
+    if current == &Type::Unknown {
+        return false;
+    }
+    match inferred {
+        Type::Unknown => false,
+        Type::Named { args, .. } => args
+            .iter()
+            .any(|arg| arg == current || inferred_type_contains(arg, current)),
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, ty)| ty == current || inferred_type_contains(ty, current)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => params
+            .iter()
+            .chain(variadic.iter().map(Box::as_ref))
+            .chain(std::iter::once(return_type.as_ref()))
+            .any(|ty| ty == current || inferred_type_contains(ty, current)),
     }
 }
 

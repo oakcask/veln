@@ -1023,6 +1023,7 @@ type TypeReferenceLocations = Vec<(String, usize, SourceSpan)>;
 struct FunctionScope {
     body_start: usize,
     end: usize,
+    is_handler_clause: bool,
     params: Vec<ScopedBinding>,
     result_binding: Option<ScopedBinding>,
     local_bindings: Vec<LocalBinding>,

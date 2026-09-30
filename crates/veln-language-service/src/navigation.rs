@@ -90,6 +90,25 @@ thread_local! {
     static HANDLER_DIAGNOSTIC_OVERLAP_QUERIES: Cell<usize> = const { Cell::new(0) };
     static HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static FUNCTION_SCOPE_LOOKUP_COMPARISONS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_function_scope_lookup_comparison() {
+    FUNCTION_SCOPE_LOOKUP_COMPARISONS.set(FUNCTION_SCOPE_LOOKUP_COMPARISONS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_function_scope_lookup_comparison() {}
+
+#[cfg(test)]
+pub(crate) fn reset_function_scope_lookup_comparisons() {
+    FUNCTION_SCOPE_LOOKUP_COMPARISONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn function_scope_lookup_comparisons() -> usize {
+    FUNCTION_SCOPE_LOOKUP_COMPARISONS.get()
 }
 
 #[cfg(test)]
