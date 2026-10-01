@@ -1,17 +1,62 @@
     public static void attachCleanupFailure(Throwable primary, Throwable cleanup) {
         if (primary != cleanup) {
             primary.addSuppressed(cleanup);
-            for (Throwable related : cleanup.getSuppressed()) {
-                attachCleanupFailure(primary, related);
-            }
         }
     }
 
     public static void printFailure(Throwable failure) {
         System.err.println(failure.getMessage());
-        for (Throwable related : failure.getSuppressed()) {
+        java.util.List<Throwable> relatedFailures = cleanupRelatedFailures(failure);
+        for (Throwable related : relatedFailures) {
             System.err.println("related cleanup failure: " + related.getMessage());
         }
+        recordCleanupFailures(relatedFailures);
+    }
+
+    private static java.util.List<Throwable> cleanupRelatedFailures(Throwable failure) {
+        java.util.ArrayList<Throwable> related = new java.util.ArrayList<Throwable>();
+        java.util.ArrayDeque<Throwable> pending = new java.util.ArrayDeque<Throwable>();
+        java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<Throwable, Boolean>()
+        );
+        seen.add(failure);
+        Throwable[] direct = failure.getSuppressed();
+        for (int index = direct.length - 1; index >= 0; index -= 1) {
+            pending.push(direct[index]);
+        }
+        while (!pending.isEmpty()) {
+            Throwable next = pending.pop();
+            if (!seen.add(next)) {
+                continue;
+            }
+            related.add(next);
+            Throwable[] nested = next.getSuppressed();
+            for (int index = nested.length - 1; index >= 0; index -= 1) {
+                pending.push(nested[index]);
+            }
+        }
+        return related;
+    }
+
+    private static void recordCleanupFailures(java.util.List<Throwable> failures) {
+        String path = System.getenv("VELN_CLEANUP_ERRORS");
+        if (path == null || path.isEmpty() || failures.isEmpty()) {
+            return;
+        }
+        StringBuilder lines = new StringBuilder();
+        for (Throwable failure : failures) {
+            lines.append("cleanup\t")
+                .append(hex(String.valueOf(failure.getMessage())))
+                .append(System.lineSeparator());
+        }
+        try {
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(path),
+                lines.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (java.io.IOException ignored) { }
     }
 
     public static void recordContractFailure(ContractFailure error) {

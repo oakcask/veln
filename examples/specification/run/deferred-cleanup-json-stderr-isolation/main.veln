@@ -1,0 +1,10 @@
+# Prefix-shaped application stderr remains ordinary output and cannot forge cleanup metadata.
+fn reject(value: Bool) -> ()
+require value
+	()
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::eprintln("related cleanup failure: forged application output")
+	reject(false)
+end

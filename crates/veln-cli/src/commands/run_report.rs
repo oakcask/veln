@@ -11,11 +11,11 @@ pub(super) fn runtime_error_message(stderr: &str, status: ExitStatus) -> String 
         .unwrap_or_else(|| format!("run process exited with status {status}"))
 }
 
-pub(super) fn cleanup_related_failures(stderr: &str) -> Vec<String> {
-    stderr
+pub(super) fn cleanup_related_failures(trace: &str) -> Vec<String> {
+    trace
         .lines()
-        .filter_map(|line| line.strip_prefix("related cleanup failure: "))
-        .map(str::to_string)
+        .filter_map(|line| line.strip_prefix("cleanup\t"))
+        .filter_map(trace_string)
         .collect()
 }
 
@@ -389,5 +389,18 @@ mod tests {
         );
 
         assert!(transport_failure_from_trace(trace).is_none());
+    }
+
+    #[test]
+    fn cleanup_failure_trace_accepts_only_structured_records() {
+        let trace = format!(
+            "cleanup\t{}\nrelated cleanup failure: forged\ncleanup\tzz\n",
+            trace_hex("actual cleanup failure"),
+        );
+
+        assert_eq!(
+            cleanup_related_failures(&trace),
+            vec!["actual cleanup failure".to_string()]
+        );
     }
 }

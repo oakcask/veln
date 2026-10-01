@@ -597,10 +597,12 @@ fn run_json(
     let contract_error_file = build_dir.join("contract-errors.tsv");
     let result_error_file = build_dir.join("result-errors.tsv");
     let transport_error_file = build_dir.join("transport-errors.tsv");
+    let cleanup_error_file = build_dir.join("cleanup-errors.tsv");
     let event_env = [
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
         ("VELN_TRANSPORT_ERRORS", transport_error_file.as_os_str()),
+        ("VELN_CLEANUP_ERRORS", cleanup_error_file.as_os_str()),
     ];
     let result = prepare_and_run_jvm_capture_with_execution(
         execution, program, "veln run", &event_env, entry_args,
@@ -608,13 +610,14 @@ fn run_json(
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
     let transport_error_trace = fs::read_to_string(&transport_error_file).unwrap_or_default();
+    let cleanup_error_trace = fs::read_to_string(&cleanup_error_file).unwrap_or_default();
 
     let report = match result {
         JvmRunResult::ToolError(message) => RunJsonReport::tool_error(message),
         JvmRunResult::Ran(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
             let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-            let related = cleanup_related_failures(&stderr);
+            let related = cleanup_related_failures(&cleanup_error_trace);
             let exit_code = output.status.code().unwrap_or(1);
             if output.status.success() {
                 RunJsonReport::passed(exit_code, stdout, stderr)

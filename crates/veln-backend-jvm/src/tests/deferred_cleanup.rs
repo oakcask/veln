@@ -197,6 +197,174 @@ fn task_join_reports_cancellation_only_after_registered_cleanup_finishes() {
 }
 
 #[test]
+fn task_cancellation_interrupts_pure_tail_recursive_computation_before_join() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn spin(value: Int) -> ()\n",
+        "  spin(value + 1)\n",
+        "end\n",
+        "fn worker(ready: Sender<String>) -> () effects [concurrency, stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup finished\")\n",
+        "  end\n",
+        "  let _ = channel::send(ready, \"ready\")\n",
+        "  spin(0)\n",
+        "end\n",
+        "pub fn main() -> () effects [concurrency, stdio]\n",
+        "  let ready = channel::bounded<String>(1)\n",
+        "  let worker = task::spawn_with<(), Sender<String>>(worker, ready.tx)\n",
+        "  let _ = channel::recv(ready.rx)\n",
+        "  task::cancel(worker)\n",
+        "  match task::join(worker)\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"cancelled\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-tail-recursion-cancellation",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "cleanup finished\ncancelled\n"
+    );
+}
+
+#[test]
+fn task_cancellation_interrupts_host_time_wait_before_join() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn worker(ready: Sender<String>) -> () effects [concurrency, stdio, time]\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup finished\")\n",
+        "  end\n",
+        "  let _ = channel::send(ready, \"ready\")\n",
+        "  time::timeout_ms(60000)\n",
+        "  stdio::println(\"unexpected continuation\")\n",
+        "end\n",
+        "pub fn main() -> () effects [concurrency, stdio, time]\n",
+        "  let ready = channel::bounded<String>(1)\n",
+        "  let worker = task::spawn_with<(), Sender<String>>(worker, ready.tx)\n",
+        "  let _ = channel::recv(ready.rx)\n",
+        "  task::cancel(worker)\n",
+        "  match task::join(worker)\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"cancelled\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-time-wait-cancellation",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "cleanup finished\ncancelled\n"
+    );
+}
+
+#[test]
+fn task_cancellation_unblocks_host_accept_before_join() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn worker(context: { ready : Sender<String>, listener : NetListener }) -> () effects [concurrency, net, stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup finished\")\n",
+        "  end\n",
+        "  let _ = channel::send(context.ready, \"ready\")\n",
+        "  let _ = net::accept(context.listener)\n",
+        "  stdio::println(\"unexpected continuation\")\n",
+        "end\n",
+        "pub fn main() -> () effects [concurrency, net, stdio]\n",
+        "  let listener = net::listen(\"127.0.0.1:0\")\n",
+        "  let ready = channel::bounded<String>(1)\n",
+        "  let worker = task::spawn_with<(), { ready : Sender<String>, listener : NetListener }>(worker, { ready: ready.tx, listener: listener })\n",
+        "  let _ = channel::recv(ready.rx)\n",
+        "  task::cancel(worker)\n",
+        "  match task::join(worker)\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"cancelled\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-host-accept-cancellation",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.contains("Operation not permitted") {
+        return;
+    }
+    assert!(output.status.success(), "{stderr}");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "cleanup finished\ncancelled\n"
+    );
+}
+
+#[test]
+fn nested_cleanup_failures_are_reported_once_with_linear_growth() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn fail_at(count: Int) -> ()\n",
+        "  let ignored = 1 << count\n",
+        "  ()\n",
+        "end\n",
+        "fn fail_nested(depth: Int) -> ()\n",
+        "  defer\n",
+        "    if depth > 0\n",
+        "      fail_nested(depth - 1)\n",
+        "    else\n",
+        "      fail_at(64)\n",
+        "    end\n",
+        "  end\n",
+        "  fail_at(65 + depth)\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  fail_nested(24)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-nested-failure-linear-growth",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(stderr.lines().count(), 26, "{stderr}");
+    for count in (64..=89).rev() {
+        let message = format!("invalid shift count {count} for operator `<<`");
+        assert_eq!(stderr.matches(&message).count(), 1, "{stderr}");
+    }
+}
+
+#[test]
 fn task_cancellation_stays_primary_with_cleanup_failure_related() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "fn worker(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, stdio]\n",

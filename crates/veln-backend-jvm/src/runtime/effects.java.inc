@@ -685,8 +685,18 @@
     public static Object netReceiveChunk() {
         HandlerFrame adapter = findHandler(NETWORK_EFFECT);
         if (adapter != null) return recordField(networkRequest(adapter, "receive", "", emptyNetworkBytes(), null, null), "bytes");
-        try { byte[] bytes = new byte[4096]; int count = System.in.read(bytes); return byteChunkFromByteArray(bytes, Math.max(0, count)); }
-        catch (java.io.IOException error) { throw new RuntimeFailure("transport receive failed: " + error.getMessage(), error); }
+        boolean registeredBlocker = registerTaskBlocker(System.in);
+        try {
+            throwTaskCancellationIfRequested();
+            byte[] bytes = new byte[4096];
+            int count = System.in.read(bytes);
+            return byteChunkFromByteArray(bytes, Math.max(0, count));
+        } catch (java.io.IOException error) {
+            throwTaskCancellationIfRequested();
+            throw new RuntimeFailure("transport receive failed: " + error.getMessage(), error);
+        } finally {
+            unregisterTaskBlocker(System.in, registeredBlocker);
+        }
     }
     public static Object netSendChunk(Object bytes) {
         HandlerFrame adapter = findHandler(NETWORK_EFFECT);
@@ -715,12 +725,17 @@
         String text = asString(address); HandlerFrame adapter = findHandler(NETWORK_EFFECT);
         if (adapter != null) return adapterStream(adapter, networkRequest(adapter, "connect", text, emptyNetworkBytes(), null, null));
         java.net.Socket socket = new java.net.Socket();
+        boolean registeredBlocker = registerTaskBlocker(socket);
         try {
+            throwTaskCancellationIfRequested();
             socket.connect(parseSocketAddress(text), 5000);
             return new NetStream(formatSocketAddress(socket.getLocalSocketAddress()), formatSocketAddress(socket.getLocalSocketAddress()), formatSocketAddress(socket.getRemoteSocketAddress()), socket, null);
         } catch (java.io.IOException | RuntimeException error) {
             try { socket.close(); } catch (java.io.IOException ignored) { }
+            throwTaskCancellationIfRequested();
             throw transportFailure("connect", error instanceof IllegalArgumentException ? "invalid_endpoint" : transportIoCategory(error), null, text, null, null, "during_operation", false, false, false, platformCause("production socket failed", error), error);
+        } finally {
+            unregisterTaskBlocker(socket, registeredBlocker);
         }
     }
     private static Object acceptHost(NetListener listener, Object deadline, Object token, String operation) {
@@ -732,7 +747,9 @@
             if (status.equals("cancelled")) return acceptOutcome("AcceptCancelled");
             return acceptOutcome("AcceptStream", adapterStream(listener.adapter, reply));
         }
+        boolean registeredBlocker = registerTaskBlocker(listener.server);
         try {
+            throwTaskCancellationIfRequested();
             if (listener.server.isClosed()) throw listenerTransportFailure(
                 "accept", "closed", listener, "closed_handle", false, "listener closed", null);
             while (true) {
@@ -746,7 +763,12 @@
                     return acceptOutcome("AcceptStream", stream);
                 } catch (java.net.SocketTimeoutException timeout) { }
             }
-        } catch (java.io.IOException error) { throw listenerTransportFailure("accept", transportIoCategory(error), listener, "during_operation", false, platformCause("production socket failed", error), error); }
+        } catch (java.io.IOException error) {
+            throwTaskCancellationIfRequested();
+            throw listenerTransportFailure("accept", transportIoCategory(error), listener, "during_operation", false, platformCause("production socket failed", error), error);
+        } finally {
+            unregisterTaskBlocker(listener.server, registeredBlocker);
+        }
     }
     private static Object acceptedOption(Object outcome) { return isAdt(outcome, "AcceptOutcome::AcceptStream") ? some(((Adt)outcome).payloads[0]) : none(); }
     public static Object netAccept(Object listener) {
@@ -786,7 +808,9 @@
             if (status.equals("cancelled")) return streamReadOutcome("ReadCancelled");
             return streamReadOutcome("ReadChunk", recordField(reply, "bytes"));
         }
+        boolean registeredBlocker = registerTaskBlocker(stream.socket);
         try {
+            throwTaskCancellationIfRequested();
             while (true) {
                 failIfHostStreamClosed(stream, "read");
                 if (stream.readShutdown) return streamReadOutcome("ReadEnd");
@@ -799,7 +823,12 @@
                     return count < 0 ? streamReadOutcome("ReadEnd") : streamReadOutcome("ReadChunk", byteChunkFromByteArray(bytes, count));
                 } catch (java.net.SocketTimeoutException timeout) { }
             }
-        } catch (java.io.IOException error) { throw hostStreamFailure("read", stream, error); }
+        } catch (java.io.IOException error) {
+            throwTaskCancellationIfRequested();
+            throw hostStreamFailure("read", stream, error);
+        } finally {
+            unregisterTaskBlocker(stream.socket, registeredBlocker);
+        }
     }
     private static Object readOption(Object outcome) { return isAdt(outcome, "StreamReadOutcome::ReadChunk") ? some(((Adt)outcome).payloads[0]) : none(); }
     public static Object netReadChunk(Object stream) {
@@ -815,7 +844,9 @@
             String status = replyText(streamRequest(stream, operation, bytes, deadline, token), "status");
             return streamWriteOutcome(status.equals("deadline") ? "WriteDeadlineExpired" : status.equals("cancelled") ? "WriteCancelled" : "WriteCompleted");
         }
+        boolean registeredBlocker = registerTaskBlocker(stream.socket);
         try {
+            throwTaskCancellationIfRequested();
             failIfHostStreamClosed(stream, "write");
             if (stream.writeShutdown) throw streamTransportFailure("write", "closed", stream,
                 "write_shutdown", false, false, true, "stream write side is shut down", null);
@@ -823,7 +854,12 @@
             if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("WriteDeadlineExpired");
             stream.socket.getOutputStream().write(byteChunkToByteArray(bytes)); stream.socket.getOutputStream().flush();
             return streamWriteOutcome("WriteCompleted");
-        } catch (java.io.IOException error) { throw hostStreamFailure("write", stream, error); }
+        } catch (java.io.IOException error) {
+            throwTaskCancellationIfRequested();
+            throw hostStreamFailure("write", stream, error);
+        } finally {
+            unregisterTaskBlocker(stream.socket, registeredBlocker);
+        }
     }
     public static Object netWriteChunk(Object stream, Object bytes) { writeHost(asNetStream(stream), bytes, null, null, "write_chunk"); return UNIT; }
     public static Object netWriteChunkUntil(Object stream, Object bytes, Object deadline) { return writeHost(asNetStream(stream), bytes, deadline, null, "write_chunk_until"); }
@@ -899,7 +935,11 @@
     public static Object timeTimeoutMs(Object milliseconds) {
         long value = asLong(milliseconds);
         if (findHandler(CLOCK_EFFECT) != null) { clockRequest("sleep", value); return UNIT; }
-        if (value > 0L) try { Thread.sleep(value); } catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        if (value > 0L) try { Thread.sleep(value); }
+        catch (InterruptedException error) {
+            throwTaskCancellationIfRequested();
+            Thread.currentThread().interrupt();
+        }
         return UNIT;
     }
     public static Object timeDeadlineAfterMs(Object milliseconds) {
@@ -921,7 +961,10 @@
         long remaining = deadlineRemainingNanos(deadline);
         if (findHandler(CLOCK_EFFECT) != null) { clockRequest("wait", remaining / 1000000L); return UNIT; }
         if (remaining > 0L) try { Thread.sleep(remaining / 1000000L, (int)(remaining % 1000000L)); }
-        catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        catch (InterruptedException error) {
+            throwTaskCancellationIfRequested();
+            Thread.currentThread().interrupt();
+        }
         return UNIT;
     }
     public static Object timeCancelToken() { return new CancelToken(false); }

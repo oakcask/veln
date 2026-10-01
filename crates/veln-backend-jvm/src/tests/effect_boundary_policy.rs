@@ -11,6 +11,7 @@ fn ambient_effect_inputs(source: &str, owner: &str) -> Vec<&'static str> {
         "diagnostics.java.inc" => &[
             "System.getenv(\"VELN_CONTRACT_ERRORS\")",
             "System.getenv(\"VELN_RESULT_ERRORS\")",
+            "System.getenv(\"VELN_CLEANUP_ERRORS\")",
         ],
         _ => &[],
     };
@@ -81,8 +82,21 @@ fn ambient_policy_permits_only_existing_process_and_diagnostic_owners() {
             "diagnostics.java.inc",
             "System.getenv(\"VELN_CONTRACT_ERRORS\")",
         ),
+        (
+            "diagnostics.java.inc",
+            "System.getenv(\"VELN_CLEANUP_ERRORS\")",
+        ),
     ] {
         assert!(ambient_effect_inputs(source, owner).is_empty());
         assert!(!ambient_effect_inputs(source, "new_adapter.java.inc").is_empty());
     }
+}
+
+#[test]
+fn task_cancellation_state_is_task_local_and_not_a_retained_thread_registry() {
+    let source = include_str!("../runtime/concurrency.java.inc");
+
+    assert!(source.contains("ThreadLocal<TaskCancellation>"));
+    assert!(!source.contains("CANCELLED_TASK_THREADS"));
+    assert!(!source.contains("Set<Thread>"));
 }

@@ -145,6 +145,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             code.bind(start);
             self.tail_loop_start = Some(start);
         }
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "taskCancellationCheckpoint",
+            "()V",
+        );
         for contract in self
             .function
             .contracts
