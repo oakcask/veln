@@ -33,10 +33,8 @@ enclosing region and does not run blocks after the propagating expression.
 Handler frames and cleanup registrations unwind in reverse lexical nesting
 order, so leaving an inner handled expression restores the outer handler before
 cleanup outside that expression runs. Both paths use the registration-time
-snapshots. The backend shares registered unwind actions across propagation
-sites; generated unwind code grows with the number of registrations plus
-propagation sites instead of their product. The backend transfers a successful
-`begin` value only after that region's cleanup completes. This internal
+snapshots. The backend transfers a successful `begin` value only after that
+region's cleanup completes. This internal
 foundation is not a supported executable source feature. Public pipeline
 integration and cleanup for contract or runtime failure and task cancellation
 remain unimplemented. Cleanup-failure precedence and continued cleanup after a

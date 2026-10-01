@@ -229,11 +229,11 @@ A parse- and semantic-clean selected case is also blocked before Java execution
 when checked-core lowering cannot produce typed IR. A reachable `begin`
 expression or `defer` statement records `deferred_cleanup_runtime`, and the
 public test command does not produce typed IR while runtime integration remains
-incomplete. The internal normal-completion compiler and JVM foundation does not
-bypass this readiness gate. The case has `status: "blocked"` and `reason:
-"static_gate"`, while its `diagnostics` array can remain empty. This blocker is
-case-local and does not itself prevent another selected case with complete
-reachable lowering from running.
+incomplete. The internal compiler and JVM foundation for normal completion and
+result propagation does not bypass this readiness gate. The case has `status:
+"blocked"` and `reason: "static_gate"`, while its `diagnostics` array can remain
+empty. This blocker is case-local and does not itself prevent another selected
+case with complete reachable lowering from running.
 
 An invalid source identifier casing recovery record in an exact `.test.veln`
 companion or its target does not resolve a cross-boundary use. The selected

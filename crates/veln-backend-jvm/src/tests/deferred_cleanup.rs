@@ -316,7 +316,7 @@ fn nested_cleanup_region_local_binding_retention_grows_linearly() {
 }
 
 #[test]
-fn propagation_bytecode_grows_linearly_with_cleanups_and_try_sites() {
+fn doubling_cleanups_and_try_sites_keeps_bytecode_growth_below_threefold() {
     fn code_len(scale: usize) -> usize {
         let mut source = String::from(
             "fn fail() -> Result<Int, String>\n  Err(\"failure\")\nend\n\
