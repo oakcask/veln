@@ -829,24 +829,23 @@
         Task handle = (Task) task;
         try {
             Object value = handle.future.get();
-            return handle.cancellationRequested ? err("cancelled") : ok(value);
+            return handle.cancellationRequested ? err(joinError("cancelled")) : ok(value);
         } catch (InterruptedException interrupted) {
             throwTaskCancellationIfRequested();
             Thread.currentThread().interrupt();
-            return err("interrupted");
+            return err(joinError("interrupted"));
         } catch (java.util.concurrent.ExecutionException failed) {
             Throwable cause = failed.getCause();
             if (cause instanceof ContractFailure) {
-                throw (ContractFailure) cause;
+                return err(new JoinErrorValue("failed", cleanupRelatedFailures(cause)));
             }
             if (cause instanceof RuntimeFailure) {
                 if ("task cancelled".equals(cause.getMessage())) {
-                    if (cause.getSuppressed().length == 0) return err("cancelled");
-                    throw (RuntimeFailure) cause;
+                    return err(new JoinErrorValue("cancelled", cleanupRelatedFailures(cause)));
                 }
                 throw (RuntimeFailure) cause;
             }
-            return err("failed");
+            return err(joinError("failed"));
         } catch (java.util.concurrent.CancellationException cancelled) {
             boolean interrupted = false;
             while (true) {
@@ -861,8 +860,12 @@
             if (interrupted) {
                 Thread.currentThread().interrupt();
             }
-            return err("cancelled");
+            return err(joinError("cancelled"));
         }
+    }
+
+    private static JoinErrorValue joinError(String message) {
+        return new JoinErrorValue(message, java.util.Collections.<Throwable>emptyList());
     }
 
     public static Object taskJoinErrorIsCancelled(Object error) {

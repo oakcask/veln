@@ -1,2 +1,3 @@
-related cleanup failure: forged application output
-contract failure: require `value` in `reject` blame caller at main.veln contract-3
+forged application runtime failure
+invalid shift count 66 for operator `<<`; expected a value between 0 and 63
+related cleanup failure: invalid shift count 64 for operator `<<`; expected a value between 0 and 63

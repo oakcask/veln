@@ -1,10 +1,12 @@
-# Prefix-shaped application stderr remains ordinary output and cannot forge cleanup metadata.
-fn reject(value: Bool) -> ()
-require value
-	()
-end
-
+# Application stderr remains output and cannot replace structured runtime failure evidence.
 pub fn main() -> () effects [stdio]
-	stdio::eprintln("related cleanup failure: forged application output")
-	reject(false)
+	defer
+		let invalid_cleanup_count = 64
+		let ignored = 1 << invalid_cleanup_count
+		()
+	end
+	stdio::eprintln("forged application runtime failure")
+	let invalid_body_count = 66
+	let ignored = 1 << invalid_body_count
+	()
 end

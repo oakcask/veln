@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#runtime-readiness-and-host-boundaries; behavior=#runtime-readiness-and-host-boundaries; limits=#observable-output
+specification-coverage: usage=#runtime-readiness-and-host-boundaries; behavior=#runtime-readiness-and-host-boundaries; limits=#cleanup-limits
 update-when: The checked-core readiness, typed-IR readiness, runtime execution, codec, JVM backend, or execution evidence contract changes.
 ---
 
@@ -43,6 +43,21 @@ cancellation waits for the task worker to leave its cleanup regions before
 join reports cancellation. The effect boundary during unwinding is specified by
 [effects.md](effects.md#effect-labels). The backend transfers a successful
 `begin` value only after that region's cleanup completes.
+
+## Cleanup limits
+
+Registered cleanup is guaranteed only while the Veln task, JVM, and executing
+machine continue to run. Host-process termination, virtual-machine
+termination, or loss of the executing machine can prevent cleanup from
+running. Cleanup is lexical execution, not garbage-collection finalization.
+Cleanup does not recover or replace an existing contract or runtime failure.
+
+`defer` does not implicitly close or flush a value. A deferred block must call
+the required operation explicitly and handle a meaningful close or flush
+result explicitly. The language does not define a disposable
+interface, destructor protocol, or automatic resource-management convention.
+`begin` defines a cleanup region; it does not add rescue, ensure, or exception
+syntax.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.

@@ -12,6 +12,7 @@ fn ambient_effect_inputs(source: &str, owner: &str) -> Vec<&'static str> {
             "System.getenv(\"VELN_CONTRACT_ERRORS\")",
             "System.getenv(\"VELN_RESULT_ERRORS\")",
             "System.getenv(\"VELN_CLEANUP_ERRORS\")",
+            "System.getenv(\"VELN_RUNTIME_ERRORS\")",
         ],
         _ => &[],
     };
@@ -85,6 +86,10 @@ fn ambient_policy_permits_only_existing_process_and_diagnostic_owners() {
         (
             "diagnostics.java.inc",
             "System.getenv(\"VELN_CLEANUP_ERRORS\")",
+        ),
+        (
+            "diagnostics.java.inc",
+            "System.getenv(\"VELN_RUNTIME_ERRORS\")",
         ),
     ] {
         assert!(ambient_effect_inputs(source, owner).is_empty());

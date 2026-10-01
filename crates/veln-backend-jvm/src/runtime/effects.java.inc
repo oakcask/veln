@@ -663,7 +663,7 @@
 
     private static final class StdinPump {
         private static final java.util.concurrent.BlockingQueue<byte[]> chunks =
-            new java.util.concurrent.LinkedBlockingQueue<byte[]>();
+            new java.util.concurrent.ArrayBlockingQueue<byte[]>(1);
         private static volatile boolean started;
         private static volatile boolean ended;
         private static volatile java.io.IOException failure;
@@ -897,9 +897,15 @@
             if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("WriteDeadlineExpired");
             java.nio.ByteBuffer output = java.nio.ByteBuffer.wrap(byteChunkToByteArray(bytes));
             while (output.hasRemaining()) {
-                if (stream.socket.write(output) == 0) {
+                int written = stream.socket.write(output);
+                if (!output.hasRemaining()) break;
+                if (token != null && waitCancelled(asCancelToken(token))) return streamWriteOutcome("WriteCancelled");
+                if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("WriteDeadlineExpired");
+                if (written == 0) {
                     awaitSocketReady(stream.socket, java.nio.channels.SelectionKey.OP_WRITE,
                         deadline != null || token != null ? 10L : 0L);
+                    if (token != null && waitCancelled(asCancelToken(token))) return streamWriteOutcome("WriteCancelled");
+                    if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("WriteDeadlineExpired");
                 }
             }
             return streamWriteOutcome("WriteCompleted");

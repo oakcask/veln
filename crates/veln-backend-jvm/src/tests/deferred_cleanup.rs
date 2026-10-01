@@ -372,7 +372,7 @@ fn nested_cleanup_failures_are_reported_once_with_linear_growth() {
 }
 
 #[test]
-fn task_cancellation_stays_primary_with_cleanup_failure_related() {
+fn task_cancellation_with_cleanup_failures_returns_cancelled_join_error() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "fn worker(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, stdio]\n",
         "  defer\n",
@@ -397,8 +397,14 @@ fn task_cancellation_stays_primary_with_cleanup_failure_related() {
         "  let worker = task::spawn_with<(), { ready : Sender<String>, gate : Receiver<String> }>(worker, { ready: ready.tx, gate: gate.rx })\n",
         "  let _ = channel::recv(ready.rx)\n",
         "  task::cancel(worker)\n",
-        "  let _ = task::join(worker)\n",
-        "  ()\n",
+        "  match task::join(worker)\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(error) => if task::join_error_is_cancelled(error)\n",
+        "      stdio::println(\"cancelled\")\n",
+        "    else\n",
+        "      stdio::println(\"unexpected task error\")\n",
+        "    end\n",
+        "  end\n",
         "end\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
@@ -410,19 +416,16 @@ fn task_cancellation_stays_primary_with_cleanup_failure_related() {
         return;
     };
 
-    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "first cleanup\nsecond cleanup\n"
+        "first cleanup\nsecond cleanup\ncancelled\n"
     );
-    assert_eq!(
-        String::from_utf8_lossy(&output.stderr),
-        concat!(
-            "task cancelled\n",
-            "related cleanup failure: invalid shift count 64 for operator `<<`; expected a value between 0 and 63\n",
-            "related cleanup failure: invalid shift count 65 for operator `<<`; expected a value between 0 and 63\n",
-        )
-    );
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
 }
 
 #[test]

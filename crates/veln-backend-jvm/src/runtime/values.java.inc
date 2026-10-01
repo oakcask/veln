@@ -95,6 +95,21 @@
         }
     }
 
+    private static final class JoinErrorValue {
+        private final String message;
+        private final java.util.List<Throwable> relatedFailures;
+
+        private JoinErrorValue(String message, java.util.List<Throwable> relatedFailures) {
+            this.message = message;
+            this.relatedFailures = new java.util.ArrayList<Throwable>(relatedFailures);
+        }
+
+        @Override
+        public String toString() {
+            return message;
+        }
+    }
+
     public static final class ListValue {
         private final boolean cons;
         private final Object head;

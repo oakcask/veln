@@ -41,8 +41,10 @@ A completed run uses schema version `veln-run-json/v0` and these fields:
 
 A passed run has a null `error`. A non-passed run causes the CLI to exit
 unsuccessfully. A normal runtime failure preserves the program output captured
-before the failure. A transport failure replaces the captured stderr with its
-stable transport message followed by a newline; raw Java stderr is discarded.
+before and during the failure. Its primary message comes from the structured
+runtime failure record, not from application text written to stderr. A
+transport failure replaces the captured stderr with its stable transport
+message followed by a newline; raw Java stderr is discarded.
 
 A tool failure has `error.kind: "runner"`, `details.phase: "tool"`, empty
 `stdout` and `stderr`, and does not claim that the program reached the backend.

@@ -1,15 +1,7 @@
-use std::process::{ExitCode, ExitStatus};
+use std::process::ExitCode;
 
 use veln_diagnostics::JsonValue;
 use veln_test::TestFailure;
-
-pub(super) fn runtime_error_message(stderr: &str, status: ExitStatus) -> String {
-    stderr
-        .lines()
-        .find(|line| !line.trim().is_empty())
-        .map(str::to_string)
-        .unwrap_or_else(|| format!("run process exited with status {status}"))
-}
 
 pub(super) fn cleanup_related_failures(trace: &str) -> Vec<String> {
     trace
@@ -17,6 +9,14 @@ pub(super) fn cleanup_related_failures(trace: &str) -> Vec<String> {
         .filter_map(|line| line.strip_prefix("cleanup\t"))
         .filter_map(trace_string)
         .collect()
+}
+
+pub(super) fn runtime_failure_from_trace(trace: &str) -> Option<String> {
+    trace
+        .lines()
+        .rev()
+        .find_map(|line| line.strip_prefix("runtime\t"))
+        .and_then(trace_string)
 }
 
 pub(super) struct RunJsonReport {
@@ -401,6 +401,15 @@ mod tests {
         assert_eq!(
             cleanup_related_failures(&trace),
             vec!["actual cleanup failure".to_string()]
+        );
+    }
+
+    #[test]
+    fn runtime_failure_trace_uses_the_recorded_primary_message() {
+        let trace = format!("runtime\t{}\n", trace_hex("actual runtime failure"));
+        assert_eq!(
+            runtime_failure_from_trace(&trace).as_deref(),
+            Some("actual runtime failure")
         );
     }
 }

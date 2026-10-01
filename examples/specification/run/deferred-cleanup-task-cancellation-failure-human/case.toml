@@ -1,0 +1,13 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+equals_file = "case-text/stdout.txt"
+
+[stderr]
+format = "text"
+equals_file = "case-text/stderr.txt"

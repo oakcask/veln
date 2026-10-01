@@ -8,12 +8,31 @@
         if (failure instanceof TransportFailure) {
             ((TransportFailure) failure).record();
         }
+        recordRuntimeFailure(failure);
         System.err.println(failure.getMessage());
         java.util.List<Throwable> relatedFailures = cleanupRelatedFailures(failure);
         for (Throwable related : relatedFailures) {
             System.err.println("related cleanup failure: " + related.getMessage());
         }
         recordCleanupFailures(relatedFailures);
+    }
+
+    private static void recordRuntimeFailure(Throwable failure) {
+        String path = System.getenv("VELN_RUNTIME_ERRORS");
+        if (path == null || path.isEmpty()) {
+            return;
+        }
+        String line = "runtime\t"
+            + hex(String.valueOf(failure.getMessage()))
+            + System.lineSeparator();
+        try {
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(path),
+                line.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (java.io.IOException ignored) { }
     }
 
     private static java.util.List<Throwable> cleanupRelatedFailures(Throwable failure) {
@@ -97,6 +116,9 @@
             return;
         }
         Object resultValue = asResult(result).value();
+        if (resultValue instanceof JoinErrorValue) {
+            recordCleanupFailures(((JoinErrorValue) resultValue).relatedFailures);
+        }
         String value = format(resultValue);
         DiagnosticResultValue carriedDiagnostic = carriedDiagnosticValue(resultValue);
         FixtureHexDiagnostic fixtureHex = carriedDiagnostic == null

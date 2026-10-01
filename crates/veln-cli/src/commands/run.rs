@@ -25,7 +25,8 @@ use crate::java::{
 };
 
 use super::run_report::{
-    RunJsonReport, cleanup_related_failures, runtime_error_message, transport_failure_from_trace,
+    RunJsonReport, cleanup_related_failures, runtime_failure_from_trace,
+    transport_failure_from_trace,
 };
 
 mod byte_diagnostics;
@@ -539,7 +540,11 @@ fn run_human(
     execution: &JvmExecution,
 ) -> Result<ExitCode, String> {
     let result_error_file = build_dir.join("result-errors.tsv");
-    let event_env = [("VELN_RESULT_ERRORS", result_error_file.as_os_str())];
+    let cleanup_error_file = build_dir.join("cleanup-errors.tsv");
+    let event_env = [
+        ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
+        ("VELN_CLEANUP_ERRORS", cleanup_error_file.as_os_str()),
+    ];
     let result = prepare_and_run_jvm_capture_with_execution(
         execution, program, "veln run", &event_env, entry_args,
     )?;
@@ -556,6 +561,7 @@ fn run_human(
     }
 
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
+    let cleanup_error_trace = fs::read_to_string(&cleanup_error_file).unwrap_or_default();
     let result_failure = result_failure_from_trace(&result_error_trace);
     let diagnostic = result_failure
         .as_ref()
@@ -570,6 +576,11 @@ fn run_human(
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
     } else {
         forward_process_output(&output)?;
+    }
+    if result_failure.is_some() {
+        for related in cleanup_related_failures(&cleanup_error_trace) {
+            eprintln!("related cleanup failure: {related}");
+        }
     }
     Ok(exit_code_from_status(output.status))
 }
@@ -598,11 +609,13 @@ fn run_json(
     let result_error_file = build_dir.join("result-errors.tsv");
     let transport_error_file = build_dir.join("transport-errors.tsv");
     let cleanup_error_file = build_dir.join("cleanup-errors.tsv");
+    let runtime_error_file = build_dir.join("runtime-errors.tsv");
     let event_env = [
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
         ("VELN_TRANSPORT_ERRORS", transport_error_file.as_os_str()),
         ("VELN_CLEANUP_ERRORS", cleanup_error_file.as_os_str()),
+        ("VELN_RUNTIME_ERRORS", runtime_error_file.as_os_str()),
     ];
     let result = prepare_and_run_jvm_capture_with_execution(
         execution, program, "veln run", &event_env, entry_args,
@@ -611,6 +624,7 @@ fn run_json(
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
     let transport_error_trace = fs::read_to_string(&transport_error_file).unwrap_or_default();
     let cleanup_error_trace = fs::read_to_string(&cleanup_error_file).unwrap_or_default();
+    let runtime_error_trace = fs::read_to_string(&runtime_error_file).unwrap_or_default();
 
     let report = match result {
         JvmRunResult::ToolError(message) => RunJsonReport::tool_error(message),
@@ -628,7 +642,8 @@ fn run_json(
             } else if let Some(failure) = transport_failure_from_trace(&transport_error_trace) {
                 RunJsonReport::runtime_transport_error(exit_code, stdout, stderr, failure, related)
             } else {
-                let message = runtime_error_message(&stderr, output.status);
+                let message = runtime_failure_from_trace(&runtime_error_trace)
+                    .unwrap_or_else(|| format!("run process exited with status {}", output.status));
                 RunJsonReport::runtime_error(exit_code, stdout, stderr, message, related)
             }
         }
