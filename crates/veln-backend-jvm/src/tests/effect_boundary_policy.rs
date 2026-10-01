@@ -107,3 +107,12 @@ fn task_cancellation_state_is_task_local_and_not_a_retained_thread_registry() {
     assert!(!source.contains("Set<java.io.Closeable>"));
     assert!(!source.contains("blocker.close()"));
 }
+
+#[test]
+fn concurrent_task_cancellation_uses_one_atomic_initiation_claim() {
+    let source = include_str!("../runtime/concurrency.java.inc");
+
+    assert!(source.contains("AtomicBoolean cancellationRequested"));
+    assert!(source.contains("cancellationRequested.compareAndSet(false, true)"));
+    assert!(!source.contains("!handle.cancellationRequested"));
+}

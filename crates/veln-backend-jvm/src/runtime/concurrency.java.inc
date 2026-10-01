@@ -94,10 +94,10 @@
         private final java.util.concurrent.FutureTask<Object> future;
         private final Thread thread;
         private final TaskCancellation cancellation = new TaskCancellation();
-        private volatile boolean cancellationRequested;
+        private final java.util.concurrent.atomic.AtomicBoolean cancellationRequested =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
         private Task(Fn fn) {
-            this.cancellationRequested = false;
             this.future = newTaskFuture(this.cancellation,
                 () -> freezeBoundaryValue(call(fn))
             );
@@ -839,7 +839,7 @@
         }
         try {
             Object value = handle.future.get();
-            return handle.cancellationRequested ? err(joinError("cancelled")) : ok(value);
+            return handle.cancellationRequested.get() ? err(joinError("cancelled")) : ok(value);
         } catch (InterruptedException interrupted) {
             throwTaskCancellationIfRequested();
             Thread.currentThread().interrupt();
@@ -884,8 +884,8 @@
 
     public static Object taskCancel(Object task) {
         Task handle = (Task) task;
-        if (!handle.future.isDone() && !handle.cancellationRequested) {
-            handle.cancellationRequested = true;
+        if (!handle.future.isDone()
+            && handle.cancellationRequested.compareAndSet(false, true)) {
             handle.cancellation.request();
             handle.thread.interrupt();
         }

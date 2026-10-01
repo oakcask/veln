@@ -91,7 +91,7 @@ fn jvm_runtime_does_not_classify_runtime_failure_text_as_cancellation_when_java_
 }
 
 #[test]
-fn jvm_runtime_join_blocks_until_cancelled_task_cleanup_finishes_when_java_is_available() {
+fn jvm_runtime_concurrent_cancellation_preserves_cleanup_before_join_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
     {
@@ -112,7 +112,7 @@ fn jvm_runtime_join_blocks_until_cancelled_task_cleanup_finishes_when_java_is_av
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "join waited for cleanup completion\n"
+        "concurrent cancellation preserved cleanup completion ordering\n"
     );
 }
 

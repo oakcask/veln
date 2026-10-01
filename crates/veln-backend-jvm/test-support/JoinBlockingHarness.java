@@ -1,4 +1,6 @@
 public final class JoinBlockingHarness {
+    private static final int CANCELLER_COUNT = 32;
+
     private static boolean isWaitingInTaskJoin(Thread thread) {
         if (thread.getState() != Thread.State.WAITING) return false;
         for (StackTraceElement frame : thread.getStackTrace()) {
@@ -13,8 +15,45 @@ public final class JoinBlockingHarness {
     public static void main(String[] args) throws Exception {
         Object context = VelnProgram.fn_start_cleanup_worker();
         Object worker = VelnRuntime.recordField(context, "worker");
+        Object cleanupStarted = VelnRuntime.recordField(context, "cleanup_started");
         Object cleanupGate = VelnRuntime.recordField(context, "cleanup_gate");
         Object cleanupFinished = VelnRuntime.recordField(context, "cleanup_finished");
+        java.util.concurrent.CountDownLatch cancellersReady =
+            new java.util.concurrent.CountDownLatch(CANCELLER_COUNT);
+        java.util.concurrent.CountDownLatch startCancellation =
+            new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch cancellersDone =
+            new java.util.concurrent.CountDownLatch(CANCELLER_COUNT);
+        java.util.concurrent.atomic.AtomicReference<Throwable> cancellationFailure =
+            new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        for (int index = 0; index < CANCELLER_COUNT; index += 1) {
+            Thread canceller = new Thread(() -> {
+                cancellersReady.countDown();
+                try {
+                    startCancellation.await();
+                    VelnRuntime.taskCancel(worker);
+                } catch (Throwable error) {
+                    cancellationFailure.compareAndSet(null, error);
+                } finally {
+                    cancellersDone.countDown();
+                }
+            }, "veln-canceller-" + index);
+            canceller.start();
+        }
+        if (!cancellersReady.await(5L, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw new AssertionError("concurrent cancellers did not become ready");
+        }
+        startCancellation.countDown();
+        Object started = VelnRuntime.channelRecv(cleanupStarted);
+        if (!started.toString().contains("started")) {
+            throw new AssertionError("cleanup did not start after cancellation: " + started);
+        }
+        if (!cancellersDone.await(5L, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw new AssertionError("concurrent cancellers did not complete");
+        }
+        if (cancellationFailure.get() != null) {
+            throw new AssertionError("concurrent cancellation failed", cancellationFailure.get());
+        }
         java.util.concurrent.atomic.AtomicReference<Object> result =
             new java.util.concurrent.atomic.AtomicReference<Object>();
         java.util.concurrent.atomic.AtomicReference<Throwable> failure =
@@ -54,6 +93,6 @@ public final class JoinBlockingHarness {
         if (!"cancelled".equals(result.get())) {
             throw new AssertionError("unexpected join result: " + result.get());
         }
-        System.out.println("join waited for cleanup completion");
+        System.out.println("concurrent cancellation preserved cleanup completion ordering");
     }
 }
