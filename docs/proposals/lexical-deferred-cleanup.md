@@ -54,13 +54,11 @@ Task cancellation cannot satisfy this proposal by abandoning the host thread.
 
 ## Cleanup-Failure Rules
 
-Cleanup failure has the following planned precedence:
+Cleanup failure has the following remaining planned precedence:
 
 | Region state before cleanup | Cleanup outcome | Region outcome |
 | --- | --- | --- |
-| Successful | Every block completes. | Preserve the region value. |
 | Successful | One or more blocks fail. | Run the remaining blocks, then propagate the first cleanup failure. |
-| Already failing | Every block completes. | Preserve the original failure. |
 | Already failing | One or more blocks fail. | Run the remaining blocks, preserve the original failure, and attach cleanup failures as ordered related failures. |
 
 A cleanup failure must not hide an earlier contract failure, runtime failure,
