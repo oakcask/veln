@@ -1,4 +1,5 @@
 use super::*;
+use crate::semantic_model::Type;
 
 fn diagnostics(source: &str) -> Vec<Diagnostic> {
     let source = SourceFile::new("main.veln", source);
@@ -106,6 +107,39 @@ fn callsite_bindings_cannot_shadow_the_builtin() {
             .iter()
             .any(|related| related.to_json().contains("Rename this binding"))
     }));
+}
+
+#[test]
+fn rejected_result_binding_does_not_override_builtin_in_contracts() {
+    let diagnostics = diagnostics(concat!(
+        "fn result() -> callsite: Int callsite\n",
+        "ensure callsite\n",
+        "  0\n",
+        "end\n",
+    ));
+
+    let contract = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "contract.type_mismatch")
+        .expect("contract type mismatch");
+    let contract_json = contract.details.to_json();
+    assert!(
+        contract_json
+            .contains("\"referenced_bindings\":[{\"name\":\"callsite\",\"kind\":\"local\"}]")
+    );
+    assert!(!contract_json.contains("\"kind\":\"result\""));
+
+    let mismatch = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.mismatch")
+        .expect("predicate type mismatch");
+    assert_eq!(
+        mismatch.message,
+        format!(
+            "expected `Bool`, but found `{}`",
+            Type::source_location().render()
+        )
+    );
 }
 
 #[test]

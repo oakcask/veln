@@ -21,7 +21,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 8
+equals = 10
 
 [[diagnostics]]
 id = "name.callsite_requires_modifier"
@@ -46,6 +46,50 @@ line = 5
 column = 14
 
 [[diagnostics]]
+id = "name.callsite_shadow"
+severity = "error"
+kind = "name"
+message = "result binding `callsite` shadows the built-in call-site location"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 9
+column = 16
+
+[[diagnostics]]
+id = "contract.type_mismatch"
+severity = "error"
+kind = "contract"
+message = "contract predicate is not `Bool`"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 10
+column = 1
+
+[[diagnostics]]
+id = "name.callsite_shadow"
+severity = "error"
+kind = "name"
+message = "local binding `callsite` shadows the built-in call-site location"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 15
+column = 7
+
+[[diagnostics]]
+id = "name.callsite_shadow"
+severity = "error"
+kind = "name"
+message = "pattern binding `callsite` shadows the built-in call-site location"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 21
+column = 5
+
+[[diagnostics]]
 id = "parse.duplicate_callsite_modifier"
 severity = "error"
 kind = "parse"
@@ -64,7 +108,7 @@ message = "unresolved value `callsite`"
 
 [diagnostics.span]
 file = "rejected.veln"
-line = 25
+line = 26
 column = 3
 
 [[diagnostics]]
@@ -75,5 +119,73 @@ message = "unresolved value `callsite`"
 
 [diagnostics.span]
 file = "rejected.veln"
-line = 33
+line = 34
 column = 16
+
+[[json_assert]]
+path = "diagnostics.3.details.binding_kind"
+equals = "parameter"
+
+[[json_assert]]
+path = "diagnostics.3.span.end.column"
+equals = 22
+
+[[json_assert]]
+path = "diagnostics.3.related"
+equals = [
+  {"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"file":"rejected.veln","start":{"line":5,"column":36,"offset":91},"end":{"line":5,"column":44,"offset":99}}},
+  {"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"file":"rejected.veln","start":{"line":5,"column":14,"offset":69},"end":{"line":5,"column":22,"offset":77}}}
+]
+
+[[json_assert]]
+path = "diagnostics.4.details.binding_kind"
+equals = "result binding"
+
+[[json_assert]]
+path = "diagnostics.4.span.end.column"
+equals = 24
+
+[[json_assert]]
+path = "diagnostics.4.related"
+equals = [
+  {"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"file":"rejected.veln","start":{"line":9,"column":30,"offset":138},"end":{"line":9,"column":38,"offset":146}}},
+  {"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"file":"rejected.veln","start":{"line":9,"column":16,"offset":124},"end":{"line":9,"column":24,"offset":132}}}
+]
+
+[[json_assert]]
+path = "diagnostics.5.details.referenced_bindings"
+equals = [{"name":"callsite","kind":"local"}]
+
+[[json_assert]]
+path = "diagnostics.6.details.actual_type"
+equals = "{package: String, module: String, file: String, start_line: Int, start_column: Int, start_offset: Int, end_line: Int, end_column: Int, end_offset: Int}"
+
+[[json_assert]]
+path = "diagnostics.7.details.binding_kind"
+equals = "local binding"
+
+[[json_assert]]
+path = "diagnostics.7.span.end.column"
+equals = 15
+
+[[json_assert]]
+path = "diagnostics.7.related"
+equals = [
+  {"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"file":"rejected.veln","start":{"line":14,"column":19,"offset":190},"end":{"line":14,"column":27,"offset":198}}},
+  {"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"file":"rejected.veln","start":{"line":15,"column":7,"offset":205},"end":{"line":15,"column":15,"offset":213}}}
+]
+
+[[json_assert]]
+path = "diagnostics.8.details.binding_kind"
+equals = "pattern binding"
+
+[[json_assert]]
+path = "diagnostics.8.span.end.column"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.8.related"
+equals = [
+  {"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"file":"rejected.veln","start":{"line":19,"column":21,"offset":252},"end":{"line":19,"column":29,"offset":260}}},
+  {"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"file":"rejected.veln","start":{"line":21,"column":5,"offset":278},"end":{"line":21,"column":13,"offset":286}}}
+]

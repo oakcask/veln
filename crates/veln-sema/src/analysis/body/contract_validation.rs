@@ -326,7 +326,8 @@ impl<'a> FunctionChecker<'a> {
                         .return_binding
                         .as_ref()
                         .is_some_and(|binding| {
-                            binding.name == name && valid_value_binding_name(&binding.name)
+                            binding.name == name
+                                && self.contract_result_binding_is_admitted(binding)
                         })
                 {
                     return Some(JsonValue::object([
@@ -351,7 +352,7 @@ impl<'a> FunctionChecker<'a> {
         let mut bindings = self.bindings.clone();
         if kind == ContractKind::Ensure
             && let Some(result_binding) = &self.function.return_binding
-            && valid_value_binding_name(&result_binding.name)
+            && self.contract_result_binding_is_admitted(result_binding)
         {
             bindings.push(Binding::new(
                 result_binding.name.clone(),
@@ -367,6 +368,14 @@ impl<'a> FunctionChecker<'a> {
             ));
         }
         bindings
+    }
+
+    fn contract_result_binding_is_admitted(
+        &self,
+        result_binding: &veln_ast::ResultBinding,
+    ) -> bool {
+        valid_value_binding_name(&result_binding.name)
+            && !(self.function.callsite.is_some() && result_binding.name == "callsite")
     }
 
     pub(super) fn parse_annotation(

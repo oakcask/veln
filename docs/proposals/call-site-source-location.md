@@ -15,8 +15,11 @@ finished or exported after the originating call stack no longer exists, so a
 later stack walk cannot recover the required logical call site.
 
 The declaration and static-checking foundation is current behavior specified in
-[Source Surface](../specification/source-surface.md#call-site-declaration-contract).
+[Call-site Declarations](../specification/call-site-declarations.md).
 This proposal tracks only the runtime propagation and presentation work below.
+
+Runtime-constructed `SourceLocation` values use one-based lines and columns.
+Columns count Unicode scalar values. Offsets count UTF-8 bytes.
 
 ## Remaining call-site-aware function behavior
 
@@ -91,12 +94,13 @@ file value.
 | S7 | A package is checked from two different absolute roots. | Exposed package, module, and file values are identical and contain neither root. | Relocation test. |
 | S8 | LSP and MCP present the declaration. | Each service identifies the modifier and built-in local variable. | LSP and MCP cases. |
 | S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
+| S10 | A call site contains non-ASCII text before and within its source span. | Lines and columns are one-based, columns count Unicode scalar values, and offsets count UTF-8 bytes. | Run case with exact start and end coordinates from a checked source fixture. |
 
 ## Verification and Promotion
 
 Remaining implementation must extend callable lowering, backend metadata, LSP,
-and MCP. The run harness must compare locations against a checked source fixture
-rather than machine paths.
+and MCP. The run harness must compare locations and their coordinate units
+against a checked source fixture rather than machine paths.
 
 After runtime implementation, the source and execution specifications must
 explain call-site propagation and generated-source mapping.

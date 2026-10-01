@@ -21,10 +21,6 @@ pub fn greet(name: String) -> () effects [stdio]
 	stdio::println(name)
 end
 
-pub fn source_line() -> Int callsite
-	callsite.start_line
-end
-
 schema Packet
 	format binary
 	length: UInt16be
@@ -34,32 +30,6 @@ end
 
 The sections below explain declarations and source boundaries. The grammar
 provides the production notation for these forms.
-
-### Call-site declaration contract
-
-`SourceLocation` is exported by the standard prelude and is available without
-an import. It is the structural record `{ package: String, module: String,
-file: String, start_line: Int, start_column: Int, start_offset: Int, end_line:
-Int, end_column: Int, end_offset: Int }`.
-
-A source `fn` declaration may place one `callsite` modifier after its optional
-`effects` clause. The modifier introduces a built-in local named `callsite`
-with type `SourceLocation`. It does not add a parameter to the function's
-ordinary callable type or change its callable arity. A returned function type
-keeps its own `effects` clause when that clause appears immediately before the
-modifier. The modifier is contextual: outside a modified function, `callsite`
-remains an ordinary identifier.
-
-Parameters, result bindings, local bindings, and pattern bindings in a
-modified function cannot be named `callsite`. The checker reports the binding
-at its name and points to the modifier as the built-in origin. An unresolved
-`callsite` value reference in an unmodified source function reports that the
-modifier is missing and explains where to add it. Tests and handler operation
-clauses cannot carry the modifier, so an unresolved `callsite` in those bodies
-uses the ordinary unresolved-name diagnostic. A second modifier is rejected at
-the duplicate token and offers removal as a repair. This declaration contract
-does not provide hidden call data or runtime location construction; calling and
-propagation behavior is not yet implemented.
 
 ### Declaration and expression inventory
 
@@ -79,6 +49,8 @@ propagation behavior is not yet implemented.
   method-call diagnostics, and the source boundary of executable `begin` and
   `defer` forms: this page.
 - Contract predicate grammar: this page.
+- Call-site-aware function declarations and their built-in local:
+  [call-site-declarations.md](call-site-declarations.md).
 - Identifier casing for source-written module headers, ADT types,
   constructors, functions, tests, public aliases, bindings, parser recovery,
   and selected-command reachability:
@@ -367,12 +339,6 @@ MemberPath    ::= Name ("::" Name)*
 - Grammar artifact: [source-surface-executable.pl](source-surface-executable.pl).
 - Parser: `crates/veln-syntax/src/parser/` and `crates/veln-syntax/src/lexer.rs`.
 - Source identity and companion visibility: `crates/veln-analysis/src/surface/`.
-- Call-site declaration checks:
-  `examples/specification/check/callsite-declaration-contract/case.toml` and
-  `examples/specification/check/callsite-declaration-contract-json/case.toml`.
-- Call-site formatter round trip:
-  `examples/specification/fmt/callsite-modifier/case.toml`.
-
 ## Read by task
 
 - Updating parser behavior, AST source shape, source metadata, declaration
