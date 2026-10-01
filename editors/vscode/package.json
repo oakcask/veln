@@ -19,7 +19,7 @@
     "workspace"
   ],
   "engines": {
-    "vscode": "^1.139.1"
+    "vscode": "^1.140.0"
   },
   "activationEvents": [
     "onLanguage:veln"
