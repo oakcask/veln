@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A proposal is added, moved, reclassified, completed, or removed.
+update-when: A proposal is added, moved, reclassified, completed, removed, or its scope or readiness changes.
 ---
 
 # Proposals
