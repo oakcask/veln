@@ -450,7 +450,10 @@ fn core_target_from_signature_name(target_name: &str) -> CoreCallTarget {
 }
 
 fn type_applied_name_path(callee: &Expr) -> Option<(&[String], &[String])> {
-    let ExprKind::TypeApply { callee, type_args } = &callee.kind else {
+    let ExprKind::TypeApply {
+        callee, type_args, ..
+    } = &callee.kind
+    else {
         return None;
     };
     let ExprKind::NamePath { segments, .. } = &callee.kind else {

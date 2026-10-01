@@ -78,10 +78,17 @@ impl Writer {
 
     fn invocation_expr_kind(&mut self, value: &ExprKind) {
         match value {
-            ExprKind::TypeApply { callee, type_args } => {
+            ExprKind::TypeApply {
+                callee,
+                type_args,
+                type_arg_refinements,
+            } => {
                 self.u8(8);
                 self.expr(callee);
                 self.vec(type_args, |writer, value| writer.string(value));
+                self.vec(type_arg_refinements, |writer, refinements| {
+                    writer.vec(refinements, Self::variant_refinement);
+                });
             }
             ExprKind::Call { callee, args } => {
                 self.u8(9);

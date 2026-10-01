@@ -129,7 +129,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 }
             }
             ExprKind::Hole { .. } => {}
-            ExprKind::TypeApply { callee, type_args } => {
+            ExprKind::TypeApply {
+                callee, type_args, ..
+            } => {
                 self.collect_type_apply(callee, type_args, current_module, local_bindings, spans);
             }
             ExprKind::Call { callee, args } => {

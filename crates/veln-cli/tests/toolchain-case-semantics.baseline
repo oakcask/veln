@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"b10c8385a297fc1c4b76fb4df446555c1be8daf1"
+source_git_tree	"50228daa3a09c8d42caae8957fe2da17ef7c4f58"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1741
+case_count	1742
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -12924,6 +12924,18 @@ field	invocation.command[1]	"main.veln"
 field	invocation.repeat	2
 field	source_errors	"forbidden"
 case_digest	"aa273c77ba7eb6e54606bc63a68b621e4be39f9f24b072c4f123a44da3cd9671"
+case	"examples/specification/fmt/variant-refinement-syntax"
+field	expectations.exit	0
+field	expectations.file_assertions[0].equals	{"logical_field":"expectations.file_assertions[0].equals","byte_length":373,"sha256":"a7da43661a7e5a3a1e5033bc6a2914466a69286b08cad3062709019f88626af3"}
+field	expectations.file_assertions[0].operation	"equals"
+field	expectations.file_assertions[0].path	"main.veln"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"fmt"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	2
+field	source_errors	"expected"
+case_digest	"cd8f724a9c2416c33606b88e267b93f80cc78e52d4b8d980b0a1ddf1b94ef571"
 case	"examples/specification/lsp/ambiguous-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62693,4 +62705,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"e718be25e6353aeb797bcbfe78306a526e0505134ec02f82438828b65d1ae9f0"
+aggregate_digest	"457c45cf59c692c913807ac572aace9655991c40b86ca0ad36849bfcee8c1fe4"

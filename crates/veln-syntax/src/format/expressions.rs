@@ -218,7 +218,9 @@ fn format_application_expr(
     comments: Option<&LineComments>,
 ) -> String {
     match kind {
-        ExprKind::TypeApply { callee, type_args } => {
+        ExprKind::TypeApply {
+            callee, type_args, ..
+        } => {
             let type_args = type_args
                 .iter()
                 .map(|arg| canonical_type_text(arg))

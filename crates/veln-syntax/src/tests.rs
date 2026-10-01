@@ -28,3 +28,4 @@ mod modules_and_contracts;
 mod patterns_and_comments;
 mod patterns_and_control_flow;
 mod schemas;
+mod variant_refinements;

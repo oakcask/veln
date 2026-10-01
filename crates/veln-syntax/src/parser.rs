@@ -9,7 +9,8 @@ use crate::{
     PatternField, PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField,
     SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
     SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypePathSegments,
-    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility,
+    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage,
+    VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
     lex,
 };
 
@@ -245,10 +246,19 @@ struct FunctionReturn {
     ty: Option<String>,
     ty_span: Option<SourceSpan>,
     ty_paths: Vec<TypePathSegments>,
+    ty_refinements: Vec<VariantRefinementType>,
     effects: Option<Vec<String>>,
     effect_spans: Option<Vec<SourceSpan>>,
     effects_recovered: bool,
     callsite: Option<SourceSpan>,
+}
+
+struct FunctionReturnType {
+    binding: Option<crate::ResultBinding>,
+    ty: Option<String>,
+    span: Option<SourceSpan>,
+    paths: Vec<TypePathSegments>,
+    refinements: Vec<VariantRefinementType>,
 }
 
 struct HandlerHeader {
@@ -304,7 +314,9 @@ enum TypeArgumentTokenAction {
 #[derive(Default)]
 struct TypeArgumentListState {
     args: Vec<String>,
+    arg_tokens: Vec<Vec<Token>>,
     current: String,
+    current_tokens: Vec<Token>,
     nesting: TypeArgumentNesting,
 }
 
@@ -366,6 +378,9 @@ impl TypeArgumentListState {
                 nested_angle_closers,
             } => {
                 self.current.push_str(&">".repeat(nested_angle_closers));
+                if nested_angle_closers > 0 {
+                    self.current_tokens.push(token.clone());
+                }
                 self.flush_current(false);
                 true
             }
@@ -375,6 +390,7 @@ impl TypeArgumentListState {
             }
             TypeArgumentTokenAction::Append => {
                 self.current.push_str(&token.text);
+                self.current_tokens.push(token.clone());
                 false
             }
         }
@@ -384,12 +400,14 @@ impl TypeArgumentListState {
         if include_empty || !self.current.is_empty() {
             let current = std::mem::take(&mut self.current);
             self.args.push(normalize_type_text(vec![current]));
+            self.arg_tokens
+                .push(std::mem::take(&mut self.current_tokens));
         }
     }
 
-    fn finish(mut self) -> Vec<String> {
+    fn finish(mut self) -> (Vec<String>, Vec<Vec<Token>>) {
         self.flush_current(false);
-        self.args
+        (self.args, self.arg_tokens)
     }
 }
 

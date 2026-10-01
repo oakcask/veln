@@ -100,6 +100,98 @@ fn surface_wire_round_trip_preserves_expression_families() {
 }
 
 #[test]
+fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
+    let source = concat!(
+        "effect Transition\n",
+        "  move(state: State::Ready | State::Closed) -> Result<Int, Error>::Ok\n",
+        "end\n",
+        "type Boxed\n",
+        "  Box(value: protocol::State::Ready | protocol::State::Closed)\n",
+        "end\n",
+        "schema Packet\n",
+        "  state: State::Ready | State::Closed\n",
+        "end\n",
+        "fn advance(state: State::Ready | State::Closed) -> Result<Int, Error>::Ok\n",
+        "  let exact: State::Ready | State::Ready = state\n",
+        "  sink<State::Ready | State::Closed>(exact)\n",
+        "  exact\n",
+        "end\n",
+    );
+    let module = lower_source(source);
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    let parameter_union = &decoded.functions[0].params[0].ty_refinements[0];
+    assert_eq!(parameter_union.alternatives.len(), 2);
+    assert_eq!(parameter_union.alternatives[0].base.segments, ["State"]);
+    assert_eq!(parameter_union.alternatives[0].variant, "Ready");
+    assert_eq!(parameter_union.alternatives[1].variant, "Closed");
+    assert_eq!(
+        &source
+            [parameter_union.pipe_spans[0].start.offset..parameter_union.pipe_spans[0].end.offset],
+        "|"
+    );
+
+    let result = &decoded.functions[0].return_type_refinements[0].alternatives[0];
+    assert_eq!(result.base.segments, ["Result"]);
+    assert_eq!(
+        result
+            .type_arguments
+            .iter()
+            .map(|argument| argument.text.as_str())
+            .collect::<Vec<_>>(),
+        ["Int", "Error"]
+    );
+    assert_eq!(result.variant, "Ok");
+
+    assert_eq!(
+        decoded.effects[0].operations[0].params[0]
+            .ty_refinements
+            .len(),
+        1
+    );
+    assert_eq!(
+        decoded.effects[0].operations[0]
+            .return_type_refinements
+            .len(),
+        1
+    );
+    assert_eq!(
+        decoded.types[0].variants[0].fields[0].ty_refinements.len(),
+        1
+    );
+    assert_eq!(decoded.schemas[0].fields[0].ty_refinements.len(), 1);
+    let BodyLineKind::Let {
+        annotation_structure,
+        ..
+    } = &decoded.functions[0].body[0].kind
+    else {
+        panic!("expected annotated let");
+    };
+    assert_eq!(
+        annotation_structure.variant_refinements[0]
+            .alternatives
+            .len(),
+        2
+    );
+    let BodyLineKind::Expr { expr } = &decoded.functions[0].body[1].kind else {
+        panic!("expected call expression line");
+    };
+    let ExprKind::Call { callee, .. } = &expr.kind else {
+        panic!("expected call expression");
+    };
+    let ExprKind::TypeApply {
+        type_arg_refinements,
+        ..
+    } = &callee.kind
+    else {
+        panic!("expected type application");
+    };
+    assert_eq!(type_arg_refinements[0][0].alternatives.len(), 2);
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_callsite_modifier_span() {
     let module = lower_source("fn located() -> SourceLocation callsite\n  callsite\nend\n");
     let encoded = encode_surface_module(&module);

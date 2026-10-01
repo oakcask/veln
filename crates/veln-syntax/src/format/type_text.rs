@@ -1,7 +1,26 @@
 use super::*;
 
 pub fn canonical_type_text(text: &str) -> String {
-    canonicalize_commas(&canonicalize_type_segment(text))
+    canonicalize_variant_union_spacing(&canonicalize_commas(&canonicalize_type_segment(text)))
+}
+
+fn canonicalize_variant_union_spacing(text: &str) -> String {
+    let mut out = String::new();
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '|' {
+            out.push(ch);
+            continue;
+        }
+        while out.ends_with(char::is_whitespace) {
+            out.pop();
+        }
+        out.push_str(" | ");
+        while chars.peek().is_some_and(|next| next.is_whitespace()) {
+            chars.next();
+        }
+    }
+    out
 }
 
 fn canonicalize_commas(text: &str) -> String {

@@ -6,11 +6,13 @@ use crate::{
     HandlerOperationClauseDecl, IfBranch, InvalidName, MatchArm, ModuleHeader, NameClass,
     NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,
     PublicAliasKind, RecordField, ResultBinding, SatisfyClause, SchemaDecl, SchemaField,
-    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl,
-    TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule,
+    TypeAnnotationStructure, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
+    UseDecl, UseOrigin, VariantRefinementAlternative, VariantRefinementType,
+    VariantRefinementTypeArgument, Visibility,
 };
 
-const MAGIC: &[u8; 8] = b"VLNAST3\n";
+const MAGIC: &[u8; 8] = b"VLNAST4\n";
 
 mod decoder;
 mod encoder;

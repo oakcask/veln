@@ -50,7 +50,10 @@ impl<'a> ExprParser<'a> {
         if self.at(TokenKind::Let) {
             self.bump();
             let pattern = self.parse_pattern();
-            let (annotation, annotation_paths) = if self.eat(TokenKind::Colon).is_some() {
+            let (annotation, annotation_paths, annotation_refinements) = if self
+                .eat(TokenKind::Colon)
+                .is_some()
+            {
                 let mut tokens = Vec::new();
                 let mut parts = Vec::new();
                 let mut depth = 0usize;
@@ -75,12 +78,48 @@ impl<'a> ExprParser<'a> {
                     parts.push(token.text.clone());
                     tokens.push(token);
                 }
+                let (refinements, consumed_pipes) =
+                    super::body_and_types::build_variant_refinements(self.source, &tokens);
+                for (index, token) in tokens.iter().enumerate() {
+                    if token.kind == TokenKind::Pipe && !consumed_pipes[index] {
+                        self.error_at_token(
+                            token,
+                            DiagnosticRequest {
+                                id: "parse.variant_refinement_type",
+                                message:
+                                    "`|` must join complete ADT variant refinement alternatives"
+                                        .to_string(),
+                                parser_context: "let_statement",
+                                expected: vec!["NamedAdtType::Variant"],
+                                strategy: RecoveryStrategy::SkipToken,
+                                anchor: Some("type annotation"),
+                                repair_candidates: Vec::new(),
+                            },
+                        );
+                    }
+                }
+                for (index, message) in super::body_and_types::malformed_refinement_syntax(&tokens)
+                {
+                    self.error_at_token(
+                        &tokens[index],
+                        DiagnosticRequest {
+                            id: "parse.variant_refinement_type",
+                            message: message.to_string(),
+                            parser_context: "let_statement",
+                            expected: vec!["NamedAdtType::Variant"],
+                            strategy: RecoveryStrategy::InsertToken,
+                            anchor: Some("type annotation"),
+                            repair_candidates: Vec::new(),
+                        },
+                    );
+                }
                 (
                     Some(normalize_type_text(parts)),
                     cleanup_type_paths(self.source, &tokens),
+                    refinements,
                 )
             } else {
-                (None, Vec::new())
+                (None, Vec::new(), Vec::new())
             };
             self.expect_expr_token(
                 TokenKind::Equal,
@@ -93,7 +132,8 @@ impl<'a> ExprParser<'a> {
             return BodyLine::Let {
                 pattern,
                 annotation,
-                annotation_paths,
+                annotation_paths: annotation_paths.into_boxed_slice(),
+                annotation_refinements: annotation_refinements.into_boxed_slice(),
                 expr,
                 span: self.source.span(start.cover(end)),
             };

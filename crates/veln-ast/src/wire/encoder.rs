@@ -77,6 +77,23 @@ impl Writer {
         self.vec(&value.segment_spans, Self::span);
     }
 
+    fn variant_refinement(&mut self, value: &VariantRefinementType) {
+        self.vec(&value.alternatives, Self::variant_refinement_alternative);
+        self.vec(&value.pipe_spans, Self::span);
+        self.span(&value.span);
+    }
+
+    fn variant_refinement_alternative(&mut self, value: &VariantRefinementAlternative) {
+        self.type_path_segments(&value.base);
+        self.vec(&value.type_arguments, |writer, argument| {
+            writer.string(&argument.text);
+            writer.span(&argument.span);
+        });
+        self.string(&value.variant);
+        self.span(&value.variant_span);
+        self.span(&value.span);
+    }
+
     fn surface_module(&mut self, module: &SurfaceModule) {
         self.option(&module.module, Self::module_header);
         self.vec(&module.uses, Self::use_decl);
@@ -177,6 +194,7 @@ impl Writer {
         self.vec(&value.params, Self::param);
         self.option(&value.return_type, |writer, value| writer.string(value));
         self.vec(&value.return_type_paths, Self::type_path_segments);
+        self.vec(&value.return_type_refinements, Self::variant_refinement);
         self.span(&value.span);
     }
 
@@ -230,6 +248,7 @@ impl Writer {
         self.string(&value.name);
         self.string(&value.ty);
         self.vec(&value.ty_paths, Self::type_path_segments);
+        self.vec(&value.ty_refinements, Self::variant_refinement);
         self.span(&value.span);
     }
 
@@ -255,6 +274,7 @@ impl Writer {
         self.string(&value.name);
         self.string(&value.ty);
         self.vec(&value.ty_paths, Self::type_path_segments);
+        self.vec(&value.ty_refinements, Self::variant_refinement);
         self.option(&value.where_clause, Self::schema_field_where);
         self.span(&value.span);
     }
@@ -283,6 +303,7 @@ impl Writer {
         self.option(&value.return_type, |writer, value| writer.string(value));
         self.option(&value.return_type_span, Self::span);
         self.vec(&value.return_type_paths, Self::type_path_segments);
+        self.vec(&value.return_type_refinements, Self::variant_refinement);
         self.option(&value.effects, |writer, values| {
             writer.vec(values, |writer, value| writer.string(value));
         });
@@ -314,6 +335,7 @@ impl Writer {
         self.option(&value.ty, |writer, value| writer.string(value));
         self.option(&value.ty_span, Self::span);
         self.vec(&value.ty_paths, Self::type_path_segments);
+        self.vec(&value.ty_refinements, Self::variant_refinement);
         self.bool(value.is_variadic);
         self.span(&value.span);
     }
@@ -346,13 +368,17 @@ impl Writer {
             BodyLineKind::Let {
                 pattern,
                 annotation,
-                annotation_paths,
+                annotation_structure,
                 expr,
             } => {
                 self.u8(0);
                 self.pattern(pattern);
                 self.option(annotation, |writer, value| writer.string(value));
-                self.vec(annotation_paths, Self::type_path_segments);
+                self.vec(&annotation_structure.paths, Self::type_path_segments);
+                self.vec(
+                    &annotation_structure.variant_refinements,
+                    Self::variant_refinement,
+                );
                 self.expr(expr);
             }
             BodyLineKind::Expr { expr } => {

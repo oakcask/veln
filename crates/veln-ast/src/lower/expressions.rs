@@ -47,9 +47,17 @@ impl AstBuilder {
 
     fn lower_call_like_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
         match &expr.kind {
-            SyntaxExprKind::TypeApply { callee, type_args } => Some(ExprKind::TypeApply {
+            SyntaxExprKind::TypeApply {
+                callee,
+                type_args,
+                type_arg_refinements,
+            } => Some(ExprKind::TypeApply {
                 callee: Box::new(self.lower_expr(callee)),
                 type_args: type_args.clone(),
+                type_arg_refinements: type_arg_refinements
+                    .iter()
+                    .map(|refinements| self.lower_variant_refinements(refinements))
+                    .collect(),
             }),
             SyntaxExprKind::Call { callee, args } => Some(ExprKind::Call {
                 callee: Box::new(self.lower_expr(callee)),
