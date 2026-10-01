@@ -1560,34 +1560,123 @@ field	expectations.diagnostics[1].severity	"error"
 field	expectations.diagnostics[1].span.column	14
 field	expectations.diagnostics[1].span.file	"rejected.veln"
 field	expectations.diagnostics[1].span.line	5
-field	expectations.diagnostics[2].id	"parse.duplicate_callsite_modifier"
-field	expectations.diagnostics[2].kind	"parse"
-field	expectations.diagnostics[2].message	"duplicate `callsite` function modifier"
+field	expectations.diagnostics[2].id	"name.callsite_shadow"
+field	expectations.diagnostics[2].kind	"name"
+field	expectations.diagnostics[2].message	"result binding `callsite` shadows the built-in call-site location"
 field	expectations.diagnostics[2].severity	"error"
-field	expectations.diagnostics[2].span.column	43
-field	expectations.diagnostics[2].span.file	"duplicate.veln"
-field	expectations.diagnostics[2].span.line	1
-field	expectations.diagnostics[3].id	"name.unresolved"
-field	expectations.diagnostics[3].kind	"name"
-field	expectations.diagnostics[3].message	"unresolved value `callsite`"
+field	expectations.diagnostics[2].span.column	16
+field	expectations.diagnostics[2].span.file	"rejected.veln"
+field	expectations.diagnostics[2].span.line	9
+field	expectations.diagnostics[3].id	"contract.type_mismatch"
+field	expectations.diagnostics[3].kind	"contract"
+field	expectations.diagnostics[3].message	"contract predicate is not `Bool`"
 field	expectations.diagnostics[3].severity	"error"
-field	expectations.diagnostics[3].span.column	3
+field	expectations.diagnostics[3].span.column	1
 field	expectations.diagnostics[3].span.file	"rejected.veln"
-field	expectations.diagnostics[3].span.line	25
-field	expectations.diagnostics[4].id	"name.unresolved"
+field	expectations.diagnostics[3].span.line	10
+field	expectations.diagnostics[4].id	"name.callsite_shadow"
 field	expectations.diagnostics[4].kind	"name"
-field	expectations.diagnostics[4].message	"unresolved value `callsite`"
+field	expectations.diagnostics[4].message	"local binding `callsite` shadows the built-in call-site location"
 field	expectations.diagnostics[4].severity	"error"
-field	expectations.diagnostics[4].span.column	16
+field	expectations.diagnostics[4].span.column	7
 field	expectations.diagnostics[4].span.file	"rejected.veln"
-field	expectations.diagnostics[4].span.line	33
+field	expectations.diagnostics[4].span.line	15
+field	expectations.diagnostics[5].id	"name.callsite_shadow"
+field	expectations.diagnostics[5].kind	"name"
+field	expectations.diagnostics[5].message	"pattern binding `callsite` shadows the built-in call-site location"
+field	expectations.diagnostics[5].severity	"error"
+field	expectations.diagnostics[5].span.column	5
+field	expectations.diagnostics[5].span.file	"rejected.veln"
+field	expectations.diagnostics[5].span.line	21
+field	expectations.diagnostics[6].id	"parse.duplicate_callsite_modifier"
+field	expectations.diagnostics[6].kind	"parse"
+field	expectations.diagnostics[6].message	"duplicate `callsite` function modifier"
+field	expectations.diagnostics[6].severity	"error"
+field	expectations.diagnostics[6].span.column	43
+field	expectations.diagnostics[6].span.file	"duplicate.veln"
+field	expectations.diagnostics[6].span.line	1
+field	expectations.diagnostics[7].id	"name.unresolved"
+field	expectations.diagnostics[7].kind	"name"
+field	expectations.diagnostics[7].message	"unresolved value `callsite`"
+field	expectations.diagnostics[7].severity	"error"
+field	expectations.diagnostics[7].span.column	3
+field	expectations.diagnostics[7].span.file	"rejected.veln"
+field	expectations.diagnostics[7].span.line	26
+field	expectations.diagnostics[8].id	"name.unresolved"
+field	expectations.diagnostics[8].kind	"name"
+field	expectations.diagnostics[8].message	"unresolved value `callsite`"
+field	expectations.diagnostics[8].severity	"error"
+field	expectations.diagnostics[8].span.column	16
+field	expectations.diagnostics[8].span.file	"rejected.veln"
+field	expectations.diagnostics[8].span.line	34
+field	expectations.diagnostics[9].id	"name.callsite_requires_modifier"
+field	expectations.diagnostics[9].kind	"name"
+field	expectations.diagnostics[9].message	"unresolved `callsite`; the function is missing the `callsite` modifier"
+field	expectations.diagnostics[9].severity	"error"
+field	expectations.diagnostics[9].span.column	1
+field	expectations.diagnostics[9].span.file	"rejected.veln"
+field	expectations.diagnostics[9].span.line	38
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals	8
+field	expectations.json_assertions[10].equals	24
+field	expectations.json_assertions[10].operation	"equals"
+field	expectations.json_assertions[10].path	"diagnostics.4.span.end.column"
+field	expectations.json_assertions[11].equals	[{"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"end":{"column":38,"line":9,"offset":146},"file":"rejected.veln","start":{"column":30,"line":9,"offset":138}}},{"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"end":{"column":24,"line":9,"offset":132},"file":"rejected.veln","start":{"column":16,"line":9,"offset":124}}}]
+field	expectations.json_assertions[11].operation	"equals"
+field	expectations.json_assertions[11].path	"diagnostics.4.related"
+field	expectations.json_assertions[12].equals	[{"kind":"local","name":"callsite"}]
+field	expectations.json_assertions[12].operation	"equals"
+field	expectations.json_assertions[12].path	"diagnostics.5.details.referenced_bindings"
+field	expectations.json_assertions[13].equals	"{package: String, module: String, file: String, start_line: Int, start_column: Int, start_offset: Int, end_line: Int, end_column: Int, end_offset: Int}"
+field	expectations.json_assertions[13].operation	"equals"
+field	expectations.json_assertions[13].path	"diagnostics.6.details.actual_type"
+field	expectations.json_assertions[14].equals	"local binding"
+field	expectations.json_assertions[14].operation	"equals"
+field	expectations.json_assertions[14].path	"diagnostics.7.details.binding_kind"
+field	expectations.json_assertions[15].equals	15
+field	expectations.json_assertions[15].operation	"equals"
+field	expectations.json_assertions[15].path	"diagnostics.7.span.end.column"
+field	expectations.json_assertions[16].equals	[{"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"end":{"column":27,"line":14,"offset":198},"file":"rejected.veln","start":{"column":19,"line":14,"offset":190}}},{"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"end":{"column":15,"line":15,"offset":213},"file":"rejected.veln","start":{"column":7,"line":15,"offset":205}}}]
+field	expectations.json_assertions[16].operation	"equals"
+field	expectations.json_assertions[16].path	"diagnostics.7.related"
+field	expectations.json_assertions[17].equals	"pattern binding"
+field	expectations.json_assertions[17].operation	"equals"
+field	expectations.json_assertions[17].path	"diagnostics.8.details.binding_kind"
+field	expectations.json_assertions[18].equals	13
+field	expectations.json_assertions[18].operation	"equals"
+field	expectations.json_assertions[18].path	"diagnostics.8.span.end.column"
+field	expectations.json_assertions[19].equals	[{"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"end":{"column":29,"line":19,"offset":260},"file":"rejected.veln","start":{"column":21,"line":19,"offset":252}}},{"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"end":{"column":13,"line":21,"offset":286},"file":"rejected.veln","start":{"column":5,"line":21,"offset":278}}}]
+field	expectations.json_assertions[19].operation	"equals"
+field	expectations.json_assertions[19].path	"diagnostics.8.related"
+field	expectations.json_assertions[1].equals	11
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.json_assertions[2].equals	[{"kind":"repair_hint","message":"Remove the duplicate `callsite` modifier.","span":{"end":{"column":51,"line":1,"offset":50},"file":"duplicate.veln","start":{"column":43,"line":1,"offset":42}}}]
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.related"
+field	expectations.json_assertions[3].equals	[{"candidates":[{"application_policy":"automatic","application_status":"available","candidate_id":"parse.duplicate_callsite_modifier.remove","edit_summary":"Remove the duplicate `callsite` modifier.","edits":[{"kind":"replace","replacement":"","span":{"end":{"column":51,"line":1,"offset":50},"file":"duplicate.veln","start":{"column":43,"line":1,"offset":42}}}],"name":"Remove duplicate modifier"}],"query_id":"parse.duplicate_callsite_modifier"}]
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.details.candidate_queries"
+field	expectations.json_assertions[4].equals	[{"kind":"repair_hint","message":"Add `callsite` after the function's optional effects clause.","span":{"end":{"column":1,"line":4,"offset":55},"file":"rejected.veln","start":{"column":1,"line":1,"offset":0}}}]
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.2.related"
+field	expectations.json_assertions[5].equals	[{"kind":"repair_hint","message":"Add `callsite` after the function's optional effects clause.","span":{"end":{"column":1,"line":41,"offset":526},"file":"rejected.veln","start":{"column":1,"line":37,"offset":463}}}]
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"diagnostics.10.related"
+field	expectations.json_assertions[6].equals	"parameter"
+field	expectations.json_assertions[6].operation	"equals"
+field	expectations.json_assertions[6].path	"diagnostics.3.details.binding_kind"
+field	expectations.json_assertions[7].equals	22
+field	expectations.json_assertions[7].operation	"equals"
+field	expectations.json_assertions[7].path	"diagnostics.3.span.end.column"
+field	expectations.json_assertions[8].equals	[{"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"end":{"column":44,"line":5,"offset":99},"file":"rejected.veln","start":{"column":36,"line":5,"offset":91}}},{"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"end":{"column":22,"line":5,"offset":77},"file":"rejected.veln","start":{"column":14,"line":5,"offset":69}}}]
+field	expectations.json_assertions[8].operation	"equals"
+field	expectations.json_assertions[8].path	"diagnostics.3.related"
+field	expectations.json_assertions[9].equals	"result binding"
+field	expectations.json_assertions[9].operation	"equals"
+field	expectations.json_assertions[9].path	"diagnostics.4.details.binding_kind"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":\"name.callsite_requires_modifier\""
 field	expectations.stdout.contains[1]	"\"id\":\"name.callsite_shadow\""
@@ -1603,7 +1692,7 @@ field	invocation.command[3]	"rejected.veln"
 field	invocation.command[4]	"duplicate.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"97c466637111310c06dc49d924a03d3125f034eee3138995989215d83bc41ccb"
+case_digest	"315b0b0c8e317a7795c044f75aaa8f88d669ee7df7e9660f232bff7d0bba8088"
 case	"examples/specification/check/channel-first-stream-routing-effects"
 field	expectations.diagnostics[0].id	"effect.missing_public"
 field	expectations.diagnostics[0].kind	"effect"
@@ -15102,7 +15191,7 @@ field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"definitionProvider\":true"
 field	expectations.stdout.contains[1]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/"
-field	expectations.stdout.contains[2]	"/prelude.veln\",\"range\":{\"start\":{\"line\":103,\"character\":7},\"end\":{\"line\":103,\"character\":11}}"
+field	expectations.stdout.contains[2]	"/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"
 field	expectations.stdout.contains[3]	"\"id\":3,\"result\":null"
 field	expectations.stdout.not_contains[0]	"\"id\":2,\"result\":null"
 field	expectations.stdout.not_contains[1]	"crates/veln-stdlib"
@@ -15111,7 +15200,7 @@ field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":422,"sha256":"5a95441b801ed21613ae7bcaf439a0ce804efc3545665b6d95459845614a5370"}
 field	source_errors	"forbidden"
-case_digest	"a3400344038d8aeaf8b99d5b21fa95ee22b3fd11faddaa865bbae1198a2f5a24"
+case_digest	"51263460dd4eb590a15ba4b791e94e4cc0e5741cabfa5ce976f716d9aa1a2a59"
 case	"examples/specification/lsp/publish-diagnostics"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -62546,4 +62635,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"f4eebd5d2aef9ac41dad8c8ad3de753927b35cabd676d05ef51c338249a42dbe"
+aggregate_digest	"ecb039b463e763cfb376c8de7cc12dd721bbd764786cd73058b389fb816b21d4"

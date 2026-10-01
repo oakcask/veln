@@ -73,7 +73,7 @@ impl<'a> FunctionChecker<'a> {
         symbol: &str,
         namespace: &'static str,
     ) {
-        if namespace == "value"
+        if matches!(namespace, "value" | "contract_predicate")
             && symbol == "callsite"
             && self.function.callsite.is_none()
             && self.supports_callsite_modifier

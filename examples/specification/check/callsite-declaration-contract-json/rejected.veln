@@ -33,3 +33,8 @@ end
 handler locate() handles Locate
   current() => callsite
 end
+
+fn contract_missing_modifier() -> ()
+require callsite
+  ()
+end

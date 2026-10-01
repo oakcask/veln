@@ -25,7 +25,7 @@ pub(crate) fn collect_private_reference_pattern_bindings(
     bindings: &mut Vec<Binding>,
 ) {
     pattern.for_each_binding(&mut |name| {
-        if valid_value_binding_name(name) {
+        if valid_value_binding_name(name) && !is_rejected_callsite_binding(name, bindings) {
             bindings.push(Binding::new(name.to_string(), Type::Unknown));
         }
     });

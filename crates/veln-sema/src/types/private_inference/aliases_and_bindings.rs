@@ -12,10 +12,7 @@ pub(crate) fn function_body_param_type(param: &veln_ast::Param) -> Type {
 pub(crate) fn function_parameter_bindings(function: &Function) -> Vec<Binding> {
     let mut bindings = Vec::new();
     if function.callsite.is_some() {
-        bindings.push(Binding::new(
-            "callsite".to_string(),
-            Type::source_location(),
-        ));
+        bindings.push(Binding::builtin_callsite());
     }
     bindings.extend(
         function
@@ -115,7 +112,7 @@ pub(crate) fn collect_let_pattern_bindings(
 ) {
     match &pattern.kind {
         PatternKind::Binding(name) => {
-            if valid_value_binding_name(name) {
+            if valid_value_binding_name(name) && !is_rejected_callsite_binding(name, bindings) {
                 bindings.push(match private_function_value {
                     Some(target) => {
                         Binding::private_function_value(name.clone(), ty.clone(), target)
@@ -138,6 +135,10 @@ pub(crate) fn collect_let_pattern_bindings(
         | PatternKind::Unit
         | PatternKind::Constructor { .. } => {}
     }
+}
+
+pub(crate) fn is_rejected_callsite_binding(name: &str, bindings: &[Binding]) -> bool {
+    name == "callsite" && bindings.iter().any(|binding| binding.is_builtin_callsite)
 }
 
 pub(crate) fn imported_function_is_visible(

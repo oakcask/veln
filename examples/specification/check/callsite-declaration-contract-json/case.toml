@@ -21,7 +21,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 10
+equals = 11
 
 [[diagnostics]]
 id = "name.callsite_requires_modifier"
@@ -121,6 +121,41 @@ message = "unresolved value `callsite`"
 file = "rejected.veln"
 line = 34
 column = 16
+
+[[diagnostics]]
+id = "name.callsite_requires_modifier"
+severity = "error"
+kind = "name"
+message = "unresolved `callsite`; the function is missing the `callsite` modifier"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 38
+column = 1
+
+[[json_assert]]
+path = "diagnostics.0.related"
+equals = [
+  {"kind":"repair_hint","message":"Remove the duplicate `callsite` modifier.","span":{"file":"duplicate.veln","start":{"line":1,"column":43,"offset":42},"end":{"line":1,"column":51,"offset":50}}}
+]
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries"
+equals = [
+  {"query_id":"parse.duplicate_callsite_modifier","candidates":[{"candidate_id":"parse.duplicate_callsite_modifier.remove","name":"Remove duplicate modifier","application_policy":"automatic","application_status":"available","edit_summary":"Remove the duplicate `callsite` modifier.","edits":[{"kind":"replace","span":{"file":"duplicate.veln","start":{"line":1,"column":43,"offset":42},"end":{"line":1,"column":51,"offset":50}},"replacement":""}]}]}
+]
+
+[[json_assert]]
+path = "diagnostics.2.related"
+equals = [
+  {"kind":"repair_hint","message":"Add `callsite` after the function's optional effects clause.","span":{"file":"rejected.veln","start":{"line":1,"column":1,"offset":0},"end":{"line":4,"column":1,"offset":55}}}
+]
+
+[[json_assert]]
+path = "diagnostics.10.related"
+equals = [
+  {"kind":"repair_hint","message":"Add `callsite` after the function's optional effects clause.","span":{"file":"rejected.veln","start":{"line":37,"column":1,"offset":463},"end":{"line":41,"column":1,"offset":526}}}
+]
 
 [[json_assert]]
 path = "diagnostics.3.details.binding_kind"

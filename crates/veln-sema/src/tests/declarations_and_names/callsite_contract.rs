@@ -28,18 +28,36 @@ fn private_return_inference_sees_the_callsite_binding() {
 
 #[test]
 fn unresolved_callsite_reference_suggests_the_modifier() {
-    let diagnostics = diagnostics("pub fn location() -> SourceLocation\n  callsite\nend\n");
+    let diagnostics = diagnostics(concat!(
+        "pub fn location() -> SourceLocation\n",
+        "  callsite\n",
+        "end\n",
+        "pub fn guarded() -> ()\n",
+        "require callsite\n",
+        "  ()\n",
+        "end\n",
+    ));
 
-    let diagnostic = diagnostics
+    let missing_modifiers = diagnostics
         .iter()
-        .find(|diagnostic| diagnostic.id == "name.callsite_requires_modifier")
-        .expect("missing modifier diagnostic");
-    assert_diagnostic_span(diagnostic, 2, 3, 2, 11);
-    assert!(diagnostic.related.iter().any(|related| {
-        related
-            .to_json()
-            .contains("Add `callsite` after the function's optional effects clause.")
+        .filter(|diagnostic| diagnostic.id == "name.callsite_requires_modifier")
+        .collect::<Vec<_>>();
+    assert_eq!(missing_modifiers.len(), 2, "{diagnostics:#?}");
+    assert_diagnostic_span(missing_modifiers[0], 2, 3, 2, 11);
+    assert_diagnostic_span(missing_modifiers[1], 5, 1, 6, 1);
+    assert!(missing_modifiers.iter().all(|diagnostic| {
+        diagnostic.related.iter().any(|related| {
+            related
+                .to_json()
+                .contains("Add `callsite` after the function's optional effects clause.")
+        })
     }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
@@ -139,6 +157,36 @@ fn rejected_result_binding_does_not_override_builtin_in_contracts() {
             "expected `Bool`, but found `{}`",
             Type::source_location().render()
         )
+    );
+}
+
+#[test]
+fn rejected_body_bindings_do_not_override_builtin_during_private_return_inference() {
+    let diagnostics = diagnostics(concat!(
+        "fn local() callsite\n",
+        "  let callsite: Int = 1\n",
+        "  callsite\n",
+        "end\n",
+        "fn pattern() callsite\n",
+        "  match true\n",
+        "    callsite => callsite\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.callsite_shadow")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{diagnostics:#?}"
     );
 }
 

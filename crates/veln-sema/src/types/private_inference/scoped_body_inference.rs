@@ -176,10 +176,7 @@ pub(crate) fn private_function_body_bindings(
         .and_then(|name| signatures_by_path.get(&(function.module_name.clone(), name.clone())));
     let mut bindings = Vec::new();
     if function.callsite.is_some() {
-        bindings.push(Binding::new(
-            "callsite".to_string(),
-            Type::source_location(),
-        ));
+        bindings.push(Binding::builtin_callsite());
     }
     bindings.extend(
         function

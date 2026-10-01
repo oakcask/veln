@@ -93,3 +93,51 @@ fn private_reference_discovery_stops_before_later_children_and_body_lines() {
     );
     assert_eq!(names, ["first", "second"]);
 }
+
+#[test]
+fn rejected_callsite_aliases_and_patterns_preserve_the_builtin_binding() {
+    let source = veln_source::SourceFile::new(
+        "references.veln",
+        concat!(
+            "fn first() -> Int\n",
+            "  1\n",
+            "end\n",
+            "fn subject() callsite\n",
+            "  let callsite = first\n",
+            "  callsite\n",
+            "  match true\n",
+            "    callsite => callsite\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = veln_syntax::parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = veln_ast::lower_surface_ast(&parsed.tree);
+
+    let mut names = Vec::new();
+    let _ = visit_subject(&module, &mut |key| {
+        names.push(key.1);
+        ControlFlow::Continue(())
+    });
+    assert_eq!(names, ["first"]);
+
+    let subject = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("subject"))
+        .unwrap();
+    let BodyLineKind::Expr {
+        expr: Expr {
+            kind: ExprKind::Match { arms, .. },
+            ..
+        },
+    } = &subject.body[2].kind
+    else {
+        panic!("expected match expression");
+    };
+    let mut bindings = private_reference_initial_bindings(subject);
+    collect_private_reference_pattern_bindings(&arms[0].pattern, &mut bindings);
+    assert_eq!(bindings.len(), 1);
+    assert!(bindings[0].is_builtin_callsite);
+}
