@@ -30,15 +30,13 @@ bindings. The JVM backend executes blocks that were reached and registered
 exactly once in reverse registration order when a region completes normally or
 postfix `?` propagates an `Err`. Propagation unwinds an inner region before its
 enclosing region and does not run blocks after the propagating expression.
-Handler frames and cleanup registrations unwind in reverse lexical nesting
-order, so leaving an inner handled expression restores the outer handler before
-cleanup outside that expression runs. Both paths use the registration-time
-snapshots. The backend transfers a successful `begin` value only after that
-region's cleanup completes. This internal
-foundation is not a supported executable source feature. Public pipeline
-integration and cleanup for contract or runtime failure and task cancellation
-remain unimplemented. Cleanup-failure precedence and continued cleanup after a
-cleanup failure are also unimplemented.
+Both paths use the registration-time snapshots. The effect boundary during
+propagation is specified by [effects.md](effects.md#effect-labels). The backend
+transfers a successful `begin` value only after that region's cleanup completes.
+This internal foundation is not a supported executable source feature. Public
+pipeline integration and cleanup for contract or runtime failure and task
+cancellation remain unimplemented. Cleanup-failure precedence and continued
+cleanup after a cleanup failure are also unimplemented.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.

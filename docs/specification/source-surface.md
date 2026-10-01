@@ -84,13 +84,8 @@ and [saved workspace navigation](mcp.md#saved-workspace-navigation).
 These forms have a public static and tooling surface only. A selected entry is
 not executable when its reachable program contains either form. The
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries)
-specifies the `deferred_cleanup_runtime` blocker. Behind that gate, the
-compiler and JVM backend implement registration-time local snapshots and
-reverse-registration-order cleanup for normal completion and postfix `?`
-propagation. Propagation runs reached blocks in the innermost region before its
-enclosing regions. Public pipeline integration, contract failure, runtime
-failure, cancellation, cleanup-failure precedence, and continued cleanup after
-a cleanup failure remain unimplemented.
+specifies the `deferred_cleanup_runtime` blocker, the internal execution
+foundation behind it, and the remaining runtime limits.
 
 ## Test companion sources
 
