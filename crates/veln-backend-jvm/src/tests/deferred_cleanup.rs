@@ -759,6 +759,48 @@ fn result_propagation_restores_inner_handler_before_outer_cleanup() {
 }
 
 #[test]
+fn normal_completion_unwinds_cleanup_and_handler_frames_in_lexical_order() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "effect CleanupProbe\n",
+        "  owner() -> String\n",
+        "end\n",
+        "handler cleanup_probe(label: String) handles CleanupProbe\n",
+        "  owner() => label\n",
+        "end\n",
+        "fn worker() -> () effects [CleanupProbe, stdio]\n",
+        "  defer\n",
+        "    stdio::println(perform CleanupProbe::owner())\n",
+        "  end\n",
+        "  handle begin\n",
+        "    defer\n",
+        "      stdio::println(perform CleanupProbe::owner())\n",
+        "    end\n",
+        "    ()\n",
+        "  end with cleanup_probe(\"inner\")\n",
+        "  ()\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  handle worker() with cleanup_probe(\"outer\")\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-normal-handler-unwind-order",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "inner\nouter\n");
+}
+
+#[test]
 fn result_propagation_clears_expression_operands_before_shared_cleanup() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "fn succeed(value: Int) -> Result<Int, String>\n",
