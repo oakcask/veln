@@ -237,6 +237,7 @@ fn lower_handler_clause_functions(
                     .map(|(index, param)| veln_ast::Param {
                         node_id: param.node_id,
                         name: param.name.clone(),
+                        name_span: param.name_span.clone(),
                         ty: operation.params.get(index).map(Type::render),
                         ty_span: None,
                         ty_paths: Vec::new(),
@@ -261,6 +262,7 @@ fn lower_handler_clause_functions(
                 return_type_paths: Vec::new(),
                 effects: None,
                 effect_spans: None,
+                callsite: None,
                 contracts: Vec::new(),
                 body: vec![BodyLine {
                     node_id: clause.body.node_id,

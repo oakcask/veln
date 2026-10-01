@@ -201,6 +201,7 @@ pub struct FunctionDecl {
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
     pub effects_recovered: bool,
+    pub callsite: Option<SourceSpan>,
     pub contracts: Vec<ContractClause>,
     pub body: Vec<BodyLine>,
     pub span: SourceSpan,

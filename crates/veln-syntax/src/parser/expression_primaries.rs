@@ -11,7 +11,9 @@ impl<'a> ExprParser<'a> {
             TokenKind::String => self.parse_literal_primary(token, ExprKind::StringLiteral),
             TokenKind::Int => self.parse_literal_primary(token, ExprKind::IntLiteral),
             TokenKind::Float => self.parse_literal_primary(token, ExprKind::FloatLiteral),
-            TokenKind::Ident | TokenKind::Handler | TokenKind::Handles => self.parse_name_path(),
+            TokenKind::Ident | TokenKind::Callsite | TokenKind::Handler | TokenKind::Handles => {
+                self.parse_name_path()
+            }
             TokenKind::Perform => self.parse_perform_primary(token),
             TokenKind::Handle => self.parse_handle_primary(token),
             TokenKind::Decode => self.parse_schema_decode_primary(token),
@@ -229,7 +231,7 @@ impl<'a> ExprParser<'a> {
                 "schema decode expression has an incomplete schema path",
             ),
         };
-        if self.at(TokenKind::Ident) {
+        if self.at_contextual_identifier() {
             let segment = self.bump();
             segment_spans.push(self.source.span(segment.range));
             segments.push(segment.text);
@@ -243,7 +245,7 @@ impl<'a> ExprParser<'a> {
             );
         }
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at(TokenKind::Ident) {
+            if self.at_contextual_identifier() {
                 let segment = self.bump();
                 segment_spans.push(self.source.span(segment.range));
                 segments.push(segment.text);
@@ -306,8 +308,10 @@ impl<'a> ExprParser<'a> {
 
     pub(super) fn parse_record_or_dict_primary(&mut self) -> Expr {
         if self.peek_kind(1) == Some(TokenKind::RBrace)
-            || (self.peek_kind(1) == Some(TokenKind::Ident)
-                && self.peek_kind(2) == Some(TokenKind::Colon))
+            || (matches!(
+                self.peek_kind(1),
+                Some(TokenKind::Ident | TokenKind::Callsite)
+            ) && self.peek_kind(2) == Some(TokenKind::Colon))
         {
             self.parse_record()
         } else {

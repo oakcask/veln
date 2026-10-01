@@ -410,5 +410,8 @@ fn skip_effect_clause(tokens: &[Token], cursor: usize) -> usize {
 }
 
 fn is_type_path_segment(token: &Token) -> bool {
-    matches!(token.kind, TokenKind::Ident | TokenKind::Hole)
+    matches!(
+        token.kind,
+        TokenKind::Ident | TokenKind::Callsite | TokenKind::Hole
+    )
 }

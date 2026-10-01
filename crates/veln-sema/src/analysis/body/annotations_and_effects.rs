@@ -45,7 +45,7 @@ impl<'a> FunctionChecker<'a> {
             &param.name,
             binding_type,
             param.node_id.display("param"),
-            param.span.clone(),
+            param.name_span.clone(),
             "parameter",
         );
     }
@@ -112,12 +112,22 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn check_result_binding_name(&mut self) {
-        if let Some(result_binding) = &self.function.return_binding
-            && let Some(param) = self
-                .function
-                .params
-                .iter()
-                .find(|param| param.name == result_binding.name)
+        let Some(result_binding) = &self.function.return_binding else {
+            return;
+        };
+        if self.reject_callsite_shadow(
+            &result_binding.name,
+            result_binding.node_id.display("result"),
+            result_binding.span.clone(),
+            "result binding",
+        ) {
+            return;
+        }
+        if let Some(param) = self
+            .function
+            .params
+            .iter()
+            .find(|param| param.name == result_binding.name)
         {
             let mut diagnostic = Diagnostic::new(
                 "name.duplicate",
@@ -207,6 +217,9 @@ impl<'a> FunctionChecker<'a> {
         declaration_kind: &'static str,
         may_shadow_defer_capture: bool,
     ) -> bool {
+        if self.reject_callsite_shadow(name, node_id.clone(), span.clone(), declaration_kind) {
+            return false;
+        }
         let previous = self.local_names.get(name).cloned();
         if let Some((first_node_id, first_span)) = previous.as_ref()
             && !(may_shadow_defer_capture && self.captured_local_bindings.contains(first_node_id))
@@ -229,6 +242,55 @@ impl<'a> FunctionChecker<'a> {
             }
             true
         }
+    }
+
+    fn reject_callsite_shadow(
+        &mut self,
+        name: &str,
+        node_id: String,
+        span: SourceSpan,
+        declaration_kind: &'static str,
+    ) -> bool {
+        let Some(modifier_span) = &self.function.callsite else {
+            return false;
+        };
+        if name != "callsite" {
+            return false;
+        }
+        let mut diagnostic = Diagnostic::new(
+            "name.callsite_shadow",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("{declaration_kind} `callsite` shadows the built-in call-site location"),
+            Some(span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("name")),
+                ("node_id", JsonValue::string(node_id)),
+                ("name", JsonValue::string(name)),
+                ("namespace", JsonValue::string("value")),
+                ("binding_kind", JsonValue::string(declaration_kind)),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("builtin_origin")),
+            (
+                "message",
+                JsonValue::string("The `callsite` modifier introduces the built-in binding here."),
+            ),
+            ("span", span_json(modifier_span)),
+        ]));
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            (
+                "message",
+                JsonValue::string(
+                    "Rename this binding so the built-in `callsite` value remains visible.",
+                ),
+            ),
+            ("span", span_json(&span)),
+        ]));
+        self.diagnostics.push(diagnostic);
+        true
     }
 
     pub(super) fn record_defer_capture(&mut self, binding_index: usize, name: &str) {

@@ -1,0 +1,22 @@
+fn missing_modifier() -> SourceLocation
+  callsite
+end
+
+fn parameter(callsite: Int) -> Int callsite
+  0
+end
+
+fn result() -> callsite: Int callsite
+  0
+end
+
+fn local() -> Int callsite
+  let callsite: Int = 1
+  0
+end
+
+fn pattern() -> Int callsite
+  match true
+    callsite => 0
+  end
+end

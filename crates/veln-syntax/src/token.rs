@@ -29,6 +29,7 @@ pub enum TokenKind {
     Test,
     Effect,
     Effects,
+    Callsite,
     Perform,
     Handler,
     Handles,
@@ -114,6 +115,7 @@ impl TokenKind {
         Self::Test,
         Self::Effect,
         Self::Effects,
+        Self::Callsite,
         Self::Perform,
         Self::Handler,
         Self::Handles,
@@ -244,6 +246,10 @@ pub const PUBLIC_KEYWORDS: &[PublicToken] = &[
     PublicToken {
         kind: TokenKind::Effects,
         spelling: "effects",
+    },
+    PublicToken {
+        kind: TokenKind::Callsite,
+        spelling: "callsite",
     },
     PublicToken {
         kind: TokenKind::Perform,
@@ -519,6 +525,7 @@ const TOKEN_LABELS: &[&str] = &[
     "test",
     "effect",
     "effects",
+    "callsite",
     "perform",
     "handler",
     "handles",

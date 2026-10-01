@@ -122,6 +122,9 @@ pub(super) fn canonicalize_type_effects(
                 if name == "WallTime" && descriptor.is_none() {
                     return Type::wall_time();
                 }
+                if name == "SourceLocation" && descriptor.is_none() {
+                    return Type::source_location();
+                }
             }
             let Some(canonical_name) = descriptor
                 .map(|descriptor| descriptor.type_name.clone())

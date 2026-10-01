@@ -202,7 +202,7 @@ impl<'a> ExprParser<'a> {
     pub(super) fn parse_field_postfix(&mut self, expr: Expr) -> Expr {
         let start = lhs_range(&expr);
         let dot = self.bump();
-        let (field, field_range) = if self.at(TokenKind::Ident) {
+        let (field, field_range) = if self.at_contextual_identifier() {
             let field = self.bump();
             (field.text, field.range)
         } else {

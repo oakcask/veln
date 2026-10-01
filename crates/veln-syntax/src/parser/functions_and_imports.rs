@@ -67,6 +67,7 @@ impl<'a> Parser<'a> {
             effects: return_decl.effects,
             effect_spans: return_decl.effect_spans,
             effects_recovered: return_decl.effects_recovered,
+            callsite: return_decl.callsite,
             contracts,
             body,
             span: self.source.span(start.cover(end)),
@@ -154,23 +155,29 @@ impl<'a> Parser<'a> {
     ) -> FunctionReturn {
         let return_context = Self::return_context(kind);
         let (binding, ty, ty_span, ty_paths) = if self.eat(TokenKind::Arrow).is_some() {
-            let return_binding =
-                if matches!(self.current().kind, TokenKind::Ident | TokenKind::Hole)
-                    && self.peek_at(TokenKind::Colon)
-                {
-                    let name = self.bump();
-                    self.expect(TokenKind::Colon, return_context, vec![":"]);
-                    Some(crate::ResultBinding {
-                        name: name.text,
-                        span: self.source.span(name.range),
-                    })
-                } else {
-                    None
-                };
+            let return_binding = if matches!(
+                self.current().kind,
+                TokenKind::Ident | TokenKind::Hole | TokenKind::Callsite
+            ) && self.peek_at(TokenKind::Colon)
+            {
+                let name = self.bump();
+                self.expect(TokenKind::Colon, return_context, vec![":"]);
+                Some(crate::ResultBinding {
+                    name: name.text,
+                    span: self.source.span(name.range),
+                })
+            } else {
+                None
+            };
             let return_type_start = self.current().range;
             let (return_type, return_type_paths) = self.collect_return_type_until(
                 return_context,
-                &[TokenKind::Effects, TokenKind::Newline, TokenKind::Eof],
+                &[
+                    TokenKind::Effects,
+                    TokenKind::Callsite,
+                    TokenKind::Newline,
+                    TokenKind::Eof,
+                ],
             );
             let return_type_end = self
                 .previous()
@@ -197,6 +204,44 @@ impl<'a> Parser<'a> {
         } else {
             (None, None, false)
         };
+        let callsite = if kind == FunctionKind::Function && self.at(TokenKind::Callsite) {
+            let modifier = self.bump();
+            let span = self.source.span(modifier.range);
+            while self.at(TokenKind::Callsite) {
+                let duplicate = self.bump();
+                let duplicate_span = self.source.span(duplicate.range);
+                self.diagnostics.push(ParseDiagnostic {
+                    id: "parse.duplicate_callsite_modifier",
+                    message: "duplicate `callsite` function modifier".to_string(),
+                    span: Some(duplicate_span.clone()),
+                    parser_context: Self::function_context(kind),
+                    unexpected: UnexpectedToken {
+                        kind: duplicate.kind.label().to_string(),
+                        text: duplicate.text,
+                    },
+                    expected: vec!["newline"],
+                    recovery: Recovery {
+                        strategy: RecoveryStrategy::SkipToken,
+                        anchor: Some("newline".to_string()),
+                        dropped_token_count: 1,
+                    },
+                    repair_candidates: vec![ParseRepairCandidate {
+                        candidate_id: "parse.duplicate_callsite_modifier.remove".to_string(),
+                        name: "Remove duplicate modifier".to_string(),
+                        application_policy: "automatic".to_string(),
+                        application_status: "available".to_string(),
+                        edit_summary: "Remove the duplicate `callsite` modifier.".to_string(),
+                        edits: vec![ParseRepairEdit {
+                            span: duplicate_span,
+                            replacement: String::new(),
+                        }],
+                    }],
+                });
+            }
+            Some(span)
+        } else {
+            None
+        };
         FunctionReturn {
             binding,
             ty,
@@ -205,6 +250,7 @@ impl<'a> Parser<'a> {
             effects,
             effect_spans,
             effects_recovered,
+            callsite,
         }
     }
 

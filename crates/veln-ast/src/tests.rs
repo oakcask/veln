@@ -100,6 +100,20 @@ fn surface_wire_round_trip_preserves_expression_families() {
 }
 
 #[test]
+fn surface_wire_round_trip_preserves_callsite_modifier_span() {
+    let module = lower_source("fn located() -> SourceLocation callsite\n  callsite\nend\n");
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    let callsite = decoded.functions[0]
+        .callsite
+        .as_ref()
+        .expect("callsite modifier span");
+    assert_eq!((callsite.start.line, callsite.start.column), (1, 32));
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_cleanup_introducer_spans() {
     let source = concat!(
         "fn parse() -> Result<(), String>\n",

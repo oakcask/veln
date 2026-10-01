@@ -7,6 +7,7 @@ use veln_source::TextRange;
 
 mod aliases;
 mod callable_signature_collection;
+mod callsite_contract;
 mod effects_and_handlers;
 mod holes;
 mod local_inference;

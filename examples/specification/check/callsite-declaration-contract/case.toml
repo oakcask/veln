@@ -1,0 +1,18 @@
+command = ["check", "accepted.veln", "rejected.veln", "duplicate.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "error[name.callsite_requires_modifier]",
+  "the function is missing the `callsite` modifier",
+  "Add `callsite` after the function's optional effects clause.",
+  "error[name.callsite_shadow]",
+  "Rename this binding so the built-in `callsite` value remains visible.",
+  "error[parse.duplicate_callsite_modifier]",
+  "duplicate `callsite` function modifier",
+  "Remove the duplicate `callsite` modifier.",
+]
+
+[stderr]
+format = "empty"

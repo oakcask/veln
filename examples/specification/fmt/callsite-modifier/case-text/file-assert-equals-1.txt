@@ -1,0 +1,7 @@
+pub fn located(message: String) -> SourceLocation effects [stdio] callsite
+	callsite
+end
+
+fn ordinary(callsite: Int) -> Int
+	callsite
+end

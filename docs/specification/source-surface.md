@@ -21,6 +21,10 @@ pub fn greet(name: String) -> () effects [stdio]
 	stdio::println(name)
 end
 
+pub fn source_line() -> Int callsite
+	callsite.start_line
+end
+
 schema Packet
 	format binary
 	length: UInt16be
@@ -30,6 +34,27 @@ end
 
 The sections below explain declarations and source boundaries. The grammar
 provides the production notation for these forms.
+
+### Call-site declaration contract
+
+`SourceLocation` is exported by the standard prelude and is available without
+an import. It is the structural record `{ package: String, module: String,
+file: String, start_line: Int, start_column: Int, start_offset: Int, end_line:
+Int, end_column: Int, end_offset: Int }`.
+
+A function may place one `callsite` modifier after its optional `effects`
+clause. The modifier introduces a built-in local named `callsite` with type
+`SourceLocation`. The modifier is contextual: outside a modified function,
+`callsite` remains an ordinary identifier.
+
+Parameters, result bindings, local bindings, and pattern bindings in a
+modified function cannot be named `callsite`. The checker reports the binding
+at its name and points to the modifier as the built-in origin. An unresolved
+`callsite` value reference in an unmodified function reports that the modifier
+is missing and explains where to add it. A second modifier is rejected at the
+duplicate token and offers removal as a repair. This declaration contract does
+not provide hidden call data or runtime location construction; calling and
+propagation behavior is not yet implemented.
 
 ### Declaration and expression inventory
 
@@ -251,7 +276,7 @@ DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+
 HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
 Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
-Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? NL
+Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? CallsiteModifier? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
@@ -288,6 +313,7 @@ VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
+CallsiteModifier ::= "callsite"
 EffectList    ::= EffectEntry ("," EffectEntry)* ","?
 EffectEntry   ::= MemberPath | "..." Name
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL

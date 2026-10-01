@@ -436,6 +436,7 @@ impl<'a> Reader<'a> {
             return_type_paths: self.vec(Self::type_path_segments)?,
             effects: self.option(|reader| reader.vec(Self::string))?,
             effect_spans: self.option(|reader| reader.vec(Self::span))?,
+            callsite: self.option(Self::span)?,
             contracts: self.vec(Self::contract)?,
             body: self.vec(Self::body_line)?,
             span: self.span()?,
@@ -461,6 +462,7 @@ impl<'a> Reader<'a> {
         Ok(Param {
             node_id: self.node_id()?,
             name: self.string()?,
+            name_span: self.span()?,
             ty: self.option(Self::string)?,
             ty_span: self.option(Self::span)?,
             ty_paths: self.vec(Self::type_path_segments)?,

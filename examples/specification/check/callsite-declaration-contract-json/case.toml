@@ -1,0 +1,56 @@
+command = ["check", "--json", "accepted.veln", "rejected.veln", "duplicate.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.callsite_requires_modifier\"",
+  "\"id\":\"name.callsite_shadow\"",
+  "\"id\":\"parse.duplicate_callsite_modifier\"",
+  "\"kind\":\"repair_hint\"",
+  "\"kind\":\"builtin_origin\"",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 6
+
+[[diagnostics]]
+id = "name.callsite_requires_modifier"
+severity = "error"
+kind = "name"
+message = "unresolved `callsite`; the function is missing the `callsite` modifier"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 2
+column = 3
+
+[[diagnostics]]
+id = "name.callsite_shadow"
+severity = "error"
+kind = "name"
+message = "parameter `callsite` shadows the built-in call-site location"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 5
+column = 14
+
+[[diagnostics]]
+id = "parse.duplicate_callsite_modifier"
+severity = "error"
+kind = "parse"
+message = "duplicate `callsite` function modifier"
+
+[diagnostics.span]
+file = "duplicate.veln"
+line = 1
+column = 43

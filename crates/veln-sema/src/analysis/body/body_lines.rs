@@ -520,6 +520,16 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn check_function_annotations(&mut self) {
         let function = self.function;
+        if let Some(span) = &function.callsite {
+            self.local_names.insert(
+                "callsite".to_string(),
+                (function.node_id.display("callsite"), span.clone()),
+            );
+            self.bindings.push(Binding::new(
+                "callsite".to_string(),
+                Type::source_location(),
+            ));
+        }
         let variadic_count = self
             .function
             .params

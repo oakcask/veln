@@ -299,6 +299,7 @@ pub struct Function {
     pub return_type_paths: Vec<TypePathSegments>,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
+    pub callsite: Option<SourceSpan>,
     pub contracts: Vec<Contract>,
     pub body: Vec<BodyLine>,
     pub span: SourceSpan,
@@ -335,6 +336,7 @@ pub enum Visibility {
 pub struct Param {
     pub node_id: NodeId,
     pub name: String,
+    pub name_span: SourceSpan,
     pub ty: Option<String>,
     pub ty_span: Option<SourceSpan>,
     pub ty_paths: Vec<TypePathSegments>,

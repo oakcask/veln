@@ -13,6 +13,11 @@ pub type ByteView = bytes::ByteView
 pub type WallTime
 end
 
+## The source location supplied to functions declared with the callsite modifier.
+## Lines and columns are one-based; offsets count UTF-8 bytes.
+pub type SourceLocation
+end
+
 pub type StreamInput
 	Chunk(bytes: ByteChunk)
 	End

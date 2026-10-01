@@ -1,0 +1,11 @@
+pub fn location() -> SourceLocation callsite
+  callsite
+end
+
+pub fn start_line() -> Int callsite
+  callsite.start_line
+end
+
+pub fn ordinary(callsite: Int) -> Int
+  callsite
+end

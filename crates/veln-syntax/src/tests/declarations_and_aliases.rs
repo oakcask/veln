@@ -21,6 +21,65 @@ fn parses_minimal_public_function() {
 }
 
 #[test]
+fn parses_and_formats_callsite_modifier_after_optional_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn traced() -> SourceLocation effects [stdio] callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn plain(callsite: Int) -> Int\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(traced) = &output.tree.items[0] else {
+        panic!("expected function item");
+    };
+    assert!(traced.callsite.is_some());
+    let SyntaxItem::Function(plain) = &output.tree.items[1] else {
+        panic!("expected function item");
+    };
+    assert!(plain.callsite.is_none());
+    assert_eq!(plain.params[0].name, "callsite");
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "pub fn traced() -> SourceLocation effects [stdio] callsite\n",
+            "\tcallsite\n",
+            "end\n",
+            "\n",
+            "fn plain(callsite: Int) -> Int\n",
+            "\tcallsite\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn parses_callsite_modifier_without_effects_and_rejects_a_duplicate() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn located() -> SourceLocation callsite callsite\n  callsite\nend\n",
+    );
+
+    let output = parse(&source);
+
+    let function = first_function(&output);
+    assert_eq!(function.return_type.as_deref(), Some("SourceLocation"));
+    assert!(function.callsite.is_some());
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    let diagnostic = &output.diagnostics[0];
+    assert_eq!(diagnostic.id, "parse.duplicate_callsite_modifier");
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 41);
+    assert_eq!(diagnostic.repair_candidates.len(), 1);
+}
+
+#[test]
 fn parses_and_formats_variadic_parameter_marker() {
     let source = SourceFile::new(
         "main.veln",

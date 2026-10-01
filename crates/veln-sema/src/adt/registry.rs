@@ -38,11 +38,17 @@ impl AdtRegistry {
     ) -> Self {
         let annotation_types = descriptors
             .iter()
-            .filter(|descriptor| {
-                descriptor.module_name.as_deref() == Some("std::prelude")
-                    && descriptor.type_name == "WallTime"
+            .filter_map(|descriptor| {
+                if descriptor.module_name.as_deref() != Some("std::prelude") {
+                    return None;
+                }
+                let ty = match descriptor.type_name.as_str() {
+                    "WallTime" => Type::wall_time(),
+                    "SourceLocation" => Type::source_location(),
+                    _ => return None,
+                };
+                Some((descriptor_identity(descriptor), ty))
             })
-            .map(|descriptor| (descriptor_identity(descriptor), Type::wall_time()))
             .collect();
         Self::from_parts_with_annotation_types(
             descriptors,
@@ -507,10 +513,13 @@ fn extend_source_annotation_types(
     annotation_types: &mut BTreeMap<(Option<String>, String), Type>,
 ) {
     for descriptor in source_descriptors {
-        if descriptor.module_name.as_deref() == Some("std::prelude")
-            && descriptor.type_name == "WallTime"
-        {
-            annotation_types.insert(descriptor_identity(descriptor), Type::wall_time());
+        if descriptor.module_name.as_deref() == Some("std::prelude") {
+            let ty = match descriptor.type_name.as_str() {
+                "WallTime" => Type::wall_time(),
+                "SourceLocation" => Type::source_location(),
+                _ => continue,
+            };
+            annotation_types.insert(descriptor_identity(descriptor), ty);
         }
     }
 }

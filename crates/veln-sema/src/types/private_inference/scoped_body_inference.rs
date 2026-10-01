@@ -174,23 +174,35 @@ pub(crate) fn private_function_body_bindings(
         .name
         .as_ref()
         .and_then(|name| signatures_by_path.get(&(function.module_name.clone(), name.clone())));
-    function
-        .params
-        .iter()
-        .enumerate()
-        .filter(|(_, param)| valid_value_binding_name(&param.name))
-        .map(|(index, param)| {
-            let ty = if param.is_variadic {
-                signature
-                    .and_then(|signature| signature.variadic.clone())
-                    .map(|ty| Type::named("List", vec![ty]))
-                    .unwrap_or_else(|| function_body_param_type(param))
-            } else {
-                signature
-                    .and_then(|signature| signature.params.get(index).cloned())
-                    .unwrap_or_else(|| function_body_param_type(param))
-            };
-            Binding::new(param.name.clone(), ty)
-        })
-        .collect()
+    let mut bindings = Vec::new();
+    if function.callsite.is_some() {
+        bindings.push(Binding::new(
+            "callsite".to_string(),
+            Type::source_location(),
+        ));
+    }
+    bindings.extend(
+        function
+            .params
+            .iter()
+            .enumerate()
+            .filter(|(_, param)| {
+                valid_value_binding_name(&param.name)
+                    && !(function.callsite.is_some() && param.name == "callsite")
+            })
+            .map(|(index, param)| {
+                let ty = if param.is_variadic {
+                    signature
+                        .and_then(|signature| signature.variadic.clone())
+                        .map(|ty| Type::named("List", vec![ty]))
+                        .unwrap_or_else(|| function_body_param_type(param))
+                } else {
+                    signature
+                        .and_then(|signature| signature.params.get(index).cloned())
+                        .unwrap_or_else(|| function_body_param_type(param))
+                };
+                Binding::new(param.name.clone(), ty)
+            }),
+    );
+    bindings
 }

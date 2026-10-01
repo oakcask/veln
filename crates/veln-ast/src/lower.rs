@@ -353,6 +353,7 @@ impl AstBuilder {
                 .map(|param| Param {
                     node_id: self.alloc(),
                     name: param.name.clone(),
+                    name_span: param.name_span.clone(),
                     ty: None,
                     ty_span: None,
                     ty_paths: Vec::new(),
@@ -452,6 +453,7 @@ impl AstBuilder {
             return_type_paths: self.lower_type_paths(&function.return_type_paths),
             effects: function.effects.clone(),
             effect_spans: function.effect_spans.clone(),
+            callsite: function.callsite.clone(),
             contracts: function
                 .contracts
                 .iter()
@@ -524,6 +526,7 @@ impl AstBuilder {
             .map(|param| Param {
                 node_id: self.alloc(),
                 name: param.name.clone(),
+                name_span: param.name_span.clone(),
                 ty: param.ty.clone(),
                 ty_span: param.ty_span.clone(),
                 ty_paths: self.lower_type_paths(&param.ty_paths),

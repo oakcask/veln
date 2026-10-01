@@ -514,6 +514,7 @@ fn synthetic_clause_function(
         return_type_paths: Vec::new(),
         effects: None,
         effect_spans: None,
+        callsite: None,
         contracts: Vec::new(),
         body: Vec::new(),
         span: clause.span.clone(),

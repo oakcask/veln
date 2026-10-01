@@ -1,0 +1,3 @@
+fn duplicate() -> SourceLocation callsite callsite
+  callsite
+end

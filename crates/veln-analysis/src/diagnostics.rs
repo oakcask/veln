@@ -93,6 +93,18 @@ pub fn parse_diagnostic_to_envelope(diagnostic: &ParseDiagnostic) -> Diagnostic 
             JsonValue::string(format!("Accepted integer form: {expected}.")),
         )]));
     }
+    if diagnostic.id == "parse.duplicate_callsite_modifier"
+        && let Some(span) = &diagnostic.span
+    {
+        envelope.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            (
+                "message",
+                JsonValue::string("Remove the duplicate `callsite` modifier."),
+            ),
+            ("span", span_json(span)),
+        ]));
+    }
     envelope
 }
 

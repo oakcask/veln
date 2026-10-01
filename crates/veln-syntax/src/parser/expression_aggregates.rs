@@ -26,7 +26,7 @@ impl<'a> ExprParser<'a> {
             start,
             |this| {
                 let field_start = this.current().range;
-                let name = if this.at(TokenKind::Ident) {
+                let name = if this.at_contextual_identifier() {
                     this.bump().text
                 } else {
                     this.bump();

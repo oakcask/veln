@@ -289,6 +289,7 @@ impl Writer {
         self.option(&value.effect_spans, |writer, values| {
             writer.vec(values, Self::span);
         });
+        self.option(&value.callsite, Self::span);
         self.vec(&value.contracts, Self::contract);
         self.vec(&value.body, Self::body_line);
         self.span(&value.span);
@@ -309,6 +310,7 @@ impl Writer {
     fn param(&mut self, value: &Param) {
         self.node_id(value.node_id);
         self.string(&value.name);
+        self.span(&value.name_span);
         self.option(&value.ty, |writer, value| writer.string(value));
         self.option(&value.ty_span, Self::span);
         self.vec(&value.ty_paths, Self::type_path_segments);

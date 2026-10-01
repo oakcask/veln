@@ -10,12 +10,24 @@ pub(crate) fn function_body_param_type(param: &veln_ast::Param) -> Type {
 }
 
 pub(crate) fn function_parameter_bindings(function: &Function) -> Vec<Binding> {
-    function
-        .params
-        .iter()
-        .filter(|param| valid_value_binding_name(&param.name))
-        .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
-        .collect()
+    let mut bindings = Vec::new();
+    if function.callsite.is_some() {
+        bindings.push(Binding::new(
+            "callsite".to_string(),
+            Type::source_location(),
+        ));
+    }
+    bindings.extend(
+        function
+            .params
+            .iter()
+            .filter(|param| {
+                valid_value_binding_name(&param.name)
+                    && !(function.callsite.is_some() && param.name == "callsite")
+            })
+            .map(|param| Binding::new(param.name.clone(), function_body_param_type(param))),
+    );
+    bindings
 }
 
 pub(crate) fn function_alias_signatures(

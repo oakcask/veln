@@ -172,6 +172,20 @@ impl Type {
         ])
     }
 
+    pub(crate) fn source_location() -> Self {
+        Self::Record(vec![
+            ("package".to_string(), Self::string()),
+            ("module".to_string(), Self::string()),
+            ("file".to_string(), Self::string()),
+            ("start_line".to_string(), Self::int()),
+            ("start_column".to_string(), Self::int()),
+            ("start_offset".to_string(), Self::int()),
+            ("end_line".to_string(), Self::int()),
+            ("end_column".to_string(), Self::int()),
+            ("end_offset".to_string(), Self::int()),
+        ])
+    }
+
     #[cfg(test)]
     pub(crate) fn result(value: Type, error: Type) -> Self {
         Self::named("Result", vec![value, error])
