@@ -244,7 +244,7 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn reject_callsite_shadow(
+    pub(in crate::analysis) fn reject_callsite_shadow(
         &mut self,
         name: &str,
         node_id: String,

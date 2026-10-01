@@ -21,7 +21,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 12
+equals = 15
 
 [[diagnostics]]
 id = "name.callsite_requires_modifier"
@@ -144,6 +144,28 @@ file = "rejected.veln"
 line = 43
 column = 29
 
+[[diagnostics]]
+id = "name.callsite_shadow"
+severity = "error"
+kind = "name"
+message = "satisfy candidate `callsite` shadows the built-in call-site location"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 48
+column = 18
+
+[[diagnostics]]
+id = "hole.satisfy_type_mismatch"
+severity = "error"
+kind = "hole"
+message = "satisfy predicate is not `Bool`"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 48
+column = 10
+
 [[json_assert]]
 path = "diagnostics.0.related"
 equals = [
@@ -239,3 +261,18 @@ equals = [
 [[json_assert]]
 path = "diagnostics.10.span.end.column"
 equals = 17
+
+[[json_assert]]
+path = "diagnostics.12.details.binding_kind"
+equals = "satisfy candidate"
+
+[[json_assert]]
+path = "diagnostics.12.related"
+equals = [
+  {"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"file":"rejected.veln","start":{"line":47,"column":42,"offset":697},"end":{"line":47,"column":50,"offset":705}}},
+  {"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"file":"rejected.veln","start":{"line":48,"column":18,"offset":723},"end":{"line":48,"column":26,"offset":731}}}
+]
+
+[[json_assert]]
+path = "diagnostics.13.details.actual_type"
+equals = "{package: String, module: String, file: String, start_line: Int, start_column: Int, start_offset: Int, end_line: Int, end_column: Int, end_offset: Int}"

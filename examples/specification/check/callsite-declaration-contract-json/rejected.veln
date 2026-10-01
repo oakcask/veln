@@ -43,3 +43,7 @@ fn contract_field_before_missing(record: { callsite: Bool }) -> ()
 require record.callsite and callsite.start_line > 0
   ()
 end
+
+fn satisfy_candidate() -> SourceLocation callsite
+  _value satisfy callsite => callsite
+end

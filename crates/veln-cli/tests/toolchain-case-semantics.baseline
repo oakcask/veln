@@ -1562,6 +1562,20 @@ field	expectations.diagnostics[10].severity	"error"
 field	expectations.diagnostics[10].span.column	29
 field	expectations.diagnostics[10].span.file	"rejected.veln"
 field	expectations.diagnostics[10].span.line	43
+field	expectations.diagnostics[11].id	"name.callsite_shadow"
+field	expectations.diagnostics[11].kind	"name"
+field	expectations.diagnostics[11].message	"satisfy candidate `callsite` shadows the built-in call-site location"
+field	expectations.diagnostics[11].severity	"error"
+field	expectations.diagnostics[11].span.column	18
+field	expectations.diagnostics[11].span.file	"rejected.veln"
+field	expectations.diagnostics[11].span.line	48
+field	expectations.diagnostics[12].id	"hole.satisfy_type_mismatch"
+field	expectations.diagnostics[12].kind	"hole"
+field	expectations.diagnostics[12].message	"satisfy predicate is not `Bool`"
+field	expectations.diagnostics[12].severity	"error"
+field	expectations.diagnostics[12].span.column	10
+field	expectations.diagnostics[12].span.file	"rejected.veln"
+field	expectations.diagnostics[12].span.line	48
 field	expectations.diagnostics[1].id	"name.callsite_shadow"
 field	expectations.diagnostics[1].kind	"name"
 field	expectations.diagnostics[1].message	"parameter `callsite` shadows the built-in call-site location"
@@ -1659,12 +1673,21 @@ field	expectations.json_assertions[18].path	"diagnostics.8.span.end.column"
 field	expectations.json_assertions[19].equals	[{"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"end":{"column":29,"line":19,"offset":260},"file":"rejected.veln","start":{"column":21,"line":19,"offset":252}}},{"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"end":{"column":13,"line":21,"offset":286},"file":"rejected.veln","start":{"column":5,"line":21,"offset":278}}}]
 field	expectations.json_assertions[19].operation	"equals"
 field	expectations.json_assertions[19].path	"diagnostics.8.related"
-field	expectations.json_assertions[1].equals	12
+field	expectations.json_assertions[1].equals	15
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"summary.diagnostic_count"
 field	expectations.json_assertions[20].equals	17
 field	expectations.json_assertions[20].operation	"equals"
 field	expectations.json_assertions[20].path	"diagnostics.10.span.end.column"
+field	expectations.json_assertions[21].equals	"satisfy candidate"
+field	expectations.json_assertions[21].operation	"equals"
+field	expectations.json_assertions[21].path	"diagnostics.12.details.binding_kind"
+field	expectations.json_assertions[22].equals	[{"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"end":{"column":50,"line":47,"offset":705},"file":"rejected.veln","start":{"column":42,"line":47,"offset":697}}},{"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"end":{"column":26,"line":48,"offset":731},"file":"rejected.veln","start":{"column":18,"line":48,"offset":723}}}]
+field	expectations.json_assertions[22].operation	"equals"
+field	expectations.json_assertions[22].path	"diagnostics.12.related"
+field	expectations.json_assertions[23].equals	"{package: String, module: String, file: String, start_line: Int, start_column: Int, start_offset: Int, end_line: Int, end_column: Int, end_offset: Int}"
+field	expectations.json_assertions[23].operation	"equals"
+field	expectations.json_assertions[23].path	"diagnostics.13.details.actual_type"
 field	expectations.json_assertions[2].equals	[{"kind":"repair_hint","message":"Remove the duplicate `callsite` modifier.","span":{"end":{"column":51,"line":1,"offset":50},"file":"duplicate.veln","start":{"column":43,"line":1,"offset":42}}}]
 field	expectations.json_assertions[2].operation	"equals"
 field	expectations.json_assertions[2].path	"diagnostics.0.related"
@@ -1704,7 +1727,7 @@ field	invocation.command[3]	"rejected.veln"
 field	invocation.command[4]	"duplicate.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"5ee715ddd15a25abe407e745943d9e2e44f069cfea44cfb4a4828d3682eab533"
+case_digest	"c1bfcf5854d64330c34015cdad1762772f3e3edb4b6f189ea69e16786482627d"
 case	"examples/specification/check/channel-first-stream-routing-effects"
 field	expectations.diagnostics[0].id	"effect.missing_public"
 field	expectations.diagnostics[0].kind	"effect"
@@ -62670,4 +62693,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"6e2005093add0b4d4f6f3d2250a7d095174e685c460495622dd5a3d8b5fa70be"
+aggregate_digest	"e718be25e6353aeb797bcbfe78306a526e0505134ec02f82438828b65d1ae9f0"

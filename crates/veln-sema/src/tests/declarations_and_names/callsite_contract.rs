@@ -332,6 +332,53 @@ fn rejected_body_bindings_do_not_override_builtin_during_private_return_inferenc
 }
 
 #[test]
+fn rejected_satisfy_candidate_does_not_override_builtin_in_predicate() {
+    let diagnostics = diagnostics(concat!(
+        "fn choose() -> SourceLocation callsite\n",
+        "  _value satisfy callsite => callsite\n",
+        "end\n",
+    ));
+
+    let shadow = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.callsite_shadow")
+        .expect("callsite shadow diagnostic");
+    assert_eq!(
+        shadow.message,
+        "satisfy candidate `callsite` shadows the built-in call-site location"
+    );
+    assert_diagnostic_span(shadow, 2, 18, 2, 26);
+    assert!(shadow.related.iter().any(|related| {
+        related
+            .to_json()
+            .contains("The `callsite` modifier introduces the built-in binding here.")
+    }));
+    assert!(shadow.related.iter().any(|related| {
+        related
+            .to_json()
+            .contains("Rename this binding so the built-in `callsite` value remains visible.")
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "hole.satisfy_candidate_shadow"),
+        "{diagnostics:#?}"
+    );
+
+    let predicate_type = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "hole.satisfy_type_mismatch")
+        .expect("predicate type diagnostic");
+    assert!(
+        predicate_type
+            .details
+            .to_json()
+            .contains(&Type::source_location().render()),
+        "{predicate_type:#?}"
+    );
+}
+
+#[test]
 fn source_location_is_the_exact_standard_record_shape() {
     let diagnostics = diagnostics(concat!(
         "pub fn fields(value: SourceLocation) -> Int\n",
