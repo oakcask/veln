@@ -188,6 +188,53 @@ fn bytecode_backend_result_propagation_unwinds_nested_regions_inside_out_in_reve
 }
 
 #[test]
+fn result_propagation_restores_inner_handler_before_outer_cleanup() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "effect CleanupProbe\n",
+        "  owner() -> String\n",
+        "end\n",
+        "handler cleanup_probe(label: String) handles CleanupProbe\n",
+        "  owner() => label\n",
+        "end\n",
+        "fn fail() -> Result<(), String>\n",
+        "  Err(\"expected\")\n",
+        "end\n",
+        "fn worker() -> Result<(), String> effects [CleanupProbe, stdio]\n",
+        "  defer\n",
+        "    stdio::println(perform CleanupProbe::owner())\n",
+        "  end\n",
+        "  let ignored = handle fail()? with cleanup_probe(\"inner\")\n",
+        "  Ok(())\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let result = handle worker() with cleanup_probe(\"outer\")\n",
+        "  match result\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"caller observed error\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-handler-unwind-order",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "outer\ncaller observed error\n"
+    );
+}
+
+#[test]
 fn sequential_cleanup_regions_reuse_jvm_local_slots() {
     let mut source = String::from("pub fn main() -> ()\n");
     for index in 0..128 {
@@ -231,4 +278,35 @@ fn nested_cleanup_region_local_binding_retention_grows_linearly() {
     assert_eq!(retention_at_depth(16), 32);
     assert_eq!(retention_at_depth(32), 64);
     assert_eq!(retention_at_depth(64), 128);
+}
+
+#[test]
+fn propagation_bytecode_grows_linearly_with_cleanups_and_try_sites() {
+    fn code_len(scale: usize) -> usize {
+        let mut source = String::from(
+            "fn fail() -> Result<Int, String>\n  Err(\"failure\")\nend\n\
+             pub fn main() -> Result<(), String>\n",
+        );
+        for index in 0..scale {
+            source.push_str(&format!("  let captured_{index}: Int = {index}\n"));
+            source.push_str("  defer\n");
+            source.push_str(&format!("    let copy: Int = captured_{index}\n"));
+            source.push_str("    ()\n");
+            source.push_str("  end\n");
+        }
+        for index in 0..scale {
+            source.push_str(&format!("  let value_{index}: Int = fail()?\n"));
+        }
+        source.push_str("  Ok(())\nend\n");
+
+        let ir = lower_deferred_cleanup_foundation_to_ir(&source);
+        crate::classfile::function_code_len(&ir, "main")
+    }
+
+    let small = code_len(16);
+    let large = code_len(32);
+    assert!(
+        large < small * 3,
+        "doubling registrations and propagation sites grew bytecode from {small} to {large} bytes"
+    );
 }

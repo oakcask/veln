@@ -131,9 +131,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         );
         code.op(0x57);
         let try_start = code.mark();
-        self.active_handler_frames += 1;
+        let parent_unwind = self.push_handler_unwind(code);
         self.emit_expr(code, body);
-        self.active_handler_frames -= 1;
+        self.restore_unwind(parent_unwind);
         let try_end = code.mark();
         let result_slot = self.alloc_local();
         code.astore(result_slot);
@@ -163,12 +163,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "()Ljava/lang/Object;",
         );
         code.op(0x57);
-    }
-
-    pub(super) fn emit_active_handler_cleanup(&mut self, code: &mut MethodCode) {
-        for _ in 0..self.active_handler_frames {
-            self.emit_pop_handler(code);
-        }
     }
 
     pub(super) fn emit_runtime_call(

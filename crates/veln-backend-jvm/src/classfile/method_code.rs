@@ -52,16 +52,39 @@ impl MethodCode {
         let pos = self.code.len();
         self.code.push(op);
         self.code.extend_from_slice(&[0, 0]);
-        self.patches.push(Patch { pos, label });
+        self.patches.push(Patch {
+            pos,
+            label,
+            width: BranchWidth::Short,
+        });
+    }
+
+    pub(super) fn branch_wide_to(&mut self, label: usize) {
+        let pos = self.code.len();
+        self.code.push(0xc8);
+        self.code.extend_from_slice(&[0, 0, 0, 0]);
+        self.patches.push(Patch {
+            pos,
+            label,
+            width: BranchWidth::Wide,
+        });
     }
 
     pub(super) fn patch_bound_labels(&mut self) {
         for patch in &self.patches {
             if let Some(target) = self.labels[patch.label] {
                 let offset = target as isize - patch.pos as isize;
-                let bytes = (offset as i16).to_be_bytes();
-                self.code[patch.pos + 1] = bytes[0];
-                self.code[patch.pos + 2] = bytes[1];
+                match patch.width {
+                    BranchWidth::Short => {
+                        let bytes = (offset as i16).to_be_bytes();
+                        self.code[patch.pos + 1] = bytes[0];
+                        self.code[patch.pos + 2] = bytes[1];
+                    }
+                    BranchWidth::Wide => {
+                        let bytes = (offset as i32).to_be_bytes();
+                        self.code[patch.pos + 1..patch.pos + 5].copy_from_slice(&bytes);
+                    }
+                }
             }
         }
     }
@@ -220,4 +243,10 @@ impl MethodCode {
 struct Patch {
     pos: usize,
     label: usize,
+    width: BranchWidth,
+}
+
+enum BranchWidth {
+    Short,
+    Wide,
 }

@@ -71,10 +71,12 @@ snapshots of referenced local bindings. The JVM backend internally executes
 registered blocks once in reverse registration order on normal completion and
 when postfix `?` propagates an `Err`. Propagation unwinds an inner region before
 its enclosing region and executes only blocks reached before the propagating
-expression. Both paths use the registration-time snapshots. A successful
-`begin` transfers its value only after cleanup completes. Compiler and backend
-tests cover C1, C2, C4, C5, C6, and C12 while the public readiness gate remains
-closed.
+expression. Cleanup registrations and handler frames unwind in reverse lexical
+nesting order, and propagation sites share a bounded chain of registered unwind
+actions instead of copying every active cleanup body. Both paths use the
+registration-time snapshots. A successful `begin` transfers its value only
+after cleanup completes. Compiler and backend tests cover C1, C2, C4, C5, C6,
+and C12 while the public readiness gate remains closed.
 
 ## Remaining Runtime Integration
 
