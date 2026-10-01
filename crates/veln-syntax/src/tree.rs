@@ -1,8 +1,8 @@
 use veln_source::{SourceSpan, TextRange};
 
 use crate::{
-    BodyLine, EffectDecl, Expr, ExprKind, FunctionDecl, HandlerDecl, ModuleDecl, PublicAliasDecl,
-    SchemaDecl, SyntaxItem, Token, TokenKind, TypeDecl, UseDecl,
+    BodyLine, EffectDecl, Expr, ExprChildren, ExprKind, FunctionDecl, HandlerDecl, ModuleDecl,
+    PublicAliasDecl, SchemaDecl, SyntaxItem, Token, TokenKind, TypeDecl, UseDecl,
 };
 
 #[derive(Clone, Debug)]
@@ -400,42 +400,32 @@ fn body_line_range(line: &BodyLine) -> TextRange {
 fn collect_outer_begin_exprs<'a>(expr: &'a Expr, begins: &mut Vec<&'a Expr>) {
     let mut pending = vec![expr];
     while let Some(expr) = pending.pop() {
-        match &expr.kind {
-            ExprKind::Begin { .. } => begins.push(expr),
-            ExprKind::TypeApply { callee, .. }
-            | ExprKind::SchemaEncode { value: callee, .. }
-            | ExprKind::FieldAccess { base: callee, .. }
-            | ExprKind::Try { expr: callee, .. }
-            | ExprKind::Prefix { expr: callee, .. } => pending.push(callee),
-            ExprKind::Call { callee, args }
-            | ExprKind::Handle {
-                body: callee, args, ..
-            } => {
-                pending.push(callee);
-                pending.extend(args);
+        match expr.children() {
+            ExprChildren::BeginBody(_) => begins.push(expr),
+            ExprChildren::One { child, .. } => pending.push(child),
+            ExprChildren::Pair { first, second, .. } => {
+                pending.push(first);
+                pending.push(second);
             }
-            ExprKind::Perform { args, .. } | ExprKind::List(args) => pending.extend(args),
-            ExprKind::SchemaDecode { input, base, .. }
-            | ExprKind::Binary {
-                left: input,
-                right: base,
-                ..
-            } => {
-                pending.push(input);
-                pending.push(base);
+            ExprChildren::Slice(children) => pending.extend(children),
+            ExprChildren::HeadAndSlice(head, children) => {
+                pending.push(head);
+                pending.extend(children);
             }
-            ExprKind::Record(fields) => pending.extend(fields.iter().map(|field| &field.expr)),
-            ExprKind::Dict(entries) => {
+            ExprChildren::Record(fields) => {
+                pending.extend(fields.iter().map(|field| &field.expr));
+            }
+            ExprChildren::Dict(entries) => {
                 for entry in entries {
                     pending.push(&entry.key);
                     pending.push(&entry.value);
                 }
             }
-            ExprKind::Match { scrutinee, arms } => {
+            ExprChildren::Match(scrutinee, arms) => {
                 pending.push(scrutinee);
                 pending.extend(arms.iter().map(|arm| &arm.expr));
             }
-            ExprKind::If {
+            ExprChildren::If {
                 condition,
                 then_branch,
                 else_if_branches,
@@ -449,14 +439,7 @@ fn collect_outer_begin_exprs<'a>(expr: &'a Expr, begins: &mut Vec<&'a Expr>) {
                 }
                 pending.push(else_branch);
             }
-            ExprKind::Missing
-            | ExprKind::Hole { .. }
-            | ExprKind::NamePath { .. }
-            | ExprKind::StringLiteral(_)
-            | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
-            | ExprKind::BoolLiteral(_)
-            | ExprKind::Unit => {}
+            ExprChildren::None => {}
         }
     }
 }

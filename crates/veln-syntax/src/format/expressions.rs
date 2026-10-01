@@ -1,4 +1,10 @@
+use super::cleanup::{
+    format_cleanup_region, format_cleanup_region_with_comments,
+    format_defer_statement_with_comments as format_cleanup_defer_with_comments,
+};
+use super::match_formatting::format_match_expr;
 use super::*;
+use crate::ExprChildren;
 
 pub(super) fn format_expr_at_indent(expr: &Expr, indent: usize) -> String {
     format_expr_at_indent_ctx(expr, indent, None)
@@ -19,6 +25,17 @@ pub(super) fn format_expr_at_indent_with_comments(
     text
 }
 
+pub(super) fn format_defer_statement_with_comments(
+    body: &[BodyLine],
+    span: &veln_source::SourceSpan,
+    indent: usize,
+    comments: &LineComments,
+) -> String {
+    format_cleanup_defer_with_comments(body, span, indent, comments, &|expr, child_indent| {
+        format_expr_at_indent_with_comments(expr, child_indent, comments)
+    })
+}
+
 fn take_continued_begin_comments(
     expr: &Expr,
     has_continuation: bool,
@@ -32,7 +49,7 @@ fn take_continued_begin_comments(
         return;
     }
 
-    let mut visit = |child: &Expr, parent_emits_after_child| {
+    let mut visit = |child: &Expr, parent_emits_after_child: bool| {
         take_continued_begin_comments(
             child,
             has_continuation || parent_emits_after_child,
@@ -40,54 +57,50 @@ fn take_continued_begin_comments(
             continued_comments,
         );
     };
-    match &expr.kind {
-        ExprKind::TypeApply { callee, .. } => visit(callee, true),
-        ExprKind::Call { callee, args } => {
-            visit(callee, true);
-            for arg in args {
-                visit(arg, true);
+    match expr.children() {
+        ExprChildren::None | ExprChildren::BeginBody(_) => {}
+        ExprChildren::One {
+            child,
+            followed_by_parent_syntax,
+        } => visit(child, followed_by_parent_syntax),
+        ExprChildren::Pair {
+            first,
+            first_followed_by_parent_syntax,
+            second,
+            second_followed_by_parent_syntax,
+        } => {
+            visit(first, first_followed_by_parent_syntax);
+            visit(second, second_followed_by_parent_syntax);
+        }
+        ExprChildren::Slice(children) => {
+            for child in children {
+                visit(child, true);
             }
         }
-        ExprKind::Perform { args, .. } => {
-            for arg in args {
-                visit(arg, true);
+        ExprChildren::HeadAndSlice(head, children) => {
+            visit(head, true);
+            for child in children {
+                visit(child, true);
             }
         }
-        ExprKind::Handle { body, args, .. } => {
-            visit(body, true);
-            for arg in args {
-                visit(arg, true);
-            }
-        }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            visit(input, true);
-            visit(base, false);
-        }
-        ExprKind::SchemaEncode { value, .. } => visit(value, false),
-        ExprKind::FieldAccess { base, .. } | ExprKind::Try { expr: base, .. } => visit(base, true),
-        ExprKind::Record(fields) => {
+        ExprChildren::Record(fields) => {
             for field in fields {
                 visit(&field.expr, true);
             }
         }
-        ExprKind::Dict(entries) => {
+        ExprChildren::Dict(entries) => {
             for entry in entries {
                 visit(&entry.key, true);
                 visit(&entry.value, true);
             }
         }
-        ExprKind::List(items) => {
-            for item in items {
-                visit(item, true);
-            }
-        }
-        ExprKind::Match { scrutinee, arms } => {
+        ExprChildren::Match(scrutinee, arms) => {
             visit(scrutinee, true);
             for arm in arms {
                 visit(&arm.expr, true);
             }
         }
-        ExprKind::If {
+        ExprChildren::If {
             condition,
             then_branch,
             else_if_branches,
@@ -101,20 +114,6 @@ fn take_continued_begin_comments(
             }
             visit(else_branch, true);
         }
-        ExprKind::Prefix { expr, .. } => visit(expr, false),
-        ExprKind::Binary { left, right, .. } => {
-            visit(left, true);
-            visit(right, false);
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit
-        | ExprKind::Begin { .. } => {}
     }
 }
 
@@ -126,7 +125,7 @@ fn expr_end_line(expr: &Expr) -> usize {
     }
 }
 
-fn format_expr_at_indent_ctx(
+pub(super) fn format_expr_at_indent_ctx(
     expr: &Expr,
     indent: usize,
     comments: Option<&LineComments>,
@@ -169,6 +168,36 @@ fn format_expr_inner(
     comments: Option<&LineComments>,
 ) -> String {
     match &expr.kind {
+        kind @ (ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit) => format_atomic_expr(kind),
+        kind @ (ExprKind::TypeApply { .. }
+        | ExprKind::Call { .. }
+        | ExprKind::FieldAccess { .. }
+        | ExprKind::Try { .. }) => format_application_expr(kind, prec, indent, comments),
+        kind @ (ExprKind::Perform { .. }
+        | ExprKind::Handle { .. }
+        | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaEncode { .. }) => format_keyword_expr(kind, indent, comments),
+        kind @ (ExprKind::Record(_) | ExprKind::Dict(_) | ExprKind::List(_)) => {
+            format_collection_expr(kind, indent, comments)
+        }
+        kind @ (ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Begin { .. }) => {
+            format_control_expr(expr, kind, indent, comments)
+        }
+        kind @ (ExprKind::Prefix { .. } | ExprKind::Binary { .. }) => {
+            format_operator_expr(kind, prec, indent, comments)
+        }
+    }
+}
+
+fn format_atomic_expr(kind: &ExprKind) -> String {
+    match kind {
         ExprKind::Missing => "_".to_string(),
         ExprKind::Hole { name, satisfy } => format_hole_expr(name.as_deref(), satisfy.as_ref()),
         ExprKind::NamePath { segments, .. } => segments.join("::"),
@@ -178,6 +207,17 @@ fn format_expr_inner(
         ExprKind::BoolLiteral(true) => "true".to_string(),
         ExprKind::BoolLiteral(false) => "false".to_string(),
         ExprKind::Unit => "()".to_string(),
+        _ => unreachable!("atomic expression formatter received a non-atomic expression"),
+    }
+}
+
+fn format_application_expr(
+    kind: &ExprKind,
+    prec: u8,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    match kind {
         ExprKind::TypeApply { callee, type_args } => {
             let type_args = type_args
                 .iter()
@@ -191,6 +231,24 @@ fn format_expr_inner(
             )
         }
         ExprKind::Call { callee, args } => format_call_expr(callee, args, prec, indent, comments),
+        ExprKind::FieldAccess { base, field, .. } => {
+            format!(
+                "{}.{field}",
+                format_expr_prec(base, prec, ExprSide::Left, indent, comments)
+            )
+        }
+        ExprKind::Try { expr: inner, .. } => {
+            format!(
+                "{}?",
+                format_expr_prec(inner, prec, ExprSide::Left, indent, comments)
+            )
+        }
+        _ => unreachable!("application formatter received a non-application expression"),
+    }
+}
+
+fn format_keyword_expr(kind: &ExprKind, indent: usize, comments: Option<&LineComments>) -> String {
+    match kind {
         ExprKind::Perform {
             effect,
             operation,
@@ -229,22 +287,37 @@ fn format_expr_inner(
             schema.join("::"),
             format_expr_at_indent_ctx(value, indent, comments)
         ),
-        ExprKind::FieldAccess { base, field, .. } => {
-            format!(
-                "{}.{field}",
-                format_expr_prec(base, prec, ExprSide::Left, indent, comments)
-            )
-        }
-        ExprKind::Try { expr: inner, .. } => {
-            format!(
-                "{}?",
-                format_expr_prec(inner, prec, ExprSide::Left, indent, comments)
-            )
-        }
+        _ => unreachable!("keyword formatter received a non-keyword expression"),
+    }
+}
+
+fn format_collection_expr(
+    kind: &ExprKind,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    match kind {
         ExprKind::Record(fields) => format_record_expr(fields, indent, comments),
         ExprKind::Dict(entries) => format_dict_expr(entries, indent, comments),
         ExprKind::List(items) => format_list_expr(items, indent, comments),
-        ExprKind::Match { scrutinee, arms } => format_match_expr(scrutinee, arms, indent, comments),
+        _ => unreachable!("collection formatter received a non-collection expression"),
+    }
+}
+
+fn format_control_expr(
+    expr: &Expr,
+    kind: &ExprKind,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    match kind {
+        ExprKind::Match { scrutinee, arms } => format_match_expr(
+            scrutinee,
+            arms,
+            indent,
+            &|child, child_indent| format_expr_at_indent_ctx(child, child_indent, comments),
+            &format_expr_at_indent,
+        ),
         ExprKind::If {
             condition,
             then_branch,
@@ -259,124 +332,36 @@ fn format_expr_inner(
             comments,
         ),
         ExprKind::Begin { body, .. } => match comments {
-            Some(comments) => {
-                format_cleanup_region_with_comments("begin", body, &expr.span, indent, comments)
-            }
-            None => format_cleanup_region("begin", body, indent),
+            Some(comments) => format_cleanup_region_with_comments(
+                "begin",
+                body,
+                &expr.span,
+                indent,
+                comments,
+                &|child, child_indent| {
+                    format_expr_at_indent_with_comments(child, child_indent, comments)
+                },
+            ),
+            None => format_cleanup_region("begin", body, indent, &format_expr_at_indent),
         },
+        _ => unreachable!("control formatter received a non-control expression"),
+    }
+}
+
+fn format_operator_expr(
+    kind: &ExprKind,
+    prec: u8,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    match kind {
         ExprKind::Prefix { op, expr: inner } => {
             format_prefix_expr(*op, inner, prec, indent, comments)
         }
         ExprKind::Binary { op, left, right } => {
             format_binary_expr(*op, left, right, prec, indent, comments)
         }
-    }
-}
-
-pub(super) fn format_defer_statement(body: &[BodyLine], indent: usize) -> String {
-    format_cleanup_region("defer", body, indent)
-}
-
-pub(super) fn format_defer_statement_with_comments(
-    body: &[BodyLine],
-    span: &veln_source::SourceSpan,
-    indent: usize,
-    comments: &LineComments,
-) -> String {
-    format_cleanup_region_with_comments("defer", body, span, indent, comments)
-}
-
-fn format_cleanup_region(keyword: &str, body: &[BodyLine], indent: usize) -> String {
-    let mut text = format!("{keyword}\n");
-    for line in body {
-        push_indent(&mut text, indent + 1);
-        text.push_str(&format_cleanup_body_line(line, indent + 1));
-        text.push('\n');
-    }
-    push_indent(&mut text, indent);
-    text.push_str("end");
-    text
-}
-
-fn format_cleanup_region_with_comments(
-    keyword: &str,
-    body: &[BodyLine],
-    span: &veln_source::SourceSpan,
-    indent: usize,
-    comments: &LineComments,
-) -> String {
-    let mut text = keyword.to_string();
-    comments.emit_after(span.start.line, &mut text);
-    text.push('\n');
-    for line in body {
-        let (source_line, content) =
-            format_cleanup_body_line_with_comments(line, indent + 1, comments);
-        push_source_line(&mut text, comments, source_line, indent + 1, content);
-    }
-    let end_line = if span.end.column == 1 {
-        span.end.line.saturating_sub(1)
-    } else {
-        span.end.line
-    };
-    comments.emit_before(end_line, &mut text, indent + 1);
-    push_indent(&mut text, indent);
-    text.push_str("end");
-    comments.emit_after(end_line, &mut text);
-    text
-}
-
-fn format_cleanup_body_line(line: &BodyLine, indent: usize) -> String {
-    match line {
-        BodyLine::Let {
-            pattern,
-            annotation,
-            expr,
-            ..
-        } => {
-            let mut text = format!("let {}", format_pattern(pattern));
-            if let Some(annotation) = annotation {
-                text.push_str(": ");
-                text.push_str(&canonical_type_text(annotation));
-            }
-            text.push_str(" = ");
-            text.push_str(&format_expr_at_indent(expr, indent));
-            text
-        }
-        BodyLine::Expr { expr, .. } => format_expr_at_indent(expr, indent),
-        BodyLine::Defer { body, .. } => format_defer_statement(body, indent),
-    }
-}
-
-fn format_cleanup_body_line_with_comments(
-    line: &BodyLine,
-    indent: usize,
-    comments: &LineComments,
-) -> (usize, String) {
-    match line {
-        BodyLine::Let {
-            pattern,
-            annotation,
-            expr,
-            span,
-            ..
-        } => {
-            let mut text = format!("let {}", format_pattern(pattern));
-            if let Some(annotation) = annotation {
-                text.push_str(": ");
-                text.push_str(&canonical_type_text(annotation));
-            }
-            text.push_str(" = ");
-            text.push_str(&format_expr_at_indent_with_comments(expr, indent, comments));
-            (span.start.line, text)
-        }
-        BodyLine::Expr { expr, span } => (
-            span.start.line,
-            format_expr_at_indent_with_comments(expr, indent, comments),
-        ),
-        BodyLine::Defer { body, span, .. } => (
-            span.start.line,
-            format_defer_statement_with_comments(body, span, indent, comments),
-        ),
+        _ => unreachable!("operator formatter received a non-operator expression"),
     }
 }
 
@@ -468,243 +453,6 @@ fn format_list_expr(items: &[Expr], indent: usize, comments: Option<&LineComment
         .collect::<Vec<_>>()
         .join(", ");
     format!("[{items}]")
-}
-
-fn format_match_expr(
-    scrutinee: &Expr,
-    arms: &[crate::MatchArm],
-    indent: usize,
-    comments: Option<&LineComments>,
-) -> String {
-    if let Some(rewrite) = literal_match_rewrite(scrutinee, arms) {
-        return format_literal_match_rewrite(&rewrite, indent);
-    }
-    if let Some(rewrite) = bool_match_rewrite(arms) {
-        return format_bool_match_rewrite(scrutinee, &rewrite, indent);
-    }
-
-    let mut text = format!(
-        "match {}\n",
-        format_expr_at_indent_ctx(scrutinee, indent, comments)
-    );
-    for arm in arms {
-        push_indent(&mut text, indent + 1);
-        text.push_str(&format_pattern(&arm.pattern));
-        text.push_str(" => ");
-        text.push_str(&format_expr_at_indent_ctx(&arm.expr, indent + 1, comments));
-        text.push('\n');
-    }
-    push_indent(&mut text, indent);
-    text.push_str("end");
-    text
-}
-
-pub(super) struct LiteralMatchRewrite<'a> {
-    scrutinee: &'a Expr,
-    arms: Vec<(String, &'a Expr)>,
-    fallback: &'a Expr,
-}
-
-pub(super) struct BoolMatchRewrite<'a> {
-    true_expr: &'a Expr,
-    false_expr: &'a Expr,
-}
-
-pub(super) fn bool_match_rewrite(arms: &[crate::MatchArm]) -> Option<BoolMatchRewrite<'_>> {
-    let (true_arm, false_arm) = bool_match_arms(arms)?;
-    Some(BoolMatchRewrite {
-        true_expr: &true_arm.expr,
-        false_expr: &false_arm.expr,
-    })
-}
-
-pub(super) fn literal_match_rewrite<'a>(
-    scrutinee: &'a Expr,
-    arms: &'a [crate::MatchArm],
-) -> Option<LiteralMatchRewrite<'a>> {
-    let mut literal_arms = Vec::new();
-    let (rewritten_scrutinee, fallback) =
-        collect_literal_match_chain(scrutinee, arms, None, &mut literal_arms)?;
-    let mut seen = std::collections::BTreeSet::new();
-    if literal_arms
-        .iter()
-        .any(|(literal, _)| !seen.insert(literal.clone()))
-    {
-        return None;
-    }
-
-    Some(LiteralMatchRewrite {
-        scrutinee: rewritten_scrutinee,
-        arms: literal_arms,
-        fallback,
-    })
-}
-
-fn collect_literal_match_chain<'a>(
-    condition: &'a Expr,
-    arms: &'a [crate::MatchArm],
-    expected_scrutinee: Option<&'a Expr>,
-    literal_arms: &mut Vec<(String, &'a Expr)>,
-) -> Option<(&'a Expr, &'a Expr)> {
-    let (true_arm, false_arm) = bool_match_arms(arms)?;
-    let condition_literals = literal_match_conditions(condition)?;
-    let active_scrutinee = condition_literals.first()?.0;
-
-    if let Some(expected) = expected_scrutinee
-        && !exprs_equivalent(expected, active_scrutinee)
-    {
-        return None;
-    }
-    if condition_literals
-        .iter()
-        .any(|(scrutinee, _)| !exprs_equivalent(active_scrutinee, scrutinee))
-    {
-        return None;
-    }
-
-    for (_, literal) in condition_literals {
-        literal_arms.push((literal, &true_arm.expr));
-    }
-
-    if let ExprKind::Match {
-        scrutinee: next_condition,
-        arms: next_arms,
-    } = &false_arm.expr.kind
-    {
-        let mut nested_arms = Vec::new();
-        if let Some((_, fallback)) = collect_literal_match_chain(
-            next_condition,
-            next_arms,
-            Some(active_scrutinee),
-            &mut nested_arms,
-        ) {
-            literal_arms.extend(nested_arms);
-            return Some((active_scrutinee, fallback));
-        }
-    }
-
-    Some((active_scrutinee, &false_arm.expr))
-}
-
-fn bool_match_arms(arms: &[crate::MatchArm]) -> Option<(&crate::MatchArm, &crate::MatchArm)> {
-    if arms.len() != 2 {
-        return None;
-    }
-
-    let mut true_arm = None;
-    let mut false_arm = None;
-    for arm in arms {
-        match arm.pattern.kind {
-            PatternKind::BoolLiteral(true) if true_arm.is_none() => true_arm = Some(arm),
-            PatternKind::BoolLiteral(false) if false_arm.is_none() => false_arm = Some(arm),
-            _ => return None,
-        }
-    }
-
-    Some((true_arm?, false_arm?))
-}
-
-fn literal_match_conditions(condition: &Expr) -> Option<Vec<(&Expr, String)>> {
-    match &condition.kind {
-        ExprKind::Binary {
-            op: BinaryOp::Or,
-            left,
-            right,
-        } => {
-            let mut conditions = literal_match_conditions(left)?;
-            conditions.extend(literal_match_conditions(right)?);
-            Some(conditions)
-        }
-        ExprKind::Binary {
-            op: BinaryOp::Equal,
-            left,
-            right,
-        } => literal_equality_condition(left, right).map(|condition| vec![condition]),
-        _ => None,
-    }
-}
-
-fn literal_equality_condition<'a>(left: &'a Expr, right: &'a Expr) -> Option<(&'a Expr, String)> {
-    if let Some(literal) = literal_pattern_text(right) {
-        return Some((left, literal));
-    }
-    literal_pattern_text(left).map(|literal| (right, literal))
-}
-
-fn literal_pattern_text(expr: &Expr) -> Option<String> {
-    match &expr.kind {
-        ExprKind::StringLiteral(value)
-        | ExprKind::IntLiteral(value)
-        | ExprKind::FloatLiteral(value) => Some(value.clone()),
-        ExprKind::Unit => Some("()".to_string()),
-        _ => None,
-    }
-}
-
-fn exprs_equivalent(left: &Expr, right: &Expr) -> bool {
-    format_expr_at_indent(left, 0) == format_expr_at_indent(right, 0)
-}
-
-fn format_literal_match_rewrite(rewrite: &LiteralMatchRewrite<'_>, indent: usize) -> String {
-    let mut text = format!(
-        "match {}\n",
-        format_expr_at_indent(rewrite.scrutinee, indent)
-    );
-    for (literal, expr) in &rewrite.arms {
-        push_indent(&mut text, indent + 1);
-        text.push_str(literal);
-        text.push_str(" => ");
-        text.push_str(&format_expr_at_indent(expr, indent + 1));
-        text.push('\n');
-    }
-    push_indent(&mut text, indent + 1);
-    text.push_str("_ => ");
-    text.push_str(&format_expr_at_indent(rewrite.fallback, indent + 1));
-    text.push('\n');
-    push_indent(&mut text, indent);
-    text.push_str("end");
-    text
-}
-
-fn format_bool_match_rewrite(
-    condition: &Expr,
-    rewrite: &BoolMatchRewrite<'_>,
-    indent: usize,
-) -> String {
-    let mut text = format!("if {}\n", format_expr_at_indent(condition, indent));
-    push_indent(&mut text, indent + 1);
-    text.push_str(&format_expr_at_indent(rewrite.true_expr, indent + 1));
-    text.push('\n');
-    format_bool_match_else(&mut text, rewrite.false_expr, indent);
-    text
-}
-
-fn format_bool_match_else(text: &mut String, false_expr: &Expr, indent: usize) {
-    if let ExprKind::Match {
-        scrutinee,
-        arms: nested_arms,
-    } = &false_expr.kind
-        && literal_match_rewrite(scrutinee, nested_arms).is_none()
-        && let Some(rewrite) = bool_match_rewrite(nested_arms)
-    {
-        push_indent(text, indent);
-        text.push_str("else if ");
-        text.push_str(&format_expr_at_indent(scrutinee, indent));
-        text.push('\n');
-        push_indent(text, indent + 1);
-        text.push_str(&format_expr_at_indent(rewrite.true_expr, indent + 1));
-        text.push('\n');
-        format_bool_match_else(text, rewrite.false_expr, indent);
-        return;
-    }
-
-    push_indent(text, indent);
-    text.push_str("else\n");
-    push_indent(text, indent + 1);
-    text.push_str(&format_expr_at_indent(false_expr, indent + 1));
-    text.push('\n');
-    push_indent(text, indent);
-    text.push_str("end");
 }
 
 fn format_if_expr(
@@ -820,39 +568,6 @@ fn expr_prec(expr: &Expr) -> u8 {
         | ExprKind::Try { .. } => 27,
         ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Begin { .. } => 29,
         _ => 29,
-    }
-}
-
-pub(super) fn format_pattern(pattern: &Pattern) -> String {
-    match &pattern.kind {
-        PatternKind::Wildcard => "_".to_string(),
-        PatternKind::Binding(name) => name.clone(),
-        PatternKind::StringLiteral(value)
-        | PatternKind::IntLiteral(value)
-        | PatternKind::FloatLiteral(value) => value.clone(),
-        PatternKind::BoolLiteral(true) => "true".to_string(),
-        PatternKind::BoolLiteral(false) => "false".to_string(),
-        PatternKind::Unit => "()".to_string(),
-        PatternKind::Record(fields) => {
-            let fields = fields
-                .iter()
-                .map(|field| format!("{}: {}", field.name, format_pattern(&field.pattern)))
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("{{ {fields} }}")
-        }
-        PatternKind::Constructor { name, args, .. } => {
-            if args.is_empty() {
-                name.join("::")
-            } else {
-                let args = args
-                    .iter()
-                    .map(format_pattern)
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("{}({args})", name.join("::"))
-            }
-        }
     }
 }
 
