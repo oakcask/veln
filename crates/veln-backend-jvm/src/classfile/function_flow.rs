@@ -11,7 +11,9 @@ pub(super) struct FunctionBytecodeEmitter<'a, 'program> {
     active_unwind: Option<usize>,
     unwind_nodes: Vec<UnwindNode>,
     unwind_result: u16,
+    unwind_throwable: u16,
     unwind_return_label: Option<usize>,
+    exception_unwind_used: bool,
 }
 
 pub(super) struct LocalBindings {
@@ -87,6 +89,8 @@ struct RegisteredCleanup {
 #[derive(Clone)]
 struct UnwindNode {
     label: usize,
+    exception_entry_label: usize,
+    exception_action_label: usize,
     parent: Option<usize>,
     action: UnwindAction,
 }
@@ -119,18 +123,21 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             locals.insert(param.name.clone(), index as u16);
         }
         let unwind_result = function.params.len() as u16;
+        let unwind_throwable = unwind_result + 1;
         Self {
             program,
             function,
             locals: LocalBindings::new(locals),
-            next_local: unwind_result + 1,
-            max_local: unwind_result + 1,
+            next_local: unwind_throwable + 1,
+            max_local: unwind_throwable + 1,
             tail_loop_start: None,
             active_cleanup_regions: Vec::new(),
             active_unwind: None,
             unwind_nodes: Vec::new(),
             unwind_result,
+            unwind_throwable,
             unwind_return_label: None,
+            exception_unwind_used: false,
         }
     }
 
@@ -205,18 +212,29 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     self.push_unwind_node(code, UnwindAction::Cleanup(cleanup));
                 }
                 IrStmtKind::Return { value } => {
+                    let exception_start = code.mark();
+                    let unwind = self.active_unwind;
                     let has_cleanups = self
                         .active_cleanup_regions
                         .last()
                         .is_some_and(|cleanups| !cleanups.is_empty());
                     if function && !has_cleanups {
                         if self.emit_tail_expr(code, value) {
+                            let exception_end = code.mark();
+                            self.protect_exception_range(
+                                code,
+                                exception_start,
+                                exception_end,
+                                unwind,
+                            );
                             returns = true;
                             break;
                         }
                     } else {
                         self.emit_expr(code, value);
                     }
+                    let exception_end = code.mark();
+                    self.protect_exception_range(code, exception_start, exception_end, unwind);
                     let result = self.alloc_local();
                     code.astore(result);
                     let cleanups = self
@@ -237,7 +255,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     returns = true;
                     break;
                 }
-                _ => self.emit_stmt(code, stmt),
+                _ => {
+                    let exception_start = code.mark();
+                    let unwind = self.active_unwind;
+                    self.emit_stmt(code, stmt);
+                    let exception_end = code.mark();
+                    self.protect_exception_range(code, exception_start, exception_end, unwind);
+                }
             }
         }
         self.active_cleanup_regions
@@ -312,11 +336,34 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     fn push_unwind_node(&mut self, code: &mut MethodCode, action: UnwindAction) {
         let node = UnwindNode {
             label: code.new_label(),
+            exception_entry_label: code.new_label(),
+            exception_action_label: code.new_label(),
             parent: self.active_unwind,
             action,
         };
         self.active_unwind = Some(self.unwind_nodes.len());
         self.unwind_nodes.push(node);
+    }
+
+    fn protect_exception_range(
+        &mut self,
+        code: &mut MethodCode,
+        start_pc: usize,
+        end_pc: usize,
+        unwind: Option<usize>,
+    ) {
+        let Some(unwind) = unwind else {
+            return;
+        };
+        if start_pc == end_pc {
+            return;
+        }
+        self.exception_unwind_used = true;
+        code.add_exception_handler_to_label(
+            start_pc,
+            end_pc,
+            self.unwind_nodes[unwind].exception_entry_label,
+        );
     }
 
     fn unwind_return_label(&mut self, code: &mut MethodCode) -> usize {
@@ -331,34 +378,63 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_unwind_blocks(&mut self, code: &mut MethodCode) {
-        let Some(return_label) = self.unwind_return_label else {
+        if self.unwind_return_label.is_none() && !self.exception_unwind_used {
             return;
-        };
-        let scratch_base = self.max_local;
-        let mut index = 0;
-        while index < self.unwind_nodes.len() {
-            let node = self.unwind_nodes[index].clone();
-            code.bind(node.label);
-            self.active_unwind = node.parent;
-            self.next_local = scratch_base;
-            match node.action {
-                UnwindAction::Cleanup(cleanup) => {
-                    self.emit_registered_cleanup(code, &cleanup);
-                }
-                UnwindAction::PopHandler => self.emit_pop_handler(code),
-            }
-            let target = match node.parent {
-                Some(parent) => self.unwind_nodes[parent].label,
-                None => return_label,
-            };
-            code.branch_wide_to(target);
-            index += 1;
         }
-        code.bind(return_label);
-        let result = self.unwind_result;
-        self.emit_ensure_checks_for_result(code, result);
-        code.aload(result);
-        code.op(0xb0);
+        let scratch_base = self.max_local;
+        if let Some(return_label) = self.unwind_return_label {
+            let mut index = 0;
+            while index < self.unwind_nodes.len() {
+                let node = self.unwind_nodes[index].clone();
+                code.bind(node.label);
+                self.active_unwind = node.parent;
+                self.next_local = scratch_base;
+                match node.action {
+                    UnwindAction::Cleanup(cleanup) => {
+                        self.emit_registered_cleanup(code, &cleanup);
+                    }
+                    UnwindAction::PopHandler => self.emit_pop_handler(code),
+                }
+                let target = match node.parent {
+                    Some(parent) => self.unwind_nodes[parent].label,
+                    None => return_label,
+                };
+                code.branch_wide_to(target);
+                index += 1;
+            }
+            code.bind(return_label);
+            let result = self.unwind_result;
+            self.emit_ensure_checks_for_result(code, result);
+            code.aload(result);
+            code.op(0xb0);
+        }
+        if self.exception_unwind_used {
+            let throw_label = code.new_label();
+            let mut index = 0;
+            while index < self.unwind_nodes.len() {
+                let node = self.unwind_nodes[index].clone();
+                code.bind(node.exception_entry_label);
+                code.astore(self.unwind_throwable);
+                code.bind(node.exception_action_label);
+                self.active_unwind = node.parent;
+                self.next_local = scratch_base;
+                match node.action {
+                    UnwindAction::Cleanup(cleanup) => {
+                        self.emit_registered_cleanup(code, &cleanup);
+                    }
+                    UnwindAction::PopHandler => self.emit_pop_handler(code),
+                }
+                let target = match node.parent {
+                    Some(parent) => self.unwind_nodes[parent].exception_action_label,
+                    None => throw_label,
+                };
+                code.branch_wide_to(target);
+                index += 1;
+            }
+            code.bind(throw_label);
+            code.aload(self.unwind_throwable);
+            code.op(0xbf);
+        }
         self.active_unwind = None;
     }
 

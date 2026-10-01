@@ -5,6 +5,7 @@ pub(super) struct MethodCode {
     pub(super) code: Vec<u8>,
     labels: Vec<Option<usize>>,
     patches: Vec<Patch>,
+    exception_patches: Vec<ExceptionPatch>,
     pub(super) max_stack: u16,
     pub(super) max_locals: u16,
     pub(super) exceptions: Vec<ExceptionHandler>,
@@ -17,6 +18,7 @@ impl MethodCode {
             code: Vec::new(),
             labels: Vec::new(),
             patches: Vec::new(),
+            exception_patches: Vec::new(),
             max_stack: 64,
             max_locals: 0,
             exceptions: Vec::new(),
@@ -40,6 +42,27 @@ impl MethodCode {
     pub(super) fn bind(&mut self, label: usize) {
         self.labels[label] = Some(self.code.len());
         self.patch_bound_labels();
+        self.patch_bound_exception_handlers();
+    }
+
+    pub(super) fn add_exception_handler_to_label(
+        &mut self,
+        start_pc: usize,
+        end_pc: usize,
+        handler_label: usize,
+    ) {
+        let exception_index = self.exceptions.len();
+        self.exceptions.push(ExceptionHandler {
+            start_pc,
+            end_pc,
+            handler_pc: 0,
+            catch_type: "java/lang/Throwable".to_string(),
+        });
+        self.exception_patches.push(ExceptionPatch {
+            exception_index,
+            handler_label,
+        });
+        self.patch_bound_exception_handlers();
     }
 
     pub(super) fn branch(&mut self, op: u8) -> usize {
@@ -103,6 +126,14 @@ impl MethodCode {
                         self.code[patch.pos + 1..patch.pos + 5].copy_from_slice(&bytes);
                     }
                 }
+            }
+        }
+    }
+
+    fn patch_bound_exception_handlers(&mut self) {
+        for patch in &self.exception_patches {
+            if let Some(handler_pc) = self.labels[patch.handler_label] {
+                self.exceptions[patch.exception_index].handler_pc = handler_pc;
             }
         }
     }
@@ -262,6 +293,11 @@ struct Patch {
     pos: usize,
     label: usize,
     width: BranchWidth,
+}
+
+struct ExceptionPatch {
+    exception_index: usize,
+    handler_label: usize,
 }
 
 enum BranchWidth {

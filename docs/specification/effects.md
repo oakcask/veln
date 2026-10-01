@@ -134,13 +134,15 @@ creation expressions expose their job effect rows at the call expression, so a
 lexical handler around the task creation expression can discharge a handled
 nominal job effect before the runnable entry boundary is checked.
 
-Behind the deferred-cleanup readiness gate, postfix `?` propagation restores
-handler frames as it leaves handled expressions. If cleanup registered outside
-an inner handled expression performs the same effect, the cleanup observes the
-outer handler. Cleanup registrations and handler frames unwind in reverse
-lexical nesting order. This internal JVM foundation does not make a reachable
-`begin` or `defer` publicly executable; the gate and remaining cleanup limits
-are specified by [execution.md](execution.md#runtime-readiness-and-host-boundaries).
+Behind the deferred-cleanup readiness gate, postfix `?` propagation and
+contract or runtime failure restore handler frames as they leave handled
+expressions. A cleanup registered inside a handled expression runs before that
+expression's handler frame is restored. If cleanup registered outside an inner
+handled expression performs the same effect, the cleanup observes the outer
+handler. Cleanup registrations and handler frames unwind in reverse lexical
+nesting order. This internal JVM foundation does not make a reachable `begin`
+or `defer` publicly executable; the gate and remaining cleanup limits are
+specified by [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 
 Effects in a `begin` body and in every deferred block contribute to the
 enclosing function, test, or handler operation clause. A cleanup-region

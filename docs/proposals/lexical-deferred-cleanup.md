@@ -7,11 +7,11 @@ update-when: Deferred-cleanup registration, referenced-local capture, unwinding 
 
 This proposal remains incomplete. The compiler has an internal checked-core,
 typed-IR, and JVM foundation for registration-time capture, normal completion,
-and `Err` propagation through postfix `?`. The public readiness gate still
-blocks executable programs that have a selected entry that can reach `begin`
-or `defer`. Public integration and unwinding for contract failure, runtime
-failure, and cancellation remain. The mechanism must cover files, sockets,
-locks, effect handlers, spans, and future resources without requiring
+`Err` propagation through postfix `?`, and exceptional unwind after contract
+or runtime failure. The public readiness gate still blocks executable programs
+that have a selected entry that can reach `begin` or `defer`. Public
+integration and cancellation unwind remain. The mechanism must cover files,
+sockets, locks, effect handlers, spans, and future resources without requiring
 destructors or garbage-collector finalizers.
 
 ## Outcome
@@ -69,23 +69,23 @@ the [source-surface specification](../specification/source-surface.md#static-cle
 Checked core and typed IR preserve cleanup regions, deferred blocks, and typed
 snapshots of referenced local bindings. The JVM backend internally executes
 registered blocks once in reverse registration order on normal completion and
-when postfix `?` propagates an `Err`. Propagation unwinds an inner region before
-its enclosing region and executes only blocks reached before the propagating
-expression. Cleanup registrations and handler frames unwind in reverse lexical
-nesting order. Both paths use the registration-time snapshots. A successful
-`begin` transfers its value only after cleanup completes. Compiler and backend
-tests cover C1, C2, C4, C5, C6, and C12 while the public readiness gate remains
-closed.
+when postfix `?` propagates an `Err` or a contract or runtime failure leaves a
+region. Abrupt exit unwinds an inner region before its enclosing region and
+executes only blocks reached before the failure. Cleanup registrations and
+handler frames unwind in reverse lexical nesting order. Every path uses the
+registration-time snapshots. Successful cleanup preserves the original
+throwable during exceptional unwind. A successful `begin` transfers its value
+only after cleanup completes. Compiler and backend tests cover C1, C2, C3, C4,
+C5, C6, and C12 while the public readiness gate remains closed.
 
 ## Remaining Runtime Integration
 
 The public executable pipeline must use the implemented registration and
-result-propagation foundation without bypassing the readiness gate early. The
-remaining contract-failure, runtime-failure, and cancellation paths must use
-the same registration-time snapshots. Cleanup must not retain a live binding
-slot or resolve a captured name again when the region exits. Cleanup-failure
-precedence and continued cleanup after a cleanup failure also remain
-unimplemented.
+unwind foundation without bypassing the readiness gate early. Task cancellation
+must use the same registration-time snapshots. Cleanup must not retain a live
+binding slot or resolve a captured name again when the region exits.
+Cleanup-failure precedence and continued cleanup after a cleanup failure also
+remain unimplemented.
 
 ## Exit and Failure Rules
 
@@ -118,14 +118,14 @@ fails.
 
 Before the readiness gate opens, public executable evidence must cover the
 implemented internal cases and the remaining cases below. Internal compiler
-and backend coverage for C1, C2, C4, C5, C6, and C12 is complete, but it does
-not replace the public-pipeline evidence planned in this table.
+and backend coverage for C1, C2, C3, C4, C5, C6, and C12 is complete, but it
+does not replace the public-pipeline evidence planned in this table.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
 | C1 | A region completes normally after registering one block. | The block runs once before the region transfers its value. | Run specification case with an event recorder. |
 | C2 | A region propagates `Err` through `?`. | Registered blocks run before the caller observes the `Err`. | Run specification case. |
-| C3 | A region raises a contract or runtime failure. | Registered blocks run before the failure leaves the region. | Human and JSON runtime-failure cases. |
+| C3 | A region raises a contract or runtime failure. | Registered blocks run before the failure leaves the region. | Internal backend coverage is complete; public human and JSON runtime-failure cases remain. |
 | C4 | Three blocks are registered. | They run once each in reverse registration order. | Run specification case with ordered events. |
 | C5 | Acquisition fails before execution reaches `defer`. | The unregistered block does not run. | Run specification case. |
 | C6 | A `begin` expression completes successfully. | Its cleanup runs before the expression value is bound outside the scope. | Run specification case. |
