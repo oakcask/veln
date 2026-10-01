@@ -1,5 +1,6 @@
+use super::expressions::format_expr_at_indent;
 use super::{LineComments, bool_match_rewrite, literal_match_rewrite};
-use crate::{BodyLine, Expr, ExprKind, SyntaxItem, SyntaxTree};
+use crate::{BodyLine, Expr, ExprChildren, ExprKind, SyntaxItem, SyntaxTree};
 
 pub(super) fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &LineComments) -> bool {
     tree.items.iter().any(|item| match item {
@@ -23,79 +24,21 @@ fn expr_is_commented_match_rewrite(expr: &Expr, comments: &LineComments) -> bool
     let ExprKind::Match { scrutinee, arms } = &expr.kind else {
         return false;
     };
-    (literal_match_rewrite(scrutinee, arms).is_some() || bool_match_rewrite(arms).is_some())
+    (literal_match_rewrite(scrutinee, arms, &|left, right| {
+        format_expr_at_indent(left, 0) == format_expr_at_indent(right, 0)
+    })
+    .is_some()
+        || bool_match_rewrite(arms).is_some())
         && comments.has_comment_in_span(&expr.span)
 }
 
-enum ExprChildren<'a> {
-    None,
-    One(&'a Expr),
-    Pair(&'a Expr, &'a Expr),
-    Slice(&'a [Expr]),
-    HeadAndSlice(&'a Expr, &'a [Expr]),
-    Record(&'a [crate::RecordField]),
-    Dict(&'a [crate::DictEntry]),
-    Match(&'a Expr, &'a [crate::MatchArm]),
-    If {
-        condition: &'a Expr,
-        then_branch: &'a Expr,
-        else_if_branches: &'a [crate::IfBranch],
-        else_branch: &'a Expr,
-    },
-    Body(&'a [BodyLine]),
-}
-
-fn expr_children(expr: &Expr) -> ExprChildren<'_> {
-    match &expr.kind {
-        ExprKind::TypeApply { callee: child, .. }
-        | ExprKind::SchemaEncode { value: child, .. }
-        | ExprKind::FieldAccess { base: child, .. }
-        | ExprKind::Try { expr: child, .. }
-        | ExprKind::Prefix { expr: child, .. } => ExprChildren::One(child),
-        ExprKind::SchemaDecode {
-            input: left,
-            base: right,
-            ..
-        }
-        | ExprKind::Binary { left, right, .. } => ExprChildren::Pair(left, right),
-        ExprKind::Perform { args, .. } | ExprKind::List(args) => ExprChildren::Slice(args),
-        ExprKind::Call { callee: head, args }
-        | ExprKind::Handle {
-            body: head, args, ..
-        } => ExprChildren::HeadAndSlice(head, args),
-        ExprKind::Record(fields) => ExprChildren::Record(fields),
-        ExprKind::Dict(entries) => ExprChildren::Dict(entries),
-        ExprKind::Match { scrutinee, arms } => ExprChildren::Match(scrutinee, arms),
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => ExprChildren::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        },
-        ExprKind::Begin { body, .. } => ExprChildren::Body(body),
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => ExprChildren::None,
-    }
-}
-
 fn expr_children_have_commented_match_rewrite(expr: &Expr, comments: &LineComments) -> bool {
-    match expr_children(expr) {
+    match expr.children() {
         ExprChildren::None => false,
-        ExprChildren::One(child) => expr_has_commented_match_rewrite(child, comments),
-        ExprChildren::Pair(left, right) => {
-            expr_has_commented_match_rewrite(left, comments)
-                || expr_has_commented_match_rewrite(right, comments)
+        ExprChildren::One { child, .. } => expr_has_commented_match_rewrite(child, comments),
+        ExprChildren::Pair { first, second, .. } => {
+            expr_has_commented_match_rewrite(first, comments)
+                || expr_has_commented_match_rewrite(second, comments)
         }
         ExprChildren::Slice(children) => expr_slice_has_commented_match_rewrite(children, comments),
         ExprChildren::HeadAndSlice(head, children) => {
@@ -119,7 +62,7 @@ fn expr_children_have_commented_match_rewrite(expr: &Expr, comments: &LineCommen
             else_branch,
             comments,
         ),
-        ExprChildren::Body(body) => body_lines_have_commented_match_rewrite(body, comments),
+        ExprChildren::BeginBody(body) => body_lines_have_commented_match_rewrite(body, comments),
     }
 }
 

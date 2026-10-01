@@ -334,6 +334,47 @@ fn moves_begin_continuation_comments_after_every_enclosing_expression() {
 }
 
 #[test]
+fn moves_begin_continuation_comments_through_generic_and_effect_expressions() {
+    let input = concat!(
+        "fn continued()\n",
+        " let generic = consume<Int>(begin\n",
+        "  value\n",
+        " end) # keep generic call\n",
+        " let effectful = handle perform Audit::record(begin\n",
+        "  value\n",
+        " end) with audit() # keep handled effect\n",
+        " ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("continued-cleanup.veln", input);
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let first = format_tree(&output.tree);
+    let expected = concat!(
+        "fn continued()\n",
+        "\tlet generic = consume<Int>(begin\n",
+        "\t\tvalue\n",
+        "\tend)  # keep generic call\n",
+        "\tlet effectful = handle perform Audit::record(begin\n",
+        "\t\tvalue\n",
+        "\tend) with audit()  # keep handled effect\n",
+        "\t()\n",
+        "end\n",
+    );
+    assert_eq!(first, expected);
+
+    let second_source = SourceFile::new("continued-cleanup.veln", first.clone());
+    let second_output = parse(&second_source);
+    assert!(
+        second_output.diagnostics.is_empty(),
+        "{:#?}",
+        second_output.diagnostics
+    );
+    assert_eq!(format_tree(&second_output.tree), first);
+}
+
+#[test]
 fn lossless_tree_exposes_cleanup_region_nodes() {
     let source = SourceFile::new("cleanup.veln", SOURCE);
     let output = parse(&source);

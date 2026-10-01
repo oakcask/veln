@@ -378,6 +378,94 @@ pub enum ExprKind {
     },
 }
 
+pub(crate) enum ExprChildren<'a> {
+    None,
+    One {
+        child: &'a Expr,
+        followed_by_parent_syntax: bool,
+    },
+    Pair {
+        first: &'a Expr,
+        first_followed_by_parent_syntax: bool,
+        second: &'a Expr,
+        second_followed_by_parent_syntax: bool,
+    },
+    Slice(&'a [Expr]),
+    HeadAndSlice(&'a Expr, &'a [Expr]),
+    Record(&'a [RecordField]),
+    Dict(&'a [DictEntry]),
+    Match(&'a Expr, &'a [MatchArm]),
+    If {
+        condition: &'a Expr,
+        then_branch: &'a Expr,
+        else_if_branches: &'a [IfBranch],
+        else_branch: &'a Expr,
+    },
+    BeginBody(&'a [BodyLine]),
+}
+
+impl Expr {
+    pub(crate) fn children(&self) -> ExprChildren<'_> {
+        match &self.kind {
+            ExprKind::TypeApply { callee: child, .. }
+            | ExprKind::FieldAccess { base: child, .. }
+            | ExprKind::Try { expr: child, .. } => ExprChildren::One {
+                child,
+                followed_by_parent_syntax: true,
+            },
+            ExprKind::SchemaEncode { value: child, .. } | ExprKind::Prefix { expr: child, .. } => {
+                ExprChildren::One {
+                    child,
+                    followed_by_parent_syntax: false,
+                }
+            }
+            ExprKind::SchemaDecode {
+                input: first,
+                base: second,
+                ..
+            }
+            | ExprKind::Binary {
+                left: first,
+                right: second,
+                ..
+            } => ExprChildren::Pair {
+                first,
+                first_followed_by_parent_syntax: true,
+                second,
+                second_followed_by_parent_syntax: false,
+            },
+            ExprKind::Perform { args, .. } | ExprKind::List(args) => ExprChildren::Slice(args),
+            ExprKind::Call { callee: head, args }
+            | ExprKind::Handle {
+                body: head, args, ..
+            } => ExprChildren::HeadAndSlice(head, args),
+            ExprKind::Record(fields) => ExprChildren::Record(fields),
+            ExprKind::Dict(entries) => ExprChildren::Dict(entries),
+            ExprKind::Match { scrutinee, arms } => ExprChildren::Match(scrutinee, arms),
+            ExprKind::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => ExprChildren::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            },
+            ExprKind::Begin { body, .. } => ExprChildren::BeginBody(body),
+            ExprKind::Missing
+            | ExprKind::Hole { .. }
+            | ExprKind::NamePath { .. }
+            | ExprKind::StringLiteral(_)
+            | ExprKind::IntLiteral(_)
+            | ExprKind::FloatLiteral(_)
+            | ExprKind::BoolLiteral(_)
+            | ExprKind::Unit => ExprChildren::None,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SatisfyClause {
     pub candidate: Option<String>,
