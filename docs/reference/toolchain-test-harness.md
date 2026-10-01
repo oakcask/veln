@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -68,6 +68,13 @@ Cases are grouped by command or behavior area. The harness owns command
 execution, fixture copying, exit-status checks, stream checks, JSON
 assertions, diagnostic selectors, file content assertions, and file absence
 assertions.
+
+Non-interactive `veln` fixture commands have a 30-second execution limit. On
+Unix, the harness starts each command in a separate process group and
+terminates that group on timeout so descendant processes cannot retain output
+pipes. On other platforms, it terminates the direct child. The harness reaps
+the child before reporting a timeout and includes the fixture label plus the
+captured standard output and standard error in the failure.
 
 ## Manifest Fields
 

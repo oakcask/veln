@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Structured logging, events, metrics, tracing, observation context propagation, or exporter behavior is implemented or redesigned.
+update-when: Structured logging, events, metrics, tracing, observation context propagation, exporter behavior, or the observability proposal dependencies change.
 ---
 
 # Standard-library Observability

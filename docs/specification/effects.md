@@ -798,11 +798,20 @@ carry multiple values through one context argument. Arguments are frozen
 before crossing into the task, and the result value is frozen before it
 crosses back through the task handle.
 `task::join` waits for completion and returns `Ok(value)` when the task returns
-normally, or `Err(JoinError)` when the task is interrupted, cancelled, or fails
-at runtime. `task::join_error_is_cancelled` returns `true` only for the
+normally. Cancellation, interruption, contract failure, and another
+non-runtime task failure return `Err(JoinError)`. An ordinary runtime failure
+from the task crosses the join boundary as that runtime failure instead of
+becoming a join error. Failure message text does not change this
+classification.
+`task::join_error_is_cancelled` returns `true` only for the classified
 cancelled join outcome and does not change the error or task. `task::cancel`
-requests cancellation by interrupting the task and returns `()`. Cancellation is
-cooperative at the JVM runtime boundary.
+requests cancellation by interrupting the task and returns `()`. The first
+call that observes an incomplete task claims cancellation atomically.
+Concurrent or later calls do not send another interruption, including while
+the task is running deferred cleanup. A call that observes an already completed
+task has no effect. Cancellation is cooperative at the JVM runtime boundary,
+and [execution](execution.md#runtime-readiness-and-host-boundaries) specifies
+cleanup completion before `task::join` reports cancellation.
 
 Executable-command reachability also follows bare and `use`-alias qualified
 function declaration values in reachable expressions, public function aliases,
