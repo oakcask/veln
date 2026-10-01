@@ -99,6 +99,59 @@ fn preserves_contextual_callsite_in_qualified_return_type() {
 }
 
 #[test]
+fn preserves_contextual_callsite_in_bare_return_types() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn plain(value: callsite) -> callsite\n",
+            "  value\n",
+            "end\n",
+            "fn located(value: callsite) -> callsite callsite\n",
+            "  value\n",
+            "end\n",
+            "fn callback() -> fn() -> callsite\n",
+            "  callback\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(plain) = &output.tree.items[0] else {
+        panic!("expected function item");
+    };
+    assert_eq!(plain.return_type.as_deref(), Some("callsite"));
+    assert!(plain.callsite.is_none());
+    let SyntaxItem::Function(located) = &output.tree.items[1] else {
+        panic!("expected function item");
+    };
+    assert_eq!(located.return_type.as_deref(), Some("callsite"));
+    assert!(located.callsite.is_some());
+    let SyntaxItem::Function(callback) = &output.tree.items[2] else {
+        panic!("expected function item");
+    };
+    assert_eq!(callback.return_type.as_deref(), Some("fn() -> callsite"));
+    assert!(callback.callsite.is_none());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn plain(value: callsite) -> callsite\n",
+            "\tvalue\n",
+            "end\n",
+            "\n",
+            "fn located(value: callsite) -> callsite callsite\n",
+            "\tvalue\n",
+            "end\n",
+            "\n",
+            "fn callback() -> fn() -> callsite\n",
+            "\tcallback\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn preserves_returned_function_effects_before_callsite_modifier() {
     let source = SourceFile::new(
         "main.veln",

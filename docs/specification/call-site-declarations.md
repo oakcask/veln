@@ -60,7 +60,8 @@ repair.
 
 The declaration contract does not supply hidden call data, construct a runtime
 location, or propagate a location through direct or indirect calls. It does not
-define generated-source mapping, backend metadata, or LSP and MCP presentation.
+define generated-source mapping, backend metadata, or call-site-specific LSP
+and MCP completion, signature help, and built-in-local presentation.
 The checker accepts a call-site-aware declaration, but execution lowering
 rejects a reachable reference to its built-in `callsite` value until runtime
 location construction and the hidden call ABI are implemented. `veln run`

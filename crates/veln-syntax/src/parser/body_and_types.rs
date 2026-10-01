@@ -127,12 +127,13 @@ impl<'a> Parser<'a> {
         let mut tokens = Vec::new();
         let mut depth = 0usize;
         while !self.at(TokenKind::Eof) {
-            let contextual_callsite_path_segment =
-                self.at(TokenKind::Callsite) && self.peek_at(TokenKind::DoubleColon);
-            if depth == 0
-                && stop.iter().any(|kind| self.at(*kind))
-                && !contextual_callsite_path_segment
-            {
+            let contextual_callsite_type = self.at(TokenKind::Callsite)
+                && (self.peek_at(TokenKind::DoubleColon)
+                    || parts.is_empty()
+                    || tokens
+                        .last()
+                        .is_some_and(|token: &Token| token.kind == TokenKind::Arrow));
+            if depth == 0 && stop.iter().any(|kind| self.at(*kind)) && !contextual_callsite_type {
                 break;
             }
             let token = self.current().clone();

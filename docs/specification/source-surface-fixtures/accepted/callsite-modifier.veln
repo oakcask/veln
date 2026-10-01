@@ -10,6 +10,18 @@ fn qualified() -> callsite::Type
   value
 end
 
+fn bare(value: callsite) -> callsite
+  value
+end
+
+fn bare_located(value: callsite) -> callsite callsite
+  value
+end
+
+fn callback() -> fn() -> callsite
+  callback
+end
+
 pub fn preserve_effectful_return(callback: fn() -> () effects [stdio]) -> fn() -> () effects [stdio] callsite
   callback
 end
