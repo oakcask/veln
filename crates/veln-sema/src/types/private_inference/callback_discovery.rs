@@ -122,7 +122,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
     selected_callback_returns: &mut BTreeSet<(Option<String>, String)>,
     adts: &AdtRegistry,
     changed: &mut bool,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
 ) {
     for (index, line) in body.iter().enumerate() {
         match &line.kind {
@@ -294,7 +294,7 @@ fn private_prelude_callback_body_references_slot(
     returns_by_path: &FunctionReturnMap,
     function_by_path: &FunctionAstMap<'_>,
     adts: &AdtRegistry,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
 ) -> bool {
     for (index, line) in body.iter().enumerate() {
         match &line.kind {
@@ -393,7 +393,7 @@ fn collect_private_callback_let_bindings(
     expression: &Expr,
     annotation_type: Option<Type>,
     context: &PrivateCallbackBindingContext<'_, '_>,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
 ) {
     let initializer_private_function = annotation_type
         .is_none()
@@ -621,7 +621,7 @@ pub(crate) fn private_prelude_callback_call_references_slot(
 pub(crate) struct PrivatePreludeCallbackReferenceContext<'a> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
-    pub(crate) bindings: &'a mut Vec<Binding>,
+    pub(crate) bindings: &'a mut PrivateBindings,
     pub(crate) omitted_private_returns: &'a BTreeSet<FunctionKey>,
     pub(crate) returns_by_path: &'a FunctionReturnMap,
     pub(crate) function_by_path: &'a FunctionAstMap<'a>,

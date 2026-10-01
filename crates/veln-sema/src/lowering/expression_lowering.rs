@@ -396,6 +396,12 @@ impl<'a> CoreLowerer<'a> {
         name: &str,
         expected: Option<&CoreType>,
     ) -> CoreExpr {
+        if self.block_unsupported_callsite_runtime
+            && name == "callsite"
+            && self.function.callsite.is_some()
+        {
+            self.unsupported_callsite_reference(expr.node_id, &expr.span);
+        }
         if let Some(index) = self
             .bindings
             .iter()

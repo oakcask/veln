@@ -1,6 +1,37 @@
 use super::*;
 
 #[test]
+fn run_blocks_callsite_references_before_jdk_execution() {
+    let project = TestProject::new("run-callsite-runtime-boundary");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run_with_path(&["main", "main.veln"], "");
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "main.veln:2:3: error[core.callsite_runtime_unsupported]: `callsite` is not available during execution",
+            "note: Runtime support for call-site locations and their hidden call ABI is not implemented.",
+        ],
+    );
+    assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));
+    assert!(
+        !stderr(&output).contains("java` was not found"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
 fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(

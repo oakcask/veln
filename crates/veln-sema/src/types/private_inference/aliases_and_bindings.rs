@@ -1,4 +1,40 @@
 use super::*;
+use std::ops::{Deref, DerefMut};
+
+pub(crate) struct PrivateBindings {
+    values: Vec<Binding>,
+    has_builtin_callsite: bool,
+}
+
+impl PrivateBindings {
+    pub(crate) fn for_function(function: &Function) -> Self {
+        Self {
+            values: Vec::new(),
+            has_builtin_callsite: function.callsite.is_some(),
+        }
+    }
+
+    pub(crate) fn without_builtin(values: Vec<Binding>) -> Self {
+        Self {
+            values,
+            has_builtin_callsite: false,
+        }
+    }
+}
+
+impl Deref for PrivateBindings {
+    type Target = Vec<Binding>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.values
+    }
+}
+
+impl DerefMut for PrivateBindings {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.values
+    }
+}
 
 pub(crate) fn function_body_param_type(param: &veln_ast::Param) -> Type {
     let ty = parse_type_or_unknown(param.ty.as_deref());
@@ -9,8 +45,8 @@ pub(crate) fn function_body_param_type(param: &veln_ast::Param) -> Type {
     }
 }
 
-pub(crate) fn function_parameter_bindings(function: &Function) -> Vec<Binding> {
-    let mut bindings = Vec::new();
+pub(crate) fn function_parameter_bindings(function: &Function) -> PrivateBindings {
+    let mut bindings = PrivateBindings::for_function(function);
     if function.callsite.is_some() {
         bindings.push(Binding::builtin_callsite());
     }
@@ -100,7 +136,11 @@ pub(crate) fn function_signature_path<'a>(
     }
 }
 
-pub(crate) fn collect_pattern_bindings(pattern: &Pattern, ty: &Type, bindings: &mut Vec<Binding>) {
+pub(crate) fn collect_pattern_bindings(
+    pattern: &Pattern,
+    ty: &Type,
+    bindings: &mut PrivateBindings,
+) {
     collect_let_pattern_bindings(pattern, ty, None, bindings);
 }
 
@@ -108,7 +148,7 @@ pub(crate) fn collect_let_pattern_bindings(
     pattern: &Pattern,
     ty: &Type,
     private_function_value: Option<FunctionKey>,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
 ) {
     match &pattern.kind {
         PatternKind::Binding(name) => {
@@ -137,8 +177,13 @@ pub(crate) fn collect_let_pattern_bindings(
     }
 }
 
-pub(crate) fn is_rejected_callsite_binding(name: &str, bindings: &[Binding]) -> bool {
-    name == "callsite" && bindings.iter().any(|binding| binding.is_builtin_callsite)
+pub(crate) fn is_rejected_callsite_binding(name: &str, bindings: &PrivateBindings) -> bool {
+    if name != "callsite" {
+        return false;
+    }
+    #[cfg(test)]
+    private_inference_counters::record_callsite_builtin_presence_step();
+    bindings.has_builtin_callsite
 }
 
 pub(crate) fn imported_function_is_visible(
@@ -177,6 +222,7 @@ pub(crate) mod private_inference_counters {
         static BODY_RETURN_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALL_SITE_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALL_SITE_SCANS: Cell<usize> = const { Cell::new(0) };
+        static CALLSITE_BUILTIN_PRESENCE_STEPS: Cell<usize> = const { Cell::new(0) };
         static PRIVATE_REFERENCE_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
         static PRIVATE_REFERENCE_INDEX_SCANS: Cell<usize> = const { Cell::new(0) };
         static PRELUDE_CALLBACK_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
@@ -188,6 +234,7 @@ pub(crate) mod private_inference_counters {
         pub(crate) body_return_scans: usize,
         pub(crate) call_site_discovery_scans: usize,
         pub(crate) call_site_scans: usize,
+        pub(crate) callsite_builtin_presence_steps: usize,
         pub(crate) private_reference_candidate_scans: usize,
         pub(crate) private_reference_index_scans: usize,
         pub(crate) prelude_callback_discovery_scans: usize,
@@ -198,6 +245,7 @@ pub(crate) mod private_inference_counters {
         BODY_RETURN_SCANS.set(0);
         CALL_SITE_DISCOVERY_SCANS.set(0);
         CALL_SITE_SCANS.set(0);
+        CALLSITE_BUILTIN_PRESENCE_STEPS.set(0);
         PRIVATE_REFERENCE_CANDIDATE_SCANS.set(0);
         PRIVATE_REFERENCE_INDEX_SCANS.set(0);
         PRELUDE_CALLBACK_DISCOVERY_SCANS.set(0);
@@ -209,6 +257,7 @@ pub(crate) mod private_inference_counters {
             body_return_scans: BODY_RETURN_SCANS.get(),
             call_site_discovery_scans: CALL_SITE_DISCOVERY_SCANS.get(),
             call_site_scans: CALL_SITE_SCANS.get(),
+            callsite_builtin_presence_steps: CALLSITE_BUILTIN_PRESENCE_STEPS.get(),
             private_reference_candidate_scans: PRIVATE_REFERENCE_CANDIDATE_SCANS.get(),
             private_reference_index_scans: PRIVATE_REFERENCE_INDEX_SCANS.get(),
             prelude_callback_discovery_scans: PRELUDE_CALLBACK_DISCOVERY_SCANS.get(),
@@ -226,6 +275,10 @@ pub(crate) mod private_inference_counters {
 
     pub(crate) fn record_call_site_scan() {
         CALL_SITE_SCANS.set(CALL_SITE_SCANS.get() + 1);
+    }
+
+    pub(crate) fn record_callsite_builtin_presence_step() {
+        CALLSITE_BUILTIN_PRESENCE_STEPS.set(CALLSITE_BUILTIN_PRESENCE_STEPS.get() + 1);
     }
 
     pub(crate) fn record_private_reference_candidate_scan() {

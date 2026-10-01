@@ -36,7 +36,7 @@ pub(crate) fn private_callback_return_constraint_can_update(
 pub(crate) struct PrivatePreludeCallbackConstraintContext<'a> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
-    pub(crate) bindings: &'a mut Vec<Binding>,
+    pub(crate) bindings: &'a mut PrivateBindings,
     pub(crate) function_by_path: &'a BTreeMap<(Option<String>, String), &'a Function>,
     pub(crate) omitted_private_returns: &'a BTreeSet<(Option<String>, String)>,
     pub(crate) returns_by_path: &'a mut BTreeMap<(Option<String>, String), Type>,

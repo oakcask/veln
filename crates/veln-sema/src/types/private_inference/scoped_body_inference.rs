@@ -105,7 +105,7 @@ pub(super) fn infer_private_body_type(
     expected: Option<&Type>,
     current_module: Option<&str>,
     uses: &[UseDecl],
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
@@ -169,12 +169,12 @@ pub(super) fn infer_private_body_type(
 pub(crate) fn private_function_body_bindings(
     function: &veln_ast::Function,
     signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
-) -> Vec<Binding> {
+) -> PrivateBindings {
     let signature = function
         .name
         .as_ref()
         .and_then(|name| signatures_by_path.get(&(function.module_name.clone(), name.clone())));
-    let mut bindings = Vec::new();
+    let mut bindings = PrivateBindings::for_function(function);
     if function.callsite.is_some() {
         bindings.push(Binding::builtin_callsite());
     }

@@ -27,6 +27,49 @@ fn private_return_inference_sees_the_callsite_binding() {
 }
 
 #[test]
+fn callsite_references_block_execution_lowering_until_runtime_support_exists() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn location() -> SourceLocation callsite\n",
+            "require callsite.start_line > 0\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
+    let blockers = match &lowered.core.as_ref().expect("checked core").readiness {
+        CoreReadiness::Blocked(blockers) => blockers,
+        CoreReadiness::Complete => panic!("callsite references must block execution lowering"),
+    };
+    assert_eq!(blockers.len(), 2, "{blockers:#?}");
+    assert!(blockers.iter().all(|blocker| matches!(
+        blocker,
+        CoreBlocker::UnsupportedExpression { reason, .. }
+            if reason == "callsite_runtime_unsupported"
+    )));
+
+    let diagnostics = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "core.callsite_runtime_unsupported")
+        .collect::<Vec<_>>();
+    assert_eq!(diagnostics.len(), 2, "{:#?}", lowered.diagnostics);
+    assert_diagnostic_span(diagnostics[0], 2, 9, 2, 17);
+    assert_diagnostic_span(diagnostics[1], 3, 3, 3, 11);
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic
+            .related
+            .iter()
+            .any(|related| related.to_json().contains("hidden call ABI"))
+    }));
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn unresolved_callsite_reference_suggests_the_modifier() {
     let diagnostics = diagnostics(concat!(
         "pub fn location() -> SourceLocation\n",

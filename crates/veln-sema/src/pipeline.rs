@@ -13,7 +13,10 @@ use crate::analysis::{
     check_reserved_prelude_aliases, check_schema_field_primitives, check_schema_type_references,
     check_test_declaration_boundary,
 };
-use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
+use crate::lowering::{
+    lower_executable_surface_module_to_core, lower_project_surface_module_to_core,
+    lower_surface_module_to_core,
+};
 use crate::schema;
 use crate::source_less_lookup::validate_source_less_lookup_registries;
 use crate::types::{
@@ -133,7 +136,7 @@ fn check_project_surface_module_with_environment(
         module,
         semantic_diagnostics.clone(),
         &environment,
-        true,
+        SurfaceLoweringMode::ProjectCheck,
     );
     (semantic_diagnostics, checked)
 }
@@ -260,7 +263,12 @@ fn lower_project_reachable_surface_module_with_environment(
         &environment,
         should_validate_standard_bodies(module),
     );
-    lower_analyzed_surface_module_with_environment(module, diagnostics, &environment, false)
+    lower_analyzed_surface_module_with_environment(
+        module,
+        diagnostics,
+        &environment,
+        SurfaceLoweringMode::Execution,
+    )
 }
 
 fn should_validate_standard_bodies(module: &SurfaceModule) -> bool {
@@ -280,7 +288,19 @@ pub fn lower_analyzed_surface_module(
         return lowered_internal_failure(vec![failure.diagnostic()]);
     }
     let environment = TypeEnvironment::from_module(module);
-    lower_analyzed_surface_module_with_environment(module, diagnostics, &environment, false)
+    lower_analyzed_surface_module_with_environment(
+        module,
+        diagnostics,
+        &environment,
+        SurfaceLoweringMode::Module,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum SurfaceLoweringMode {
+    Module,
+    ProjectCheck,
+    Execution,
 }
 
 fn lowered_internal_failure(diagnostics: Vec<Diagnostic>) -> LoweredSurfaceModule {
@@ -295,7 +315,7 @@ fn lower_analyzed_surface_module_with_environment(
     module: &SurfaceModule,
     mut diagnostics: Vec<Diagnostic>,
     environment: &TypeEnvironment,
-    project_check: bool,
+    mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
     if diagnostics
         .iter()
@@ -308,10 +328,14 @@ fn lower_analyzed_surface_module_with_environment(
         };
     }
 
-    let lowered_core = if project_check {
-        lower_project_surface_module_to_core(module, environment)
-    } else {
-        lower_surface_module_to_core(module, environment)
+    let lowered_core = match mode {
+        SurfaceLoweringMode::Module => lower_surface_module_to_core(module, environment),
+        SurfaceLoweringMode::ProjectCheck => {
+            lower_project_surface_module_to_core(module, environment)
+        }
+        SurfaceLoweringMode::Execution => {
+            lower_executable_surface_module_to_core(module, environment)
+        }
     };
     diagnostics.extend(lowered_core.diagnostics);
     let ir = if diagnostics

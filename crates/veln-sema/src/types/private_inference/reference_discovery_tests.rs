@@ -139,5 +139,6 @@ fn rejected_callsite_aliases_and_patterns_preserve_the_builtin_binding() {
     let mut bindings = private_reference_initial_bindings(subject);
     collect_private_reference_pattern_bindings(&arms[0].pattern, &mut bindings);
     assert_eq!(bindings.len(), 1);
-    assert!(bindings[0].is_builtin_callsite);
+    assert_eq!(bindings[0].name, "callsite");
+    assert_eq!(bindings[0].ty, Type::source_location());
 }
