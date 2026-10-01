@@ -2,6 +2,14 @@
     private static final Object SELECT_CLOSED = new Object();
     private static final java.util.concurrent.atomic.AtomicInteger SELECT_CURSOR =
         new java.util.concurrent.atomic.AtomicInteger(0);
+    private static final java.util.Set<Thread> CANCELLED_TASK_THREADS =
+        java.util.concurrent.ConcurrentHashMap.<Thread>newKeySet();
+
+    private static void throwTaskCancellationIfRequested() {
+        if (CANCELLED_TASK_THREADS.remove(Thread.currentThread())) {
+            throw new RuntimeFailure("task cancelled");
+        }
+    }
 
     public static final class Channel {
         private final java.util.ArrayDeque<Object> queue;
@@ -43,8 +51,10 @@
     public static final class Task {
         private final java.util.concurrent.FutureTask<Object> future;
         private final Thread thread;
+        private volatile boolean cancellationRequested;
 
         private Task(Fn fn) {
+            this.cancellationRequested = false;
             this.future = new java.util.concurrent.FutureTask<Object>(
                 () -> freezeBoundaryValue(call(fn))
             );
@@ -457,6 +467,7 @@
                     try {
                         tx.channel.wait();
                     } catch (InterruptedException interrupted) {
+                        throwTaskCancellationIfRequested();
                         Thread.currentThread().interrupt();
                         return err("interrupted");
                     }
@@ -472,6 +483,7 @@
                     try {
                         tx.channel.wait();
                     } catch (InterruptedException interrupted) {
+                        throwTaskCancellationIfRequested();
                         interruptedAfterTransfer = true;
                     }
                 }
@@ -484,6 +496,7 @@
                 try {
                     tx.channel.wait();
                 } catch (InterruptedException interrupted) {
+                    throwTaskCancellationIfRequested();
                     Thread.currentThread().interrupt();
                     return err("interrupted");
                 }
@@ -509,6 +522,7 @@
                         try {
                             rx.channel.wait();
                         } catch (InterruptedException interrupted) {
+                            throwTaskCancellationIfRequested();
                             if (!rx.channel.hasRendezvousValue) {
                                 Thread.currentThread().interrupt();
                                 return none();
@@ -536,6 +550,7 @@
                 try {
                     rx.channel.wait();
                 } catch (InterruptedException interrupted) {
+                    throwTaskCancellationIfRequested();
                     Thread.currentThread().interrupt();
                     return none();
                 }
@@ -702,6 +717,7 @@
                 try {
                     Thread.sleep(1L);
                 } catch (InterruptedException interrupted) {
+                    throwTaskCancellationIfRequested();
                     Thread.currentThread().interrupt();
                     return reportInterrupt ? err("interrupted") : none();
                 }
@@ -775,24 +791,57 @@
     public static Object taskJoin(Object task) {
         Task handle = (Task) task;
         try {
-            return ok(handle.future.get());
+            Object value = handle.future.get();
+            CANCELLED_TASK_THREADS.remove(handle.thread);
+            return handle.cancellationRequested ? err("cancelled") : ok(value);
         } catch (InterruptedException interrupted) {
+            throwTaskCancellationIfRequested();
             Thread.currentThread().interrupt();
             return err("interrupted");
         } catch (java.util.concurrent.ExecutionException failed) {
+            CANCELLED_TASK_THREADS.remove(handle.thread);
             Throwable cause = failed.getCause();
+            if (handle.cancellationRequested) {
+                if (cause instanceof RuntimeFailure
+                    && "task cancelled".equals(cause.getMessage())) {
+                    if (cause.getSuppressed().length == 0) {
+                        return err("cancelled");
+                    }
+                    throw (RuntimeFailure) cause;
+                }
+                RuntimeFailure cancellation = new RuntimeFailure("task cancelled");
+                attachCleanupFailure(cancellation, cause);
+                throw cancellation;
+            }
             if (cause instanceof RuntimeFailure) {
                 throw (RuntimeFailure) cause;
             }
             return err("failed");
         } catch (java.util.concurrent.CancellationException cancelled) {
+            boolean interrupted = false;
+            while (true) {
+                try {
+                    handle.thread.join();
+                    break;
+                } catch (InterruptedException waitingInterrupted) {
+                    throwTaskCancellationIfRequested();
+                    interrupted = true;
+                }
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            CANCELLED_TASK_THREADS.remove(handle.thread);
             return err("cancelled");
         }
     }
 
     public static Object taskCancel(Object task) {
         Task handle = (Task) task;
-        handle.future.cancel(true);
-        handle.thread.interrupt();
+        if (!handle.future.isDone() && !handle.cancellationRequested) {
+            handle.cancellationRequested = true;
+            CANCELLED_TASK_THREADS.add(handle.thread);
+            handle.thread.interrupt();
+        }
         return UNIT;
     }

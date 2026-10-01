@@ -11,6 +11,14 @@ pub(super) fn runtime_error_message(stderr: &str, status: ExitStatus) -> String 
         .unwrap_or_else(|| format!("run process exited with status {status}"))
 }
 
+pub(super) fn cleanup_related_failures(stderr: &str) -> Vec<String> {
+    stderr
+        .lines()
+        .filter_map(|line| line.strip_prefix("related cleanup failure: "))
+        .map(str::to_string)
+        .collect()
+}
+
 pub(super) struct RunJsonReport {
     status: &'static str,
     exit_code: i32,
@@ -35,13 +43,14 @@ impl RunJsonReport {
         stdout: String,
         stderr: String,
         failure: TestFailure,
+        related: Vec<String>,
     ) -> Self {
         Self {
             status: "failed",
             exit_code,
             stdout,
             stderr,
-            error: Some(RunJsonError::from_test_failure(failure)),
+            error: Some(RunJsonError::from_test_failure(failure, related)),
         }
     }
 
@@ -50,6 +59,7 @@ impl RunJsonReport {
         stdout: String,
         stderr: String,
         message: String,
+        related: Vec<String>,
     ) -> Self {
         let details = invalid_shift_runtime_details(&message)
             .unwrap_or_else(|| JsonValue::object([("phase", JsonValue::string("runtime"))]));
@@ -58,7 +68,7 @@ impl RunJsonReport {
             exit_code,
             stdout,
             stderr,
-            error: Some(RunJsonError::runtime(message, details)),
+            error: Some(RunJsonError::runtime(message, details, related)),
         }
     }
 
@@ -67,6 +77,7 @@ impl RunJsonReport {
         stdout: String,
         _stderr: String,
         failure: TransportFailureTrace,
+        related: Vec<String>,
     ) -> Self {
         let message = format!(
             "transport {} failed: {}",
@@ -78,7 +89,7 @@ impl RunJsonReport {
             exit_code,
             stdout,
             stderr: format!("{message}\n"),
-            error: Some(RunJsonError::runtime(message, failure.details())),
+            error: Some(RunJsonError::runtime(message, failure.details(), related)),
         }
     }
 
@@ -239,22 +250,25 @@ struct RunJsonError {
     kind: String,
     message: String,
     details: JsonValue,
+    related: Vec<String>,
 }
 
 impl RunJsonError {
-    fn from_test_failure(failure: TestFailure) -> Self {
+    fn from_test_failure(failure: TestFailure, related: Vec<String>) -> Self {
         Self {
             kind: failure.kind,
             message: failure.message,
             details: failure.details,
+            related,
         }
     }
 
-    fn runtime(message: String, details: JsonValue) -> Self {
+    fn runtime(message: String, details: JsonValue, related: Vec<String>) -> Self {
         Self {
             kind: "runtime".to_string(),
             message,
             details,
+            related,
         }
     }
 
@@ -263,6 +277,7 @@ impl RunJsonError {
             kind: "runner".to_string(),
             message,
             details: JsonValue::object([("phase", JsonValue::string("tool"))]),
+            related: Vec::new(),
         }
     }
 
@@ -271,6 +286,20 @@ impl RunJsonError {
             ("kind", JsonValue::string(self.kind.clone())),
             ("message", JsonValue::string(self.message.clone())),
             ("details", self.details.clone()),
+            (
+                "related",
+                JsonValue::Array(
+                    self.related
+                        .iter()
+                        .map(|message| {
+                            JsonValue::object([
+                                ("kind", JsonValue::string("cleanup_failure")),
+                                ("message", JsonValue::string(message.clone())),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
         ])
     }
 }

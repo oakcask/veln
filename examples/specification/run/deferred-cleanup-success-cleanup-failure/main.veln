@@ -1,0 +1,13 @@
+# A cleanup failure becomes primary only after every registered cleanup has run.
+pub fn main() -> () effects [stdio]
+	defer
+		stdio::println("remaining cleanup")
+	end
+	defer
+		stdio::println("failing cleanup")
+		let invalid_count = 64
+		let ignored = 1 << invalid_count
+		()
+	end
+	stdio::println("body")
+end

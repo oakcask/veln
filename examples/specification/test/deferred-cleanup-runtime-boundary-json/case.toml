@@ -1,5 +1,5 @@
 command = ["test", "--json", "main_test.veln"]
-exit = 1
+exit = 0
 
 [requires]
 jdk = true
@@ -12,7 +12,7 @@ format = "empty"
 
 [[json_assert]]
 path = "status"
-equals = "blocked"
+equals = "passed"
 
 [[json_assert]]
 path = "diagnostics"
@@ -24,23 +24,19 @@ equals = 2
 
 [[json_assert]]
 path = "summary.passed"
-equals = 1
+equals = 2
 
 [[json_assert]]
 path = "summary.blocked"
-equals = 1
+equals = 0
 
 [[json_assert]]
 path = "cases.0.name"
-equals = "cleanup_blocked"
+equals = "cleanup_runs"
 
 [[json_assert]]
 path = "cases.0.status"
-equals = "blocked"
-
-[[json_assert]]
-path = "cases.0.reason"
-equals = "static_gate"
+equals = "passed"
 
 [[json_assert]]
 path = "cases.0.diagnostics"

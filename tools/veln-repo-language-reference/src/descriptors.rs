@@ -94,7 +94,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
         Descriptor {
             id: "expressions-patterns",
             title: "Expressions, Operators, And Patterns",
-            summary: "Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.",
+            summary: "Expressions include calls, operators, aggregates, control flow, executable lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.",
             keywords: &[
                 "expressions",
                 "operators",
@@ -108,7 +108,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             body: &[
                 "The expression grammar selection is production-based and does not duplicate a hand-maintained grammar.",
                 "The selected examples cover typed operators and lexical cleanup-region formatting.",
-                "The begin and defer forms have public static and tooling surfaces only. A reachable use prevents checked-core execution readiness with deferred_cleanup_runtime while public runtime integration is incomplete. Behind that gate, the compiler and JVM backend implement registration-time local snapshots and reverse-registration-order cleanup when a region completes normally, postfix `?` propagates an `Err`, or a contract or runtime failure leaves the region. Cleanup registrations and handler frames unwind in reverse lexical nesting order, and successful cleanup preserves the original throwable. Public pipeline integration, task cancellation, cleanup-failure precedence, and continued cleanup after a cleanup failure remain unimplemented.",
+                "The begin and defer forms share a public static, tooling, and executable surface. Checked core, typed IR, and the JVM backend preserve registration-time local snapshots and run registered cleanup in reverse order on normal completion, postfix `?` propagation, contract or runtime failure, and task cancellation. Every registered cleanup runs after another cleanup fails. An existing contract failure, runtime failure, or cancellation remains primary with ordered related cleanup failures. Otherwise, the first cleanup failure becomes primary.",
             ],
             related: &["lexical-structure", "types-inference-constructors", "holes"],
             grammar: &[

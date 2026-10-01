@@ -27,14 +27,13 @@ The following behavior is fixed for the implemented slice:
 - Human diagnostics keep the primary message focused on the failed fact at the
   reported span; causes, provenance, and repair hints belong in related notes.
 - `begin` expressions and `defer` statements have a fixed source, static
-  semantics, formatting, and navigation surface. A reachable use remains
-  non-executable and blocks checked-core and typed-IR readiness with
-  `deferred_cleanup_runtime`. An internal checked-core, typed-IR, and JVM
-  foundation implements registration-time capture and reverse-order cleanup
-  on normal completion, postfix `?` propagation, and exceptional exit after a
-  contract or runtime failure. Successful cleanup preserves the original
-  failure. Public integration, task cancellation, cleanup-failure precedence,
-  and continued cleanup after a cleanup failure remain proposal work. See
+  semantics, formatting, navigation, and executable surface. Checked core,
+  typed IR, and the JVM backend implement registration-time capture and
+  reverse-order cleanup on normal completion, postfix `?` propagation,
+  exceptional exit, and task cancellation. All registered cleanup runs;
+  existing failures remain primary with ordered related cleanup failures, and
+  the first cleanup failure becomes primary for an otherwise successful
+  region. See
   [source-surface.md](source-surface.md#static-cleanup-region-forms) and
   [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 - `NodeId` values are session-local and deterministic for a single parse/lower

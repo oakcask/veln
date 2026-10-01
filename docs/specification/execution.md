@@ -19,12 +19,11 @@ before applying command-specific execution or write policy. Holes, missing
 expressions, constructor or call arity failures, and recognized concurrency
 blockers prevent execution.
 
-`begin` expressions and `defer` statements can pass parsing and static
-analysis, but they add the checked-core blocker
-`deferred_cleanup_runtime`. Public commands therefore do not produce typed IR
-or backend artifacts for a reachable program containing either form.
+`begin` expressions and `defer` statements pass parsing, static analysis,
+checked-core readiness, and typed-IR readiness. Public run and test commands
+execute reachable programs containing either form.
 
-Behind this readiness gate, checked core and typed IR represent cleanup
+Checked core and typed IR represent cleanup
 regions, deferred blocks, and registration-time snapshots of referenced local
 bindings. The JVM backend executes blocks that were reached and registered
 exactly once in reverse registration order when a region completes normally,
@@ -32,15 +31,18 @@ postfix `?` propagates an `Err`, or a contract or runtime failure throws from
 the region body. Abrupt exits unwind an inner region before its enclosing
 region and do not run blocks after the failing expression. Every path uses the
 registration-time snapshots. Cleanup registrations and effect-handler frames
-unwind in reverse lexical nesting order. When every cleanup succeeds during an
-exceptional exit, the backend rethrows the original failure. The effect
-boundary during unwinding is specified by
+unwind in reverse lexical nesting order.
+
+Every registered cleanup runs even when an earlier cleanup fails. If the
+region was successful, the first cleanup failure becomes primary after all
+cleanup has run. If a contract failure, runtime failure, or cancellation was
+already primary, it remains primary and cleanup failures are attached in
+execution order as related failures. Human execution prints those failures as ordered related
+cleanup lines; run JSON exposes the same order in `error.related`. Task
+cancellation waits for the task worker to leave its cleanup regions before
+join reports cancellation. The effect boundary during unwinding is specified by
 [effects.md](effects.md#effect-labels). The backend transfers a successful
-`begin` value only after that region's cleanup completes. This internal
-foundation is not a supported executable source feature. Public pipeline
-integration and cleanup for task cancellation remain unimplemented.
-Cleanup-failure precedence and continued cleanup after a cleanup failure are
-also unimplemented.
+`begin` value only after that region's cleanup completes.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.

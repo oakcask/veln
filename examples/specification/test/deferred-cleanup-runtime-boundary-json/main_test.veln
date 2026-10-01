@@ -2,7 +2,7 @@ fn release(value: Int) -> ()
 	()
 end
 
-test cleanup_blocked() -> ()
+test cleanup_runs() -> ()
 	begin
 		let resource = 1
 		defer

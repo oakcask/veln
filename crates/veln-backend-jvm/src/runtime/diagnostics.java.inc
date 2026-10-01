@@ -1,3 +1,19 @@
+    public static void attachCleanupFailure(Throwable primary, Throwable cleanup) {
+        if (primary != cleanup) {
+            primary.addSuppressed(cleanup);
+            for (Throwable related : cleanup.getSuppressed()) {
+                attachCleanupFailure(primary, related);
+            }
+        }
+    }
+
+    public static void printFailure(Throwable failure) {
+        System.err.println(failure.getMessage());
+        for (Throwable related : failure.getSuppressed()) {
+            System.err.println("related cleanup failure: " + related.getMessage());
+        }
+    }
+
     public static void recordContractFailure(ContractFailure error) {
         String path = System.getenv("VELN_CONTRACT_ERRORS");
         if (path == null || path.isEmpty()) {

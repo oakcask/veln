@@ -1,9 +1,12 @@
 command = ["run", "main", "main.veln"]
-exit = 1
+exit = 0
+
+[requires]
+jdk = true
 
 [stdout]
-format = "empty"
+format = "text"
+equals_file = "case-text/stdout.txt"
 
 [stderr]
-format = "text"
-contains = ["veln: run blocked: checked program is not executable"]
+format = "empty"

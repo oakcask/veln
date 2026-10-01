@@ -481,10 +481,12 @@ impl<'a> ClassfileEmitter<'a> {
                 &format!("(L{}$ContractFailure;)V", self.options.runtime_class),
             );
         }
-        code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
         code.aload(2);
-        code.invokevirtual("java/lang/Throwable", "getMessage", "()Ljava/lang/String;");
-        code.invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V");
+        code.invokestatic(
+            &self.options.runtime_class,
+            "printFailure",
+            "(Ljava/lang/Throwable;)V",
+        );
         code.push_i32(1);
         code.invokestatic("java/lang/System", "exit", "(I)V");
         code.op(0xb1);

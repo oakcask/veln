@@ -24,7 +24,9 @@ use crate::java::{
     forward_process_output, prepare_and_run_jvm_capture_with_execution, prepare_jvm_execution,
 };
 
-use super::run_report::{RunJsonReport, runtime_error_message, transport_failure_from_trace};
+use super::run_report::{
+    RunJsonReport, cleanup_related_failures, runtime_error_message, transport_failure_from_trace,
+};
 
 mod byte_diagnostics;
 mod diagnostic_details;
@@ -612,18 +614,19 @@ fn run_json(
         JvmRunResult::Ran(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
             let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+            let related = cleanup_related_failures(&stderr);
             let exit_code = output.status.code().unwrap_or(1);
             if output.status.success() {
                 RunJsonReport::passed(exit_code, stdout, stderr)
             } else if let Some(failure) = contract_failure_from_trace(&contract_error_trace) {
-                RunJsonReport::failed(exit_code, stdout, stderr, failure)
+                RunJsonReport::failed(exit_code, stdout, stderr, failure, related)
             } else if let Some(failure) = result_failure_from_trace(&result_error_trace) {
-                RunJsonReport::failed(exit_code, stdout, stderr, failure)
+                RunJsonReport::failed(exit_code, stdout, stderr, failure, related)
             } else if let Some(failure) = transport_failure_from_trace(&transport_error_trace) {
-                RunJsonReport::runtime_transport_error(exit_code, stdout, stderr, failure)
+                RunJsonReport::runtime_transport_error(exit_code, stdout, stderr, failure, related)
             } else {
                 let message = runtime_error_message(&stderr, output.status);
-                RunJsonReport::runtime_error(exit_code, stdout, stderr, message)
+                RunJsonReport::runtime_error(exit_code, stdout, stderr, message, related)
             }
         }
     };

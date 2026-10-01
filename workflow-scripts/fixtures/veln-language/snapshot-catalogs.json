@@ -2,8 +2,8 @@
   "schema_version": 1,
   "snapshots": [
     {
-      "base_digest": "ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732",
-      "digest": "683dc6011cf07602c296986a72310b2f3a58035554264554d1762b69a4a2b6f2",
+      "base_digest": "4968c9b37ab1ea321dba66fa2efa870f564230071a080c646658f2bd6eb0e514",
+      "digest": "557192279e5f0acdaa55a45b25648139b5882c4cc34b003ff8305131e2cb827c",
       "topic_overrides": [
         {
           "topic_id": "modules-imports-packages",
@@ -20,6 +20,36 @@
           "summary": "The archived snapshot included a module lexicon topic that was later removed.",
           "keywords": ["modules"],
           "body": ["The archived topic preserved the earlier module terminology."]
+        },
+        {
+          "topic_id": "expressions-patterns",
+          "id": "expressions-patterns",
+          "title": "Expressions, Operators, And Patterns",
+          "summary": "Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.",
+          "keywords": ["expressions", "operators", "patterns", "match", "if", "begin", "defer", "cleanup"],
+          "body": [
+            "The expression grammar selection is production-based and does not duplicate a hand-maintained grammar.",
+            "The selected examples cover typed operators and lexical cleanup-region formatting.",
+            "The begin and defer forms have public static and tooling surfaces only. A reachable use prevents checked-core execution readiness with deferred_cleanup_runtime while public runtime integration is incomplete. Behind that gate, the compiler and JVM backend implement registration-time local snapshots and reverse-registration-order cleanup when a region completes normally, postfix `?` propagates an `Err`, or a contract or runtime failure leaves the region. Cleanup registrations and handler frames unwind in reverse lexical nesting order, and successful cleanup preserves the original throwable. Public pipeline integration, task cancellation, cleanup-failure precedence, and continued cleanup after a cleanup failure remain unimplemented."
+          ]
+        }
+      ]
+    },
+    {
+      "base_digest": "4968c9b37ab1ea321dba66fa2efa870f564230071a080c646658f2bd6eb0e514",
+      "digest": "fb8584404ee46aba0265479c3e0d3bc4625920affaa365673a3a046452d9b223",
+      "topic_overrides": [
+        {
+          "topic_id": "expressions-patterns",
+          "id": "expressions-patterns",
+          "title": "Expressions, Operators, And Patterns",
+          "summary": "Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.",
+          "keywords": ["expressions", "operators", "patterns", "match", "if", "begin", "defer", "cleanup"],
+          "body": [
+            "The expression grammar selection is production-based and does not duplicate a hand-maintained grammar.",
+            "The selected examples cover typed operators and lexical cleanup-region formatting.",
+            "The begin and defer forms have public static and tooling surfaces only. A reachable use prevents checked-core execution readiness with deferred_cleanup_runtime while public runtime integration is incomplete. Behind that gate, the compiler and JVM backend implement registration-time local snapshots and reverse-registration-order cleanup when a region completes normally, postfix `?` propagates an `Err`, or a contract or runtime failure leaves the region. Cleanup registrations and handler frames unwind in reverse lexical nesting order, and successful cleanup preserves the original throwable. Public pipeline integration, task cancellation, cleanup-failure precedence, and continued cleanup after a cleanup failure remain unimplemented."
+          ]
         }
       ]
     }

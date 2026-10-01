@@ -313,10 +313,6 @@ impl<'a> CoreLowerer<'a> {
         deferred_body: &[BodyLine],
         body: &mut Vec<CoreStmt>,
     ) {
-        self.blockers.push(CoreBlocker::UnsupportedExpression {
-            node_id: line.node_id,
-            reason: "deferred_cleanup_runtime".to_string(),
-        });
         self.defer_capture_boundaries.push(self.bindings.len());
         self.defer_captures.push(Vec::new());
         let (deferred_body, _) = self.lower_scoped_body(deferred_body, Some(&CoreType::unit()));

@@ -37,6 +37,220 @@ fn normal_completion_runs_registered_cleanup_once_in_reverse_order_with_snapshot
 }
 
 #[test]
+fn cleanup_failure_keeps_running_remaining_cleanups_and_preserves_first_failure() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"remaining cleanup\")\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(\"first cleanup\")\n",
+        "    let invalid_count = 64\n",
+        "    let ignored = 1 << invalid_count\n",
+        "    ()\n",
+        "  end\n",
+        "  stdio::println(\"body\")\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-first-cleanup-failure",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "body\nfirst cleanup\nremaining cleanup\n"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .starts_with("invalid shift count 64 for operator `<<`")
+    );
+}
+
+#[test]
+fn existing_runtime_failure_stays_primary_with_ordered_cleanup_failures() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"second cleanup\")\n",
+        "    let invalid_count = 65\n",
+        "    let ignored = 1 << invalid_count\n",
+        "    ()\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(\"first cleanup\")\n",
+        "    let invalid_count = 64\n",
+        "    let ignored = 1 << invalid_count\n",
+        "    ()\n",
+        "  end\n",
+        "  let invalid_count = 66\n",
+        "  let ignored = 1 << invalid_count\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-existing-runtime-failure",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "first cleanup\nsecond cleanup\n"
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        concat!(
+            "invalid shift count 66 for operator `<<`; expected a value between 0 and 63\n",
+            "related cleanup failure: invalid shift count 64 for operator `<<`; expected a value between 0 and 63\n",
+            "related cleanup failure: invalid shift count 65 for operator `<<`; expected a value between 0 and 63\n",
+        )
+    );
+}
+
+#[test]
+fn existing_contract_failure_stays_primary_with_cleanup_failure_related() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn reject(value: Bool) -> ()\n",
+        "require value\n",
+        "  ()\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup\")\n",
+        "    let invalid_count = 64\n",
+        "    let ignored = 1 << invalid_count\n",
+        "    ()\n",
+        "  end\n",
+        "  reject(false)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-existing-contract-failure-related",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "cleanup\n");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let primary = stderr
+        .find("contract failure: require `value` in `reject` blame caller")
+        .expect("contract failure should remain visible");
+    let related = stderr
+        .find("related cleanup failure: invalid shift count 64 for operator `<<`; expected a value between 0 and 63")
+        .expect("cleanup failure should be related");
+    assert!(primary < related, "{stderr}");
+}
+
+#[test]
+fn task_join_reports_cancellation_only_after_registered_cleanup_finishes() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn worker(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup finished\")\n",
+        "  end\n",
+        "  let _ = channel::send(context.ready, \"ready\")\n",
+        "  let _ = channel::recv(context.gate)\n",
+        "  stdio::println(\"unexpected continuation\")\n",
+        "end\n",
+        "pub fn main() -> () effects [concurrency, stdio]\n",
+        "  let ready = channel::bounded<String>(1)\n",
+        "  let gate = channel::bounded<String>(0)\n",
+        "  let worker = task::spawn_with<(), { ready : Sender<String>, gate : Receiver<String> }>(worker, { ready: ready.tx, gate: gate.rx })\n",
+        "  let _ = channel::recv(ready.rx)\n",
+        "  task::cancel(worker)\n",
+        "  match task::join(worker)\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"cancelled\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("deferred-cleanup-task-cancellation", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "cleanup finished\ncancelled\n"
+    );
+}
+
+#[test]
+fn task_cancellation_stays_primary_with_cleanup_failure_related() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn worker(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"second cleanup\")\n",
+        "    let invalid_count = 65\n",
+        "    let ignored = 1 << invalid_count\n",
+        "    ()\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(\"first cleanup\")\n",
+        "    let invalid_count = 64\n",
+        "    let ignored = 1 << invalid_count\n",
+        "    ()\n",
+        "  end\n",
+        "  let _ = channel::send(context.ready, \"ready\")\n",
+        "  let _ = channel::recv(context.gate)\n",
+        "  stdio::println(\"unexpected continuation\")\n",
+        "end\n",
+        "pub fn main() -> () effects [concurrency, stdio]\n",
+        "  let ready = channel::bounded<String>(1)\n",
+        "  let gate = channel::bounded<String>(0)\n",
+        "  let worker = task::spawn_with<(), { ready : Sender<String>, gate : Receiver<String> }>(worker, { ready: ready.tx, gate: gate.rx })\n",
+        "  let _ = channel::recv(ready.rx)\n",
+        "  task::cancel(worker)\n",
+        "  let _ = task::join(worker)\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-cancellation-failure-related",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "first cleanup\nsecond cleanup\n"
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        concat!(
+            "task cancelled\n",
+            "related cleanup failure: invalid shift count 64 for operator `<<`; expected a value between 0 and 63\n",
+            "related cleanup failure: invalid shift count 65 for operator `<<`; expected a value between 0 and 63\n",
+        )
+    );
+}
+
+#[test]
 fn begin_cleanup_finishes_before_its_value_is_transferred() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "pub fn main() -> () effects [stdio]\n",
@@ -134,6 +348,46 @@ fn bytecode_backend_result_propagation_unwinds_registered_function_cleanups_only
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "captured before propagation\ncaller observed error\n"
+    );
+}
+
+#[test]
+fn result_propagation_keeps_running_cleanups_after_cleanup_failure() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"body failure\")\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"remaining cleanup\")\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(\"failing cleanup\")\n",
+        "    let invalid_count = 64\n",
+        "    let ignored = 1 << invalid_count\n",
+        "    ()\n",
+        "  end\n",
+        "  let ignored = fail()?\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-result-propagation-cleanup-failure",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "failing cleanup\nremaining cleanup\n"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .starts_with("invalid shift count 64 for operator `<<`")
     );
 }
 

@@ -16,10 +16,6 @@ also states it.
 
 ## Ready
 
-- Public integration of the internal lexical deferred-cleanup foundation and
-  task-cancellation unwind, including cleanup-failure precedence and continued
-  cleanup:
-  [lexical-deferred-cleanup.md](lexical-deferred-cleanup.md).
 - Call-site-aware functions and portable source-location values for diagnostics
   and library-defined instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
@@ -34,8 +30,8 @@ also states it.
 ## Blocked
 
 - Standard-library structured logs, events, metrics, traces, explicit context
-  propagation, and substitutable exporters are blocked until lexical cleanup
-  and call-site source locations are implemented:
+  propagation, and substitutable exporters are blocked until call-site source
+  locations are implemented:
   [observability.md](observability.md).
 - Generic named-type and function variance remains separate from ADT variant
   refinement and is blocked until its constructor classifications and complete

@@ -81,8 +81,8 @@ fn search_docs_discovers_cleanup_region_forms() {
         let text = document["structuredContent"]["text"].as_str().unwrap();
         assert!(text.contains("BeginExpr"));
         assert!(text.contains("DeferStatement"));
-        assert!(text.contains("static and tooling surfaces only"));
-        assert!(text.contains("deferred_cleanup_runtime"));
+        assert!(text.contains("static, tooling, and executable surface"));
+        assert!(text.contains("ordered related cleanup failures"));
     }
 }
 
