@@ -5,7 +5,9 @@ pub(super) struct MethodCode {
     pub(super) code: Vec<u8>,
     labels: Vec<Option<usize>>,
     patches: Vec<Patch>,
-    exception_patches: Vec<ExceptionPatch>,
+    exception_patches: Vec<Vec<usize>>,
+    #[cfg(test)]
+    exception_patch_visit_count: usize,
     pub(super) max_stack: u16,
     pub(super) max_locals: u16,
     pub(super) exceptions: Vec<ExceptionHandler>,
@@ -19,6 +21,8 @@ impl MethodCode {
             labels: Vec::new(),
             patches: Vec::new(),
             exception_patches: Vec::new(),
+            #[cfg(test)]
+            exception_patch_visit_count: 0,
             max_stack: 64,
             max_locals: 0,
             exceptions: Vec::new(),
@@ -36,13 +40,21 @@ impl MethodCode {
     pub(super) fn new_label(&mut self) -> usize {
         let id = self.labels.len();
         self.labels.push(None);
+        self.exception_patches.push(Vec::new());
         id
     }
 
     pub(super) fn bind(&mut self, label: usize) {
-        self.labels[label] = Some(self.code.len());
+        let target = self.code.len();
+        self.labels[label] = Some(target);
         self.patch_bound_labels();
-        self.patch_bound_exception_handlers();
+        for exception_index in std::mem::take(&mut self.exception_patches[label]) {
+            self.exceptions[exception_index].handler_pc = target;
+            #[cfg(test)]
+            {
+                self.exception_patch_visit_count += 1;
+            }
+        }
     }
 
     pub(super) fn add_exception_handler_to_label(
@@ -58,11 +70,15 @@ impl MethodCode {
             handler_pc: 0,
             catch_type: "java/lang/Throwable".to_string(),
         });
-        self.exception_patches.push(ExceptionPatch {
-            exception_index,
-            handler_label,
-        });
-        self.patch_bound_exception_handlers();
+        if let Some(handler_pc) = self.labels[handler_label] {
+            self.exceptions[exception_index].handler_pc = handler_pc;
+            #[cfg(test)]
+            {
+                self.exception_patch_visit_count += 1;
+            }
+        } else {
+            self.exception_patches[handler_label].push(exception_index);
+        }
     }
 
     pub(super) fn branch(&mut self, op: u8) -> usize {
@@ -126,14 +142,6 @@ impl MethodCode {
                         self.code[patch.pos + 1..patch.pos + 5].copy_from_slice(&bytes);
                     }
                 }
-            }
-        }
-    }
-
-    fn patch_bound_exception_handlers(&mut self) {
-        for patch in &self.exception_patches {
-            if let Some(handler_pc) = self.labels[patch.handler_label] {
-                self.exceptions[patch.exception_index].handler_pc = handler_pc;
             }
         }
     }
@@ -295,12 +303,34 @@ struct Patch {
     width: BranchWidth,
 }
 
-struct ExceptionPatch {
-    exception_index: usize,
-    handler_label: usize,
-}
-
 enum BranchWidth {
     Short,
     Wide,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exception_patches_are_resolved_once_when_their_label_is_bound() {
+        let pool = Rc::new(RefCell::new(ConstantPool::new()));
+        let mut code = MethodCode::new(pool);
+        let handler = code.new_label();
+
+        for index in 0..2_000 {
+            code.add_exception_handler_to_label(index, index + 1, handler);
+        }
+        code.op(0x00);
+        code.bind(handler);
+        code.add_exception_handler_to_label(2_000, 2_001, handler);
+
+        assert_eq!(code.exception_patch_visit_count, 2_001);
+        assert!(code.exception_patches[handler].is_empty());
+        assert!(
+            code.exceptions
+                .iter()
+                .all(|exception| exception.handler_pc == code.code.len())
+        );
+    }
 }

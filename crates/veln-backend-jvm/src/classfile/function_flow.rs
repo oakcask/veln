@@ -11,7 +11,6 @@ pub(super) struct FunctionBytecodeEmitter<'a, 'program> {
     active_unwind: Option<usize>,
     unwind_nodes: Vec<UnwindNode>,
     unwind_result: u16,
-    unwind_throwable: u16,
     unwind_return_label: Option<usize>,
     exception_unwind_used: bool,
 }
@@ -123,19 +122,17 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             locals.insert(param.name.clone(), index as u16);
         }
         let unwind_result = function.params.len() as u16;
-        let unwind_throwable = unwind_result + 1;
         Self {
             program,
             function,
             locals: LocalBindings::new(locals),
-            next_local: unwind_throwable + 1,
-            max_local: unwind_throwable + 1,
+            next_local: unwind_result + 1,
+            max_local: unwind_result + 1,
             tail_loop_start: None,
             active_cleanup_regions: Vec::new(),
             active_unwind: None,
             unwind_nodes: Vec::new(),
             unwind_result,
-            unwind_throwable,
             unwind_return_label: None,
             exception_unwind_used: false,
         }
@@ -414,7 +411,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             while index < self.unwind_nodes.len() {
                 let node = self.unwind_nodes[index].clone();
                 code.bind(node.exception_entry_label);
-                code.astore(self.unwind_throwable);
+                code.astore(self.unwind_result);
                 code.bind(node.exception_action_label);
                 self.active_unwind = node.parent;
                 self.next_local = scratch_base;
@@ -432,7 +429,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 index += 1;
             }
             code.bind(throw_label);
-            code.aload(self.unwind_throwable);
+            code.aload(self.unwind_result);
             code.op(0xbf);
         }
         self.active_unwind = None;

@@ -425,6 +425,18 @@ fn sequential_cleanup_regions_reuse_jvm_local_slots() {
 }
 
 #[test]
+fn cleanup_free_function_preserves_the_supported_jvm_local_limit() {
+    let mut source = String::from("pub fn main() -> ()\n");
+    for index in 0..254 {
+        source.push_str(&format!("  let value_{index}: Int = {index}\n"));
+    }
+    source.push_str("  ()\nend\n");
+
+    let ir = lower_to_ir(&source);
+    generate_classfiles_with_entry(&ir, "main");
+}
+
+#[test]
 fn nested_cleanup_region_local_binding_retention_grows_linearly() {
     fn retention_at_depth(depth: usize) -> usize {
         let mut source = String::from("pub fn main() -> ()\n  defer\n    ()\n  end\n");

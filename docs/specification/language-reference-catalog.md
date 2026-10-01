@@ -46,8 +46,11 @@ The expressions-and-patterns topic identifies lexical cleanup forms as a
 static and tooling surface. Its body states that a reachable cleanup form
 prevents checked-core execution readiness with `deferred_cleanup_runtime`
 while public runtime integration is incomplete. It also distinguishes this
-public gate from the internal normal-completion and result-propagation
-foundation.
+public gate from the internal foundation for normal completion, result
+propagation, and exceptional exit after a contract or runtime failure. During
+exceptional exit, cleanup registrations and handler frames unwind in reverse
+lexical order, and successful cleanup preserves the original throwable. Task
+cancellation and cleanup-failure behavior remain unimplemented.
 
 The lexical topic includes the normalized complete output of
 `source-surface-executable.pl --grammar`. Selected grammar blocks come from
