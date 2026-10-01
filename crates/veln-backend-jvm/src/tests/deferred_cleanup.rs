@@ -314,7 +314,7 @@ fn result_propagation_clears_expression_operands_before_shared_cleanup() {
 }
 
 #[test]
-fn contract_failure_unwinds_nested_regions_inside_out_with_snapshots() {
+fn bytecode_backend_contract_failure_unwinds_nested_regions_inside_out_with_snapshots() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "fn reject(value: Bool) -> ()\n",
         "require value\n",
@@ -365,7 +365,7 @@ fn contract_failure_unwinds_nested_regions_inside_out_with_snapshots() {
 }
 
 #[test]
-fn runtime_failure_unwinds_cleanup_and_handler_frames_in_lexical_order() {
+fn bytecode_backend_runtime_failure_unwinds_cleanup_and_handler_frames_in_lexical_order() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "effect CleanupProbe\n",
         "  owner() -> String\n",
