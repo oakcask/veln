@@ -270,6 +270,50 @@ fn result_propagation_restores_inner_handler_before_outer_cleanup() {
 }
 
 #[test]
+fn result_propagation_clears_expression_operands_before_shared_cleanup() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn succeed(value: Int) -> Result<Int, String>\n",
+        "  Ok(value)\n",
+        "end\n",
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"expected failure\")\n",
+        "end\n",
+        "fn worker() -> Result<(), String> effects [stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup\")\n",
+        "  end\n",
+        "  let first = succeed(succeed(1)? + 2)\n",
+        "  let second = succeed(3)? + fail()?\n",
+        "  Ok(())\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  match worker()\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"caller observed error\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-expression-operands",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "cleanup\ncaller observed error\n"
+    );
+}
+
+#[test]
 fn sequential_cleanup_regions_reuse_jvm_local_slots() {
     let mut source = String::from("pub fn main() -> ()\n");
     for index in 0..128 {
@@ -335,7 +379,7 @@ fn doubling_cleanups_and_try_sites_keeps_bytecode_growth_below_threefold() {
         source.push_str("  Ok(())\nend\n");
 
         let ir = lower_deferred_cleanup_foundation_to_ir(&source);
-        crate::classfile::function_code_len(&ir, "main")
+        crate::classfile::function_code_footprint(&ir, "main")
     }
 
     let small = code_len(16);

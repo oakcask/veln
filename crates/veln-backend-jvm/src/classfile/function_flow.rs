@@ -306,7 +306,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             Some(node) => self.unwind_nodes[node].label,
             None => self.unwind_return_label.expect("unwind return label"),
         };
-        code.branch_wide_to(target);
+        code.branch_wide_from_any_stack_to(target);
     }
 
     fn push_unwind_node(&mut self, code: &mut MethodCode, action: UnwindAction) {

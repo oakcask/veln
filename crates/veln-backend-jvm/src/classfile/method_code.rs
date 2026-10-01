@@ -70,6 +70,24 @@ impl MethodCode {
         });
     }
 
+    pub(super) fn branch_wide_from_any_stack_to(&mut self, label: usize) {
+        // An exception-handler entry discards the operand stack from the throwing
+        // edge. Use a one-instruction synthetic edge so expression-local values
+        // cannot reach a shared unwind block with incompatible stack heights.
+        self.code.push(0x01);
+        let try_start = self.code.len();
+        self.code.push(0xbf);
+        let handler_pc = self.code.len();
+        self.code.push(0x57);
+        self.branch_wide_to(label);
+        self.exceptions.push(ExceptionHandler {
+            start_pc: try_start,
+            end_pc: handler_pc,
+            handler_pc,
+            catch_type: "java/lang/Throwable".to_string(),
+        });
+    }
+
     pub(super) fn patch_bound_labels(&mut self) {
         for patch in &self.patches {
             if let Some(target) = self.labels[patch.label] {
