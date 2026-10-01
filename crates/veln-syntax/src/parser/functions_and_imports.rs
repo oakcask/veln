@@ -153,95 +153,9 @@ impl<'a> Parser<'a> {
         &mut self,
         kind: FunctionKind,
     ) -> FunctionReturn {
-        let return_context = Self::return_context(kind);
-        let (binding, ty, ty_span, ty_paths) = if self.eat(TokenKind::Arrow).is_some() {
-            let return_binding = if matches!(
-                self.current().kind,
-                TokenKind::Ident | TokenKind::Hole | TokenKind::Callsite
-            ) && self.peek_at(TokenKind::Colon)
-            {
-                let name = self.bump();
-                self.expect(TokenKind::Colon, return_context, vec![":"]);
-                Some(crate::ResultBinding {
-                    name: name.text,
-                    span: self.source.span(name.range),
-                })
-            } else {
-                None
-            };
-            let return_type_start = self.current().range;
-            let (return_type, return_type_paths) = self.collect_return_type_until(
-                return_context,
-                &[
-                    TokenKind::Effects,
-                    TokenKind::Callsite,
-                    TokenKind::Newline,
-                    TokenKind::Eof,
-                ],
-            );
-            let return_type_end = self
-                .previous()
-                .map_or(return_type_start, |token| token.range);
-            let return_type_span = self.source.span(return_type_start.cover(return_type_end));
-            (
-                return_binding,
-                Some(return_type),
-                Some(return_type_span),
-                return_type_paths,
-            )
-        } else {
-            (None, None, None, Vec::new())
-        };
-        let (effects, effect_spans, effects_recovered) = if self.eat(TokenKind::Effects).is_some() {
-            let diagnostic_count = self.diagnostics.len();
-            let labels = self.parse_effect_list();
-            let (effects, spans): (Vec<_>, Vec<_>) = labels.into_iter().unzip();
-            (
-                Some(effects),
-                Some(spans),
-                self.diagnostics.len() > diagnostic_count,
-            )
-        } else {
-            (None, None, false)
-        };
-        let callsite = if kind == FunctionKind::Function && self.at(TokenKind::Callsite) {
-            let modifier = self.bump();
-            let span = self.source.span(modifier.range);
-            while self.at(TokenKind::Callsite) {
-                let duplicate = self.bump();
-                let duplicate_span = self.source.span(duplicate.range);
-                self.diagnostics.push(ParseDiagnostic {
-                    id: "parse.duplicate_callsite_modifier",
-                    message: "duplicate `callsite` function modifier".to_string(),
-                    span: Some(duplicate_span.clone()),
-                    parser_context: Self::function_context(kind),
-                    unexpected: UnexpectedToken {
-                        kind: duplicate.kind.label().to_string(),
-                        text: duplicate.text,
-                    },
-                    expected: vec!["newline"],
-                    recovery: Recovery {
-                        strategy: RecoveryStrategy::SkipToken,
-                        anchor: Some("newline".to_string()),
-                        dropped_token_count: 1,
-                    },
-                    repair_candidates: vec![ParseRepairCandidate {
-                        candidate_id: "parse.duplicate_callsite_modifier.remove".to_string(),
-                        name: "Remove duplicate modifier".to_string(),
-                        application_policy: "automatic".to_string(),
-                        application_status: "available".to_string(),
-                        edit_summary: "Remove the duplicate `callsite` modifier.".to_string(),
-                        edits: vec![ParseRepairEdit {
-                            span: duplicate_span,
-                            replacement: String::new(),
-                        }],
-                    }],
-                });
-            }
-            Some(span)
-        } else {
-            None
-        };
+        let (binding, ty, ty_span, ty_paths) = self.parse_function_return_clause(kind);
+        let (effects, effect_spans, effects_recovered) = self.parse_function_effects();
+        let callsite = self.parse_callsite_modifier(kind);
         FunctionReturn {
             binding,
             ty,
@@ -251,6 +165,116 @@ impl<'a> Parser<'a> {
             effect_spans,
             effects_recovered,
             callsite,
+        }
+    }
+
+    fn parse_function_return_clause(
+        &mut self,
+        kind: FunctionKind,
+    ) -> (
+        Option<crate::ResultBinding>,
+        Option<String>,
+        Option<SourceSpan>,
+        Vec<TypePathSegments>,
+    ) {
+        let return_context = Self::return_context(kind);
+        if self.eat(TokenKind::Arrow).is_none() {
+            return (None, None, None, Vec::new());
+        }
+
+        let binding = if matches!(
+            self.current().kind,
+            TokenKind::Ident | TokenKind::Hole | TokenKind::Callsite
+        ) && self.peek_at(TokenKind::Colon)
+        {
+            let name = self.bump();
+            self.expect(TokenKind::Colon, return_context, vec![":"]);
+            Some(crate::ResultBinding {
+                name: name.text,
+                span: self.source.span(name.range),
+            })
+        } else {
+            None
+        };
+        let type_start = self.current().range;
+        let (ty, ty_paths) = self.collect_return_type_until(
+            return_context,
+            &[
+                TokenKind::Effects,
+                TokenKind::Callsite,
+                TokenKind::Newline,
+                TokenKind::Eof,
+            ],
+        );
+        let type_end = self.previous().map_or(type_start, |token| token.range);
+        let type_span = self.source.span(type_start.cover(type_end));
+        (binding, Some(ty), Some(type_span), ty_paths)
+    }
+
+    fn parse_function_effects(&mut self) -> (Option<Vec<String>>, Option<Vec<SourceSpan>>, bool) {
+        if self.eat(TokenKind::Effects).is_none() {
+            return (None, None, false);
+        }
+
+        let diagnostic_count = self.diagnostics.len();
+        let labels = self.parse_effect_list();
+        let (effects, spans): (Vec<_>, Vec<_>) = labels.into_iter().unzip();
+        (
+            Some(effects),
+            Some(spans),
+            self.diagnostics.len() > diagnostic_count,
+        )
+    }
+
+    fn parse_callsite_modifier(&mut self, kind: FunctionKind) -> Option<SourceSpan> {
+        if kind != FunctionKind::Function || !self.at(TokenKind::Callsite) {
+            return None;
+        }
+
+        let modifier = self.bump();
+        let span = self.source.span(modifier.range);
+        while self.at(TokenKind::Callsite) {
+            let duplicate = self.bump();
+            let duplicate_span = self.source.span(duplicate.range);
+            self.diagnostics
+                .push(Self::duplicate_callsite_modifier_diagnostic(
+                    duplicate,
+                    duplicate_span,
+                ));
+        }
+        Some(span)
+    }
+
+    fn duplicate_callsite_modifier_diagnostic(
+        duplicate: Token,
+        duplicate_span: SourceSpan,
+    ) -> ParseDiagnostic {
+        ParseDiagnostic {
+            id: "parse.duplicate_callsite_modifier",
+            message: "duplicate `callsite` function modifier".to_string(),
+            span: Some(duplicate_span.clone()),
+            parser_context: Self::function_context(FunctionKind::Function),
+            unexpected: UnexpectedToken {
+                kind: duplicate.kind.label().to_string(),
+                text: duplicate.text,
+            },
+            expected: vec!["newline"],
+            recovery: Recovery {
+                strategy: RecoveryStrategy::SkipToken,
+                anchor: Some("newline".to_string()),
+                dropped_token_count: 1,
+            },
+            repair_candidates: vec![ParseRepairCandidate {
+                candidate_id: "parse.duplicate_callsite_modifier.remove".to_string(),
+                name: "Remove duplicate modifier".to_string(),
+                application_policy: "automatic".to_string(),
+                application_status: "available".to_string(),
+                edit_summary: "Remove the duplicate `callsite` modifier.".to_string(),
+                edits: vec![ParseRepairEdit {
+                    span: duplicate_span,
+                    replacement: String::new(),
+                }],
+            }],
         }
     }
 
