@@ -138,6 +138,30 @@ fn run_converts_primitive_entry_arguments_when_jdk_is_available() {
 }
 
 #[test]
+fn ordinary_callsite_parameter_runs_in_contract_and_body() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-ordinary-callsite-parameter");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main(callsite: Int) -> () effects [stdio]\n",
+            "require callsite > 0\n",
+            "  stdio::println(int_to_string(callsite))\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln", "--", "42"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "42\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
 fn run_executes_function_typed_value_calls_when_jdk_is_available() {
     if !jdk_is_available() {
         return;

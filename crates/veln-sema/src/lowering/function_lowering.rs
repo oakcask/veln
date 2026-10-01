@@ -98,7 +98,7 @@ impl<'a> CoreLowerer<'a> {
         contracts
             .iter()
             .map(|contract| {
-                if self.block_unsupported_callsite_runtime {
+                if self.block_unsupported_callsite_runtime && self.function.callsite.is_some() {
                     for span in &contract.callsite_reference_spans {
                         self.unsupported_callsite_reference(contract.node_id, span);
                     }

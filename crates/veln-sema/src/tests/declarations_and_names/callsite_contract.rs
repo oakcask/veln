@@ -70,6 +70,32 @@ fn callsite_references_block_execution_lowering_until_runtime_support_exists() {
 }
 
 #[test]
+fn ordinary_callsite_parameter_lowers_in_contract_and_body() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn identity(callsite: Int) -> Int\n",
+            "require callsite > 0\n",
+            "  callsite\n",
+            "end\n",
+            "pub fn main() -> Int\n",
+            "  identity(42)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(matches!(
+        lowered.core.as_ref().expect("checked core").readiness,
+        CoreReadiness::Complete
+    ));
+    assert!(lowered.ir.is_some());
+}
+
+#[test]
 fn unresolved_callsite_reference_suggests_the_modifier() {
     let diagnostics = diagnostics(concat!(
         "pub fn location() -> SourceLocation\n",

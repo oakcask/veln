@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"8ebcd403d3d76e03b2b3134d21ceb98614f01f22"
+source_git_tree	"b10c8385a297fc1c4b76fb4df446555c1be8daf1"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1740
+case_count	1741
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -36852,6 +36852,17 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"f00a9ea9d8a375fc87b84a00008426a0e3db2fee600557aa9ef74c98b69be7e6"
+case	"examples/specification/run/callsite-ordinary-identifier"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"e29097e7055a50770a321f3ff6d963d7275f5eeb733e3999cf9e038ac96ea5e2"
 case	"examples/specification/run/callsite-runtime-boundary"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[core.callsite_runtime_unsupported]: `callsite` is not available during execution"
@@ -62659,4 +62670,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ef0fa518fbb5cddea3d0462aa84603cc3bc2044f2f2bcfe06394a48a00b59c9a"
+aggregate_digest	"6e2005093add0b4d4f6f3d2250a7d095174e685c460495622dd5a3d8b5fa70be"

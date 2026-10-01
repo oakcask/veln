@@ -20,6 +20,9 @@ This proposal tracks only the runtime propagation and presentation work below.
 
 Runtime-constructed `SourceLocation` values use one-based lines and columns.
 Columns count Unicode scalar values. Offsets count UTF-8 bytes.
+`file` is a package-relative or virtual source path; it is never a
+machine-specific absolute path. `package` and `module` disambiguate equal
+relative paths from different dependencies.
 
 ## Remaining call-site-aware function behavior
 
@@ -91,7 +94,7 @@ file value.
 | S3 | A call-site-aware function passes its supplied `callsite` value to an ordinary `SourceLocation` parameter. | The ordinary parameter observes the same runtime value. | Run case. |
 | S4 | A call-site-aware function is invoked through a function value from a non-call-site-aware function. | The callee observes the indirect call expression. | Run case. |
 | S6 | Source is generated and has an origin mapping. | The exposed location is the mapped user location. | Generated-source fixture. |
-| S7 | A package is checked from two different absolute roots. | Exposed package, module, and file values are identical and contain neither root. | Relocation test. |
+| S7 | Equivalent packages under two absolute roots contain dependencies with the same package-relative source path. | Exposed `file` values are package-relative or canonical virtual paths, all fields contain neither root and remain identical after relocation, and `package` plus `module` disambiguate the dependency sources. | Relocation and dependency-collision test. |
 | S8 | LSP and MCP present the declaration. | Each service identifies the modifier and built-in local variable. | LSP and MCP cases. |
 | S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
 | S10 | A call site contains non-ASCII text before and within its source span. | Lines and columns are one-based, columns count Unicode scalar values, and offsets count UTF-8 bytes. | Run case with exact start and end coordinates from a checked source fixture. |

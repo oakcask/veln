@@ -62,7 +62,9 @@ define generated-source mapping, backend metadata, or LSP and MCP presentation.
 The checker accepts a call-site-aware declaration, but execution lowering
 rejects a reachable reference to its built-in `callsite` value until runtime
 location construction and the hidden call ABI are implemented. `veln run`
-reports the lowering diagnostic and stops before backend execution.
+reports the lowering diagnostic and stops before backend execution. An
+unmodified function can use an ordinary binding named `callsite`, including in
+its contracts, and execution treats that binding like any other local value.
 
 ## References
 
@@ -76,3 +78,5 @@ reports the lowering diagnostic and stops before backend execution.
   `examples/specification/fmt/callsite-modifier/case.toml`.
 - Execution-boundary evidence:
   `examples/specification/run/callsite-runtime-boundary/case.toml`.
+- Ordinary-identifier execution evidence:
+  `examples/specification/run/callsite-ordinary-identifier/case.toml`.
