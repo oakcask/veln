@@ -1,8 +1,8 @@
-fn release(value: Int) -> ()
-	()
+fn release(value: Int) -> () effects [stdio]
+	stdio::println("released")
 end
 
-test cleanup_runs() -> ()
+test cleanup_runs() -> () effects [stdio]
 	begin
 		let resource = 1
 		defer

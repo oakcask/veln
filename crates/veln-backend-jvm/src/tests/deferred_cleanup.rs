@@ -158,24 +158,59 @@ fn existing_contract_failure_stays_primary_with_cleanup_failure_related() {
 #[test]
 fn task_join_reports_cancellation_only_after_registered_cleanup_finishes() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
-        "fn worker(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, stdio]\n",
+        "fn worker(context: { ready : Sender<String>, body_gate : Receiver<String>, cleanup_started : Sender<String>, cleanup_gate : Receiver<String>, cleanup_finished : Sender<String> }) -> () effects [concurrency, stdio]\n",
         "  defer\n",
-        "    stdio::println(\"cleanup finished\")\n",
+        "    let _ = channel::send(context.cleanup_started, \"started\")\n",
+        "    let _ = channel::recv(context.cleanup_gate)\n",
+        "    let _ = channel::send(context.cleanup_finished, \"cleanup finished\")\n",
         "  end\n",
         "  let _ = channel::send(context.ready, \"ready\")\n",
-        "  let _ = channel::recv(context.gate)\n",
+        "  let _ = channel::recv(context.body_gate)\n",
         "  stdio::println(\"unexpected continuation\")\n",
+        "end\n",
+        "fn join_worker(context: { worker : Task<()>, joining : Sender<String>, joined : Sender<String> }) -> () effects [concurrency]\n",
+        "  let _ = channel::send(context.joining, \"joining\")\n",
+        "  let status = match task::join(context.worker)\n",
+        "    Ok(_) => \"unexpected success\"\n",
+        "    Err(error) => if task::join_error_is_cancelled(error)\n",
+        "      \"cancelled\"\n",
+        "    else\n",
+        "      \"unexpected task error\"\n",
+        "    end\n",
+        "  end\n",
+        "  let _ = channel::send(context.joined, status)\n",
+        "  ()\n",
         "end\n",
         "pub fn main() -> () effects [concurrency, stdio]\n",
         "  let ready = channel::bounded<String>(1)\n",
-        "  let gate = channel::bounded<String>(0)\n",
-        "  let worker = task::spawn_with<(), { ready : Sender<String>, gate : Receiver<String> }>(worker, { ready: ready.tx, gate: gate.rx })\n",
+        "  let body_gate = channel::bounded<String>(0)\n",
+        "  let cleanup_started = channel::bounded<String>(1)\n",
+        "  let cleanup_gate = channel::bounded<String>(0)\n",
+        "  let cleanup_finished = channel::bounded<String>(1)\n",
+        "  let joining = channel::bounded<String>(0)\n",
+        "  let joined = channel::bounded<String>(1)\n",
+        "  let never = channel::bounded<String>(1)\n",
+        "  let worker = task::spawn_with<(), { ready : Sender<String>, body_gate : Receiver<String>, cleanup_started : Sender<String>, cleanup_gate : Receiver<String>, cleanup_finished : Sender<String> }>(worker, { ready: ready.tx, body_gate: body_gate.rx, cleanup_started: cleanup_started.tx, cleanup_gate: cleanup_gate.rx, cleanup_finished: cleanup_finished.tx })\n",
         "  let _ = channel::recv(ready.rx)\n",
         "  task::cancel(worker)\n",
-        "  match task::join(worker)\n",
-        "    Ok(_) => stdio::println(\"unexpected success\")\n",
-        "    Err(_) => stdio::println(\"cancelled\")\n",
+        "  let _ = channel::recv(cleanup_started.rx)\n",
+        "  let joiner = task::spawn_with<(), { worker : Task<()>, joining : Sender<String>, joined : Sender<String> }>(join_worker, { worker: worker, joining: joining.tx, joined: joined.tx })\n",
+        "  let _ = channel::recv(joining.rx)\n",
+        "  match channel::select_timeout(joined.rx, never.rx, 25)\n",
+        "    Some(_) => stdio::println(\"join completed before cleanup\")\n",
+        "    None => stdio::println(\"join blocked\")\n",
         "  end\n",
+        "  let _ = channel::send(cleanup_gate.tx, \"release\")\n",
+        "  match channel::recv(cleanup_finished.rx)\n",
+        "    Some(message) => stdio::println(message)\n",
+        "    None => stdio::println(\"cleanup did not finish\")\n",
+        "  end\n",
+        "  match channel::recv(joined.rx)\n",
+        "    Some(status) => stdio::println(status)\n",
+        "    None => stdio::println(\"join result missing\")\n",
+        "  end\n",
+        "  let _ = task::join(joiner)\n",
+        "  ()\n",
         "end\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
@@ -192,7 +227,7 @@ fn task_join_reports_cancellation_only_after_registered_cleanup_finishes() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "cleanup finished\ncancelled\n"
+        "join blocked\ncleanup finished\ncancelled\n"
     );
 }
 
@@ -241,14 +276,16 @@ fn task_cancellation_interrupts_pure_tail_recursive_computation_before_join() {
 }
 
 #[test]
-fn task_cancellation_interrupts_host_time_wait_before_join() {
+fn task_cancellation_interrupts_cancellable_host_time_wait_before_join() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "fn worker(ready: Sender<String>) -> () effects [concurrency, stdio, time]\n",
         "  defer\n",
         "    stdio::println(\"cleanup finished\")\n",
         "  end\n",
         "  let _ = channel::send(ready, \"ready\")\n",
-        "  time::timeout_ms(60000)\n",
+        "  let deadline = time::deadline_after_ms(60000)\n",
+        "  let token = time::cancel_token()\n",
+        "  let _ = time::wait_until_cancellable_outcome(deadline, token)\n",
         "  stdio::println(\"unexpected continuation\")\n",
         "end\n",
         "pub fn main() -> () effects [concurrency, stdio, time]\n",

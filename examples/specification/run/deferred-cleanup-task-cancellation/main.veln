@@ -1,27 +1,59 @@
-# Join cannot report cancellation until the cancelled task finishes registered cleanup.
-fn worker(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, stdio]
+# Join cannot report cancellation until gated cleanup is released and reports completion.
+fn worker(context: { ready : Sender<String>, body_gate : Receiver<String>, cleanup_started : Sender<String>, cleanup_gate : Receiver<String>, cleanup_finished : Sender<String> }) -> () effects [concurrency, stdio]
 	let snapshot = "registered"
 	defer
-		stdio::println(snapshot)
+		let _ = channel::send(context.cleanup_started, "cleanup started")
+		let _ = channel::recv(context.cleanup_gate)
+		let _ = channel::send(context.cleanup_finished, string::concat("cleanup finished: ", snapshot))
 	end
 	let snapshot = "changed"
 	let _ = channel::send(context.ready, "ready")
-	let _ = channel::recv(context.gate)
+	let _ = channel::recv(context.body_gate)
 	stdio::println("unexpected continuation")
+end
+
+fn join_worker(context: { worker : Task<()>, joining : Sender<String>, joined : Sender<String> }) -> () effects [concurrency]
+	let _ = channel::send(context.joining, "joining")
+	let status = match task::join(context.worker)
+		Ok(_) => "unexpected success"
+		Err(error) => if task::join_error_is_cancelled(error)
+			"cancelled"
+		else
+			"unexpected task error"
+		end
+	end
+	let _ = channel::send(context.joined, status)
+	()
 end
 
 pub fn main() -> () effects [concurrency, stdio]
 	let ready = channel::bounded<String>(1)
-	let gate = channel::bounded<String>(0)
-	let worker = task::spawn_with<(), { ready : Sender<String>, gate : Receiver<String> }>(worker, { ready: ready.tx, gate: gate.rx })
+	let body_gate = channel::bounded<String>(0)
+	let cleanup_started = channel::bounded<String>(1)
+	let cleanup_gate = channel::bounded<String>(0)
+	let cleanup_finished = channel::bounded<String>(1)
+	let joining = channel::bounded<String>(0)
+	let joined = channel::bounded<String>(1)
+	let never = channel::bounded<String>(1)
+	let worker = task::spawn_with<(), { ready : Sender<String>, body_gate : Receiver<String>, cleanup_started : Sender<String>, cleanup_gate : Receiver<String>, cleanup_finished : Sender<String> }>(worker, { ready: ready.tx, body_gate: body_gate.rx, cleanup_started: cleanup_started.tx, cleanup_gate: cleanup_gate.rx, cleanup_finished: cleanup_finished.tx })
 	let _ = channel::recv(ready.rx)
 	task::cancel(worker)
-	match task::join(worker)
-		Ok(_) => stdio::println("unexpected success")
-		Err(error) => if task::join_error_is_cancelled(error)
-			stdio::println("cancelled")
-		else
-			stdio::println("unexpected task error")
-		end
+	let _ = channel::recv(cleanup_started.rx)
+	let joiner = task::spawn_with<(), { worker : Task<()>, joining : Sender<String>, joined : Sender<String> }>(join_worker, { worker: worker, joining: joining.tx, joined: joined.tx })
+	let _ = channel::recv(joining.rx)
+	match channel::select_timeout(joined.rx, never.rx, 25)
+		Some(_) => stdio::println("join completed before cleanup")
+		None => stdio::println("join blocked")
 	end
+	let _ = channel::send(cleanup_gate.tx, "release")
+	match channel::recv(cleanup_finished.rx)
+		Some(message) => stdio::println(message)
+		None => stdio::println("cleanup did not finish")
+	end
+	match channel::recv(joined.rx)
+		Some(status) => stdio::println(status)
+		None => stdio::println("join result missing")
+	end
+	let _ = task::join(joiner)
+	()
 end

@@ -43,6 +43,26 @@ path = "cases.0.diagnostics"
 length = 0
 
 [[json_assert]]
+path = "cases.0.events"
+length = 1
+
+[[json_assert]]
+path = "cases.0.events.0.kind"
+equals = "stdio"
+
+[[json_assert]]
+path = "cases.0.events.0.stream"
+equals = "stdout"
+
+[[json_assert]]
+path = "cases.0.events.0.operation"
+equals = "println"
+
+[[json_assert]]
+path = "cases.0.events.0.text"
+equals = "released"
+
+[[json_assert]]
 path = "cases.1.name"
 equals = "unaffected"
 

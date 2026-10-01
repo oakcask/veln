@@ -1,4 +1,4 @@
-# A cleanup failure becomes primary only after every registered cleanup has run.
+# Cleanup failures replace a successful body in reverse execution order.
 pub fn main() -> () effects [stdio]
 	defer
 		stdio::println("remaining cleanup")

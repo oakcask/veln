@@ -395,6 +395,29 @@ primary failed fact at its span; structured context belongs in related details.
 Runtime transport failures remain transport failures and are not converted to
 protocol or application failures.
 
+## References
+
+- Normal completion, nested unwinding, registration-time snapshots, and the
+  public test boundary are checked by
+  [`deferred-cleanup-runtime-boundary`](../../examples/specification/run/deferred-cleanup-runtime-boundary/),
+  [`deferred-cleanup-unwind-boundaries`](../../examples/specification/run/deferred-cleanup-unwind-boundaries/),
+  and
+  [`deferred-cleanup-runtime-boundary-json`](../../examples/specification/test/deferred-cleanup-runtime-boundary-json/).
+- Human and JSON execution cases check cleanup-failure aggregation for a
+  successful body in
+  [`deferred-cleanup-success-cleanup-failure`](../../examples/specification/run/deferred-cleanup-success-cleanup-failure/)
+  and
+  [`deferred-cleanup-success-cleanup-failure-json`](../../examples/specification/run/deferred-cleanup-success-cleanup-failure-json/),
+  and for an already-failing body in
+  [`deferred-cleanup-failure-order-human`](../../examples/specification/run/deferred-cleanup-failure-order-human/)
+  and
+  [`deferred-cleanup-failure-order-json`](../../examples/specification/run/deferred-cleanup-failure-order-json/).
+- Cancellation ordering and related cleanup failures are checked by
+  [`deferred-cleanup-task-cancellation`](../../examples/specification/run/deferred-cleanup-task-cancellation/),
+  [`deferred-cleanup-task-cancellation-failure-human`](../../examples/specification/run/deferred-cleanup-task-cancellation-failure-human/),
+  and
+  [`deferred-cleanup-task-cancellation-failure-json`](../../examples/specification/run/deferred-cleanup-task-cancellation-failure-json/).
+
 ## Read When
 
 - Use [http2.md](http2.md) for production HTTP/2 frame, HPACK, connection,

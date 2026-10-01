@@ -24,19 +24,15 @@ equals_file = "case-text/stderr.txt"
 
 [[json_assert]]
 path = "error.kind"
-equals = "result"
+equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "runtime result failure: Err(cancelled)"
-
-[[json_assert]]
-path = "error.details.value"
-equals = "cancelled"
+equals = "invalid shift count 64 for operator `<<`; expected a value between 0 and 63"
 
 [[json_assert]]
 path = "error.related"
-length = 2
+length = 1
 
 [[json_assert]]
 path = "error.related.0.kind"
@@ -44,12 +40,4 @@ equals = "cleanup_failure"
 
 [[json_assert]]
 path = "error.related.0.message"
-equals = "invalid shift count 64 for operator `<<`; expected a value between 0 and 63"
-
-[[json_assert]]
-path = "error.related.1.kind"
-equals = "cleanup_failure"
-
-[[json_assert]]
-path = "error.related.1.message"
 equals = "invalid shift count 65 for operator `<<`; expected a value between 0 and 63"

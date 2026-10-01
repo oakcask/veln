@@ -1052,7 +1052,12 @@
         while ((remaining = deadlineRemainingNanos(deadline)) > 0L) {
             if (waitCancelled(token)) return waitOutcome("WaitCancelled");
             try { long slice = Math.min(remaining, 10000000L); Thread.sleep(slice / 1000000L, (int)(slice % 1000000L)); }
-            catch (InterruptedException error) { Thread.currentThread().interrupt(); token.cancelled = true; return waitOutcome("WaitCancelled"); }
+            catch (InterruptedException error) {
+                throwTaskCancellationIfRequested();
+                Thread.currentThread().interrupt();
+                token.cancelled = true;
+                return waitOutcome("WaitCancelled");
+            }
         }
         return waitOutcome(token.cancelled ? "WaitCancelled" : "WaitCompleted");
     }
