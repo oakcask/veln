@@ -80,6 +80,33 @@ fn parses_callsite_modifier_without_effects_and_rejects_a_duplicate() {
 }
 
 #[test]
+fn reports_each_extra_callsite_modifier_with_an_independent_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn located() -> SourceLocation callsite callsite callsite\n  callsite\nend\n",
+    );
+
+    let output = parse(&source);
+
+    let function = first_function(&output);
+    assert!(function.callsite.is_some());
+    assert_eq!(output.diagnostics.len(), 2, "{:#?}", output.diagnostics);
+    for diagnostic in &output.diagnostics {
+        assert_eq!(diagnostic.id, "parse.duplicate_callsite_modifier");
+        assert_eq!(diagnostic.repair_candidates.len(), 1);
+        assert_eq!(diagnostic.repair_candidates[0].edits.len(), 1);
+    }
+    assert_eq!(
+        output.diagnostics[0].span.as_ref().unwrap().start.column,
+        41
+    );
+    assert_eq!(
+        output.diagnostics[1].span.as_ref().unwrap().start.column,
+        50
+    );
+}
+
+#[test]
 fn preserves_contextual_callsite_in_qualified_return_type() {
     let source = SourceFile::new(
         "main.veln",
