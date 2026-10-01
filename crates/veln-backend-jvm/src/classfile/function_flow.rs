@@ -439,101 +439,117 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let scratch_base = self.max_local;
         let throw_label = self.exception_unwind_used.then(|| code.new_label());
         if let Some(return_label) = self.unwind_return_label {
-            let mut index = 0;
-            while index < self.unwind_nodes.len() {
-                let node = self.unwind_nodes[index].clone();
-                code.bind(node.label);
-                self.active_unwind = node.parent;
-                self.next_local = scratch_base;
-                match node.action {
-                    UnwindAction::Cleanup(cleanup) => {
-                        let cleanup_start = code.mark();
-                        self.emit_registered_cleanup(code, &cleanup);
-                        let cleanup_end = code.mark();
-                        let cleanup_failure_handler = code.new_label();
-                        code.add_exception_handler_to_label(
-                            cleanup_start,
-                            cleanup_end,
-                            cleanup_failure_handler,
-                        );
-                        let target = match node.parent {
-                            Some(parent) => self.unwind_nodes[parent].label,
-                            None => return_label,
-                        };
-                        code.branch_wide_to(target);
-                        code.bind(cleanup_failure_handler);
-                        code.astore(self.unwind_result);
-                        let failure_target = match node.parent {
-                            Some(parent) => self.unwind_nodes[parent].exception_action_label,
-                            None => throw_label.expect("exception unwind label"),
-                        };
-                        code.branch_wide_to(failure_target);
-                        index += 1;
-                        continue;
-                    }
-                    UnwindAction::PopHandler => self.emit_pop_handler(code),
-                }
-                let target = match node.parent {
-                    Some(parent) => self.unwind_nodes[parent].label,
-                    None => return_label,
-                };
-                code.branch_wide_to(target);
-                index += 1;
-            }
-            code.bind(return_label);
-            let result = self.unwind_result;
-            self.emit_ensure_checks_for_result(code, result);
-            code.aload(result);
-            code.op(0xb0);
+            self.emit_return_unwind_blocks(code, return_label, throw_label, scratch_base);
         }
-        if self.exception_unwind_used {
-            let throw_label = throw_label.expect("exception unwind label");
-            let mut index = 0;
-            while index < self.unwind_nodes.len() {
-                let node = self.unwind_nodes[index].clone();
-                code.bind(node.exception_entry_label);
-                code.astore(self.unwind_result);
-                code.bind(node.exception_action_label);
-                self.active_unwind = node.parent;
-                self.next_local = scratch_base;
-                match node.action {
-                    UnwindAction::Cleanup(cleanup) => {
-                        let cleanup_start = code.mark();
-                        self.emit_registered_cleanup(code, &cleanup);
-                        let cleanup_end = code.mark();
-                        let cleanup_failure_handler = code.new_label();
-                        code.add_exception_handler_to_label(
-                            cleanup_start,
-                            cleanup_end,
-                            cleanup_failure_handler,
-                        );
-                        let target = match node.parent {
-                            Some(parent) => self.unwind_nodes[parent].exception_action_label,
-                            None => throw_label,
-                        };
-                        code.branch_wide_to(target);
-                        code.bind(cleanup_failure_handler);
-                        let cleanup_failure = self.alloc_local();
-                        code.astore(cleanup_failure);
-                        self.emit_attach_cleanup_failure(code, self.unwind_result, cleanup_failure);
-                        code.branch_wide_to(target);
-                        index += 1;
-                        continue;
-                    }
-                    UnwindAction::PopHandler => self.emit_pop_handler(code),
-                }
-                let target = match node.parent {
-                    Some(parent) => self.unwind_nodes[parent].exception_action_label,
-                    None => throw_label,
-                };
-                code.branch_wide_to(target);
-                index += 1;
-            }
-            code.bind(throw_label);
-            code.aload(self.unwind_result);
-            code.op(0xbf);
+        if let Some(throw_label) = throw_label {
+            self.emit_exception_unwind_blocks(code, throw_label, scratch_base);
         }
         self.active_unwind = None;
+    }
+
+    fn emit_return_unwind_blocks(
+        &mut self,
+        code: &mut MethodCode,
+        return_label: usize,
+        throw_label: Option<usize>,
+        scratch_base: u16,
+    ) {
+        for index in 0..self.unwind_nodes.len() {
+            let node = self.unwind_nodes[index].clone();
+            code.bind(node.label);
+            self.prepare_unwind_node(node.parent, scratch_base);
+            let target = self.return_unwind_target(node.parent, return_label);
+            match node.action {
+                UnwindAction::Cleanup(cleanup) => {
+                    let cleanup_failure_handler =
+                        self.emit_cleanup_with_failure_handler(code, &cleanup);
+                    code.branch_wide_to(target);
+                    code.bind(cleanup_failure_handler);
+                    code.astore(self.unwind_result);
+                    let failure_target = self.exception_unwind_target(
+                        node.parent,
+                        throw_label.expect("exception unwind label"),
+                    );
+                    code.branch_wide_to(failure_target);
+                }
+                UnwindAction::PopHandler => {
+                    self.emit_pop_handler(code);
+                    code.branch_wide_to(target);
+                }
+            }
+        }
+        code.bind(return_label);
+        let result = self.unwind_result;
+        self.emit_ensure_checks_for_result(code, result);
+        code.aload(result);
+        code.op(0xb0);
+    }
+
+    fn emit_exception_unwind_blocks(
+        &mut self,
+        code: &mut MethodCode,
+        throw_label: usize,
+        scratch_base: u16,
+    ) {
+        for index in 0..self.unwind_nodes.len() {
+            let node = self.unwind_nodes[index].clone();
+            code.bind(node.exception_entry_label);
+            code.astore(self.unwind_result);
+            code.bind(node.exception_action_label);
+            self.prepare_unwind_node(node.parent, scratch_base);
+            let target = self.exception_unwind_target(node.parent, throw_label);
+            match node.action {
+                UnwindAction::Cleanup(cleanup) => {
+                    let cleanup_failure_handler =
+                        self.emit_cleanup_with_failure_handler(code, &cleanup);
+                    code.branch_wide_to(target);
+                    code.bind(cleanup_failure_handler);
+                    let cleanup_failure = self.alloc_local();
+                    code.astore(cleanup_failure);
+                    self.emit_attach_cleanup_failure(code, self.unwind_result, cleanup_failure);
+                    code.branch_wide_to(target);
+                }
+                UnwindAction::PopHandler => {
+                    self.emit_pop_handler(code);
+                    code.branch_wide_to(target);
+                }
+            }
+        }
+        code.bind(throw_label);
+        code.aload(self.unwind_result);
+        code.op(0xbf);
+    }
+
+    fn prepare_unwind_node(&mut self, parent: Option<usize>, scratch_base: u16) {
+        self.active_unwind = parent;
+        self.next_local = scratch_base;
+    }
+
+    fn emit_cleanup_with_failure_handler(
+        &mut self,
+        code: &mut MethodCode,
+        cleanup: &RegisteredCleanup,
+    ) -> usize {
+        let cleanup_start = code.mark();
+        self.emit_registered_cleanup(code, cleanup);
+        let cleanup_end = code.mark();
+        let cleanup_failure_handler = code.new_label();
+        code.add_exception_handler_to_label(cleanup_start, cleanup_end, cleanup_failure_handler);
+        cleanup_failure_handler
+    }
+
+    fn return_unwind_target(&self, parent: Option<usize>, return_label: usize) -> usize {
+        match parent {
+            Some(parent) => self.unwind_nodes[parent].label,
+            None => return_label,
+        }
+    }
+
+    fn exception_unwind_target(&self, parent: Option<usize>, throw_label: usize) -> usize {
+        match parent {
+            Some(parent) => self.unwind_nodes[parent].exception_action_label,
+            None => throw_label,
+        }
     }
 
     fn emit_cleanup_region(&mut self, code: &mut MethodCode, body: &[IrStmt]) {
