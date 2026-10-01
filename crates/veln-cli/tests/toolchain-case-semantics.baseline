@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"1a0d7d37cac7eb9d7a4a915003d9256b01ebcb04"
+source_git_tree	"ac2774ea3c592c9c830912fed706f8899ea8c92c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1724
@@ -18047,11 +18047,11 @@ field	expectations.mcp_assertions[101].id	26
 field	expectations.mcp_assertions[101].length	10
 field	expectations.mcp_assertions[101].operation	"length"
 field	expectations.mcp_assertions[101].path	"/result/structuredContent/topics"
-field	expectations.mcp_assertions[102].equals	{"summary":"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.","title":"Contracts","uri":"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/topic/contracts"}
+field	expectations.mcp_assertions[102].equals	{"summary":"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.","title":"Contracts","uri":"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/topic/contracts"}
 field	expectations.mcp_assertions[102].id	26
 field	expectations.mcp_assertions[102].operation	"equals"
 field	expectations.mcp_assertions[102].path	"/result/structuredContent/topics/0"
-field	expectations.mcp_assertions[103].equals	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/topic/types-inference-constructors"
+field	expectations.mcp_assertions[103].equals	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/topic/types-inference-constructors"
 field	expectations.mcp_assertions[103].id	26
 field	expectations.mcp_assertions[103].operation	"equals"
 field	expectations.mcp_assertions[103].path	"/result/structuredContent/topics/9/uri"
@@ -18092,7 +18092,7 @@ field	expectations.mcp_assertions[18].path	"/error/data/code"
 field	expectations.mcp_assertions[19].id	7
 field	expectations.mcp_assertions[19].operation	"missing"
 field	expectations.mcp_assertions[19].path	"/result"
-field	expectations.mcp_assertions[1].equals	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/index"
+field	expectations.mcp_assertions[1].equals	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/index"
 field	expectations.mcp_assertions[1].id	2
 field	expectations.mcp_assertions[1].operation	"equals"
 field	expectations.mcp_assertions[1].path	"/result/resources/0/uri"
@@ -18176,7 +18176,7 @@ field	expectations.mcp_assertions[38].equals	"Schemas"
 field	expectations.mcp_assertions[38].id	9
 field	expectations.mcp_assertions[38].operation	"equals"
 field	expectations.mcp_assertions[38].path	"/result/structuredContent/results/0/title"
-field	expectations.mcp_assertions[39].equals	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/topic/schemas"
+field	expectations.mcp_assertions[39].equals	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/topic/schemas"
 field	expectations.mcp_assertions[39].id	9
 field	expectations.mcp_assertions[39].operation	"equals"
 field	expectations.mcp_assertions[39].path	"/result/structuredContent/results/0/uri"
@@ -18202,7 +18202,7 @@ field	expectations.mcp_assertions[44].equals	false
 field	expectations.mcp_assertions[44].id	12
 field	expectations.mcp_assertions[44].operation	"equals"
 field	expectations.mcp_assertions[44].path	"/result/isError"
-field	expectations.mcp_assertions[45].equals	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/topic/lexical-structure"
+field	expectations.mcp_assertions[45].equals	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/topic/lexical-structure"
 field	expectations.mcp_assertions[45].id	12
 field	expectations.mcp_assertions[45].operation	"equals"
 field	expectations.mcp_assertions[45].path	"/result/structuredContent/uri"
@@ -18236,7 +18236,7 @@ field	expectations.mcp_assertions[52].equals	false
 field	expectations.mcp_assertions[52].id	14
 field	expectations.mcp_assertions[52].operation	"equals"
 field	expectations.mcp_assertions[52].path	"/result/isError"
-field	expectations.mcp_assertions[53].equals	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/index"
+field	expectations.mcp_assertions[53].equals	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/index"
 field	expectations.mcp_assertions[53].id	14
 field	expectations.mcp_assertions[53].operation	"equals"
 field	expectations.mcp_assertions[53].path	"/result/structuredContent/uri"
@@ -18287,7 +18287,7 @@ field	expectations.mcp_assertions[64].equals	"resource_not_found"
 field	expectations.mcp_assertions[64].id	16
 field	expectations.mcp_assertions[64].operation	"equals"
 field	expectations.mcp_assertions[64].path	"/result/structuredContent/code"
-field	expectations.mcp_assertions[65].equals	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/topic/Lexical-Structure"
+field	expectations.mcp_assertions[65].equals	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/topic/Lexical-Structure"
 field	expectations.mcp_assertions[65].id	16
 field	expectations.mcp_assertions[65].operation	"equals"
 field	expectations.mcp_assertions[65].path	"/result/structuredContent/details/uri"
@@ -18302,11 +18302,11 @@ field	expectations.mcp_assertions[68].equals	"resource_not_found"
 field	expectations.mcp_assertions[68].id	17
 field	expectations.mcp_assertions[68].operation	"equals"
 field	expectations.mcp_assertions[68].path	"/result/structuredContent/code"
-field	expectations.mcp_assertions[69].equals	"veln-doc:///package/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/index"
+field	expectations.mcp_assertions[69].equals	"veln-doc:///package/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/index"
 field	expectations.mcp_assertions[69].id	17
 field	expectations.mcp_assertions[69].operation	"equals"
 field	expectations.mcp_assertions[69].path	"/result/structuredContent/details/uri"
-field	expectations.mcp_assertions[6].equals	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/index"
+field	expectations.mcp_assertions[6].equals	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/index"
 field	expectations.mcp_assertions[6].id	3
 field	expectations.mcp_assertions[6].operation	"equals"
 field	expectations.mcp_assertions[6].path	"/result/contents/0/uri"
@@ -18321,7 +18321,7 @@ field	expectations.mcp_assertions[72].equals	"resource_not_found"
 field	expectations.mcp_assertions[72].id	18
 field	expectations.mcp_assertions[72].operation	"equals"
 field	expectations.mcp_assertions[72].path	"/result/structuredContent/code"
-field	expectations.mcp_assertions[73].equals	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/topic/missing"
+field	expectations.mcp_assertions[73].equals	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/topic/missing"
 field	expectations.mcp_assertions[73].id	18
 field	expectations.mcp_assertions[73].operation	"equals"
 field	expectations.mcp_assertions[73].path	"/result/structuredContent/details/uri"
@@ -18390,7 +18390,7 @@ field	expectations.mcp_assertions[89].equals	"text/x-veln; charset=utf-8"
 field	expectations.mcp_assertions[89].id	22
 field	expectations.mcp_assertions[89].operation	"equals"
 field	expectations.mcp_assertions[89].path	"/result/contents/0/mimeType"
-field	expectations.mcp_assertions[8].contains	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/topic/lexical-structure"
+field	expectations.mcp_assertions[8].contains	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/topic/lexical-structure"
 field	expectations.mcp_assertions[8].id	3
 field	expectations.mcp_assertions[8].operation	"contains"
 field	expectations.mcp_assertions[8].path	"/result/contents/0/text"
@@ -18431,7 +18431,7 @@ field	expectations.mcp_assertions[98].path	"/error/data/code"
 field	expectations.mcp_assertions[99].id	25
 field	expectations.mcp_assertions[99].operation	"missing"
 field	expectations.mcp_assertions[99].path	"/result"
-field	expectations.mcp_assertions[9].equals	"veln-doc:///language/snapshot/4b0bcb23e0ec4c2285f989f4345ce9903daf2bc79563f12872abfc330b6b4886/topic/lexical-structure"
+field	expectations.mcp_assertions[9].equals	"veln-doc:///language/snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/topic/lexical-structure"
 field	expectations.mcp_assertions[9].id	4
 field	expectations.mcp_assertions[9].operation	"equals"
 field	expectations.mcp_assertions[9].path	"/result/contents/0/uri"
@@ -18449,9 +18449,9 @@ field	expectations.stdout.contains[8]	"\"name\":\"read_doc\""
 field	expectations.stdout.contains[9]	"\"scope\":\"language\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"af42de0e1608d5f8bbff80faf78f2b9543352580d56b9e568c41f2c7d4f038f7"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"02d6b088d63f1d9c91dc604a0a64ad83c42935dd96a6a2a22101ccd45e2adcb7"}
 field	source_errors	"forbidden"
-case_digest	"b338095c61db6cd9eee5bf2ac061005c30e4d9d50c09dec2a117091b84bf3625"
+case_digest	"fba545cec0fe818317a8ce11aa3a2d66e1ffc304cb1ac50fdb5c9ff70d06052a"
 case	"examples/specification/mcp/references-dependency-function"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -62150,4 +62150,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"e67729dcef9865a849bb07e9d29283a6dfad9373fe1380e7142652c1262172f3"
+aggregate_digest	"efbf50027ec9d9b7a1e44df16ff41f699cabbff0f33e7bade1245b6254805c1d"

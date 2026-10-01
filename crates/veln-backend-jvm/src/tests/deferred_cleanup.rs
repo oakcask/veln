@@ -314,6 +314,98 @@ fn result_propagation_clears_expression_operands_before_shared_cleanup() {
 }
 
 #[test]
+fn bytecode_backend_contract_failure_unwinds_nested_regions_inside_out_with_snapshots() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn reject(value: Bool) -> ()\n",
+        "require value\n",
+        "  ()\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let captured = \"outer captured\"\n",
+        "  defer\n",
+        "    stdio::println(captured)\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(\"outer second\")\n",
+        "  end\n",
+        "  let captured = \"outer shadowed\"\n",
+        "  begin\n",
+        "    let inner_captured = \"inner captured\"\n",
+        "    defer\n",
+        "      stdio::println(inner_captured)\n",
+        "    end\n",
+        "    defer\n",
+        "      stdio::println(\"inner second\")\n",
+        "    end\n",
+        "    let inner_captured = \"inner shadowed\"\n",
+        "    reject(false)\n",
+        "    defer\n",
+        "      stdio::println(\"registered too late\")\n",
+        "    end\n",
+        "    ()\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("deferred-cleanup-contract-failure", &program, &[])
+    else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "inner second\ninner captured\nouter second\nouter captured\n"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("contract failure: require `value` in `reject` blame caller")
+    );
+}
+
+#[test]
+fn bytecode_backend_runtime_failure_unwinds_cleanup_and_handler_frames_in_lexical_order() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "effect CleanupProbe\n",
+        "  owner() -> String\n",
+        "end\n",
+        "handler cleanup_probe(label: String) handles CleanupProbe\n",
+        "  owner() => label\n",
+        "end\n",
+        "fn worker() -> () effects [CleanupProbe, stdio]\n",
+        "  defer\n",
+        "    stdio::println(perform CleanupProbe::owner())\n",
+        "  end\n",
+        "  let ignored = handle begin\n",
+        "    defer\n",
+        "      stdio::println(perform CleanupProbe::owner())\n",
+        "    end\n",
+        "    let invalid_count = 64\n",
+        "    1 << invalid_count\n",
+        "  end with cleanup_probe(\"inner\")\n",
+        "  ()\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  handle worker() with cleanup_probe(\"outer\")\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("deferred-cleanup-runtime-failure", &program, &[])
+    else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "inner\nouter\n");
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("invalid shift count 64 for operator `<<`")
+    );
+}
+
+#[test]
 fn sequential_cleanup_regions_reuse_jvm_local_slots() {
     let mut source = String::from("pub fn main() -> ()\n");
     for index in 0..128 {
@@ -329,6 +421,18 @@ fn sequential_cleanup_regions_reuse_jvm_local_slots() {
     source.push_str("  ()\nend\n");
 
     let ir = lower_deferred_cleanup_foundation_to_ir(&source);
+    generate_classfiles_with_entry(&ir, "main");
+}
+
+#[test]
+fn cleanup_free_function_preserves_the_supported_jvm_local_limit() {
+    let mut source = String::from("pub fn main() -> ()\n");
+    for index in 0..254 {
+        source.push_str(&format!("  let value_{index}: Int = {index}\n"));
+    }
+    source.push_str("  ()\nend\n");
+
+    let ir = lower_to_ir(&source);
     generate_classfiles_with_entry(&ir, "main");
 }
 

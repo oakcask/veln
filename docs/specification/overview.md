@@ -31,9 +31,10 @@ The following behavior is fixed for the implemented slice:
   non-executable and blocks checked-core and typed-IR readiness with
   `deferred_cleanup_runtime`. An internal checked-core, typed-IR, and JVM
   foundation implements registration-time capture and reverse-order cleanup
-  on normal completion and postfix `?` propagation. Public integration,
-  contract and runtime failure, cancellation, and cleanup-failure behavior
-  remain proposal work. See
+  on normal completion, postfix `?` propagation, and exceptional exit after a
+  contract or runtime failure. Successful cleanup preserves the original
+  failure. Public integration, task cancellation, cleanup-failure precedence,
+  and continued cleanup after a cleanup failure remain proposal work. See
   [source-surface.md](source-surface.md#static-cleanup-region-forms) and
   [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 - `NodeId` values are session-local and deterministic for a single parse/lower

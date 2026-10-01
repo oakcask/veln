@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A proposal is added, moved, reclassified, completed, or removed.
+update-when: A proposal is added, moved, reclassified, completed, removed, or its scope or readiness changes.
 ---
 
 # Proposals
@@ -17,8 +17,8 @@ also states it.
 ## Ready
 
 - Public integration of the internal lexical deferred-cleanup foundation and
-  unwinding for contract or runtime failure and task cancellation, including
-  cleanup-failure precedence and continued cleanup:
+  task-cancellation unwind, including cleanup-failure precedence and continued
+  cleanup:
   [lexical-deferred-cleanup.md](lexical-deferred-cleanup.md).
 - Call-site-aware functions and portable source-location values for diagnostics
   and library-defined instrumentation:
