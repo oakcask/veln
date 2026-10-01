@@ -15,13 +15,19 @@
         }
     }
 
+    private static final class TaskCancellationFailure extends RuntimeFailure {
+        private TaskCancellationFailure() {
+            super("task cancelled");
+        }
+    }
+
     private static void throwTaskCancellationIfRequested() {
         TaskCancellation cancellation = CURRENT_TASK_CANCELLATION.get();
         if (cancellation != null
             && cancellation.requested
             && cancellation.delivered.compareAndSet(false, true)) {
             Thread.interrupted();
-            throw new RuntimeFailure("task cancelled");
+            throw new TaskCancellationFailure();
         }
     }
 
@@ -839,10 +845,10 @@
             if (cause instanceof ContractFailure) {
                 return err(new JoinErrorValue("failed", cleanupRelatedFailures(cause)));
             }
+            if (cause instanceof TaskCancellationFailure) {
+                return err(new JoinErrorValue("cancelled", cleanupRelatedFailures(cause)));
+            }
             if (cause instanceof RuntimeFailure) {
-                if ("task cancelled".equals(cause.getMessage())) {
-                    return err(new JoinErrorValue("cancelled", cleanupRelatedFailures(cause)));
-                }
                 throw (RuntimeFailure) cause;
             }
             return err(joinError("failed"));

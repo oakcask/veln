@@ -1,0 +1,13 @@
+pub fn fixture_observe_join(context: { worker : Task<()>, started : Sender<String>, completed : Sender<String> }) -> () effects [concurrency]
+	let _ = channel::send(context.started, "join started")
+	let outcome = match task::join(context.worker)
+		Ok(_) => "unexpected success"
+		Err(error) => if task::join_error_is_cancelled(error)
+			"cancelled"
+		else
+			"unexpected task error"
+		end
+	end
+	let _ = channel::send(context.completed, outcome)
+	()
+end

@@ -1,4 +1,6 @@
-# Registered cleanup reports completion before task join reports cancellation.
+# Task join remains incomplete while registered cleanup is gated, then reports cancellation.
+use fixture_tasks
+
 fn worker(context: { ready : Sender<String>, body_gate : Receiver<String>, cleanup_started : Sender<String>, cleanup_gate : Receiver<String>, cleanup_finished : Sender<String> }) -> () effects [concurrency, stdio]
 	let snapshot = "registered"
 	defer
@@ -12,6 +14,10 @@ fn worker(context: { ready : Sender<String>, body_gate : Receiver<String>, clean
 	stdio::println("unexpected continuation")
 end
 
+fn observe_cancelled_join(context: { worker : Task<()>, started : Sender<String>, completed : Sender<String> }) -> () effects [concurrency]
+	fixture_tasks::fixture_observe_join(context)
+end
+
 pub fn main() -> () effects [concurrency, stdio]
 	let ready = channel::bounded<String>(1)
 	let body_gate = channel::bounded<String>(0)
@@ -22,17 +28,22 @@ pub fn main() -> () effects [concurrency, stdio]
 	let _ = channel::recv(ready.rx)
 	task::cancel(worker)
 	let _ = channel::recv(cleanup_started.rx)
+	let join_started = channel::bounded<String>(0)
+	let join_completed = channel::bounded<String>(1)
+	let join_observer = task::spawn_with<(), { worker : Task<()>, started : Sender<String>, completed : Sender<String> }>(observe_cancelled_join, { worker: worker, started: join_started.tx, completed: join_completed.tx })
+	let _ = channel::recv(join_started.rx)
+	match channel::select_timeout(join_completed.rx, join_completed.rx, 25)
+		Some(selected) => stdio::println(string::concat("unexpected early join: ", selected.value))
+		None => stdio::println("join pending during cleanup")
+	end
 	let _ = channel::send(cleanup_gate.tx, "release")
 	match channel::recv(cleanup_finished.rx)
 		Some(message) => stdio::println(message)
 		None => stdio::println("cleanup did not finish")
 	end
-	match task::join(worker)
-		Ok(_) => stdio::println("unexpected success")
-		Err(error) => if task::join_error_is_cancelled(error)
-			stdio::println("cancelled")
-		else
-			stdio::println("unexpected task error")
-		end
+	match channel::recv(join_completed.rx)
+		Some(outcome) => stdio::println(outcome)
+		None => stdio::println("join result missing")
 	end
+	let _ = task::join(join_observer)
 end

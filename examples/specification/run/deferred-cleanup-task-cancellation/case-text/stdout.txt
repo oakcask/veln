@@ -1,2 +1,3 @@
+join pending during cleanup
 cleanup finished: registered
 cancelled

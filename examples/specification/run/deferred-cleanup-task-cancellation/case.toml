@@ -1,4 +1,4 @@
-command = ["run", "--json", "main", "main.veln"]
+command = ["run", "--json", "main", "main.veln", "fixture_tasks.veln"]
 exit = 0
 
 [requires]

@@ -1,6 +1,29 @@
     public static void attachCleanupFailure(Throwable primary, Throwable cleanup) {
-        if (primary != cleanup) {
-            primary.addSuppressed(cleanup);
+        if (primary == cleanup) {
+            return;
+        }
+        java.util.ArrayDeque<Throwable> pending = new java.util.ArrayDeque<Throwable>();
+        java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<Throwable, Boolean>()
+        );
+        seen.add(primary);
+        pending.push(cleanup);
+        while (!pending.isEmpty()) {
+            Throwable next = pending.pop();
+            if (!seen.add(next)) {
+                continue;
+            }
+            primary.addSuppressed(new CleanupDiagnostic(next.getMessage()));
+            Throwable[] nested = next.getSuppressed();
+            for (int index = nested.length - 1; index >= 0; index -= 1) {
+                pending.push(nested[index]);
+            }
+        }
+    }
+
+    private static final class CleanupDiagnostic extends Throwable {
+        private CleanupDiagnostic(String message) {
+            super(message, null, false, false);
         }
     }
 

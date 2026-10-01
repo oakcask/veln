@@ -65,6 +65,32 @@ fn jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_availab
 }
 
 #[test]
+fn jvm_runtime_does_not_classify_runtime_failure_text_as_cancellation_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-cancellation-identity",
+        "CancellationIdentityHarness.java",
+        include_str!("../../test-support/CancellationIdentityHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "runtime failure identity remained primary\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_join_blocks_until_cancelled_task_cleanup_finishes_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
@@ -87,6 +113,32 @@ fn jvm_runtime_join_blocks_until_cancelled_task_cleanup_finishes_when_java_is_av
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "join waited for cleanup completion\n"
+    );
+}
+
+#[test]
+fn jvm_runtime_cleanup_diagnostics_retain_linear_stack_data_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-cleanup-diagnostic-growth",
+        "CleanupDiagnosticGrowthHarness.java",
+        include_str!("../../test-support/CleanupDiagnosticGrowthHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "cleanup diagnostics retained linear stack data\n"
     );
 }
 
