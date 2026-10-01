@@ -1,5 +1,95 @@
 use super::*;
 
+fn run_java_runtime_harness(
+    name: &str,
+    source_name: &str,
+    source: &str,
+    program: &JvmProgram,
+) -> std::process::Output {
+    let root = temp_dir(name);
+    write_jvm_program(&root, program);
+    fs::write(root.join(source_name), source).expect("Java harness should be written");
+    let compiled = Command::new("javac")
+        .arg(source_name)
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        compiled.status.success(),
+        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        compiled.status.code(),
+        String::from_utf8_lossy(&compiled.stdout),
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+    let class_name = source_name
+        .strip_suffix(".java")
+        .expect("Java harness source should end in .java");
+    let mut command = Command::new("java");
+    command
+        .arg("-cp")
+        .arg(&root)
+        .arg(class_name)
+        .current_dir(&root)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let child = command.spawn().expect("Java harness should run");
+    let output = wait_for_test_child(child, name, std::time::Duration::from_secs(30));
+    let _ = fs::remove_dir_all(&root);
+    output
+}
+
+#[test]
+fn jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-connect-cancellation",
+        "ConnectCancellationHarness.java",
+        include_str!("../../test-support/ConnectCancellationHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "connect cancellation remained primary\n"
+    );
+}
+
+#[test]
+fn jvm_runtime_join_blocks_until_cancelled_task_cleanup_finishes_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir(include_str!("../../test-support/join_blocking.veln"));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-join-cleanup-blocking",
+        "JoinBlockingHarness.java",
+        include_str!("../../test-support/JoinBlockingHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "join waited for cleanup completion\n"
+    );
+}
+
 #[test]
 fn jvm_runtime_bounds_standard_input_read_ahead_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()

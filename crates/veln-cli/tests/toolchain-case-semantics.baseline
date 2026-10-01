@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"fd94246f1ba62486c02b7c4b2fd5973e5d835fec"
+source_git_tree	"5b7e401a5bfcd24ea5e986675ea657eca15e6aa3"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1736
@@ -40796,7 +40796,7 @@ field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"join blocked\ncleanup finished: registered\ncancelled\n"
+field	expectations.json_assertions[1].equals_file	"cleanup finished: registered\ncancelled\n"
 field	expectations.json_assertions[1].operation	"equals_file"
 field	expectations.json_assertions[1].path	"stdout"
 field	expectations.json_assertions[2].equals	null
@@ -40811,7 +40811,7 @@ field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
-case_digest	"42299d345037a6f7fdb8ef96b4197b8f02a56c23d1126acbe1bf31497a41dffd"
+case_digest	"74f90d1a00ac4d7fd0f749f7203c96c83540fee919849fcee70d93b54894c776"
 case	"examples/specification/run/deferred-cleanup-task-cancellation-failure-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"text"
@@ -62454,4 +62454,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"aaf95a48d469c3ba8f81e15757edaa5a368473311d316092944dde75be274a0b"
+aggregate_digest	"7676b306b701b9e7ba93f862645be5f6110c4eebdd0d2f4b63b39fc3b88dd1c8"

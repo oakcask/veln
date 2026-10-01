@@ -777,6 +777,7 @@
             return new NetStream(formatSocketAddress(socket.getLocalAddress()), formatSocketAddress(socket.getLocalAddress()), formatSocketAddress(socket.getRemoteAddress()), socket, null);
         } catch (java.io.IOException | RuntimeException error) {
             if (socket != null) try { socket.close(); } catch (java.io.IOException ignored) { }
+            if (error instanceof RuntimeFailure) throw (RuntimeFailure) error;
             throwTaskCancellationIfRequested();
             throw transportFailure("connect", error instanceof IllegalArgumentException ? "invalid_endpoint" : transportIoCategory(error), null, text, null, null, "during_operation", false, false, false, platformCause("production socket failed", error), error);
         }

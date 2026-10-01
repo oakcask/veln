@@ -1,3 +1,2 @@
-join blocked
 cleanup finished: registered
 cancelled
