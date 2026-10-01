@@ -556,21 +556,30 @@ pub(super) fn metrics_cli_output_is_stable_for_reversed_input_order() {
     );
 }
 
-#[test]
-pub(super) fn analysis_commands_select_the_manifest_package_above_the_invocation_directory() {
-    let project = TestProject::new(
-        "analysis-commands-select-package-root".to_string(),
-        &ToolSetup::default(),
-    );
+fn project_with_manifest_above_invocation_directory(
+    name: &str,
+    package_name: &str,
+    source: &str,
+) -> TestProject {
+    let project = TestProject::new(name.to_string(), &ToolSetup::default());
     fs::create_dir_all(project.root.join("work/deep"))
         .expect("nested invocation directory should be created");
     fs::write(
         project.root.join("veln.toml"),
-        "[package]\nname = \"command-root\"\n",
+        format!("[package]\nname = \"{package_name}\"\n"),
     )
     .expect("manifest should be written");
-    fs::write(project.root.join("main.veln"), "fn broken(\n")
-        .expect("invalid root source should be written");
+    fs::write(project.root.join("main.veln"), source).expect("root source should be written");
+    project
+}
+
+#[test]
+pub(super) fn analysis_commands_select_the_manifest_package_above_the_invocation_directory() {
+    let project = project_with_manifest_above_invocation_directory(
+        "analysis-commands-select-package-root",
+        "command-root",
+        "fn broken(\n",
+    );
 
     for args in [
         &["check", "--json"][..],
@@ -602,55 +611,55 @@ pub(super) fn analysis_commands_select_the_manifest_package_above_the_invocation
             args.join(" ")
         );
     }
+}
 
-    let repair_project = TestProject::new(
-        "repair-selects-package-root".to_string(),
-        &ToolSetup::default(),
-    );
-    fs::create_dir_all(repair_project.root.join("work/deep"))
-        .expect("nested repair invocation directory should be created");
-    fs::write(
-        repair_project.root.join("veln.toml"),
-        "[package]\nname = \"repair-command-root\"\n",
-    )
-    .expect("repair manifest should be written");
-    fs::write(
-        repair_project.root.join("main.veln"),
+#[test]
+pub(super) fn repair_selects_the_manifest_package_above_the_invocation_directory() {
+    let project = project_with_manifest_above_invocation_directory(
+        "repair-selects-package-root",
+        "repair-command-root",
         concat!(
             "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
             "  _value satisfy candidate => candidate.ready == order.ready\n",
             "end\n",
         ),
-    )
-    .expect("repair source should be written");
-    let repair_output = repair_project.veln_with_artifact(
+    );
+    let output = project.veln_with_artifact(
         &["repair".to_string(), "--json".to_string()],
         Some(Path::new("work/deep")),
         &[],
         None,
         None,
     );
-    assert_success("repair below manifest root", &repair_output);
-    let repair_stdout = String::from_utf8_lossy(&repair_output.stdout);
+    assert_success("repair below manifest root", &output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
     for expected in [
         "\"repair_id\":\"repair-1\"",
         "\"file\":\"main.veln\"",
         "\"summary\":{\"candidate_count\":1,\"applicable_count\":1",
     ] {
         assert!(
-            repair_stdout.contains(expected),
-            "repair below manifest root did not report `{expected}`\n{repair_stdout}",
+            stdout.contains(expected),
+            "repair below manifest root did not report `{expected}`\n{stdout}",
         );
     }
+}
 
-    let lock_output = project.veln_with_artifact(
+#[test]
+pub(super) fn package_lock_selects_the_manifest_package_above_the_invocation_directory() {
+    let project = project_with_manifest_above_invocation_directory(
+        "package-lock-selects-package-root",
+        "package-lock-command-root",
+        "fn main() -> ()\n  ()\nend\n",
+    );
+    let output = project.veln_with_artifact(
         &["package".to_string(), "lock".to_string()],
         Some(Path::new("work/deep")),
         &[],
         None,
         None,
     );
-    assert_success("package lock below manifest root", &lock_output);
+    assert_success("package lock below manifest root", &output);
     assert!(project.root.join("veln.lock").is_file());
     assert!(!project.root.join("work/deep/veln.lock").exists());
 }
