@@ -328,6 +328,7 @@ impl Writer {
         self.node_id(value.node_id);
         self.contract_kind(value.kind);
         self.string(&value.text);
+        self.vec(&value.callsite_reference_spans, Self::span);
         self.span(&value.span);
     }
 

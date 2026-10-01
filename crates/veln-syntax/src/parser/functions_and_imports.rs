@@ -435,10 +435,16 @@ impl<'a> Parser<'a> {
         )
         .parse();
         self.diagnostics.extend(predicate_output.diagnostics);
+        let callsite_reference_spans = predicate_tokens
+            .iter()
+            .filter(|token| token.kind == TokenKind::Callsite)
+            .map(|token| self.source.span(token.range))
+            .collect();
         ContractClause {
             kind,
             text,
             perform_effect_spans: predicate_output.perform_effect_spans,
+            callsite_reference_spans,
             span: self.source.span(start_token.range.cover(end)),
         }
     }

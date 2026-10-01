@@ -114,6 +114,18 @@ fn surface_wire_round_trip_preserves_callsite_modifier_span() {
 }
 
 #[test]
+fn surface_wire_round_trip_preserves_contract_callsite_reference_span() {
+    let module = lower_source("fn guarded() -> ()\nrequire callsite\n  ()\nend\n");
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    let reference = &decoded.functions[0].contracts[0].callsite_reference_spans[0];
+    assert_eq!((reference.start.line, reference.start.column), (2, 9));
+    assert_eq!((reference.end.line, reference.end.column), (2, 17));
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_cleanup_introducer_spans() {
     let source = concat!(
         "fn parse() -> Result<(), String>\n",

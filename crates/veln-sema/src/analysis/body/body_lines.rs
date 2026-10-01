@@ -170,6 +170,11 @@ impl<'a> FunctionChecker<'a> {
         let initializer_diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(expr, expected.as_ref());
         let initializer_has_diagnostic = self.diagnostics.len() != initializer_diagnostic_count;
+        let initializer_unknown_is_diagnosed = type_contains_unknown(&actual)
+            && (self.diagnostics[initializer_diagnostic_count..]
+                .iter()
+                .any(|diagnostic| diagnostic.id == "name.callsite_requires_modifier")
+                || self.expr_is_diagnosed_unknown_reference(expr));
         let deferred_initializer_diagnostic = annotation
             .is_none()
             .then(|| {
@@ -196,6 +201,7 @@ impl<'a> FunctionChecker<'a> {
                 binding,
                 annotation.is_none(),
                 initializer_has_diagnostic,
+                initializer_unknown_is_diagnosed,
                 deferred_initializer_diagnostic,
                 pattern_has_diagnostic,
             );
@@ -207,6 +213,7 @@ impl<'a> FunctionChecker<'a> {
         binding: PatternBinding,
         annotation_is_omitted: bool,
         initializer_has_diagnostic: bool,
+        initializer_unknown_is_diagnosed: bool,
         deferred_initializer_diagnostic: Option<usize>,
         pattern_has_diagnostic: bool,
     ) {
@@ -223,8 +230,11 @@ impl<'a> FunctionChecker<'a> {
         ) {
             return;
         }
-        self.bindings
-            .push(Binding::new(binding.name.clone(), binding.ty.clone()));
+        self.bindings.push(if initializer_unknown_is_diagnosed {
+            Binding::diagnosed_unknown(binding.name.clone(), binding.ty.clone())
+        } else {
+            Binding::new(binding.name.clone(), binding.ty.clone())
+        });
         if annotation_is_omitted
             && (!initializer_has_diagnostic || deferred_initializer_diagnostic.is_some())
             && !pattern_has_diagnostic
@@ -241,14 +251,34 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn check_expr_line(&mut self, index: usize, line: &BodyLine, expr: &Expr) {
         let expected = self.return_expected(line.node_id);
+        let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(expr, expected.as_ref());
         if index + 1 != self.function.body.len() {
             return;
         }
         self.inferred_return_type = Some(actual.clone());
+        self.inferred_return_unknown_is_diagnosed = type_contains_unknown(&actual)
+            && (self.diagnostics[diagnostic_count..]
+                .iter()
+                .any(|diagnostic| diagnostic.id == "name.callsite_requires_modifier")
+                || self.expr_is_diagnosed_unknown_reference(expr));
         if let Some(expected) = &expected {
             self.check_assignable(expr, &expected.ty, &actual, expected, "return_value");
         }
+    }
+
+    fn expr_is_diagnosed_unknown_reference(&self, expr: &Expr) -> bool {
+        let ExprKind::NamePath { segments, .. } = &expr.kind else {
+            return false;
+        };
+        let [name] = segments.as_slice() else {
+            return false;
+        };
+        self.bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == *name)
+            .is_some_and(|binding| binding.is_diagnosed_unknown)
     }
 
     pub(super) fn deferred_ambiguous_initializer_diagnostic(
@@ -384,6 +414,9 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn check_private_return_inference(&mut self) {
         let inferred = self.inferred_return_type.as_ref().unwrap_or(&Type::Unknown);
         if !type_contains_unknown(inferred) {
+            return;
+        }
+        if self.inferred_return_unknown_is_diagnosed {
             return;
         }
         let mut diagnostic = Diagnostic::new(

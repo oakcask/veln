@@ -44,7 +44,7 @@ fn unresolved_callsite_reference_suggests_the_modifier() {
         .collect::<Vec<_>>();
     assert_eq!(missing_modifiers.len(), 2, "{diagnostics:#?}");
     assert_diagnostic_span(missing_modifiers[0], 2, 3, 2, 11);
-    assert_diagnostic_span(missing_modifiers[1], 5, 1, 6, 1);
+    assert_diagnostic_span(missing_modifiers[1], 5, 9, 5, 17);
     assert!(missing_modifiers.iter().all(|diagnostic| {
         diagnostic.related.iter().any(|related| {
             related
@@ -56,6 +56,62 @@ fn unresolved_callsite_reference_suggests_the_modifier() {
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn missing_modifier_is_the_only_actionable_private_inference_diagnostic() {
+    let diagnostics = diagnostics(concat!(
+        "fn direct()\n",
+        "  callsite\n",
+        "end\n",
+        "fn through_local()\n",
+        "  let location = callsite\n",
+        "  location\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.callsite_requires_modifier")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| !matches!(
+            diagnostic.id.as_str(),
+            "type.private_inference_incomplete" | "type.local_inference_incomplete"
+        )),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn missing_modifier_does_not_hide_independent_private_inference_failure() {
+    let diagnostics = diagnostics(concat!(
+        "fn independent()\n",
+        "  let ignored = callsite\n",
+        "  []\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.callsite_requires_modifier")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.private_inference_incomplete")
+            .count(),
+        1,
         "{diagnostics:#?}"
     );
 }

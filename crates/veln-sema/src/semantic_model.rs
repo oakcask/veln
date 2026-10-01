@@ -25,6 +25,7 @@ pub(crate) struct Binding {
     pub(crate) ty: Type,
     pub(crate) private_function_value: Option<FunctionKey>,
     pub(crate) is_builtin_callsite: bool,
+    pub(crate) is_diagnosed_unknown: bool,
 }
 
 #[cfg(test)]
@@ -42,6 +43,7 @@ impl Clone for Binding {
             ty: self.ty.clone(),
             private_function_value: self.private_function_value.clone(),
             is_builtin_callsite: self.is_builtin_callsite,
+            is_diagnosed_unknown: self.is_diagnosed_unknown,
         }
     }
 }
@@ -74,6 +76,7 @@ impl Binding {
             ty,
             private_function_value: None,
             is_builtin_callsite: false,
+            is_diagnosed_unknown: false,
         }
     }
 
@@ -83,6 +86,7 @@ impl Binding {
             ty: Type::source_location(),
             private_function_value: None,
             is_builtin_callsite: true,
+            is_diagnosed_unknown: false,
         }
     }
 
@@ -92,6 +96,17 @@ impl Binding {
             ty,
             private_function_value: Some(target),
             is_builtin_callsite: false,
+            is_diagnosed_unknown: false,
+        }
+    }
+
+    pub(crate) fn diagnosed_unknown(name: String, ty: Type) -> Self {
+        Self {
+            name,
+            ty,
+            private_function_value: None,
+            is_builtin_callsite: false,
+            is_diagnosed_unknown: true,
         }
     }
 }

@@ -712,14 +712,17 @@ collect_until_stop(Stop, [Token | Rest], S, Depth0, Acc0, Acc) :-
     collect_until_stop(Stop, Rest, S, Depth, [Token | Acc0], Acc).
 
 collect_type_until_stop(Stop, S, S, 0, Acc, Acc) :-
-    S = [t(Kind, _) | _],
+    S = [t(Kind, _) | Rest],
     memberchk(Kind, Stop),
+    \+ contextual_type_path_segment(Kind, Rest),
     !.
 collect_type_until_stop(_, [], [], 0, Acc, Acc) :- !.
 collect_type_until_stop(Stop, [Token | Rest], S, Depth0, Acc0, Acc) :-
     Token = t(Kind, _),
     next_type_depth(Kind, Depth0, Depth),
     collect_type_until_stop(Stop, Rest, S, Depth, [Token | Acc0], Acc).
+
+contextual_type_path_segment(callsite, [t(double_colon, _) | _]).
 
 next_type_depth(less, Depth0, Depth) :- !, Depth is Depth0 + 1.
 next_type_depth(greater, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).

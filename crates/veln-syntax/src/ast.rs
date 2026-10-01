@@ -248,6 +248,7 @@ pub struct ContractClause {
     pub kind: ContractKind,
     pub text: String,
     pub perform_effect_spans: Vec<SourceSpan>,
+    pub callsite_reference_spans: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 

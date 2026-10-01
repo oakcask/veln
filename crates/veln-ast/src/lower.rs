@@ -465,6 +465,7 @@ impl AstBuilder {
                         SyntaxContractKind::Invariant => ContractKind::Invariant,
                     },
                     text: contract.text.clone(),
+                    callsite_reference_spans: contract.callsite_reference_spans.clone(),
                     span: contract.span.clone(),
                 })
                 .collect(),

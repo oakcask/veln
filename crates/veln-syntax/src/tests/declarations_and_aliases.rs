@@ -80,6 +80,25 @@ fn parses_callsite_modifier_without_effects_and_rejects_a_duplicate() {
 }
 
 #[test]
+fn preserves_contextual_callsite_in_qualified_return_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn qualified() -> callsite::Type\n  value\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(function.return_type.as_deref(), Some("callsite::Type"));
+    assert!(function.callsite.is_none());
+    assert_eq!(
+        format_tree(&output.tree),
+        "fn qualified() -> callsite::Type\n\tvalue\nend\n"
+    );
+}
+
+#[test]
 fn preserves_returned_function_effects_before_callsite_modifier() {
     let source = SourceFile::new(
         "main.veln",

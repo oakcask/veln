@@ -5,6 +5,7 @@ exit = 1
 format = "text"
 contains = [
   "error[name.callsite_requires_modifier]",
+  "rejected.veln:38:9: error[name.callsite_requires_modifier]",
   "the function is missing the `callsite` modifier",
   "Add `callsite` after the function's optional effects clause.",
   "error[name.callsite_shadow]",

@@ -424,12 +424,16 @@ impl<'a> FunctionChecker<'a> {
                     ));
                 }
                 ContractValidation::UnresolvedName { name } => {
-                    self.push_unresolved_name(
-                        contract.node_id,
-                        contract.span.clone(),
-                        &name,
-                        "contract_predicate",
-                    );
+                    let span = if name == "callsite" {
+                        contract
+                            .callsite_reference_spans
+                            .first()
+                            .cloned()
+                            .unwrap_or_else(|| contract.span.clone())
+                    } else {
+                        contract.span.clone()
+                    };
+                    self.push_unresolved_name(contract.node_id, span, &name, "contract_predicate");
                 }
             }
         }

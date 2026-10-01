@@ -484,6 +484,7 @@ impl<'a> Reader<'a> {
             node_id: self.node_id()?,
             kind: self.contract_kind()?,
             text: self.string()?,
+            callsite_reference_spans: self.vec(Self::span)?,
             span: self.span()?,
         })
     }

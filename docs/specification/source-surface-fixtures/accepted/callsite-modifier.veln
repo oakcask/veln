@@ -6,6 +6,9 @@ fn ordinary(callsite: Int) -> Int
   callsite
 end
 
+fn qualified() -> callsite::Type
+  value
+end
 
 pub fn preserve_effectful_return(callback: fn() -> () effects [stdio]) -> fn() -> () effects [stdio] callsite
   callback
