@@ -42,6 +42,36 @@ fn unresolved_callsite_reference_suggests_the_modifier() {
 }
 
 #[test]
+fn unavailable_callsite_modifiers_keep_the_ordinary_unresolved_name_diagnostic() {
+    let diagnostics = diagnostics(concat!(
+        "test missing_modifier() -> ()\n",
+        "  callsite\n",
+        "end\n",
+        "effect Locate\n",
+        "  current() -> SourceLocation\n",
+        "end\n",
+        "handler locate() handles Locate\n",
+        "  current() => callsite\n",
+        "end\n",
+    ));
+
+    let mut unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .collect::<Vec<_>>();
+    unresolved.sort_by_key(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line));
+    assert_eq!(unresolved.len(), 2, "{diagnostics:#?}");
+    assert_diagnostic_span(unresolved[0], 2, 3, 2, 11);
+    assert_diagnostic_span(unresolved[1], 8, 16, 8, 24);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.callsite_requires_modifier"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn callsite_bindings_cannot_shadow_the_builtin() {
     let diagnostics = diagnostics(concat!(
         "fn parameter(callsite: Int) -> Int callsite\n",

@@ -12,6 +12,7 @@ contains = [
   "error[parse.duplicate_callsite_modifier]",
   "duplicate `callsite` function modifier",
   "Remove the duplicate `callsite` modifier.",
+  "error[name.unresolved]: unresolved value `callsite`",
 ]
 
 [stderr]

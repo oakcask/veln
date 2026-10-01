@@ -162,6 +162,7 @@ impl<'a> Parser<'a> {
         if return_type_can_take_effects(&ty)
             && self.at(TokenKind::Effects)
             && (self.after_effect_clause_is(TokenKind::Effects)
+                || self.after_effect_clause_is(TokenKind::Callsite)
                 || self.after_effect_clause_is(TokenKind::Newline)
                 || self.after_effect_clause_is(TokenKind::Eof))
         {

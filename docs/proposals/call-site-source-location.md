@@ -54,16 +54,15 @@ The final callee observes the location at which the user called `warning`.
 Direct and indirect calls follow the same propagation table. Devirtualization
 and inlining do not change the observed location.
 
-The built-in local variable is an ordinary `SourceLocation` value. A function
-can pass it to another function, store it in an event or trace, or return it.
+Once runtime propagation supplies the built-in value, a function must be able
+to pass it to another function, store it in an event or trace, or return it.
 The implicit context cannot be overridden at a call expression. A library that
 accepts an already available location can use an ordinary `SourceLocation`
-parameter. Such a function is not call-site-aware unless its header also has
-the `callsite` modifier.
+parameter; runtime observation must distinguish that explicit argument from
+the hidden context.
 
 Completion and signature help must present the `callsite` modifier. Completion
-inside the function body must include the built-in local variable. The modifier
-must not contribute to ordinary callable arity or function type.
+inside the function body must include the built-in local variable.
 
 The call ABI must therefore carry a hidden source location for direct and
 indirect calls. A function without the modifier does not expose or use that
@@ -86,11 +85,11 @@ file value.
 | --- | --- | --- | --- |
 | S1 | A non-call-site-aware function directly calls a call-site-aware function. | The callee's `callsite` value identifies the call expression. | Run specification case. |
 | S2 | A call-site-aware wrapper calls another call-site-aware function. | The final callee observes the outer user's site. | Nested-wrapper run case. |
-| S3 | A call-site-aware function passes `callsite` to an ordinary `SourceLocation` parameter. | The ordinary parameter receives the same value. | Type-check and run cases. |
-| S4 | A call-site-aware function is invoked through a function value from a non-call-site-aware function. | The callee observes the indirect call expression and callable type checking remains unchanged. | Type-check and run cases. |
+| S3 | A call-site-aware function passes its supplied `callsite` value to an ordinary `SourceLocation` parameter. | The ordinary parameter observes the same runtime value. | Run case. |
+| S4 | A call-site-aware function is invoked through a function value from a non-call-site-aware function. | The callee observes the indirect call expression. | Run case. |
 | S6 | Source is generated and has an origin mapping. | The exposed location is the mapped user location. | Generated-source fixture. |
 | S7 | A package is checked from two different absolute roots. | Exposed package, module, and file values are identical and contain neither root. | Relocation test. |
-| S8 | LSP and MCP present the declaration. | Each service identifies the modifier and built-in local variable without changing ordinary arity. | LSP and MCP cases. |
+| S8 | LSP and MCP present the declaration. | Each service identifies the modifier and built-in local variable. | LSP and MCP cases. |
 | S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
 
 ## Verification and Promotion

@@ -7,6 +7,7 @@ contains = [
   "\"id\":\"name.callsite_requires_modifier\"",
   "\"id\":\"name.callsite_shadow\"",
   "\"id\":\"parse.duplicate_callsite_modifier\"",
+  "\"id\":\"name.unresolved\"",
   "\"kind\":\"repair_hint\"",
   "\"kind\":\"builtin_origin\"",
 ]
@@ -20,7 +21,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 6
+equals = 8
 
 [[diagnostics]]
 id = "name.callsite_requires_modifier"
@@ -54,3 +55,25 @@ message = "duplicate `callsite` function modifier"
 file = "duplicate.veln"
 line = 1
 column = 43
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `callsite`"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 25
+column = 3
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `callsite`"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 33
+column = 16

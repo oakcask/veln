@@ -415,7 +415,7 @@ fn clause_body_diagnostics(
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     let synthetic = synthetic_clause_function(handler, clause, operation);
-    let mut checker = FunctionChecker::new(&synthetic, environment);
+    let mut checker = FunctionChecker::for_synthetic_declaration(&synthetic, environment);
     for (index, param) in handler.params.iter().enumerate() {
         checker.admit_value_binding_without_duplicate_diagnostic(
             &param.name,

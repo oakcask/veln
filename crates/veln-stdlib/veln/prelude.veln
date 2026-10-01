@@ -13,8 +13,8 @@ pub type ByteView = bytes::ByteView
 pub type WallTime
 end
 
-## The source location supplied to functions declared with the callsite modifier.
-## Lines and columns are one-based; offsets count UTF-8 bytes.
+## The structural source-location type available to callsite-aware declarations.
+## The checker exposes its package, module, file, and coordinate fields.
 pub type SourceLocation
 end
 

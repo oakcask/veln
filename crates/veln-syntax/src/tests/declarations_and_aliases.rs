@@ -80,6 +80,56 @@ fn parses_callsite_modifier_without_effects_and_rejects_a_duplicate() {
 }
 
 #[test]
+fn preserves_returned_function_effects_before_callsite_modifier() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn expose() -> fn() -> () effects [stdio] callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn expose_with_outer_effects() -> fn() -> () effects [stdio] effects [net] callsite\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(
+        function.return_type.as_deref(),
+        Some("fn() -> () effects [stdio]")
+    );
+    assert!(function.effects.is_none());
+    assert!(function.callsite.is_some());
+    let SyntaxItem::Function(with_outer_effects) = &output.tree.items[1] else {
+        panic!("expected function item");
+    };
+    assert_eq!(
+        with_outer_effects.return_type.as_deref(),
+        Some("fn() -> () effects [stdio]")
+    );
+    assert_eq!(
+        with_outer_effects.effects.as_ref().unwrap(),
+        &vec!["net".to_string()]
+    );
+    assert!(with_outer_effects.callsite.is_some());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn expose() -> fn() -> () effects [stdio] callsite\n",
+            "\tcallsite\n",
+            "end\n",
+            "\n",
+            "fn expose_with_outer_effects() -> fn() -> () effects [stdio] effects [net] callsite\n",
+            "\tcallsite\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn parses_and_formats_variadic_parameter_marker() {
     let source = SourceFile::new(
         "main.veln",

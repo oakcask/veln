@@ -73,7 +73,11 @@ impl<'a> FunctionChecker<'a> {
         symbol: &str,
         namespace: &'static str,
     ) {
-        if namespace == "value" && symbol == "callsite" && self.function.callsite.is_none() {
+        if namespace == "value"
+            && symbol == "callsite"
+            && self.function.callsite.is_none()
+            && self.supports_callsite_modifier
+        {
             let mut diagnostic = Diagnostic::new(
                 "name.callsite_requires_modifier",
                 Severity::Error,

@@ -5,3 +5,7 @@ end
 fn ordinary(callsite:Int)->Int
  callsite
 end
+
+pub fn preserve_effectful_return(callback:fn()->() effects[stdio])->fn()->() effects[stdio] callsite
+ callback
+end
