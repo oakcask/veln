@@ -86,6 +86,10 @@ a visible binding, parameter, explicit result binding, or compiler-known
 prelude helper (`hole.satisfy_candidate_shadow`), and the predicate must refer
 to it (`hole.satisfy_candidate_unused`).
 
+Inside a function with the `callsite` modifier, a `satisfy` candidate named
+`callsite` instead reports `name.callsite_shadow`. The rejected candidate does
+not replace the built-in `SourceLocation` value while the predicate is checked.
+
 The predicate uses the same pure boolean subset as contracts. The candidate has
 the hole's expected type when known. Unsupported constructs, non-boolean
 predicates, missing fields, and unresolved names are hole diagnostics; names

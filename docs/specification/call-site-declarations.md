@@ -43,11 +43,13 @@ local reference.
 
 ## Limits and diagnostics
 
-Parameters, result bindings, local bindings, and pattern bindings in a
-modified function cannot be named `callsite`. The checker reports the rejected
-binding at its name, identifies the modifier as the built-in origin, and
-suggests renaming the binding. A rejected result binding does not replace the
-built-in in an `ensure` clause or appear there with result-binding provenance.
+Parameters, result bindings, local bindings, pattern bindings, and hole
+`satisfy` candidates in a modified function cannot be named `callsite`. The
+checker reports the rejected binding or candidate at its name, identifies the
+modifier as the built-in origin, and suggests renaming it. A rejected result
+binding does not replace the built-in in an `ensure` clause or appear there
+with result-binding provenance. A rejected `satisfy` candidate does not replace
+the built-in in its predicate.
 
 An unresolved `callsite` value reference in an unmodified source function
 reports that the modifier is missing and explains where to add it. Tests and
