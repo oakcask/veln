@@ -303,6 +303,13 @@ fn task_cancellation_unblocks_host_accept_before_join() {
         "    Ok(_) => stdio::println(\"unexpected success\")\n",
         "    Err(_) => stdio::println(\"cancelled\")\n",
         "  end\n",
+        "  let address = net::listener_local_addr(listener)\n",
+        "  let client = net::connect(address)\n",
+        "  let server = net::accept(listener)\n",
+        "  net::close_stream(client)\n",
+        "  net::close_stream(server)\n",
+        "  net::close_listener(listener)\n",
+        "  stdio::println(\"listener reused\")\n",
         "end\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
@@ -321,7 +328,7 @@ fn task_cancellation_unblocks_host_accept_before_join() {
     assert!(output.status.success(), "{stderr}");
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "cleanup finished\ncancelled\n"
+        "cleanup finished\ncancelled\nlistener reused\n"
     );
 }
 
@@ -414,6 +421,46 @@ fn task_cancellation_stays_primary_with_cleanup_failure_related() {
             "task cancelled\n",
             "related cleanup failure: invalid shift count 64 for operator `<<`; expected a value between 0 and 63\n",
             "related cleanup failure: invalid shift count 65 for operator `<<`; expected a value between 0 and 63\n",
+        )
+    );
+}
+
+#[test]
+fn cancellation_requested_during_cleanup_preserves_the_body_failure() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn worker(context: { cleanup_started : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency]\n",
+        "  defer\n",
+        "    let _ = channel::send(context.cleanup_started, \"started\")\n",
+        "    let _ = channel::recv(context.gate)\n",
+        "    ()\n",
+        "  end\n",
+        "  let invalid_count = 64\n",
+        "  let ignored = 1 << invalid_count\n",
+        "  ()\n",
+        "end\n",
+        "pub fn main() -> () effects [concurrency]\n",
+        "  let cleanup_started = channel::bounded<String>(1)\n",
+        "  let gate = channel::bounded<String>(0)\n",
+        "  let worker = task::spawn_with<(), { cleanup_started : Sender<String>, gate : Receiver<String> }>(worker, { cleanup_started: cleanup_started.tx, gate: gate.rx })\n",
+        "  let _ = channel::recv(cleanup_started.rx)\n",
+        "  task::cancel(worker)\n",
+        "  let _ = task::join(worker)\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("deferred-cleanup-late-cancellation", &program, &[])
+    else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        concat!(
+            "invalid shift count 64 for operator `<<`; expected a value between 0 and 63\n",
+            "related cleanup failure: task cancelled\n",
         )
     );
 }

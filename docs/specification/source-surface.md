@@ -46,8 +46,8 @@ provides the production notation for these forms.
   calls, function type effect rows with final `...E` tails, `perform`
   operation expressions, `handle ... with ...` expressions, standard channel
   calls, zero-argument task spawns, one-context `task::spawn_with` calls, and
-  method-call diagnostics: this page. The static-only `begin` and `defer`
-  source boundary is described below.
+  method-call diagnostics, and the source boundary of executable `begin` and
+  `defer` forms: this page.
 - Contract predicate grammar: this page.
 - Identifier casing for source-written module headers, ADT types,
   constructors, functions, tests, public aliases, bindings, parser recovery,
@@ -56,7 +56,7 @@ provides the production notation for these forms.
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
 
-### Static cleanup-region forms
+### Cleanup-region forms
 
 `begin` is a value-producing expression whose body introduces a lexical scope.
 Its body accepts the same direct body lines as a function or test. A `defer`

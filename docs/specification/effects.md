@@ -765,6 +765,7 @@ The checker also recognizes these task-operation call targets:
 task::spawn<T, effect E>(job: fn() -> T effects [...E]) -> Task<T> effects [concurrency, ...E]
 task::spawn_with<T, C, effect E>(job: fn(C) -> T effects [...E], context: C) -> Task<T> effects [concurrency, ...E]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
+task::join_error_is_cancelled(error: JoinError) -> Bool effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
 
@@ -790,8 +791,9 @@ before crossing into the task, and the result value is frozen before it
 crosses back through the task handle.
 `task::join` waits for completion and returns `Ok(value)` when the task returns
 normally, or `Err(JoinError)` when the task is interrupted, cancelled, or fails
-at runtime. `task::cancel` requests cancellation by interrupting the task and
-returns `()`. Cancellation is
+at runtime. `task::join_error_is_cancelled` returns `true` only for the
+cancelled join outcome and does not change the error or task. `task::cancel`
+requests cancellation by interrupting the task and returns `()`. Cancellation is
 cooperative at the JVM runtime boundary.
 
 Executable-command reachability also follows bare and `use`-alias qualified

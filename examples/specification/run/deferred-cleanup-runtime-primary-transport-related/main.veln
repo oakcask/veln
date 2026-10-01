@@ -1,0 +1,10 @@
+# A transport failure during cleanup remains related to an established runtime failure.
+pub fn main() -> () effects [net]
+	defer
+		let ignored = net::listen("missing-port")
+		()
+	end
+	let invalid_count = 64
+	let ignored = 1 << invalid_count
+	()
+end

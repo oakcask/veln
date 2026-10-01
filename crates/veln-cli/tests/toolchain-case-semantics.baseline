@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"f37ffe6d4d76eaa7d53b4e83b46729a2ca86f2cd"
+source_git_tree	"cd0419793b42183a8d2bc5d30e6b7136534c9752"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1731
+case_count	1732
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -40548,8 +40548,6 @@ field	source_errors	"forbidden"
 case_digest	"b9c13557515ea7e5b76cc713f2038117314b173f1542539c85ae86f806de0457"
 case	"examples/specification/run/deferred-cleanup-contract-failure-human"
 field	expectations.exit	1
-field	expectations.stderr.contains[0]	"contract failure: require `value` in `reject` blame caller"
-field	expectations.stderr.contains[1]	"related cleanup failure: invalid shift count 64 for operator `<<`; expected a value between 0 and 63"
 field	expectations.stderr.format	"text"
 field	expectations.stdout.format	"text"
 field	invocation.command[0]	"run"
@@ -40558,7 +40556,7 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
-case_digest	"969e778f9c4d5d5f95f148306d990c5b395478932922f308455dcb3cacb04a3d"
+case_digest	"0e5b8f24ba93b6904c911d652803c0890654696703df98b3a43031790d7f7b85"
 case	"examples/specification/run/deferred-cleanup-contract-failure-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"failed"
@@ -40710,6 +40708,36 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"af791ff6e50c72ecc095a47eb1fefba0e4b8ef675d8d99ba4a243a2e6269413f"
+case	"examples/specification/run/deferred-cleanup-runtime-primary-transport-related"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"failed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	"runtime"
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"error.kind"
+field	expectations.json_assertions[2].equals	"runtime.invalid_shift_count"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"error.details.id"
+field	expectations.json_assertions[3].length	1
+field	expectations.json_assertions[3].operation	"length"
+field	expectations.json_assertions[3].path	"error.related"
+field	expectations.json_assertions[4].equals	"cleanup_failure"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"error.related.0.kind"
+field	expectations.json_assertions[5].equals	"transport listen failed: invalid_endpoint\nnote: Local endpoint: missing-port.\nnote: Lifecycle phase: before_operation.\nnote: Commit state: input=false, output=false, ownership=false.\nnote: Platform cause: production socket failed: missing host or port."
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"error.related.0.message"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"1114b95fc4556332204dfe45ecf6007ee3a67376ef84fb7d560f167d60488a82"
 case	"examples/specification/run/deferred-cleanup-success-cleanup-failure"
 field	expectations.exit	1
 field	expectations.stderr.format	"text"
@@ -40726,7 +40754,7 @@ field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"cleanup finished\ncancelled\n"
+field	expectations.json_assertions[1].equals_file	"registered\ncancelled\n"
 field	expectations.json_assertions[1].operation	"equals_file"
 field	expectations.json_assertions[1].path	"stdout"
 field	expectations.json_assertions[2].equals	null
@@ -40741,7 +40769,7 @@ field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
-case_digest	"488fc62f8ba4cb17f74bcf3b42d8b74fc09c0f328c1b2c715d382fb82d4e6419"
+case_digest	"131357648a4aba820d1dd34f9cac8972217fe377b055e8ede88cf8e16cc41754"
 case	"examples/specification/run/derived-codec-byte-aligned-reserved-decode-boundary"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -62302,4 +62330,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"bea951340e108aaa4c04fbeac5ec2510da12f78a42464293d0d9fdcdc396b9ce"
+aggregate_digest	"bba72cbe2d813c8eece53ce242733b445fe7eb4b4fa666b40d1d6aa061d9d90e"

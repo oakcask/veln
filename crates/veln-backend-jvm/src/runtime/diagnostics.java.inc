@@ -5,6 +5,9 @@
     }
 
     public static void printFailure(Throwable failure) {
+        if (failure instanceof TransportFailure) {
+            ((TransportFailure) failure).record();
+        }
         System.err.println(failure.getMessage());
         java.util.List<Throwable> relatedFailures = cleanupRelatedFailures(failure);
         for (Throwable related : relatedFailures) {

@@ -34,7 +34,7 @@ The following behavior is fixed for the implemented slice:
   existing failures remain primary with ordered related cleanup failures, and
   the first cleanup failure becomes primary for an otherwise successful
   region. See
-  [source-surface.md](source-surface.md#static-cleanup-region-forms) and
+  [source-surface.md](source-surface.md#cleanup-region-forms) and
   [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 - `NodeId` values are session-local and deterministic for a single parse/lower
   pass. They are stable enough for diagnostics in one command result, but are

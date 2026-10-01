@@ -1,8 +1,10 @@
 # Join cannot report cancellation until the cancelled task finishes registered cleanup.
 fn worker(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, stdio]
+	let snapshot = "registered"
 	defer
-		stdio::println("cleanup finished")
+		stdio::println(snapshot)
 	end
+	let snapshot = "changed"
 	let _ = channel::send(context.ready, "ready")
 	let _ = channel::recv(context.gate)
 	stdio::println("unexpected continuation")
@@ -16,6 +18,10 @@ pub fn main() -> () effects [concurrency, stdio]
 	task::cancel(worker)
 	match task::join(worker)
 		Ok(_) => stdio::println("unexpected success")
-		Err(_) => stdio::println("cancelled")
+		Err(error) => if task::join_error_is_cancelled(error)
+			stdio::println("cancelled")
+		else
+			stdio::println("unexpected task error")
+		end
 	end
 end

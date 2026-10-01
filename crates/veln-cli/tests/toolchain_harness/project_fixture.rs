@@ -119,7 +119,7 @@ impl TestProject {
                 .write_all(input.as_bytes())
                 .expect("veln stdin should be written");
         }
-        child.wait_with_output().expect("veln should run")
+        wait_with_output_timeout(child, "veln fixture", std::time::Duration::from_secs(30))
     }
 
     pub(super) fn veln_with_interactive_mcp(
@@ -170,6 +170,85 @@ impl TestProject {
             tool.setup(tool_path);
         }
     }
+}
+
+fn wait_with_output_timeout(
+    mut child: std::process::Child,
+    label: &str,
+    timeout: std::time::Duration,
+) -> Output {
+    let mut stdout = child.stdout.take().expect("child stdout should be piped");
+    let mut stderr = child.stderr.take().expect("child stderr should be piped");
+    let stdout_reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stdout
+            .read_to_end(&mut bytes)
+            .expect("child stdout should be readable");
+        bytes
+    });
+    let stderr_reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stderr
+            .read_to_end(&mut bytes)
+            .expect("child stderr should be readable");
+        bytes
+    });
+    let started = std::time::Instant::now();
+    let (status, timed_out) = loop {
+        if let Some(status) = child.try_wait().expect("child status should be readable") {
+            break (status, false);
+        }
+        if started.elapsed() >= timeout {
+            let _ = child.kill();
+            break (
+                child.wait().expect("timed out child should be reaped"),
+                true,
+            );
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+    let stdout = stdout_reader.join().expect("stdout reader should finish");
+    let stderr = stderr_reader.join().expect("stderr reader should finish");
+    if timed_out {
+        panic!(
+            "{label} exceeded {timeout:?}\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&stdout),
+            String::from_utf8_lossy(&stderr),
+        );
+    }
+    Output {
+        status,
+        stdout,
+        stderr,
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn fixture_timeout_kills_and_reports_the_case() {
+    let mut command = Command::new("sleep");
+    command
+        .arg("60")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let child = command
+        .spawn()
+        .expect("blocking fixture child should spawn");
+    let failure = std::panic::catch_unwind(|| {
+        wait_with_output_timeout(
+            child,
+            "bounded-fixture-case",
+            std::time::Duration::from_millis(50),
+        )
+    })
+    .expect_err("blocking fixture child should time out");
+    let message = failure
+        .downcast_ref::<String>()
+        .map(String::as_str)
+        .or_else(|| failure.downcast_ref::<&str>().copied())
+        .unwrap_or("");
+    assert!(message.contains("bounded-fixture-case"), "{message}");
+    assert!(message.contains("exceeded"), "{message}");
 }
 
 fn exchange_mcp_requests(child: &mut std::process::Child, stdin: &str) -> Vec<u8> {

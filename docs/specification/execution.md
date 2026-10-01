@@ -107,7 +107,8 @@ accepted `NetStream` with its `Task<Result<HandlerOutput, String>>`, then join
 that list in order and close each owned stream. To stop after a handler or join
 failure, the service must explicitly cancel and join pending tasks and close
 their streams. This orchestration belongs to the source program; task failure
-does not automatically close its host resources or undo completed writes.
+failure or cancellation does not automatically close caller-owned listeners,
+streams, standard input, or undo completed writes.
 
 `transport::net::net_stream(stream)` adapts a caller-owned `NetStream` to the
 `DuplexStream` interface. `read_chunk()` returns `Some(ByteChunk)` or `None`

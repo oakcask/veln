@@ -129,6 +129,12 @@ pub(crate) const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.task.spawn_with",
     ),
     runtime_symbol("task", "join", CONCURRENCY_EFFECTS, "runtime.task.join"),
+    runtime_symbol(
+        "task",
+        "join_error_is_cancelled",
+        CONCURRENCY_EFFECTS,
+        "runtime.task.join_error_is_cancelled",
+    ),
     runtime_symbol("task", "cancel", CONCURRENCY_EFFECTS, "runtime.task.cancel"),
     runtime_symbol_with_signature(
         "fs",

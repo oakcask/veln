@@ -8,30 +8,10 @@
     private static final class TaskCancellation {
         private final java.util.concurrent.atomic.AtomicBoolean delivered =
             new java.util.concurrent.atomic.AtomicBoolean(false);
-        private final java.util.Set<java.io.Closeable> blockers =
-            java.util.concurrent.ConcurrentHashMap.<java.io.Closeable>newKeySet();
         private volatile boolean requested;
 
         private void request() {
             requested = true;
-            for (java.io.Closeable blocker : blockers) {
-                try {
-                    blocker.close();
-                } catch (java.io.IOException ignored) { }
-            }
-        }
-
-        private boolean register(java.io.Closeable blocker) {
-            if (delivered.get()) {
-                return false;
-            }
-            blockers.add(blocker);
-            if (requested) {
-                try {
-                    blocker.close();
-                } catch (java.io.IOException ignored) { }
-            }
-            return true;
         }
     }
 
@@ -40,6 +20,7 @@
         if (cancellation != null
             && cancellation.requested
             && cancellation.delivered.compareAndSet(false, true)) {
+            Thread.interrupted();
             throw new RuntimeFailure("task cancelled");
         }
     }
@@ -48,19 +29,8 @@
         throwTaskCancellationIfRequested();
     }
 
-    private static boolean registerTaskBlocker(java.io.Closeable blocker) {
-        TaskCancellation cancellation = CURRENT_TASK_CANCELLATION.get();
-        return cancellation != null && cancellation.register(blocker);
-    }
-
-    private static void unregisterTaskBlocker(java.io.Closeable blocker, boolean registered) {
-        if (!registered) {
-            return;
-        }
-        TaskCancellation cancellation = CURRENT_TASK_CANCELLATION.get();
-        if (cancellation != null) {
-            cancellation.blockers.remove(blocker);
-        }
+    private static boolean taskCanBeCancelled() {
+        return CURRENT_TASK_CANCELLATION.get() != null;
     }
 
     private static java.util.concurrent.FutureTask<Object> newTaskFuture(
@@ -72,7 +42,6 @@
             try {
                 return action.call();
             } finally {
-                cancellation.blockers.clear();
                 CURRENT_TASK_CANCELLATION.remove();
             }
         });
@@ -867,19 +836,14 @@
             return err("interrupted");
         } catch (java.util.concurrent.ExecutionException failed) {
             Throwable cause = failed.getCause();
-            if (handle.cancellationRequested) {
-                if (cause instanceof RuntimeFailure
-                    && "task cancelled".equals(cause.getMessage())) {
-                    if (cause.getSuppressed().length == 0) {
-                        return err("cancelled");
-                    }
-                    throw (RuntimeFailure) cause;
-                }
-                RuntimeFailure cancellation = new RuntimeFailure("task cancelled");
-                attachCleanupFailure(cancellation, cause);
-                throw cancellation;
+            if (cause instanceof ContractFailure) {
+                throw (ContractFailure) cause;
             }
             if (cause instanceof RuntimeFailure) {
+                if ("task cancelled".equals(cause.getMessage())) {
+                    if (cause.getSuppressed().length == 0) return err("cancelled");
+                    throw (RuntimeFailure) cause;
+                }
                 throw (RuntimeFailure) cause;
             }
             return err("failed");
@@ -899,6 +863,10 @@
             }
             return err("cancelled");
         }
+    }
+
+    public static Object taskJoinErrorIsCancelled(Object error) {
+        return Boolean.valueOf("cancelled".equals(asString(error)));
     }
 
     public static Object taskCancel(Object task) {

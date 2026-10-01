@@ -99,4 +99,6 @@ fn task_cancellation_state_is_task_local_and_not_a_retained_thread_registry() {
     assert!(source.contains("ThreadLocal<TaskCancellation>"));
     assert!(!source.contains("CANCELLED_TASK_THREADS"));
     assert!(!source.contains("Set<Thread>"));
+    assert!(!source.contains("Set<java.io.Closeable>"));
+    assert!(!source.contains("blocker.close()"));
 }

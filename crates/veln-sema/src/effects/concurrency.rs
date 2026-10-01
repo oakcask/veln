@@ -5,6 +5,7 @@ use crate::semantic_model::Type;
 trait SignatureType: Clone + PartialEq {
     fn unknown() -> Self;
     fn int() -> Self;
+    fn bool() -> Self;
     fn unit() -> Self;
     fn named(name: &str, args: Vec<Self>) -> Self;
     fn record(fields: Vec<(String, Self)>) -> Self;
@@ -45,6 +46,10 @@ macro_rules! common_signature_type_methods {
 
         fn int() -> Self {
             Self::int()
+        }
+
+        fn bool() -> Self {
+            Self::bool()
         }
 
         fn unit() -> Self {
@@ -290,6 +295,7 @@ fn task_signature<T: SignatureType>(
             task_spawn_with_signature(expected, handle_type, explicit_item, explicit_context)
         }
         "join" => task_join_signature(handle_type),
+        "join_error_is_cancelled" => Some((vec![T::named("JoinError", Vec::new())], T::bool())),
         "cancel" => Some((vec![T::named("Task", vec![T::unknown()])], T::unit())),
         _ => None,
     }
