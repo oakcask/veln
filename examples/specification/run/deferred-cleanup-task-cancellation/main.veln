@@ -1,0 +1,46 @@
+# Task join remains incomplete while registered cleanup is gated, then reports cancellation.
+use fixture_tasks
+
+fn worker(context: { ready : Sender<String>, body_gate : Receiver<String>, cleanup_started : Sender<String>, cleanup_gate : Receiver<String>, cleanup_finished : Sender<String> }) -> () effects [concurrency, stdio]
+	let snapshot = "registered"
+	defer
+		let _ = channel::send(context.cleanup_started, "cleanup started")
+		let _ = channel::recv(context.cleanup_gate)
+		let _ = channel::send(context.cleanup_finished, string::concat("cleanup finished: ", snapshot))
+	end
+	let snapshot = "changed"
+	let _ = channel::send(context.ready, "ready")
+	let _ = channel::recv(context.body_gate)
+	stdio::println("unexpected continuation")
+end
+
+fn observe_cancelled_join(context: { worker : Task<()>, started : Sender<String>, completed : Sender<String> }) -> () effects [concurrency]
+	fixture_tasks::fixture_observe_join(context)
+end
+
+pub fn main() -> () effects [concurrency, stdio]
+	let ready = channel::bounded<String>(1)
+	let body_gate = channel::bounded<String>(0)
+	let cleanup_started = channel::bounded<String>(1)
+	let cleanup_gate = channel::bounded<String>(0)
+	let cleanup_finished = channel::bounded<String>(1)
+	let worker = task::spawn_with<(), { ready : Sender<String>, body_gate : Receiver<String>, cleanup_started : Sender<String>, cleanup_gate : Receiver<String>, cleanup_finished : Sender<String> }>(worker, { ready: ready.tx, body_gate: body_gate.rx, cleanup_started: cleanup_started.tx, cleanup_gate: cleanup_gate.rx, cleanup_finished: cleanup_finished.tx })
+	let _ = channel::recv(ready.rx)
+	task::cancel(worker)
+	let _ = channel::recv(cleanup_started.rx)
+	let join_started = channel::bounded<String>(0)
+	let join_completed = channel::bounded<String>(1)
+	let join_observer = task::spawn_with<(), { worker : Task<()>, started : Sender<String>, completed : Sender<String> }>(observe_cancelled_join, { worker: worker, started: join_started.tx, completed: join_completed.tx })
+	let _ = channel::recv(join_started.rx)
+	stdio::println("join pending during cleanup")
+	let _ = channel::send(cleanup_gate.tx, "release")
+	match channel::recv(cleanup_finished.rx)
+		Some(message) => stdio::println(message)
+		None => stdio::println("cleanup did not finish")
+	end
+	match channel::recv(join_completed.rx)
+		Some(outcome) => stdio::println(outcome)
+		None => stdio::println("join result missing")
+	end
+	let _ = task::join(join_observer)
+end

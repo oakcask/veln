@@ -586,6 +586,100 @@ public final class RuntimePathHarness {
 }
 "#;
 
+pub(super) const RUNTIME_STDIN_BACKPRESSURE_HARNESS: &str = r#"
+public final class RuntimeStdinBackpressureHarness {
+    private static final class CountingInput extends java.io.InputStream {
+        private int reads;
+
+        @Override
+        public int read() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public synchronized int read(byte[] bytes, int offset, int length) {
+            reads += 1;
+            if (reads > 64) return -1;
+            java.util.Arrays.fill(bytes, offset, offset + length, (byte) 1);
+            return length;
+        }
+
+        private synchronized int reads() {
+            return reads;
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        CountingInput input = new CountingInput();
+        System.setIn(input);
+        VelnRuntime.netReceiveChunk();
+        Thread.sleep(100L);
+        System.out.println(input.reads());
+    }
+}
+"#;
+
+pub(super) const RUNTIME_SOCKET_PARTIAL_WRITE_HARNESS: &str = r#"
+public final class RuntimeSocketPartialWriteHarness {
+    private static Object largeChunk() {
+        Object byteValue = ((VelnRuntime.Result) VelnRuntime.byteValue(Long.valueOf(1))).value();
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>(2_000_000);
+        for (int index = 0; index < 2_000_000; index += 1) bytes.add(byteValue);
+        return VelnRuntime.byteChunk(bytes);
+    }
+
+    private static void restrictSendBuffer(Object stream) throws Exception {
+        java.lang.reflect.Field field = stream.getClass().getDeclaredField("socket");
+        field.setAccessible(true);
+        java.nio.channels.SocketChannel socket =
+            (java.nio.channels.SocketChannel) field.get(stream);
+        socket.socket().setSendBufferSize(1024);
+    }
+
+    public static void main(String[] args) throws Exception {
+        Object chunk = largeChunk();
+        Object listener = VelnRuntime.netListen("127.0.0.1:0");
+        String address = (String) VelnRuntime.netListenerLocalAddr(listener);
+
+        Object deadlineClient = VelnRuntime.netConnect(address);
+        Object deadlinePeer = VelnRuntime.netAccept(listener);
+        restrictSendBuffer(deadlineClient);
+        Object deadline = VelnRuntime.timeDeadlineAfterMs(Long.valueOf(20));
+        System.out.println(VelnRuntime.netWriteChunkUntil(deadlineClient, chunk, deadline));
+
+        Object cancelClient = VelnRuntime.netConnect(address);
+        Object cancelPeer = VelnRuntime.netAccept(listener);
+        restrictSendBuffer(cancelClient);
+        final Object token = VelnRuntime.timeCancelToken();
+        Thread canceller = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(20L);
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                }
+                VelnRuntime.timeCancel(token);
+            }
+        });
+        canceller.start();
+        Object longDeadline = VelnRuntime.timeDeadlineAfterMs(Long.valueOf(10000));
+        System.out.println(VelnRuntime.netWriteChunkUntilCancellable(
+            cancelClient,
+            chunk,
+            longDeadline,
+            token
+        ));
+        canceller.join();
+
+        VelnRuntime.netCloseStream(deadlineClient);
+        VelnRuntime.netCloseStream(deadlinePeer);
+        VelnRuntime.netCloseStream(cancelClient);
+        VelnRuntime.netCloseStream(cancelPeer);
+        VelnRuntime.netCloseListener(listener);
+    }
+}
+"#;
+
 pub(super) const RUNTIME_CHANNEL_SELECT_MANY_TIMEOUT_RESULT_HARNESS: &str = r#"
 public final class RuntimeChannelSelectManyTimeoutResultHarness {
     public static void main(String[] args) {

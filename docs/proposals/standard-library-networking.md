@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The planned standard-library network API, network effect boundary, host handler, or stream-resource lifecycle is implemented or changed.
+update-when: The planned standard-library network API, network effect boundary, host handler, stream-resource lifecycle, or lexical-cleanup prerequisite changes.
 ---
 
 # Standard-library networking and its effect boundary
@@ -412,10 +412,10 @@ still owns when the handled scope exits, including exits caused by a propagated
 error or runtime unwind. Scope cleanup is a safety net, not a substitute for
 explicit close when peer-visible timing matters.
 
-The handler-owned safety net is distinct from the proposed
-[lexical deferred cleanup](lexical-deferred-cleanup.md). After that language
-mechanism is implemented, application code can register explicit close next to
-resource acquisition without changing the handler's ownership boundary.
+The handler-owned safety net is distinct from
+[lexical deferred cleanup](../specification/execution.md#runtime-readiness-and-host-boundaries).
+Application code can register explicit close next to resource acquisition
+without changing the handler's ownership boundary.
 
 A resource must not escape its owning handled scope. A returned resource is
 already closed by scope cleanup, and a later operation under another handler

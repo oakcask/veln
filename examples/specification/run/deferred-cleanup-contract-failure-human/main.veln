@@ -1,0 +1,15 @@
+# A contract failure remains primary when cleanup also fails.
+fn reject(value: Bool) -> ()
+require value
+	()
+end
+
+pub fn main() -> () effects [stdio]
+	defer
+		stdio::println("cleanup")
+		let invalid_count = 64
+		let ignored = 1 << invalid_count
+		()
+	end
+	reject(false)
+end

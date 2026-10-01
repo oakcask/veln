@@ -1,15 +1,10 @@
-# Cleanup syntax and static semantics are available before runtime unwinding.
-fn release(value: Int) -> ()
-	()
-end
-
-pub fn main() -> Int
-	let value = begin
-		let resource = 1
-		defer
-			release(resource)
-		end
-		resource
+# Registered cleanup runs through the public executable pipeline in reverse order.
+pub fn main() -> () effects [stdio]
+	defer
+		stdio::println("cleanup 1")
 	end
-	value
+	defer
+		stdio::println("cleanup 2")
+	end
+	stdio::println("body")
 end

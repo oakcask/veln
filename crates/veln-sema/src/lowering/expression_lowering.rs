@@ -57,10 +57,6 @@ impl<'a> CoreLowerer<'a> {
                 expected,
             ),
             ExprKind::Begin { body, .. } => {
-                self.blockers.push(CoreBlocker::UnsupportedExpression {
-                    node_id: expr.node_id,
-                    reason: "deferred_cleanup_runtime".to_string(),
-                });
                 let (body, ty) = self.lower_scoped_body(body, expected);
                 self.core_expr(
                     expr,

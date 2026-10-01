@@ -1,5 +1,47 @@
 use super::*;
 
+#[cfg(unix)]
+#[test]
+fn run_json_uses_stderr_message_for_trace_free_jvm_failure() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = TestProject::new("run-json-trace-free-jvm-failure");
+    project.write("main.veln", "pub fn main() -> ()\n  ()\nend\n");
+    project.write(
+        "bin/java",
+        "#!/bin/sh\nprintf '%s\\n' 'java.lang.VerifyError: fixture failure' >&2\nexit 7\n",
+    );
+    let java = project.root.join("bin/java");
+    let mut permissions = std::fs::metadata(&java)
+        .expect("fake java metadata should be available")
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&java, permissions).expect("fake java should be executable");
+    let tool_path = project.root.join("bin");
+
+    let output = project.run_with_path(
+        &["--json", "main", "main.veln"],
+        tool_path
+            .to_str()
+            .expect("fake tool path should be valid UTF-8"),
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "\"status\":\"failed\"",
+            "\"exit_code\":7",
+            "\"stderr\":\"java.lang.VerifyError: fixture failure\\n\"",
+            "\"kind\":\"runtime\"",
+            "\"message\":\"java.lang.VerifyError: fixture failure\"",
+            "\"phase\":\"runtime\"",
+            "\"related\":[]",
+        ],
+    );
+}
+
 #[test]
 fn run_forwards_stdout_and_stderr_when_jdk_is_available() {
     if !jdk_is_available() {

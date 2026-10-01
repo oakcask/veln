@@ -3,11 +3,34 @@ use std::process::{ExitCode, ExitStatus};
 use veln_diagnostics::JsonValue;
 use veln_test::TestFailure;
 
-pub(super) fn runtime_error_message(stderr: &str, status: ExitStatus) -> String {
-    stderr
+pub(super) fn cleanup_related_failures(trace: &str) -> Vec<String> {
+    trace
         .lines()
-        .find(|line| !line.trim().is_empty())
-        .map(str::to_string)
+        .filter_map(|line| line.strip_prefix("cleanup\t"))
+        .filter_map(trace_string)
+        .collect()
+}
+
+pub(super) fn runtime_failure_from_trace(trace: &str) -> Option<String> {
+    trace
+        .lines()
+        .rev()
+        .find_map(|line| line.strip_prefix("runtime\t"))
+        .and_then(trace_string)
+}
+
+pub(super) fn runtime_error_message(
+    runtime_trace: &str,
+    stderr: &str,
+    status: ExitStatus,
+) -> String {
+    runtime_failure_from_trace(runtime_trace)
+        .or_else(|| {
+            stderr
+                .lines()
+                .find(|line| !line.trim().is_empty())
+                .map(str::to_string)
+        })
         .unwrap_or_else(|| format!("run process exited with status {status}"))
 }
 
@@ -35,13 +58,14 @@ impl RunJsonReport {
         stdout: String,
         stderr: String,
         failure: TestFailure,
+        related: Vec<String>,
     ) -> Self {
         Self {
             status: "failed",
             exit_code,
             stdout,
             stderr,
-            error: Some(RunJsonError::from_test_failure(failure)),
+            error: Some(RunJsonError::from_test_failure(failure, related)),
         }
     }
 
@@ -50,6 +74,7 @@ impl RunJsonReport {
         stdout: String,
         stderr: String,
         message: String,
+        related: Vec<String>,
     ) -> Self {
         let details = invalid_shift_runtime_details(&message)
             .unwrap_or_else(|| JsonValue::object([("phase", JsonValue::string("runtime"))]));
@@ -58,7 +83,7 @@ impl RunJsonReport {
             exit_code,
             stdout,
             stderr,
-            error: Some(RunJsonError::runtime(message, details)),
+            error: Some(RunJsonError::runtime(message, details, related)),
         }
     }
 
@@ -67,6 +92,7 @@ impl RunJsonReport {
         stdout: String,
         _stderr: String,
         failure: TransportFailureTrace,
+        related: Vec<String>,
     ) -> Self {
         let message = format!(
             "transport {} failed: {}",
@@ -78,7 +104,7 @@ impl RunJsonReport {
             exit_code,
             stdout,
             stderr: format!("{message}\n"),
-            error: Some(RunJsonError::runtime(message, failure.details())),
+            error: Some(RunJsonError::runtime(message, failure.details(), related)),
         }
     }
 
@@ -239,22 +265,25 @@ struct RunJsonError {
     kind: String,
     message: String,
     details: JsonValue,
+    related: Vec<String>,
 }
 
 impl RunJsonError {
-    fn from_test_failure(failure: TestFailure) -> Self {
+    fn from_test_failure(failure: TestFailure, related: Vec<String>) -> Self {
         Self {
             kind: failure.kind,
             message: failure.message,
             details: failure.details,
+            related,
         }
     }
 
-    fn runtime(message: String, details: JsonValue) -> Self {
+    fn runtime(message: String, details: JsonValue, related: Vec<String>) -> Self {
         Self {
             kind: "runtime".to_string(),
             message,
             details,
+            related,
         }
     }
 
@@ -263,6 +292,7 @@ impl RunJsonError {
             kind: "runner".to_string(),
             message,
             details: JsonValue::object([("phase", JsonValue::string("tool"))]),
+            related: Vec::new(),
         }
     }
 
@@ -271,6 +301,20 @@ impl RunJsonError {
             ("kind", JsonValue::string(self.kind.clone())),
             ("message", JsonValue::string(self.message.clone())),
             ("details", self.details.clone()),
+            (
+                "related",
+                JsonValue::Array(
+                    self.related
+                        .iter()
+                        .map(|message| {
+                            JsonValue::object([
+                                ("kind", JsonValue::string("cleanup_failure")),
+                                ("message", JsonValue::string(message.clone())),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
         ])
     }
 }
@@ -360,5 +404,56 @@ mod tests {
         );
 
         assert!(transport_failure_from_trace(trace).is_none());
+    }
+
+    #[test]
+    fn cleanup_failure_trace_accepts_only_structured_records() {
+        let trace = format!(
+            "cleanup\t{}\nrelated cleanup failure: forged\ncleanup\tzz\n",
+            trace_hex("actual cleanup failure"),
+        );
+
+        assert_eq!(
+            cleanup_related_failures(&trace),
+            vec!["actual cleanup failure".to_string()]
+        );
+    }
+
+    #[test]
+    fn runtime_failure_trace_uses_the_recorded_primary_message() {
+        let trace = format!("runtime\t{}\n", trace_hex("actual runtime failure"));
+        assert_eq!(
+            runtime_failure_from_trace(&trace).as_deref(),
+            Some("actual runtime failure")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn runtime_error_message_prefers_structured_trace_over_stderr() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let trace = format!("runtime\t{}\n", trace_hex("structured runtime failure"));
+        let message = runtime_error_message(
+            &trace,
+            "Exception in thread main: fallback failure\n",
+            ExitStatus::from_raw(1 << 8),
+        );
+
+        assert_eq!(message, "structured runtime failure");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn trace_free_nonzero_jvm_exit_uses_stderr_primary_message() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let message = runtime_error_message(
+            "",
+            "\njava.lang.StackOverflowError\n\tat VelnProgram.loop(Unknown Source)\n",
+            ExitStatus::from_raw(1 << 8),
+        );
+
+        assert_eq!(message, "java.lang.StackOverflowError");
     }
 }

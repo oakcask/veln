@@ -1,0 +1,40 @@
+# Public execution distinguishes propagation, nested handler unwinding, snapshots, and value transfer.
+effect Label
+	value() -> String
+end
+
+handler label(text: String) handles Label
+	value() => text
+end
+
+fn propagate() -> Result<(), String> effects [Label, stdio]
+	begin
+		defer
+			stdio::println(perform Label::value())
+		end
+		handle begin
+			let snapshot = perform Label::value()
+			defer
+				stdio::println(snapshot)
+			end
+			let snapshot = "changed"
+			Err("propagated")?
+			()
+		end with label("inner")
+		Ok(())
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	match handle propagate() with label("outer")
+		Ok(_) => stdio::println("unexpected success")
+		Err(message) => stdio::println(message)
+	end
+	let value = begin
+		defer
+			stdio::println("value cleanup")
+		end
+		"value"
+	end
+	stdio::println(value)
+end

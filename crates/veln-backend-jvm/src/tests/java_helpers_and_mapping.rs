@@ -323,6 +323,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("task::spawn", "taskSpawn"),
         ("task::spawn_with", "taskSpawnWith"),
         ("task::join", "taskJoin"),
+        ("task::join_error_is_cancelled", "taskJoinErrorIsCancelled"),
         ("task::cancel", "taskCancel"),
     ] {
         assert_eq!(concurrency_method(surface), method);

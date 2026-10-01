@@ -1,0 +1,36 @@
+fn cleanup_worker(context: { ready : Sender<String>, body_gate : Receiver<String>, cleanup_started : Sender<String>, cleanup_gate : Receiver<String>, cleanup_finished : Sender<String> }) -> () effects [concurrency]
+	defer
+		let _ = channel::send(context.cleanup_started, "started")
+		let _ = channel::recv(context.cleanup_gate)
+		let _ = channel::send(context.cleanup_finished, "finished")
+	end
+	let _ = channel::send(context.ready, "ready")
+	let _ = channel::recv(context.body_gate)
+	()
+end
+
+pub fn start_cleanup_worker() -> { worker : Task<()>, cleanup_started : Receiver<String>, cleanup_gate : Sender<String>, cleanup_finished : Receiver<String> } effects [concurrency]
+	let ready = channel::bounded<String>(1)
+	let body_gate = channel::bounded<String>(0)
+	let cleanup_started = channel::bounded<String>(1)
+	let cleanup_gate = channel::bounded<String>(1)
+	let cleanup_finished = channel::bounded<String>(1)
+	let worker = task::spawn_with<(), { ready : Sender<String>, body_gate : Receiver<String>, cleanup_started : Sender<String>, cleanup_gate : Receiver<String>, cleanup_finished : Sender<String> }>(cleanup_worker, { ready: ready.tx, body_gate: body_gate.rx, cleanup_started: cleanup_started.tx, cleanup_gate: cleanup_gate.rx, cleanup_finished: cleanup_finished.tx })
+	let _ = channel::recv(ready.rx)
+	{ worker: worker, cleanup_started: cleanup_started.rx, cleanup_gate: cleanup_gate.tx, cleanup_finished: cleanup_finished.rx }
+end
+
+pub fn join_cleanup_worker(worker: Task<()>) -> String effects [concurrency]
+	match task::join(worker)
+		Ok(_) => "unexpected success"
+		Err(error) => if task::join_error_is_cancelled(error)
+			"cancelled"
+		else
+			"unexpected task error"
+		end
+	end
+end
+
+pub fn main() -> ()
+	()
+end

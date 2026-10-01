@@ -35,12 +35,10 @@ dependency declaration blocks the run; unreachable declarations in an imported
 dependency and diagnostics in an unimported manifest dependency do not. An
 unreachable local function does not block the selected entry.
 
-A reachable `begin` expression or `defer` statement blocks execution at
-checked-core readiness with `deferred_cleanup_runtime`. This happens before
-cache configuration, classfile generation, or backend launch, even when static
-checking otherwise succeeds. Internal deferred-cleanup support does not bypass
-this public command gate. The implemented foundation and remaining limits are
-specified by the [execution boundary](execution.md#runtime-readiness-and-host-boundaries).
+A reachable `begin` expression or `defer` statement proceeds through
+checked-core and typed-IR readiness and executes through the JVM backend. Its
+cleanup ordering, failure precedence, and cancellation behavior are specified
+by the [execution boundary](execution.md#runtime-readiness-and-host-boundaries).
 
 The reachable program is lowered to typed IR and JVM classfiles. Ordinary
 execution does not write Java source or invoke a Java source compiler. Missing
@@ -84,7 +82,9 @@ Human mode forwards process stdout and stderr and returns the Java status for
 ordinary runtime failures. Contract failures identify the failed clause at its
 source span and place blame and related facts in diagnostic details. Decode,
 schema, byte-write, and protocol failures use the diagnostic shapes routed by
-[run JSON](run-json.md). Runtime trace files remain isolated to this invocation.
+[run JSON](run-json.md). Cleanup failures related to an existing failure are
+printed after the primary message in cleanup execution order. Runtime trace
+files remain isolated to this invocation.
 
 ## Limits
 

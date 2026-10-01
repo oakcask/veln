@@ -145,6 +145,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             code.bind(start);
             self.tail_loop_start = Some(start);
         }
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "taskCancellationCheckpoint",
+            "()V",
+        );
         for contract in self
             .function
             .contracts
@@ -239,9 +244,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                         .last()
                         .expect("active cleanup region")
                         .clone();
-                    for cleanup in cleanups.iter().rev() {
-                        self.emit_registered_cleanup(code, cleanup);
-                    }
+                    self.emit_cleanup_sequence(code, cleanups.iter().rev());
                     if function && self.has_ensure_contracts() {
                         self.emit_ensure_checks_for_result(code, result);
                     }
@@ -308,6 +311,60 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.next_local = saved_next;
     }
 
+    fn emit_cleanup_sequence<'cleanup>(
+        &mut self,
+        code: &mut MethodCode,
+        cleanups: impl Iterator<Item = &'cleanup RegisteredCleanup>,
+    ) {
+        let mut cleanups = cleanups.peekable();
+        if cleanups.peek().is_none() {
+            return;
+        }
+        let primary_failure = self.alloc_local();
+        let cleanup_failure = self.alloc_local();
+        code.op(0x01);
+        code.astore(primary_failure);
+        for cleanup in cleanups {
+            let cleanup_start = code.mark();
+            self.emit_registered_cleanup(code, cleanup);
+            let cleanup_end = code.mark();
+            let next_cleanup = code.new_label();
+            let failure_handler = code.new_label();
+            code.branch_wide_to(next_cleanup);
+            code.bind(failure_handler);
+            code.astore(cleanup_failure);
+            code.aload(primary_failure);
+            let has_primary_failure = code.branch(0xc7);
+            code.aload(cleanup_failure);
+            code.astore(primary_failure);
+            code.branch_wide_to(next_cleanup);
+            code.bind(has_primary_failure);
+            self.emit_attach_cleanup_failure(code, primary_failure, cleanup_failure);
+            code.bind(next_cleanup);
+            code.add_exception_handler_to_label(cleanup_start, cleanup_end, failure_handler);
+        }
+        code.aload(primary_failure);
+        let completed = code.branch(0xc6);
+        code.aload(primary_failure);
+        code.op(0xbf);
+        code.bind(completed);
+    }
+
+    fn emit_attach_cleanup_failure(
+        &self,
+        code: &mut MethodCode,
+        primary_failure: u16,
+        cleanup_failure: u16,
+    ) {
+        code.aload(primary_failure);
+        code.aload(cleanup_failure);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "attachCleanupFailure",
+            "(Ljava/lang/Throwable;Ljava/lang/Throwable;)V",
+        );
+    }
+
     pub(super) fn push_handler_unwind(&mut self, code: &mut MethodCode) -> Option<usize> {
         let parent = self.active_unwind;
         self.push_unwind_node(code, UnwindAction::PopHandler);
@@ -322,6 +379,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let unwind_result = self.unwind_result;
         code.aload(result);
         code.astore(unwind_result);
+        self.exception_unwind_used = true;
         self.unwind_return_label(code);
         let target = match self.active_unwind {
             Some(node) => self.unwind_nodes[node].label,
@@ -379,6 +437,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             return;
         }
         let scratch_base = self.max_local;
+        let throw_label = self.exception_unwind_used.then(|| code.new_label());
         if let Some(return_label) = self.unwind_return_label {
             let mut index = 0;
             while index < self.unwind_nodes.len() {
@@ -388,7 +447,29 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 self.next_local = scratch_base;
                 match node.action {
                     UnwindAction::Cleanup(cleanup) => {
+                        let cleanup_start = code.mark();
                         self.emit_registered_cleanup(code, &cleanup);
+                        let cleanup_end = code.mark();
+                        let cleanup_failure_handler = code.new_label();
+                        code.add_exception_handler_to_label(
+                            cleanup_start,
+                            cleanup_end,
+                            cleanup_failure_handler,
+                        );
+                        let target = match node.parent {
+                            Some(parent) => self.unwind_nodes[parent].label,
+                            None => return_label,
+                        };
+                        code.branch_wide_to(target);
+                        code.bind(cleanup_failure_handler);
+                        code.astore(self.unwind_result);
+                        let failure_target = match node.parent {
+                            Some(parent) => self.unwind_nodes[parent].exception_action_label,
+                            None => throw_label.expect("exception unwind label"),
+                        };
+                        code.branch_wide_to(failure_target);
+                        index += 1;
+                        continue;
                     }
                     UnwindAction::PopHandler => self.emit_pop_handler(code),
                 }
@@ -406,7 +487,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             code.op(0xb0);
         }
         if self.exception_unwind_used {
-            let throw_label = code.new_label();
+            let throw_label = throw_label.expect("exception unwind label");
             let mut index = 0;
             while index < self.unwind_nodes.len() {
                 let node = self.unwind_nodes[index].clone();
@@ -417,7 +498,27 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 self.next_local = scratch_base;
                 match node.action {
                     UnwindAction::Cleanup(cleanup) => {
+                        let cleanup_start = code.mark();
                         self.emit_registered_cleanup(code, &cleanup);
+                        let cleanup_end = code.mark();
+                        let cleanup_failure_handler = code.new_label();
+                        code.add_exception_handler_to_label(
+                            cleanup_start,
+                            cleanup_end,
+                            cleanup_failure_handler,
+                        );
+                        let target = match node.parent {
+                            Some(parent) => self.unwind_nodes[parent].exception_action_label,
+                            None => throw_label,
+                        };
+                        code.branch_wide_to(target);
+                        code.bind(cleanup_failure_handler);
+                        let cleanup_failure = self.alloc_local();
+                        code.astore(cleanup_failure);
+                        self.emit_attach_cleanup_failure(code, self.unwind_result, cleanup_failure);
+                        code.branch_wide_to(target);
+                        index += 1;
+                        continue;
                     }
                     UnwindAction::PopHandler => self.emit_pop_handler(code),
                 }

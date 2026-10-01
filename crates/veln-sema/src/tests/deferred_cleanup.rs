@@ -552,7 +552,7 @@ fn schema_primitive_annotation_boundaries_match_across_cleanup_regions() {
 }
 
 #[test]
-fn cleanup_regions_block_executable_lowering_until_runtime_support_exists() {
+fn cleanup_regions_are_executable_after_runtime_integration() {
     for body in [
         concat!("  defer\n", "    ()\n", "  end\n", "  ()\n"),
         concat!("  begin\n", "    ()\n", "  end\n"),
@@ -564,20 +564,18 @@ fn cleanup_regions_block_executable_lowering_until_runtime_support_exists() {
         let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
         assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
         assert!(matches!(
-            lowered.core.expect("checked core should be available").readiness,
-            CoreReadiness::Blocked(ref blockers)
-                if blockers.iter().any(|blocker| matches!(
-                    blocker,
-                    CoreBlocker::UnsupportedExpression { reason, .. }
-                        if reason == "deferred_cleanup_runtime"
-                ))
+            lowered
+                .core
+                .expect("checked core should be available")
+                .readiness,
+            CoreReadiness::Complete
         ));
-        assert!(lowered.ir.is_none());
+        assert!(lowered.ir.is_some());
     }
 }
 
 #[test]
-fn cleanup_foundation_is_preserved_in_checked_core_behind_the_readiness_gate() {
+fn cleanup_foundation_is_preserved_in_executable_checked_core() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -605,9 +603,9 @@ fn cleanup_foundation_is_preserved_in_checked_core_behind_the_readiness_gate() {
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    assert!(lowered.ir.is_none());
+    assert!(lowered.ir.is_some());
     let core = lowered.core.expect("checked core should be available");
-    assert!(matches!(core.readiness, CoreReadiness::Blocked(_)));
+    assert!(matches!(core.readiness, CoreReadiness::Complete));
 
     let main = core
         .functions

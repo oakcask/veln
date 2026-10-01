@@ -46,8 +46,8 @@ provides the production notation for these forms.
   calls, function type effect rows with final `...E` tails, `perform`
   operation expressions, `handle ... with ...` expressions, standard channel
   calls, zero-argument task spawns, one-context `task::spawn_with` calls, and
-  method-call diagnostics: this page. The static-only `begin` and `defer`
-  source boundary is described below.
+  method-call diagnostics, and the source boundary of executable `begin` and
+  `defer` forms: this page.
 - Contract predicate grammar: this page.
 - Identifier casing for source-written module headers, ADT types,
   constructors, functions, tests, public aliases, bindings, parser recovery,
@@ -56,7 +56,7 @@ provides the production notation for these forms.
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
 
-### Static cleanup-region forms
+### Cleanup-region forms
 
 `begin` is a value-producing expression whose body introduces a lexical scope.
 Its body accepts the same direct body lines as a function or test. A `defer`
@@ -81,11 +81,10 @@ specified by their focused pages. Formatter behavior is specified by the
 specified by [editor support](editor-support.md#lsp-navigation-formatting-and-rename)
 and [saved workspace navigation](mcp.md#saved-workspace-navigation).
 
-These forms have a public static and tooling surface only. A selected entry is
-not executable when its reachable program contains either form. The
+These forms have a public static, tooling, and executable surface. The
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries)
-specifies the `deferred_cleanup_runtime` blocker, the internal execution
-foundation behind it, and the remaining runtime limits.
+specifies cleanup ordering, failure precedence, task cancellation, and runtime
+limits.
 
 ## Test companion sources
 

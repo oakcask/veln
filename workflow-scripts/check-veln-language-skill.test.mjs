@@ -1056,11 +1056,11 @@ test("rejects a stale-snapshot row that uses the current published digest", () =
   const staleUri = events.readCall.arguments.uri;
   const currentUri = staleUri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
-    "snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/",
+    "snapshot/fb8584404ee46aba0265479c3e0d3bc4625920affaa365673a3a046452d9b223/",
   );
   for (const topic of structured(events.listResult).topics) {
     topic.uri = topic.uri.replace(/snapshot\/[0-9a-f]{64}\//u,
-      "snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/");
+      "snapshot/fb8584404ee46aba0265479c3e0d3bc4625920affaa365673a3a046452d9b223/");
   }
   syncEnvelope(events.listResult);
   events.transition.before.language_snapshot_digest = events.transition.after.language_snapshot_digest;
@@ -1086,7 +1086,7 @@ test("rejects a fabricated unselected stale listed topic", () => {
   const document = fixture();
   const event = staleEvents(document).listResult;
   structured(event).topics.push({
-    uri: "veln-doc:///language/snapshot/683dc6011cf07602c296986a72310b2f3a58035554264554d1762b69a4a2b6f2/topic/fabricated-modules",
+    uri: "veln-doc:///language/snapshot/557192279e5f0acdaa55a45b25648139b5882c4cc34b003ff8305131e2cb827c/topic/fabricated-modules",
     title: "Fabricated Modules",
     summary: "This topic has no snapshot evidence.",
   });
@@ -1099,7 +1099,7 @@ test("rejects stale topic listings from mixed snapshots", () => {
   const event = staleEvents(document).listResult;
   structured(event).topics[1].uri = structured(event).topics[1].uri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
-    "snapshot/ad595d30ae5d2f1173a3978292a2961a9a4d4c9fd637ce953b5d52b491ad8732/",
+    "snapshot/fb8584404ee46aba0265479c3e0d3bc4625920affaa365673a3a046452d9b223/",
   );
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /topics must be in URI order|must belong to one snapshot/);

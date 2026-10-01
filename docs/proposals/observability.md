@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Structured logging, events, metrics, tracing, observation context propagation, or exporter behavior is implemented or redesigned.
+update-when: Structured logging, events, metrics, tracing, observation context propagation, exporter behavior, or the observability proposal dependencies change.
 ---
 
 # Standard-library Observability
@@ -13,7 +13,7 @@ core must not prescribe an exporter or an external telemetry protocol.
 
 This proposal depends on:
 
-- [lexical deferred cleanup](lexical-deferred-cleanup.md), so every started
+- implemented [lexical deferred cleanup](../specification/execution.md#runtime-readiness-and-host-boundaries), so every started
   span can finish across normal and abrupt exits;
 - the implemented [wall-clock boundary](../specification/effects.md#network-and-time-boundary-calls),
   so exported records can be correlated across processes; and

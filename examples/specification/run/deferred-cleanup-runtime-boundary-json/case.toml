@@ -1,37 +1,31 @@
 command = ["run", "--json", "main", "main.veln"]
-exit = 1
+exit = 0
+
+[requires]
+jdk = true
 
 [stdout]
 format = "json"
 
 [stderr]
-format = "text"
-contains = ["veln: run blocked: checked program is not executable"]
+format = "empty"
 
 [[json_assert]]
 path = "schema_version"
-equals = 1
+equals = "veln-run-json/v0"
 
 [[json_assert]]
 path = "status"
-equals = "ok"
-
-[[json_assert]]
-path = "diagnostics"
-length = 0
-
-[[json_assert]]
-path = "summary.diagnostic_count"
-equals = 0
-
-[[json_assert]]
-path = "command"
-missing = true
+equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-missing = true
+equals_file = "case-text/stdout.txt"
 
 [[json_assert]]
 path = "stderr"
-missing = true
+equals = ""
+
+[[json_assert]]
+path = "error"
+equals = null

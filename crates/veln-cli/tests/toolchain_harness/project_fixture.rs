@@ -119,7 +119,7 @@ impl TestProject {
                 .write_all(input.as_bytes())
                 .expect("veln stdin should be written");
         }
-        child.wait_with_output().expect("veln should run")
+        wait_with_output_timeout(child, "veln fixture", std::time::Duration::from_secs(30))
     }
 
     pub(super) fn veln_with_interactive_mcp(
@@ -145,6 +145,7 @@ impl TestProject {
         artifact_path: Option<&Path>,
     ) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
+        isolate_fixture_process_tree(&mut command);
         command.current_dir(cwd.map_or_else(|| self.root.clone(), |cwd| self.root.join(cwd)));
         command.args(args);
         command.stdout(Stdio::piped());
@@ -170,6 +171,116 @@ impl TestProject {
             tool.setup(tool_path);
         }
     }
+}
+
+fn wait_with_output_timeout(
+    mut child: std::process::Child,
+    label: &str,
+    timeout: std::time::Duration,
+) -> Output {
+    let mut stdout = child.stdout.take().expect("child stdout should be piped");
+    let mut stderr = child.stderr.take().expect("child stderr should be piped");
+    let stdout_reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stdout
+            .read_to_end(&mut bytes)
+            .expect("child stdout should be readable");
+        bytes
+    });
+    let stderr_reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stderr
+            .read_to_end(&mut bytes)
+            .expect("child stderr should be readable");
+        bytes
+    });
+    let started = std::time::Instant::now();
+    let (status, timed_out) = loop {
+        if let Some(status) = child.try_wait().expect("child status should be readable") {
+            break (status, false);
+        }
+        if started.elapsed() >= timeout {
+            terminate_fixture_process_tree(&mut child);
+            break (
+                child.wait().expect("timed out child should be reaped"),
+                true,
+            );
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+    let stdout = stdout_reader.join().expect("stdout reader should finish");
+    let stderr = stderr_reader.join().expect("stderr reader should finish");
+    if timed_out {
+        panic!(
+            "{label} exceeded {timeout:?}\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&stdout),
+            String::from_utf8_lossy(&stderr),
+        );
+    }
+    Output {
+        status,
+        stdout,
+        stderr,
+    }
+}
+
+#[cfg(unix)]
+fn isolate_fixture_process_tree(command: &mut Command) {
+    command.process_group(0);
+}
+
+#[cfg(not(unix))]
+fn isolate_fixture_process_tree(_command: &mut Command) {}
+
+#[cfg(unix)]
+fn terminate_fixture_process_tree(child: &mut std::process::Child) {
+    let process_group = format!("-{}", child.id());
+    let killed = Command::new("kill")
+        .arg("-KILL")
+        .arg("--")
+        .arg(process_group)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    if !killed {
+        let _ = child.kill();
+    }
+}
+
+#[cfg(not(unix))]
+fn terminate_fixture_process_tree(child: &mut std::process::Child) {
+    let _ = child.kill();
+}
+
+#[cfg(unix)]
+#[test]
+fn fixture_timeout_kills_descendant_pipe_holders_and_reports_the_case() {
+    let mut command = Command::new("sh");
+    command
+        .arg("-c")
+        .arg("sleep 60 & wait")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    isolate_fixture_process_tree(&mut command);
+    let child = command
+        .spawn()
+        .expect("blocking fixture child should spawn");
+    let failure = std::panic::catch_unwind(|| {
+        wait_with_output_timeout(
+            child,
+            "bounded-fixture-case",
+            std::time::Duration::from_millis(50),
+        )
+    })
+    .expect_err("blocking fixture child should time out");
+    let message = failure
+        .downcast_ref::<String>()
+        .map(String::as_str)
+        .or_else(|| failure.downcast_ref::<&str>().copied())
+        .unwrap_or("");
+    assert!(message.contains("bounded-fixture-case"), "{message}");
+    assert!(message.contains("exceeded"), "{message}");
 }
 
 fn exchange_mcp_requests(child: &mut std::process::Child, stdin: &str) -> Vec<u8> {

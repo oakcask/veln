@@ -1,0 +1,55 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/stdout.txt"
+
+[[json_assert]]
+path = "stderr"
+equals_file = "case-text/stderr.txt"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.message"
+equals = "runtime result failure: Err(cancelled)"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "cancelled"
+
+[[json_assert]]
+path = "error.related"
+length = 2
+
+[[json_assert]]
+path = "error.related.0.kind"
+equals = "cleanup_failure"
+
+[[json_assert]]
+path = "error.related.0.message"
+equals = "invalid shift count 64 for operator `<<`; expected a value between 0 and 63"
+
+[[json_assert]]
+path = "error.related.1.kind"
+equals = "cleanup_failure"
+
+[[json_assert]]
+path = "error.related.1.message"
+equals = "invalid shift count 65 for operator `<<`; expected a value between 0 and 63"

@@ -43,14 +43,12 @@ Each topic has validated descriptor text, normalized set-valued fields,
 validated related-topic identifiers, selected executable grammar productions,
 and selected displayed source files from specification case command inputs.
 The expressions-and-patterns topic identifies lexical cleanup forms as a
-static and tooling surface. Its body states that a reachable cleanup form
-prevents checked-core execution readiness with `deferred_cleanup_runtime`
-while public runtime integration is incomplete. It also distinguishes this
-public gate from the internal foundation for normal completion, result
-propagation, and exceptional exit after a contract or runtime failure. During
-exceptional exit, cleanup registrations and handler frames unwind in reverse
-lexical order, and successful cleanup preserves the original throwable. Task
-cancellation and cleanup-failure behavior remain unimplemented.
+static, tooling, and executable surface. Its body states that checked core,
+typed IR, and the JVM backend preserve registration-time captures and run
+cleanup in reverse registration order. During exceptional exit, cleanup
+registrations and handler frames unwind in reverse lexical order. Existing
+failures remain primary with ordered related cleanup failures, and task
+cancellation completes cleanup before it is reported complete.
 
 The lexical topic includes the normalized complete output of
 `source-surface-executable.pl --grammar`. Selected grammar blocks come from

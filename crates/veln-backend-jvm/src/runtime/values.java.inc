@@ -95,6 +95,21 @@
         }
     }
 
+    private static final class JoinErrorValue {
+        private final String message;
+        private final java.util.List<Throwable> relatedFailures;
+
+        private JoinErrorValue(String message, java.util.List<Throwable> relatedFailures) {
+            this.message = message;
+            this.relatedFailures = new java.util.ArrayList<Throwable>(relatedFailures);
+        }
+
+        @Override
+        public String toString() {
+            return message;
+        }
+    }
+
     public static final class ListValue {
         private final boolean cons;
         private final Object head;
@@ -215,6 +230,18 @@
     }
 
     private static final class TransportFailure extends RuntimeFailure {
+        private final String operation;
+        private final String category;
+        private final String localEndpoint;
+        private final String peerEndpoint;
+        private final String listenerId;
+        private final String streamId;
+        private final String phase;
+        private final Boolean inputCommitted;
+        private final Boolean outputCommitted;
+        private final Boolean ownershipCommitted;
+        private final String platformCause;
+
         private TransportFailure(
             String operation,
             String category,
@@ -245,18 +272,23 @@
                 ),
                 cause
             );
+            this.operation = operation;
+            this.category = category;
+            this.localEndpoint = localEndpoint;
+            this.peerEndpoint = peerEndpoint;
+            this.listenerId = listenerId;
+            this.streamId = streamId;
+            this.phase = phase;
+            this.inputCommitted = inputCommitted;
+            this.outputCommitted = outputCommitted;
+            this.ownershipCommitted = ownershipCommitted;
+            this.platformCause = platformCause;
+        }
+
+        private void record() {
             recordTransportFailure(
-                operation,
-                category,
-                localEndpoint,
-                peerEndpoint,
-                listenerId,
-                streamId,
-                phase,
-                inputCommitted,
-                outputCommitted,
-                ownershipCommitted,
-                platformCause
+                operation, category, localEndpoint, peerEndpoint, listenerId, streamId,
+                phase, inputCommitted, outputCommitted, ownershipCommitted, platformCause
             );
         }
     }

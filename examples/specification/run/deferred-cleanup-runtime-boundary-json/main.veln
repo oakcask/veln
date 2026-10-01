@@ -1,15 +1,7 @@
-# Cleanup syntax and static semantics are available before runtime unwinding.
-fn release(value: Int) -> ()
-	()
-end
-
-pub fn main() -> Int
-	let value = begin
-		let resource = 1
-		defer
-			release(resource)
-		end
-		resource
+# JSON execution reaches the same cleanup boundary as human execution.
+pub fn main() -> () effects [stdio]
+	defer
+		stdio::println("cleanup")
 	end
-	value
+	stdio::println("body")
 end

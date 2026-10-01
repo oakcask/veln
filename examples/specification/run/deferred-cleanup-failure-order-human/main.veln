@@ -1,0 +1,22 @@
+# A body failure remains primary while every failing cleanup runs in reverse registration order.
+fn fail(message: String) -> ()
+	let invalid_count = match message
+		"body failure" => 66
+		"first cleanup failure" => 64
+		_ => 65
+	end
+	let ignored = 1 << invalid_count
+	()
+end
+
+pub fn main() -> () effects [stdio]
+	defer
+		stdio::println("second cleanup")
+		fail("second cleanup failure")
+	end
+	defer
+		stdio::println("first cleanup")
+		fail("first cleanup failure")
+	end
+	fail("body failure")
+end

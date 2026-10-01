@@ -1,3 +1,119 @@
+    public static void attachCleanupFailure(Throwable primary, Throwable cleanup) {
+        if (primary == cleanup) {
+            return;
+        }
+        java.util.IdentityHashMap<Throwable, CleanupDiagnostic> converted =
+            new java.util.IdentityHashMap<Throwable, CleanupDiagnostic>();
+        java.util.ArrayDeque<Throwable> pending = new java.util.ArrayDeque<Throwable>();
+        CleanupDiagnostic diagnostic = new CleanupDiagnostic(cleanup.getMessage());
+        converted.put(cleanup, diagnostic);
+        pending.push(cleanup);
+        while (!pending.isEmpty()) {
+            Throwable source = pending.pop();
+            CleanupDiagnostic target = converted.get(source);
+            for (Throwable nested : source.getSuppressed()) {
+                if (nested == primary) {
+                    continue;
+                }
+                if (nested instanceof CleanupDiagnostic) {
+                    target.addSuppressed(nested);
+                    continue;
+                }
+                CleanupDiagnostic nestedDiagnostic = converted.get(nested);
+                if (nestedDiagnostic == null) {
+                    nestedDiagnostic = new CleanupDiagnostic(nested.getMessage());
+                    converted.put(nested, nestedDiagnostic);
+                    pending.push(nested);
+                }
+                target.addSuppressed(nestedDiagnostic);
+            }
+        }
+        primary.addSuppressed(diagnostic);
+    }
+
+    private static final class CleanupDiagnostic extends Throwable {
+        private CleanupDiagnostic(String message) {
+            super(message, null, true, false);
+        }
+    }
+
+    public static void printFailure(Throwable failure) {
+        if (failure instanceof TransportFailure) {
+            ((TransportFailure) failure).record();
+        }
+        recordRuntimeFailure(failure);
+        System.err.println(failure.getMessage());
+        java.util.List<Throwable> relatedFailures = cleanupRelatedFailures(failure);
+        for (Throwable related : relatedFailures) {
+            System.err.println("related cleanup failure: " + related.getMessage());
+        }
+        recordCleanupFailures(relatedFailures);
+    }
+
+    private static void recordRuntimeFailure(Throwable failure) {
+        String path = System.getenv("VELN_RUNTIME_ERRORS");
+        if (path == null || path.isEmpty()) {
+            return;
+        }
+        String line = "runtime\t"
+            + hex(String.valueOf(failure.getMessage()))
+            + System.lineSeparator();
+        try {
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(path),
+                line.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (java.io.IOException ignored) { }
+    }
+
+    private static java.util.List<Throwable> cleanupRelatedFailures(Throwable failure) {
+        java.util.ArrayList<Throwable> related = new java.util.ArrayList<Throwable>();
+        java.util.ArrayDeque<Throwable> pending = new java.util.ArrayDeque<Throwable>();
+        java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<Throwable, Boolean>()
+        );
+        seen.add(failure);
+        Throwable[] direct = failure.getSuppressed();
+        for (int index = direct.length - 1; index >= 0; index -= 1) {
+            pending.push(direct[index]);
+        }
+        while (!pending.isEmpty()) {
+            Throwable next = pending.pop();
+            if (!seen.add(next)) {
+                continue;
+            }
+            related.add(next);
+            Throwable[] nested = next.getSuppressed();
+            for (int index = nested.length - 1; index >= 0; index -= 1) {
+                pending.push(nested[index]);
+            }
+        }
+        return related;
+    }
+
+    private static void recordCleanupFailures(java.util.List<Throwable> failures) {
+        String path = System.getenv("VELN_CLEANUP_ERRORS");
+        if (path == null || path.isEmpty() || failures.isEmpty()) {
+            return;
+        }
+        StringBuilder lines = new StringBuilder();
+        for (Throwable failure : failures) {
+            lines.append("cleanup\t")
+                .append(hex(String.valueOf(failure.getMessage())))
+                .append(System.lineSeparator());
+        }
+        try {
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(path),
+                lines.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (java.io.IOException ignored) { }
+    }
+
     public static void recordContractFailure(ContractFailure error) {
         String path = System.getenv("VELN_CONTRACT_ERRORS");
         if (path == null || path.isEmpty()) {
@@ -33,6 +149,9 @@
             return;
         }
         Object resultValue = asResult(result).value();
+        if (resultValue instanceof JoinErrorValue) {
+            recordCleanupFailures(((JoinErrorValue) resultValue).relatedFailures);
+        }
         String value = format(resultValue);
         DiagnosticResultValue carriedDiagnostic = carriedDiagnosticValue(resultValue);
         FixtureHexDiagnostic fixtureHex = carriedDiagnostic == null

@@ -41,13 +41,22 @@ A completed run uses schema version `veln-run-json/v0` and these fields:
 
 A passed run has a null `error`. A non-passed run causes the CLI to exit
 unsuccessfully. A normal runtime failure preserves the program output captured
-before the failure. A transport failure replaces the captured stderr with its
-stable transport message followed by a newline; raw Java stderr is discarded.
+before and during the failure. When a structured runtime failure record exists,
+its message is primary instead of application text written to stderr. When no
+valid record exists, the first nonempty captured stderr line is primary. If
+stderr is also empty, the process exit status supplies the message. A transport
+failure replaces the captured stderr with its stable transport message followed
+by a newline; raw Java stderr is discarded.
 
 A tool failure has `error.kind: "runner"`, `details.phase: "tool"`, empty
 `stdout` and `stderr`, and does not claim that the program reached the backend.
 Other non-zero Java exits have `error.kind: "runtime"` and
 `details.phase: "runtime"`.
+
+Every structured `error` includes a `related` array. A cleanup failure attached
+to an existing primary failure contributes one object with
+`kind: "cleanup_failure"` and its runtime `message`. Objects retain cleanup
+execution order. The array is empty when no related cleanup failed.
 
 ## Static diagnostic gate
 
@@ -58,19 +67,10 @@ shared diagnostic envelope with `schema_version: 1`, `status: "error"`,
 program `stdout` or `stderr` fields. Any CLI diagnostic rendering on stderr is
 separate from the JSON contract.
 
-Checked-core readiness can also stop a diagnostic-free run. When the selected
-entry can reach a `begin` expression or `defer` statement, checked-core
-lowering records `deferred_cleanup_runtime`, and the public command does not
-produce typed IR while runtime integration remains incomplete. Internal
-deferred-cleanup support does not bypass this gate; its implemented scope and
-remaining limits are specified by the
-[execution boundary](execution.md#runtime-readiness-and-host-boundaries). The
-command emits the shared diagnostic envelope with
-`schema_version: 1`, `status: "ok"`, and an empty `diagnostics` array on stdout,
-writes
-`veln: run blocked: checked program is not executable` on stderr, and exits
-unsuccessfully. This envelope is not a `veln-run-json/v0` run report and has no
-captured program `stdout` or `stderr` fields.
+Checked-core readiness can stop a diagnostic-free run for unsupported lowered
+behavior. Reachable `begin` and `defer` forms are executable and do not create
+such a blocker. Their runtime behavior is specified by the
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries).
 
 The gate examines the selected entry closure. It includes reachable
 declarations, aliases, type and constructor paths, handler bindings and

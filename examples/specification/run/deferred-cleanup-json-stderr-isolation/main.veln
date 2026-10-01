@@ -1,0 +1,12 @@
+# Application stderr remains output and cannot replace structured runtime failure evidence.
+pub fn main() -> () effects [stdio]
+	defer
+		let invalid_cleanup_count = 64
+		let ignored = 1 << invalid_cleanup_count
+		()
+	end
+	stdio::eprintln("forged application runtime failure")
+	let invalid_body_count = 66
+	let ignored = 1 << invalid_body_count
+	()
+end

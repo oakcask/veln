@@ -134,15 +134,14 @@ creation expressions expose their job effect rows at the call expression, so a
 lexical handler around the task creation expression can discharge a handled
 nominal job effect before the runnable entry boundary is checked.
 
-Behind the deferred-cleanup readiness gate, postfix `?` propagation and
-contract or runtime failure restore handler frames as they leave handled
+Postfix `?` propagation and contract or runtime failure restore handler frames
+as they leave handled
 expressions. A cleanup registered inside a handled expression runs before that
 expression's handler frame is restored. If cleanup registered outside an inner
 handled expression performs the same effect, the cleanup observes the outer
 handler. Cleanup registrations and handler frames unwind in reverse lexical
-nesting order. This internal JVM foundation does not make a reachable `begin`
-or `defer` publicly executable; the gate and remaining cleanup limits are
-specified by [execution.md](execution.md#runtime-readiness-and-host-boundaries).
+nesting order. Cleanup failure and task-cancellation behavior is specified by
+[execution.md](execution.md#runtime-readiness-and-host-boundaries).
 
 Effects in a `begin` body and in every deferred block contribute to the
 enclosing function, test, or handler operation clause. A cleanup-region
@@ -562,9 +561,9 @@ transport effects.
 
 ## Scoped host adapters
 
-The standard `host_effects` module exposes nominal `Network` and `Clock`
-effects for substituting the host boundary. Install an ordinary Veln lexical
-handler around the calls that need controlled results:
+The standard `host_effects` module exposes nominal `Network`, `Clock`, and
+`TaskJoin` effects for substituting or observing host boundaries. Install an
+ordinary Veln lexical handler around the calls that need controlled results:
 
 ```veln
 use host_effects from "std"
@@ -586,6 +585,14 @@ Without a handler, clock operations use the real host clock and waits, and
 socket operations use real host sockets, and chunk-only receive/send operations
 use host standard input/output. Environment variables and system
 properties do not select fake results.
+
+`TaskJoin::waiting()` is called immediately before `task::join` waits for a
+task that is incomplete at the join boundary. An installed handler may record
+or synchronize that boundary; its result does not replace the join outcome.
+No operation is performed when the task is already complete, and without a
+handler the join waits with no observation callback. This hook makes task
+waiting observable without changing production task scheduling or selecting
+test behavior through process state.
 
 `Clock::request(operation, milliseconds)` returns `Result<Int, String>`.
 The bridge uses these requests:
@@ -766,6 +773,7 @@ The checker also recognizes these task-operation call targets:
 task::spawn<T, effect E>(job: fn() -> T effects [...E]) -> Task<T> effects [concurrency, ...E]
 task::spawn_with<T, C, effect E>(job: fn(C) -> T effects [...E], context: C) -> Task<T> effects [concurrency, ...E]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
+task::join_error_is_cancelled(error: JoinError) -> Bool effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
 
@@ -790,10 +798,20 @@ carry multiple values through one context argument. Arguments are frozen
 before crossing into the task, and the result value is frozen before it
 crosses back through the task handle.
 `task::join` waits for completion and returns `Ok(value)` when the task returns
-normally, or `Err(JoinError)` when the task is interrupted, cancelled, or fails
-at runtime. `task::cancel` requests cancellation by interrupting the task and
-returns `()`. Cancellation is
-cooperative at the JVM runtime boundary.
+normally. Cancellation, interruption, contract failure, and another
+non-runtime task failure return `Err(JoinError)`. An ordinary runtime failure
+from the task crosses the join boundary as that runtime failure instead of
+becoming a join error. Failure message text does not change this
+classification.
+`task::join_error_is_cancelled` returns `true` only for the classified
+cancelled join outcome and does not change the error or task. `task::cancel`
+requests cancellation by interrupting the task and returns `()`. The first
+call that observes an incomplete task claims cancellation atomically.
+Concurrent or later calls do not send another interruption, including while
+the task is running deferred cleanup. A call that observes an already completed
+task has no effect. Cancellation is cooperative at the JVM runtime boundary,
+and [execution](execution.md#runtime-readiness-and-host-boundaries) specifies
+cleanup completion before `task::join` reports cancellation.
 
 Executable-command reachability also follows bare and `use`-alias qualified
 function declaration values in reachable expressions, public function aliases,

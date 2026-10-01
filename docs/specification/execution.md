@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#runtime-readiness-and-host-boundaries; behavior=#runtime-readiness-and-host-boundaries; limits=#observable-output
+specification-coverage: usage=#runtime-readiness-and-host-boundaries; behavior=#runtime-readiness-and-host-boundaries; limits=#cleanup-limits
 update-when: The checked-core readiness, typed-IR readiness, runtime execution, codec, JVM backend, or execution evidence contract changes.
 ---
 
@@ -19,12 +19,11 @@ before applying command-specific execution or write policy. Holes, missing
 expressions, constructor or call arity failures, and recognized concurrency
 blockers prevent execution.
 
-`begin` expressions and `defer` statements can pass parsing and static
-analysis, but they add the checked-core blocker
-`deferred_cleanup_runtime`. Public commands therefore do not produce typed IR
-or backend artifacts for a reachable program containing either form.
+`begin` expressions and `defer` statements pass parsing, static analysis,
+checked-core readiness, and typed-IR readiness. Public run and test commands
+execute reachable programs containing either form.
 
-Behind this readiness gate, checked core and typed IR represent cleanup
+Checked core and typed IR represent cleanup
 regions, deferred blocks, and registration-time snapshots of referenced local
 bindings. The JVM backend executes blocks that were reached and registered
 exactly once in reverse registration order when a region completes normally,
@@ -32,15 +31,33 @@ postfix `?` propagates an `Err`, or a contract or runtime failure throws from
 the region body. Abrupt exits unwind an inner region before its enclosing
 region and do not run blocks after the failing expression. Every path uses the
 registration-time snapshots. Cleanup registrations and effect-handler frames
-unwind in reverse lexical nesting order. When every cleanup succeeds during an
-exceptional exit, the backend rethrows the original failure. The effect
-boundary during unwinding is specified by
+unwind in reverse lexical nesting order.
+
+Every registered cleanup runs even when an earlier cleanup fails. If the
+region was successful, the first cleanup failure becomes primary after all
+cleanup has run. If a contract failure, runtime failure, or cancellation was
+already primary, it remains primary and cleanup failures are attached in
+execution order as related failures. Human execution prints those failures as ordered related
+cleanup lines; run JSON exposes the same order in `error.related`. Task
+cancellation waits for the task worker to leave its cleanup regions before
+join reports cancellation. The effect boundary during unwinding is specified by
 [effects.md](effects.md#effect-labels). The backend transfers a successful
-`begin` value only after that region's cleanup completes. This internal
-foundation is not a supported executable source feature. Public pipeline
-integration and cleanup for task cancellation remain unimplemented.
-Cleanup-failure precedence and continued cleanup after a cleanup failure are
-also unimplemented.
+`begin` value only after that region's cleanup completes.
+
+## Cleanup limits
+
+Registered cleanup is guaranteed only while the Veln task, JVM, and executing
+machine continue to run. Host-process termination, virtual-machine
+termination, or loss of the executing machine can prevent cleanup from
+running. Cleanup is lexical execution, not garbage-collection finalization.
+Cleanup does not recover or replace an existing contract or runtime failure.
+
+`defer` does not implicitly close or flush a value. A deferred block must call
+the required operation explicitly and handle a meaningful close or flush
+result explicitly. The language does not define a disposable
+interface, destructor protocol, or automatic resource-management convention.
+`begin` defines a cleanup region; it does not add rescue, ensure, or exception
+syntax.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.
@@ -105,7 +122,8 @@ accepted `NetStream` with its `Task<Result<HandlerOutput, String>>`, then join
 that list in order and close each owned stream. To stop after a handler or join
 failure, the service must explicitly cancel and join pending tasks and close
 their streams. This orchestration belongs to the source program; task failure
-does not automatically close its host resources or undo completed writes.
+or cancellation does not automatically close caller-owned listeners,
+streams, standard input, or undo completed writes.
 
 `transport::net::net_stream(stream)` adapts a caller-owned `NetStream` to the
 `DuplexStream` interface. `read_chunk()` returns `Some(ByteChunk)` or `None`
@@ -376,6 +394,29 @@ label, rule provenance, and preview or related cause. Human rendering keeps the
 primary failed fact at its span; structured context belongs in related details.
 Runtime transport failures remain transport failures and are not converted to
 protocol or application failures.
+
+## References
+
+- Normal completion, nested unwinding, registration-time snapshots, and the
+  public test boundary are checked by
+  [`deferred-cleanup-runtime-boundary`](../../examples/specification/run/deferred-cleanup-runtime-boundary/),
+  [`deferred-cleanup-unwind-boundaries`](../../examples/specification/run/deferred-cleanup-unwind-boundaries/),
+  and
+  [`deferred-cleanup-runtime-boundary-json`](../../examples/specification/test/deferred-cleanup-runtime-boundary-json/).
+- Human and JSON execution cases check cleanup-failure aggregation for a
+  successful body in
+  [`deferred-cleanup-success-cleanup-failure`](../../examples/specification/run/deferred-cleanup-success-cleanup-failure/)
+  and
+  [`deferred-cleanup-success-cleanup-failure-json`](../../examples/specification/run/deferred-cleanup-success-cleanup-failure-json/),
+  and for an already-failing body in
+  [`deferred-cleanup-failure-order-human`](../../examples/specification/run/deferred-cleanup-failure-order-human/)
+  and
+  [`deferred-cleanup-failure-order-json`](../../examples/specification/run/deferred-cleanup-failure-order-json/).
+- Cancellation ordering and related cleanup failures are checked by
+  [`deferred-cleanup-task-cancellation`](../../examples/specification/run/deferred-cleanup-task-cancellation/),
+  [`deferred-cleanup-task-cancellation-failure-human`](../../examples/specification/run/deferred-cleanup-task-cancellation-failure-human/),
+  and
+  [`deferred-cleanup-task-cancellation-failure-json`](../../examples/specification/run/deferred-cleanup-task-cancellation-failure-json/).
 
 ## Read When
 

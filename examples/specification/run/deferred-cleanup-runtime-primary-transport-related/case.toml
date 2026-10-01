@@ -1,0 +1,39 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.details.id"
+equals = "runtime.invalid_shift_count"
+
+[[json_assert]]
+path = "error.related"
+length = 1
+
+[[json_assert]]
+path = "error.related.0.kind"
+equals = "cleanup_failure"
+
+[[json_assert]]
+path = "error.related.0.message"
+equals = """transport listen failed: invalid_endpoint
+note: Local endpoint: missing-port.
+note: Lifecycle phase: before_operation.
+note: Commit state: input=false, output=false, ownership=false.
+note: Platform cause: production socket failed: missing host or port."""

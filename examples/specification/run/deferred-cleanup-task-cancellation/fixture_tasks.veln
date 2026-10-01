@@ -1,0 +1,21 @@
+use host_effects from "std"
+
+handler observe_join(started: Sender<String>) handles host_effects::TaskJoin effects [concurrency]
+	waiting() => begin
+		let _ = channel::send(started, "join waiting")
+		()
+	end
+end
+
+pub fn fixture_observe_join(context: { worker : Task<()>, started : Sender<String>, completed : Sender<String> }) -> () effects [concurrency]
+	let outcome = match handle task::join(context.worker) with observe_join(context.started)
+		Ok(_) => "unexpected success"
+		Err(error) => if task::join_error_is_cancelled(error)
+			"cancelled"
+		else
+			"unexpected task error"
+		end
+	end
+	let _ = channel::send(context.completed, outcome)
+	()
+end

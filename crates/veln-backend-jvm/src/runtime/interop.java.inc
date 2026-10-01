@@ -155,6 +155,9 @@
 
     private static String asString(Object value) {
         value = diagnosticResultValue(value);
+        if (value instanceof JoinErrorValue) {
+            return ((JoinErrorValue) value).message;
+        }
         return (String) value;
     }
 

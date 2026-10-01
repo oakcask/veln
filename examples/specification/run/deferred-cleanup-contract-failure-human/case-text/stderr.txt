@@ -1,0 +1,2 @@
+contract failure: require `value` in `reject` blame caller at main.veln contract-3
+related cleanup failure: invalid shift count 64 for operator `<<`; expected a value between 0 and 63
