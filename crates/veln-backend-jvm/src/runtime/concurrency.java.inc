@@ -833,6 +833,10 @@
 
     public static Object taskJoin(Object task) {
         Task handle = (Task) task;
+        HandlerFrame observer = findHandler(TASK_JOIN_EFFECT);
+        if (observer != null && !handle.future.isDone()) {
+            invokeHandler(observer, "waiting", new Object[] {});
+        }
         try {
             Object value = handle.future.get();
             return handle.cancellationRequested ? err(joinError("cancelled")) : ok(value);

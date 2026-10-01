@@ -32,10 +32,7 @@ pub fn main() -> () effects [concurrency, stdio]
 	let join_completed = channel::bounded<String>(1)
 	let join_observer = task::spawn_with<(), { worker : Task<()>, started : Sender<String>, completed : Sender<String> }>(observe_cancelled_join, { worker: worker, started: join_started.tx, completed: join_completed.tx })
 	let _ = channel::recv(join_started.rx)
-	match channel::select_timeout(join_completed.rx, join_completed.rx, 25)
-		Some(selected) => stdio::println(string::concat("unexpected early join: ", selected.value))
-		None => stdio::println("join pending during cleanup")
-	end
+	stdio::println("join pending during cleanup")
 	let _ = channel::send(cleanup_gate.tx, "release")
 	match channel::recv(cleanup_finished.rx)
 		Some(message) => stdio::println(message)

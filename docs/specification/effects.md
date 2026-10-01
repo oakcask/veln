@@ -561,9 +561,9 @@ transport effects.
 
 ## Scoped host adapters
 
-The standard `host_effects` module exposes nominal `Network` and `Clock`
-effects for substituting the host boundary. Install an ordinary Veln lexical
-handler around the calls that need controlled results:
+The standard `host_effects` module exposes nominal `Network`, `Clock`, and
+`TaskJoin` effects for substituting or observing host boundaries. Install an
+ordinary Veln lexical handler around the calls that need controlled results:
 
 ```veln
 use host_effects from "std"
@@ -585,6 +585,14 @@ Without a handler, clock operations use the real host clock and waits, and
 socket operations use real host sockets, and chunk-only receive/send operations
 use host standard input/output. Environment variables and system
 properties do not select fake results.
+
+`TaskJoin::waiting()` is called immediately before `task::join` waits for a
+task that is incomplete at the join boundary. An installed handler may record
+or synchronize that boundary; its result does not replace the join outcome.
+No operation is performed when the task is already complete, and without a
+handler the join waits with no observation callback. This hook makes task
+waiting observable without changing production task scheduling or selecting
+test behavior through process state.
 
 `Clock::request(operation, milliseconds)` returns `Result<Int, String>`.
 The bridge uses these requests:

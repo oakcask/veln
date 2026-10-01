@@ -562,6 +562,7 @@
 
     private static final String NETWORK_EFFECT = "std::host_effects::Network";
     private static final String CLOCK_EFFECT = "std::host_effects::Clock";
+    private static final String TASK_JOIN_EFFECT = "std::host_effects::TaskJoin";
 
     private static final class NetListener {
         final String address;

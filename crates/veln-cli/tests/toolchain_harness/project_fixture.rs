@@ -145,6 +145,7 @@ impl TestProject {
         artifact_path: Option<&Path>,
     ) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
+        isolate_fixture_process_tree(&mut command);
         command.current_dir(cwd.map_or_else(|| self.root.clone(), |cwd| self.root.join(cwd)));
         command.args(args);
         command.stdout(Stdio::piped());
@@ -199,7 +200,7 @@ fn wait_with_output_timeout(
             break (status, false);
         }
         if started.elapsed() >= timeout {
-            let _ = child.kill();
+            terminate_fixture_process_tree(&mut child);
             break (
                 child.wait().expect("timed out child should be reaped"),
                 true,
@@ -224,13 +225,44 @@ fn wait_with_output_timeout(
 }
 
 #[cfg(unix)]
+fn isolate_fixture_process_tree(command: &mut Command) {
+    command.process_group(0);
+}
+
+#[cfg(not(unix))]
+fn isolate_fixture_process_tree(_command: &mut Command) {}
+
+#[cfg(unix)]
+fn terminate_fixture_process_tree(child: &mut std::process::Child) {
+    let process_group = format!("-{}", child.id());
+    let killed = Command::new("kill")
+        .arg("-KILL")
+        .arg("--")
+        .arg(process_group)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    if !killed {
+        let _ = child.kill();
+    }
+}
+
+#[cfg(not(unix))]
+fn terminate_fixture_process_tree(child: &mut std::process::Child) {
+    let _ = child.kill();
+}
+
+#[cfg(unix)]
 #[test]
-fn fixture_timeout_kills_and_reports_the_case() {
-    let mut command = Command::new("sleep");
+fn fixture_timeout_kills_descendant_pipe_holders_and_reports_the_case() {
+    let mut command = Command::new("sh");
     command
-        .arg("60")
+        .arg("-c")
+        .arg("sleep 60 & wait")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    isolate_fixture_process_tree(&mut command);
     let child = command
         .spawn()
         .expect("blocking fixture child should spawn");
