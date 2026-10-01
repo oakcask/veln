@@ -7,7 +7,11 @@ pub(super) struct FunctionBytecodeEmitter<'a, 'program> {
     pub(super) next_local: u16,
     pub(super) max_local: u16,
     pub(super) tail_loop_start: Option<usize>,
-    pub(super) active_handler_frames: usize,
+    active_cleanup_regions: Vec<Vec<RegisteredCleanup>>,
+    active_unwind: Option<usize>,
+    unwind_nodes: Vec<UnwindNode>,
+    unwind_result: u16,
+    unwind_return_label: Option<usize>,
 }
 
 pub(super) struct LocalBindings {
@@ -74,9 +78,23 @@ impl LocalBindings {
     }
 }
 
-struct RegisteredCleanup<'a> {
-    block: &'a IrDeferredBlock,
+#[derive(Clone)]
+struct RegisteredCleanup {
+    block: IrDeferredBlock,
     captures: BTreeMap<String, u16>,
+}
+
+#[derive(Clone)]
+struct UnwindNode {
+    label: usize,
+    parent: Option<usize>,
+    action: UnwindAction,
+}
+
+#[derive(Clone)]
+enum UnwindAction {
+    Cleanup(RegisteredCleanup),
+    PopHandler,
 }
 
 #[derive(Clone, Copy)]
@@ -100,14 +118,19 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         for (index, param) in function.params.iter().enumerate() {
             locals.insert(param.name.clone(), index as u16);
         }
+        let unwind_result = function.params.len() as u16;
         Self {
             program,
             function,
             locals: LocalBindings::new(locals),
-            next_local: function.params.len() as u16,
-            max_local: function.params.len() as u16,
+            next_local: unwind_result + 1,
+            max_local: unwind_result + 1,
             tail_loop_start: None,
-            active_handler_frames: 0,
+            active_cleanup_regions: Vec::new(),
+            active_unwind: None,
+            unwind_nodes: Vec::new(),
+            unwind_result,
+            unwind_return_label: None,
         }
     }
 
@@ -134,6 +157,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             );
             code.op(0xb0);
         }
+        self.emit_unwind_blocks(code);
         code.max_locals = self.max_local.max(1);
     }
 
@@ -167,20 +191,39 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_region(&mut self, code: &mut MethodCode, body: &[IrStmt], function: bool) -> bool {
-        let mut cleanups = Vec::new();
+        let parent_unwind = self.active_unwind;
+        self.active_cleanup_regions.push(Vec::new());
+        let mut returns = false;
         for stmt in body {
             match &stmt.kind {
-                IrStmtKind::Defer(block) => cleanups.push(self.register_cleanup(code, block)),
+                IrStmtKind::Defer(block) => {
+                    let cleanup = self.register_cleanup(code, block);
+                    self.active_cleanup_regions
+                        .last_mut()
+                        .expect("active cleanup region")
+                        .push(cleanup.clone());
+                    self.push_unwind_node(code, UnwindAction::Cleanup(cleanup));
+                }
                 IrStmtKind::Return { value } => {
-                    if function && cleanups.is_empty() {
+                    let has_cleanups = self
+                        .active_cleanup_regions
+                        .last()
+                        .is_some_and(|cleanups| !cleanups.is_empty());
+                    if function && !has_cleanups {
                         if self.emit_tail_expr(code, value) {
-                            return true;
+                            returns = true;
+                            break;
                         }
                     } else {
                         self.emit_expr(code, value);
                     }
                     let result = self.alloc_local();
                     code.astore(result);
+                    let cleanups = self
+                        .active_cleanup_regions
+                        .last()
+                        .expect("active cleanup region")
+                        .clone();
                     for cleanup in cleanups.iter().rev() {
                         self.emit_registered_cleanup(code, cleanup);
                     }
@@ -191,19 +234,24 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     if function {
                         code.op(0xb0);
                     }
-                    return true;
+                    returns = true;
+                    break;
                 }
                 _ => self.emit_stmt(code, stmt),
             }
         }
-        false
+        self.active_cleanup_regions
+            .pop()
+            .expect("active cleanup region");
+        self.active_unwind = parent_unwind;
+        returns
     }
 
-    fn register_cleanup<'block>(
+    fn register_cleanup(
         &mut self,
         code: &mut MethodCode,
-        block: &'block IrDeferredBlock,
-    ) -> RegisteredCleanup<'block> {
+        block: &IrDeferredBlock,
+    ) -> RegisteredCleanup {
         let mut captures = BTreeMap::new();
         for capture in &block.captures {
             self.emit_local(code, &capture.name);
@@ -211,10 +259,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             code.astore(slot);
             captures.insert(capture.name.clone(), slot);
         }
-        RegisteredCleanup { block, captures }
+        RegisteredCleanup {
+            block: block.clone(),
+            captures,
+        }
     }
 
-    fn emit_registered_cleanup(&mut self, code: &mut MethodCode, cleanup: &RegisteredCleanup<'_>) {
+    fn emit_registered_cleanup(&mut self, code: &mut MethodCode, cleanup: &RegisteredCleanup) {
         let locals_mark = self.locals.mark();
         let saved_next = self.next_local;
         for (name, slot) in &cleanup.captures {
@@ -234,6 +285,81 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         }
         self.locals.rollback(locals_mark);
         self.next_local = saved_next;
+    }
+
+    pub(super) fn push_handler_unwind(&mut self, code: &mut MethodCode) -> Option<usize> {
+        let parent = self.active_unwind;
+        self.push_unwind_node(code, UnwindAction::PopHandler);
+        parent
+    }
+
+    pub(super) fn restore_unwind(&mut self, unwind: Option<usize>) {
+        self.active_unwind = unwind;
+    }
+
+    pub(super) fn emit_try_unwind(&mut self, code: &mut MethodCode, result: u16) {
+        let unwind_result = self.unwind_result;
+        code.aload(result);
+        code.astore(unwind_result);
+        self.unwind_return_label(code);
+        let target = match self.active_unwind {
+            Some(node) => self.unwind_nodes[node].label,
+            None => self.unwind_return_label.expect("unwind return label"),
+        };
+        code.branch_wide_from_any_stack_to(target);
+    }
+
+    fn push_unwind_node(&mut self, code: &mut MethodCode, action: UnwindAction) {
+        let node = UnwindNode {
+            label: code.new_label(),
+            parent: self.active_unwind,
+            action,
+        };
+        self.active_unwind = Some(self.unwind_nodes.len());
+        self.unwind_nodes.push(node);
+    }
+
+    fn unwind_return_label(&mut self, code: &mut MethodCode) -> usize {
+        match self.unwind_return_label {
+            Some(label) => label,
+            None => {
+                let label = code.new_label();
+                self.unwind_return_label = Some(label);
+                label
+            }
+        }
+    }
+
+    fn emit_unwind_blocks(&mut self, code: &mut MethodCode) {
+        let Some(return_label) = self.unwind_return_label else {
+            return;
+        };
+        let scratch_base = self.max_local;
+        let mut index = 0;
+        while index < self.unwind_nodes.len() {
+            let node = self.unwind_nodes[index].clone();
+            code.bind(node.label);
+            self.active_unwind = node.parent;
+            self.next_local = scratch_base;
+            match node.action {
+                UnwindAction::Cleanup(cleanup) => {
+                    self.emit_registered_cleanup(code, &cleanup);
+                }
+                UnwindAction::PopHandler => self.emit_pop_handler(code),
+            }
+            let target = match node.parent {
+                Some(parent) => self.unwind_nodes[parent].label,
+                None => return_label,
+            };
+            code.branch_wide_to(target);
+            index += 1;
+        }
+        code.bind(return_label);
+        let result = self.unwind_result;
+        self.emit_ensure_checks_for_result(code, result);
+        code.aload(result);
+        code.op(0xb0);
+        self.active_unwind = None;
     }
 
     fn emit_cleanup_region(&mut self, code: &mut MethodCode, body: &[IrStmt]) {

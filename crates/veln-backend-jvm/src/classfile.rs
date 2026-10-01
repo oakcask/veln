@@ -63,6 +63,25 @@ pub(crate) fn local_binding_retention(program: &TypedProgram, function_name: &st
     function_emitter.locals.peak_retained_entry_count()
 }
 
+#[cfg(test)]
+pub(crate) fn function_code_footprint(program: &TypedProgram, function_name: &str) -> usize {
+    let options = SanitizedOptions {
+        program_class: "VelnProgram".to_string(),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    let emitter = ClassfileEmitter::new(program, options);
+    let function = program
+        .functions
+        .iter()
+        .find(|function| function.name == function_name)
+        .expect("function for bytecode footprint");
+    let class = ClassBuilder::new(&emitter.options.program_class);
+    let mut code = MethodCode::new(Rc::clone(&class.constant_pool));
+    let mut function_emitter = FunctionBytecodeEmitter::new(&emitter, function);
+    function_emitter.emit(&mut code);
+    code.code.len() + code.exceptions.len() * 8
+}
+
 pub(crate) struct ClassfileEmitter<'a> {
     program: &'a TypedProgram,
     options: SanitizedOptions,

@@ -93,6 +93,227 @@ fn acquisition_failure_before_registration_does_not_run_cleanup() {
 }
 
 #[test]
+fn bytecode_backend_result_propagation_unwinds_registered_function_cleanups_only() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"function failure\")\n",
+        "end\n",
+        "fn worker() -> Result<(), String> effects [stdio]\n",
+        "  let captured = \"captured before propagation\"\n",
+        "  defer\n",
+        "    stdio::println(captured)\n",
+        "  end\n",
+        "  let captured = \"shadowed before propagation\"\n",
+        "  let value = fail()?\n",
+        "  defer\n",
+        "    stdio::println(\"registered too late\")\n",
+        "  end\n",
+        "  Ok(())\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  match worker()\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"caller observed error\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-function-propagation",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "captured before propagation\ncaller observed error\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_result_propagation_unwinds_nested_regions_inside_out_in_reverse_order() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"nested failure\")\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let captured = \"outer captured\"\n",
+        "  defer\n",
+        "    stdio::println(captured)\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(\"outer second\")\n",
+        "  end\n",
+        "  let captured = \"outer shadowed\"\n",
+        "  let value = begin\n",
+        "    let inner_captured = \"inner captured\"\n",
+        "    defer\n",
+        "      stdio::println(inner_captured)\n",
+        "    end\n",
+        "    defer\n",
+        "      stdio::println(\"inner second\")\n",
+        "    end\n",
+        "    let inner_captured = \"inner shadowed\"\n",
+        "    let ignored = fail()?\n",
+        "    defer\n",
+        "      stdio::println(\"registered too late\")\n",
+        "    end\n",
+        "    ()\n",
+        "  end\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-nested-propagation",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "inner second\ninner captured\nouter second\nouter captured\n"
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("nested failure"));
+}
+
+#[test]
+fn unwind_result_slot_does_not_overwrite_a_later_cleanup_capture() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn succeed() -> Result<Int, String>\n",
+        "  Ok(41)\n",
+        "end\n",
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"expected failure\")\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let value = begin\n",
+        "    let succeeded = succeed()?\n",
+        "    succeeded + 1\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(int_to_string(value))\n",
+        "  end\n",
+        "  let ignored = fail()?\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-unwind-result-slot",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "42\n");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("expected failure"));
+}
+
+#[test]
+fn result_propagation_restores_inner_handler_before_outer_cleanup() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "effect CleanupProbe\n",
+        "  owner() -> String\n",
+        "end\n",
+        "handler cleanup_probe(label: String) handles CleanupProbe\n",
+        "  owner() => label\n",
+        "end\n",
+        "fn fail() -> Result<(), String>\n",
+        "  Err(\"expected\")\n",
+        "end\n",
+        "fn worker() -> Result<(), String> effects [CleanupProbe, stdio]\n",
+        "  defer\n",
+        "    stdio::println(perform CleanupProbe::owner())\n",
+        "  end\n",
+        "  let ignored = handle fail()? with cleanup_probe(\"inner\")\n",
+        "  Ok(())\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let result = handle worker() with cleanup_probe(\"outer\")\n",
+        "  match result\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"caller observed error\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-handler-unwind-order",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "outer\ncaller observed error\n"
+    );
+}
+
+#[test]
+fn result_propagation_clears_expression_operands_before_shared_cleanup() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn succeed(value: Int) -> Result<Int, String>\n",
+        "  Ok(value)\n",
+        "end\n",
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"expected failure\")\n",
+        "end\n",
+        "fn worker() -> Result<(), String> effects [stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup\")\n",
+        "  end\n",
+        "  let first = succeed(succeed(1)? + 2)\n",
+        "  let second = succeed(3)? + fail()?\n",
+        "  Ok(())\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  match worker()\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"caller observed error\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-expression-operands",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "cleanup\ncaller observed error\n"
+    );
+}
+
+#[test]
 fn sequential_cleanup_regions_reuse_jvm_local_slots() {
     let mut source = String::from("pub fn main() -> ()\n");
     for index in 0..128 {
@@ -136,4 +357,35 @@ fn nested_cleanup_region_local_binding_retention_grows_linearly() {
     assert_eq!(retention_at_depth(16), 32);
     assert_eq!(retention_at_depth(32), 64);
     assert_eq!(retention_at_depth(64), 128);
+}
+
+#[test]
+fn doubling_cleanups_and_try_sites_keeps_bytecode_growth_below_threefold() {
+    fn code_len(scale: usize) -> usize {
+        let mut source = String::from(
+            "fn fail() -> Result<Int, String>\n  Err(\"failure\")\nend\n\
+             pub fn main() -> Result<(), String>\n",
+        );
+        for index in 0..scale {
+            source.push_str(&format!("  let captured_{index}: Int = {index}\n"));
+            source.push_str("  defer\n");
+            source.push_str(&format!("    let copy: Int = captured_{index}\n"));
+            source.push_str("    ()\n");
+            source.push_str("  end\n");
+        }
+        for index in 0..scale {
+            source.push_str(&format!("  let value_{index}: Int = fail()?\n"));
+        }
+        source.push_str("  Ok(())\nend\n");
+
+        let ir = lower_deferred_cleanup_foundation_to_ir(&source);
+        crate::classfile::function_code_footprint(&ir, "main")
+    }
+
+    let small = code_len(16);
+    let large = code_len(32);
+    assert!(
+        large < small * 3,
+        "doubling registrations and propagation sites grew bytecode from {small} to {large} bytes"
+    );
 }

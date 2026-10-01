@@ -76,10 +76,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "(Ljava/lang/Object;)Z",
         );
         let ok = code.branch(0x99);
-        self.emit_ensure_checks_for_result(code, temp);
-        code.aload(temp);
-        self.emit_active_handler_cleanup(code);
-        code.op(0xb0);
+        self.emit_try_unwind(code, temp);
         code.bind(ok);
         code.aload(temp);
         code.invokestatic(

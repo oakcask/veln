@@ -52,6 +52,48 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_result_propagation_clears_partial_expression_operands() {
+    let ir = lower_to_ir(concat!(
+        "fn succeed(value: Int) -> Result<Int, String>\n",
+        "  Ok(value)\n",
+        "end\n",
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"expected failure\")\n",
+        "end\n",
+        "fn worker() -> Result<(), String>\n",
+        "  let first = succeed(succeed(1)? + 2)\n",
+        "  let second = succeed(3)? + fail()?\n",
+        "  Ok(())\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  match worker()\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(error) => stdio::println(error)\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-result-expression-operands",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "expected failure\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_preserves_distinct_calling_conventions() {
     let ir = lower_to_ir(concat!(
         "fn increment(value: Int) -> Int\n",

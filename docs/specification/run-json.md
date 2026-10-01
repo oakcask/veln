@@ -61,8 +61,10 @@ separate from the JSON contract.
 Checked-core readiness can also stop a diagnostic-free run. When the selected
 entry can reach a `begin` expression or `defer` statement, checked-core
 lowering records `deferred_cleanup_runtime`, and the public command does not
-produce typed IR while runtime integration remains incomplete. The internal
-normal-completion compiler and JVM foundation does not bypass this gate. The
+produce typed IR while runtime integration remains incomplete. Internal
+deferred-cleanup support does not bypass this gate; its implemented scope and
+remaining limits are specified by the
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries). The
 command emits the shared diagnostic envelope with
 `schema_version: 1`, `status: "ok"`, and an empty `diagnostics` array on stdout,
 writes
