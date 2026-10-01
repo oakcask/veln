@@ -188,6 +188,41 @@ fn bytecode_backend_result_propagation_unwinds_nested_regions_inside_out_in_reve
 }
 
 #[test]
+fn unwind_result_slot_does_not_overwrite_a_later_cleanup_capture() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn succeed() -> Result<Int, String>\n",
+        "  Ok(41)\n",
+        "end\n",
+        "fn fail() -> Result<Int, String>\n",
+        "  Err(\"expected failure\")\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let value = begin\n",
+        "    let succeeded = succeed()?\n",
+        "    succeeded + 1\n",
+        "  end\n",
+        "  defer\n",
+        "    stdio::println(int_to_string(value))\n",
+        "  end\n",
+        "  let ignored = fail()?\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-unwind-result-slot",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "42\n");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("expected failure"));
+}
+
+#[test]
 fn result_propagation_restores_inner_handler_before_outer_cleanup() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "effect CleanupProbe\n",

@@ -10,7 +10,7 @@ pub(super) struct FunctionBytecodeEmitter<'a, 'program> {
     active_cleanup_regions: Vec<Vec<RegisteredCleanup>>,
     active_unwind: Option<usize>,
     unwind_nodes: Vec<UnwindNode>,
-    unwind_result: Option<u16>,
+    unwind_result: u16,
     unwind_return_label: Option<usize>,
 }
 
@@ -118,17 +118,18 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         for (index, param) in function.params.iter().enumerate() {
             locals.insert(param.name.clone(), index as u16);
         }
+        let unwind_result = function.params.len() as u16;
         Self {
             program,
             function,
             locals: LocalBindings::new(locals),
-            next_local: function.params.len() as u16,
-            max_local: function.params.len() as u16,
+            next_local: unwind_result + 1,
+            max_local: unwind_result + 1,
             tail_loop_start: None,
             active_cleanup_regions: Vec::new(),
             active_unwind: None,
             unwind_nodes: Vec::new(),
-            unwind_result: None,
+            unwind_result,
             unwind_return_label: None,
         }
     }
@@ -297,14 +298,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     pub(super) fn emit_try_unwind(&mut self, code: &mut MethodCode, result: u16) {
-        let unwind_result = match self.unwind_result {
-            Some(slot) => slot,
-            None => {
-                let slot = self.alloc_local();
-                self.unwind_result = Some(slot);
-                slot
-            }
-        };
+        let unwind_result = self.unwind_result;
         code.aload(result);
         code.astore(unwind_result);
         self.unwind_return_label(code);
@@ -361,7 +355,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             index += 1;
         }
         code.bind(return_label);
-        let result = self.unwind_result.expect("unwind result slot");
+        let result = self.unwind_result;
         self.emit_ensure_checks_for_result(code, result);
         code.aload(result);
         code.op(0xb0);
