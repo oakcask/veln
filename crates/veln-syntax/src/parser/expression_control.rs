@@ -470,7 +470,7 @@ impl<'a> ExprParser<'a> {
                 }
             }
             TokenKind::LBrace => self.parse_record_pattern(),
-            TokenKind::Ident | TokenKind::Hole => self.parse_name_pattern(),
+            TokenKind::Ident | TokenKind::Callsite | TokenKind::Hole => self.parse_name_pattern(),
             _ => {
                 self.error_current(
                     "parse.pattern",
@@ -494,7 +494,7 @@ impl<'a> ExprParser<'a> {
             start,
             |this| {
                 let field_start = this.current().range;
-                let name = if this.at(TokenKind::Ident) {
+                let name = if this.at_contextual_identifier() {
                     this.bump().text
                 } else {
                     this.error_current(
@@ -536,7 +536,7 @@ impl<'a> ExprParser<'a> {
         let mut segment_spans = vec![self.source.span(first_segment.range)];
         let mut segments = vec![first_segment.text];
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at(TokenKind::Ident) {
+            if self.at_contextual_identifier() {
                 let segment = self.bump();
                 end = segment.range;
                 segment_spans.push(self.source.span(segment.range));
@@ -596,22 +596,24 @@ impl<'a> ExprParser<'a> {
         }
         let mut clause_recovered = false;
         let start = self.bump().range;
-        let (candidate, candidate_span) =
-            if matches!(self.current().kind, TokenKind::Ident | TokenKind::Hole) {
-                let token = self.bump();
-                let span = self.source.span(token.range);
-                (Some(token.text), Some(span))
-            } else {
-                clause_recovered = true;
-                self.error_current(
-                    "parse.satisfy_candidate",
-                    "satisfy clause is missing a candidate binding",
-                    vec!["candidate binding"],
-                    RecoveryStrategy::InsertToken,
-                    Some("=>"),
-                );
-                (None, None)
-            };
+        let (candidate, candidate_span) = if matches!(
+            self.current().kind,
+            TokenKind::Ident | TokenKind::Callsite | TokenKind::Hole
+        ) {
+            let token = self.bump();
+            let span = self.source.span(token.range);
+            (Some(token.text), Some(span))
+        } else {
+            clause_recovered = true;
+            self.error_current(
+                "parse.satisfy_candidate",
+                "satisfy clause is missing a candidate binding",
+                vec!["candidate binding"],
+                RecoveryStrategy::InsertToken,
+                Some("=>"),
+            );
+            (None, None)
+        };
         let mut end = if let Some(token) = self.eat(TokenKind::FatArrow) {
             token.range
         } else {
@@ -761,8 +763,10 @@ fn cleanup_type_paths(source: &SourceFile, tokens: &[Token]) -> Vec<TypePathSegm
     let mut paths = Vec::new();
     let mut cursor = 0usize;
     while cursor < tokens.len() {
-        if !matches!(tokens[cursor].kind, TokenKind::Ident | TokenKind::Hole)
-            || tokens.get(cursor + 1).map(|token| token.kind) != Some(TokenKind::DoubleColon)
+        if !matches!(
+            tokens[cursor].kind,
+            TokenKind::Ident | TokenKind::Callsite | TokenKind::Hole
+        ) || tokens.get(cursor + 1).map(|token| token.kind) != Some(TokenKind::DoubleColon)
         {
             cursor += 1;
             continue;
@@ -771,7 +775,10 @@ fn cleanup_type_paths(source: &SourceFile, tokens: &[Token]) -> Vec<TypePathSegm
         let mut segment_spans = vec![source.span(tokens[cursor].range)];
         cursor += 2;
         while let Some(token) = tokens.get(cursor) {
-            if !matches!(token.kind, TokenKind::Ident | TokenKind::Hole) {
+            if !matches!(
+                token.kind,
+                TokenKind::Ident | TokenKind::Callsite | TokenKind::Hole
+            ) {
                 break;
             }
             segments.push(token.text.clone());

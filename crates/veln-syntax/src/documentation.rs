@@ -92,6 +92,9 @@ pub fn declaration_function_signature(
         signature.push_str(&effects.join(", "));
         signature.push(']');
     }
+    if function.callsite.is_some() {
+        signature.push_str(" callsite");
+    }
     signature
 }
 

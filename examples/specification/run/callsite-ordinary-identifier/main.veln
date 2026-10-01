@@ -1,0 +1,8 @@
+fn identity(callsite: Int) -> Int
+	require callsite > 0
+	callsite
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(identity(42)))
+end

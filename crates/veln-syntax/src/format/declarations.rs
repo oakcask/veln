@@ -429,6 +429,9 @@ fn format_function_signature(function: &FunctionDecl) -> String {
         }
         signature.push(']');
     }
+    if function.callsite.is_some() {
+        signature.push_str(" callsite");
+    }
     signature
 }
 

@@ -1,0 +1,49 @@
+fn missing_modifier() -> SourceLocation
+  callsite
+end
+
+fn parameter(callsite: Int) -> Int callsite
+  0
+end
+
+fn result() -> callsite: Int callsite
+ensure callsite
+  0
+end
+
+fn local() -> Int callsite
+  let callsite: Int = 1
+  0
+end
+
+fn pattern() -> Int callsite
+  match true
+    callsite => 0
+  end
+end
+
+test unavailable_modifier() -> ()
+  callsite
+end
+
+effect Locate
+  current() -> SourceLocation
+end
+
+handler locate() handles Locate
+  current() => callsite
+end
+
+fn contract_missing_modifier() -> ()
+require callsite
+  ()
+end
+
+fn contract_field_before_missing(record: { callsite: Bool }) -> ()
+require record.callsite and callsite.start_line > 0
+  ()
+end
+
+fn satisfy_candidate() -> SourceLocation callsite
+  _value satisfy callsite => callsite
+end

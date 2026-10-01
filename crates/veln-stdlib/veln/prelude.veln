@@ -13,6 +13,11 @@ pub type ByteView = bytes::ByteView
 pub type WallTime
 end
 
+## The structural source-location type available to callsite-aware declarations.
+## The checker exposes its package, module, file, and coordinate fields.
+pub type SourceLocation
+end
+
 pub type StreamInput
 	Chunk(bytes: ByteChunk)
 	End

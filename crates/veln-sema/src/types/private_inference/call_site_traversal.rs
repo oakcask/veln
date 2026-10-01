@@ -14,7 +14,7 @@ pub(crate) struct PrivateCallSiteConstraintContext<'a> {
 pub(crate) struct PrivateCallSiteExprContext<'a, 'b> {
     pub(crate) current_module: Option<&'b str>,
     pub(crate) caller_key: Option<&'b FunctionKey>,
-    pub(crate) bindings: &'b mut Vec<Binding>,
+    pub(crate) bindings: &'b mut PrivateBindings,
     pub(crate) constraints: &'b mut PrivateCallSiteConstraintContext<'a>,
 }
 
@@ -57,7 +57,7 @@ fn collect_private_call_site_body_constraints(
     tail_expected: Option<&Type>,
     current_module: Option<&str>,
     caller_key: Option<&FunctionKey>,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
     context: &mut PrivateCallSiteConstraintContext<'_>,
 ) {
     for (index, line) in body.iter().enumerate() {

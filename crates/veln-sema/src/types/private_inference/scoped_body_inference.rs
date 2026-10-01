@@ -105,7 +105,7 @@ pub(super) fn infer_private_body_type(
     expected: Option<&Type>,
     current_module: Option<&str>,
     uses: &[UseDecl],
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
@@ -169,28 +169,37 @@ pub(super) fn infer_private_body_type(
 pub(crate) fn private_function_body_bindings(
     function: &veln_ast::Function,
     signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
-) -> Vec<Binding> {
+) -> PrivateBindings {
     let signature = function
         .name
         .as_ref()
         .and_then(|name| signatures_by_path.get(&(function.module_name.clone(), name.clone())));
-    function
-        .params
-        .iter()
-        .enumerate()
-        .filter(|(_, param)| valid_value_binding_name(&param.name))
-        .map(|(index, param)| {
-            let ty = if param.is_variadic {
-                signature
-                    .and_then(|signature| signature.variadic.clone())
-                    .map(|ty| Type::named("List", vec![ty]))
-                    .unwrap_or_else(|| function_body_param_type(param))
-            } else {
-                signature
-                    .and_then(|signature| signature.params.get(index).cloned())
-                    .unwrap_or_else(|| function_body_param_type(param))
-            };
-            Binding::new(param.name.clone(), ty)
-        })
-        .collect()
+    let mut bindings = PrivateBindings::for_function(function);
+    if function.callsite.is_some() {
+        bindings.push(Binding::builtin_callsite());
+    }
+    bindings.extend(
+        function
+            .params
+            .iter()
+            .enumerate()
+            .filter(|(_, param)| {
+                valid_value_binding_name(&param.name)
+                    && !(function.callsite.is_some() && param.name == "callsite")
+            })
+            .map(|(index, param)| {
+                let ty = if param.is_variadic {
+                    signature
+                        .and_then(|signature| signature.variadic.clone())
+                        .map(|ty| Type::named("List", vec![ty]))
+                        .unwrap_or_else(|| function_body_param_type(param))
+                } else {
+                    signature
+                        .and_then(|signature| signature.params.get(index).cloned())
+                        .unwrap_or_else(|| function_body_param_type(param))
+                };
+                Binding::new(param.name.clone(), ty)
+            }),
+    );
+    bindings
 }

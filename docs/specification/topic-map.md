@@ -14,6 +14,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
 
 - Modules, items, expressions, literals, comments, tests, doctests, and grammar:
   [source-surface.md](source-surface.md).
+- Call-site-aware function declarations, their built-in local, and declaration
+  diagnostics: [call-site-declarations.md](call-site-declarations.md).
 - Type annotations, inference, assignment compatibility, and operators:
   [types.md](types.md).
 - Source name resolution and source identifier casing:

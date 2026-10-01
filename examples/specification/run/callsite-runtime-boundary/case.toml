@@ -1,0 +1,9 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[core.callsite_runtime_unsupported]: `callsite` is not available during execution", "Runtime support for call-site locations and their hidden call ABI is not implemented."]

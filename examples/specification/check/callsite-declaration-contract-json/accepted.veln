@@ -1,0 +1,35 @@
+pub fn location() -> SourceLocation callsite
+  callsite
+end
+
+pub fn start_line() -> Int callsite
+  callsite.start_line
+end
+
+pub fn ordinary(callsite: Int) -> Int
+  callsite
+end
+
+fn consume_location(location: SourceLocation) -> SourceLocation
+  location
+end
+
+pub fn forward_location() -> SourceLocation callsite
+  consume_location(callsite)
+end
+
+fn callback() -> () callsite
+  ()
+end
+
+pub fn invoke(callback: fn() -> ()) -> ()
+  callback()
+end
+
+pub fn pass_callsite_function() -> ()
+  invoke(callback)
+end
+
+pub fn preserve_effectful_return(callback: fn() -> () effects [stdio]) -> fn() -> () effects [stdio] callsite
+  callback
+end

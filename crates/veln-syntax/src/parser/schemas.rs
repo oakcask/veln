@@ -411,7 +411,9 @@ impl<'a> Parser<'a> {
         while !self.at(close) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
             let (name, ty, ty_paths) =
-                if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
+                if matches!(self.current().kind, TokenKind::Ident | TokenKind::Callsite)
+                    && self.peek_at(TokenKind::Colon)
+                {
                     let name = self
                         .expect_ident("type_variant", "variant field name")
                         .unwrap_or_default();

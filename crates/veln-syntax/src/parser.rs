@@ -51,7 +51,11 @@ pub(crate) fn match_arm_lookahead_token_visits() -> usize {
 fn is_contextual_identifier(kind: TokenKind) -> bool {
     matches!(
         kind,
-        TokenKind::Ident | TokenKind::Handle | TokenKind::Handler | TokenKind::Handles
+        TokenKind::Ident
+            | TokenKind::Callsite
+            | TokenKind::Handle
+            | TokenKind::Handler
+            | TokenKind::Handles
     )
 }
 
@@ -244,6 +248,7 @@ struct FunctionReturn {
     effects: Option<Vec<String>>,
     effect_spans: Option<Vec<SourceSpan>>,
     effects_recovered: bool,
+    callsite: Option<SourceSpan>,
 }
 
 struct HandlerHeader {
@@ -429,6 +434,7 @@ pub(crate) fn line_starts_match_arm(tokens: &[Token], cursor: usize) -> bool {
             | TokenKind::LParen
             | TokenKind::LBrace
             | TokenKind::Ident
+            | TokenKind::Callsite
             | TokenKind::Hole
     ) {
         return false;

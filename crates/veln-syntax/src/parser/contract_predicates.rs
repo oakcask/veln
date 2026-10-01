@@ -100,7 +100,7 @@ impl<'a> ContractPredicateParser<'a> {
             }
             if self.at(TokenKind::Dot) {
                 self.bump();
-                if self.at(TokenKind::Ident) {
+                if matches!(self.current().kind, TokenKind::Ident | TokenKind::Callsite) {
                     self.bump();
                 } else {
                     self.error_current(
@@ -149,7 +149,11 @@ impl<'a> ContractPredicateParser<'a> {
         }
 
         match self.current().kind {
-            TokenKind::String | TokenKind::Int | TokenKind::Float | TokenKind::Ident => {
+            TokenKind::String
+            | TokenKind::Int
+            | TokenKind::Float
+            | TokenKind::Ident
+            | TokenKind::Callsite => {
                 self.parse_name_path_or_literal();
             }
             TokenKind::Perform => {
@@ -243,7 +247,7 @@ impl<'a> ContractPredicateParser<'a> {
         self.bump();
         while self.at(TokenKind::DoubleColon) {
             self.bump();
-            if self.at(TokenKind::Ident) {
+            if matches!(self.current().kind, TokenKind::Ident | TokenKind::Callsite) {
                 self.bump();
             } else {
                 self.error_current(
@@ -273,9 +277,9 @@ impl<'a> ContractPredicateParser<'a> {
         let separator = self.tokens.get(self.cursor + 2)?;
         let operation = self.tokens.get(self.cursor + 3)?;
         let open = self.tokens.get(self.cursor + 4)?;
-        if effect.kind != TokenKind::Ident
+        if !matches!(effect.kind, TokenKind::Ident | TokenKind::Callsite)
             || separator.kind != TokenKind::DoubleColon
-            || operation.kind != TokenKind::Ident
+            || !matches!(operation.kind, TokenKind::Ident | TokenKind::Callsite)
             || open.kind != TokenKind::LParen
         {
             return None;

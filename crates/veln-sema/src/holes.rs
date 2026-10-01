@@ -232,16 +232,26 @@ impl<'a> FunctionChecker<'a> {
             .clone()
             .unwrap_or_else(|| satisfy.span.clone());
 
-        self.check_satisfy_candidate_shadow(expr, candidate, &candidate_span);
+        let rejected_callsite_shadow = self.reject_callsite_shadow(
+            candidate,
+            expr.node_id.display("hole"),
+            candidate_span.clone(),
+            "satisfy candidate",
+        );
+        if !rejected_callsite_shadow {
+            self.check_satisfy_candidate_shadow(expr, candidate, &candidate_span);
+        }
         self.check_satisfy_candidate_used(expr, satisfy, candidate, candidate_span);
 
         let mut predicate_bindings = self.bindings.clone();
-        predicate_bindings.push(Binding::new(
-            candidate.to_string(),
-            expected
-                .map(|expected| expected.ty.clone())
-                .unwrap_or(Type::Unknown),
-        ));
+        if !rejected_callsite_shadow {
+            predicate_bindings.push(Binding::new(
+                candidate.to_string(),
+                expected
+                    .map(|expected| expected.ty.clone())
+                    .unwrap_or(Type::Unknown),
+            ));
+        }
         let validation =
             self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings);
         self.push_satisfy_validation_diagnostic(expr, satisfy, candidate, validation);

@@ -51,6 +51,7 @@ struct IfLoweringTarget<'a> {
 struct CoreLowerer<'a> {
     function: &'a Function,
     environment: &'a TypeEnvironment,
+    block_unsupported_callsite_runtime: bool,
     bindings: Vec<CoreBinding>,
     blockers: Vec<CoreBlocker>,
     diagnostics: Vec<Diagnostic>,
@@ -89,8 +90,14 @@ struct LoweredFunctions {
 }
 
 impl LoweredFunctions {
-    fn push(&mut self, function: &Function, environment: &TypeEnvironment) {
-        let mut lowerer = CoreLowerer::new(function, environment);
+    fn push(
+        &mut self,
+        function: &Function,
+        environment: &TypeEnvironment,
+        block_unsupported_callsite_runtime: bool,
+    ) {
+        let mut lowerer =
+            CoreLowerer::new(function, environment, block_unsupported_callsite_runtime);
         self.functions.push(lowerer.lower_function());
         self.blockers.extend(lowerer.blockers);
         self.diagnostics.extend(lowerer.diagnostics);
@@ -101,7 +108,14 @@ pub(crate) fn lower_surface_module_to_core(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> CoreLoweringOutput {
-    lower_surface_module_to_core_if(module, environment, |_| true)
+    lower_surface_module_to_core_if(module, environment, false, |_| true)
+}
+
+pub(crate) fn lower_executable_surface_module_to_core(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> CoreLoweringOutput {
+    lower_surface_module_to_core_if(module, environment, true, |_| true)
 }
 
 pub(crate) fn lower_project_surface_module_to_core(
@@ -114,7 +128,7 @@ pub(crate) fn lower_project_surface_module_to_core(
             .as_deref()
             .is_some_and(|module| module.starts_with("std::"))
     });
-    lower_surface_module_to_core_if(module, environment, |function| {
+    lower_surface_module_to_core_if(module, environment, false, |function| {
         !has_application_functions
             || !function
                 .module_name
@@ -126,13 +140,19 @@ pub(crate) fn lower_project_surface_module_to_core(
 fn lower_surface_module_to_core_if(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
+    block_unsupported_callsite_runtime: bool,
     include: impl Fn(&Function) -> bool,
 ) -> CoreLoweringOutput {
     let LoweredFunctions {
         functions,
         blockers,
         diagnostics,
-    } = lower_module_functions(module, environment, include);
+    } = lower_module_functions(
+        module,
+        environment,
+        block_unsupported_callsite_runtime,
+        include,
+    );
     let readiness = if blockers.is_empty() {
         CoreReadiness::Complete
     } else {
@@ -155,15 +175,16 @@ fn lower_surface_module_to_core_if(
 fn lower_module_functions(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
+    block_unsupported_callsite_runtime: bool,
     include: impl Fn(&Function) -> bool,
 ) -> LoweredFunctions {
     let mut lowered = LoweredFunctions::default();
     for function in module.functions.iter().filter(|function| include(function)) {
-        lowered.push(function, environment);
+        lowered.push(function, environment, block_unsupported_callsite_runtime);
     }
     for handler in &module.handlers {
         for function in lower_handler_clause_functions(handler, environment) {
-            lowered.push(&function, environment);
+            lowered.push(&function, environment, block_unsupported_callsite_runtime);
         }
     }
     lowered
@@ -237,6 +258,7 @@ fn lower_handler_clause_functions(
                     .map(|(index, param)| veln_ast::Param {
                         node_id: param.node_id,
                         name: param.name.clone(),
+                        name_span: param.name_span.clone(),
                         ty: operation.params.get(index).map(Type::render),
                         ty_span: None,
                         ty_paths: Vec::new(),
@@ -261,6 +283,7 @@ fn lower_handler_clause_functions(
                 return_type_paths: Vec::new(),
                 effects: None,
                 effect_spans: None,
+                callsite: None,
                 contracts: Vec::new(),
                 body: vec![BodyLine {
                     node_id: clause.body.node_id,

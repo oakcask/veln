@@ -5,7 +5,7 @@ pub(crate) fn infer_private_signature_expr_type(
     expected: Option<&Type>,
     current_module: Option<&str>,
     uses: &[UseDecl],
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
@@ -514,7 +514,7 @@ pub(crate) fn infer_private_signature_name_type(
 pub(crate) struct PrivateSignatureInferContext<'a> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
-    pub(crate) bindings: &'a mut Vec<Binding>,
+    pub(crate) bindings: &'a mut PrivateBindings,
     pub(crate) returns_by_path: &'a BTreeMap<(Option<String>, String), Type>,
     pub(crate) adts: &'a AdtRegistry,
 }

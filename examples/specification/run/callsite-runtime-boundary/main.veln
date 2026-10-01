@@ -1,0 +1,4 @@
+# Execution rejects the built-in value until runtime call-site propagation exists.
+pub fn main() -> SourceLocation callsite
+	callsite
+end

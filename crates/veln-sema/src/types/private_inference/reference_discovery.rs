@@ -16,16 +16,16 @@ pub(crate) fn private_function_mentions_candidate(
     .is_break()
 }
 
-pub(crate) fn private_reference_initial_bindings(function: &Function) -> Vec<Binding> {
+pub(crate) fn private_reference_initial_bindings(function: &Function) -> PrivateBindings {
     function_parameter_bindings(function)
 }
 
 pub(crate) fn collect_private_reference_pattern_bindings(
     pattern: &Pattern,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
 ) {
     pattern.for_each_binding(&mut |name| {
-        if valid_value_binding_name(name) {
+        if valid_value_binding_name(name) && !is_rejected_callsite_binding(name, bindings) {
             bindings.push(Binding::new(name.to_string(), Type::Unknown));
         }
     });
@@ -65,7 +65,7 @@ fn visit_private_line_references(
     line: &BodyLine,
     current_module: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
     visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
 ) -> ControlFlow<()> {
     match &line.kind {
@@ -116,7 +116,7 @@ fn visit_private_expr_references(
     expr: &Expr,
     current_module: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
     visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
 ) -> ControlFlow<()> {
     if let Some(key) =

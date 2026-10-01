@@ -1,0 +1,3 @@
+fn located() -> SourceLocation callsite callsite
+  callsite
+end

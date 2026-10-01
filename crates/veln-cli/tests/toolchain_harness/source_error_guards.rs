@@ -145,6 +145,27 @@ contains = ["runnable entry retains user-defined effect `main::Audit`"]
             "examples/specification/run/intended-static-gate"
         ))
     );
+
+    let run_lowering_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[stderr]
+contains = ["error[core.callsite_runtime_unsupported]"]
+"#,
+    );
+    assert!(
+        !run_lowering_manifest.needs_command_source_error_guard(Path::new(
+            "examples/specification/run/callsite-runtime-boundary"
+        ))
+    );
+    assert!(
+        !run_lowering_manifest.needs_pre_command_source_error_guard(Path::new(
+            "examples/specification/run/callsite-runtime-boundary"
+        ))
+    );
 }
 
 #[test]

@@ -116,7 +116,7 @@ grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
 grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
-grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" ParamList? \")\" Return? Effects? NL").
+grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" ParamList? \")\" Return? Effects? CallsiteModifier? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
@@ -153,6 +153,7 @@ grammar_line(165, "VariadicMarker ::= \"...\"").
 grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
 grammar_line(180, "ResultBinding ::= Name \":\"").
 grammar_line(190, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").
+grammar_line(195, "CallsiteModifier ::= \"callsite\"").
 grammar_line(200, "EffectList    ::= EffectEntry (\",\" EffectEntry)* \",\"?").
 grammar_line(205, "EffectEntry   ::= MemberPath | \"...\" Name").
 grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
@@ -334,6 +335,7 @@ keyword_kind("where", where).
 keyword_kind("test", test).
 keyword_kind("effect", effect).
 keyword_kind("effects", effects).
+keyword_kind("callsite", callsite).
 keyword_kind("perform", perform).
 keyword_kind("handler", handler).
 keyword_kind("handles", handles).
@@ -398,6 +400,7 @@ function_decl -->
     tok(rparen),
     return_opt,
     effects_opt,
+    callsite_modifier_opt,
     nl,
     contracts,
     body,
@@ -589,13 +592,15 @@ annotation_opt --> [].
 
 return_opt --> return_clause, !.
 return_opt --> [].
-return_clause --> tok(arrow), result_binding_opt, type_text_until([effects, nl]).
+return_clause --> tok(arrow), result_binding_opt, type_text_until([effects, callsite, nl]).
 result_binding_opt --> ident, tok(colon), !.
 result_binding_opt --> [].
 
 effects_opt --> effects_clause, !.
 effects_opt --> [].
 effects_clause --> tok(effects), tok(lbracket), effects_names_opt, tok(rbracket).
+callsite_modifier_opt --> tok(callsite), !.
+callsite_modifier_opt --> [].
 effects_names_opt --> effect_entry, effects_names_tail, trailing_comma_opt, !.
 effects_names_opt --> [].
 effects_names_tail --> tok(comma), effect_entry, !, effects_names_tail.
@@ -707,14 +712,19 @@ collect_until_stop(Stop, [Token | Rest], S, Depth0, Acc0, Acc) :-
     collect_until_stop(Stop, Rest, S, Depth, [Token | Acc0], Acc).
 
 collect_type_until_stop(Stop, S, S, 0, Acc, Acc) :-
-    S = [t(Kind, _) | _],
+    S = [t(Kind, _) | Rest],
     memberchk(Kind, Stop),
+    \+ contextual_type_token(Kind, Rest, Acc),
     !.
 collect_type_until_stop(_, [], [], 0, Acc, Acc) :- !.
 collect_type_until_stop(Stop, [Token | Rest], S, Depth0, Acc0, Acc) :-
     Token = t(Kind, _),
     next_type_depth(Kind, Depth0, Depth),
     collect_type_until_stop(Stop, Rest, S, Depth, [Token | Acc0], Acc).
+
+contextual_type_token(callsite, [t(double_colon, _) | _], _).
+contextual_type_token(callsite, _, []).
+contextual_type_token(callsite, _, [t(arrow, _) | _]).
 
 next_type_depth(less, Depth0, Depth) :- !, Depth is Depth0 + 1.
 next_type_depth(greater, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
@@ -939,6 +949,7 @@ binding_name --> identifier_text(Text), { string_chars(Text, [First | _]), \+ ch
 upper_name --> identifier_text(Text), { string_chars(Text, [First | _]), char_type(First, upper) }.
 ident --> identifier_text(_).
 identifier_text(Text) --> [t(ident, Text)].
+identifier_text(Text) --> [t(callsite, Text)].
 identifier_text(Text) --> [t(handle, Text)].
 identifier_text(Text) --> [t(handler, Text)].
 identifier_text(Text) --> [t(handles, Text)].

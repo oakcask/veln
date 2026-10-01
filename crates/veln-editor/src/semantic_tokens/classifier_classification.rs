@@ -55,7 +55,7 @@ impl<'a> Classifier<'a> {
             | TokenKind::Or
             | TokenKind::And
             | TokenKind::Not => Some(self.simple(token, SemanticTokenType::Keyword)),
-            TokenKind::Ident => Some(self.classify_ident(token)),
+            TokenKind::Ident | TokenKind::Callsite => Some(self.classify_ident(token)),
             TokenKind::LParen
             | TokenKind::RParen
             | TokenKind::LBracket

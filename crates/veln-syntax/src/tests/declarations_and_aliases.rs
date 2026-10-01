@@ -21,6 +21,187 @@ fn parses_minimal_public_function() {
 }
 
 #[test]
+fn parses_and_formats_callsite_modifier_after_optional_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn traced() -> SourceLocation effects [stdio] callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn plain(callsite: Int) -> Int\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(traced) = &output.tree.items[0] else {
+        panic!("expected function item");
+    };
+    assert!(traced.callsite.is_some());
+    let SyntaxItem::Function(plain) = &output.tree.items[1] else {
+        panic!("expected function item");
+    };
+    assert!(plain.callsite.is_none());
+    assert_eq!(plain.params[0].name, "callsite");
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "pub fn traced() -> SourceLocation effects [stdio] callsite\n",
+            "\tcallsite\n",
+            "end\n",
+            "\n",
+            "fn plain(callsite: Int) -> Int\n",
+            "\tcallsite\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn parses_callsite_modifier_without_effects_and_rejects_a_duplicate() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn located() -> SourceLocation callsite callsite\n  callsite\nend\n",
+    );
+
+    let output = parse(&source);
+
+    let function = first_function(&output);
+    assert_eq!(function.return_type.as_deref(), Some("SourceLocation"));
+    assert!(function.callsite.is_some());
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    let diagnostic = &output.diagnostics[0];
+    assert_eq!(diagnostic.id, "parse.duplicate_callsite_modifier");
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 41);
+    assert_eq!(diagnostic.repair_candidates.len(), 1);
+}
+
+#[test]
+fn preserves_contextual_callsite_in_qualified_return_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn qualified() -> callsite::Type\n  value\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(function.return_type.as_deref(), Some("callsite::Type"));
+    assert!(function.callsite.is_none());
+    assert_eq!(
+        format_tree(&output.tree),
+        "fn qualified() -> callsite::Type\n\tvalue\nend\n"
+    );
+}
+
+#[test]
+fn preserves_contextual_callsite_in_bare_return_types() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn plain(value: callsite) -> callsite\n",
+            "  value\n",
+            "end\n",
+            "fn located(value: callsite) -> callsite callsite\n",
+            "  value\n",
+            "end\n",
+            "fn callback() -> fn() -> callsite\n",
+            "  callback\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(plain) = &output.tree.items[0] else {
+        panic!("expected function item");
+    };
+    assert_eq!(plain.return_type.as_deref(), Some("callsite"));
+    assert!(plain.callsite.is_none());
+    let SyntaxItem::Function(located) = &output.tree.items[1] else {
+        panic!("expected function item");
+    };
+    assert_eq!(located.return_type.as_deref(), Some("callsite"));
+    assert!(located.callsite.is_some());
+    let SyntaxItem::Function(callback) = &output.tree.items[2] else {
+        panic!("expected function item");
+    };
+    assert_eq!(callback.return_type.as_deref(), Some("fn() -> callsite"));
+    assert!(callback.callsite.is_none());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn plain(value: callsite) -> callsite\n",
+            "\tvalue\n",
+            "end\n",
+            "\n",
+            "fn located(value: callsite) -> callsite callsite\n",
+            "\tvalue\n",
+            "end\n",
+            "\n",
+            "fn callback() -> fn() -> callsite\n",
+            "\tcallback\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn preserves_returned_function_effects_before_callsite_modifier() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn expose() -> fn() -> () effects [stdio] callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn expose_with_outer_effects() -> fn() -> () effects [stdio] effects [net] callsite\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(
+        function.return_type.as_deref(),
+        Some("fn() -> () effects [stdio]")
+    );
+    assert!(function.effects.is_none());
+    assert!(function.callsite.is_some());
+    let SyntaxItem::Function(with_outer_effects) = &output.tree.items[1] else {
+        panic!("expected function item");
+    };
+    assert_eq!(
+        with_outer_effects.return_type.as_deref(),
+        Some("fn() -> () effects [stdio]")
+    );
+    assert_eq!(
+        with_outer_effects.effects.as_ref().unwrap(),
+        &vec!["net".to_string()]
+    );
+    assert!(with_outer_effects.callsite.is_some());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn expose() -> fn() -> () effects [stdio] callsite\n",
+            "\tcallsite\n",
+            "end\n",
+            "\n",
+            "fn expose_with_outer_effects() -> fn() -> () effects [stdio] effects [net] callsite\n",
+            "\tcallsite\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn parses_and_formats_variadic_parameter_marker() {
     let source = SourceFile::new(
         "main.veln",

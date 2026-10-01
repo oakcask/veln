@@ -10,7 +10,7 @@ use crate::{
     TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
-const MAGIC: &[u8; 8] = b"VLNAST2\n";
+const MAGIC: &[u8; 8] = b"VLNAST3\n";
 
 mod decoder;
 mod encoder;

@@ -24,7 +24,7 @@ pub(crate) fn check_function_body(
     function: &Function,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
-    let mut checker = FunctionChecker::new(function, environment);
+    let mut checker = FunctionChecker::for_source_declaration(function, environment);
     checker.check_body();
     checker.diagnostics
 }
@@ -49,6 +49,7 @@ fn invalid_value_binding_name(name: &str) -> bool {
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
+    pub(super) supports_callsite_modifier: bool,
     pub(super) bindings: Vec<Binding>,
     invalid_binding_recoveries: Vec<InvalidBindingRecovery>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
@@ -58,6 +59,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     defer_capture_boundaries: Vec<usize>,
     pub(super) inferred_effects: Vec<EffectUse>,
     pub(super) inferred_return_type: Option<Type>,
+    inferred_return_unknown_is_diagnosed: bool,
     pub(super) diagnostics: Vec<Diagnostic>,
     suppressed_diagnostic_indices: BTreeSet<usize>,
     defer_blocks: Vec<SourceSpan>,
@@ -216,10 +218,33 @@ fn match_pattern_coverage(
 }
 
 impl<'a> FunctionChecker<'a> {
-    pub(super) fn new(function: &'a Function, environment: &'a TypeEnvironment) -> Self {
+    pub(super) fn for_source_declaration(
+        function: &'a Function,
+        environment: &'a TypeEnvironment,
+    ) -> Self {
+        Self::new(
+            function,
+            environment,
+            function.kind == FunctionKind::Function,
+        )
+    }
+
+    pub(super) fn for_synthetic_declaration(
+        function: &'a Function,
+        environment: &'a TypeEnvironment,
+    ) -> Self {
+        Self::new(function, environment, false)
+    }
+
+    fn new(
+        function: &'a Function,
+        environment: &'a TypeEnvironment,
+        supports_callsite_modifier: bool,
+    ) -> Self {
         Self {
             function,
             environment,
+            supports_callsite_modifier,
             bindings: Vec::new(),
             invalid_binding_recoveries: Vec::new(),
             omitted_local_bindings: Vec::new(),
@@ -229,6 +254,7 @@ impl<'a> FunctionChecker<'a> {
             defer_capture_boundaries: Vec::new(),
             inferred_effects: Vec::new(),
             inferred_return_type: None,
+            inferred_return_unknown_is_diagnosed: false,
             diagnostics: Vec::new(),
             suppressed_diagnostic_indices: BTreeSet::new(),
             defer_blocks: Vec::new(),

@@ -516,23 +516,25 @@ fn collect_private_handler_effects(
 fn handler_parameter_bindings(
     declaration: &HandlerDecl,
     signature: &HandlerSignature,
-) -> Vec<Binding> {
-    declaration
-        .params
-        .iter()
-        .enumerate()
-        .filter(|(_, param)| valid_value_binding_name(&param.name))
-        .map(|(index, param)| {
-            Binding::new(
-                param.name.clone(),
-                signature
-                    .params
-                    .get(index)
-                    .cloned()
-                    .unwrap_or(Type::Unknown),
-            )
-        })
-        .collect()
+) -> PrivateBindings {
+    PrivateBindings::without_builtin(
+        declaration
+            .params
+            .iter()
+            .enumerate()
+            .filter(|(_, param)| valid_value_binding_name(&param.name))
+            .map(|(index, param)| {
+                Binding::new(
+                    param.name.clone(),
+                    signature
+                        .params
+                        .get(index)
+                        .cloned()
+                        .unwrap_or(Type::Unknown),
+                )
+            })
+            .collect(),
+    )
 }
 
 fn collect_function_body_effects(
@@ -603,7 +605,7 @@ fn visit_effect_body_expressions(
     body: &[veln_ast::BodyLine],
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
     handled_effects: &mut ActiveHandledEffects,
     track_handled_effects: bool,
     visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
@@ -661,7 +663,7 @@ fn visit_effect_expr(
     expr: &Expr,
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
     handled_effects: &mut ActiveHandledEffects,
     track_handled_effects: bool,
     visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
@@ -683,7 +685,7 @@ fn visit_nested_effect_regions(
     expr: &Expr,
     current_module: Option<&str>,
     context: &FunctionEffectContext<'_>,
-    bindings: &mut Vec<Binding>,
+    bindings: &mut PrivateBindings,
     handled_effects: &mut ActiveHandledEffects,
     track_handled_effects: bool,
     visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),

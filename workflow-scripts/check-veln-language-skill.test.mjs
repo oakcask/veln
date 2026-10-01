@@ -1056,11 +1056,11 @@ test("rejects a stale-snapshot row that uses the current published digest", () =
   const staleUri = events.readCall.arguments.uri;
   const currentUri = staleUri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
-    "snapshot/fb8584404ee46aba0265479c3e0d3bc4625920affaa365673a3a046452d9b223/",
+    "snapshot/e9b99738aac0ea4f3061a3b703e8c56ff723f24b57a876bf6d354f5819f83735/",
   );
   for (const topic of structured(events.listResult).topics) {
     topic.uri = topic.uri.replace(/snapshot\/[0-9a-f]{64}\//u,
-      "snapshot/fb8584404ee46aba0265479c3e0d3bc4625920affaa365673a3a046452d9b223/");
+      "snapshot/e9b99738aac0ea4f3061a3b703e8c56ff723f24b57a876bf6d354f5819f83735/");
   }
   syncEnvelope(events.listResult);
   events.transition.before.language_snapshot_digest = events.transition.after.language_snapshot_digest;
@@ -1099,7 +1099,7 @@ test("rejects stale topic listings from mixed snapshots", () => {
   const event = staleEvents(document).listResult;
   structured(event).topics[1].uri = structured(event).topics[1].uri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
-    "snapshot/fb8584404ee46aba0265479c3e0d3bc4625920affaa365673a3a046452d9b223/",
+    "snapshot/e9b99738aac0ea4f3061a3b703e8c56ff723f24b57a876bf6d354f5819f83735/",
   );
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /topics must be in URI order|must belong to one snapshot/);

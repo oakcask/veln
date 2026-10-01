@@ -1,5 +1,44 @@
 use super::*;
 
+fn invalid_callsite_binding_presence_work(binding_pairs: usize) -> usize {
+    let mut text = String::from("fn subject() callsite\n");
+    for index in 0..binding_pairs {
+        text.push_str(&format!("  let value_{index} = 1\n  let callsite = 1\n"));
+    }
+    text.push_str("  callsite\nend\n");
+    let source = SourceFile::new("main.veln", text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    private_inference_counters::reset();
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.callsite_shadow")
+            .count(),
+        binding_pairs,
+        "{diagnostics:#?}"
+    );
+    private_inference_counters::snapshot().callsite_builtin_presence_steps
+}
+
+#[test]
+fn rejected_callsite_binding_presence_work_grows_linearly() {
+    let smaller_size = 800;
+    let larger_size = 1_000;
+    let smaller_work = invalid_callsite_binding_presence_work(smaller_size);
+    let larger_work = invalid_callsite_binding_presence_work(larger_size);
+
+    assert!(
+        larger_work * smaller_size <= smaller_work * larger_size,
+        "callsite built-in presence work must grow linearly across adjacent invalid inputs: \
+         {smaller_size} pairs required {smaller_work} steps, while {larger_size} pairs required \
+         {larger_work} steps"
+    );
+}
+
 #[test]
 fn private_function_may_omit_boundary_annotations_when_inference_is_complete() {
     let source = SourceFile::new("main.veln", "fn answer()\n  1\nend\n");

@@ -24,6 +24,7 @@ pub(crate) struct Binding {
     pub(crate) name: String,
     pub(crate) ty: Type,
     pub(crate) private_function_value: Option<FunctionKey>,
+    pub(crate) is_diagnosed_unknown: bool,
 }
 
 #[cfg(test)]
@@ -40,6 +41,7 @@ impl Clone for Binding {
             name: self.name.clone(),
             ty: self.ty.clone(),
             private_function_value: self.private_function_value.clone(),
+            is_diagnosed_unknown: self.is_diagnosed_unknown,
         }
     }
 }
@@ -71,6 +73,16 @@ impl Binding {
             name,
             ty,
             private_function_value: None,
+            is_diagnosed_unknown: false,
+        }
+    }
+
+    pub(crate) fn builtin_callsite() -> Self {
+        Self {
+            name: "callsite".to_string(),
+            ty: Type::source_location(),
+            private_function_value: None,
+            is_diagnosed_unknown: false,
         }
     }
 
@@ -79,6 +91,16 @@ impl Binding {
             name,
             ty,
             private_function_value: Some(target),
+            is_diagnosed_unknown: false,
+        }
+    }
+
+    pub(crate) fn diagnosed_unknown(name: String, ty: Type) -> Self {
+        Self {
+            name,
+            ty,
+            private_function_value: None,
+            is_diagnosed_unknown: true,
         }
     }
 }
@@ -169,6 +191,20 @@ impl Type {
         Self::Record(vec![
             ("unix_seconds".to_string(), Self::int()),
             ("nanosecond".to_string(), Self::int()),
+        ])
+    }
+
+    pub(crate) fn source_location() -> Self {
+        Self::Record(vec![
+            ("package".to_string(), Self::string()),
+            ("module".to_string(), Self::string()),
+            ("file".to_string(), Self::string()),
+            ("start_line".to_string(), Self::int()),
+            ("start_column".to_string(), Self::int()),
+            ("start_offset".to_string(), Self::int()),
+            ("end_line".to_string(), Self::int()),
+            ("end_column".to_string(), Self::int()),
+            ("end_offset".to_string(), Self::int()),
         ])
     }
 

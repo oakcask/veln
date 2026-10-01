@@ -16,8 +16,8 @@ also states it.
 
 ## Ready
 
-- Call-site-aware functions and portable source-location values for diagnostics
-  and library-defined instrumentation:
+- Runtime call-site propagation, portable generated-source mapping, and
+  LSP/MCP presentation for diagnostics and library-defined instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
 - Standard-library TCP stream networking, typed ordinary failures, resource
   lifecycle, and a substitutable public effect with an explicit system handler:

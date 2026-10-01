@@ -1,10 +1,15 @@
 use super::*;
 
 impl<'a> CoreLowerer<'a> {
-    pub(super) fn new(function: &'a Function, environment: &'a TypeEnvironment) -> Self {
+    pub(super) fn new(
+        function: &'a Function,
+        environment: &'a TypeEnvironment,
+        block_unsupported_callsite_runtime: bool,
+    ) -> Self {
         Self {
             function,
             environment,
+            block_unsupported_callsite_runtime,
             bindings: Vec::new(),
             blockers: Vec::new(),
             diagnostics: Vec::new(),
@@ -88,20 +93,27 @@ impl<'a> CoreLowerer<'a> {
             })
     }
 
-    pub(super) fn lower_contracts(&self) -> Vec<CoreContract> {
-        self.function
-            .contracts
+    pub(super) fn lower_contracts(&mut self) -> Vec<CoreContract> {
+        let contracts = self.function.contracts.clone();
+        contracts
             .iter()
-            .map(|contract| CoreContract {
-                node_id: contract.node_id,
-                kind: contract.kind,
-                predicate: contract.text.clone(),
-                obligation_status: if contract_predicate_is_statically_true(&contract.text) {
-                    ContractObligationStatus::StaticallyProven
-                } else {
-                    ContractObligationStatus::RuntimeRequired
-                },
-                span: contract.span.clone(),
+            .map(|contract| {
+                if self.block_unsupported_callsite_runtime && self.function.callsite.is_some() {
+                    for span in &contract.callsite_reference_spans {
+                        self.unsupported_callsite_reference(contract.node_id, span);
+                    }
+                }
+                CoreContract {
+                    node_id: contract.node_id,
+                    kind: contract.kind,
+                    predicate: contract.text.clone(),
+                    obligation_status: if contract_predicate_is_statically_true(&contract.text) {
+                        ContractObligationStatus::StaticallyProven
+                    } else {
+                        ContractObligationStatus::RuntimeRequired
+                    },
+                    span: contract.span.clone(),
+                }
             })
             .collect()
     }
@@ -156,6 +168,40 @@ impl<'a> CoreLowerer<'a> {
             Some(expr.span.clone()),
             JsonValue::object(details),
         ));
+    }
+
+    pub(super) fn unsupported_callsite_reference(
+        &mut self,
+        node_id: veln_ast::NodeId,
+        span: &veln_source::SourceSpan,
+    ) {
+        const REASON: &str = "callsite_runtime_unsupported";
+        self.blockers.push(CoreBlocker::UnsupportedExpression {
+            node_id,
+            reason: REASON.to_string(),
+        });
+        let mut diagnostic = Diagnostic::new(
+            "core.callsite_runtime_unsupported",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "`callsite` is not available during execution",
+            Some(span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("core_lowering")),
+                ("node_id", JsonValue::string(node_id.display("expr"))),
+                ("reason", JsonValue::string(REASON)),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("runtime_support")),
+            (
+                "message",
+                JsonValue::string(
+                    "Runtime support for call-site locations and their hidden call ABI is not implemented.",
+                ),
+            ),
+        ]));
+        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn missing_expression(

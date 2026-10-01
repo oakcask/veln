@@ -14,33 +14,20 @@ The location must be captured when the library API is called. A trace can be
 finished or exported after the originating call stack no longer exists, so a
 later stack walk cannot recover the required logical call site.
 
-## Outcome
+The declaration and static-checking foundation is current behavior specified in
+[Call-site Declarations](../specification/call-site-declarations.md).
+This proposal tracks only the runtime propagation and presentation work below.
 
-Add the standard `SourceLocation` value and a `callsite` function modifier that
-introduces a built-in `callsite` local variable.
+Runtime-constructed `SourceLocation` values use one-based lines and columns.
+Columns count Unicode scalar values. Offsets count UTF-8 bytes.
+`file` is a package-relative or virtual source path; it is never a
+machine-specific absolute path. `package` and `module` disambiguate equal
+relative paths from different dependencies.
 
-```veln
-pub type SourceLocation = {
-  package: String,
-  module: String,
-  file: String,
-  start_line: Int,
-  start_column: Int,
-  start_offset: Int,
-  end_line: Int,
-  end_column: Int,
-  end_offset: Int,
-}
-```
+## Remaining call-site-aware function behavior
 
-Lines and columns are one-based. Columns count Unicode scalar values. Offsets
-count UTF-8 bytes. `file` is a package-relative or virtual source path; it is
-never a machine-specific absolute path. `package` and `module` disambiguate
-equal relative paths from different dependencies.
-
-## Call-site-aware Functions
-
-A function can place the `callsite` modifier at the end of its header:
+The declaration form is implemented. Runtime calls still need to supply the
+location represented by that declaration:
 
 ```veln
 pub fn info(
@@ -50,23 +37,6 @@ pub fn info(
   observe::emit(LogInfo(message, attributes, callsite))
 end
 ```
-
-The proposed grammar addition is:
-
-```ebnf
-CallsiteModifier ::= "callsite"
-```
-
-`CallsiteModifier` follows the optional effects clause in a function header.
-The modifier introduces a built-in local variable named `callsite` with type
-`SourceLocation`. The modifier and the local variable use the same contextual
-keyword because the modifier's purpose is to introduce that value.
-
-Within a call-site-aware function, a parameter, result binding, local binding,
-or pattern binding cannot use the name `callsite`. Outside a call-site-aware
-function, `callsite` remains an ordinary identifier. An unresolved `callsite`
-reference in a function body reports that the `callsite` modifier introduces
-the built-in local variable.
 
 ## Propagation
 
@@ -90,17 +60,15 @@ The final callee observes the location at which the user called `warning`.
 Direct and indirect calls follow the same propagation table. Devirtualization
 and inlining do not change the observed location.
 
-The built-in local variable is an ordinary `SourceLocation` value. A function
-can pass it to another function, store it in an event or trace, or return it.
+Once runtime propagation supplies the built-in value, a function must be able
+to pass it to another function, store it in an event or trace, or return it.
 The implicit context cannot be overridden at a call expression. A library that
 accepts an already available location can use an ordinary `SourceLocation`
-parameter. Such a function is not call-site-aware unless its header also has
-the `callsite` modifier.
+parameter; runtime observation must distinguish that explicit argument from
+the hidden context.
 
-The `callsite` modifier is visible in source, documentation, completion, and
-signature help. Completion inside the function body includes the built-in
-local variable. The modifier does not contribute to ordinary callable arity or
-function type.
+Completion and signature help must present the `callsite` modifier. Completion
+inside the function body must include the built-in local variable.
 
 The call ABI must therefore carry a hidden source location for direct and
 indirect calls. A function without the modifier does not expose or use that
@@ -123,25 +91,22 @@ file value.
 | --- | --- | --- | --- |
 | S1 | A non-call-site-aware function directly calls a call-site-aware function. | The callee's `callsite` value identifies the call expression. | Run specification case. |
 | S2 | A call-site-aware wrapper calls another call-site-aware function. | The final callee observes the outer user's site. | Nested-wrapper run case. |
-| S3 | A call-site-aware function passes `callsite` to an ordinary `SourceLocation` parameter. | The ordinary parameter receives the same value. | Type-check and run cases. |
-| S4 | A call-site-aware function is invoked through a function value from a non-call-site-aware function. | The callee observes the indirect call expression and callable type checking remains unchanged. | Type-check and run cases. |
-| S5 | The modifier is missing when the built-in variable is referenced, the modifier is duplicated, or a binding shadows the built-in variable. | Checking reports the failed declaration rule and a repair. | Check and check-JSON cases. |
+| S3 | A call-site-aware function passes its supplied `callsite` value to an ordinary `SourceLocation` parameter. | The ordinary parameter observes the same runtime value. | Run case. |
+| S4 | A call-site-aware function is invoked through a function value from a non-call-site-aware function. | The callee observes the indirect call expression. | Run case. |
 | S6 | Source is generated and has an origin mapping. | The exposed location is the mapped user location. | Generated-source fixture. |
-| S7 | A package is checked from two different absolute roots. | Exposed package, module, and file values are identical and contain neither root. | Relocation test. |
-| S8 | Formatter, docs, LSP, and MCP present the declaration. | Each surface identifies the modifier and built-in local variable without changing ordinary arity. | Formatter, documentation, LSP, and MCP cases. |
+| S7 | Equivalent packages under two absolute roots contain dependencies with the same package-relative source path. | Exposed `file` values are package-relative or canonical virtual paths, all fields contain neither root and remain identical after relocation, and `package` plus `module` disambiguate the dependency sources. | Relocation and dependency-collision test. |
+| S8 | LSP and MCP present the declaration. | Each service identifies the modifier and built-in local variable. | LSP and MCP cases. |
 | S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
+| S10 | A call site contains non-ASCII text before and within its source span. | Lines and columns are one-based, columns count Unicode scalar values, and offsets count UTF-8 bytes. | Run case with exact start and end coordinates from a checked source fixture. |
 
 ## Verification and Promotion
 
-Implementation must extend executable grammar, accepted and rejected source
-fixtures, AST wire encoding, semantic analysis, callable lowering, backend
-metadata, formatting, documentation, LSP, and MCP. The run harness must compare
-locations against a checked source fixture rather than machine paths.
+Remaining implementation must extend callable lowering, backend metadata, LSP,
+and MCP. The run harness must compare locations and their coordinate units
+against a checked source fixture rather than machine paths.
 
-After implementation, the current source-surface and name/effect
-specifications must explain the `callsite` modifier and built-in local variable.
-The source and execution specifications must explain `SourceLocation`, call-site
-propagation, and generated-source mapping.
+After runtime implementation, the source and execution specifications must
+explain call-site propagation and generated-source mapping.
 
 ## Non-goals
 

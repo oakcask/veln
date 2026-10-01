@@ -127,7 +127,13 @@ impl<'a> Parser<'a> {
         let mut tokens = Vec::new();
         let mut depth = 0usize;
         while !self.at(TokenKind::Eof) {
-            if depth == 0 && stop.iter().any(|kind| self.at(*kind)) {
+            let contextual_callsite_type = self.at(TokenKind::Callsite)
+                && (self.peek_at(TokenKind::DoubleColon)
+                    || parts.is_empty()
+                    || tokens
+                        .last()
+                        .is_some_and(|token: &Token| token.kind == TokenKind::Arrow));
+            if depth == 0 && stop.iter().any(|kind| self.at(*kind)) && !contextual_callsite_type {
                 break;
             }
             let token = self.current().clone();
@@ -162,6 +168,7 @@ impl<'a> Parser<'a> {
         if return_type_can_take_effects(&ty)
             && self.at(TokenKind::Effects)
             && (self.after_effect_clause_is(TokenKind::Effects)
+                || self.after_effect_clause_is(TokenKind::Callsite)
                 || self.after_effect_clause_is(TokenKind::Newline)
                 || self.after_effect_clause_is(TokenKind::Eof))
         {
@@ -410,5 +417,8 @@ fn skip_effect_clause(tokens: &[Token], cursor: usize) -> usize {
 }
 
 fn is_type_path_segment(token: &Token) -> bool {
-    matches!(token.kind, TokenKind::Ident | TokenKind::Hole)
+    matches!(
+        token.kind,
+        TokenKind::Ident | TokenKind::Callsite | TokenKind::Hole
+    )
 }

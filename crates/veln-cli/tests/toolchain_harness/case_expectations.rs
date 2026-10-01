@@ -214,12 +214,10 @@ impl CaseManifest {
             )
             || self.invocation.command.first().map(String::as_str) == Some("run")
                 && self.expectations.exit != 0
-                && self
-                    .expectations
-                    .stderr
-                    .contains
-                    .iter()
-                    .any(|fragment| fragment.contains("runnable entry retains user-defined effect"))
+                && self.expectations.stderr.contains.iter().any(|fragment| {
+                    fragment.contains("runnable entry retains user-defined effect")
+                        || fragment.contains("error[core.callsite_runtime_unsupported]")
+                })
     }
 
     pub(super) fn validate_fixture_schema_references(&self, project_root: &Path) {

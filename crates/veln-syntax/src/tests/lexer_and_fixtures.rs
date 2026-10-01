@@ -60,6 +60,7 @@ fn token_kind_labels_cover_every_surface_token() {
         (TokenKind::Where, "where"),
         (TokenKind::Test, "test"),
         (TokenKind::Effects, "effects"),
+        (TokenKind::Callsite, "callsite"),
         (TokenKind::Let, "let"),
         (TokenKind::End, "end"),
         (TokenKind::Require, "require"),

@@ -49,6 +49,8 @@ provides the production notation for these forms.
   method-call diagnostics, and the source boundary of executable `begin` and
   `defer` forms: this page.
 - Contract predicate grammar: this page.
+- Call-site-aware function declarations and their built-in local:
+  [call-site-declarations.md](call-site-declarations.md).
 - Identifier casing for source-written module headers, ADT types,
   constructors, functions, tests, public aliases, bindings, parser recovery,
   and selected-command reachability:
@@ -251,7 +253,7 @@ DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+
 HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
 Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
-Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? NL
+Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? CallsiteModifier? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
@@ -288,6 +290,7 @@ VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
+CallsiteModifier ::= "callsite"
 EffectList    ::= EffectEntry ("," EffectEntry)* ","?
 EffectEntry   ::= MemberPath | "..." Name
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
@@ -336,7 +339,6 @@ MemberPath    ::= Name ("::" Name)*
 - Grammar artifact: [source-surface-executable.pl](source-surface-executable.pl).
 - Parser: `crates/veln-syntax/src/parser/` and `crates/veln-syntax/src/lexer.rs`.
 - Source identity and companion visibility: `crates/veln-analysis/src/surface/`.
-
 ## Read by task
 
 - Updating parser behavior, AST source shape, source metadata, declaration

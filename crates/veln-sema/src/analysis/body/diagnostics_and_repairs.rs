@@ -73,6 +73,38 @@ impl<'a> FunctionChecker<'a> {
         symbol: &str,
         namespace: &'static str,
     ) {
+        if matches!(namespace, "value" | "contract_predicate")
+            && symbol == "callsite"
+            && self.function.callsite.is_none()
+            && self.supports_callsite_modifier
+        {
+            let mut diagnostic = Diagnostic::new(
+                "name.callsite_requires_modifier",
+                Severity::Error,
+                DiagnosticKind::Name,
+                "unresolved `callsite`; the function is missing the `callsite` modifier",
+                Some(span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("name")),
+                    ("node_id", JsonValue::string(node_id.display("name"))),
+                    ("symbol", JsonValue::string(symbol)),
+                    ("namespace", JsonValue::string(namespace)),
+                    ("resolution_status", JsonValue::string("missing_modifier")),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("repair_hint")),
+                (
+                    "message",
+                    JsonValue::string(
+                        "Add `callsite` after the function's optional effects clause.",
+                    ),
+                ),
+                ("span", span_json(&self.function.span)),
+            ]));
+            self.diagnostics.push(diagnostic);
+            return;
+        }
         if namespace == "value"
             && let Some(primitive) = exact_width_binary_primitive_name(symbol)
         {

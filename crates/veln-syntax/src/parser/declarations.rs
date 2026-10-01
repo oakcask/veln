@@ -131,7 +131,7 @@ impl<'a> Parser<'a> {
                 (self.peek_kind(1), self.peek_kind(2), self.peek_kind(3)),
                 (
                     Some(TokenKind::Fn | TokenKind::Type | TokenKind::Schema),
-                    Some(TokenKind::Ident | TokenKind::Hole),
+                    Some(TokenKind::Ident | TokenKind::Callsite | TokenKind::Hole),
                     Some(TokenKind::Equal)
                 )
             )

@@ -309,7 +309,7 @@ pub(super) fn check_type_alias_target(
     module_name: Option<&str>,
 ) -> Option<Diagnostic> {
     if type_target(module, &alias.target, module_name).is_some()
-        || is_standard_wall_time_target(module, &alias.target, module_name)
+        || is_standard_structural_type_target(module, &alias.target, module_name)
     {
         None
     } else if function_target(module, &alias.target, module_name).is_some() {
@@ -319,14 +319,14 @@ pub(super) fn check_type_alias_target(
     }
 }
 
-fn is_standard_wall_time_target(
+fn is_standard_structural_type_target(
     module: &SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
 ) -> bool {
     match segments {
-        [name] => name == "WallTime",
-        [_, .., name] if name == "WallTime" => {
+        [name] => matches!(name.as_str(), "WallTime" | "SourceLocation"),
+        [_, .., name] if matches!(name.as_str(), "WallTime" | "SourceLocation") => {
             normal_imported_module_for_path(module, &segments[..segments.len() - 1], current_module)
                 .is_some_and(|module_name| module_name == "std::prelude")
         }
