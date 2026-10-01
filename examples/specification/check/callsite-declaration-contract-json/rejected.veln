@@ -38,3 +38,8 @@ fn contract_missing_modifier() -> ()
 require callsite
   ()
 end
+
+fn contract_field_before_missing(record: { callsite: Bool }) -> ()
+require record.callsite and callsite.start_line > 0
+  ()
+end

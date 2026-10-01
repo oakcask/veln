@@ -437,8 +437,22 @@ impl<'a> Parser<'a> {
         self.diagnostics.extend(predicate_output.diagnostics);
         let callsite_reference_spans = predicate_tokens
             .iter()
-            .filter(|token| token.kind == TokenKind::Callsite)
-            .map(|token| self.source.span(token.range))
+            .enumerate()
+            .filter(|(index, token)| {
+                token.kind == TokenKind::Callsite
+                    && !matches!(
+                        index
+                            .checked_sub(1)
+                            .and_then(|previous| predicate_tokens.get(previous))
+                            .map(|token| token.kind),
+                        Some(TokenKind::Dot | TokenKind::DoubleColon)
+                    )
+                    && !matches!(
+                        predicate_tokens.get(index + 1).map(|token| token.kind),
+                        Some(TokenKind::DoubleColon)
+                    )
+            })
+            .map(|(_, token)| self.source.span(token.range))
             .collect();
         ContractClause {
             kind,

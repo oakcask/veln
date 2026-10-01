@@ -21,7 +21,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 11
+equals = 12
 
 [[diagnostics]]
 id = "name.callsite_requires_modifier"
@@ -132,6 +132,17 @@ message = "unresolved `callsite`; the function is missing the `callsite` modifie
 file = "rejected.veln"
 line = 38
 column = 9
+
+[[diagnostics]]
+id = "name.callsite_requires_modifier"
+severity = "error"
+kind = "name"
+message = "unresolved `callsite`; the function is missing the `callsite` modifier"
+
+[diagnostics.span]
+file = "rejected.veln"
+line = 43
+column = 29
 
 [[json_assert]]
 path = "diagnostics.0.related"

@@ -61,6 +61,22 @@ fn unresolved_callsite_reference_suggests_the_modifier() {
 }
 
 #[test]
+fn contract_missing_modifier_points_to_the_unresolved_value_reference() {
+    let diagnostics = diagnostics(concat!(
+        "fn guarded(record: { callsite: Bool }) -> ()\n",
+        "require record.callsite and callsite.start_line > 0\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let missing_modifier = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.callsite_requires_modifier")
+        .expect("missing callsite modifier diagnostic");
+    assert_diagnostic_span(missing_modifier, 2, 29, 2, 37);
+}
+
+#[test]
 fn missing_modifier_is_the_only_actionable_private_inference_diagnostic() {
     let diagnostics = diagnostics(concat!(
         "fn direct()\n",
