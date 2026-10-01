@@ -117,7 +117,7 @@ fn jvm_runtime_join_blocks_until_cancelled_task_cleanup_finishes_when_java_is_av
 }
 
 #[test]
-fn jvm_runtime_cleanup_diagnostics_retain_linear_stack_data_when_java_is_available() {
+fn jvm_runtime_cleanup_diagnostics_aggregate_nested_failures_linearly_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
     {
@@ -138,7 +138,7 @@ fn jvm_runtime_cleanup_diagnostics_retain_linear_stack_data_when_java_is_availab
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "cleanup diagnostics retained linear stack data\n"
+        "cleanup diagnostics aggregate nested failures linearly\n"
     );
 }
 

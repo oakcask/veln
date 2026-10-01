@@ -25,8 +25,7 @@ use crate::java::{
 };
 
 use super::run_report::{
-    RunJsonReport, cleanup_related_failures, runtime_failure_from_trace,
-    transport_failure_from_trace,
+    RunJsonReport, cleanup_related_failures, runtime_error_message, transport_failure_from_trace,
 };
 
 mod byte_diagnostics;
@@ -642,8 +641,7 @@ fn run_json(
             } else if let Some(failure) = transport_failure_from_trace(&transport_error_trace) {
                 RunJsonReport::runtime_transport_error(exit_code, stdout, stderr, failure, related)
             } else {
-                let message = runtime_failure_from_trace(&runtime_error_trace)
-                    .unwrap_or_else(|| format!("run process exited with status {}", output.status));
+                let message = runtime_error_message(&runtime_error_trace, &stderr, output.status);
                 RunJsonReport::runtime_error(exit_code, stdout, stderr, message, related)
             }
         }

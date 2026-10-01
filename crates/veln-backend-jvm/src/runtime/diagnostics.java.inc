@@ -2,28 +2,38 @@
         if (primary == cleanup) {
             return;
         }
+        java.util.IdentityHashMap<Throwable, CleanupDiagnostic> converted =
+            new java.util.IdentityHashMap<Throwable, CleanupDiagnostic>();
         java.util.ArrayDeque<Throwable> pending = new java.util.ArrayDeque<Throwable>();
-        java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(
-            new java.util.IdentityHashMap<Throwable, Boolean>()
-        );
-        seen.add(primary);
+        CleanupDiagnostic diagnostic = new CleanupDiagnostic(cleanup.getMessage());
+        converted.put(cleanup, diagnostic);
         pending.push(cleanup);
         while (!pending.isEmpty()) {
-            Throwable next = pending.pop();
-            if (!seen.add(next)) {
-                continue;
-            }
-            primary.addSuppressed(new CleanupDiagnostic(next.getMessage()));
-            Throwable[] nested = next.getSuppressed();
-            for (int index = nested.length - 1; index >= 0; index -= 1) {
-                pending.push(nested[index]);
+            Throwable source = pending.pop();
+            CleanupDiagnostic target = converted.get(source);
+            for (Throwable nested : source.getSuppressed()) {
+                if (nested == primary) {
+                    continue;
+                }
+                if (nested instanceof CleanupDiagnostic) {
+                    target.addSuppressed(nested);
+                    continue;
+                }
+                CleanupDiagnostic nestedDiagnostic = converted.get(nested);
+                if (nestedDiagnostic == null) {
+                    nestedDiagnostic = new CleanupDiagnostic(nested.getMessage());
+                    converted.put(nested, nestedDiagnostic);
+                    pending.push(nested);
+                }
+                target.addSuppressed(nestedDiagnostic);
             }
         }
+        primary.addSuppressed(diagnostic);
     }
 
     private static final class CleanupDiagnostic extends Throwable {
         private CleanupDiagnostic(String message) {
-            super(message, null, false, false);
+            super(message, null, true, false);
         }
     }
 

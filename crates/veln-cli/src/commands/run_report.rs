@@ -1,4 +1,4 @@
-use std::process::ExitCode;
+use std::process::{ExitCode, ExitStatus};
 
 use veln_diagnostics::JsonValue;
 use veln_test::TestFailure;
@@ -17,6 +17,21 @@ pub(super) fn runtime_failure_from_trace(trace: &str) -> Option<String> {
         .rev()
         .find_map(|line| line.strip_prefix("runtime\t"))
         .and_then(trace_string)
+}
+
+pub(super) fn runtime_error_message(
+    runtime_trace: &str,
+    stderr: &str,
+    status: ExitStatus,
+) -> String {
+    runtime_failure_from_trace(runtime_trace)
+        .or_else(|| {
+            stderr
+                .lines()
+                .find(|line| !line.trim().is_empty())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| format!("run process exited with status {status}"))
 }
 
 pub(super) struct RunJsonReport {
@@ -411,5 +426,34 @@ mod tests {
             runtime_failure_from_trace(&trace).as_deref(),
             Some("actual runtime failure")
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn runtime_error_message_prefers_structured_trace_over_stderr() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let trace = format!("runtime\t{}\n", trace_hex("structured runtime failure"));
+        let message = runtime_error_message(
+            &trace,
+            "Exception in thread main: fallback failure\n",
+            ExitStatus::from_raw(1 << 8),
+        );
+
+        assert_eq!(message, "structured runtime failure");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn trace_free_nonzero_jvm_exit_uses_stderr_primary_message() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let message = runtime_error_message(
+            "",
+            "\njava.lang.StackOverflowError\n\tat VelnProgram.loop(Unknown Source)\n",
+            ExitStatus::from_raw(1 << 8),
+        );
+
+        assert_eq!(message, "java.lang.StackOverflowError");
     }
 }
