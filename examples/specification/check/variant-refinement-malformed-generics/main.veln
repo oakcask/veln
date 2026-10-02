@@ -38,6 +38,14 @@ fn segment_after_variant(value: Result<Int>::Ok::Bad) -> ()
 	()
 end
 
+fn surplus_closer_after_variant(value: State::Ready>) -> ()
+	()
+end
+
+fn surplus_fused_closers_after_variant(value: State::Ready>>) -> ()
+	()
+end
+
 fn lowercase_variant(value: Result<Int, Error>::ok) -> ()
 	()
 end

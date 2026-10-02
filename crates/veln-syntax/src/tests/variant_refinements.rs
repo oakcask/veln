@@ -174,6 +174,8 @@ fn rejects_malformed_variant_refinement_forms() {
         "State<Int,>::Ready",
         "Result<Int>::Ok<Error>",
         "Result<Int>::Ok::Bad",
+        "State::Ready>",
+        "State::Ready>>",
     ];
 
     for annotation in cases {

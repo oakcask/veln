@@ -14,7 +14,7 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
     }
     diagnose_excessive_nesting(tokens, &candidates, &mut errors);
     diagnose_generic_arguments(tokens, &generic_syntax, &mut errors);
-    diagnose_candidate_suffixes(tokens, &candidates, &mut errors);
+    diagnose_candidate_suffixes(tokens, &surplus_closers, &candidates, &mut errors);
     errors.sort_unstable_by_key(|(index, _)| *index);
     errors.dedup();
     errors
@@ -204,6 +204,7 @@ fn diagnose_empty_type_argument(
 
 fn diagnose_candidate_suffixes(
     tokens: &[Token],
+    surplus_closers: &[bool],
     candidates: &[RawRefinementCandidate],
     errors: &mut Vec<(usize, &'static str)>,
 ) {
@@ -218,6 +219,12 @@ fn diagnose_candidate_suffixes(
                 suffix,
                 "variant refinement must end after its final variant name",
             )),
+            Some(kind) if closing_angle_count(kind) > 0 && surplus_closers[suffix] => {
+                errors.push((
+                    suffix,
+                    "variant refinement has surplus closing angle brackets after its final variant name",
+                ))
+            }
             _ => {}
         }
     }

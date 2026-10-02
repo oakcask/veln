@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"76ae6367796a687337445b3faebe58211de67088"
+source_git_tree	"879580b4693cb7bbffd1614178e9cd652b0ecf7c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1743
@@ -12539,15 +12539,16 @@ field	expectations.stdout.contains[2]	"must join complete ADT variant refinement
 field	expectations.stdout.contains[3]	"missing its final variant name"
 field	expectations.stdout.contains[4]	"has an empty type argument"
 field	expectations.stdout.contains[5]	"must end after its final variant name"
-field	expectations.stdout.contains[6]	"final segment must start with an ASCII uppercase letter"
-field	expectations.stdout.contains[7]	"`|>` cannot separate ADT variant refinement alternatives"
+field	expectations.stdout.contains[6]	"has surplus closing angle brackets after its final variant name"
+field	expectations.stdout.contains[7]	"final segment must start with an ASCII uppercase letter"
+field	expectations.stdout.contains[8]	"`|>` cannot separate ADT variant refinement alternatives"
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"e2bdcc014136cb7610559c850f8fe8e7870ea116c736ad5d16b5f65900534d05"
+case_digest	"819a07758f3619268a09d059ca8243650bb3511b92369e73409983ed396e883c"
 case	"examples/specification/doc/companion-discovery-exclusion"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62726,4 +62727,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"649f2fbf0eea4af030c47a993bf199738e1f6daefe212dcc27bfa337ce9301cb"
+aggregate_digest	"b48872d9f3d7b2029e68bd1840e8ed49591c7407d2a0b7d1f40713744fcf37e4"

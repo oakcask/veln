@@ -182,13 +182,6 @@ projection: `origin`, `occurrence`, `source_path`, `source_kind`, `segment`,
 and `segment_index`. The remaining diagnostic detail contract is the shared
 compiler diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md).
 
-Full-document formatting uses the shared formatter. It spaces each `|` in a
-structurally complete variant-refinement union and preserves written
-alternatives, qualification, and type arguments as specified by the
-[format command](command-fmt.md#formatting-rules). This structural formatting
-does not add semantic-token, navigation, or rename support for refinement
-segments.
-
 ## LSP Navigation, Formatting, And Rename
 
 `veln-language-service` accepts an effective project snapshot and a one-based
