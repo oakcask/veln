@@ -1,0 +1,57 @@
+use net from "std"
+
+fn invalid_join(result: Result<String, net::NetError>) -> String
+	match result
+		Err(net::NetError(_, _, _, net::InvalidAddress, _)) => "invalid"
+		_ => "unexpected"
+	end
+end
+
+fn invalid_split(result: Result<{ host : String, port : Int }, net::NetError>) -> String
+	match result
+		Err(net::NetError(_, _, _, net::InvalidAddress, _)) => "invalid"
+		_ => "unexpected"
+	end
+end
+
+fn split_label(result: Result<{ host : String, port : Int }, net::NetError>) -> String
+	match result
+		Ok(parts) => string::concat(string::concat(parts.host, ":"), int_to_string(parts.port))
+		Err(_) => "unexpected"
+	end
+end
+
+fn round_trip_label(host: String, port: Int) -> String
+	match net::join_host_port(host, port)
+		Ok(address) => string::concat(string::concat(address, " -> "), split_label(net::split_host_port(address)))
+		Err(_) => "unexpected"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let address = net::Address(net::Tcp4, "127.0.0.1", 8080)
+	let endpoint = net::Endpoint(net::Tcp6, "[::1]:443")
+	let _ = match address
+		net::Address(net::Tcp4, host, port) => stdio::println(string::concat(string::concat(host, ":"), int_to_string(port)))
+		_ => stdio::println("unexpected")
+	end
+	let _ = match endpoint
+		net::Endpoint(net::Tcp6, text) => stdio::println(text)
+		_ => stdio::println("unexpected")
+	end
+	stdio::println(round_trip_label("127.0.0.1", 0))
+	stdio::println(round_trip_label("example.test", 65535))
+	stdio::println(round_trip_label("2001:db8::1", 443))
+	stdio::println(invalid_join(net::join_host_port("host", -1)))
+	stdio::println(invalid_join(net::join_host_port("host", 65536)))
+	stdio::println(invalid_split(net::split_host_port("host:-1")))
+	stdio::println(invalid_split(net::split_host_port("host:65536")))
+	stdio::println(invalid_split(net::split_host_port("host")))
+	stdio::println(invalid_split(net::split_host_port("host:")))
+	stdio::println(invalid_split(net::split_host_port("host:not-a-port")))
+	stdio::println(invalid_split(net::split_host_port("host:80:90")))
+	stdio::println(invalid_split(net::split_host_port("2001:db8::1:443")))
+	stdio::println(invalid_split(net::split_host_port("[::1]")))
+	stdio::println(invalid_split(net::split_host_port("[::1]:80:90")))
+	Ok(())
+end

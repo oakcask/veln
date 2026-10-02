@@ -7,11 +7,13 @@ update-when: The planned standard-library network API, network effect boundary, 
 
 ## Outcome
 
-The standard package will export a `net` module for portable stream-oriented
-networking. Library code will use `net::listen`, `net::accept`, `net::connect`,
-name resolution, stream I/O, and resource cleanup through one public algebraic
-effect. An application will select the host implementation by handling that
-effect with `net::system()`.
+The standard package now exports the value-only `net` foundation described by
+the current [standard-library networking specification](../specification/standard-library-networking.md).
+The remaining work will add portable stream-oriented operations. Library code
+will use `net::listen`, `net::accept`, `net::connect`, name resolution, stream
+I/O, and resource cleanup through one public algebraic effect. An application
+will select the host implementation by handling that effect with
+`net::system()`.
 
 This keeps two concerns separate:
 
@@ -20,9 +22,9 @@ This keeps two concerns separate:
 - The existing host `net` and `time` effects remain the trusted runtime
   boundary used by the system handler.
 
-The first delivery covers TCP stream clients and servers, address text,
-resolution, deadlines, cancellation, and cleanup. It does not attempt full API
-parity with another language's network library.
+The remaining delivery covers TCP stream clients and servers, resolution,
+deadlines, cancellation, and cleanup. It does not attempt full API parity with
+another language's network library.
 
 ## Motivation
 
@@ -48,7 +50,6 @@ deterministic interception point.
 
 ## Goals
 
-- Export `net.veln` from the `std` package.
 - Give stream client and server code one portable API for TCP, TCP over IPv4,
   and TCP over IPv6.
 - Return typed ordinary failures instead of turning expected operating-system
@@ -64,7 +65,7 @@ deterministic interception point.
 
 ## Non-goals
 
-The first delivery does not include:
+The remaining proposal does not include:
 
 - UDP, raw IP, multicast, or packet-oriented sockets;
 - Unix-domain sockets;
@@ -78,54 +79,18 @@ These require separate proposals because they introduce different resource,
 message-boundary, portability, or security contracts. In particular, a future
 packet API must not encode datagrams as streams.
 
-## Public module
+## Remaining public module
 
-A package imports the module explicitly:
+A package already imports the value-only foundation explicitly:
 
 ```veln
 use net from "std"
 ```
 
-The `net` module exports the following values. Names in this section are the
-proposed source contract rather than aliases for compiler-known public
-symbols.
-
-### Network and address values
-
-```veln
-pub type Network
-	Tcp
-	Tcp4
-	Tcp6
-end
-
-pub type Address
-	Address(network: Network, host: String, port: Int)
-end
-
-pub type Endpoint
-	Endpoint(network: Network, address: String)
-end
-```
-
-`Address` is unresolved input. `host` may be a DNS name, an IP literal, or the
-empty string for a wildcard listening address. `port` must be in the inclusive
-range from zero through 65535. Port zero requests an ephemeral local port when
-listening. Connecting to port zero is permitted to reach platforms that assign
-meaning to it; any rejection is a `NetError`.
-
-`Endpoint` is a resolved numeric address returned by the handler. Its
-`address` uses host-port text. An IPv6 host is bracketed. The module supplies
-pure helpers:
-
-```veln
-pub fn join_host_port(host: String, port: Int) -> Result<String, NetError>
-pub fn split_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>
-```
-
-`join_host_port` rejects an out-of-range port. `split_host_port` requires one
-port, accepts bracketed IPv6, and rejects ambiguous unbracketed IPv6. Neither
-helper performs name resolution or requires an effect.
+The current module exports `Network`, `Address`, `Endpoint`, `NetErrorKind`,
+`NetError`, `join_host_port`, and `split_host_port`. The rest of this section
+is the proposed source contract for the effectful API rather than aliases for
+compiler-known public symbols.
 
 ### Resources and counts
 
@@ -145,27 +110,11 @@ used to compare a count with a `ByteChunk` length.
 
 ### Errors and read outcomes
 
+`NetErrorKind` and `NetError` are already public values. The remaining work
+will assign their portable classifications to host-backed operations and add
+the following operation outcomes:
+
 ```veln
-pub type NetErrorKind
-	InvalidAddress
-	UnsupportedNetwork
-	NameNotFound
-	PermissionDenied
-	AddressInUse
-	ConnectionRefused
-	ConnectionReset
-	TimedOut
-	Cancelled
-	Closed
-	Busy
-	InvalidResource
-	Other
-end
-
-pub type NetError
-	NetError(operation: String, network: Option<Network>, address: Option<String>, kind: NetErrorKind, message: String)
-end
-
 pub type ReadOutcome
 	ReadChunk(bytes: ByteChunk)
 	ReadEnd
@@ -423,12 +372,13 @@ returns `InvalidResource`.
 
 ## Compatibility and migration
 
-Implementation must move the public contract into `std::net` without leaving
-two independently maintained network APIs.
+The remaining implementation must move the effectful public contract into
+`std::net` without leaving two independently maintained network APIs.
 
 1. Add private host intrinsics under a namespace that source imports cannot
    resolve.
-2. Implement and export `net.veln`, its `net::IO` wrappers, and `net::system()`.
+2. Extend the exported `net.veln` with its `net::IO` wrappers and
+   `net::system()`.
 3. Update standard-library code to import `net` and handle or propagate
    `net::IO` at its intended boundary.
 4. Keep the existing compiler-known `net::...` spellings only as a temporary
@@ -451,12 +401,10 @@ already exist or pass.
 
 | Concern | Input or event | Required observation | Intended evidence |
 | --- | --- | --- | --- |
-| Export | `use net from "std"` | `net::listen` and every declared public type resolve to `std::net` | package and check cases under `examples/specification/` |
+| Export | `use net from "std"` with the proposed effectful declarations present | `net::listen`, `net::IO`, `Listener`, `Stream`, `ReadOutcome`, and `WriteOutcome` resolve to `std::net` | package and check cases under `examples/specification/` |
 | Effects | A public function calls `net::listen` without `net::IO` | Static diagnostic names `net::IO` and the call site | check cases |
 | System handling | A `net::IO` block is handled with `net::system()` | The remaining effects are host `net` and `time` | check cases and semantic tests |
 | No implicit authority | An entry point leaves `net::IO` unhandled | Static failure; the runner does not install a handler | check and run cases |
-| Address parsing | Bracketed IPv6 and a valid port are split and rejoined | Stable host and port values | standard-library doctests |
-| Address rejection | Port is out of range or IPv6 is ambiguous | `InvalidAddress`; no network operation is recorded | doctests and runtime conformance test |
 | Resolution | A name maps to repeated endpoints | Order is preserved and exact duplicates are removed | runtime conformance test |
 | Listen and accept | The system handler listens on loopback port zero and a client connects | Reported listener address has an assigned port and accept returns a fresh stream | loopback run case |
 | Connect failure | No server listens at a selected loopback address | `ConnectionRefused` or a documented portable fallback classification | loopback run case |
@@ -472,7 +420,7 @@ already exist or pass.
 | Scope cleanup | A handled block exits with owned resources open | Host resources close and a peer observes closure | loopback run case |
 | Escaped resource | A resource is returned from its owning handled scope | Scope cleanup closes it and another handler rejects it | runtime conformance test |
 | Editor identity | Definition or hover targets an imported network symbol | Location and package identity are `std::net` | LSP and MCP cases |
-| Package docs | Standard package documentation is generated | `net` API, effects, errors, and examples are present | package-documentation gate |
+| Package docs | Standard package documentation is generated after the effectful API is added | The effect, resource and outcome declarations, stream operations, system handler, and effectful examples are present | package-documentation gate |
 
 Loopback cases must bind only loopback addresses and must use bounded deadlines.
 They must not require external DNS or internet access. Cases that validate
@@ -480,11 +428,12 @@ resolver ordering use the deterministic handler.
 
 ## Specification promotion
 
-When implementation begins, add executable evidence before describing the API
-as current behavior. Then add the smallest focused current specification pages
+The value-only foundation and its executable evidence are current behavior.
+For the remaining work, add executable evidence before describing the API as
+current behavior. Then add the smallest focused current specification pages
 for:
 
-- the exported `std::net` API and error contract;
+- the effectful `std::net` API and host-error contract;
 - the `net::IO` and `net::system()` effect boundary;
 - listener and stream lifecycle transitions;
 - the `transport::DuplexStream` adapter boundary.

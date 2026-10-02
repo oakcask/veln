@@ -1,0 +1,59 @@
+use net
+
+fn is_invalid(result: Result<String, net::NetError>) -> Bool
+	match result
+		Ok(_) => false
+		Err(net::NetError(_, _, _, net::InvalidAddress, _)) => true
+		Err(_) => false
+	end
+end
+
+fn is_split_invalid(result: Result<{ host : String, port : Int }, net::NetError>) -> Bool
+	match result
+		Ok(_) => false
+		Err(net::NetError(_, _, _, net::InvalidAddress, _)) => true
+		Err(_) => false
+	end
+end
+
+test address_values_are_constructible_and_inspectable() -> Result<(), String>
+	let address = net::Address(net::Tcp4, "127.0.0.1", 8080)
+	let endpoint = net::Endpoint(net::Tcp6, "[::1]:443")
+	match address
+		net::Address(net::Tcp4, "127.0.0.1", 8080) => match endpoint
+			net::Endpoint(net::Tcp6, "[::1]:443") => Ok(())
+			_ => Err("endpoint fields did not match")
+		end
+		_ => Err("address fields did not match")
+	end
+end
+
+test host_port_success_boundaries_round_trip() -> Result<(), String>
+	match net::join_host_port("127.0.0.1", 0)
+		Ok(ipv4) => match net::split_host_port(ipv4)
+			Ok({ host: "127.0.0.1", port: 0 }) => match net::join_host_port("example.test", 65535)
+				Ok(hostname) => match net::split_host_port(hostname)
+					Ok({ host: "example.test", port: 65535 }) => match net::join_host_port("2001:db8::1", 443)
+						Ok("[2001:db8::1]:443") => match net::split_host_port("[2001:db8::1]:443")
+							Ok({ host: "2001:db8::1", port: 443 }) => Ok(())
+							_ => Err("IPv6 round trip did not match")
+						end
+						_ => Err("IPv6 join did not succeed")
+					end
+					_ => Err("hostname round trip did not match")
+				end
+				_ => Err("hostname join did not succeed")
+			end
+			_ => Err("IPv4 round trip did not match")
+		end
+		_ => Err("IPv4 join did not succeed")
+	end
+end
+
+test host_port_rejection_boundaries_are_invalid_addresses() -> Result<(), String>
+	if is_invalid(net::join_host_port("host", -1)) and is_invalid(net::join_host_port("host", 65536)) and is_split_invalid(net::split_host_port("host:-1")) and is_split_invalid(net::split_host_port("host:65536")) and is_split_invalid(net::split_host_port("host")) and is_split_invalid(net::split_host_port("host:")) and is_split_invalid(net::split_host_port("host:not-a-port")) and is_split_invalid(net::split_host_port("host:80:90")) and is_split_invalid(net::split_host_port("2001:db8::1:443")) and is_split_invalid(net::split_host_port("[::1]")) and is_split_invalid(net::split_host_port("[::1]:80:90"))
+		Ok(())
+	else
+		Err("expected every rejected address to use InvalidAddress")
+	end
+end
