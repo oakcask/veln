@@ -1,0 +1,6 @@
+use observer
+
+pub fn guarded() -> SourceLocation callsite
+require observer::same_location(callsite)
+	callsite
+end

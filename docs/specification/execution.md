@@ -22,9 +22,11 @@ blockers prevent execution.
 Direct calls to call-site-aware functions enter checked core with a hidden
 `SourceLocation` argument. Calls from ordinary functions construct that value
 from the call expression, while call-site-aware wrappers forward their existing
-value. Indirect calls, call-site-aware run entries, and runtime contract uses
-that call call-site-aware functions remain execution gates. Direct built-in
-references in runtime contracts execute with the function's supplied value.
+value. A runtime contract on a call-site-aware function forwards that existing
+value when it directly calls another call-site-aware function. Indirect calls,
+call-site-aware run entries, and the same contract call from an ordinary
+function remain execution gates. Direct built-in references in runtime
+contracts execute with the function's supplied value.
 The focused declaration and propagation contract is specified by
 [Call-site Declarations](call-site-declarations.md).
 

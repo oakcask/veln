@@ -1,0 +1,14 @@
+use contracts
+
+pub fn main() -> () effects [stdio]
+	let observed = contracts::guarded()
+	stdio::println(observed.package)
+	stdio::println(observed.module)
+	stdio::println(observed.file)
+	stdio::println(int_to_string(observed.start_line))
+	stdio::println(int_to_string(observed.start_column))
+	stdio::println(int_to_string(observed.start_offset))
+	stdio::println(int_to_string(observed.end_line))
+	stdio::println(int_to_string(observed.end_column))
+	stdio::println(int_to_string(observed.end_offset))
+end

@@ -52,7 +52,41 @@ fn callsite_contract_references_lower_for_execution() {
 }
 
 #[test]
-fn callsite_aware_contract_calls_are_blocked_during_execution_lowering() {
+fn callsite_aware_contract_calls_lower_when_the_enclosing_function_has_callsite_context() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located() -> Bool callsite\n",
+            "  callsite.start_line > 0\n",
+            "end\n",
+            "pub fn guarded() -> () callsite\n",
+            "require located()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(matches!(
+        lowered.core.as_ref().expect("checked core").readiness,
+        CoreReadiness::Complete
+    ));
+    let guarded = lowered
+        .ir
+        .as_ref()
+        .expect("typed IR")
+        .functions
+        .iter()
+        .find(|function| function.name == "guarded")
+        .expect("guarded function");
+    assert_eq!(guarded.contracts[0].callsite_callees, ["located"]);
+}
+
+#[test]
+fn ordinary_function_contract_calls_that_need_callsite_context_remain_blocked() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -71,7 +105,7 @@ fn callsite_aware_contract_calls_are_blocked_during_execution_lowering() {
     let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
     let blockers = match &lowered.core.as_ref().expect("checked core").readiness {
         CoreReadiness::Blocked(blockers) => blockers,
-        CoreReadiness::Complete => panic!("call-site-aware contract calls must block execution"),
+        CoreReadiness::Complete => panic!("ordinary contracts cannot construct call-site context"),
     };
     assert!(blockers.iter().any(|blocker| matches!(
         blocker,

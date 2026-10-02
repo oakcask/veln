@@ -83,6 +83,7 @@ pub struct CoreContract {
     pub node_id: NodeId,
     pub kind: ContractKind,
     pub predicate: String,
+    pub callsite_callees: Vec<String>,
     pub obligation_status: ContractObligationStatus,
     pub span: SourceSpan,
 }

@@ -44,9 +44,10 @@ A selected entry cannot require call-site context because no Veln call
 expression invokes it. Direct calls within the reachable program do supply
 call-site context, including forwarding through call-site-aware wrappers.
 Runtime contracts in those functions can read the supplied built-in value.
-Using a call-site-aware function as a function value or calling one from a
-runtime contract blocks execution before backend launch. The exact
-propagation and remaining limits are specified by
+Their direct calls to other call-site-aware functions forward that value.
+Using a call-site-aware function as a function value, or calling one from a
+runtime contract on an ordinary function, blocks execution before backend
+launch. The exact propagation and remaining limits are specified by
 [Call-site Declarations](call-site-declarations.md).
 
 The reachable program is lowered to typed IR and JVM classfiles. Ordinary

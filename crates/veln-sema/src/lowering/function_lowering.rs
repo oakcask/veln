@@ -118,23 +118,27 @@ impl<'a> CoreLowerer<'a> {
                 } else {
                     ContractObligationStatus::RuntimeRequired
                 };
+                let callsite_callees = contract
+                    .call_callee_spans
+                    .iter()
+                    .filter(|(callee, _)| self.contract_call_requires_callsite(callee))
+                    .map(|(callee, _)| callee.clone())
+                    .collect::<Vec<_>>();
                 if self.block_unsupported_callsite_runtime
+                    && self.function.callsite.is_none()
                     && obligation_status == ContractObligationStatus::RuntimeRequired
                 {
-                    let unsupported_calls = contract
-                        .call_callee_spans
-                        .iter()
-                        .filter(|(callee, _)| self.contract_call_requires_callsite(callee))
-                        .cloned()
-                        .collect::<Vec<_>>();
-                    for (callee, span) in unsupported_calls {
-                        self.unsupported_callsite_contract_call(contract.node_id, &span, &callee);
+                    for (callee, span) in &contract.call_callee_spans {
+                        if callsite_callees.contains(callee) {
+                            self.unsupported_callsite_contract_call(contract.node_id, span, callee);
+                        }
                     }
                 }
                 CoreContract {
                     node_id: contract.node_id,
                     kind: contract.kind,
                     predicate: contract.text.clone(),
+                    callsite_callees,
                     obligation_status,
                     span: contract.span.clone(),
                 }

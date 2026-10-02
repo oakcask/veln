@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"9500bc6e5c5522fec895e84ee88d899c142070f0"
+source_git_tree	"f50cf9b4c4f0f793bc7fb18537bddeb09246a34e"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1751
@@ -37003,6 +37003,19 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"f00a9ea9d8a375fc87b84a00008426a0e3db2fee600557aa9ef74c98b69be7e6"
+case	"examples/specification/run/callsite-contract-call-runtime"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"contracts.veln"
+field	invocation.command[4]	"observer.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"a076c731de07c74ca85b9a376ce204f0bc383101aa9f4031a886d529029ae709"
 case	"examples/specification/run/callsite-contract-failure"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"failed"
@@ -37043,18 +37056,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"cf8cc8212de5744cb052561c0f7b8d95765c9049eb6c5a41119d7a5cb25cba61"
-case	"examples/specification/run/callsite-contract-runtime-boundary"
-field	expectations.exit	1
-field	expectations.stderr.contains[0]	"error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract"
-field	expectations.stderr.contains[1]	"Runtime contract calls do not yet supply the hidden call-site location."
-field	expectations.stderr.format	"text"
-field	expectations.stdout.format	"empty"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"main"
-field	invocation.command[2]	"main.veln"
-field	invocation.repeat	1
-field	source_errors	"forbidden"
-case_digest	"b4a1c10fceefebb686d9867f28eef5ea5386cf78d6a168f5d1f4da6db9e3d22b"
 case	"examples/specification/run/callsite-direct-runtime"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62929,4 +62930,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ae7ce993523a0e88bb5185ab37d66c07dfdf5ff82b50774ac319aabb4e1aa091"
+aggregate_digest	"0860177f0d4039d5112b56fe2bd765235ec2ec87ee25fa77ce33cc91098910ad"

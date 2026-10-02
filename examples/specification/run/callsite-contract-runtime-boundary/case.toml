@@ -1,9 +1,0 @@
-command = ["run", "main", "main.veln"]
-exit = 1
-
-[stdout]
-format = "empty"
-
-[stderr]
-format = "text"
-contains = ["error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract", "Runtime contract calls do not yet supply the hidden call-site location."]

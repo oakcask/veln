@@ -52,10 +52,11 @@ the function is entered. `ensure` runs before normal return and before a `?`
 error return. `invariant` runs at entry and before normal or `?` return.
 
 Runtime-required obligations in a call-site-aware function can read the same
-hidden `callsite` value as the function body. A runtime-required contract that
-calls a call-site-aware function remains blocked; a statically proven
-obligation emits no runtime call. Direct calls in ordinary function bodies
-remain executable.
+hidden `callsite` value as the function body. A direct call from such an
+obligation to another call-site-aware function forwards that value without an
+explicit source argument. The same call from a contract on an ordinary
+function remains blocked. A statically proven obligation emits no runtime
+call. Direct calls in ordinary function bodies remain executable.
 The focused boundary is specified by
 [Call-site Declarations](call-site-declarations.md#limits-and-diagnostics).
 

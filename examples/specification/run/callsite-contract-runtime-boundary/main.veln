@@ -1,8 +1,0 @@
-fn located() -> Bool callsite
-	callsite.start_line > 0
-end
-
-pub fn main() -> ()
-	require located()
-	()
-end

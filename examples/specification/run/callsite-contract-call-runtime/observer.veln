@@ -1,0 +1,3 @@
+pub fn same_location(expected: SourceLocation) -> Bool callsite
+	callsite.package == expected.package and callsite.module == expected.module and callsite.file == expected.file and callsite.start_line == expected.start_line and callsite.start_column == expected.start_column and callsite.start_offset == expected.start_offset and callsite.end_line == expected.end_line and callsite.end_column == expected.end_column and callsite.end_offset == expected.end_offset
+end

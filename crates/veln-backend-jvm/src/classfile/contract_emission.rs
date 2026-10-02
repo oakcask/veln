@@ -16,7 +16,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             (ContractKind::Invariant, ContractCheckPosition::Entry) => "caller",
             (ContractKind::Invariant, ContractCheckPosition::Return) => "implementation",
         };
-        self.emit_contract_value(code, &contract.predicate);
+        self.emit_contract_value(code, &contract.predicate, &contract.callsite_callees);
         let clause = match contract.kind {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
@@ -39,21 +39,40 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         );
     }
 
-    pub(super) fn emit_contract_value(&mut self, code: &mut MethodCode, text: &str) {
+    pub(super) fn emit_contract_value(
+        &mut self,
+        code: &mut MethodCode,
+        text: &str,
+        callsite_callees: &[String],
+    ) {
         match parse_contract_value(text) {
-            ContractValue::Not(value) => self.emit_contract_unary(code, value, "not"),
-            ContractValue::Binary { left, right, op } => {
-                self.emit_contract_binary(code, left, right, op)
+            ContractValue::Not(value) => {
+                self.emit_contract_unary(code, value, "not", callsite_callees)
             }
-            ContractValue::BitwiseNot(value) => self.emit_contract_unary(code, value, "bitwiseNot"),
-            ContractValue::Call { callee, args } => self.emit_contract_call(code, callee, &args),
-            ContractValue::Field { base, field } => self.emit_contract_field(code, base, field),
+            ContractValue::Binary { left, right, op } => {
+                self.emit_contract_binary(code, left, right, op, callsite_callees)
+            }
+            ContractValue::BitwiseNot(value) => {
+                self.emit_contract_unary(code, value, "bitwiseNot", callsite_callees)
+            }
+            ContractValue::Call { callee, args } => {
+                self.emit_contract_call(code, callee, &args, callsite_callees)
+            }
+            ContractValue::Field { base, field } => {
+                self.emit_contract_field(code, base, field, callsite_callees)
+            }
             ContractValue::Scalar(value) => self.emit_contract_scalar(code, value),
         }
     }
 
-    fn emit_contract_unary(&mut self, code: &mut MethodCode, value: &str, method: &str) {
-        self.emit_contract_value(code, value);
+    fn emit_contract_unary(
+        &mut self,
+        code: &mut MethodCode,
+        value: &str,
+        method: &str,
+        callsite_callees: &[String],
+    ) {
+        self.emit_contract_value(code, value, callsite_callees);
         code.invokestatic(
             &self.program.options.runtime_class,
             method,
@@ -67,9 +86,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         left: &str,
         right: &str,
         op: BinaryOp,
+        callsite_callees: &[String],
     ) {
-        self.emit_contract_value(code, left);
-        self.emit_contract_value(code, right);
+        self.emit_contract_value(code, left, callsite_callees);
+        self.emit_contract_value(code, right, callsite_callees);
         code.invokestatic(
             &self.program.options.runtime_class,
             binary_method(op),
@@ -77,20 +97,36 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         );
     }
 
-    fn emit_contract_call(&mut self, code: &mut MethodCode, callee: &str, args: &[&str]) {
+    fn emit_contract_call(
+        &mut self,
+        code: &mut MethodCode,
+        callee: &str,
+        args: &[&str],
+        callsite_callees: &[String],
+    ) {
         for arg in args {
-            self.emit_contract_value(code, arg);
+            self.emit_contract_value(code, arg, callsite_callees);
+        }
+        let requires_callsite = callsite_callees.iter().any(|candidate| candidate == callee);
+        if requires_callsite {
+            code.aload(self.local_slot("callsite"));
         }
         let function = callee.rsplit("::").next().unwrap_or(callee);
         code.invokestatic(
             &self.program.options.program_class,
             &self.program.function_name(function),
-            &object_method_descriptor(args.len()),
+            &object_method_descriptor(args.len() + usize::from(requires_callsite)),
         );
     }
 
-    fn emit_contract_field(&mut self, code: &mut MethodCode, base: &str, field: &str) {
-        self.emit_contract_value(code, base);
+    fn emit_contract_field(
+        &mut self,
+        code: &mut MethodCode,
+        base: &str,
+        field: &str,
+        callsite_callees: &[String],
+    ) {
+        self.emit_contract_value(code, base, callsite_callees);
         code.ldc_string(field);
         code.invokestatic(
             &self.program.options.runtime_class,
