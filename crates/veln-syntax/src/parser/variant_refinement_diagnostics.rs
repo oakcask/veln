@@ -15,9 +15,121 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
     diagnose_excessive_nesting(tokens, &candidates, &mut errors);
     diagnose_generic_arguments(tokens, &generic_syntax, &mut errors);
     diagnose_candidate_suffixes(tokens, &surplus_closers, &candidates, &mut errors);
+    diagnose_candidate_boundaries(tokens, &candidates, &mut errors);
     errors.sort_unstable_by_key(|(index, _)| *index);
     errors.dedup();
     errors
+}
+
+fn diagnose_candidate_boundaries(
+    tokens: &[Token],
+    candidates: &[RawRefinementCandidate],
+    errors: &mut Vec<(usize, &'static str)>,
+) {
+    let mut covered = vec![false; tokens.len()];
+    for candidate in candidates {
+        for is_covered in covered
+            .iter_mut()
+            .take(candidate.end_index.saturating_add(1))
+            .skip(candidate.start_index)
+        {
+            *is_covered = true;
+        }
+    }
+
+    for candidate in candidates {
+        if let Some(prefix) = candidate.start_index.checked_sub(1)
+            && !covered[prefix]
+            && !allowed_refinement_prefix(tokens[prefix].kind)
+        {
+            errors.push((
+                prefix,
+                "variant refinement must be complete at its structural type position",
+            ));
+        }
+
+        let suffix = candidate.end_index + 1;
+        let suffix_kind = tokens.get(suffix).map(|token| token.kind);
+        if let Some(kind) = suffix_kind
+            && !allowed_refinement_suffix(kind)
+        {
+            errors.push((
+                suffix,
+                "variant refinement must be complete at its structural type position",
+            ));
+        } else if suffix_kind.is_some_and(closing_type_delimiter) {
+            let mut after_closers = suffix + 1;
+            while tokens
+                .get(after_closers)
+                .is_some_and(|token| closing_type_delimiter(token.kind))
+            {
+                after_closers += 1;
+            }
+            if let Some(token) = tokens.get(after_closers)
+                && !allowed_after_closed_type_structure(token.kind)
+            {
+                errors.push((
+                    after_closers,
+                    "variant refinement must be complete at its structural type position",
+                ));
+            }
+        }
+    }
+}
+
+fn closing_type_delimiter(kind: TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::RParen
+            | TokenKind::RBracket
+            | TokenKind::RBrace
+            | TokenKind::Greater
+            | TokenKind::ShiftRight
+            | TokenKind::ShiftRightLogical
+    )
+}
+
+fn allowed_after_closed_type_structure(kind: TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::Pipe
+            | TokenKind::Comma
+            | TokenKind::Semicolon
+            | TokenKind::Arrow
+            | TokenKind::Effects
+            | TokenKind::DoubleColon
+    )
+}
+
+fn allowed_refinement_prefix(kind: TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::Less
+            | TokenKind::Comma
+            | TokenKind::Colon
+            | TokenKind::Arrow
+            | TokenKind::Pipe
+            | TokenKind::LParen
+            | TokenKind::LBracket
+            | TokenKind::LBrace
+    )
+}
+
+fn allowed_refinement_suffix(kind: TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::Pipe
+            | TokenKind::Comma
+            | TokenKind::Semicolon
+            | TokenKind::Arrow
+            | TokenKind::Effects
+            | TokenKind::RParen
+            | TokenKind::RBracket
+            | TokenKind::RBrace
+            | TokenKind::Greater
+            | TokenKind::ShiftRight
+            | TokenKind::ShiftRightLogical
+    )
 }
 
 fn diagnose_token(

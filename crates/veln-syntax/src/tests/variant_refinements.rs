@@ -261,6 +261,134 @@ fn deeply_nested_unmatched_generic_openers_recover_at_one_boundary() {
 }
 
 #[test]
+fn unmatched_generic_opener_preserves_following_named_siblings() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn flat(first: Result<Int, second: String, third: Bool) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested(first: Wrapper<Result<Int, second: String) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "type Payload\n",
+            "  Broken(first: Result<Int, second: String)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let functions = output
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Function(function) => Some(function),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(functions[0].params.len(), 3, "{:#?}", output.diagnostics);
+    assert_eq!(functions[0].params[1].name, "second");
+    assert_eq!(functions[0].params[1].ty.as_deref(), Some("String"));
+    assert_eq!(functions[1].params.len(), 2, "{:#?}", output.diagnostics);
+    assert_eq!(functions[1].params[1].name, "second");
+
+    let SyntaxItem::Type(payload) = &output.tree.items[2] else {
+        panic!("expected type declaration");
+    };
+    assert_eq!(
+        payload.variants[0].fields.len(),
+        2,
+        "{:#?}",
+        output.diagnostics
+    );
+    assert_eq!(payload.variants[0].fields[1].name, "second");
+    assert_eq!(payload.variants[0].fields[1].ty, "String");
+
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.id == "parse.variant_refinement_type"
+                    && diagnostic.message == "generic type arguments are missing a closing `>`"
+            })
+            .count(),
+        3,
+        "{:#?}",
+        output.diagnostics
+    );
+}
+
+#[test]
+fn deeply_nested_unmatched_generic_openers_preserve_a_following_parameter() {
+    const DEPTH: usize = 4_096;
+    let annotation = format!("{}Int", "Layer<".repeat(DEPTH));
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn broken(first: {annotation}, survivor: String) -> ()\n  ()\nend\n"),
+    );
+
+    let output = parse(&source);
+    let function = first_function(&output);
+    assert_eq!(function.params.len(), 2, "{:#?}", output.diagnostics);
+    assert_eq!(function.params[1].name, "survivor");
+    assert_eq!(function.params[1].ty.as_deref(), Some("String"));
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+            .count(),
+        1,
+        "{:#?}",
+        output.diagnostics
+    );
+}
+
+#[test]
+fn rejects_text_adjacent_to_variant_refinements() {
+    let cases = [
+        ("State::Ready State::Closed", "State"),
+        ("State::Ready | State::Closed Int", "Int"),
+        ("Int State::Ready", "Int"),
+        ("List<State::Ready Int>", "Int"),
+        ("List<State::Ready> Int", "Int"),
+        ("fn(State::Ready Int) -> State::Closed", "Int"),
+        ("{state: State::Ready Int}", "Int"),
+        ("{state: State::Ready} Int", "Int"),
+    ];
+
+    for (annotation, unexpected) in cases {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("fn invalid(value: {annotation}) -> ()\n  ()\nend\n"),
+        );
+        let output = parse(&source);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.id == "parse.variant_refinement_type"
+                    && diagnostic.message
+                        == "variant refinement must be complete at its structural type position"
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "expected adjacent-text diagnostic for `{annotation}`: {:#?}",
+                    output.diagnostics
+                )
+            });
+        let span = diagnostic.span.as_ref().expect("diagnostic span");
+        assert_eq!(
+            &source.text()[span.start.offset..span.end.offset],
+            unexpected,
+            "{annotation}"
+        );
+    }
+}
+
+#[test]
 fn rejects_type_arguments_after_a_structurally_complete_generic_refinement() {
     let source = SourceFile::new(
         "main.veln",

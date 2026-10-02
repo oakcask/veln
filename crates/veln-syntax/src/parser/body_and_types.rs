@@ -148,6 +148,18 @@ impl<'a> Parser<'a> {
                     break;
                 }
                 if angle_depth > 0
+                    && paren_depth == 0
+                    && bracket_depth == 0
+                    && brace_depth == 0
+                    && self.at(TokenKind::Comma)
+                    && stop.contains(&TokenKind::Comma)
+                    && self.comma_precedes_named_type_sibling()
+                {
+                    self.report_unmatched_generic_opener(context);
+                    reported_unmatched_angle = true;
+                    break;
+                }
+                if angle_depth > 0
                     && unmatched_angle_reaches_annotation_boundary(
                         self.current().kind,
                         paren_depth,
@@ -198,6 +210,12 @@ impl<'a> Parser<'a> {
             RecoveryStrategy::InsertToken,
             Some(">"),
         );
+    }
+
+    fn comma_precedes_named_type_sibling(&self) -> bool {
+        self.peek_kind(1)
+            .is_some_and(|kind| is_contextual_identifier(kind) || kind == TokenKind::Hole)
+            && self.peek_kind(2) == Some(TokenKind::Colon)
     }
 
     pub(super) fn collect_return_type_until(

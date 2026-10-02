@@ -66,6 +66,22 @@ fn unmatched_generic(value: Result<Int, Error::Ok) -> ()
 	()
 end
 
+fn adjacent_refinements(value: State::Ready State::Closed) -> ()
+	()
+end
+
+fn trailing_refinement_text(value: State::Ready | State::Closed Int) -> ()
+	()
+end
+
+fn nested_trailing_refinement_text(value: List<State::Ready Int>) -> ()
+	()
+end
+
+fn unmatched_sibling(first: Result<Int, second: String) -> ()
+	()
+end
+
 fn survivor() -> ()
 	()
 end
