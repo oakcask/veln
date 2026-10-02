@@ -6,3 +6,13 @@ require observer::variadic_location(callsite)
 require observer::variadic_location(callsite, 17, 29)
 	callsite
 end
+
+pub fn invariant_guarded() -> SourceLocation callsite
+invariant observer::observe(callsite)
+	callsite
+end
+
+pub fn ensured() -> SourceLocation callsite
+ensure observer::observe(callsite)
+	callsite
+end
