@@ -61,27 +61,12 @@ impl std::ops::Deref for CoreCleanupRegion {
     }
 }
 
-impl std::ops::DerefMut for CoreCleanupRegion {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.statements
-    }
-}
-
 impl<'a> IntoIterator for &'a CoreCleanupRegion {
     type Item = &'a CoreStmt;
     type IntoIter = std::slice::Iter<'a, CoreStmt>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.statements.iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut CoreCleanupRegion {
-    type Item = &'a mut CoreStmt;
-    type IntoIter = std::slice::IterMut<'a, CoreStmt>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.statements.iter_mut()
     }
 }
 
