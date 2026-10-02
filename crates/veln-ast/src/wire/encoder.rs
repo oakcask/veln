@@ -86,7 +86,6 @@ impl Writer {
     fn variant_refinement_alternative(&mut self, value: &VariantRefinementAlternative) {
         self.type_path_segments(&value.base);
         self.vec(&value.type_arguments, |writer, argument| {
-            writer.string(&argument.text);
             writer.span(&argument.span);
         });
         self.string(&value.variant);

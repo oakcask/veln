@@ -37,6 +37,9 @@ thread_local! {
     static MATCH_ARM_LOOKAHEAD_TOKEN_VISITS: std::cell::Cell<usize> = const {
         std::cell::Cell::new(0)
     };
+    static REFINEMENT_GROUPING_CANDIDATE_LOOKUPS: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
 }
 
 #[cfg(test)]
@@ -47,6 +50,25 @@ pub(crate) fn reset_match_arm_lookahead_token_visits() {
 #[cfg(test)]
 pub(crate) fn match_arm_lookahead_token_visits() -> usize {
     MATCH_ARM_LOOKAHEAD_TOKEN_VISITS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn reset_refinement_grouping_candidate_lookups() {
+    REFINEMENT_GROUPING_CANDIDATE_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn refinement_grouping_candidate_lookups() -> usize {
+    REFINEMENT_GROUPING_CANDIDATE_LOOKUPS.get()
+}
+
+#[cfg(test)]
+fn record_refinement_grouping_candidate_lookup() {
+    REFINEMENT_GROUPING_CANDIDATE_LOOKUPS.set(
+        REFINEMENT_GROUPING_CANDIDATE_LOOKUPS
+            .get()
+            .saturating_add(1),
+    );
 }
 
 fn is_contextual_identifier(kind: TokenKind) -> bool {

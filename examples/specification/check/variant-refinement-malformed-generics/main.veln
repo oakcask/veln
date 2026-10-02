@@ -1,0 +1,7 @@
+fn misplaced(value: State::Ready<Int>) -> ()
+	()
+end
+
+fn surplus(value: Result<Int>>::Ok | Result<Int>>::Err) -> ()
+	()
+end

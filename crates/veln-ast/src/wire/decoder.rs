@@ -143,7 +143,6 @@ impl<'a> Reader<'a> {
             base: self.type_path_segments()?,
             type_arguments: self.vec(|reader| {
                 Ok(VariantRefinementTypeArgument {
-                    text: reader.string()?,
                     span: reader.span()?,
                 })
             })?,

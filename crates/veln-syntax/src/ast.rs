@@ -310,7 +310,6 @@ pub struct VariantRefinementAlternative {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VariantRefinementTypeArgument {
-    pub text: String,
     pub span: SourceSpan,
 }
 

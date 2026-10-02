@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"50228daa3a09c8d42caae8957fe2da17ef7c4f58"
+source_git_tree	"5e609cc17eeb7422d935e38f8d08d30b4f102c14"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1742
+case_count	1743
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -12527,6 +12527,22 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"6b5c8c77a0956c86676708d11ec78934ccb90dae3409c94078a55617f7444504"
+case	"examples/specification/check/variant-refinement-malformed-generics"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"parse.variant_refinement_type\""
+field	expectations.stdout.contains[1]	"type arguments must precede the final `::Variant` segment"
+field	expectations.stdout.contains[2]	"must join complete ADT variant refinement alternatives"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"a093c42958a8cf5e217c176c24f7607b9e0c268159ecf6f9e4af0bfa6ca50293"
 case	"examples/specification/doc/companion-discovery-exclusion"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62705,4 +62721,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"457c45cf59c692c913807ac572aace9655991c40b86ca0ad36849bfcee8c1fe4"
+aggregate_digest	"5c9c2a6eba9603741810084a8016349c33e35702dbacc5f06b1124fe69f20966"

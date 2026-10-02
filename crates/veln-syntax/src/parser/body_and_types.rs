@@ -438,7 +438,7 @@ impl<'a> Parser<'a> {
 
 pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'static str)> {
     let mut errors = Vec::new();
-    let has_refinement_union = tokens.iter().any(|token| token.kind == TokenKind::Pipe);
+    let (generic_syntax, surplus_closers) = scan_generic_syntax(tokens);
     for (index, token) in tokens.iter().enumerate() {
         if token.kind == TokenKind::DoubleColon {
             let left_can_be_base = index > 0
@@ -456,8 +456,7 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
                 ));
             }
         }
-        if has_refinement_union
-            && token.kind == TokenKind::Less
+        if token.kind == TokenKind::Less
             && index >= 3
             && is_type_path_segment(&tokens[index - 1])
             && starts_uppercase(&tokens[index - 1].text)
@@ -474,13 +473,25 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
             && tokens
                 .get(index + 1)
                 .is_some_and(|next| closing_angle_count(next.kind) > 0)
-            && matching_angle_token(tokens, index).is_some_and(|close| {
-                tokens.get(close + 1).map(|next| next.kind) == Some(TokenKind::DoubleColon)
+            && generic_syntax[index].matched.is_some_and(|matched| {
+                tokens.get(matched.token_index + 1).map(|next| next.kind)
+                    == Some(TokenKind::DoubleColon)
             })
         {
             errors.push((
                 index,
                 "variant refinement generic base has an empty type argument",
+            ));
+        }
+        if surplus_closers[index]
+            && tokens.get(index + 1).map(|next| next.kind) == Some(TokenKind::DoubleColon)
+            && tokens
+                .get(index + 2)
+                .is_some_and(|next| is_type_path_segment(next) && starts_uppercase(&next.text))
+        {
+            errors.push((
+                index,
+                "variant refinement generic base has too many closing angle brackets",
             ));
         }
         if closing_angle_count(token.kind) > 0
@@ -502,6 +513,10 @@ pub(super) fn build_variant_refinements(
     tokens: &[Token],
 ) -> (Vec<VariantRefinementType>, Vec<bool>) {
     let candidates = refinement_alternatives(source, tokens);
+    let mut candidate_at_start = vec![None; tokens.len()];
+    for (index, candidate) in candidates.iter().enumerate() {
+        candidate_at_start[candidate.start_index] = Some(index);
+    }
     let mut grouped = vec![false; candidates.len()];
     let mut consumed_pipes = vec![false; tokens.len()];
     let mut refinements = Vec::new();
@@ -518,10 +533,9 @@ pub(super) fn build_variant_refinements(
             if tokens.get(pipe_index).map(|token| token.kind) != Some(TokenKind::Pipe) {
                 break;
             }
-            let Some(next) = candidates.iter().position(|candidate| {
-                candidate.start_index == pipe_index + 1
-                    && !alternative_indexes.contains(&candidate.index)
-            }) else {
+            #[cfg(test)]
+            super::record_refinement_grouping_candidate_lookup();
+            let Some(next) = candidate_at_start.get(pipe_index + 1).copied().flatten() else {
                 break;
             };
             pipe_indexes.push(pipe_index);
@@ -579,7 +593,6 @@ pub(super) fn build_variant_refinements(
 
 #[derive(Clone)]
 struct RefinementCandidate {
-    index: usize,
     start_index: usize,
     end_index: usize,
     value: VariantRefinementAlternative,
@@ -587,14 +600,14 @@ struct RefinementCandidate {
 
 fn refinement_alternatives(source: &SourceFile, tokens: &[Token]) -> Vec<RefinementCandidate> {
     let mut candidates = Vec::new();
+    let (generic_syntax, _) = scan_generic_syntax(tokens);
     for start in 0..tokens.len() {
         if !is_type_path_segment(&tokens[start])
             || (start > 0 && tokens[start - 1].kind == TokenKind::DoubleColon)
         {
             continue;
         }
-        if let Some(candidate) = refinement_alternative_at(source, tokens, start, candidates.len())
-        {
+        if let Some(candidate) = refinement_alternative_at(source, tokens, &generic_syntax, start) {
             candidates.push(candidate);
         }
     }
@@ -604,8 +617,8 @@ fn refinement_alternatives(source: &SourceFile, tokens: &[Token]) -> Vec<Refinem
 fn refinement_alternative_at(
     source: &SourceFile,
     tokens: &[Token],
+    generic_syntax: &[GenericSyntax],
     start: usize,
-    index: usize,
 ) -> Option<RefinementCandidate> {
     let mut cursor = start;
     let mut base_end = start;
@@ -619,7 +632,11 @@ fn refinement_alternative_at(
     let (base_end, type_arguments, variant_index) =
         if tokens.get(cursor + 1).map(|token| token.kind) == Some(TokenKind::Less) {
             let open = cursor + 1;
-            let close = matching_angle_token(tokens, open)?;
+            let matched = generic_syntax[open].matched?;
+            let close = matched.token_index;
+            if matched.close_offset + 1 != closing_angle_count(tokens[close].kind) {
+                return None;
+            }
             if tokens.get(close + 1).map(|token| token.kind) != Some(TokenKind::DoubleColon)
                 || !tokens.get(close + 2).is_some_and(is_type_path_segment)
             {
@@ -627,7 +644,7 @@ fn refinement_alternative_at(
             }
             (
                 cursor,
-                refinement_type_arguments(source, tokens, open + 1, close),
+                refinement_type_arguments(source, tokens, &generic_syntax[open].arguments),
                 close + 2,
             )
         } else {
@@ -659,7 +676,6 @@ fn refinement_alternative_at(
     }
     let span = source.span(tokens[start].range.cover(variant.range));
     Some(RefinementCandidate {
-        index,
         start_index: start,
         end_index: variant_index,
         value: VariantRefinementAlternative {
@@ -675,67 +691,114 @@ fn refinement_alternative_at(
     })
 }
 
-fn matching_angle_token(tokens: &[Token], open: usize) -> Option<usize> {
-    let mut depth = 1usize;
-    for (index, token) in tokens.iter().enumerate().skip(open + 1) {
-        if token.kind == TokenKind::Less {
-            depth += 1;
-            continue;
+#[derive(Clone, Copy)]
+struct AngleMatch {
+    token_index: usize,
+    close_offset: usize,
+}
+
+#[derive(Clone, Default)]
+struct GenericSyntax {
+    matched: Option<AngleMatch>,
+    arguments: Vec<TypeArgumentRange>,
+}
+
+#[derive(Clone, Copy)]
+struct TypeArgumentRange {
+    start: usize,
+    end: usize,
+    explicit_end: Option<usize>,
+}
+
+struct GenericContext {
+    open: usize,
+    argument_start: usize,
+    non_angle_depth: usize,
+    arguments: Vec<TypeArgumentRange>,
+}
+
+fn scan_generic_syntax(tokens: &[Token]) -> (Vec<GenericSyntax>, Vec<bool>) {
+    let mut syntax = vec![GenericSyntax::default(); tokens.len()];
+    let mut surplus_closers = vec![false; tokens.len()];
+    let mut opens: Vec<GenericContext> = Vec::new();
+    let mut non_angle_depth = 0usize;
+    for (token_index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+                non_angle_depth += 1;
+            }
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                non_angle_depth = non_angle_depth.saturating_sub(1);
+            }
+            TokenKind::Less => {
+                opens.push(GenericContext {
+                    open: token_index,
+                    argument_start: token_index + 1,
+                    non_angle_depth,
+                    arguments: Vec::new(),
+                });
+                continue;
+            }
+            TokenKind::Comma => {
+                if let Some(context) = opens.last_mut()
+                    && context.non_angle_depth == non_angle_depth
+                {
+                    context.arguments.push(TypeArgumentRange {
+                        start: context.argument_start,
+                        end: token_index,
+                        explicit_end: None,
+                    });
+                    context.argument_start = token_index + 1;
+                }
+            }
+            _ => {}
         }
         let close_count = closing_angle_count(token.kind);
-        if close_count >= depth {
-            return Some(index);
+        if close_count == 0 {
+            continue;
         }
-        depth -= close_count;
+        if close_count > opens.len() {
+            surplus_closers[token_index] = true;
+            opens.clear();
+            continue;
+        }
+        for close_offset in 0..close_count {
+            let mut context = opens
+                .pop()
+                .expect("closing count was bounded by open count");
+            context.arguments.push(TypeArgumentRange {
+                start: context.argument_start,
+                end: token_index,
+                explicit_end: Some(token.range.start + close_offset),
+            });
+            syntax[context.open] = GenericSyntax {
+                matched: Some(AngleMatch {
+                    token_index,
+                    close_offset,
+                }),
+                arguments: context.arguments,
+            };
+        }
     }
-    None
+    (syntax, surplus_closers)
 }
 
 fn refinement_type_arguments(
     source: &SourceFile,
     tokens: &[Token],
-    start: usize,
-    end: usize,
+    ranges: &[TypeArgumentRange],
 ) -> Vec<VariantRefinementTypeArgument> {
     let mut arguments = Vec::new();
-    let mut argument_start = start;
-    let mut delimiter_depth = 0usize;
-    for index in start..end {
-        match tokens[index].kind {
-            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace | TokenKind::Less => {
-                delimiter_depth += 1;
-            }
-            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                delimiter_depth = delimiter_depth.saturating_sub(1);
-            }
-            kind if closing_angle_count(kind) > 0 => {
-                delimiter_depth = delimiter_depth.saturating_sub(closing_angle_count(kind));
-            }
-            TokenKind::Comma if delimiter_depth == 0 => {
-                push_refinement_type_argument(
-                    source,
-                    tokens,
-                    argument_start,
-                    index,
-                    None,
-                    &mut arguments,
-                );
-                argument_start = index + 1;
-            }
-            _ => {}
-        }
+    for range in ranges {
+        push_refinement_type_argument(
+            source,
+            tokens,
+            range.start,
+            range.end,
+            range.explicit_end,
+            &mut arguments,
+        );
     }
-    let content_end = tokens
-        .get(end)
-        .map(|token| token.range.end.saturating_sub(1));
-    push_refinement_type_argument(
-        source,
-        tokens,
-        argument_start,
-        end,
-        content_end,
-        &mut arguments,
-    );
     arguments
 }
 
@@ -763,7 +826,6 @@ fn push_refinement_type_argument(
     let trailing = text.len() - text.trim_end().len();
     let range = TextRange::new(range.start + leading, range.end.saturating_sub(trailing));
     arguments.push(VariantRefinementTypeArgument {
-        text: source.text()[range.start..range.end].to_string(),
         span: source.span(range),
     });
 }

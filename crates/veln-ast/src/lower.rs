@@ -582,7 +582,6 @@ impl AstBuilder {
                             .type_arguments
                             .iter()
                             .map(|argument| VariantRefinementTypeArgument {
-                                text: argument.text.clone(),
                                 span: argument.span.clone(),
                             })
                             .collect(),

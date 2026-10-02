@@ -68,7 +68,7 @@ fn pattern_prelude_leaf_invalid(input: prelude::Option<Int>) -> Int
   end
 end
 
-fn prelude_prefix_invalid(input: Prelude :: Option < Int >) -> Int
+fn prelude_prefix_invalid(input: Prelude :: Option        ) -> Int
   0
 end
 
