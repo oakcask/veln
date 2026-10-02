@@ -142,6 +142,8 @@ grammar_line(107, "ByteViewMultiplePredicate ::= \"payload_count\" \"multiple\" 
 grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
 grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
+grammar_line(111, "TypeText      ::= VariantRefinementType | NonRefinementTypeText").
+grammar_line(111, "NonRefinementTypeText ::= Existing type syntax without a top-level variant-union separator").
 grammar_line(111, "VariantRefinementType ::= VariantAlternative (\"|\" VariantAlternative)*").
 grammar_line(111, "VariantAlternative ::= TypePath TypeArguments? \"::\" UpperName").
 grammar_line(111, "TypeArguments ::= \"<\" TypeText (\",\" TypeText)* \">\"").
@@ -703,7 +705,60 @@ pattern_text_until(Stop, Tokens, S0, S) :-
 
 type_text_until(Stop, S0, S) :-
     collect_type_until_stop(Stop, S0, S, 0, [], Reversed),
-    Reversed \= [].
+    Reversed \= [],
+    reverse(Reversed, Tokens),
+    valid_type_text_tokens(Tokens).
+
+valid_type_text_tokens(Tokens) :-
+    (   top_level_type_token(pipe, Tokens)
+    ->  phrase(variant_refinement_type, Tokens)
+    ;   \+ top_level_type_token(pipe_greater, Tokens)
+    ).
+
+top_level_type_token(Expected, Tokens) :-
+    top_level_type_token(Expected, Tokens, 0).
+
+top_level_type_token(Expected, [t(Expected, _) | _], 0) :- !.
+top_level_type_token(Expected, [t(Kind, _) | Rest], Depth0) :-
+    next_type_depth(Kind, Depth0, Depth),
+    top_level_type_token(Expected, Rest, Depth).
+
+variant_refinement_type -->
+    variant_alternative,
+    variant_refinement_tail.
+
+variant_refinement_tail -->
+    tok(pipe),
+    variant_alternative,
+    !,
+    variant_refinement_tail.
+variant_refinement_tail --> [].
+
+variant_alternative -->
+    ident,
+    variant_base_path_tail,
+    variant_type_arguments_opt,
+    tok(double_colon),
+    upper_name.
+
+variant_base_path_tail --> tok(double_colon), ident, variant_base_path_tail.
+variant_base_path_tail --> [].
+
+variant_type_arguments_opt -->
+    tok(less),
+    variant_type_argument,
+    variant_type_argument_tail,
+    tok(greater).
+variant_type_arguments_opt --> [].
+
+variant_type_argument_tail -->
+    tok(comma),
+    variant_type_argument,
+    !,
+    variant_type_argument_tail.
+variant_type_argument_tail --> [].
+
+variant_type_argument --> type_text_until([comma, greater]).
 
 collect_until_stop(Stop, S, S, 0, Acc, Acc) :-
     S = [t(Kind, _) | _],

@@ -6,8 +6,14 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
         "effect Transition\n",
         "  move(state: State::Ready | State::Closed) -> Result<Int, Error>::Ok\n",
         "end\n",
+        "handler gate(state: State::Ready | State::Closed) handles Transition\n",
+        "  move(value) => value\n",
+        "end\n",
         "type Boxed\n",
         "  Box(value: protocol::State::Ready | protocol::State::Closed)\n",
+        "end\n",
+        "test exact_result() -> Result<Int, Error>::Ok\n",
+        "  Ok(1)\n",
         "end\n",
         "schema Packet\n",
         "  state: State::Ready | State::Closed\n",
@@ -25,11 +31,29 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
     assert_parameter_refinement(source, &decoded);
     assert_result_refinement(&decoded);
     assert_refinement_positions(&decoded);
+    assert_test_and_handler_refinements(&decoded);
     assert_eq!(encode_surface_module(&decoded), encoded);
 }
 
+fn assert_test_and_handler_refinements(decoded: &SurfaceModule) {
+    let handler_union = &decoded.handlers[0].params[0].ty_refinements[0];
+    assert_eq!(handler_union.alternatives.len(), 2);
+    assert_eq!(handler_union.alternatives[0].variant, "Ready");
+    assert_eq!(handler_union.alternatives[1].variant, "Closed");
+
+    let test = decoded
+        .functions
+        .iter()
+        .find(|function| function.kind == FunctionKind::Test)
+        .expect("lowered test declaration");
+    let result = &test.return_type_refinements[0].alternatives[0];
+    assert_eq!(result.base.segments, ["Result"]);
+    assert_eq!(result.type_arguments.len(), 2);
+    assert_eq!(result.variant, "Ok");
+}
+
 fn assert_parameter_refinement(source: &str, decoded: &SurfaceModule) {
-    let parameter_union = &decoded.functions[0].params[0].ty_refinements[0];
+    let parameter_union = &advance_function(decoded).params[0].ty_refinements[0];
     assert_eq!(parameter_union.alternatives.len(), 2);
     assert_eq!(parameter_union.alternatives[0].base.segments, ["State"]);
     assert_eq!(parameter_union.alternatives[0].variant, "Ready");
@@ -42,7 +66,7 @@ fn assert_parameter_refinement(source: &str, decoded: &SurfaceModule) {
 }
 
 fn assert_result_refinement(decoded: &SurfaceModule) {
-    let result = &decoded.functions[0].return_type_refinements[0].alternatives[0];
+    let result = &advance_function(decoded).return_type_refinements[0].alternatives[0];
     assert_eq!(result.base.segments, ["Result"]);
     assert_eq!(result.type_arguments.len(), 2);
     assert_eq!(
@@ -84,10 +108,11 @@ fn assert_refinement_positions(decoded: &SurfaceModule) {
         1
     );
     assert_eq!(decoded.schemas[0].fields[0].ty_refinements.len(), 1);
+    let advance = advance_function(decoded);
     let BodyLineKind::Let {
         annotation_structure,
         ..
-    } = &decoded.functions[0].body[0].kind
+    } = &advance.body[0].kind
     else {
         panic!("expected annotated let");
     };
@@ -97,7 +122,7 @@ fn assert_refinement_positions(decoded: &SurfaceModule) {
             .len(),
         2
     );
-    let BodyLineKind::Expr { expr } = &decoded.functions[0].body[1].kind else {
+    let BodyLineKind::Expr { expr } = &advance.body[1].kind else {
         panic!("expected call expression line");
     };
     let ExprKind::Call { callee, .. } = &expr.kind else {
@@ -111,6 +136,14 @@ fn assert_refinement_positions(decoded: &SurfaceModule) {
         panic!("expected type application");
     };
     assert_eq!(type_arg_refinements[0][0].alternatives.len(), 2);
+}
+
+fn advance_function(decoded: &SurfaceModule) -> &Function {
+    decoded
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("advance"))
+        .expect("lowered advance function")
 }
 
 #[test]

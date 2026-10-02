@@ -325,6 +325,8 @@ ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral
 SchemaValidation ::= "validate" ContractPredicate NL
 PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
+TypeText      ::= VariantRefinementType | NonRefinementTypeText
+NonRefinementTypeText ::= Existing type syntax without a top-level variant-union separator
 VariantRefinementType ::= VariantAlternative ("|" VariantAlternative)*
 VariantAlternative ::= TypePath TypeArguments? "::" UpperName
 TypeArguments ::= "<" TypeText ("," TypeText)* ">"

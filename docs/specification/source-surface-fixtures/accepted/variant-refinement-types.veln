@@ -1,0 +1,15 @@
+effect Transition
+  move(value: State) -> State
+end
+
+handler gate(state: protocol::State::Ready | protocol::State::Closed) handles Transition
+  move(value) => value
+end
+
+test exact_result() -> Result<Int, Error>::Ok
+  Ok(1)
+end
+
+fn nested(value: Result<List<State::Ready | State::Closed>, Error>::Ok | Result<List<State::Ready | State::Closed>, Error>::Err) -> ()
+  sink<State::Ready | State::Closed>(value)
+end

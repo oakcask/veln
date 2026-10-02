@@ -38,8 +38,6 @@ use adr_lite::collect_adr_lite_records;
 use integer_literal_diagnostics::integer_literal_diagnostics;
 use type_argument_lists::TypeArgumentListState;
 use type_paths::type_paths_from_tokens;
-use variant_refinements::build_variant_refinements;
-
 const MAX_CLEANUP_NESTING: usize = 128;
 
 #[cfg(test)]
@@ -265,18 +263,6 @@ impl RecoveryStrategy {
 pub fn parse(source: &SourceFile) -> ParseOutput {
     let lexed = lex(source);
     Parser::new(source, lexed.tokens).parse()
-}
-
-pub(crate) fn variant_refinement_union_pipe_ranges(
-    source: &SourceFile,
-    tokens: &[Token],
-) -> Vec<TextRange> {
-    let (_, consumed_pipes) = build_variant_refinements(source, tokens);
-    tokens
-        .iter()
-        .zip(consumed_pipes)
-        .filter_map(|(token, consumed)| consumed.then_some(token.range))
-        .collect()
 }
 
 pub fn bare_expression_bool_literal(segments: &[String]) -> Option<bool> {

@@ -82,6 +82,52 @@ fn parses_variant_refinements_across_nested_type_forms() {
 }
 
 #[test]
+fn parses_test_results_and_handler_parameters_as_variant_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Transition\n",
+            "  move(value: State) -> State\n",
+            "end\n",
+            "handler gate(state: State::Ready | State::Closed) handles Transition\n",
+            "  move(value) => value\n",
+            "end\n",
+            "test exact_result() -> Result<Int, Error>::Ok\n",
+            "  Ok(1)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Handler(handler) = &output.tree.items[1] else {
+        panic!("expected handler declaration");
+    };
+    let handler_union = &handler.params[0].ty_refinements[0];
+    assert_eq!(handler_union.alternatives.len(), 2);
+    assert_eq!(handler_union.alternatives[0].variant, "Ready");
+    assert_eq!(handler_union.alternatives[1].variant, "Closed");
+    assert_eq!(
+        &source.text()
+            [handler_union.pipe_spans[0].start.offset..handler_union.pipe_spans[0].end.offset],
+        "|"
+    );
+
+    let SyntaxItem::Function(test) = &output.tree.items[2] else {
+        panic!("expected test declaration");
+    };
+    assert_eq!(test.kind, FunctionKind::Test);
+    let result = &test.return_type_refinements[0].alternatives[0];
+    assert_eq!(result.base.segments, ["Result"]);
+    assert_eq!(result.type_arguments.len(), 2);
+    assert_eq!(result.variant, "Ok");
+    assert_eq!(
+        &source.text()[result.variant_span.start.offset..result.variant_span.end.offset],
+        "Ok"
+    );
+}
+
+#[test]
 fn preserves_qualified_generic_types_without_a_final_variant() {
     for annotation in [
         "Prelude::Option<Int>",
@@ -192,11 +238,21 @@ fn malformed_pipeline_separator_is_preserved_by_repeated_formatting() {
 }
 
 #[test]
-fn formatter_spaces_only_structurally_recognized_refinement_union_pipes() {
-    assert_eq!(
-        canonical_type_text("State::Ready|State::Closed"),
-        "State::Ready | State::Closed"
+fn formatter_uses_structured_refinements_instead_of_display_text() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn transition(state: State::Ready|State::Closed) -> ()\n  ()\nend\n",
     );
+    let mut parsed = parse(&source);
+    let SyntaxItem::Function(function) = &mut parsed.tree.items[0] else {
+        panic!("expected function declaration");
+    };
+    function.params[0].ty_refinements[0].alternatives[0].variant = "ChangedInStructure".to_string();
+
+    let formatted = format_tree(&parsed.tree);
+    assert!(formatted.contains("State::ChangedInStructure | State::Closed"));
+    assert!(!formatted.contains("State::Ready"));
+
     assert_eq!(canonical_type_text("State::Ready|Int"), "State::Ready|Int");
     assert_eq!(
         canonical_type_text("State::Ready|>State::Closed"),
@@ -331,6 +387,10 @@ fn parses_variant_refinements_in_explicit_call_type_arguments() {
     assert_eq!(type_arg_refinements.len(), 2);
     assert_eq!(type_arg_refinements[0][0].alternatives.len(), 2);
     assert_eq!(type_arg_refinements[1][0].alternatives[0].variant, "Ok");
+    assert!(
+        format_tree(&output.tree)
+            .contains("sink<State::Ready | State::Closed, Result<Int, Error>::Ok>(value)")
+    );
 }
 
 #[test]

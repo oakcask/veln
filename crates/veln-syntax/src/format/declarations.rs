@@ -9,6 +9,11 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         return lossless_text(tree);
     }
 
+    let source = lossless_text(tree);
+    let mut structured_tree = tree.clone();
+    prepare_structured_type_text(&mut structured_tree, &source);
+    let tree = &structured_tree;
+
     let mut out = String::new();
     if let Some(module) = &tree.module {
         push_source_line(
