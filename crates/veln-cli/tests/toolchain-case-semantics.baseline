@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"03ef37bb64f5a2fb1aad0b24461830511328ea7f"
+source_git_tree	"22da077007966f541043dad3bf01a0e07da79d7e"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1743
@@ -12950,7 +12950,7 @@ field	source_errors	"forbidden"
 case_digest	"aa273c77ba7eb6e54606bc63a68b621e4be39f9f24b072c4f123a44da3cd9671"
 case	"examples/specification/fmt/variant-refinement-syntax"
 field	expectations.exit	0
-field	expectations.file_assertions[0].equals	{"logical_field":"expectations.file_assertions[0].equals","byte_length":647,"sha256":"8e8c2a301e53f89bfbe61f7eee2b8bf2dd40619b9e26fe1a816264a401917410"}
+field	expectations.file_assertions[0].equals	{"logical_field":"expectations.file_assertions[0].equals","byte_length":751,"sha256":"2a9c1c5d8f9e01e0833c1d5ce25ba9a26c32140e13fa46a8b9112519e1d2c301"}
 field	expectations.file_assertions[0].operation	"equals"
 field	expectations.file_assertions[0].path	"main.veln"
 field	expectations.stderr.format	"empty"
@@ -12959,7 +12959,7 @@ field	invocation.command[0]	"fmt"
 field	invocation.command[1]	"main.veln"
 field	invocation.repeat	2
 field	source_errors	"expected"
-case_digest	"7782534d2ec35f425eb75dce54e2b2963873ff114583d7fd15ca56c788ba7575"
+case_digest	"748ef0ebd50042ad36ee47c8526a37ba3ec853d2d5c563ee870d9394df54faf6"
 case	"examples/specification/lsp/ambiguous-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62729,4 +62729,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"a188898b93fa407c53eaddf3983dcf176c6174694876d3f6b1b973c3f27d5f12"
+aggregate_digest	"fdd8a4ed3040904cbefe94935875db8824de677e955f82db943cb60b1950a449"

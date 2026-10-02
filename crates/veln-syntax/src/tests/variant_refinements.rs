@@ -783,6 +783,30 @@ fn nested_refinement_boundary_diagnostics_scale_linearly() {
     );
 }
 
+#[test]
+fn malformed_repeated_function_type_scope_tracking_scales_linearly() {
+    let work = [1_024, 2_048, 4_096].map(malformed_function_type_scope_work);
+    eprintln!("malformed repeated function type scope work: {work:?}");
+
+    assert!(work[0] > 0, "the metric must observe scope tracking work");
+    assert!(
+        work[1] <= work[0] * 2 + 16 && work[2] <= work[1] * 2 + 16,
+        "doubling repeated function-type tokens must not cause quadratic scope tracking: {work:?}"
+    );
+}
+
+fn malformed_function_type_scope_work(count: usize) -> usize {
+    let annotation = "fn ".repeat(count);
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn malformed(value: {annotation}Int) -> ()\n  ()\nend\n"),
+    );
+
+    crate::parser::reset_function_type_scope_work();
+    let _ = parse(&source);
+    crate::parser::function_type_scope_work()
+}
+
 fn refinement_boundary_coverage_work(depth: usize) -> usize {
     let mut annotation = "Leaf::Value".to_string();
     for _ in 0..depth {

@@ -1,0 +1,3 @@
+effect Transition
+	move(value: List<State::>) -> State
+end

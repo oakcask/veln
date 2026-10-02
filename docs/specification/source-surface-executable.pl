@@ -130,23 +130,35 @@ grammar_line(101, "HandlerOperationParams ::= Name (\",\" Name)*").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
-grammar_line(105, "SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive").
+grammar_line(105, "SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive | DispatchPrimitive | ExtensionDispatchPrimitive").
 grammar_line(106, "LowercaseSchemaPrimitive ::= \"uint\" IntLiteral (\"be\" | \"le\")?").
 grammar_line(106, "LowercaseReservedBitsPrimitive ::= \"uint\" IntLiteral (\"be\" | \"le\")? \"reserves\" IntLiteral").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
 grammar_line(106, "RepeatPrimitive ::= \"Repeat\" \"(\" CountExpr \",\" TypeText \")\"").
 grammar_line(106, "CanonicalRepeatPrimitive ::= \"[\" SchemaFieldType \";\" CountExpr \"]\"").
+grammar_line(106, "DispatchPrimitive ::= \"Dispatch\" \"(\" Name (\",\" Name)? \",\" DispatchCases \")\"").
+grammar_line(106, "ExtensionDispatchPrimitive ::= \"ExtensionDispatch\" \"(\" Name \",\" Name \",\" DispatchCases \")\"").
+grammar_line(106, "DispatchCases ::= IntLiteral \"=>\" SchemaFieldType (\",\" IntLiteral \"=>\" SchemaFieldType)*").
 grammar_line(106, "CountExpr ::= Name | Name (\"-\" | \"+\" | \"*\" | \"/\") Name").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" (ContractPredicate | ByteViewMultiplePredicate)").
 grammar_line(107, "ByteViewMultiplePredicate ::= \"payload_count\" \"multiple\" \"of\" (Name | IntLiteral)").
 grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
 grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
-grammar_line(111, "TypeText      ::= VariantRefinementType | NonRefinementTypeText").
-grammar_line(111, "NonRefinementTypeText ::= Existing type syntax without a top-level variant-union separator").
+grammar_line(111, "TypeText      ::= VariantRefinementType | NamedType | UnitType | RecordType | FunctionType").
+grammar_line(111, "NamedType     ::= TypePath NamedTypeArguments?").
+grammar_line(111, "UnitType      ::= \"(\" \")\"").
+grammar_line(111, "RecordType    ::= \"{\" RecordTypeFields? \"}\"").
+grammar_line(111, "RecordTypeFields ::= RecordTypeField (\",\" RecordTypeField)* \",\"?").
+grammar_line(111, "RecordTypeField ::= Name \":\" TypeText").
+grammar_line(111, "FunctionType  ::= \"fn\" \"(\" FunctionTypeParams? \")\" \"->\" TypeText Effects?").
+grammar_line(111, "FunctionTypeParams ::= FunctionTypeParam (\",\" FunctionTypeParam)* \",\"?").
+grammar_line(111, "FunctionTypeParam ::= Name \":\" TypeText | TypeText | \"...\" TypeText?").
 grammar_line(111, "VariantRefinementType ::= VariantAlternative (\"|\" VariantAlternative)*").
-grammar_line(111, "VariantAlternative ::= TypePath TypeArguments? \"::\" UpperName").
-grammar_line(111, "TypeArguments ::= \"<\" TypeText (\",\" TypeText)* \">\"").
+grammar_line(111, "VariantAlternative ::= NamedAdtBase RefinementTypeArguments? \"::\" UpperName").
+grammar_line(111, "NamedAdtBase  ::= (Name \"::\")* UpperName").
+grammar_line(111, "NamedTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
+grammar_line(111, "RefinementTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \">\"").
 grammar_line(111, "TypePath      ::= Name (\"::\" Name)*").
 grammar_line(112, "EffectBinder  ::= \"<\" \"effect\" Name \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
@@ -527,7 +539,7 @@ schema_fields_tail --> [].
 schema_field -->
     ident,
     tok(colon),
-    type_text_until([where, nl]),
+    schema_field_type_until([where, nl]),
     schema_field_where_opt,
     nl.
 
@@ -709,26 +721,74 @@ type_text_until(Stop, S0, S) :-
     reverse(Reversed, Tokens),
     valid_type_text_tokens(Tokens).
 
-valid_type_text_tokens(Tokens) :-
-    (   phrase(structural_type_text, Tokens)
-    ->  true
-    ;   \+ structural_type_candidate(Tokens),
-        \+ top_level_type_token(pipe_greater, Tokens)
-    ).
+schema_field_type_until(Stop, S0, S) :-
+    collect_type_until_stop(Stop, S0, S, 0, [], Reversed),
+    Reversed \= [],
+    reverse(Reversed, Tokens),
+    valid_schema_field_type_tokens(Tokens).
 
-structural_type_candidate(Tokens) :-
-    member(t(Kind, _), Tokens),
-    memberchk(
-        Kind,
-        [fn, arrow, double_colon, pipe, pipe_greater, less, greater, lbrace, rbrace]
-    ).
+valid_schema_field_type_tokens(Tokens) :-
+    valid_type_text_tokens(Tokens),
+    !.
+valid_schema_field_type_tokens(Tokens) :-
+    phrase(schema_field_special_type, Tokens).
+
+schema_field_special_type -->
+    ident,
+    tok(lparen),
+    schema_field_special_arguments,
+    tok(rparen).
+schema_field_special_type -->
+    tok(lbracket),
+    schema_field_type_tokens,
+    tok(semicolon),
+    count_expr,
+    tok(rbracket).
+schema_field_special_type -->
+    ident,
+    ident_text("reserves"),
+    int_literal.
+
+schema_field_special_arguments -->
+    schema_field_special_argument,
+    schema_field_special_argument_tail.
+schema_field_special_argument_tail -->
+    tok(comma),
+    schema_field_special_argument,
+    !,
+    schema_field_special_argument_tail.
+schema_field_special_argument_tail --> [].
+schema_field_special_argument --> dispatch_case, !.
+schema_field_special_argument --> count_expr, schema_field_special_argument_end, !.
+schema_field_special_argument --> schema_field_type_tokens.
+
+dispatch_case --> int_literal, tok(fat_arrow), schema_field_type_tokens.
+
+schema_field_special_argument_end(S, S) :-
+    S = [t(Kind, _) | _],
+    memberchk(Kind, [comma, rparen]).
+
+schema_field_type_tokens --> structural_type_text.
+schema_field_type_tokens --> schema_field_special_type.
+
+count_expr --> ident, count_expr_tail.
+count_expr --> int_literal.
+count_expr_tail --> count_operator, ident, !.
+count_expr_tail --> [].
+count_operator --> tok(minus).
+count_operator --> tok(plus).
+count_operator --> tok(star).
+count_operator --> tok(slash).
+
+valid_type_text_tokens(Tokens) :-
+    phrase(structural_type_text, Tokens).
 
 structural_type_text --> function_type.
 structural_type_text --> record_type.
 structural_type_text --> tok(lparen), tok(rparen).
 structural_type_text --> variant_refinement_type.
 structural_type_text --> generic_named_type.
-structural_type_text --> ident.
+structural_type_text --> bare_named_type.
 
 function_type -->
     tok(fn),
@@ -752,7 +812,11 @@ function_type_params_tail -->
     function_type_params_tail.
 function_type_params_tail --> [].
 function_type_param --> ident, tok(colon), structural_type_text, !.
+function_type_param --> tok(dot), tok(dot), tok(dot), variadic_type_opt, !.
 function_type_param --> structural_type_text.
+
+variadic_type_opt --> structural_type_text, !.
+variadic_type_opt --> [].
 
 function_type_effects_opt --> effects_clause, !.
 function_type_effects_opt --> [].
@@ -768,8 +832,28 @@ record_type_fields_tail --> tok(comma), record_type_field, !, record_type_fields
 record_type_fields_tail --> [].
 record_type_field --> ident, tok(colon), structural_type_text.
 
-generic_named_type --> type_path, variant_type_arguments.
-type_path --> ident, variant_base_path_tail.
+generic_named_type --> type_path, named_type_arguments.
+type_path --> ident, type_path_tail.
+
+type_path_tail --> tok(double_colon), ident, !, type_path_tail.
+type_path_tail --> [].
+
+bare_named_type -->
+    type_path_segments(Segments),
+    { valid_bare_named_type_segments(Segments) }.
+
+type_path_segments([Segment | Rest]) --> identifier_text(Segment), type_path_segments_tail(Rest).
+type_path_segments_tail([Segment | Rest]) -->
+    tok(double_colon),
+    identifier_text(Segment),
+    !,
+    type_path_segments_tail(Rest).
+type_path_segments_tail([]) --> [].
+
+valid_bare_named_type_segments([_]).
+valid_bare_named_type_segments(Segments) :-
+    append(_, [BaseLeaf, _], Segments),
+    \+ ascii_upper_text(BaseLeaf).
 
 top_level_type_token(Expected, Tokens) :-
     top_level_type_token(Expected, Tokens, 0).
@@ -796,12 +880,17 @@ variant_alternative -->
     upper_name.
 
 variant_refinement_base -->
-    ident,
-    variant_base_path_tail,
+    named_adt_base,
     variant_type_arguments_opt.
 
-variant_base_path_tail --> tok(double_colon), ident, variant_base_path_tail.
-variant_base_path_tail --> [].
+named_adt_base -->
+    ascii_upper_name.
+named_adt_base -->
+    ident,
+    tok(double_colon),
+    named_adt_base.
+
+ascii_upper_name --> identifier_text(Text), { ascii_upper_text(Text) }.
 
 variant_type_arguments_opt -->
     variant_type_arguments,
@@ -814,6 +903,13 @@ variant_type_arguments -->
     variant_type_argument_tail,
     tok(greater).
 
+named_type_arguments -->
+    tok(less),
+    variant_type_argument,
+    variant_type_argument_tail,
+    trailing_comma_opt,
+    tok(greater).
+
 variant_type_argument_tail -->
     tok(comma),
     variant_type_argument,
@@ -822,6 +918,12 @@ variant_type_argument_tail -->
 variant_type_argument_tail --> [].
 
 variant_type_argument --> type_text_until([comma, greater]).
+
+ascii_upper_text(Text) :-
+    string_chars(Text, [First | _]),
+    char_code(First, Code),
+    Code >= 0'A,
+    Code =< 0'Z.
 
 collect_until_stop(Stop, S, S, 0, Acc, Acc) :-
     S = [t(Kind, _) | _],

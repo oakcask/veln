@@ -54,6 +54,9 @@ thread_local! {
     static REFINEMENT_BOUNDARY_COVERAGE_WORK: std::cell::Cell<usize> = const {
         std::cell::Cell::new(0)
     };
+    static FUNCTION_TYPE_SCOPE_WORK: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
 }
 
 #[cfg(test)]
@@ -119,6 +122,24 @@ fn record_refinement_boundary_coverage_work(count: usize) {
             .saturating_add(count),
     );
 }
+
+#[cfg(test)]
+pub(crate) fn reset_function_type_scope_work() {
+    FUNCTION_TYPE_SCOPE_WORK.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn function_type_scope_work() -> usize {
+    FUNCTION_TYPE_SCOPE_WORK.get()
+}
+
+#[cfg(test)]
+fn record_function_type_scope_work(count: usize) {
+    FUNCTION_TYPE_SCOPE_WORK.set(FUNCTION_TYPE_SCOPE_WORK.get().saturating_add(count));
+}
+
+#[cfg(not(test))]
+fn record_function_type_scope_work(_count: usize) {}
 
 fn is_contextual_identifier(kind: TokenKind) -> bool {
     matches!(

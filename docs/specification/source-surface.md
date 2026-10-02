@@ -91,9 +91,11 @@ limits.
 
 ### Variant-refinement-shaped type text
 
-Type positions recognize a structural variant alternative as a named type path
-with optional type arguments followed by `::` and an ASCII-uppercase final
-segment. A `|` joins complete alternatives into one structural union:
+Type positions recognize a structural variant alternative as a named ADT base
+whose leaf starts with an ASCII uppercase letter, optional type arguments, and
+an `::` plus an ASCII-uppercase final segment. Qualifier segments before the
+base leaf do not have a casing restriction. A `|` joins complete alternatives
+into one structural union:
 
 ```veln
 fn transition(
@@ -117,10 +119,11 @@ than a type separator. In a non-generic multi-segment spelling, the last
 segment is the final variant and every preceding segment is the qualified base.
 An otherwise ordinary qualified generic type such as
 `Alias::Container<Int>` remains a named type for later name and casing
-analysis; uppercase qualifier spelling alone does not turn it into a malformed
-refinement. Once type arguments before `::Variant` make the refinement
-structure explicit, further type arguments after that final segment are
-malformed.
+analysis. A path such as `protocol::state::Ready`, whose prospective base leaf
+is not uppercase, also remains named type text for later name and casing
+analysis rather than becoming refinement syntax. Once type arguments before
+`::Variant` make the refinement structure explicit, further type arguments
+after that final segment are malformed.
 
 The parser reports `parse.variant_refinement_type` for an incomplete
 alternative, a missing base or final segment, an empty or misplaced type
@@ -314,23 +317,35 @@ HandlerOperationParams ::= Name ("," Name)*
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
-SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive
+SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive | DispatchPrimitive | ExtensionDispatchPrimitive
 LowercaseSchemaPrimitive ::= "uint" IntLiteral ("be" | "le")?
 LowercaseReservedBitsPrimitive ::= "uint" IntLiteral ("be" | "le")? "reserves" IntLiteral
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 RepeatPrimitive ::= "Repeat" "(" CountExpr "," TypeText ")"
 CanonicalRepeatPrimitive ::= "[" SchemaFieldType ";" CountExpr "]"
+DispatchPrimitive ::= "Dispatch" "(" Name ("," Name)? "," DispatchCases ")"
+ExtensionDispatchPrimitive ::= "ExtensionDispatch" "(" Name "," Name "," DispatchCases ")"
+DispatchCases ::= IntLiteral "=>" SchemaFieldType ("," IntLiteral "=>" SchemaFieldType)*
 CountExpr ::= Name | Name ("-" | "+" | "*" | "/") Name
 SchemaFieldWhere ::= "where" (ContractPredicate | ByteViewMultiplePredicate)
 ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral)
 SchemaValidation ::= "validate" ContractPredicate NL
 PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
-TypeText      ::= VariantRefinementType | NonRefinementTypeText
-NonRefinementTypeText ::= Existing type syntax without a top-level variant-union separator
+TypeText      ::= VariantRefinementType | NamedType | UnitType | RecordType | FunctionType
+NamedType     ::= TypePath NamedTypeArguments?
+UnitType      ::= "(" ")"
+RecordType    ::= "{" RecordTypeFields? "}"
+RecordTypeFields ::= RecordTypeField ("," RecordTypeField)* ","?
+RecordTypeField ::= Name ":" TypeText
+FunctionType  ::= "fn" "(" FunctionTypeParams? ")" "->" TypeText Effects?
+FunctionTypeParams ::= FunctionTypeParam ("," FunctionTypeParam)* ","?
+FunctionTypeParam ::= Name ":" TypeText | TypeText | "..." TypeText?
 VariantRefinementType ::= VariantAlternative ("|" VariantAlternative)*
-VariantAlternative ::= TypePath TypeArguments? "::" UpperName
-TypeArguments ::= "<" TypeText ("," TypeText)* ">"
+VariantAlternative ::= NamedAdtBase RefinementTypeArguments? "::" UpperName
+NamedAdtBase  ::= (Name "::")* UpperName
+NamedTypeArguments ::= "<" TypeText ("," TypeText)* ","? ">"
+RefinementTypeArguments ::= "<" TypeText ("," TypeText)* ">"
 TypePath      ::= Name ("::" Name)*
 EffectBinder  ::= "<" "effect" Name ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL

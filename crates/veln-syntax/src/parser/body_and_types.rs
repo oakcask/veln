@@ -23,7 +23,8 @@ struct TypeNesting {
 
 struct FunctionTypeScope {
     nesting: TypeNesting,
-    return_started: bool,
+    unstarted_returns: usize,
+    started_returns: usize,
 }
 
 impl ExpressionLineCollector {
@@ -218,12 +219,15 @@ impl<'a> Parser<'a> {
                 }
                 _ => {}
             }
-            function_type_scopes.retain(|scope| {
-                scope.nesting.paren <= paren_depth
-                    && scope.nesting.bracket <= bracket_depth
-                    && scope.nesting.brace <= brace_depth
-                    && scope.nesting.angle <= angle_depth
-            });
+            prune_function_type_scopes(
+                &mut function_type_scopes,
+                TypeNesting {
+                    paren: paren_depth,
+                    bracket: bracket_depth,
+                    brace: brace_depth,
+                    angle: angle_depth,
+                },
+            );
             let token = self.bump();
             parts.push(token.text.clone());
             tokens.push(token);
@@ -513,8 +517,8 @@ fn effect_clause_belongs_to_nested_function_type(
     boundary == TokenKind::Effects
         && nesting.angle > 0
         && function_type_scopes
-            .iter()
-            .any(|scope| scope.nesting == nesting && scope.return_started)
+            .last()
+            .is_some_and(|scope| scope.nesting == nesting && scope.started_returns > 0)
 }
 
 fn update_function_type_scopes(
@@ -522,29 +526,56 @@ fn update_function_type_scopes(
     nesting: TypeNesting,
     scopes: &mut Vec<FunctionTypeScope>,
 ) {
+    record_function_type_scope_work(1);
     match token {
-        TokenKind::Comma => scopes.retain(|scope| scope.nesting != nesting),
-        TokenKind::Fn => scopes.push(FunctionTypeScope {
-            nesting,
-            return_started: false,
-        }),
+        TokenKind::Comma => {
+            if scopes.last().is_some_and(|scope| scope.nesting == nesting) {
+                scopes.pop();
+            }
+        }
+        TokenKind::Fn => {
+            if let Some(scope) = scopes.last_mut().filter(|scope| scope.nesting == nesting) {
+                scope.unstarted_returns += 1;
+            } else {
+                scopes.push(FunctionTypeScope {
+                    nesting,
+                    unstarted_returns: 1,
+                    started_returns: 0,
+                });
+            }
+        }
         TokenKind::Arrow => {
             if let Some(scope) = scopes
-                .iter_mut()
-                .rev()
-                .find(|scope| scope.nesting == nesting && !scope.return_started)
+                .last_mut()
+                .filter(|scope| scope.nesting == nesting && scope.unstarted_returns > 0)
             {
-                scope.return_started = true;
+                scope.unstarted_returns -= 1;
+                scope.started_returns += 1;
             }
         }
         TokenKind::Effects => {
-            if let Some(index) = scopes
-                .iter()
-                .rposition(|scope| scope.nesting == nesting && scope.return_started)
+            if let Some(scope) = scopes
+                .last_mut()
+                .filter(|scope| scope.nesting == nesting && scope.started_returns > 0)
             {
-                scopes.remove(index);
+                scope.started_returns -= 1;
+                if scope.started_returns == 0 && scope.unstarted_returns == 0 {
+                    scopes.pop();
+                }
             }
         }
         _ => {}
+    }
+}
+
+fn prune_function_type_scopes(scopes: &mut Vec<FunctionTypeScope>, nesting: TypeNesting) {
+    while scopes.last().is_some_and(|scope| {
+        scope.nesting.paren > nesting.paren
+            || scope.nesting.bracket > nesting.bracket
+            || scope.nesting.brace > nesting.brace
+            || scope.nesting.angle > nesting.angle
+    }) {
+        record_function_type_scope_work(1);
+        scopes.pop();
     }
 }
