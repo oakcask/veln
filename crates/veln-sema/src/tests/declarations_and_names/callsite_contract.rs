@@ -27,12 +27,14 @@ fn private_return_inference_sees_the_callsite_binding() {
 }
 
 #[test]
-fn callsite_contract_references_remain_blocked_during_execution_lowering() {
+fn callsite_contract_references_lower_for_execution() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "pub fn location() -> SourceLocation callsite\n",
             "require callsite.start_line > 0\n",
+            "invariant callsite.start_column > 0\n",
+            "ensure callsite.end_line > 0\n",
             "  callsite\n",
             "end\n",
         ),
@@ -41,32 +43,12 @@ fn callsite_contract_references_remain_blocked_during_execution_lowering() {
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
 
     let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
-    let blockers = match &lowered.core.as_ref().expect("checked core").readiness {
-        CoreReadiness::Blocked(blockers) => blockers,
-        CoreReadiness::Complete => panic!("callsite references must block execution lowering"),
-    };
-    assert_eq!(blockers.len(), 1, "{blockers:#?}");
-    assert!(blockers.iter().all(|blocker| matches!(
-        blocker,
-        CoreBlocker::UnsupportedExpression { reason, .. }
-            if reason == "callsite_runtime_unsupported"
-    )));
-
-    let diagnostics = lowered
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "core.callsite_runtime_unsupported")
-        .collect::<Vec<_>>();
-    assert_eq!(diagnostics.len(), 1, "{:#?}", lowered.diagnostics);
-    assert_diagnostic_span(diagnostics[0], 2, 9, 2, 17);
-    assert!(diagnostics.iter().all(|diagnostic| {
-        diagnostic.related.iter().any(|related| {
-            related
-                .to_json()
-                .contains("this use of call-site locations")
-        })
-    }));
-    assert!(lowered.ir.is_none());
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(matches!(
+        lowered.core.as_ref().expect("checked core").readiness,
+        CoreReadiness::Complete
+    ));
+    assert!(lowered.ir.is_some());
 }
 
 #[test]

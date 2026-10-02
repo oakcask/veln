@@ -69,7 +69,8 @@ separate from the JSON contract.
 
 The same envelope reports call-site execution gates. A call-site-aware entry,
 an indirect use of a call-site-aware function, and a runtime contract that
-requires unsupported call-site context all fail before backend launch. Their
+calls a call-site-aware function all fail before backend launch. Direct
+built-in references in runtime contracts are executable. The remaining gate
 diagnostic identifiers and stable details are specified by
 [Check JSON And Diagnostics](diagnostics-json.md#diagnostic-families).
 

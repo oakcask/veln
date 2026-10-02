@@ -1,0 +1,5 @@
+use contracts
+
+pub fn main() -> SourceLocation
+  contracts::rejected(0)
+end

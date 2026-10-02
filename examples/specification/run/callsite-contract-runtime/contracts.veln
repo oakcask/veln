@@ -1,0 +1,14 @@
+pub fn required(expected_line: Int) -> SourceLocation callsite
+require callsite.start_line == expected_line
+	callsite
+end
+
+pub fn invariant_checked(expected_line: Int) -> SourceLocation callsite
+invariant callsite.start_line == expected_line
+	callsite
+end
+
+pub fn ensured(expected_line: Int) -> SourceLocation callsite
+ensure callsite.start_line == expected_line
+	callsite
+end

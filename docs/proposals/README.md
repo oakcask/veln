@@ -16,7 +16,7 @@ also states it.
 
 ## Ready
 
-- Indirect and runtime-contract call-site propagation, generated-source
+- Indirect-call and runtime-contract call propagation, generated-source
   identity, deferred observation, and LSP/MCP presentation for library-defined
   instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
