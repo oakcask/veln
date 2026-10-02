@@ -61,3 +61,11 @@ end
 fn pipeline_separator(value: State::Ready |> State::Closed) -> ()
 	()
 end
+
+fn unmatched_generic(value: Result<Int, Error::Ok) -> ()
+	()
+end
+
+fn survivor() -> ()
+	()
+end

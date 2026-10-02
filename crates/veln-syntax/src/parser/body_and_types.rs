@@ -128,7 +128,11 @@ impl<'a> Parser<'a> {
     ) -> (String, Vec<TypePathSegments>, Vec<VariantRefinementType>) {
         let mut parts = Vec::new();
         let mut tokens = Vec::new();
-        let mut depth = 0usize;
+        let mut paren_depth = 0usize;
+        let mut bracket_depth = 0usize;
+        let mut brace_depth = 0usize;
+        let mut angle_depth = 0usize;
+        let mut reported_unmatched_angle = false;
         while !self.at(TokenKind::Eof) {
             let contextual_callsite_type = self.at(TokenKind::Callsite)
                 && (self.peek_at(TokenKind::DoubleColon)
@@ -136,19 +140,37 @@ impl<'a> Parser<'a> {
                     || tokens
                         .last()
                         .is_some_and(|token: &Token| token.kind == TokenKind::Arrow));
-            if depth == 0 && stop.iter().any(|kind| self.at(*kind)) && !contextual_callsite_type {
-                break;
+            let at_stop = stop.iter().any(|kind| self.at(*kind));
+            if at_stop && !contextual_callsite_type {
+                let outside_nested_type =
+                    paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 && angle_depth == 0;
+                if outside_nested_type {
+                    break;
+                }
+                if angle_depth > 0
+                    && unmatched_angle_reaches_annotation_boundary(
+                        self.current().kind,
+                        paren_depth,
+                        bracket_depth,
+                        brace_depth,
+                    )
+                {
+                    self.report_unmatched_generic_opener(context);
+                    reported_unmatched_angle = true;
+                    break;
+                }
             }
             let token = self.current().clone();
             match token.kind {
-                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace | TokenKind::Less => {
-                    depth += 1;
-                }
-                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                    depth = depth.saturating_sub(1);
-                }
+                TokenKind::LParen => paren_depth += 1,
+                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),
+                TokenKind::LBracket => bracket_depth += 1,
+                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
+                TokenKind::LBrace => brace_depth += 1,
+                TokenKind::RBrace => brace_depth = brace_depth.saturating_sub(1),
+                TokenKind::Less => angle_depth += 1,
                 kind if closing_angle_count(kind) > 0 => {
-                    depth = depth.saturating_sub(closing_angle_count(kind));
+                    angle_depth = angle_depth.saturating_sub(closing_angle_count(kind));
                 }
                 _ => {}
             }
@@ -156,12 +178,26 @@ impl<'a> Parser<'a> {
             parts.push(token.text.clone());
             tokens.push(token);
         }
+        if angle_depth > 0 && !reported_unmatched_angle {
+            self.report_unmatched_generic_opener(context);
+        }
         let refinements = self.variant_refinements_from_tokens(context, &tokens);
         (
             normalize_type_text(parts),
             type_paths_from_tokens(self.source, &tokens),
             refinements,
         )
+    }
+
+    fn report_unmatched_generic_opener(&mut self, context: &'static str) {
+        self.error_current(
+            "parse.variant_refinement_type",
+            "generic type arguments are missing a closing `>`",
+            context,
+            vec![">"],
+            RecoveryStrategy::InsertToken,
+            Some(">"),
+        );
     }
 
     pub(super) fn collect_return_type_until(
@@ -395,5 +431,20 @@ impl<'a> Parser<'a> {
         }
 
         refinements
+    }
+}
+
+fn unmatched_angle_reaches_annotation_boundary(
+    boundary: TokenKind,
+    paren_depth: usize,
+    bracket_depth: usize,
+    brace_depth: usize,
+) -> bool {
+    match boundary {
+        TokenKind::Comma => false,
+        TokenKind::RParen => paren_depth == 0,
+        TokenKind::RBracket => bracket_depth == 0,
+        TokenKind::RBrace => brace_depth == 0,
+        _ => paren_depth == 0 && bracket_depth == 0 && brace_depth == 0,
     }
 }

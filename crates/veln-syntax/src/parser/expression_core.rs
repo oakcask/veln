@@ -156,12 +156,14 @@ impl<'a> ExprParser<'a> {
         start: TextRange,
         closing: TokenKind,
     ) -> Expr {
-        let (type_args, type_arg_refinements, end) = self.parse_type_argument_list(closing);
+        let (type_args, type_arg_spans, type_arg_refinements, end) =
+            self.parse_type_argument_list(closing);
         Expr {
             span: self.source.span(start.cover(end)),
             kind: ExprKind::TypeApply {
                 callee: Box::new(expr),
                 type_args,
+                type_arg_spans,
                 type_arg_refinements,
             },
         }
@@ -279,7 +281,12 @@ impl<'a> ExprParser<'a> {
     pub(super) fn parse_type_argument_list(
         &mut self,
         close: TokenKind,
-    ) -> (Vec<String>, Vec<Vec<VariantRefinementType>>, TextRange) {
+    ) -> (
+        Vec<String>,
+        Vec<SourceSpan>,
+        Vec<Vec<VariantRefinementType>>,
+        TextRange,
+    ) {
         let start = self.bump();
         let mut state = TypeArgumentListState::default();
         let mut end = start.range;
@@ -288,7 +295,11 @@ impl<'a> ExprParser<'a> {
             let token = self.bump();
             end = token.range;
             if state.consume(&token, close) {
-                let (arguments, argument_tokens) = state.finish();
+                let (arguments, argument_ranges, argument_tokens) = state.finish();
+                let argument_spans = argument_ranges
+                    .into_iter()
+                    .map(|range| self.source.span(range))
+                    .collect();
                 let refinements = argument_tokens
                     .iter()
                     .map(|tokens| {
@@ -330,7 +341,7 @@ impl<'a> ExprParser<'a> {
                         refinements
                     })
                     .collect();
-                return (arguments, refinements, end);
+                return (arguments, argument_spans, refinements, end);
             }
         }
 
@@ -349,11 +360,15 @@ impl<'a> ExprParser<'a> {
                 "]"
             }),
         );
-        let (arguments, argument_tokens) = state.finish();
+        let (arguments, argument_ranges, argument_tokens) = state.finish();
+        let argument_spans = argument_ranges
+            .into_iter()
+            .map(|range| self.source.span(range))
+            .collect();
         let refinements = argument_tokens
             .iter()
             .map(|tokens| super::body_and_types::build_variant_refinements(self.source, tokens).0)
             .collect();
-        (arguments, refinements, end)
+        (arguments, argument_spans, refinements, end)
     }
 }

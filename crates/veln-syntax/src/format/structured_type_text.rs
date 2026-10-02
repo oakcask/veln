@@ -89,10 +89,15 @@ fn prepare_expr(expr: &mut Expr, source: &str) {
         ExprKind::TypeApply {
             callee,
             type_args,
+            type_arg_spans,
             type_arg_refinements,
         } => {
-            for (text, refinements) in type_args.iter_mut().zip(type_arg_refinements) {
-                *text = structured_type_text(text, refinements, source);
+            for ((text, span), refinements) in type_args
+                .iter_mut()
+                .zip(type_arg_spans)
+                .zip(type_arg_refinements)
+            {
+                *text = structured_type_text_at_span(text, span, refinements, source);
             }
             prepare_expr(callee, source);
         }
@@ -158,6 +163,34 @@ fn prepare_expr(expr: &mut Expr, source: &str) {
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }
+}
+
+fn structured_type_text_at_span(
+    fallback: &str,
+    span: &veln_source::SourceSpan,
+    refinements: &[VariantRefinementType],
+    source: &str,
+) -> String {
+    if refinements.is_empty() {
+        return fallback.to_string();
+    }
+    let Some(mut cursor) = source.get(..span.start.offset).map(str::len) else {
+        return fallback.to_string();
+    };
+    let mut output = String::new();
+    for refinement in refinements {
+        let Some(fragment) = source.get(cursor..refinement.span.start.offset) else {
+            return fallback.to_string();
+        };
+        output.push_str(fragment);
+        output.push_str(&render_refinement(refinement));
+        cursor = refinement.span.end.offset;
+    }
+    let Some(fragment) = source.get(cursor..span.end.offset) else {
+        return fallback.to_string();
+    };
+    output.push_str(fragment);
+    output
 }
 
 fn prepare_exprs(expressions: &mut [Expr], source: &str) {

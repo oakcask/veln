@@ -63,6 +63,7 @@ impl AstBuilder {
                 callee,
                 type_args,
                 type_arg_refinements,
+                ..
             } => Some(ExprKind::TypeApply {
                 callee: Box::new(self.lower_expr(callee)),
                 type_args: type_args.clone(),

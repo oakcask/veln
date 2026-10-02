@@ -28,11 +28,75 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
     let encoded = encode_surface_module(&module);
     let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
 
+    assert_refinement_spans_round_trip(&module, &decoded);
     assert_parameter_refinement(source, &decoded);
     assert_result_refinement(&decoded);
     assert_refinement_positions(&decoded);
     assert_test_and_handler_refinements(&decoded);
     assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+fn assert_refinement_spans_round_trip(lowered: &SurfaceModule, decoded: &SurfaceModule) {
+    let lowered_advance = advance_function(lowered);
+    let decoded_advance = advance_function(decoded);
+
+    assert_refinement_span_tree(
+        &lowered_advance.params[0].ty_refinements[0],
+        &decoded_advance.params[0].ty_refinements[0],
+    );
+    assert_refinement_span_tree(
+        &lowered_advance.return_type_refinements[0],
+        &decoded_advance.return_type_refinements[0],
+    );
+}
+
+fn assert_refinement_span_tree(lowered: &VariantRefinementType, decoded: &VariantRefinementType) {
+    assert_eq!(decoded.span, lowered.span, "whole-refinement span");
+    assert_eq!(decoded.pipe_spans, lowered.pipe_spans, "pipe spans");
+    assert_eq!(decoded.alternatives.len(), lowered.alternatives.len());
+
+    for (lowered_alternative, decoded_alternative) in
+        lowered.alternatives.iter().zip(&decoded.alternatives)
+    {
+        assert_eq!(
+            decoded_alternative.base.segment_spans, lowered_alternative.base.segment_spans,
+            "base-segment spans"
+        );
+        assert_eq!(
+            decoded_alternative.variant_span, lowered_alternative.variant_span,
+            "final-variant span"
+        );
+        assert_eq!(
+            decoded_alternative.span, lowered_alternative.span,
+            "alternative span"
+        );
+        assert_eq!(
+            decoded_alternative.type_arguments.len(),
+            lowered_alternative.type_arguments.len()
+        );
+
+        for (lowered_argument, decoded_argument) in lowered_alternative
+            .type_arguments
+            .iter()
+            .zip(&decoded_alternative.type_arguments)
+        {
+            assert_eq!(
+                decoded_argument.span, lowered_argument.span,
+                "type-argument span"
+            );
+            assert_eq!(
+                decoded_argument.ty_refinements.len(),
+                lowered_argument.ty_refinements.len()
+            );
+            for (lowered_child, decoded_child) in lowered_argument
+                .ty_refinements
+                .iter()
+                .zip(&decoded_argument.ty_refinements)
+            {
+                assert_refinement_span_tree(lowered_child, decoded_child);
+            }
+        }
+    }
 }
 
 fn assert_test_and_handler_refinements(decoded: &SurfaceModule) {

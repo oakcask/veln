@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"879580b4693cb7bbffd1614178e9cd652b0ecf7c"
+source_git_tree	"b021dcf7cfd892d45b52d5715b1686cc925a1f0d"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1743
@@ -12542,13 +12542,14 @@ field	expectations.stdout.contains[5]	"must end after its final variant name"
 field	expectations.stdout.contains[6]	"has surplus closing angle brackets after its final variant name"
 field	expectations.stdout.contains[7]	"final segment must start with an ASCII uppercase letter"
 field	expectations.stdout.contains[8]	"`|>` cannot separate ADT variant refinement alternatives"
+field	expectations.stdout.contains[9]	"generic type arguments are missing a closing `>`"
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"819a07758f3619268a09d059ca8243650bb3511b92369e73409983ed396e883c"
+case_digest	"20e2c8ef77ef2b0cd52a018b93b0dff8d551f33e2937e00fce50ee81e4d5614a"
 case	"examples/specification/doc/companion-discovery-exclusion"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -12948,7 +12949,7 @@ field	source_errors	"forbidden"
 case_digest	"aa273c77ba7eb6e54606bc63a68b621e4be39f9f24b072c4f123a44da3cd9671"
 case	"examples/specification/fmt/variant-refinement-syntax"
 field	expectations.exit	0
-field	expectations.file_assertions[0].equals	{"logical_field":"expectations.file_assertions[0].equals","byte_length":554,"sha256":"173d569461311111645ae6cf1374a11ee4e6645f2a08db60a7fc59f6e3ba38b8"}
+field	expectations.file_assertions[0].equals	{"logical_field":"expectations.file_assertions[0].equals","byte_length":647,"sha256":"8e8c2a301e53f89bfbe61f7eee2b8bf2dd40619b9e26fe1a816264a401917410"}
 field	expectations.file_assertions[0].operation	"equals"
 field	expectations.file_assertions[0].path	"main.veln"
 field	expectations.stderr.format	"empty"
@@ -12957,7 +12958,7 @@ field	invocation.command[0]	"fmt"
 field	invocation.command[1]	"main.veln"
 field	invocation.repeat	2
 field	source_errors	"expected"
-case_digest	"b02069be666030b53b2ccb75a3db5f8cd690271f4c22171254a3df232058b17f"
+case_digest	"7782534d2ec35f425eb75dce54e2b2963873ff114583d7fd15ca56c788ba7575"
 case	"examples/specification/lsp/ambiguous-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62727,4 +62728,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b48872d9f3d7b2029e68bd1840e8ed49591c7407d2a0b7d1f40713744fcf37e4"
+aggregate_digest	"149b7410f4cc0166cfad039a27357e7dad0d924969acbb918c4dfe566fc6a67f"

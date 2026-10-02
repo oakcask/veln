@@ -22,8 +22,10 @@ enum TypeArgumentTokenAction {
 #[derive(Default)]
 pub(super) struct TypeArgumentListState {
     args: Vec<String>,
+    arg_ranges: Vec<TextRange>,
     arg_tokens: Vec<Vec<Token>>,
     current: String,
+    current_range: Option<TextRange>,
     current_tokens: Vec<Token>,
     nesting: TypeArgumentNesting,
 }
@@ -87,6 +89,10 @@ impl TypeArgumentListState {
             } => {
                 self.current.push_str(&">".repeat(nested_angle_closers));
                 if nested_angle_closers > 0 {
+                    self.extend_current_range(TextRange::new(
+                        token.range.start,
+                        token.range.start + nested_angle_closers,
+                    ));
                     self.current_tokens.push(token.clone());
                 }
                 self.flush_current(false);
@@ -98,6 +104,7 @@ impl TypeArgumentListState {
             }
             TypeArgumentTokenAction::Append => {
                 self.current.push_str(&token.text);
+                self.extend_current_range(token.range);
                 self.current_tokens.push(token.clone());
                 false
             }
@@ -108,13 +115,22 @@ impl TypeArgumentListState {
         if include_empty || !self.current.is_empty() {
             let current = std::mem::take(&mut self.current);
             self.args.push(normalize_type_text(vec![current]));
+            self.arg_ranges
+                .push(self.current_range.take().unwrap_or_default());
             self.arg_tokens
                 .push(std::mem::take(&mut self.current_tokens));
         }
     }
 
-    pub(super) fn finish(mut self) -> (Vec<String>, Vec<Vec<Token>>) {
+    fn extend_current_range(&mut self, range: TextRange) {
+        self.current_range = Some(
+            self.current_range
+                .map_or(range, |current| current.cover(range)),
+        );
+    }
+
+    pub(super) fn finish(mut self) -> (Vec<String>, Vec<TextRange>, Vec<Vec<Token>>) {
         self.flush_current(false);
-        (self.args, self.arg_tokens)
+        (self.args, self.arg_ranges, self.arg_tokens)
     }
 }

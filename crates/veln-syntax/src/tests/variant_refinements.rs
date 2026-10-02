@@ -196,6 +196,71 @@ fn rejects_malformed_variant_refinement_forms() {
 }
 
 #[test]
+fn unmatched_generic_opener_recovers_before_the_next_function() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn broken(value: Result<Int, Error::Ok) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "\n",
+            "fn survivor() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "parse.variant_refinement_type"
+                && diagnostic.message == "generic type arguments are missing a closing `>`"
+        })
+        .expect("the unmatched generic opener should be diagnosed");
+    let span = diagnostic
+        .span
+        .as_ref()
+        .expect("the enclosing annotation boundary should be highlighted");
+    assert_eq!(&source.text()[span.start.offset..span.end.offset], ")");
+
+    assert_eq!(output.tree.items.len(), 2, "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(survivor) = &output.tree.items[1] else {
+        panic!("expected the following item to remain a function");
+    };
+    assert_eq!(survivor.name.as_deref(), Some("survivor"));
+}
+
+#[test]
+fn deeply_nested_unmatched_generic_openers_recover_at_one_boundary() {
+    const DEPTH: usize = 4_096;
+    let annotation = format!("{}State::Ready", "Layer<".repeat(DEPTH));
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn broken(value: {annotation}) -> ()\n  ()\nend\n\nfn survivor() -> ()\n  ()\nend\n"
+        ),
+    );
+
+    let output = parse(&source);
+    let missing_closer_diagnostics = output
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "parse.variant_refinement_type"
+                && diagnostic.message == "generic type arguments are missing a closing `>`"
+        })
+        .count();
+    assert_eq!(missing_closer_diagnostics, 1, "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.items.len(), 2, "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(survivor) = &output.tree.items[1] else {
+        panic!("expected the following item to remain a function");
+    };
+    assert_eq!(survivor.name.as_deref(), Some("survivor"));
+}
+
+#[test]
 fn rejects_type_arguments_after_a_structurally_complete_generic_refinement() {
     let source = SourceFile::new(
         "main.veln",
@@ -393,6 +458,36 @@ fn parses_variant_refinements_in_explicit_call_type_arguments() {
         format_tree(&output.tree)
             .contains("sink<State::Ready | State::Closed, Result<Int, Error>::Ok>(value)")
     );
+}
+
+#[test]
+fn formats_nested_refinement_unions_in_every_explicit_call_type_argument() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn invoke(value: State) -> ()\n",
+            "  sink<State::Ready|State::Closed, Result<State::Ready|State::Closed, Error>::Ok>(value)\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let expected = concat!(
+        "fn invoke(value: State) -> ()\n",
+        "\tsink<State::Ready | State::Closed, Result<State::Ready | State::Closed, Error>::Ok>(value)\n",
+        "end\n",
+    );
+    let formatted = format_tree(&output.tree);
+    assert_eq!(formatted, expected);
+
+    let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
 }
 
 #[test]
