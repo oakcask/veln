@@ -710,23 +710,66 @@ type_text_until(Stop, S0, S) :-
     valid_type_text_tokens(Tokens).
 
 valid_type_text_tokens(Tokens) :-
-    (   top_level_type_token(pipe, Tokens)
-    ->  phrase(variant_refinement_type, Tokens)
-    ;   singleton_variant_refinement_candidate(Tokens)
-    ->  phrase(variant_refinement_type, Tokens)
-    ;   \+ top_level_type_token(pipe_greater, Tokens)
+    (   phrase(structural_type_text, Tokens)
+    ->  true
+    ;   \+ structural_type_candidate(Tokens),
+        \+ top_level_type_token(pipe_greater, Tokens)
     ).
 
-singleton_variant_refinement_candidate(Tokens) :-
-    top_level_type_token(double_colon, Tokens),
-    \+ phrase(ordinary_qualified_generic_type, Tokens).
+structural_type_candidate(Tokens) :-
+    member(t(Kind, _), Tokens),
+    memberchk(
+        Kind,
+        [fn, arrow, double_colon, pipe, pipe_greater, less, greater, lbrace, rbrace]
+    ).
 
-ordinary_qualified_generic_type -->
-    ident,
-    tok(double_colon),
-    ident,
-    variant_base_path_tail,
-    variant_type_arguments.
+structural_type_text --> function_type.
+structural_type_text --> record_type.
+structural_type_text --> tok(lparen), tok(rparen).
+structural_type_text --> variant_refinement_type.
+structural_type_text --> generic_named_type.
+structural_type_text --> ident.
+
+function_type -->
+    tok(fn),
+    tok(lparen),
+    function_type_params_opt,
+    tok(rparen),
+    tok(arrow),
+    structural_type_text,
+    function_type_effects_opt.
+
+function_type_params_opt -->
+    function_type_param,
+    function_type_params_tail,
+    trailing_comma_opt,
+    !.
+function_type_params_opt --> [].
+function_type_params_tail -->
+    tok(comma),
+    function_type_param,
+    !,
+    function_type_params_tail.
+function_type_params_tail --> [].
+function_type_param --> ident, tok(colon), structural_type_text, !.
+function_type_param --> structural_type_text.
+
+function_type_effects_opt --> effects_clause, !.
+function_type_effects_opt --> [].
+
+record_type --> tok(lbrace), record_type_fields_opt, tok(rbrace).
+record_type_fields_opt -->
+    record_type_field,
+    record_type_fields_tail,
+    trailing_comma_opt,
+    !.
+record_type_fields_opt --> [].
+record_type_fields_tail --> tok(comma), record_type_field, !, record_type_fields_tail.
+record_type_fields_tail --> [].
+record_type_field --> ident, tok(colon), structural_type_text.
+
+generic_named_type --> type_path, variant_type_arguments.
+type_path --> ident, variant_base_path_tail.
 
 top_level_type_token(Expected, Tokens) :-
     top_level_type_token(Expected, Tokens, 0).

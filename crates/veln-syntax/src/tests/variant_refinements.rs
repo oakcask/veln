@@ -166,6 +166,63 @@ fn excludes_qualified_effect_paths_from_variant_refinements() {
 }
 
 #[test]
+fn preserves_nested_effectful_function_types_in_return_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn load() -> Result<fn(Int) -> Int effects [io::Read], Error>::Ok effects [db::Load]\n  Ok(identity)\nend\n",
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(
+        function.return_type.as_deref(),
+        Some("Result<fn(Int) -> Int effects [io::Read], Error>::Ok")
+    );
+    assert_eq!(function.effects.as_ref().unwrap(), &["db::Load"]);
+    let result = &function.return_type_refinements[0].alternatives[0];
+    assert_eq!(result.base.segments, ["Result"]);
+    assert_eq!(result.variant, "Ok");
+    assert_eq!(
+        result.type_arguments[0].ty_fragments,
+        ["fn(Int) -> Int effects [io::Read]"]
+    );
+    assert!(result.type_arguments[0].ty_paths.is_empty());
+
+    let formatted = format_tree(&output.tree);
+    assert!(formatted.contains(
+        "fn load() -> Result<fn(Int) -> Int effects [io::Read], Error>::Ok effects [db::Load]\n"
+    ));
+    let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn unmatched_generic_return_recovers_at_effects_after_a_function_argument() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn broken() -> Result<fn(Int) -> Int, Error effects [db::Load]\n  Ok(identity)\nend\n",
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.variant_refinement_type"
+            && diagnostic.message == "generic type arguments are missing a closing `>`"
+    }));
+    let function = first_function(&output);
+    assert_eq!(
+        function.return_type.as_deref(),
+        Some("Result<fn(Int) -> Int, Error")
+    );
+    assert_eq!(function.effects.as_ref().unwrap(), &["db::Load"]);
+}
+
+#[test]
 fn rejects_pipes_inside_nested_effect_lists() {
     let source = SourceFile::new(
         "main.veln",

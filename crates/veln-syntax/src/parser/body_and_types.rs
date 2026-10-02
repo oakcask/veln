@@ -13,6 +13,19 @@ struct ExpressionLineCollector {
     at_line_start: bool,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct TypeNesting {
+    paren: usize,
+    bracket: usize,
+    brace: usize,
+    angle: usize,
+}
+
+struct FunctionTypeScope {
+    nesting: TypeNesting,
+    return_started: bool,
+}
+
 impl ExpressionLineCollector {
     fn new(start: TextRange) -> Self {
         Self {
@@ -132,6 +145,7 @@ impl<'a> Parser<'a> {
         let mut bracket_depth = 0usize;
         let mut brace_depth = 0usize;
         let mut angle_depth = 0usize;
+        let mut function_type_scopes = Vec::new();
         let mut reported_unmatched_angle = false;
         while !self.at(TokenKind::Eof) {
             let contextual_callsite_type = self.at(TokenKind::Callsite)
@@ -142,6 +156,12 @@ impl<'a> Parser<'a> {
                         .is_some_and(|token: &Token| token.kind == TokenKind::Arrow));
             let at_stop = stop.iter().any(|kind| self.at(*kind));
             if at_stop && !contextual_callsite_type {
+                let nesting = TypeNesting {
+                    paren: paren_depth,
+                    bracket: bracket_depth,
+                    brace: brace_depth,
+                    angle: angle_depth,
+                };
                 let outside_nested_type =
                     paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 && angle_depth == 0;
                 if outside_nested_type {
@@ -166,6 +186,11 @@ impl<'a> Parser<'a> {
                         bracket_depth,
                         brace_depth,
                     )
+                    && !effect_clause_belongs_to_nested_function_type(
+                        self.current().kind,
+                        nesting,
+                        &function_type_scopes,
+                    )
                 {
                     self.report_unmatched_generic_opener(context);
                     reported_unmatched_angle = true;
@@ -173,6 +198,13 @@ impl<'a> Parser<'a> {
                 }
             }
             let token = self.current().clone();
+            let nesting = TypeNesting {
+                paren: paren_depth,
+                bracket: bracket_depth,
+                brace: brace_depth,
+                angle: angle_depth,
+            };
+            update_function_type_scopes(token.kind, nesting, &mut function_type_scopes);
             match token.kind {
                 TokenKind::LParen => paren_depth += 1,
                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),
@@ -186,6 +218,12 @@ impl<'a> Parser<'a> {
                 }
                 _ => {}
             }
+            function_type_scopes.retain(|scope| {
+                scope.nesting.paren <= paren_depth
+                    && scope.nesting.bracket <= bracket_depth
+                    && scope.nesting.brace <= brace_depth
+                    && scope.nesting.angle <= angle_depth
+            });
             let token = self.bump();
             parts.push(token.text.clone());
             tokens.push(token);
@@ -464,5 +502,49 @@ fn unmatched_angle_reaches_annotation_boundary(
         TokenKind::RBracket => bracket_depth == 0,
         TokenKind::RBrace => brace_depth == 0,
         _ => paren_depth == 0 && bracket_depth == 0 && brace_depth == 0,
+    }
+}
+
+fn effect_clause_belongs_to_nested_function_type(
+    boundary: TokenKind,
+    nesting: TypeNesting,
+    function_type_scopes: &[FunctionTypeScope],
+) -> bool {
+    boundary == TokenKind::Effects
+        && nesting.angle > 0
+        && function_type_scopes
+            .iter()
+            .any(|scope| scope.nesting == nesting && scope.return_started)
+}
+
+fn update_function_type_scopes(
+    token: TokenKind,
+    nesting: TypeNesting,
+    scopes: &mut Vec<FunctionTypeScope>,
+) {
+    match token {
+        TokenKind::Comma => scopes.retain(|scope| scope.nesting != nesting),
+        TokenKind::Fn => scopes.push(FunctionTypeScope {
+            nesting,
+            return_started: false,
+        }),
+        TokenKind::Arrow => {
+            if let Some(scope) = scopes
+                .iter_mut()
+                .rev()
+                .find(|scope| scope.nesting == nesting && !scope.return_started)
+            {
+                scope.return_started = true;
+            }
+        }
+        TokenKind::Effects => {
+            if let Some(index) = scopes
+                .iter()
+                .rposition(|scope| scope.nesting == nesting && scope.return_started)
+            {
+                scopes.remove(index);
+            }
+        }
+        _ => {}
     }
 }
