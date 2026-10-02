@@ -147,17 +147,25 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         args: &[&str],
         callsite_calls: &HashMap<&str, &IrContractCall>,
     ) {
+        let tail_slot = self.alloc_local();
+        self.emit_list_nil(code);
+        code.astore(tail_slot);
         for arg in args {
             self.emit_contract_value(code, arg, callsite_calls);
-        }
-        self.emit_list_nil(code);
-        for _ in args {
+            code.aload(tail_slot);
             code.invokestatic(
                 &self.program.options.runtime_class,
                 "listCons",
                 "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
             );
+            code.astore(tail_slot);
         }
+        code.aload(tail_slot);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "listReverse",
+            "(Ljava/lang/Object;)Ljava/lang/Object;",
+        );
     }
 
     fn emit_contract_field(

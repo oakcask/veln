@@ -16,3 +16,15 @@ pub fn variadic_location(expected: SourceLocation, observed: ...Int) -> Bool cal
 	let location_matches = callsite.package == expected.package and callsite.module == expected.module and callsite.file == expected.file and callsite.start_line == expected.start_line and callsite.start_column == expected.start_column and callsite.start_offset == expected.start_offset and callsite.end_line == expected.end_line and callsite.end_column == expected.end_column and callsite.end_offset == expected.end_offset
 	location_matches and expected_tail(observed)
 end
+
+fn count(values: List<Int>) -> Int
+	match values
+		Nil => 0
+		Cons(_, tail) => 1 + count(tail)
+	end
+end
+
+pub fn wide_variadic_location(expected: SourceLocation, observed: ...Int) -> Bool callsite
+	let location_matches = callsite.package == expected.package and callsite.module == expected.module and callsite.file == expected.file and callsite.start_line == expected.start_line and callsite.start_column == expected.start_column and callsite.start_offset == expected.start_offset and callsite.end_line == expected.end_line and callsite.end_column == expected.end_column and callsite.end_offset == expected.end_offset
+	location_matches and count(observed) == 65
+end
