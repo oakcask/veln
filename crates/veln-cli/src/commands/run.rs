@@ -411,6 +411,10 @@ fn lower_run_entry(
         report_pre_execution_diagnostics(json, lowered.diagnostics)?;
         return Ok(None);
     }
+    if let Some(diagnostic) = callsite_entry_diagnostic(&reachable.module, entry) {
+        report_pre_execution_diagnostics(json, vec![diagnostic])?;
+        return Ok(None);
+    }
     if let Some(diagnostic) = retained_user_effect_diagnostic(
         &reachable.module,
         lowered.core.as_ref(),
@@ -426,6 +430,35 @@ fn lower_run_entry(
         return Ok(None);
     };
     Ok(Some(ir))
+}
+
+fn callsite_entry_diagnostic(module: &veln_ast::SurfaceModule, entry: &str) -> Option<Diagnostic> {
+    let function = module.functions.iter().find(|function| {
+        function.kind == FunctionKind::Function && function.name.as_deref() == Some(entry)
+    })?;
+    let span = function.callsite.clone()?;
+    let mut diagnostic = Diagnostic::new(
+        "core.callsite_entry_unsupported",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("run entry `{entry}` cannot require call-site context"),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("core_lowering")),
+            ("entry", JsonValue::string(entry)),
+            ("boundary", JsonValue::string("run_entry")),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("runtime_support")),
+        (
+            "message",
+            JsonValue::string(
+                "A run entry has no Veln call expression from which to construct the hidden location.",
+            ),
+        ),
+    ]));
+    Some(diagnostic)
 }
 
 fn report_pre_execution_diagnostics(

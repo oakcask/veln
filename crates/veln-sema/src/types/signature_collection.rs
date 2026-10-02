@@ -94,6 +94,7 @@ pub(super) fn ordinary_function_signatures(
                     effects,
                     companion_effect_access_targets,
                 ),
+                callsite: function.callsite.is_some(),
                 node_id: function.node_id,
                 span: function.span.clone(),
             })

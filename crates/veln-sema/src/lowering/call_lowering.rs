@@ -282,10 +282,16 @@ impl<'a> CoreLowerer<'a> {
                 signature.variadic.is_some(),
             );
         }
-        let lowered_args = match &signature {
+        let mut lowered_args = match &signature {
             Some(signature) => self.lower_args_with_signature(args, signature),
             None => self.lower_args_with_params(args, None),
         };
+        if signature
+            .as_ref()
+            .is_some_and(|signature| signature.callsite)
+        {
+            lowered_args.push(self.lower_direct_callsite(expr));
+        }
         let (target, return_type) = signature.map_or_else(
             || {
                 let symbol = callee_symbol(callee).unwrap_or_else(|| "<unknown>".to_string());
@@ -301,6 +307,52 @@ impl<'a> CoreLowerer<'a> {
                 target,
                 args: lowered_args,
             },
+        )
+    }
+
+    fn lower_direct_callsite(&self, expr: &Expr) -> CoreExpr {
+        if self.function.callsite.is_some() {
+            return self.core_expr(
+                expr,
+                self.parsed_core_type(Type::source_location()),
+                CoreExprKind::Local("callsite".to_string()),
+            );
+        }
+
+        let string_field = |name: &str, value: String| CoreRecordField {
+            node_id: expr.node_id,
+            name: name.to_string(),
+            expr: self.core_expr(expr, CoreType::string(), CoreExprKind::StringLiteral(value)),
+            span: expr.span.clone(),
+        };
+        let int_field = |name: &str, value: usize| CoreRecordField {
+            node_id: expr.node_id,
+            name: name.to_string(),
+            expr: self.core_expr(
+                expr,
+                CoreType::int(),
+                CoreExprKind::IntLiteral(value.to_string()),
+            ),
+            span: expr.span.clone(),
+        };
+        let fields = vec![
+            string_field("package", String::new()),
+            string_field(
+                "module",
+                self.function.module_name.clone().unwrap_or_default(),
+            ),
+            string_field("file", expr.span.file.as_str().to_string()),
+            int_field("start_line", expr.span.start.line),
+            int_field("start_column", expr.span.start.column),
+            int_field("start_offset", expr.span.start.offset),
+            int_field("end_line", expr.span.end.line),
+            int_field("end_column", expr.span.end.column),
+            int_field("end_offset", expr.span.end.offset),
+        ];
+        self.core_expr(
+            expr,
+            self.parsed_core_type(Type::source_location()),
+            CoreExprKind::Record(fields),
         )
     }
 

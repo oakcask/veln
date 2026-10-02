@@ -1,0 +1,15 @@
+pub fn direct() -> SourceLocation callsite
+	callsite
+end
+
+fn accept(location: SourceLocation) -> SourceLocation
+	location
+end
+
+pub fn forward() -> SourceLocation callsite
+	accept(callsite)
+end
+
+pub fn wrapper() -> SourceLocation callsite
+	forward()
+end

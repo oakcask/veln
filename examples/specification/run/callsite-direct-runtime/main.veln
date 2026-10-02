@@ -1,0 +1,16 @@
+use locations
+
+pub fn main() -> () effects [stdio]
+	let direct = locations::direct()
+	let nested = locations::wrapper()
+	let explicit = locations::forward()
+	stdio::println(direct.module)
+	stdio::println(direct.file)
+	stdio::println(int_to_string(direct.start_line))
+	stdio::println(nested.module)
+	stdio::println(nested.file)
+	stdio::println(int_to_string(nested.start_line))
+	stdio::println(explicit.module)
+	stdio::println(explicit.file)
+	stdio::println(int_to_string(explicit.start_line))
+end

@@ -1,0 +1,8 @@
+fn guarded() -> SourceLocation callsite
+require callsite.start_line > 0
+	callsite
+end
+
+pub fn main() -> SourceLocation
+	guarded()
+end

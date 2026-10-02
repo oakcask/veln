@@ -45,7 +45,8 @@ impl<'a> CoreLowerer<'a> {
 
     pub(super) fn lower_params(&mut self) -> Vec<CoreParam> {
         let signature = self.environment.function_for(self.function);
-        self.function
+        let mut params = self
+            .function
             .params
             .iter()
             .enumerate()
@@ -76,7 +77,21 @@ impl<'a> CoreLowerer<'a> {
                     span: param.span.clone(),
                 }
             })
-            .collect()
+            .collect::<Vec<_>>();
+        if let Some(span) = &self.function.callsite {
+            let ty = self.parsed_core_type(Type::source_location());
+            self.bindings.push(CoreBinding {
+                name: "callsite".to_string(),
+                ty: ty.clone(),
+            });
+            params.push(CoreParam {
+                node_id: self.function.node_id,
+                name: "callsite".to_string(),
+                ty,
+                span: span.clone(),
+            });
+        }
+        params
     }
 
     pub(super) fn lower_return_type(&self) -> CoreType {
@@ -197,7 +212,7 @@ impl<'a> CoreLowerer<'a> {
             (
                 "message",
                 JsonValue::string(
-                    "Runtime support for call-site locations and their hidden call ABI is not implemented.",
+                    "Runtime support for this use of call-site locations is not implemented.",
                 ),
             ),
         ]));

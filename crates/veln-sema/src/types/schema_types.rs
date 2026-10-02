@@ -172,6 +172,7 @@ fn schema_decode_function_signatures_for_schema(
             variadic: None,
             return_type: result,
             effects: Vec::new(),
+            callsite: false,
             node_id: schema.node_id,
             span: schema.span.clone(),
         },
@@ -184,6 +185,7 @@ fn schema_decode_function_signatures_for_schema(
             variadic: None,
             return_type: step,
             effects: Vec::new(),
+            callsite: false,
             node_id: schema.node_id,
             span: schema.span.clone(),
         },
@@ -240,6 +242,7 @@ fn schema_validate_function_signature_for_schema(
         variadic: None,
         return_type: Type::named("Result", vec![decoded_type, Type::string()]),
         effects: Vec::new(),
+        callsite: false,
         node_id: schema.node_id,
         span: schema.span.clone(),
     })
@@ -264,6 +267,7 @@ fn schema_encode_function_signature_for_schema(
             variadic: None,
             return_type: Type::named("Result", vec![value_type, Type::string()]),
             effects: Vec::new(),
+            callsite: false,
             node_id: schema.node_id,
             span: schema.span.clone(),
         });
@@ -286,6 +290,7 @@ fn schema_encode_function_signature_for_schema(
         variadic: None,
         return_type: Type::named("Result", vec![byte_chunk, encode_error]),
         effects: Vec::new(),
+        callsite: false,
         node_id: schema.node_id,
         span: schema.span.clone(),
     })

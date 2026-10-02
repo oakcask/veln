@@ -23,6 +23,7 @@ pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
         variadic: None,
         return_type: Type::named("Result", vec![decoded_type, Type::string()]),
         effects: Vec::new(),
+        callsite: false,
         node_id: schema.node_id,
         span: schema.span.clone(),
     })

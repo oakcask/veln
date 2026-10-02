@@ -43,6 +43,7 @@ pub(crate) struct CoreCallSignature {
     pub(crate) params: Vec<CoreType>,
     pub(crate) variadic: Option<CoreType>,
     pub(crate) return_type: CoreType,
+    pub(crate) callsite: bool,
 }
 
 struct TypeNamePathCallContext<'a> {
@@ -244,6 +245,7 @@ fn core_name_path_call_signature(
             params: vec![CoreType::string()],
             variadic: None,
             return_type: CoreType::unit(),
+            callsite: false,
         });
     }
     if concurrency_origin(segments, callee).is_some() {
@@ -254,6 +256,7 @@ fn core_name_path_call_signature(
             params,
             variadic: None,
             return_type,
+            callsite: false,
         });
     }
     if standard_library_origin(segments, callee).is_some() {
@@ -263,6 +266,7 @@ fn core_name_path_call_signature(
             params,
             variadic: None,
             return_type,
+            callsite: false,
         });
     }
     if let Some(signature) = qualified_core_prelude_builtin_call_signature(segments, expected) {
@@ -308,6 +312,7 @@ fn core_binding_call_signature(
         params: params.clone(),
         variadic: variadic.as_deref().cloned(),
         return_type: return_type.as_ref().clone(),
+        callsite: false,
     })
 }
 
@@ -338,6 +343,7 @@ fn core_function_call_signature(
             params,
             variadic: function.variadic.as_ref().map(core_type),
             return_type,
+            callsite: function.callsite,
         });
     }
     if let Some(signature) = qualified_core_prelude_signature(segments, expected) {
@@ -351,6 +357,7 @@ fn core_function_call_signature(
             params,
             variadic: None,
             return_type,
+            callsite: false,
         });
     }
     None
@@ -364,6 +371,7 @@ fn core_call_signature_from_parts(
         params,
         variadic: None,
         return_type,
+        callsite: false,
     }
 }
 

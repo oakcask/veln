@@ -101,6 +101,7 @@ pub(crate) fn function_alias_signatures(
                 variadic: target.variadic.clone(),
                 return_type: target.return_type.clone(),
                 effects: target.effects.clone(),
+                callsite: target.callsite,
                 node_id: alias.node_id,
                 span: alias.span.clone(),
             })

@@ -1,0 +1,12 @@
+use locations
+
+pub fn main() -> () effects [stdio]
+	let location = locations::choose("é", locations::located("λ"))
+	stdio::println(location.file)
+	stdio::println(int_to_string(location.start_line))
+	stdio::println(int_to_string(location.start_column))
+	stdio::println(int_to_string(location.start_offset))
+	stdio::println(int_to_string(location.end_line))
+	stdio::println(int_to_string(location.end_column))
+	stdio::println(int_to_string(location.end_offset))
+end

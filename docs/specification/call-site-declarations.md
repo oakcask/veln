@@ -2,14 +2,14 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage; behavior=#declaration-behavior; limits=#limits-and-diagnostics
-update-when: The SourceLocation prelude type or callsite function declaration and static-checking contract changes.
+update-when: The SourceLocation value, callsite declaration, direct-call propagation, or related static and execution limits change.
 ---
 
 # Call-site Declarations
 
 Call-site-aware declarations let a function body refer to compiler-supplied
-source-location context. The current contract covers declaration syntax and
-static checking. Runtime construction and propagation are not implemented.
+source-location context. Direct calls construct and propagate that context as
+an ordinary `SourceLocation` value.
 
 ## Usage
 
@@ -28,6 +28,20 @@ The modifier introduces a built-in local named `callsite` with type
 String, file: String, start_line: Int, start_column: Int, start_offset: Int,
 end_line: Int, end_column: Int, end_offset: Int }`.
 
+An ordinary function directly calls a call-site-aware function in the same way
+as any other function. The compiler supplies the hidden context; source code
+does not add an argument:
+
+```veln
+pub fn location() -> SourceLocation callsite
+	callsite
+end
+
+pub fn caller() -> SourceLocation
+	location()
+end
+```
+
 ## Declaration behavior
 
 A source function accepts at most one `callsite` modifier. The modifier does
@@ -40,6 +54,19 @@ as a `SourceLocation` local. Outside a modified function, `callsite` remains an
 ordinary identifier. The formatter preserves the modifier after the optional
 function effects clause and formats the built-in reference like any other
 local reference.
+
+For a direct call from an ordinary function, the supplied value covers the
+complete call expression from its callee through its closing parenthesis. For
+a direct call from a call-site-aware function, the supplied value is that
+function's existing `callsite` value. A chain of call-site-aware wrappers
+therefore preserves the outer ordinary caller's call expression.
+
+The built-in value behaves as an ordinary `SourceLocation` after it enters the
+callee. The function can return it or pass it to an explicit
+`SourceLocation` parameter. Its lines and columns are one-based. Columns count
+Unicode scalar values, while offsets count UTF-8 bytes. Its `file` field uses
+the package-relative source path or a canonical virtual-source name and never
+uses a machine-specific absolute path.
 
 ## Limits and diagnostics
 
@@ -58,16 +85,18 @@ references in those bodies use the ordinary unresolved-name diagnostic. A
 second modifier is rejected at the duplicate token and offers removal as a
 repair.
 
-The declaration contract does not supply hidden call data, construct a runtime
-location, or propagate a location through direct or indirect calls. It does not
-define generated-source mapping, backend metadata, or call-site-specific LSP
-and MCP completion, signature help, and built-in-local presentation.
-The checker accepts a call-site-aware declaration, but execution lowering
-rejects a reachable reference to its built-in `callsite` value until runtime
-location construction and the hidden call ABI are implemented. `veln run`
-reports the lowering diagnostic and stops before backend execution. An
-unmodified function can use an ordinary binding named `callsite`, including in
-its contracts, and execution treats that binding like any other local value.
+Indirect calls through function values do not yet carry hidden call-site
+context. Execution lowering rejects using a call-site-aware function as a
+function value. A `veln run` entry cannot carry the modifier because it has no
+Veln call expression from which to obtain a location. Generated-source origin
+mapping, dependency source-identity collisions, deferred-observation lifetime
+guarantees, and call-site-specific LSP and MCP presentation are also not
+implemented. Runtime contract predicates that refer to the built-in remain
+blocked.
+
+An unmodified function can use an ordinary binding named `callsite`, including
+in its contracts, and execution treats that binding like any other local value.
+Functions without the modifier retain their ordinary call ABI.
 
 ## References
 
@@ -79,7 +108,15 @@ its contracts, and execution treats that binding like any other local value.
   `examples/specification/check/callsite-declaration-contract-json/case.toml`.
 - Formatter evidence:
   `examples/specification/fmt/callsite-modifier/case.toml`.
-- Execution-boundary evidence:
+- Direct-call and wrapper execution evidence:
+  the `callsite-direct-runtime` run specification case.
+- Unicode coordinate evidence:
+  the `callsite-unicode-coordinates` run specification case.
+- Remaining indirect-call boundary evidence:
   `examples/specification/run/callsite-runtime-boundary/case.toml`.
+- Run-entry boundary evidence:
+  the `callsite-entry-runtime-boundary` run specification case.
+- Runtime-contract boundary evidence:
+  the `callsite-contract-runtime-boundary` run specification case.
 - Ordinary-identifier execution evidence:
   `examples/specification/run/callsite-ordinary-identifier/case.toml`.
