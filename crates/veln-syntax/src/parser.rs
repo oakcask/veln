@@ -22,6 +22,8 @@ mod diagnostics_and_tokens;
 mod expression_aggregates;
 mod expression_control;
 mod expression_core;
+mod expression_names;
+mod expression_patterns;
 mod expression_primaries;
 mod functions_and_imports;
 mod generic_type_syntax;
