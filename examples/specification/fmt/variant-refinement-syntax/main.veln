@@ -17,3 +17,7 @@ fn transition(state:Alias::Ready|protocol::State::Closed|Alias::Ready,container:
  sink<State::Open|State::Closed>(nested)
  sink<State::Ready|State::Closed, Result<State::Ready|State::Closed, Error>::Ok>(nested)
 end
+
+fn load()->Result<fn(Int) -> Int effects [io::Read],Error>::Ok effects[db::Load]
+ Ok(identity)
+end
