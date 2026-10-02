@@ -139,9 +139,9 @@ Functions without the modifier retain their ordinary call ABI.
 - Run-entry boundary evidence:
   the `callsite-entry-runtime-boundary` run specification case.
 - Runtime contract built-in reference evidence:
-  the `callsite-contract-runtime` and `callsite-contract-failure` run
+  the `callsite-contract-runtime` run specification case.
+- Runtime contract call propagation and failure evidence:
+  the `callsite-contract-call-runtime` and `callsite-contract-failure` run
   specification cases.
-- Runtime contract call propagation evidence:
-  the `callsite-contract-call-runtime` run specification case.
 - Ordinary-identifier execution evidence:
   `examples/specification/run/callsite-ordinary-identifier/case.toml`.

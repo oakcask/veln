@@ -74,7 +74,7 @@ impl<'a> FunctionChecker<'a> {
         call_index: usize,
         call: &ContractCall,
     ) -> Option<ContractValidation> {
-        let Some((params, variadic, return_type, effects)) =
+        let Some((params, variadic, return_type, effects, callsite)) =
             self.contract_call_signature(&call.callee)
         else {
             return Some(ContractValidation::UnresolvedName {
@@ -84,6 +84,11 @@ impl<'a> FunctionChecker<'a> {
         if !effects.is_empty() {
             return Some(ContractValidation::UnsupportedConstruct {
                 reason: "effectful_operation",
+            });
+        }
+        if variadic.is_some() && !callsite {
+            return Some(ContractValidation::UnsupportedConstruct {
+                reason: "call_arity",
             });
         }
         if return_type != Type::bool()
@@ -177,7 +182,7 @@ impl<'a> FunctionChecker<'a> {
             .find(|call| call.start == 0 && call.end == predicate.len())?;
         let return_type = self
             .contract_call_signature(&call.callee)
-            .map(|(_, _, return_type, _)| return_type)
+            .map(|(_, _, return_type, _, _)| return_type)
             .unwrap_or(Type::Unknown);
         Some(if return_type == Type::bool() {
             ContractValidation::Valid
@@ -195,7 +200,7 @@ impl<'a> FunctionChecker<'a> {
     ) -> Option<ContractValidation> {
         missing_contract_field(predicate, bindings, &|callee| {
             self.contract_call_signature(callee)
-                .map(|(_, _, return_type, _)| return_type)
+                .map(|(_, _, return_type, _, _)| return_type)
         })
         .map(|(base_type, field)| ContractValidation::MissingField { base_type, field })
     }
@@ -207,14 +212,14 @@ impl<'a> FunctionChecker<'a> {
     ) -> ContractValidation {
         if predicate_is_boolean_with_calls(predicate, bindings, &|callee| {
             self.contract_call_signature(callee)
-                .map(|(_, _, return_type, _)| return_type)
+                .map(|(_, _, return_type, _, _)| return_type)
         }) {
             ContractValidation::Valid
         } else {
             ContractValidation::NonBoolean {
                 actual_type: predicate_rendered_type_with_calls(predicate, bindings, &|callee| {
                     self.contract_call_signature(callee)
-                        .map(|(_, _, return_type, _)| return_type)
+                        .map(|(_, _, return_type, _, _)| return_type)
                 }),
             }
         }
@@ -223,7 +228,7 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn contract_call_signature(
         &self,
         callee: &str,
-    ) -> Option<(Vec<Type>, Option<Type>, Type, Vec<String>)> {
+    ) -> Option<(Vec<Type>, Option<Type>, Type, Vec<String>, bool)> {
         let segments = contract_callee_segments(callee);
         let signature = match segments.as_slice() {
             [name] => self
@@ -239,22 +244,23 @@ impl<'a> FunctionChecker<'a> {
                 if signature.module_name.as_deref() == Some("std::prelude")
                     && let Some((params, return_type)) = prelude_signature(&signature.name, None)
                 {
-                    return (params, None, return_type, signature.effects.clone());
+                    return (params, None, return_type, signature.effects.clone(), false);
                 }
                 (
                     signature.params.clone(),
                     signature.variadic.clone(),
                     signature.return_type.clone(),
                     signature.effects.clone(),
+                    signature.callsite,
                 )
             })
             .or_else(|| match segments.as_slice() {
                 [name] if !self.bare_prelude_import_is_ambiguous(name) => {
                     prelude_signature(name, None)
-                        .map(|(params, return_type)| (params, None, return_type, Vec::new()))
+                        .map(|(params, return_type)| (params, None, return_type, Vec::new(), false))
                 }
                 _ => qualified_prelude_signature(&segments, None)
-                    .map(|(_, params, return_type)| (params, None, return_type, Vec::new())),
+                    .map(|(_, params, return_type)| (params, None, return_type, Vec::new(), false)),
             })
     }
 
@@ -275,12 +281,12 @@ impl<'a> FunctionChecker<'a> {
         {
             return self
                 .contract_call_signature(&call.callee)
-                .map(|(_, _, return_type, _)| return_type)
+                .map(|(_, _, return_type, _, _)| return_type)
                 .unwrap_or(Type::Unknown);
         }
         if let Some(ty) = predicate_type_with_calls(trimmed, bindings, &|callee| {
             self.contract_call_signature(callee)
-                .map(|(_, _, return_type, _)| return_type)
+                .map(|(_, _, return_type, _, _)| return_type)
         }) {
             return ty;
         }

@@ -54,11 +54,16 @@ error return. `invariant` runs at entry and before normal or `?` return.
 Runtime-required obligations in a call-site-aware function can read the same
 hidden `callsite` value as the function body. A direct call from such an
 obligation to another call-site-aware function forwards that value without an
-explicit source argument. The same call from a contract on an ordinary
-function remains blocked. A statically proven obligation emits no runtime
-call. Direct calls in ordinary function bodies remain executable.
-The focused boundary is specified by
-[Call-site Declarations](call-site-declarations.md#limits-and-diagnostics).
+explicit source argument. The forwarding behavior is specified by
+[Call-site Declarations](call-site-declarations.md#declaration-behavior).
+A call-site-aware callee can use fixed and variadic source parameters. A
+variadic contract call to an ordinary function remains rejected until its
+runtime ABI is supported. A contract on an ordinary function also cannot call
+a call-site-aware function because it has no hidden context to forward. This
+call-site boundary is specified under
+[Limits and diagnostics](call-site-declarations.md#limits-and-diagnostics).
+A statically proven obligation emits no runtime call. Direct calls in ordinary
+function bodies remain executable.
 
 | Clause | Entry failure blames | Return failure blames |
 | --- | --- | --- |

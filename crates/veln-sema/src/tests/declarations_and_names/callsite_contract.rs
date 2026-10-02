@@ -168,6 +168,27 @@ fn callsite_contract_calls_require_all_fixed_arguments_before_the_variadic_tail(
 }
 
 #[test]
+fn ordinary_variadic_contract_calls_remain_rejected_until_the_abi_is_supported() {
+    let diagnostics = diagnostics(concat!(
+        "fn accepts(values: ...Int) -> Bool\n",
+        "  true\n",
+        "end\n",
+        "pub fn guarded() -> ()\n",
+        "require accepts(17, 29)\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.unsupported_construct"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"call_arity\"")
+    }));
+}
+
+#[test]
 fn ordinary_function_contract_calls_that_need_callsite_context_remain_blocked() {
     let source = SourceFile::new(
         "main.veln",

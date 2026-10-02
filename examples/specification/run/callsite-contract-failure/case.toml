@@ -20,12 +20,16 @@ equals = "contract"
 
 [[json_assert]]
 path = "error.details.clause"
-equals = "ensure"
+equals = "require"
 
 [[json_assert]]
 path = "error.details.predicate"
-equals = "callsite.start_line == expected_line"
+equals = "rejects()"
+
+[[json_assert]]
+path = "error.details.function"
+equals = "rejected"
 
 [[json_assert]]
 path = "error.details.blame"
-equals = "implementation"
+equals = "caller"
