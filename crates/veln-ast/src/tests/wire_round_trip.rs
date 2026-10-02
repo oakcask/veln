@@ -101,6 +101,26 @@ fn surface_wire_round_trip_preserves_contract_callsite_reference_span() {
 }
 
 #[test]
+fn surface_wire_round_trip_preserves_contract_call_callee_spans() {
+    let module = lower_source(concat!(
+        "fn guarded() -> Bool\n",
+        "require outer(inner::ready())\n",
+        "  true\n",
+        "end\n",
+    ));
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    let calls = &decoded.functions[0].contracts[0].call_callee_spans;
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[0].0, "outer");
+    assert_eq!((calls[0].1.start.line, calls[0].1.start.column), (2, 9));
+    assert_eq!(calls[1].0, "inner::ready");
+    assert_eq!((calls[1].1.start.line, calls[1].1.start.column), (2, 15));
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_cleanup_introducer_spans() {
     let source = concat!(
         "fn parse() -> Result<(), String>\n",

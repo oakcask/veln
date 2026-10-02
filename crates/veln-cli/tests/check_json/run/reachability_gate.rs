@@ -19,8 +19,8 @@ fn run_blocks_callsite_references_before_jdk_execution() {
     assert_contains_all(
         stderr(&output),
         &[
-            "main.veln:2:3: error[core.callsite_runtime_unsupported]: `callsite` is not available during execution",
-            "note: Runtime support for call-site locations and their hidden call ABI is not implemented.",
+            "main.veln:1:33: error[core.callsite_entry_unsupported]: run entry `main` cannot require call-site context",
+            "note: A run entry has no Veln call expression from which to construct the hidden location.",
         ],
     );
     assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));
@@ -28,6 +28,110 @@ fn run_blocks_callsite_references_before_jdk_execution() {
         !stderr(&output).contains("java` was not found"),
         "{}",
         stderr(&output)
+    );
+}
+
+#[test]
+fn run_json_reports_callsite_entry_gate_details() {
+    let project = TestProject::new("run-json-callsite-entry-boundary");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["--json", "main", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"schema_version\":1",
+            "\"status\":\"error\"",
+            "\"id\":\"core.callsite_entry_unsupported\"",
+            "\"details\":{\"phase\":\"core_lowering\",\"entry\":\"main\",\"boundary\":\"run_entry\"}",
+            "\"related\":[{\"kind\":\"runtime_support\",\"message\":\"A run entry has no Veln call expression from which to construct the hidden location.\"}]",
+        ],
+    );
+}
+
+#[test]
+fn run_blocks_callsite_aware_contract_calls_before_jdk_execution() {
+    let project = TestProject::new("run-callsite-contract-call-boundary");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn located() -> Bool callsite\n",
+            "  callsite.start_line > 0\n",
+            "end\n",
+            "pub fn main() -> ()\n",
+            "require located()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run_with_path(&["main", "main.veln"], "");
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "main.veln:5:9: error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract",
+            "note: Runtime contract calls do not yet supply the hidden call-site location.",
+        ],
+    );
+    assert!(
+        !stderr(&output).contains("NoSuchMethodError"),
+        "{}",
+        stderr(&output)
+    );
+    assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));
+    assert!(
+        !stderr(&output).contains("java` was not found"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn run_json_reports_callsite_contract_call_gate_details() {
+    let project = TestProject::new("run-json-callsite-contract-call-boundary");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn located() -> Bool callsite\n",
+            "  callsite.start_line > 0\n",
+            "end\n",
+            "pub fn main() -> ()\n",
+            "require located()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["--json", "main", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"schema_version\":1",
+            "\"status\":\"error\"",
+            "\"id\":\"core.callsite_contract_call_unsupported\"",
+            "\"details\":{\"phase\":\"core_lowering\"",
+            "\"reason\":\"callsite_contract_call_unsupported\"",
+            "\"callee\":\"located\"",
+            "\"related\":[{\"kind\":\"runtime_support\",\"message\":\"Runtime contract calls do not yet supply the hidden call-site location.\"}]",
+        ],
     );
 }
 

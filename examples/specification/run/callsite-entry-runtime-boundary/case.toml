@@ -1,0 +1,9 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[core.callsite_entry_unsupported]: run entry `main` cannot require call-site context", "A run entry has no Veln call expression from which to construct the hidden location."]

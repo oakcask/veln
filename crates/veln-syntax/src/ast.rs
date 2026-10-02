@@ -254,6 +254,7 @@ pub struct ContractClause {
     pub text: String,
     pub perform_effect_spans: Vec<SourceSpan>,
     pub callsite_reference_spans: Vec<SourceSpan>,
+    pub call_callee_spans: Vec<(String, SourceSpan)>,
     pub span: SourceSpan,
 }
 

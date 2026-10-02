@@ -1,0 +1,7 @@
+pub fn located(label: String) -> SourceLocation callsite
+	callsite
+end
+
+pub fn choose(label: String, location: SourceLocation) -> SourceLocation
+	location
+end

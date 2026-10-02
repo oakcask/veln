@@ -355,6 +355,10 @@ impl Writer {
         self.contract_kind(value.kind);
         self.string(&value.text);
         self.vec(&value.callsite_reference_spans, Self::span);
+        self.vec(&value.call_callee_spans, |writer, (callee, span)| {
+            writer.string(callee);
+            writer.span(span);
+        });
         self.span(&value.span);
     }
 

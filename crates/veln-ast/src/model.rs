@@ -398,6 +398,7 @@ pub struct Contract {
     pub kind: ContractKind,
     pub text: String,
     pub callsite_reference_spans: Vec<SourceSpan>,
+    pub call_callee_spans: Vec<(String, SourceSpan)>,
     pub span: SourceSpan,
 }
 

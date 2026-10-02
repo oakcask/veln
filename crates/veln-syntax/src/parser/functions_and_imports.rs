@@ -487,11 +487,46 @@ impl<'a> Parser<'a> {
             })
             .map(|(_, token)| self.source.span(token.range))
             .collect();
+        let call_callee_spans = predicate_tokens
+            .iter()
+            .enumerate()
+            .filter_map(|(open_index, token)| {
+                if token.kind != TokenKind::LParen {
+                    return None;
+                }
+                let end_index = open_index.checked_sub(1)?;
+                if !matches!(
+                    predicate_tokens[end_index].kind,
+                    TokenKind::Ident | TokenKind::Callsite
+                ) {
+                    return None;
+                }
+                let mut start_index = end_index;
+                while start_index >= 2
+                    && predicate_tokens[start_index - 1].kind == TokenKind::DoubleColon
+                    && matches!(
+                        predicate_tokens[start_index - 2].kind,
+                        TokenKind::Ident | TokenKind::Callsite
+                    )
+                {
+                    start_index -= 2;
+                }
+                let callee = predicate_tokens[start_index..=end_index]
+                    .iter()
+                    .map(|token| token.text.as_str())
+                    .collect::<String>();
+                let range = predicate_tokens[start_index]
+                    .range
+                    .cover(predicate_tokens[end_index].range);
+                Some((callee, self.source.span(range)))
+            })
+            .collect();
         ContractClause {
             kind,
             text,
             perform_effect_spans: predicate_output.perform_effect_spans,
             callsite_reference_spans,
+            call_callee_spans,
             span: self.source.span(start_token.range.cover(end)),
         }
     }

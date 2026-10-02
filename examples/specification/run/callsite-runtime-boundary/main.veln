@@ -1,4 +1,10 @@
-# Execution rejects the built-in value until runtime call-site propagation exists.
-pub fn main() -> SourceLocation callsite
+# Indirect calls remain blocked after direct call-site propagation is implemented.
+fn located() -> SourceLocation callsite
 	callsite
+end
+
+pub fn main() -> ()
+	let capture: fn() -> SourceLocation = located
+	capture()
+	()
 end

@@ -96,6 +96,7 @@ pub(crate) struct FunctionSignature {
     pub(crate) variadic: Option<Type>,
     pub(crate) return_type: Type,
     pub(crate) effects: Vec<String>,
+    pub(crate) callsite: bool,
     pub(crate) node_id: NodeId,
     pub(crate) span: SourceSpan,
 }

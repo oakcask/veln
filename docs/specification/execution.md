@@ -19,6 +19,13 @@ before applying command-specific execution or write policy. Holes, missing
 expressions, constructor or call arity failures, and recognized concurrency
 blockers prevent execution.
 
+Direct calls to call-site-aware functions enter checked core with a hidden
+`SourceLocation` argument. Calls from ordinary functions construct that value
+from the call expression, while call-site-aware wrappers forward their existing
+value. Indirect calls, call-site-aware run entries, and runtime contract uses
+remain execution gates. The focused declaration and propagation contract is
+specified by [Call-site Declarations](call-site-declarations.md).
+
 `begin` expressions and `defer` statements pass parsing, static analysis,
 checked-core readiness, and typed-IR readiness. Public run and test commands
 execute reachable programs containing either form.

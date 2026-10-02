@@ -172,6 +172,7 @@ fn invalid_function_recovery_signature(
         variadic,
         return_type: parse_type_or_unknown(function.return_type.as_deref()),
         effects: function.effects.clone().unwrap_or_default(),
+        callsite: function.callsite.is_some(),
         node_id: function.node_id,
         span: function.span.clone(),
     })
@@ -203,6 +204,7 @@ fn invalid_alias_recovery_signature(
         variadic: target.variadic.clone(),
         return_type: target.return_type.clone(),
         effects: target.effects.clone(),
+        callsite: target.callsite,
         node_id: alias.node_id,
         span: alias.span.clone(),
     })

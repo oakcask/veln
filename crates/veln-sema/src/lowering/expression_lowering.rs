@@ -275,7 +275,7 @@ impl<'a> CoreLowerer<'a> {
         let mut piped_args = Vec::with_capacity(args.len() + 1);
         piped_args.push(left.clone());
         piped_args.extend(args.iter().cloned());
-        self.lower_call(expr, callee, &piped_args, expected)
+        self.lower_call_with_callsite(expr, right, callee, &piped_args, expected)
     }
 
     pub(super) fn numeric_operand_type(
@@ -396,12 +396,6 @@ impl<'a> CoreLowerer<'a> {
         name: &str,
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        if self.block_unsupported_callsite_runtime
-            && name == "callsite"
-            && self.function.callsite.is_some()
-        {
-            self.unsupported_callsite_reference(expr.node_id, &expr.span);
-        }
         if let Some(index) = self
             .bindings
             .iter()
@@ -416,11 +410,22 @@ impl<'a> CoreLowerer<'a> {
             .environment
             .unqualified_function(name, self.function.module_name.as_deref())
         {
-            FunctionLookup::Found(function) => self.core_expr(
-                expr,
-                core_type(&function.ty()),
-                CoreExprKind::FunctionValue(function.target_name.clone()),
-            ),
+            FunctionLookup::Found(function) => {
+                if self.block_unsupported_callsite_runtime && function.callsite {
+                    self.unsupported_expression(
+                        expr,
+                        "indirect_callsite_call",
+                        "call-site-aware functions cannot be used as function values during execution"
+                            .to_string(),
+                        None,
+                    );
+                }
+                self.core_expr(
+                    expr,
+                    core_type(&function.ty()),
+                    CoreExprKind::FunctionValue(function.target_name.clone()),
+                )
+            }
             FunctionLookup::Ambiguous | FunctionLookup::Missing => self.core_expr(
                 expr,
                 CoreType::Unknown,
@@ -449,11 +454,20 @@ impl<'a> CoreLowerer<'a> {
         self.core_expr(expr, ty, CoreExprKind::Local(name.to_string()))
     }
 
-    pub(super) fn lower_qualified_name(&self, expr: &Expr, segments: &[String]) -> CoreExpr {
+    pub(super) fn lower_qualified_name(&mut self, expr: &Expr, segments: &[String]) -> CoreExpr {
         if let Some(function) = self
             .environment
             .function_path_for_value(segments, self.function.module_name.as_deref())
         {
+            if self.block_unsupported_callsite_runtime && function.callsite {
+                self.unsupported_expression(
+                    expr,
+                    "indirect_callsite_call",
+                    "call-site-aware functions cannot be used as function values during execution"
+                        .to_string(),
+                    None,
+                );
+            }
             self.core_expr(
                 expr,
                 core_type(&function.ty()),

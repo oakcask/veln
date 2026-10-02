@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"26f69a96b5b9cc94ac9c17ecd8bb936077b8e333"
+source_git_tree	"19c36cbd1cf1891da5f201dd905703893ae9216a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1744
+case_count	1748
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -36924,6 +36924,44 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"f00a9ea9d8a375fc87b84a00008426a0e3db2fee600557aa9ef74c98b69be7e6"
+case	"examples/specification/run/callsite-contract-runtime-boundary"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[core.callsite_runtime_unsupported]: `callsite` is not available during execution"
+field	expectations.stderr.contains[1]	"Runtime support for this use of call-site locations is not implemented."
+field	expectations.stderr.contains[2]	"error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract"
+field	expectations.stderr.contains[3]	"Runtime contract calls do not yet supply the hidden call-site location."
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"b60553de75930a1cd283ece974133370a2ae10942b141df1032e957f65e4109c"
+case	"examples/specification/run/callsite-direct-runtime"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"locations.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"4caccd31e02d70b8ea46aa629419ca480bd051440a86eb342752553c66995360"
+case	"examples/specification/run/callsite-entry-runtime-boundary"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[core.callsite_entry_unsupported]: run entry `main` cannot require call-site context"
+field	expectations.stderr.contains[1]	"A run entry has no Veln call expression from which to construct the hidden location."
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"34bf736f61da16b41c9e7a9e735ee4fdd1682761d5a6821d342b209dcf594b7e"
 case	"examples/specification/run/callsite-ordinary-identifier"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -36937,8 +36975,7 @@ field	source_errors	"forbidden"
 case_digest	"e29097e7055a50770a321f3ff6d963d7275f5eeb733e3999cf9e038ac96ea5e2"
 case	"examples/specification/run/callsite-runtime-boundary"
 field	expectations.exit	1
-field	expectations.stderr.contains[0]	"error[core.callsite_runtime_unsupported]: `callsite` is not available during execution"
-field	expectations.stderr.contains[1]	"Runtime support for call-site locations and their hidden call ABI is not implemented."
+field	expectations.stderr.contains[0]	"error[core.indirect_callsite_call]: call-site-aware functions cannot be used as function values during execution"
 field	expectations.stderr.format	"text"
 field	expectations.stdout.format	"empty"
 field	invocation.command[0]	"run"
@@ -36946,7 +36983,19 @@ field	invocation.command[1]	"main"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"0c29aa59f44b4bbe63276634b24ad5f93dd4272495f4dfaa544d426fc045fee7"
+case_digest	"0953db1f4ca13ed25196b7b56d93904243d8511aaa6f4b0e0169768b9891d868"
+case	"examples/specification/run/callsite-unicode-coordinates"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"locations.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"4caccd31e02d70b8ea46aa629419ca480bd051440a86eb342752553c66995360"
 case	"examples/specification/run/channel-first-stream-routing"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -62742,4 +62791,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"9cec22ea1c7925ba351e1337a952373dc81d36f14fea45889e9b43c97c556ede"
+aggregate_digest	"6d7960b14bf230cda30a27814e384fa6a9f7c5c5abfe074af2b9a955cdf9c95a"

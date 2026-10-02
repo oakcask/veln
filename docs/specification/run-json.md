@@ -67,6 +67,12 @@ shared diagnostic envelope with `schema_version: 1`, `status: "error"`,
 program `stdout` or `stderr` fields. Any CLI diagnostic rendering on stderr is
 separate from the JSON contract.
 
+The same envelope reports call-site execution gates. A call-site-aware entry,
+an indirect use of a call-site-aware function, and a runtime contract that
+requires unsupported call-site context all fail before backend launch. Their
+diagnostic identifiers and stable details are specified by
+[Check JSON And Diagnostics](diagnostics-json.md#diagnostic-families).
+
 Checked-core readiness can stop a diagnostic-free run for unsupported lowered
 behavior. Reachable `begin` and `defer` forms are executable and do not create
 such a blocker. Their runtime behavior is specified by the

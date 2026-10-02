@@ -529,6 +529,7 @@ impl<'a> Reader<'a> {
             kind: self.contract_kind()?,
             text: self.string()?,
             callsite_reference_spans: self.vec(Self::span)?,
+            call_callee_spans: self.vec(|reader| Ok((reader.string()?, reader.span()?)))?,
             span: self.span()?,
         })
     }
