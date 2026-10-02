@@ -27,6 +27,28 @@ struct FunctionTypeScope {
     started_returns: usize,
 }
 
+impl TypeNesting {
+    fn is_top_level(self) -> bool {
+        self.paren == 0 && self.bracket == 0 && self.brace == 0 && self.angle == 0
+    }
+
+    fn update(&mut self, kind: TokenKind) {
+        match kind {
+            TokenKind::LParen => self.paren += 1,
+            TokenKind::RParen => self.paren = self.paren.saturating_sub(1),
+            TokenKind::LBracket => self.bracket += 1,
+            TokenKind::RBracket => self.bracket = self.bracket.saturating_sub(1),
+            TokenKind::LBrace => self.brace += 1,
+            TokenKind::RBrace => self.brace = self.brace.saturating_sub(1),
+            TokenKind::Less => self.angle += 1,
+            kind if closing_angle_count(kind) > 0 => {
+                self.angle = self.angle.saturating_sub(closing_angle_count(kind));
+            }
+            _ => {}
+        }
+    }
+}
+
 impl ExpressionLineCollector {
     fn new(start: TextRange) -> Self {
         Self {
@@ -142,10 +164,12 @@ impl<'a> Parser<'a> {
     ) -> (String, Vec<TypePathSegments>, Vec<VariantRefinementType>) {
         let mut parts = Vec::new();
         let mut tokens = Vec::new();
-        let mut paren_depth = 0usize;
-        let mut bracket_depth = 0usize;
-        let mut brace_depth = 0usize;
-        let mut angle_depth = 0usize;
+        let mut nesting = TypeNesting {
+            paren: 0,
+            bracket: 0,
+            brace: 0,
+            angle: 0,
+        };
         let mut function_type_scopes = Vec::new();
         let mut reported_unmatched_angle = false;
         while !self.at(TokenKind::Eof) {
@@ -155,84 +179,25 @@ impl<'a> Parser<'a> {
                     || tokens
                         .last()
                         .is_some_and(|token: &Token| token.kind == TokenKind::Arrow));
-            let at_stop = stop.iter().any(|kind| self.at(*kind));
-            if at_stop && !contextual_callsite_type {
-                let nesting = TypeNesting {
-                    paren: paren_depth,
-                    bracket: bracket_depth,
-                    brace: brace_depth,
-                    angle: angle_depth,
-                };
-                let outside_nested_type =
-                    paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 && angle_depth == 0;
-                if outside_nested_type {
-                    break;
-                }
-                if angle_depth > 0
-                    && paren_depth == 0
-                    && bracket_depth == 0
-                    && brace_depth == 0
-                    && self.at(TokenKind::Comma)
-                    && stop.contains(&TokenKind::Comma)
-                    && self.comma_precedes_named_type_sibling()
-                {
-                    self.report_unmatched_generic_opener(context);
-                    reported_unmatched_angle = true;
-                    break;
-                }
-                if angle_depth > 0
-                    && unmatched_angle_reaches_annotation_boundary(
-                        self.current().kind,
-                        paren_depth,
-                        bracket_depth,
-                        brace_depth,
-                    )
-                    && !effect_clause_belongs_to_nested_function_type(
-                        self.current().kind,
-                        nesting,
-                        &function_type_scopes,
-                    )
-                {
-                    self.report_unmatched_generic_opener(context);
-                    reported_unmatched_angle = true;
-                    break;
-                }
+            if self.stops_type_collection(
+                context,
+                stop,
+                contextual_callsite_type,
+                nesting,
+                &function_type_scopes,
+                &mut reported_unmatched_angle,
+            ) {
+                break;
             }
             let token = self.current().clone();
-            let nesting = TypeNesting {
-                paren: paren_depth,
-                bracket: bracket_depth,
-                brace: brace_depth,
-                angle: angle_depth,
-            };
             update_function_type_scopes(token.kind, nesting, &mut function_type_scopes);
-            match token.kind {
-                TokenKind::LParen => paren_depth += 1,
-                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),
-                TokenKind::LBracket => bracket_depth += 1,
-                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
-                TokenKind::LBrace => brace_depth += 1,
-                TokenKind::RBrace => brace_depth = brace_depth.saturating_sub(1),
-                TokenKind::Less => angle_depth += 1,
-                kind if closing_angle_count(kind) > 0 => {
-                    angle_depth = angle_depth.saturating_sub(closing_angle_count(kind));
-                }
-                _ => {}
-            }
-            prune_function_type_scopes(
-                &mut function_type_scopes,
-                TypeNesting {
-                    paren: paren_depth,
-                    bracket: bracket_depth,
-                    brace: brace_depth,
-                    angle: angle_depth,
-                },
-            );
+            nesting.update(token.kind);
+            prune_function_type_scopes(&mut function_type_scopes, nesting);
             let token = self.bump();
             parts.push(token.text.clone());
             tokens.push(token);
         }
-        if angle_depth > 0 && !reported_unmatched_angle {
+        if nesting.angle > 0 && !reported_unmatched_angle {
             self.report_unmatched_generic_opener(context);
         }
         let refinements = self.variant_refinements_from_tokens(context, &tokens);
@@ -241,6 +206,48 @@ impl<'a> Parser<'a> {
             type_paths_from_tokens(self.source, &tokens),
             refinements,
         )
+    }
+
+    fn stops_type_collection(
+        &mut self,
+        context: &'static str,
+        stop: &[TokenKind],
+        contextual_callsite_type: bool,
+        nesting: TypeNesting,
+        function_type_scopes: &[FunctionTypeScope],
+        reported_unmatched_angle: &mut bool,
+    ) -> bool {
+        if !stop.iter().any(|kind| self.at(*kind)) || contextual_callsite_type {
+            return false;
+        }
+        if nesting.is_top_level() {
+            return true;
+        }
+        let unmatched_before_sibling = nesting.angle > 0
+            && nesting.paren == 0
+            && nesting.bracket == 0
+            && nesting.brace == 0
+            && self.at(TokenKind::Comma)
+            && stop.contains(&TokenKind::Comma)
+            && self.comma_precedes_named_type_sibling();
+        let unmatched_before_boundary = nesting.angle > 0
+            && unmatched_angle_reaches_annotation_boundary(
+                self.current().kind,
+                nesting.paren,
+                nesting.bracket,
+                nesting.brace,
+            )
+            && !effect_clause_belongs_to_nested_function_type(
+                self.current().kind,
+                nesting,
+                function_type_scopes,
+            );
+        if unmatched_before_sibling || unmatched_before_boundary {
+            self.report_unmatched_generic_opener(context);
+            *reported_unmatched_angle = true;
+            return true;
+        }
+        false
     }
 
     fn report_unmatched_generic_opener(&mut self, context: &'static str) {

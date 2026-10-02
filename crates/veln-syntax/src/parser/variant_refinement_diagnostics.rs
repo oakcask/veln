@@ -28,7 +28,22 @@ fn diagnose_candidate_boundaries(
     candidate_depths: &[usize],
     errors: &mut Vec<(usize, &'static str)>,
 ) {
-    let mut coverage_events = vec![0isize; tokens.len().saturating_add(1)];
+    let covered = refinement_candidate_coverage(tokens.len(), candidates, candidate_depths);
+    let after_closing_run = closing_run_boundaries(tokens);
+
+    for (candidate, depth) in candidates.iter().zip(candidate_depths) {
+        if *depth <= crate::MAX_VARIANT_REFINEMENT_NESTING {
+            diagnose_candidate_boundary(tokens, candidate, &covered, &after_closing_run, errors);
+        }
+    }
+}
+
+fn refinement_candidate_coverage(
+    token_count: usize,
+    candidates: &[RawRefinementCandidate],
+    candidate_depths: &[usize],
+) -> Vec<bool> {
+    let mut coverage_events = vec![0isize; token_count.saturating_add(1)];
     for candidate in candidates
         .iter()
         .zip(candidate_depths)
@@ -36,9 +51,9 @@ fn diagnose_candidate_boundaries(
             (*depth <= crate::MAX_VARIANT_REFINEMENT_NESTING).then_some(candidate)
         })
     {
-        if candidate.start_index < tokens.len() {
+        if candidate.start_index < token_count {
             coverage_events[candidate.start_index] += 1;
-            let after_candidate = candidate.end_index.saturating_add(1).min(tokens.len());
+            let after_candidate = candidate.end_index.saturating_add(1).min(token_count);
             coverage_events[after_candidate] -= 1;
             #[cfg(test)]
             super::record_refinement_boundary_coverage_work(2);
@@ -47,14 +62,18 @@ fn diagnose_candidate_boundaries(
     let mut active_candidates = 0isize;
     let covered = coverage_events
         .into_iter()
-        .take(tokens.len())
+        .take(token_count)
         .map(|event| {
             active_candidates += event;
             active_candidates > 0
         })
         .collect::<Vec<_>>();
     #[cfg(test)]
-    super::record_refinement_boundary_coverage_work(tokens.len());
+    super::record_refinement_boundary_coverage_work(token_count);
+    covered
+}
+
+fn closing_run_boundaries(tokens: &[Token]) -> Vec<usize> {
     let mut after_closing_run = vec![tokens.len(); tokens.len()];
     for index in (0..tokens.len()).rev() {
         after_closing_run[index] = if closing_type_delimiter(tokens[index].kind) {
@@ -72,43 +91,44 @@ fn diagnose_candidate_boundaries(
     }
     #[cfg(test)]
     super::record_refinement_boundary_coverage_work(tokens.len());
+    after_closing_run
+}
 
-    for candidate in candidates
-        .iter()
-        .zip(candidate_depths)
-        .filter_map(|(candidate, depth)| {
-            (*depth <= crate::MAX_VARIANT_REFINEMENT_NESTING).then_some(candidate)
-        })
+fn diagnose_candidate_boundary(
+    tokens: &[Token],
+    candidate: &RawRefinementCandidate,
+    covered: &[bool],
+    after_closing_run: &[usize],
+    errors: &mut Vec<(usize, &'static str)>,
+) {
+    if let Some(prefix) = candidate.start_index.checked_sub(1)
+        && !covered[prefix]
+        && !allowed_refinement_prefix(tokens[prefix].kind)
     {
-        if let Some(prefix) = candidate.start_index.checked_sub(1)
-            && !covered[prefix]
-            && !allowed_refinement_prefix(tokens[prefix].kind)
-        {
-            errors.push((
-                prefix,
-                "variant refinement must be complete at its structural type position",
-            ));
-        }
+        errors.push((
+            prefix,
+            "variant refinement must be complete at its structural type position",
+        ));
+    }
 
-        let suffix = candidate.end_index + 1;
-        let suffix_kind = tokens.get(suffix).map(|token| token.kind);
-        if let Some(kind) = suffix_kind
-            && !allowed_refinement_suffix(kind)
+    let suffix = candidate.end_index + 1;
+    let suffix_kind = tokens.get(suffix).map(|token| token.kind);
+    if let Some(kind) = suffix_kind
+        && !allowed_refinement_suffix(kind)
+    {
+        errors.push((
+            suffix,
+            "variant refinement must be complete at its structural type position",
+        ));
+    } else if suffix_kind.is_some_and(closing_type_delimiter) {
+        let after_closers = after_closing_run[suffix];
+        if let Some(token) = tokens.get(after_closers)
+            && !allowed_after_closed_type_structure(token.kind)
         {
             errors.push((
-                suffix,
+                after_closers,
                 "variant refinement must be complete at its structural type position",
             ));
-        } else if suffix_kind.is_some_and(closing_type_delimiter) {
-            let after_closers = after_closing_run[suffix];
-            if let Some(token) = tokens.get(after_closers)
-                && !allowed_after_closed_type_structure(token.kind)
-            {
-                errors.push((
-                    after_closers,
-                    "variant refinement must be complete at its structural type position",
-                ));
-            }
         }
     }
 }
