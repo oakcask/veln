@@ -5,3 +5,35 @@ end
 fn surplus(value: Result<Int>>::Ok | Result<Int>>::Err) -> ()
 	()
 end
+
+fn nested(value: List<Connection::>) -> ()
+	()
+end
+
+fn record(value: {state: Connection::}) -> ()
+	()
+end
+
+fn callback(value: fn(Connection::) -> ()) -> ()
+	()
+end
+
+fn leading_empty(value: State<, Int>::Ready) -> ()
+	()
+end
+
+fn middle_empty(value: State<Int,, Error>::Ready) -> ()
+	()
+end
+
+fn trailing_empty(value: State<Int,>::Ready) -> ()
+	()
+end
+
+fn generic_after_variant(value: Result<Int>::Ok<Error>) -> ()
+	()
+end
+
+fn segment_after_variant(value: Result<Int>::Ok::Bad) -> ()
+	()
+end

@@ -6,7 +6,7 @@ fn parses_variant_refinements_across_nested_type_forms() {
         "main.veln",
         concat!(
             "type Envelope\n",
-            "  Wrapped(value: protocol::Result<List<Int>, DecodeError>::Ok | protocol::Result<List<Int>, DecodeError>::Err)\n",
+            "  Wrapped(value: protocol::Result<List<domain::Item>, Wrapper<State::Ready | State::Closed>>::Ok | protocol::Result<List<Int>, DecodeError>::Err)\n",
             "end\n",
             "fn transition(state: protocol::Connection::Connected | protocol::Connection::Closed, nested: List<Connection::Connected | Connection::Closed>, callback: fn(Connection::Connected | Connection::Closed) -> Connection::Disconnected, record: {state: Connection::Connected | Connection::Closed}) -> Result<Int, DecodeError>::Ok\n",
             "  let current: Connection::Connected | Connection::Connected = state\n",
@@ -26,15 +26,23 @@ fn parses_variant_refinements_across_nested_type_forms() {
     let ok = &payload_union.alternatives[0];
     assert_eq!(ok.base.segments, ["protocol", "Result"]);
     assert_eq!(ok.type_arguments.len(), 2);
+    assert_eq!(ok.type_arguments[0].ty, "List<domain::Item>");
     assert_eq!(
-        &source.text()
-            [ok.type_arguments[0].span.start.offset..ok.type_arguments[0].span.end.offset],
-        "List<Int>"
+        ok.type_arguments[0].ty_paths[0].segments,
+        ["domain", "Item"]
     );
     assert_eq!(
-        &source.text()
-            [ok.type_arguments[1].span.start.offset..ok.type_arguments[1].span.end.offset],
-        "DecodeError"
+        ok.type_arguments[1].ty,
+        "Wrapper<State::Ready | State::Closed>"
+    );
+    assert_eq!(ok.type_arguments[1].ty_refinements.len(), 1);
+    assert_eq!(
+        ok.type_arguments[1].ty_refinements[0].alternatives[0].variant,
+        "Ready"
+    );
+    assert_eq!(
+        ok.type_arguments[1].ty_refinements[0].alternatives[1].variant,
+        "Closed"
     );
     assert_eq!(ok.variant, "Ok");
     assert_eq!(
@@ -92,6 +100,14 @@ fn rejects_malformed_variant_refinement_forms() {
         "Result<Int> Ok",
         "Result<Int>>::Ok",
         "Result<Int>>::Ok | Result<Int>>::Err",
+        "List<Connection::>",
+        "{state: Connection::}",
+        "fn(Connection::) -> ()",
+        "State<, Int>::Ready",
+        "State<Int,, Error>::Ready",
+        "State<Int,>::Ready",
+        "Result<Int>::Ok<Error>",
+        "Result<Int>::Ok::Bad",
     ];
 
     for annotation in cases {
@@ -186,6 +202,12 @@ fn parses_deeply_nested_variant_refinements_with_linear_structure() {
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
     let function = first_function(&output);
     assert_eq!(function.params[0].ty_refinements.len(), DEPTH + 1);
+    assert_eq!(
+        function.params[0].ty_refinements[0].alternatives[0].type_arguments[0]
+            .ty_refinements
+            .len(),
+        DEPTH
+    );
     let argument_count = function.params[0]
         .ty_refinements
         .iter()

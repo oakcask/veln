@@ -373,6 +373,9 @@ pub struct VariantRefinementAlternative {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VariantRefinementTypeArgument {
+    pub ty: String,
+    pub ty_paths: Vec<TypePathSegments>,
+    pub ty_refinements: Vec<VariantRefinementType>,
     pub span: SourceSpan,
 }
 

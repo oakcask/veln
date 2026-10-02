@@ -111,7 +111,7 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
         "schema Packet\n",
         "  state: State::Ready | State::Closed\n",
         "end\n",
-        "fn advance(state: State::Ready | State::Closed) -> Result<Int, Error>::Ok\n",
+        "fn advance(state: State::Ready | State::Closed) -> Result<List<domain::Item>, Wrapper<State::Ready | State::Closed>>::Ok\n",
         "  let exact: State::Ready | State::Ready = state\n",
         "  sink<State::Ready | State::Closed>(exact)\n",
         "  exact\n",
@@ -135,15 +135,23 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
     let result = &decoded.functions[0].return_type_refinements[0].alternatives[0];
     assert_eq!(result.base.segments, ["Result"]);
     assert_eq!(result.type_arguments.len(), 2);
+    assert_eq!(result.type_arguments[0].ty, "List<domain::Item>");
     assert_eq!(
-        &source
-            [result.type_arguments[0].span.start.offset..result.type_arguments[0].span.end.offset],
-        "Int"
+        result.type_arguments[0].ty_paths[0].segments,
+        ["domain", "Item"]
     );
     assert_eq!(
-        &source
-            [result.type_arguments[1].span.start.offset..result.type_arguments[1].span.end.offset],
-        "Error"
+        result.type_arguments[1].ty,
+        "Wrapper<State::Ready | State::Closed>"
+    );
+    assert_eq!(result.type_arguments[1].ty_refinements.len(), 1);
+    assert_eq!(
+        result.type_arguments[1].ty_refinements[0].alternatives[0].variant,
+        "Ready"
+    );
+    assert_eq!(
+        result.type_arguments[1].ty_refinements[0].alternatives[1].variant,
+        "Closed"
     );
     assert_eq!(result.variant, "Ok");
 
