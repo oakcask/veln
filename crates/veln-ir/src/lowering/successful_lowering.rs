@@ -219,7 +219,7 @@ fn contracts_and_builtins_fixture(surface: &Function) -> CoreFunction {
             node_id: surface.contracts[0].node_id,
             kind: ContractKind::Ensure,
             predicate: "result == ()".to_string(),
-            callsite_callees: Vec::new(),
+            callsite_calls: Vec::new(),
             obligation_status: ContractObligationStatus::RuntimeRequired,
             span: surface.contracts[0].span.clone(),
         }],

@@ -4,10 +4,10 @@ use std::rc::Rc;
 
 use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
-    ContractObligationStatus, IrCallTarget, IrContract, IrDeferredBlock, IrDictEntry, IrExpr,
-    IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField,
-    IrPatternKind, IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt,
-    IrStmtKind, TypedProgram,
+    ContractObligationStatus, IrCallTarget, IrContract, IrContractCall, IrDeferredBlock,
+    IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm, IrPattern,
+    IrPatternField, IrPatternKind, IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec,
+    IrStmt, IrStmtKind, TypedProgram,
 };
 use veln_literals::parse_integer_literal;
 

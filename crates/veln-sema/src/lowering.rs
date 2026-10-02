@@ -5,10 +5,10 @@ use veln_ast::{
 };
 use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreCleanupRegion,
-    CoreContract, CoreDeferredBlock, CoreDeferredCapture, CoreDictEntry, CoreEffectDecl,
-    CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction, CoreHandlerProvider,
-    CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind, CoreReadiness,
-    CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
+    CoreContract, CoreContractCall, CoreDeferredBlock, CoreDeferredCapture, CoreDictEntry,
+    CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
+    CoreHandlerProvider, CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind,
+    CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;

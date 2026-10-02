@@ -16,7 +16,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             (ContractKind::Invariant, ContractCheckPosition::Entry) => "caller",
             (ContractKind::Invariant, ContractCheckPosition::Return) => "implementation",
         };
-        self.emit_contract_value(code, &contract.predicate, &contract.callsite_callees);
+        self.emit_contract_value(code, &contract.predicate, &contract.callsite_calls);
         let clause = match contract.kind {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
@@ -43,23 +43,23 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         &mut self,
         code: &mut MethodCode,
         text: &str,
-        callsite_callees: &[String],
+        callsite_calls: &[IrContractCall],
     ) {
         match parse_contract_value(text) {
             ContractValue::Not(value) => {
-                self.emit_contract_unary(code, value, "not", callsite_callees)
+                self.emit_contract_unary(code, value, "not", callsite_calls)
             }
             ContractValue::Binary { left, right, op } => {
-                self.emit_contract_binary(code, left, right, op, callsite_callees)
+                self.emit_contract_binary(code, left, right, op, callsite_calls)
             }
             ContractValue::BitwiseNot(value) => {
-                self.emit_contract_unary(code, value, "bitwiseNot", callsite_callees)
+                self.emit_contract_unary(code, value, "bitwiseNot", callsite_calls)
             }
             ContractValue::Call { callee, args } => {
-                self.emit_contract_call(code, callee, &args, callsite_callees)
+                self.emit_contract_call(code, callee, &args, callsite_calls)
             }
             ContractValue::Field { base, field } => {
-                self.emit_contract_field(code, base, field, callsite_callees)
+                self.emit_contract_field(code, base, field, callsite_calls)
             }
             ContractValue::Scalar(value) => self.emit_contract_scalar(code, value),
         }
@@ -70,9 +70,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         value: &str,
         method: &str,
-        callsite_callees: &[String],
+        callsite_calls: &[IrContractCall],
     ) {
-        self.emit_contract_value(code, value, callsite_callees);
+        self.emit_contract_value(code, value, callsite_calls);
         code.invokestatic(
             &self.program.options.runtime_class,
             method,
@@ -86,10 +86,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         left: &str,
         right: &str,
         op: BinaryOp,
-        callsite_callees: &[String],
+        callsite_calls: &[IrContractCall],
     ) {
-        self.emit_contract_value(code, left, callsite_callees);
-        self.emit_contract_value(code, right, callsite_callees);
+        self.emit_contract_value(code, left, callsite_calls);
+        self.emit_contract_value(code, right, callsite_calls);
         code.invokestatic(
             &self.program.options.runtime_class,
             binary_method(op),
@@ -102,21 +102,48 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         callee: &str,
         args: &[&str],
-        callsite_callees: &[String],
+        callsite_calls: &[IrContractCall],
     ) {
-        for arg in args {
-            self.emit_contract_value(code, arg, callsite_callees);
+        let callsite_call = callsite_calls.iter().find(|call| call.callee == callee);
+        let fixed_arg_count = callsite_call.map_or(args.len(), |call| call.fixed_arg_count);
+        for arg in &args[..fixed_arg_count] {
+            self.emit_contract_value(code, arg, callsite_calls);
         }
-        let requires_callsite = callsite_callees.iter().any(|candidate| candidate == callee);
-        if requires_callsite {
+        if callsite_call.is_some_and(|call| call.variadic) {
+            self.emit_contract_variadic_tail(code, &args[fixed_arg_count..], callsite_calls);
+        }
+        if callsite_call.is_some() {
             code.aload(self.local_slot("callsite"));
         }
-        let function = callee.rsplit("::").next().unwrap_or(callee);
+        let source_function = callee.rsplit("::").next().unwrap_or(callee);
+        let function = callsite_call.map_or(source_function, |call| call.target.as_str());
+        let abi_arg_count = fixed_arg_count
+            + usize::from(callsite_call.is_some_and(|call| call.variadic))
+            + usize::from(callsite_call.is_some());
         code.invokestatic(
             &self.program.options.program_class,
             &self.program.function_name(function),
-            &object_method_descriptor(args.len() + usize::from(requires_callsite)),
+            &object_method_descriptor(abi_arg_count),
         );
+    }
+
+    fn emit_contract_variadic_tail(
+        &mut self,
+        code: &mut MethodCode,
+        args: &[&str],
+        callsite_calls: &[IrContractCall],
+    ) {
+        for arg in args {
+            self.emit_contract_value(code, arg, callsite_calls);
+        }
+        self.emit_list_nil(code);
+        for _ in args {
+            code.invokestatic(
+                &self.program.options.runtime_class,
+                "listCons",
+                "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            );
+        }
     }
 
     fn emit_contract_field(
@@ -124,9 +151,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         base: &str,
         field: &str,
-        callsite_callees: &[String],
+        callsite_calls: &[IrContractCall],
     ) {
-        self.emit_contract_value(code, base, callsite_callees);
+        self.emit_contract_value(code, base, callsite_calls);
         code.ldc_string(field);
         code.invokestatic(
             &self.program.options.runtime_class,

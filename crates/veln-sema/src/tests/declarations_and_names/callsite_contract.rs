@@ -82,7 +82,47 @@ fn callsite_aware_contract_calls_lower_when_the_enclosing_function_has_callsite_
         .iter()
         .find(|function| function.name == "guarded")
         .expect("guarded function");
-    assert_eq!(guarded.contracts[0].callsite_callees, ["located"]);
+    assert_eq!(guarded.contracts[0].callsite_calls.len(), 1);
+    let call = &guarded.contracts[0].callsite_calls[0];
+    assert_eq!(call.callee, "located");
+    assert_eq!(call.target, "located");
+    assert_eq!(call.fixed_arg_count, 0);
+    assert!(!call.variadic);
+}
+
+#[test]
+fn callsite_contract_calls_retain_alias_targets_and_variadic_abi() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located(expected: SourceLocation, values: ...SourceLocation) -> Bool callsite\n",
+            "  callsite.start_line == expected.start_line\n",
+            "end\n",
+            "pub fn observe = located\n",
+            "pub fn guarded() -> () callsite\n",
+            "require observe(callsite)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let guarded = lowered
+        .ir
+        .as_ref()
+        .expect("typed IR")
+        .functions
+        .iter()
+        .find(|function| function.name == "guarded")
+        .expect("guarded function");
+    let call = &guarded.contracts[0].callsite_calls[0];
+    assert_eq!(call.callee, "observe");
+    assert_eq!(call.target, "located");
+    assert_eq!(call.fixed_arg_count, 1);
+    assert!(call.variadic);
 }
 
 #[test]

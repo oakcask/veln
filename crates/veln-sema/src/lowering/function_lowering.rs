@@ -118,27 +118,25 @@ impl<'a> CoreLowerer<'a> {
                 } else {
                     ContractObligationStatus::RuntimeRequired
                 };
-                let callsite_callees = contract
+                let callsite_calls = contract
                     .call_callee_spans
                     .iter()
-                    .filter(|(callee, _)| self.contract_call_requires_callsite(callee))
-                    .map(|(callee, _)| callee.clone())
-                    .collect::<Vec<_>>();
-                if self.block_unsupported_callsite_runtime
-                    && self.function.callsite.is_none()
-                    && obligation_status == ContractObligationStatus::RuntimeRequired
-                {
-                    for (callee, span) in &contract.call_callee_spans {
-                        if callsite_callees.contains(callee) {
+                    .filter_map(|(callee, span)| {
+                        let call = self.contract_callsite_abi(callee)?;
+                        if self.block_unsupported_callsite_runtime
+                            && self.function.callsite.is_none()
+                            && obligation_status == ContractObligationStatus::RuntimeRequired
+                        {
                             self.unsupported_callsite_contract_call(contract.node_id, span, callee);
                         }
-                    }
-                }
+                        Some(call)
+                    })
+                    .collect::<Vec<_>>();
                 CoreContract {
                     node_id: contract.node_id,
                     kind: contract.kind,
                     predicate: contract.text.clone(),
-                    callsite_callees,
+                    callsite_calls,
                     obligation_status,
                     span: contract.span.clone(),
                 }
@@ -146,7 +144,7 @@ impl<'a> CoreLowerer<'a> {
             .collect()
     }
 
-    fn contract_call_requires_callsite(&self, callee: &str) -> bool {
+    fn contract_callsite_abi(&self, callee: &str) -> Option<CoreContractCall> {
         let segments = callee
             .split("::")
             .filter(|segment| !segment.is_empty())
@@ -161,7 +159,13 @@ impl<'a> CoreLowerer<'a> {
                 .environment
                 .function_path(&segments, self.function.module_name.as_deref()),
         };
-        signature.is_some_and(|signature| signature.callsite)
+        let signature = signature.filter(|signature| signature.callsite)?;
+        Some(CoreContractCall {
+            callee: callee.to_string(),
+            target: signature.target_name.clone(),
+            fixed_arg_count: signature.params.len(),
+            variadic: signature.variadic.is_some(),
+        })
     }
 
     pub(super) fn lowered_function_name(&self) -> String {
