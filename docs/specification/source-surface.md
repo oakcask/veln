@@ -88,6 +88,40 @@ These forms have a public static, tooling, and executable surface. The
 specifies cleanup ordering, failure precedence, task cancellation, and runtime
 limits.
 
+### Variant-refinement-shaped type text
+
+Type positions recognize a structural variant alternative as a named type path
+with optional type arguments followed by `::` and an ASCII-uppercase final
+segment. A `|` joins complete alternatives into one structural union:
+
+```veln
+fn transition(
+	state: protocol::State::Ready | protocol::State::Closed,
+) -> Result<Int, Error>::Ok
+	state
+end
+```
+
+The same structure is recognized in function, test, effect-operation, and
+handler parameter or return types; ADT payload and schema fields; local
+annotations; nested record and function types; generic arguments; and explicit
+call type arguments. The syntax and AST preserve the written base paths, type
+arguments, final segments, alternative order, duplicates, and source spans.
+
+Type arguments belong before the final segment. Each side of `|` must be a
+complete structural alternative, and `|>` remains the pipeline token rather
+than a type separator. The parser reports `parse.variant_refinement_type` for
+an incomplete alternative, a missing base or final segment, an empty or
+misplaced type argument, a segment after the final name, a lowercase final
+segment, a surplus generic closer, or `|>` between alternatives. Nesting
+beyond 256 containing generic-argument boundaries reports the same diagnostic
+and does not prevent lossless-tree construction.
+
+Structural recognition does not prove that a base names an ADT, that its final
+segment names a variant, or that union alternatives name the same instantiated
+ADT. The [type-system limits](types.md#compatibility-and-limits) distinguish
+this parser contract from semantic variant-refinement support.
+
 ## Test companion sources
 
 A path ending exactly in `.test.veln` is a test companion. Its target is the
@@ -279,6 +313,10 @@ ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral
 SchemaValidation ::= "validate" ContractPredicate NL
 PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
+VariantRefinementType ::= VariantAlternative ("|" VariantAlternative)*
+VariantAlternative ::= TypePath TypeArguments? "::" UpperName
+TypeArguments ::= "<" TypeText ("," TypeText)* ","? ">"
+TypePath      ::= Name ("::" Name)*
 EffectBinder  ::= "<" "effect" Name ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"

@@ -65,6 +65,16 @@ related notes may identify the accepted digit set or prefix. Invalid literal
 shift counts use `type.invalid_shift_count` with `operator`, `actual_count`,
 `minimum_count`, and `maximum_count`; the span is the count expression.
 
+Malformed variant-refinement-shaped type text uses
+`parse.variant_refinement_type`. The primary span selects the incomplete or
+misplaced separator, segment, generic delimiter, or type argument. This family
+rejects incomplete union alternatives, missing base or final names, lowercase
+final names, empty or misplaced type arguments, surplus generic closers,
+segments after the final variant name, excessive nesting, and `|>` used as a
+type separator. Parser recovery retains the surrounding declaration and
+lossless source tree; this diagnostic does not assert that a structurally valid
+base or final name resolves semantically.
+
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
 `observed_initial`. Qualified written paths add zero-based `segment_index`.

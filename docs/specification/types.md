@@ -352,6 +352,15 @@ the arms that prove partial coverage.
 
 ## Compatibility and limits
 
+The parser structurally recognizes `Type::Variant` and unions such as
+`Type::First | Type::Second` in type positions, as specified by the
+[source surface](source-surface.md#variant-refinement-shaped-type-text). The
+type checker does not yet interpret that structure as a variant refinement: it
+does not resolve the final segment as an ADT variant, establish union identity,
+or provide refinement assignability or control-flow narrowing. Parseability and
+AST preservation therefore do not make these forms implemented semantic type
+annotations.
+
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
 record and be assignable. Named types with the same constructor are compatible

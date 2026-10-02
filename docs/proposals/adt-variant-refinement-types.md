@@ -43,9 +43,12 @@ that foundation.
 That foundation is not current semantic variant-refinement behavior. The type
 checker does not yet establish the identities, assignability, flow refinement,
 diagnostics, runtime and schema boundaries, or language-service behavior in
-this proposal. No page under `../specification/` defines those contracts.
-Parseability and formatting therefore must not be presented as end-to-end
-support or as a type guarantee.
+this proposal. The current [source](../specification/source-surface.md#variant-refinement-shaped-type-text),
+[formatting](../specification/command-fmt.md#formatting-rules), and
+[diagnostic](../specification/diagnostics-json.md#diagnostic-families)
+specifications define only the implemented structural contract. Parseability
+and formatting therefore must not be presented as end-to-end support or as a
+type guarantee.
 
 `Connection::Connected` is the type of the complete `Connected` ADT value. It
 is not the type of the variant payload. The type
@@ -132,7 +135,8 @@ in `../../examples/specification/fmt/variant-refinement-syntax/`, and the
 malformed-source case in
 `../../examples/specification/check/variant-refinement-malformed-generics/`.
 The lowering and wire round-trip cases are in
-`../../crates/veln-ast/src/tests.rs`.
+`../../crates/veln-ast/src/tests.rs`. The current behavior is specified by the
+source, formatting, and diagnostic pages linked from the summary above.
 
 ## Resolution And Visibility
 

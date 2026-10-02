@@ -20,6 +20,12 @@ supported binary-schema primitive compatibility spellings. Indentation is one
 tab per level: top-level items and closing `end` lines use level zero, and
 function body lines use level one.
 
+In structurally recognized variant-refinement type text, the formatter writes
+one space on each side of `|`. It preserves the written alternative order,
+duplicate alternatives, base qualification, and type arguments. A malformed
+pipe that is not part of a complete structural union is not normalized as a
+union; in particular, `|>` remains one pipeline token during recovery.
+
 `begin` expressions and `defer` statements use one additional tab for each
 nested body and align their closing `end` with the form's header. They retain
 header and body comments. A comment following the closing `end` of an embedded

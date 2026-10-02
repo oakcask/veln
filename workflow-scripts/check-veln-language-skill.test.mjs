@@ -1056,11 +1056,11 @@ test("rejects a stale-snapshot row that uses the current published digest", () =
   const staleUri = events.readCall.arguments.uri;
   const currentUri = staleUri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
-    "snapshot/e9b99738aac0ea4f3061a3b703e8c56ff723f24b57a876bf6d354f5819f83735/",
+    "snapshot/3257a03e83e3890bbdad44a14519043bd289dc53d7a85a2f5da3835c8fdec7eb/",
   );
   for (const topic of structured(events.listResult).topics) {
     topic.uri = topic.uri.replace(/snapshot\/[0-9a-f]{64}\//u,
-      "snapshot/e9b99738aac0ea4f3061a3b703e8c56ff723f24b57a876bf6d354f5819f83735/");
+      "snapshot/3257a03e83e3890bbdad44a14519043bd289dc53d7a85a2f5da3835c8fdec7eb/");
   }
   syncEnvelope(events.listResult);
   events.transition.before.language_snapshot_digest = events.transition.after.language_snapshot_digest;
@@ -1085,8 +1085,11 @@ test("rejects mutation of an unselected stale listed topic", () => {
 test("rejects a fabricated unselected stale listed topic", () => {
   const document = fixture();
   const event = staleEvents(document).listResult;
+  const snapshotDigest = structured(event).topics[0].uri.match(
+    /snapshot\/([0-9a-f]{64})\//u,
+  )[1];
   structured(event).topics.push({
-    uri: "veln-doc:///language/snapshot/557192279e5f0acdaa55a45b25648139b5882c4cc34b003ff8305131e2cb827c/topic/fabricated-modules",
+    uri: `veln-doc:///language/snapshot/${snapshotDigest}/topic/fabricated-modules`,
     title: "Fabricated Modules",
     summary: "This topic has no snapshot evidence.",
   });
@@ -1099,7 +1102,7 @@ test("rejects stale topic listings from mixed snapshots", () => {
   const event = staleEvents(document).listResult;
   structured(event).topics[1].uri = structured(event).topics[1].uri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
-    "snapshot/e9b99738aac0ea4f3061a3b703e8c56ff723f24b57a876bf6d354f5819f83735/",
+    "snapshot/3257a03e83e3890bbdad44a14519043bd289dc53d7a85a2f5da3835c8fdec7eb/",
   );
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /topics must be in URI order|must belong to one snapshot/);

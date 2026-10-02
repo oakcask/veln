@@ -142,6 +142,10 @@ grammar_line(107, "ByteViewMultiplePredicate ::= \"payload_count\" \"multiple\" 
 grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
 grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
+grammar_line(111, "VariantRefinementType ::= VariantAlternative (\"|\" VariantAlternative)*").
+grammar_line(111, "VariantAlternative ::= TypePath TypeArguments? \"::\" UpperName").
+grammar_line(111, "TypeArguments ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
+grammar_line(111, "TypePath      ::= Name (\"::\" Name)*").
 grammar_line(112, "EffectBinder  ::= \"<\" \"effect\" Name \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
