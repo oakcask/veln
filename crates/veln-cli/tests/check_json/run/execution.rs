@@ -42,6 +42,51 @@ fn run_json_uses_stderr_message_for_trace_free_jvm_failure() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn run_json_prefers_structured_runtime_trace_over_stderr() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = TestProject::new("run-json-structured-runtime-failure");
+    project.write("main.veln", "pub fn main() -> ()\n  ()\nend\n");
+    project.write(
+        "bin/java",
+        concat!(
+            "#!/bin/sh\n",
+            "printf 'runtime\\t737472756374757265642072756e74696d65206661696c757265\\n' ",
+            "> \"$VELN_RUNTIME_ERRORS\"\n",
+            "printf '%s\\n' 'java.lang.VerifyError: fallback failure' >&2\n",
+            "exit 7\n",
+        ),
+    );
+    let java = project.root.join("bin/java");
+    let mut permissions = std::fs::metadata(&java)
+        .expect("fake java metadata should be available")
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&java, permissions).expect("fake java should be executable");
+    let tool_path = project.root.join("bin");
+
+    let output = project.run_with_path(
+        &["--json", "main", "main.veln"],
+        tool_path
+            .to_str()
+            .expect("fake tool path should be valid UTF-8"),
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "\"exit_code\":7",
+            "\"stderr\":\"java.lang.VerifyError: fallback failure\\n\"",
+            "\"kind\":\"runtime\"",
+            "\"message\":\"structured runtime failure\"",
+        ],
+    );
+}
+
 #[test]
 fn run_forwards_stdout_and_stderr_when_jdk_is_available() {
     if !jdk_is_available() {

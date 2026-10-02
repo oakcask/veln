@@ -1,7 +1,65 @@
+use std::ffi::OsStr;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::{ExitCode, ExitStatus};
 
 use veln_diagnostics::JsonValue;
-use veln_test::TestFailure;
+use veln_test::{TestFailure, contract_failure_from_trace, result_failure_from_trace};
+
+use crate::java::JvmRunResult;
+
+pub(super) struct RunJsonTraceFiles {
+    contract_error: PathBuf,
+    result_error: PathBuf,
+    transport_error: PathBuf,
+    cleanup_error: PathBuf,
+    runtime_error: PathBuf,
+}
+
+impl RunJsonTraceFiles {
+    pub(super) fn new(build_dir: &Path) -> Self {
+        Self {
+            contract_error: build_dir.join("contract-errors.tsv"),
+            result_error: build_dir.join("result-errors.tsv"),
+            transport_error: build_dir.join("transport-errors.tsv"),
+            cleanup_error: build_dir.join("cleanup-errors.tsv"),
+            runtime_error: build_dir.join("runtime-errors.tsv"),
+        }
+    }
+
+    pub(super) fn event_env(&self) -> [(&'static str, &OsStr); 5] {
+        [
+            ("VELN_CONTRACT_ERRORS", self.contract_error.as_os_str()),
+            ("VELN_RESULT_ERRORS", self.result_error.as_os_str()),
+            ("VELN_TRANSPORT_ERRORS", self.transport_error.as_os_str()),
+            ("VELN_CLEANUP_ERRORS", self.cleanup_error.as_os_str()),
+            ("VELN_RUNTIME_ERRORS", self.runtime_error.as_os_str()),
+        ]
+    }
+
+    pub(super) fn report(&self, result: JvmRunResult) -> RunJsonReport {
+        let traces = RunJsonTraces {
+            contract_error: read_trace(&self.contract_error),
+            result_error: read_trace(&self.result_error),
+            transport_error: read_trace(&self.transport_error),
+            cleanup_error: read_trace(&self.cleanup_error),
+            runtime_error: read_trace(&self.runtime_error),
+        };
+        RunJsonReport::from_run_result(result, &traces)
+    }
+}
+
+fn read_trace(path: &Path) -> String {
+    fs::read_to_string(path).unwrap_or_default()
+}
+
+struct RunJsonTraces {
+    contract_error: String,
+    result_error: String,
+    transport_error: String,
+    cleanup_error: String,
+    runtime_error: String,
+}
 
 pub(super) fn cleanup_related_failures(trace: &str) -> Vec<String> {
     trace
@@ -43,6 +101,29 @@ pub(super) struct RunJsonReport {
 }
 
 impl RunJsonReport {
+    fn from_run_result(result: JvmRunResult, traces: &RunJsonTraces) -> Self {
+        let output = match result {
+            JvmRunResult::Ran(output) => output,
+            JvmRunResult::ToolError(message) => return Self::tool_error(message),
+        };
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        let related = cleanup_related_failures(&traces.cleanup_error);
+        let exit_code = output.status.code().unwrap_or(1);
+        if output.status.success() {
+            Self::passed(exit_code, stdout, stderr)
+        } else if let Some(failure) = contract_failure_from_trace(&traces.contract_error) {
+            Self::failed(exit_code, stdout, stderr, failure, related)
+        } else if let Some(failure) = result_failure_from_trace(&traces.result_error) {
+            Self::failed(exit_code, stdout, stderr, failure, related)
+        } else if let Some(failure) = transport_failure_from_trace(&traces.transport_error) {
+            Self::runtime_transport_error(exit_code, stdout, stderr, failure, related)
+        } else {
+            let message = runtime_error_message(&traces.runtime_error, &stderr, output.status);
+            Self::runtime_error(exit_code, stdout, stderr, message, related)
+        }
+    }
+
     pub(super) fn passed(exit_code: i32, stdout: String, stderr: String) -> Self {
         Self {
             status: "passed",
