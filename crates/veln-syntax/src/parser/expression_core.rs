@@ -156,7 +156,7 @@ impl<'a> ExprParser<'a> {
         start: TextRange,
         closing: TokenKind,
     ) -> Expr {
-        let (type_args, type_arg_spans, type_arg_refinements, end) =
+        let (type_args, type_arg_spans, type_arg_refinements, surplus_closers, end) =
             self.parse_type_argument_list(closing);
         Expr {
             span: self.source.span(start.cover(end)),
@@ -165,6 +165,7 @@ impl<'a> ExprParser<'a> {
                 type_args,
                 type_arg_spans,
                 type_arg_refinements,
+                surplus_closers,
             },
         }
     }
@@ -285,6 +286,7 @@ impl<'a> ExprParser<'a> {
         Vec<String>,
         Vec<SourceSpan>,
         Vec<Vec<VariantRefinementType>>,
+        usize,
         TextRange,
     ) {
         let start = self.bump();
@@ -295,7 +297,7 @@ impl<'a> ExprParser<'a> {
             let token = self.bump();
             end = token.range;
             if state.consume(&token, close) {
-                let (arguments, argument_ranges, argument_tokens) = state.finish();
+                let (arguments, argument_ranges, argument_tokens, surplus_closers) = state.finish();
                 let argument_spans = argument_ranges
                     .into_iter()
                     .map(|range| self.source.span(range))
@@ -341,7 +343,7 @@ impl<'a> ExprParser<'a> {
                         refinements
                     })
                     .collect();
-                return (arguments, argument_spans, refinements, end);
+                return (arguments, argument_spans, refinements, surplus_closers, end);
             }
         }
 
@@ -360,7 +362,7 @@ impl<'a> ExprParser<'a> {
                 "]"
             }),
         );
-        let (arguments, argument_ranges, argument_tokens) = state.finish();
+        let (arguments, argument_ranges, argument_tokens, surplus_closers) = state.finish();
         let argument_spans = argument_ranges
             .into_iter()
             .map(|range| self.source.span(range))
@@ -369,6 +371,6 @@ impl<'a> ExprParser<'a> {
             .iter()
             .map(|tokens| super::body_and_types::build_variant_refinements(self.source, tokens).0)
             .collect();
-        (arguments, argument_spans, refinements, end)
+        (arguments, argument_spans, refinements, surplus_closers, end)
     }
 }

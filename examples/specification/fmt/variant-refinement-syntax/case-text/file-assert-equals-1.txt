@@ -18,6 +18,7 @@ fn transition(state: Alias::Ready | protocol::State::Closed | Alias::Ready, cont
 	let nested: { states : List<State::Open | State::Closed> } = state
 	sink<State::Open | State::Closed>(nested)
 	sink<State::Ready | State::Closed, Result<State::Ready | State::Closed, Error>::Ok>(nested)
+	sink<List<State::Ready>>(nested)
 end
 
 fn load() -> Result<fn(Int) -> Int effects [io::Read], Error>::Ok effects [db::Load]

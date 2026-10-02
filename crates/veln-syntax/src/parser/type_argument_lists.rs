@@ -14,7 +14,10 @@ struct AngleClosers {
 }
 
 enum TypeArgumentTokenAction {
-    Finish { nested_angle_closers: usize },
+    Finish {
+        nested_angle_closers: usize,
+        surplus_angle_closers: usize,
+    },
     Separate,
     Append,
 }
@@ -28,6 +31,7 @@ pub(super) struct TypeArgumentListState {
     current_range: Option<TextRange>,
     current_tokens: Vec<Token>,
     nesting: TypeArgumentNesting,
+    surplus_angle_closers: usize,
 }
 
 impl TypeArgumentNesting {
@@ -62,6 +66,7 @@ impl TypeArgumentNesting {
         if kind == close && self.is_outer_level() {
             return TypeArgumentTokenAction::Finish {
                 nested_angle_closers: 0,
+                surplus_angle_closers: 0,
             };
         }
         if kind == TokenKind::Comma && self.is_outer_level() {
@@ -71,6 +76,7 @@ impl TypeArgumentNesting {
             return if closers.total > closers.nested {
                 TypeArgumentTokenAction::Finish {
                     nested_angle_closers: closers.nested,
+                    surplus_angle_closers: closers.total - closers.nested - 1,
                 }
             } else {
                 TypeArgumentTokenAction::Append
@@ -86,6 +92,7 @@ impl TypeArgumentListState {
         match self.nesting.classify(token.kind, close) {
             TypeArgumentTokenAction::Finish {
                 nested_angle_closers,
+                surplus_angle_closers,
             } => {
                 self.current.push_str(&">".repeat(nested_angle_closers));
                 if nested_angle_closers > 0 {
@@ -93,8 +100,17 @@ impl TypeArgumentListState {
                         token.range.start,
                         token.range.start + nested_angle_closers,
                     ));
-                    self.current_tokens.push(token.clone());
+                    self.current_tokens
+                        .push(angle_closer_fragment(token, 0, nested_angle_closers));
                 }
+                if surplus_angle_closers > 0 {
+                    self.current_tokens.push(angle_closer_fragment(
+                        token,
+                        nested_angle_closers + 1,
+                        surplus_angle_closers,
+                    ));
+                }
+                self.surplus_angle_closers = surplus_angle_closers;
                 self.flush_current(false);
                 true
             }
@@ -129,8 +145,28 @@ impl TypeArgumentListState {
         );
     }
 
-    pub(super) fn finish(mut self) -> (Vec<String>, Vec<TextRange>, Vec<Vec<Token>>) {
+    pub(super) fn finish(mut self) -> (Vec<String>, Vec<TextRange>, Vec<Vec<Token>>, usize) {
         self.flush_current(false);
-        (self.args, self.arg_ranges, self.arg_tokens)
+        (
+            self.args,
+            self.arg_ranges,
+            self.arg_tokens,
+            self.surplus_angle_closers,
+        )
+    }
+}
+
+fn angle_closer_fragment(token: &Token, offset: usize, count: usize) -> Token {
+    Token {
+        kind: match count {
+            1 => TokenKind::Greater,
+            2 => TokenKind::ShiftRight,
+            _ => TokenKind::ShiftRightLogical,
+        },
+        text: ">".repeat(count),
+        range: TextRange::new(
+            token.range.start + offset,
+            token.range.start + offset + count,
+        ),
     }
 }

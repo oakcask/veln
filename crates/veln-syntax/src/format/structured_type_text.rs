@@ -91,6 +91,7 @@ fn prepare_expr(expr: &mut Expr, source: &str) {
             type_args,
             type_arg_spans,
             type_arg_refinements,
+            ..
         } => {
             for ((text, span), refinements) in type_args
                 .iter_mut()

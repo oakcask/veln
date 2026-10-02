@@ -46,6 +46,11 @@ fn surplus_fused_closers_after_variant(value: State::Ready>>) -> ()
 	()
 end
 
+fn explicit_call_fused_closers(value: State) -> ()
+	sink<List<State::Ready>>(value)
+	sink<State::Ready>>(value)
+end
+
 fn lowercase_variant(value: Result<Int, Error>::ok) -> ()
 	()
 end

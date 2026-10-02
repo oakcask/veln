@@ -683,6 +683,79 @@ fn parses_variant_refinements_in_explicit_call_type_arguments() {
 }
 
 #[test]
+fn explicit_call_type_arguments_distinguish_nested_and_surplus_fused_closers() {
+    let valid = SourceFile::new(
+        "main.veln",
+        "fn invoke(value: State) -> ()\n  sink<List<State::Ready>>(value)\nend\n",
+    );
+    let valid_output = parse(&valid);
+    assert!(
+        valid_output.diagnostics.is_empty(),
+        "{:#?}",
+        valid_output.diagnostics
+    );
+    let valid_formatted = format_tree(&valid_output.tree);
+    assert!(
+        valid_formatted.contains("sink<List<State::Ready>>(value)"),
+        "{valid_formatted}"
+    );
+    let valid_reparsed = parse(&SourceFile::new("main.veln", valid_formatted.clone()));
+    assert!(
+        valid_reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        valid_reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&valid_reparsed.tree), valid_formatted);
+
+    let invalid = SourceFile::new(
+        "main.veln",
+        "fn invoke(value: State) -> ()\n  sink<State::Ready>>(value)\nend\n",
+    );
+    let invalid_output = parse(&invalid);
+    let diagnostic = invalid_output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+        .expect("surplus fused closer should be rejected as refinement syntax");
+    assert_eq!(
+        diagnostic.message,
+        "variant refinement has surplus closing angle brackets after its final variant name"
+    );
+    let span = diagnostic.span.as_ref().expect("diagnostic span");
+    assert_eq!(&invalid.text()[span.start.offset..span.end.offset], ">");
+    assert_eq!(span.start.offset, invalid.text().find(">>").unwrap() + 1);
+}
+
+#[test]
+fn formatter_preserves_surplus_fused_call_type_argument_closer() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invoke(value: State) -> ()\n  sink<State::Ready>>(value)\nend\n",
+    );
+    let parsed = parse(&source);
+    assert!(
+        parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+    );
+
+    let formatted = format_tree(&parsed.tree);
+    assert!(
+        formatted.contains("sink<State::Ready>>(value)"),
+        "{formatted}"
+    );
+    let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
+    assert!(
+        reparsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
 fn formats_nested_refinement_unions_in_every_explicit_call_type_argument() {
     let source = SourceFile::new(
         "main.veln",

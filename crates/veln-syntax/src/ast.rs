@@ -343,6 +343,7 @@ pub enum ExprKind {
         type_args: Vec<String>,
         type_arg_spans: Vec<SourceSpan>,
         type_arg_refinements: Vec<Vec<VariantRefinementType>>,
+        surplus_closers: usize,
     },
     Call {
         callee: Box<Expr>,
