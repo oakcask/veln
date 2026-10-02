@@ -131,15 +131,6 @@ impl<'a> IntoIterator for &'a IrCleanupRegion {
     }
 }
 
-impl<'a> IntoIterator for &'a mut IrCleanupRegion {
-    type Item = &'a mut IrStmt;
-    type IntoIter = std::slice::IterMut<'a, IrStmt>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.statements.iter_mut()
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct IrParam {
     pub node_id: NodeId,
