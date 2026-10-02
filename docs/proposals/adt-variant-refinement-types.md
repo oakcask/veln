@@ -96,48 +96,16 @@ an otherwise visible variant.
 
 ## Implemented Structural Foundation
 
-The implemented parser recognizes a candidate singleton spelling by appending
-`::` and an upper-case name to a type-shaped prefix. It groups two or more
-structurally complete candidates separated by `|`:
+Structural parsing, AST and wire representation, formatting, and malformed-
+source behavior are already implemented. The current
+[source](../specification/source-surface.md#variant-refinement-shaped-type-text),
+[formatting](../specification/command-fmt.md#formatting-rules), and
+[diagnostic](../specification/diagnostics-json.md#diagnostic-families)
+specifications own those contracts and their executable evidence.
 
-```text
-VariantRefinementType ::= VariantAlternative ("|" VariantAlternative)*
-VariantAlternative    ::= NamedAdtType "::" UpperName
-NamedAdtType           ::= TypePath TypeArguments?
-```
-
-Representative forms are:
-
-```veln
-Connection::Connected
-protocol::Connection::Connected
-Result<Int, DecodeError>::Ok
-List<String>::Cons
-Connection::Connected | Connection::Closed
-Result<Int, DecodeError>::Ok | Result<Int, DecodeError>::Err
-```
-
-The structural layer retains the written base segments, type arguments, final
-name, alternative order, and source spans in supported annotation positions.
-It rejects malformed candidate shapes, such as a generic argument after the
-final name or an incomplete union alternative. The formatter places one space
-on each side of `|` without reordering or deduplicating alternatives.
-
-These checks establish only that source has the structural shape of a proposed
-refinement. They do not establish that the prefix names an ADT, that the final
-name is one of its variants, or that alternatives have the same instantiated
-ADT. The remaining sections specify that unimplemented semantic and tooling
-work.
-
-Current structural evidence is maintained by the parser cases in
-`../../crates/veln-syntax/src/tests/variant_refinements.rs`, the formatter case
-in `../../examples/specification/fmt/variant-refinement-syntax/`, and the
-malformed-source case in
-`../../examples/specification/check/variant-refinement-malformed-generics/`.
-The lowering and wire round-trip cases are in
-`../../crates/veln-ast/src/tests/variant_refinements.rs`. The current behavior
-is specified by the source, formatting, and diagnostic pages linked from the
-summary above.
+That implemented foundation validates syntax only. It does not resolve an ADT
+or variant, compare alternatives, or provide any semantic refinement. The
+remaining sections specify the planned semantic and tooling behavior.
 
 ## Resolution And Visibility
 
@@ -763,10 +731,11 @@ coordinate and JSON adapters must not implement separate refinement lookup.
 
 ## Acceptance Model
 
-The parser and formatter evidence named under Implemented Structural
-Foundation covers the completed infrastructure and is not a remaining
-acceptance target. The following evidence is required before semantic or
-tooling variant-refinement support is described as current behavior:
+The current source, formatting, and diagnostic specifications linked under
+Implemented Structural Foundation own the completed syntax infrastructure.
+It is not a remaining acceptance target. The following evidence is required
+before semantic or tooling variant-refinement support is described as current
+behavior:
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
