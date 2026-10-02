@@ -185,7 +185,7 @@ static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
         DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest).unwrap()
     }
 
-    fn standard_library_snapshot(
+    pub(crate) fn standard_library_snapshot(
         sources: &[(&str, &str)],
         exports: impl IntoIterator<Item = &'static str>,
     ) -> DirectDependencySnapshot {

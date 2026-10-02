@@ -107,6 +107,41 @@ fn unqualified_workspace_navigation_does_not_build_a_classification_context() {
 }
 
 #[test]
+fn dependency_path_classification_stays_with_its_source() {
+    let standard_library = crate::tests::standard_library_snapshot(
+        &[
+            (
+                "first.veln",
+                "use first\npub fn target() -> Int\n  1\nend\npub fn call() -> Int\n  first::target()\nend\n",
+            ),
+            (
+                "second.veln",
+                "use second\npub fn target() -> Int\n  2\nend\npub fn call() -> Int\n  second::target()\nend\n",
+            ),
+        ],
+        ["first.veln", "second.veln"],
+    );
+    let dependencies = IndexedDependencies::new_standard_library(Some(standard_library));
+
+    for (path, qualifier) in [("first.veln", "first"), ("second.veln", "second")] {
+        let file = dependencies
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == path)
+            .expect("dependency source should be indexed");
+        assert!(!file.classified_path_segments.is_empty());
+        assert!(
+            file.classified_path_segments
+                .iter()
+                .all(|segment| segment.span.file.as_str() == path)
+        );
+        assert!(file.classified_path_segments.iter().any(|segment| {
+            &file.source.text()[segment.span.start.offset..segment.span.end.offset] == qualifier
+        }));
+    }
+}
+
+#[test]
 fn dependency_schema_operation_skips_workspace_path_classification() {
     let snapshot = schema_dependency_snapshot(concat!(
         "use wire from \"example/dep\"\n\n",
