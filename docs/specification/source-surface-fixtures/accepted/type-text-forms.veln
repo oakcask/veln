@@ -10,3 +10,11 @@ fn preserve(value: Alias::Container<Int>, callback: fn(String, ...) -> List<Stri
 	let current: Connection::Connected | Connection::Closed = value
 	sink<State::Ready | State::Closed, Result<Int, Error>::Ok>(current)
 end
+
+fn preserve_inferred_tail(values: ...) -> {effect: (), values: List<String>}
+	{effect: (), values: values}
+end
+
+fn preserve_typed_tail(label: String, values: ...String) -> List<String>
+	values
+end

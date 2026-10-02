@@ -130,16 +130,18 @@ grammar_line(101, "HandlerOperationParams ::= Name (\",\" Name)*").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
-grammar_line(105, "SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive | DispatchPrimitive | ExtensionDispatchPrimitive").
+grammar_line(105, "SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | ByteViewPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive | DispatchPrimitive | ExtensionDispatchPrimitive").
 grammar_line(106, "LowercaseSchemaPrimitive ::= \"uint\" IntLiteral (\"be\" | \"le\")?").
 grammar_line(106, "LowercaseReservedBitsPrimitive ::= \"uint\" IntLiteral (\"be\" | \"le\")? \"reserves\" IntLiteral").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
-grammar_line(106, "RepeatPrimitive ::= \"Repeat\" \"(\" CountExpr \",\" TypeText \")\"").
+grammar_line(106, "ByteViewPrimitive ::= \"ByteView\" \"(\" CountExpr \")\"").
+grammar_line(106, "RepeatPrimitive ::= \"Repeat\" \"(\" CountExpr \",\" SchemaFieldType \")\"").
 grammar_line(106, "CanonicalRepeatPrimitive ::= \"[\" SchemaFieldType \";\" CountExpr \"]\"").
-grammar_line(106, "DispatchPrimitive ::= \"Dispatch\" \"(\" Name (\",\" Name)? \",\" DispatchCases \")\"").
-grammar_line(106, "ExtensionDispatchPrimitive ::= \"ExtensionDispatch\" \"(\" Name \",\" Name \",\" DispatchCases \")\"").
+grammar_line(106, "DispatchPrimitive ::= \"Dispatch\" \"(\" SchemaFieldReference (\",\" SchemaFieldReference)? \",\" DispatchCases \")\"").
+grammar_line(106, "ExtensionDispatchPrimitive ::= \"ExtensionDispatch\" \"(\" SchemaFieldReference \",\" SchemaFieldReference \",\" DispatchCases \")\"").
 grammar_line(106, "DispatchCases ::= IntLiteral \"=>\" SchemaFieldType (\",\" IntLiteral \"=>\" SchemaFieldType)*").
-grammar_line(106, "CountExpr ::= Name | Name (\"-\" | \"+\" | \"*\" | \"/\") Name").
+grammar_line(106, "CountExpr ::= IntLiteral | SchemaFieldReference | SchemaFieldReference (\"-\" | \"+\" | \"*\" | \"/\") SchemaFieldReference").
+grammar_line(106, "SchemaFieldReference ::= Name (\".\" Name)*").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" (ContractPredicate | ByteViewMultiplePredicate)").
 grammar_line(107, "ByteViewMultiplePredicate ::= \"payload_count\" \"multiple\" \"of\" (Name | IntLiteral)").
 grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
@@ -150,7 +152,8 @@ grammar_line(111, "NamedType     ::= TypePath NamedTypeArguments?").
 grammar_line(111, "UnitType      ::= \"(\" \")\"").
 grammar_line(111, "RecordType    ::= \"{\" RecordTypeFields? \"}\"").
 grammar_line(111, "RecordTypeFields ::= RecordTypeField (\",\" RecordTypeField)* \",\"?").
-grammar_line(111, "RecordTypeField ::= Name \":\" TypeText").
+grammar_line(111, "RecordTypeField ::= FieldName \":\" TypeText").
+grammar_line(111, "FieldName      ::= Name | \"effect\"").
 grammar_line(111, "FunctionType  ::= \"fn\" \"(\" FunctionTypeParams? \")\" \"->\" TypeText Effects?").
 grammar_line(111, "FunctionTypeParams ::= FunctionTypeParam (\",\" FunctionTypeParam)* \",\"?").
 grammar_line(111, "FunctionTypeParam ::= Name \":\" TypeText | TypeText | \"...\" TypeText?").
@@ -166,7 +169,7 @@ grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVaria
 grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariantField)* \",\"? \"}\"").
 grammar_line(145, "TypeVariantField ::= Name \":\" TypeText | TypeText").
 grammar_line(150, "ParamList     ::= Param (\",\" Param)* \",\"?").
-grammar_line(160, "Param         ::= Name (\":\" VariadicMarker? TypeText)?").
+grammar_line(160, "Param         ::= Name (\":\" (VariadicMarker TypeText? | TypeText))?").
 grammar_line(165, "VariadicMarker ::= \"...\"").
 grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
 grammar_line(180, "ResultBinding ::= Name \":\"").
@@ -605,8 +608,13 @@ trailing_comma_opt --> tok(comma), !.
 trailing_comma_opt --> [].
 
 param --> ident, annotation_opt.
+annotation_opt --> tok(colon), variadic_marker, variadic_annotation_type_opt, !.
 annotation_opt --> tok(colon), type_text_until([comma, rparen]), !.
 annotation_opt --> [].
+
+variadic_marker --> tok(dot), tok(dot), tok(dot).
+variadic_annotation_type_opt --> type_text_until([comma, rparen]), !.
+variadic_annotation_type_opt --> [].
 
 return_opt --> return_clause, !.
 return_opt --> [].
@@ -768,13 +776,16 @@ schema_field_special_argument_end(S, S) :-
     S = [t(Kind, _) | _],
     memberchk(Kind, [comma, rparen]).
 
-schema_field_type_tokens --> structural_type_text.
 schema_field_type_tokens --> schema_field_special_type.
+schema_field_type_tokens --> structural_type_text.
 
-count_expr --> ident, count_expr_tail.
+count_expr --> schema_field_reference, count_expr_tail.
 count_expr --> int_literal.
-count_expr_tail --> count_operator, ident, !.
+count_expr_tail --> count_operator, schema_field_reference, !.
 count_expr_tail --> [].
+schema_field_reference --> ident, schema_field_reference_tail.
+schema_field_reference_tail --> tok(dot), ident, !, schema_field_reference_tail.
+schema_field_reference_tail --> [].
 count_operator --> tok(minus).
 count_operator --> tok(plus).
 count_operator --> tok(star).
@@ -830,7 +841,7 @@ record_type_fields_opt -->
 record_type_fields_opt --> [].
 record_type_fields_tail --> tok(comma), record_type_field, !, record_type_fields_tail.
 record_type_fields_tail --> [].
-record_type_field --> ident, tok(colon), structural_type_text.
+record_type_field --> field_name, tok(colon), structural_type_text.
 
 generic_named_type --> type_path, named_type_arguments.
 type_path --> ident, type_path_tail.

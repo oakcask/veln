@@ -11,4 +11,8 @@ schema DispatchPacket
 	length: uint8
 	closed: Dispatch(kind, 1 => uint56be, 2 => NestedPayload)
 	extension: ExtensionDispatch(kind, length, 1 => uint64le, 2 => NestedPayload)
+	views: Repeat(header.count, ByteView(header.left + header.right))
+	reserved: Repeat(kind, uint16be reserves 43981)
+	nested_closed: Dispatch(header.kind, 3 => uint7 reserves 127)
+	nested_extension: ExtensionDispatch(header.kind, header.length, 4 => ByteView(1))
 end
