@@ -2,6 +2,18 @@ type Envelope
 	Wrapped(protocol::Result<Int, Error>::Ok | protocol::Result<Int, Error>::Err)
 end
 
+schema Packet
+
+	state: State::Ready | State::Closed
+end
+
+schema WirePacket
+	format binary
+
+	state: State::Ready | State::Closed
+	count: uint8
+end
+
 fn transition(state: Alias::Ready | protocol::State::Closed | Alias::Ready, callback: fn(State::Open | State::Closed) -> State::Open) -> Result<Int, Error>::Ok
 	let nested: { states : List<State::Open | State::Closed> } = state
 	sink<State::Open | State::Closed>(nested)

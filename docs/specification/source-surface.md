@@ -105,14 +105,18 @@ end
 The same structure is recognized in function, test, effect-operation, and
 handler parameter or return types; ADT payload and schema fields; local
 annotations; nested record and function types; generic arguments; and explicit
-call type arguments. The syntax and AST preserve the written base paths, type
-arguments, final segments, alternative order, duplicates, and source spans.
+call type arguments. The syntax tree and lowered AST preserve the written base
+paths, type arguments, final segments, alternative order, duplicates, and
+source spans. Encoding and decoding the lowered AST through its wire format
+preserves that structure and those spans.
 
 Type arguments belong before the final segment. Each side of `|` must be a
 complete structural alternative, and `|>` remains the pipeline token rather
-than a type separator. The parser reports `parse.variant_refinement_type` for
-an incomplete alternative, a missing base or final segment, an empty or
-misplaced type argument, a segment after the final name, a lowercase final
+than a type separator. In a non-generic multi-segment spelling, the last
+segment is the final variant and every preceding segment is the qualified base.
+The parser reports `parse.variant_refinement_type` for an incomplete
+alternative, a missing base or final segment, an empty or misplaced type
+argument, a segment following a generic base's final variant, a lowercase final
 segment, a surplus generic closer, or `|>` between alternatives. Nesting
 beyond 256 containing generic-argument boundaries reports the same diagnostic
 and does not prevent lossless-tree construction.

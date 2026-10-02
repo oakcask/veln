@@ -135,8 +135,9 @@ in `../../examples/specification/fmt/variant-refinement-syntax/`, and the
 malformed-source case in
 `../../examples/specification/check/variant-refinement-malformed-generics/`.
 The lowering and wire round-trip cases are in
-`../../crates/veln-ast/src/tests.rs`. The current behavior is specified by the
-source, formatting, and diagnostic pages linked from the summary above.
+`../../crates/veln-ast/src/tests/variant_refinements.rs`. The current behavior
+is specified by the source, formatting, and diagnostic pages linked from the
+summary above.
 
 ## Resolution And Visibility
 
