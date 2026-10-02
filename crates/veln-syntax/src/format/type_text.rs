@@ -26,12 +26,11 @@ fn canonicalize_commas(text: &str) -> String {
 
 pub(super) fn canonical_schema_field_type_text(text: &str, binary_schema: bool) -> String {
     let text = canonical_predicate_text(text);
-    let text = if binary_schema {
+    if binary_schema {
         canonical_binary_schema_field_type_text(&text)
     } else {
         text
-    };
-    text
+    }
 }
 
 pub(super) fn canonical_predicate_text(text: &str) -> String {
