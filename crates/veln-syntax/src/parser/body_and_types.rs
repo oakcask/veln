@@ -622,13 +622,24 @@ pub(super) fn build_variant_refinements(
                         .expect("child refinement candidate")
                 })
                 .collect();
-            candidates[index]
+            let child_refinements =
+                group_variant_refinements(source, tokens, child_candidates, &mut consumed_pipes);
+            let argument = &mut candidates[index]
                 .as_mut()
                 .expect("parent refinement candidate")
                 .value
-                .type_arguments[argument]
-                .ty_refinements =
-                group_variant_refinements(source, tokens, child_candidates, &mut consumed_pipes);
+                .type_arguments[argument];
+            argument.ty_fragments =
+                type_argument_fragments(source, &argument.span, &child_refinements);
+            argument.ty_paths.retain(|path| {
+                !child_refinements.iter().any(|child| {
+                    path.segment_spans.iter().all(|segment| {
+                        segment.start.offset >= child.span.start.offset
+                            && segment.end.offset <= child.span.end.offset
+                    })
+                })
+            });
+            argument.ty_refinements = child_refinements;
         }
     }
     let root_candidates = roots
@@ -638,6 +649,21 @@ pub(super) fn build_variant_refinements(
     let refinements =
         group_variant_refinements(source, tokens, root_candidates, &mut consumed_pipes);
     (refinements, consumed_pipes)
+}
+
+fn type_argument_fragments(
+    source: &SourceFile,
+    argument_span: &SourceSpan,
+    child_refinements: &[VariantRefinementType],
+) -> Vec<String> {
+    let mut fragments = Vec::with_capacity(child_refinements.len() + 1);
+    let mut cursor = argument_span.start.offset;
+    for child in child_refinements {
+        fragments.push(source.text()[cursor..child.span.start.offset].to_string());
+        cursor = child.span.end.offset;
+    }
+    fragments.push(source.text()[cursor..argument_span.end.offset].to_string());
+    fragments
 }
 
 fn group_variant_refinements(
@@ -1000,12 +1026,7 @@ fn push_refinement_type_argument(
         }
     }
     arguments.push(VariantRefinementTypeArgument {
-        ty: normalize_type_text(
-            structure_tokens
-                .iter()
-                .map(|token| token.text.clone())
-                .collect(),
-        ),
+        ty_fragments: Vec::new(),
         ty_paths: type_paths_from_tokens(source, &structure_tokens),
         ty_refinements: Vec::new(),
         span: source.span(range),

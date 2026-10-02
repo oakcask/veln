@@ -135,15 +135,15 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
     let result = &decoded.functions[0].return_type_refinements[0].alternatives[0];
     assert_eq!(result.base.segments, ["Result"]);
     assert_eq!(result.type_arguments.len(), 2);
-    assert_eq!(result.type_arguments[0].ty, "List<domain::Item>");
+    assert_eq!(
+        result.type_arguments[0].ty_fragments,
+        ["List<domain::Item>"]
+    );
     assert_eq!(
         result.type_arguments[0].ty_paths[0].segments,
         ["domain", "Item"]
     );
-    assert_eq!(
-        result.type_arguments[1].ty,
-        "Wrapper<State::Ready | State::Closed>"
-    );
+    assert_eq!(result.type_arguments[1].ty_fragments, ["Wrapper<", ">"]);
     assert_eq!(result.type_arguments[1].ty_refinements.len(), 1);
     assert_eq!(
         result.type_arguments[1].ty_refinements[0].alternatives[0].variant,
@@ -204,18 +204,20 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
 
 #[test]
 fn deep_refinement_structure_remains_linear_through_lowering_and_wire_round_trip() {
-    let shallow_size = refinement_wire_size(64);
-    let deep_size = refinement_wire_size(128);
+    let sizes = [64, 128, 256].map(refinement_wire_size);
+    eprintln!("variant refinement wire sizes at depths 64, 128, and 256: {sizes:?}");
+    let first_growth = sizes[1] - sizes[0];
+    let second_growth = sizes[2] - sizes[1];
     assert!(
-        deep_size < shallow_size * 3,
-        "doubling refinement depth should grow wire bytes proportionally: {shallow_size} -> {deep_size}"
+        second_growth < first_growth * 3,
+        "doubling refinement depth should grow wire bytes proportionally: {sizes:?}"
     );
 }
 
 fn refinement_wire_size(depth: usize) -> usize {
-    let mut annotation = "Leaf::Value".to_string();
+    let mut annotation = "domain::Leaf::Value".to_string();
     for _ in 0..depth {
-        annotation = format!("Layer<{annotation}>::Wrapped");
+        annotation = format!("domain::Layer<{annotation}>::Wrapped");
     }
     let source = format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n");
 
@@ -241,6 +243,10 @@ fn assert_refinement_chain(refinements: &[VariantRefinementType], expected_nodes
             break;
         };
         assert_eq!(alternative.type_arguments.len(), 1);
+        assert!(
+            argument.ty_paths.is_empty(),
+            "paths owned by a child refinement must not be repeated by its parent argument"
+        );
         refinements = &argument.ty_refinements;
     }
     assert_eq!(nodes, expected_nodes);

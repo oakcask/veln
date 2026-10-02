@@ -26,15 +26,12 @@ fn parses_variant_refinements_across_nested_type_forms() {
     let ok = &payload_union.alternatives[0];
     assert_eq!(ok.base.segments, ["protocol", "Result"]);
     assert_eq!(ok.type_arguments.len(), 2);
-    assert_eq!(ok.type_arguments[0].ty, "List<domain::Item>");
+    assert_eq!(ok.type_arguments[0].ty_fragments, ["List<domain::Item>"]);
     assert_eq!(
         ok.type_arguments[0].ty_paths[0].segments,
         ["domain", "Item"]
     );
-    assert_eq!(
-        ok.type_arguments[1].ty,
-        "Wrapper<State::Ready | State::Closed>"
-    );
+    assert_eq!(ok.type_arguments[1].ty_fragments, ["Wrapper<", ">"]);
     assert_eq!(ok.type_arguments[1].ty_refinements.len(), 1);
     assert_eq!(
         ok.type_arguments[1].ty_refinements[0].alternatives[0].variant,

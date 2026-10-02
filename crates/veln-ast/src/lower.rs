@@ -582,7 +582,7 @@ impl AstBuilder {
                             .type_arguments
                             .iter()
                             .map(|argument| VariantRefinementTypeArgument {
-                                ty: argument.ty.clone(),
+                                ty_fragments: argument.ty_fragments.clone(),
                                 ty_paths: self.lower_type_paths(&argument.ty_paths),
                                 ty_refinements: self
                                     .lower_variant_refinements(&argument.ty_refinements),
