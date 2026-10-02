@@ -19,19 +19,34 @@ Import the module explicitly:
 use net from "std"
 ```
 
-`Network` has the `Tcp`, `Tcp4`, and `Tcp6` variants. `Address` contains a
-network, host string, and integer port. `Endpoint` contains a network and a
-resolved host-port string. Their constructors and fields can be matched as
-ordinary public algebraic data values. Constructing these values does not
-resolve a name, open a socket, or validate the contained port.
+The module exports these algebraic values:
 
-`NetError` contains an operation name, optional network, optional address,
-`NetErrorKind`, and explanatory message. Code compares the kind rather than
-the message. This value-only surface currently produces `InvalidAddress` from
-the host-port helpers. The other exported kinds reserve the portable values
-used by the planned effectful networking surface.
+| Value | Public shape |
+| --- | --- |
+| `Network` | `Tcp`, `Tcp4`, and `Tcp6` variants |
+| `Address` | `Address(network: Network, host: String, port: Int)` |
+| `Endpoint` | `Endpoint(network: Network, address: String)` |
+| `NetErrorKind` | `InvalidAddress`, `UnsupportedNetwork`, `NameNotFound`, `PermissionDenied`, `AddressInUse`, `ConnectionRefused`, `ConnectionReset`, `TimedOut`, `Cancelled`, `Closed`, `Busy`, `InvalidResource`, and `Other` variants |
+| `NetError` | `NetError(operation: String, network: Option<Network>, address: Option<String>, kind: NetErrorKind, message: String)` |
+
+The constructors and fields can be matched as ordinary public algebraic data
+values. Constructing an `Address` or `Endpoint` does not resolve a name, open a
+socket, or validate the contained port or address text.
+
+Code compares a `NetError` kind rather than its explanatory message. This
+value-only surface currently produces `InvalidAddress` from the host-port
+helpers. The other exported kinds reserve the portable values used by the
+planned effectful networking surface; no current `std::net` operation produces
+them.
 
 ## Address Values And Host-port Text
+
+The pure helper signatures are:
+
+```veln
+pub fn join_host_port(host: String, port: Int) -> Result<String, NetError>
+pub fn split_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>
+```
 
 `join_host_port(host, port)` returns `host:port` for a hostname, IPv4 literal,
 or empty wildcard host. If the host contains a colon, the result encloses it in
@@ -63,3 +78,10 @@ The helpers do not validate DNS spelling or the internal syntax of an IP
 literal. The module does not yet export `net::IO`, `net::system()`, resolution,
 listeners, streams, deadlines, cancellation, or transport adapters. The
 remaining work stays in the standard-library networking proposal.
+
+## References
+
+The exported implementation and companion tests are in
+`crates/veln-stdlib/veln/net.veln` and
+`crates/veln-stdlib/veln/net.test.veln`. The checked command-level example is
+under `examples/specification/run/standard-library-network-address-values/`.

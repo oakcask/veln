@@ -65,7 +65,7 @@ deterministic interception point.
 
 ## Non-goals
 
-The first delivery does not include:
+The remaining proposal does not include:
 
 - UDP, raw IP, multicast, or packet-oriented sockets;
 - Unix-domain sockets;
