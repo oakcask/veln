@@ -55,7 +55,7 @@ The proposal has three intended outcomes:
   accepts and produces.
 - Pattern matching can convert an ordinary ADT value into the required
   variant refinement without a cast or runtime assertion.
-- Compiler, formatter, package-documentation, LSP, and MCP views agree on the
+- Compiler, package-documentation, LSP, and MCP views agree on the
   spelling and identity of a refined variant.
 
 The feature is useful for protocol phases, compiler passes, security-sensitive
@@ -92,9 +92,9 @@ unimplemented semantic and tooling behavior below.
 The base prefix uses the existing type namespace, import, alias, generic-arity,
 and ambiguity rules. The final segment uses the constructor identity owned by
 the resolved ADT. A type alias whose target resolves to an ADT can qualify a
-variant refinement. The refinement then has the target constructor identity,
-while formatting preserves the written alias. Aliases are transparent for
-refinement identity and assignability. If `AliasOne` and `AliasTwo` both
+variant refinement. The refinement then has the target constructor identity.
+Aliases are transparent for refinement identity and assignability. If
+`AliasOne` and `AliasTwo` both
 resolve to `Target`, then `AliasOne::V`, `AliasTwo::V`, and `Target::V` have
 the same refinement identity and are mutually assignable.
 
@@ -103,7 +103,6 @@ following table defines which spelling an observable surface uses:
 
 | Surface | Refinement spelling |
 | --- | --- |
-| Formatted source | Preserve the alias or target spelling written in each annotation alternative. |
 | Type propagated from one explicit annotation | Preserve that annotation's spelling while the propagated type retains one unambiguous preferred spelling. |
 | Type inferred without an explicit annotation | Use the existing canonical display name of the resolved target ADT. |
 | Join or other inference with different preferred alias spellings | Discard the conflicting preferences and use the target ADT's canonical display name. |
@@ -204,7 +203,7 @@ owns any future recursive widening through aggregates or callable positions.
 A union that contains every declared variant of the instantiated ADT is
 semantically equivalent to the base ADT. An inferred complete union is
 displayed as the base ADT. A written complete union remains written as a union
-in formatted source and package signatures. There is no empty variant union.
+in package signatures. There is no empty variant union.
 
 ### Construction, Context, And Joins
 
@@ -647,10 +646,9 @@ static transition.
 
 ## Language-Service Contract
 
-The parser, AST wire form, formatter, semantic model, shared language service,
-LSP adapter, MCP adapter, and package-documentation catalog must carry the
-base-type and constructor identities without reconstructing them from display
-text.
+The semantic model, shared language service, LSP adapter, MCP adapter, and
+package-documentation catalog must carry the resolved base-type and constructor
+identities without reconstructing them from display text.
 
 ### LSP
 
@@ -727,7 +725,7 @@ behavior:
 | Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Base-refinement reasons use only the closed values in the diagnostic contract. Independent casing, resolution, arity, base-eligibility, variant, visibility, union-base, and assignability failures compose as specified; derivative failures are suppressed; and each failure retains exactly the specified navigation identities. Impossible and redundant-arm cases use separate codes, while intrinsic casing, resolution, visibility, ADT, generic, arity, and pattern failures suppress derivative arm-classification diagnostics. | Human and JSON command fixtures covering every diagnostic row, base-reason value, refinement-overlap row, identity-retention outcome, and arm-precedence overlap. |
 | Commands | Check, run, test, doc, and their machine-readable modes share semantic analysis and preserve their execution or recovery boundaries. | Command harness cases with accepted, rejected, and recovered sources. |
 | Runtime erasure | Singleton-refined, union-refined, and widened values preserve constructor tag, payload, matching, equality, schema, and backend behavior without checks outside the external decode trust boundary. Decode validation inspects the existing tag and does not change the representation or encoded bytes. | JVM execution, encode/decode, representation, unchanged-byte, and no-check-outside-decode regression cases. |
-| LSP | Tokens, formatting, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
+| LSP | Tokens, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
 | MCP | Check, navigation, pagination, rename, package signatures, reference publication, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 | Cross-transport identity | LSP and MCP select the same declaration and reference set from the same saved source before coordinate projection. | Shared language-service cases consumed by both adapter suites. |
 

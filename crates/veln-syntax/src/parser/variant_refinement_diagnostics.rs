@@ -9,13 +9,14 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
     let mut errors = Vec::new();
     let (generic_syntax, surplus_closers) = scan_generic_syntax(tokens);
     let candidates = refinement_alternatives(tokens, &generic_syntax);
+    let candidate_depths = refinement_candidate_depths(tokens, &candidates);
     for (index, token) in tokens.iter().enumerate() {
         diagnose_token(tokens, &surplus_closers, index, token, &mut errors);
     }
-    diagnose_excessive_nesting(tokens, &candidates, &mut errors);
+    diagnose_excessive_nesting(&candidates, &candidate_depths, &mut errors);
     diagnose_generic_arguments(tokens, &generic_syntax, &mut errors);
     diagnose_candidate_suffixes(tokens, &surplus_closers, &candidates, &mut errors);
-    diagnose_candidate_boundaries(tokens, &candidates, &mut errors);
+    diagnose_candidate_boundaries(tokens, &candidates, &candidate_depths, &mut errors);
     errors.sort_unstable_by_key(|(index, _)| *index);
     errors.dedup();
     errors
@@ -24,20 +25,61 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
 fn diagnose_candidate_boundaries(
     tokens: &[Token],
     candidates: &[RawRefinementCandidate],
+    candidate_depths: &[usize],
     errors: &mut Vec<(usize, &'static str)>,
 ) {
-    let mut covered = vec![false; tokens.len()];
-    for candidate in candidates {
-        for is_covered in covered
-            .iter_mut()
-            .take(candidate.end_index.saturating_add(1))
-            .skip(candidate.start_index)
-        {
-            *is_covered = true;
+    let mut coverage_events = vec![0isize; tokens.len().saturating_add(1)];
+    for candidate in candidates
+        .iter()
+        .zip(candidate_depths)
+        .filter_map(|(candidate, depth)| {
+            (*depth <= crate::MAX_VARIANT_REFINEMENT_NESTING).then_some(candidate)
+        })
+    {
+        if candidate.start_index < tokens.len() {
+            coverage_events[candidate.start_index] += 1;
+            let after_candidate = candidate.end_index.saturating_add(1).min(tokens.len());
+            coverage_events[after_candidate] -= 1;
+            #[cfg(test)]
+            super::record_refinement_boundary_coverage_work(2);
         }
     }
+    let mut active_candidates = 0isize;
+    let covered = coverage_events
+        .into_iter()
+        .take(tokens.len())
+        .map(|event| {
+            active_candidates += event;
+            active_candidates > 0
+        })
+        .collect::<Vec<_>>();
+    #[cfg(test)]
+    super::record_refinement_boundary_coverage_work(tokens.len());
+    let mut after_closing_run = vec![tokens.len(); tokens.len()];
+    for index in (0..tokens.len()).rev() {
+        after_closing_run[index] = if closing_type_delimiter(tokens[index].kind) {
+            if tokens
+                .get(index + 1)
+                .is_some_and(|token| closing_type_delimiter(token.kind))
+            {
+                after_closing_run[index + 1]
+            } else {
+                index + 1
+            }
+        } else {
+            index
+        };
+    }
+    #[cfg(test)]
+    super::record_refinement_boundary_coverage_work(tokens.len());
 
-    for candidate in candidates {
+    for candidate in candidates
+        .iter()
+        .zip(candidate_depths)
+        .filter_map(|(candidate, depth)| {
+            (*depth <= crate::MAX_VARIANT_REFINEMENT_NESTING).then_some(candidate)
+        })
+    {
         if let Some(prefix) = candidate.start_index.checked_sub(1)
             && !covered[prefix]
             && !allowed_refinement_prefix(tokens[prefix].kind)
@@ -58,13 +100,7 @@ fn diagnose_candidate_boundaries(
                 "variant refinement must be complete at its structural type position",
             ));
         } else if suffix_kind.is_some_and(closing_type_delimiter) {
-            let mut after_closers = suffix + 1;
-            while tokens
-                .get(after_closers)
-                .is_some_and(|token| closing_type_delimiter(token.kind))
-            {
-                after_closers += 1;
-            }
+            let after_closers = after_closing_run[suffix];
             if let Some(token) = tokens.get(after_closers)
                 && !allowed_after_closed_type_structure(token.kind)
             {
@@ -220,14 +256,13 @@ fn diagnose_generic_closer(
 }
 
 fn diagnose_excessive_nesting(
-    tokens: &[Token],
     candidates: &[RawRefinementCandidate],
+    depths: &[usize],
     errors: &mut Vec<(usize, &'static str)>,
 ) {
-    let depths = refinement_candidate_depths(tokens, candidates);
     if let Some((candidate, _)) = candidates
         .iter()
-        .zip(depths)
+        .zip(depths.iter().copied())
         .find(|(_, depth)| *depth > crate::MAX_VARIANT_REFINEMENT_NESTING)
     {
         errors.push((

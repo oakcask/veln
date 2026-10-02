@@ -51,6 +51,9 @@ thread_local! {
     static REFINEMENT_ARGUMENT_TOKEN_COPIES: std::cell::Cell<usize> = const {
         std::cell::Cell::new(0)
     };
+    static REFINEMENT_BOUNDARY_COVERAGE_WORK: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
 }
 
 #[cfg(test)]
@@ -96,6 +99,25 @@ pub(crate) fn refinement_argument_token_copies() -> usize {
 fn record_refinement_argument_token_copies(count: usize) {
     REFINEMENT_ARGUMENT_TOKEN_COPIES
         .set(REFINEMENT_ARGUMENT_TOKEN_COPIES.get().saturating_add(count));
+}
+
+#[cfg(test)]
+pub(crate) fn reset_refinement_boundary_coverage_work() {
+    REFINEMENT_BOUNDARY_COVERAGE_WORK.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn refinement_boundary_coverage_work() -> usize {
+    REFINEMENT_BOUNDARY_COVERAGE_WORK.get()
+}
+
+#[cfg(test)]
+fn record_refinement_boundary_coverage_work(count: usize) {
+    REFINEMENT_BOUNDARY_COVERAGE_WORK.set(
+        REFINEMENT_BOUNDARY_COVERAGE_WORK
+            .get()
+            .saturating_add(count),
+    );
 }
 
 fn is_contextual_identifier(kind: TokenKind) -> bool {

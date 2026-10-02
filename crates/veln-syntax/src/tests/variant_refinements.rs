@@ -667,6 +667,51 @@ fn nested_refinement_argument_materialization_scales_linearly() {
     );
 }
 
+#[test]
+fn nested_refinement_boundary_diagnostics_scale_linearly() {
+    let depths = [
+        crate::MAX_VARIANT_REFINEMENT_NESTING,
+        crate::MAX_VARIANT_REFINEMENT_NESTING + 1,
+    ];
+    let work = depths.map(refinement_boundary_coverage_work);
+    eprintln!(
+        "variant refinement boundary coverage work at depths {} and {}: {work:?}",
+        depths[0], depths[1]
+    );
+
+    assert!(
+        work[0] > 0,
+        "the metric must observe boundary coverage work"
+    );
+    assert!(
+        work[1] <= work[0] + 16,
+        "one additional nesting level must add only adjacent-linear boundary coverage work: {work:?}"
+    );
+}
+
+fn refinement_boundary_coverage_work(depth: usize) -> usize {
+    let mut annotation = "Leaf::Value".to_string();
+    for _ in 0..depth {
+        annotation = format!("Layer<{annotation}>::Wrapped");
+    }
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
+    );
+
+    crate::parser::reset_refinement_boundary_coverage_work();
+    let output = parse(&source);
+    if depth <= crate::MAX_VARIANT_REFINEMENT_NESTING {
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    } else {
+        assert!(output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "parse.variant_refinement_type"
+                && diagnostic.message == "variant refinement types are nested too deeply"
+        }));
+    }
+    crate::parser::refinement_boundary_coverage_work()
+}
+
 fn refinement_argument_token_copies(depth: usize) -> usize {
     let mut annotation = "Leaf::Value".to_string();
     for _ in 0..depth {
