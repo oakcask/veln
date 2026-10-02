@@ -502,10 +502,29 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
             ));
         }
     }
-    for syntax in &generic_syntax {
+    for (open, syntax) in generic_syntax.iter().enumerate() {
         let Some(matched) = syntax.matched else {
             continue;
         };
+        let exact_close =
+            matched.close_offset + 1 == closing_angle_count(tokens[matched.token_index].kind);
+        let variant_index = matched.token_index + 2;
+        if exact_close
+            && open > 0
+            && tokens
+                .get(open - 1)
+                .is_some_and(|token| is_type_path_segment(token) && starts_uppercase(&token.text))
+            && tokens.get(matched.token_index + 1).map(|token| token.kind)
+                == Some(TokenKind::DoubleColon)
+            && tokens
+                .get(variant_index)
+                .is_some_and(|token| is_type_path_segment(token) && !starts_uppercase(&token.text))
+        {
+            errors.push((
+                variant_index,
+                "variant refinement final segment must start with an ASCII uppercase letter",
+            ));
+        }
         let closes_before_variant = matched.close_offset + 1
             == closing_angle_count(tokens[matched.token_index].kind)
             && tokens.get(matched.token_index + 1).map(|token| token.kind)
@@ -555,37 +574,84 @@ pub(super) fn build_variant_refinements(
     source: &SourceFile,
     tokens: &[Token],
 ) -> (Vec<VariantRefinementType>, Vec<bool>) {
-    let mut candidates = refinement_alternatives(source, tokens);
-    let shallow_candidates = candidates.clone();
-    for candidate in &mut candidates {
-        for argument in &mut candidate.value.type_arguments {
-            let nested_candidates = shallow_candidates
+    let candidates = refinement_alternatives(source, tokens);
+    let mut children = candidates
+        .iter()
+        .map(|candidate| vec![Vec::new(); candidate.value.type_arguments.len()])
+        .collect::<Vec<_>>();
+    let mut roots = Vec::new();
+    let mut ancestors: Vec<usize> = Vec::new();
+
+    for (index, candidate) in candidates.iter().enumerate() {
+        while ancestors.last().is_some_and(|ancestor| {
+            let span = &candidates[*ancestor].value.span;
+            span.start.offset >= candidate.value.span.start.offset
+                || span.end.offset < candidate.value.span.end.offset
+        }) {
+            ancestors.pop();
+        }
+
+        let parent = ancestors.last().and_then(|parent| {
+            let arguments = &candidates[*parent].value.type_arguments;
+            let argument = arguments.partition_point(|argument| {
+                argument.span.end.offset <= candidate.value.span.start.offset
+            });
+            arguments.get(argument).and_then(|argument_value| {
+                (candidate.value.span.start.offset >= argument_value.span.start.offset
+                    && candidate.value.span.end.offset <= argument_value.span.end.offset)
+                    .then_some((*parent, argument))
+            })
+        });
+        if let Some((parent, argument)) = parent {
+            children[parent][argument].push(index);
+        } else {
+            roots.push(index);
+        }
+        ancestors.push(index);
+    }
+
+    let mut candidates = candidates.into_iter().map(Some).collect::<Vec<_>>();
+    let mut consumed_pipes = vec![false; tokens.len()];
+    for index in (0..candidates.len()).rev() {
+        for (argument, child_indexes) in children[index].iter().enumerate() {
+            let child_candidates = child_indexes
                 .iter()
-                .filter(|nested| {
-                    nested.value.span.start.offset >= argument.span.start.offset
-                        && nested.value.span.end.offset <= argument.span.end.offset
+                .map(|child| {
+                    candidates[*child]
+                        .take()
+                        .expect("child refinement candidate")
                 })
-                .cloned()
-                .collect::<Vec<_>>();
-            argument.ty_refinements =
-                group_variant_refinements(source, tokens, &nested_candidates).0;
+                .collect();
+            candidates[index]
+                .as_mut()
+                .expect("parent refinement candidate")
+                .value
+                .type_arguments[argument]
+                .ty_refinements =
+                group_variant_refinements(source, tokens, child_candidates, &mut consumed_pipes);
         }
     }
-    group_variant_refinements(source, tokens, &candidates)
+    let root_candidates = roots
+        .into_iter()
+        .map(|root| candidates[root].take().expect("root refinement candidate"))
+        .collect();
+    let refinements =
+        group_variant_refinements(source, tokens, root_candidates, &mut consumed_pipes);
+    (refinements, consumed_pipes)
 }
 
 fn group_variant_refinements(
     source: &SourceFile,
     tokens: &[Token],
-    candidates: &[RefinementCandidate],
-) -> (Vec<VariantRefinementType>, Vec<bool>) {
-    let mut candidate_at_start = vec![None; tokens.len()];
+    candidates: Vec<RefinementCandidate>,
+    consumed_pipes: &mut [bool],
+) -> Vec<VariantRefinementType> {
+    let mut candidate_at_start = std::collections::HashMap::with_capacity(candidates.len());
     for (index, candidate) in candidates.iter().enumerate() {
-        candidate_at_start[candidate.start_index] = Some(index);
+        candidate_at_start.insert(candidate.start_index, index);
     }
     let mut grouped = vec![false; candidates.len()];
-    let mut consumed_pipes = vec![false; tokens.len()];
-    let mut refinements = Vec::new();
+    let mut groups = Vec::new();
 
     for start in 0..candidates.len() {
         if grouped[start] {
@@ -601,7 +667,7 @@ fn group_variant_refinements(
             }
             #[cfg(test)]
             super::record_refinement_grouping_candidate_lookup();
-            let Some(next) = candidate_at_start.get(pipe_index + 1).copied().flatten() else {
+            let Some(next) = candidate_at_start.get(&(pipe_index + 1)).copied() else {
                 break;
             };
             pipe_indexes.push(pipe_index);
@@ -617,47 +683,49 @@ fn group_variant_refinements(
         for index in &pipe_indexes {
             consumed_pipes[*index] = true;
         }
-        let alternatives = alternative_indexes
-            .iter()
-            .map(|index| candidates[*index].value.clone())
-            .collect::<Vec<_>>();
-        let first_span = &alternatives
-            .first()
-            .expect("refinement union has alternatives")
-            .span;
-        let span = SourceSpan {
-            file: first_span.file.clone(),
-            start: first_span.start,
-            end: alternatives
-                .last()
-                .expect("refinement union has alternatives")
-                .span
-                .end,
-        };
-        refinements.push(VariantRefinementType {
-            alternatives,
-            pipe_spans: pipe_indexes
-                .iter()
-                .map(|index| source.span(tokens[*index].range))
-                .collect(),
-            span,
-        });
+        groups.push((alternative_indexes, pipe_indexes));
     }
 
-    for (index, candidate) in candidates.iter().enumerate() {
+    for (index, _candidate) in candidates.iter().enumerate() {
         if !grouped[index] {
-            refinements.push(VariantRefinementType {
-                alternatives: vec![candidate.value.clone()],
-                pipe_spans: Vec::new(),
-                span: candidate.value.span.clone(),
-            });
+            groups.push((vec![index], Vec::new()));
         }
     }
+    let mut candidates = candidates.into_iter().map(Some).collect::<Vec<_>>();
+    let mut refinements = groups
+        .into_iter()
+        .map(|(alternative_indexes, pipe_indexes)| {
+            let alternatives = alternative_indexes
+                .into_iter()
+                .map(|index| candidates[index].take().expect("grouped refinement").value)
+                .collect::<Vec<_>>();
+            let first_span = &alternatives
+                .first()
+                .expect("refinement union has alternatives")
+                .span;
+            let span = SourceSpan {
+                file: first_span.file.clone(),
+                start: first_span.start,
+                end: alternatives
+                    .last()
+                    .expect("refinement union has alternatives")
+                    .span
+                    .end,
+            };
+            VariantRefinementType {
+                alternatives,
+                pipe_spans: pipe_indexes
+                    .iter()
+                    .map(|index| source.span(tokens[*index].range))
+                    .collect(),
+                span,
+            }
+        })
+        .collect::<Vec<_>>();
     refinements.sort_by_key(|refinement| refinement.span.start.offset);
-    (refinements, consumed_pipes)
+    refinements
 }
 
-#[derive(Clone)]
 struct RefinementCandidate {
     start_index: usize,
     end_index: usize,

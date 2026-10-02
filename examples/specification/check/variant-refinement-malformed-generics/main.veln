@@ -37,3 +37,7 @@ end
 fn segment_after_variant(value: Result<Int>::Ok::Bad) -> ()
 	()
 end
+
+fn lowercase_variant(value: Result<Int, Error>::ok) -> ()
+	()
+end

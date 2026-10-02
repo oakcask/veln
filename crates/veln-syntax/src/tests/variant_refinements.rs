@@ -128,6 +128,44 @@ fn rejects_malformed_variant_refinement_forms() {
 }
 
 #[test]
+fn rejects_lowercase_final_variants_after_generic_adt_bases() {
+    let cases = [
+        "fn invalid(value: Result<Int, Error>::ok) -> ()\n  ()\nend\n",
+        "fn invalid(value: protocol::Result<Int, Error>::error) -> ()\n  ()\nend\n",
+        "fn invalid(value: State) -> ()\n  sink<Result<Int, Error>::ok>(value)\nend\n",
+    ];
+
+    for text in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+            .unwrap_or_else(|| {
+                panic!(
+                    "expected lowercase final variant diagnostic: {:#?}",
+                    output.diagnostics
+                )
+            });
+
+        assert_eq!(
+            diagnostic.message,
+            "variant refinement final segment must start with an ASCII uppercase letter"
+        );
+        let span = diagnostic
+            .span
+            .as_ref()
+            .expect("diagnostic should have a span");
+        let written_name = &source.text()[span.start.offset..span.end.offset];
+        assert!(
+            matches!(written_name, "ok" | "error"),
+            "diagnostic should point at the lowercase final segment, got `{written_name}`"
+        );
+    }
+}
+
+#[test]
 fn formats_variant_unions_idempotently_without_reordering_or_deduplicating() {
     let source = SourceFile::new(
         "main.veln",
@@ -201,19 +239,22 @@ fn parses_deeply_nested_variant_refinements_with_linear_structure() {
     let output = parse(&source);
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
     let function = first_function(&output);
-    assert_eq!(function.params[0].ty_refinements.len(), DEPTH + 1);
-    assert_eq!(
-        function.params[0].ty_refinements[0].alternatives[0].type_arguments[0]
-            .ty_refinements
-            .len(),
-        DEPTH
-    );
-    let argument_count = function.params[0]
-        .ty_refinements
-        .iter()
-        .flat_map(|refinement| &refinement.alternatives)
-        .map(|alternative| alternative.type_arguments.len())
-        .sum::<usize>();
+    let mut refinements = function.params[0].ty_refinements.as_slice();
+    let mut refinement_count = 0;
+    let mut argument_count = 0;
+    loop {
+        assert_eq!(refinements.len(), 1);
+        assert_eq!(refinements[0].alternatives.len(), 1);
+        refinement_count += 1;
+        let alternative = &refinements[0].alternatives[0];
+        let Some(argument) = alternative.type_arguments.first() else {
+            break;
+        };
+        assert_eq!(alternative.type_arguments.len(), 1);
+        argument_count += 1;
+        refinements = &argument.ty_refinements;
+    }
+    assert_eq!(refinement_count, DEPTH + 1);
     assert_eq!(argument_count, DEPTH);
 }
 

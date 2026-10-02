@@ -203,6 +203,50 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
 }
 
 #[test]
+fn deep_refinement_structure_remains_linear_through_lowering_and_wire_round_trip() {
+    let shallow_size = refinement_wire_size(64);
+    let deep_size = refinement_wire_size(128);
+    assert!(
+        deep_size < shallow_size * 3,
+        "doubling refinement depth should grow wire bytes proportionally: {shallow_size} -> {deep_size}"
+    );
+}
+
+fn refinement_wire_size(depth: usize) -> usize {
+    let mut annotation = "Leaf::Value".to_string();
+    for _ in 0..depth {
+        annotation = format!("Layer<{annotation}>::Wrapped");
+    }
+    let source = format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n");
+
+    let module = lower_source(&source);
+    assert_refinement_chain(&module.functions[0].params[0].ty_refinements, depth + 1);
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+    assert_refinement_chain(&decoded.functions[0].params[0].ty_refinements, depth + 1);
+    assert_eq!(encode_surface_module(&decoded), encoded);
+    encoded.len()
+}
+
+fn assert_refinement_chain(refinements: &[VariantRefinementType], expected_nodes: usize) {
+    let mut refinements = refinements;
+    let mut nodes = 0;
+    loop {
+        assert_eq!(refinements.len(), 1);
+        assert_eq!(refinements[0].alternatives.len(), 1);
+        nodes += 1;
+        let alternative = &refinements[0].alternatives[0];
+        let Some(argument) = alternative.type_arguments.first() else {
+            break;
+        };
+        assert_eq!(alternative.type_arguments.len(), 1);
+        refinements = &argument.ty_refinements;
+    }
+    assert_eq!(nodes, expected_nodes);
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_callsite_modifier_span() {
     let module = lower_source("fn located() -> SourceLocation callsite\n  callsite\nend\n");
     let encoded = encode_surface_module(&module);

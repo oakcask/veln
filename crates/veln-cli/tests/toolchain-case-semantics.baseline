@@ -12539,13 +12539,14 @@ field	expectations.stdout.contains[2]	"must join complete ADT variant refinement
 field	expectations.stdout.contains[3]	"missing its final variant name"
 field	expectations.stdout.contains[4]	"has an empty type argument"
 field	expectations.stdout.contains[5]	"must end after its final variant name"
+field	expectations.stdout.contains[6]	"final segment must start with an ASCII uppercase letter"
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"22e3946234e0db4dbaa3536c5476a2f074fb14753240b48acc62e0f00a8b25ed"
+case_digest	"54cb12d924af92045845763fbd8d408983ef6904e65ce56f485d490ef85de981"
 case	"examples/specification/doc/companion-discovery-exclusion"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62724,4 +62725,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"4bc0a45a7def3f60acef4ebdde6923029aee6c49f44431b27a72eaa1c6e2d587"
+aggregate_digest	"e79eda52ef736d5bb2c8982b46073d1867de6d248f93da9dbadb490c7a5949df"
