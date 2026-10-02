@@ -131,14 +131,22 @@ and the second closes the call's explicit type arguments. In
 `sink<State::Ready>>(value)`, the second `>` is surplus and remains part of the
 recovered source.
 
-The parser reports `parse.variant_refinement_type` for an incomplete
-alternative, a missing base or final segment, an empty or misplaced type
-argument, a segment following a generic base's final variant, a lowercase final
-segment, a missing generic closer, a surplus generic closer before or after the
-final variant, adjacent type text outside the completed structural position,
-or `|>` between alternatives. Nesting beyond 256 containing generic-argument
-boundaries reports the same diagnostic and does not prevent lossless-tree
-construction.
+#### Malformed variant-refinement forms
+
+The parser reports `parse.variant_refinement_type` for these malformed forms:
+
+- an incomplete union alternative;
+- a missing base or final segment;
+- a lowercase final segment;
+- an empty or misplaced type argument;
+- a missing generic closer;
+- a surplus generic closer before or after the final variant;
+- a segment following a generic base's final variant;
+- adjacent type text outside the completed structural position; or
+- `|>` between alternatives.
+
+Nesting beyond 256 containing generic-argument boundaries reports the same
+diagnostic and does not prevent lossless-tree construction.
 
 Structural recognition does not prove that a base names an ADT, that its final
 segment names a variant, or that union alternatives name the same instantiated

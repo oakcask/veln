@@ -648,6 +648,68 @@ fn formats_variant_unions_idempotently_without_reordering_or_deduplicating() {
 }
 
 #[test]
+fn formats_nested_generic_arguments_consistently_at_refinement_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn compare(ordinary: Result< List < Int > , Error >, refined: Result< List < Int > , Error >::Ok, rest: ...Result< List < Int > , Error >::Err) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    assert!(first_function(&parsed).params[2].is_variadic);
+    assert_eq!(first_function(&parsed).params[2].ty_refinements.len(), 1);
+
+    let formatted = format_tree(&parsed.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn compare(ordinary: Result<List<Int>, Error>, refined: Result<List<Int>, Error>::Ok, rest: ...Result<List<Int>, Error>::Err) -> ()\n",
+            "\t()\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn formats_nested_generic_fragments_without_discarding_malformed_type_text() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn malformed(value: Result< List < State::ready > , Error >::Ok) -> ()\n  ()\nend\n",
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.variant_refinement_type"
+            && diagnostic.message
+                == "variant refinement final segment must start with an ASCII uppercase letter"
+    }));
+
+    let formatted = format_tree(&parsed.tree);
+    assert!(
+        formatted.contains("Result<List<State::ready>, Error>::Ok"),
+        "{formatted}"
+    );
+    let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
+    assert!(
+        reparsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
 fn parses_variant_refinements_in_explicit_call_type_arguments() {
     let source = SourceFile::new(
         "main.veln",

@@ -229,13 +229,27 @@ fn structured_type_text(text: &str, refinements: &[VariantRefinementType], sourc
 }
 
 fn source_type_text_candidates(text: &str) -> Vec<String> {
+    let tokens = source_type_tokens(text);
+    let joined = canonical_tokenized_type_text(&tokens);
+    let compact = canonical_type_text(&tokens.join(""));
+    if joined == compact {
+        vec![joined]
+    } else {
+        vec![joined, compact]
+    }
+}
+
+fn source_type_tokens(text: &str) -> Vec<String> {
     let source = SourceFile::new("type.veln", text);
-    let tokens = crate::lex(&source)
+    crate::lex(&source)
         .tokens
         .into_iter()
         .filter(|token| !token.kind.is_trivia() && token.kind != TokenKind::Eof)
         .map(|token| token.text)
-        .collect::<Vec<_>>();
+        .collect()
+}
+
+fn canonical_tokenized_type_text(tokens: &[String]) -> String {
     let joined = tokens
         .join(" ")
         .replace(" :: ", "::")
@@ -253,14 +267,7 @@ fn source_type_text_candidates(text: &str) -> Vec<String> {
         .replace(" <", "<")
         .replace("< ", "<")
         .replace(" >", ">");
-    let compact = tokens.join("");
-    let joined = canonical_type_text(&joined);
-    let compact = canonical_type_text(&compact);
-    if joined == compact {
-        vec![joined]
-    } else {
-        vec![joined, compact]
-    }
+    canonical_type_text(&joined)
 }
 
 fn render_refinement(refinement: &VariantRefinementType) -> String {
@@ -299,5 +306,5 @@ fn render_type_argument(argument: &VariantRefinementTypeArgument) -> String {
             text.push_str(&render_refinement(refinement));
         }
     }
-    text
+    canonical_tokenized_type_text(&source_type_tokens(&text))
 }

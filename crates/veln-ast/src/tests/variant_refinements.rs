@@ -18,7 +18,7 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
         "schema Packet\n",
         "  state: State::Ready | State::Closed\n",
         "end\n",
-        "fn advance(state: State::Ready | State::Closed) -> Result<List<domain::Item>, Wrapper<State::Ready | State::Closed>>::Ok\n",
+        "fn advance(state: State::Ready | State::Closed, rest: ...Result<List<Int>, Error>::Err) -> Result<List<domain::Item>, Wrapper<State::Ready | State::Closed>>::Ok\n",
         "  let exact: State::Ready | State::Ready = state\n",
         "  sink<State::Ready | State::Closed>(exact)\n",
         "  exact\n",
@@ -117,7 +117,8 @@ fn assert_test_and_handler_refinements(decoded: &SurfaceModule) {
 }
 
 fn assert_parameter_refinement(source: &str, decoded: &SurfaceModule) {
-    let parameter_union = &advance_function(decoded).params[0].ty_refinements[0];
+    let advance = advance_function(decoded);
+    let parameter_union = &advance.params[0].ty_refinements[0];
     assert_eq!(parameter_union.alternatives.len(), 2);
     assert_eq!(parameter_union.alternatives[0].base.segments, ["State"]);
     assert_eq!(parameter_union.alternatives[0].variant, "Ready");
@@ -127,6 +128,10 @@ fn assert_parameter_refinement(source: &str, decoded: &SurfaceModule) {
             [parameter_union.pipe_spans[0].start.offset..parameter_union.pipe_spans[0].end.offset],
         "|"
     );
+    assert!(advance.params[1].is_variadic);
+    let variadic_refinement = &advance.params[1].ty_refinements[0].alternatives[0];
+    assert_eq!(variadic_refinement.base.segments, ["Result"]);
+    assert_eq!(variadic_refinement.variant, "Err");
 }
 
 fn assert_result_refinement(decoded: &SurfaceModule) {
