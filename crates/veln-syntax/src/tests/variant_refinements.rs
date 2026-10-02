@@ -84,6 +84,7 @@ fn parses_variant_refinements_across_nested_type_forms() {
 #[test]
 fn rejects_malformed_variant_refinement_forms() {
     let cases = [
+        "State::Ready |> State::Closed",
         "Connection::Connected | Int",
         "Int | Connection::Connected",
         "Connection::Connected |",
@@ -122,6 +123,48 @@ fn rejects_malformed_variant_refinement_forms() {
             output.diagnostics
         );
     }
+}
+
+#[test]
+fn malformed_pipeline_separator_is_preserved_by_repeated_formatting() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid(value: State::Ready|>State::Closed) -> ()\n  ()\nend\n",
+    );
+    let parsed = parse(&source);
+    let diagnostic = parsed
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+        .expect("pipeline separator should be rejected as refinement syntax");
+    assert_eq!(
+        diagnostic.message,
+        "`|>` cannot separate ADT variant refinement alternatives"
+    );
+    let span = diagnostic.span.as_ref().expect("diagnostic span");
+    assert_eq!(&source.text()[span.start.offset..span.end.offset], "|>");
+
+    let formatted = format_tree(&parsed.tree);
+    assert!(
+        formatted.contains("State::Ready |> State::Closed")
+            && !formatted.contains("State::Ready | > State::Closed"),
+        "{formatted}"
+    );
+    let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn formatter_spaces_only_structurally_recognized_refinement_union_pipes() {
+    assert_eq!(
+        canonical_type_text("State::Ready|State::Closed"),
+        "State::Ready | State::Closed"
+    );
+    assert_eq!(canonical_type_text("State::Ready|Int"), "State::Ready|Int");
+    assert_eq!(
+        canonical_type_text("State::Ready|>State::Closed"),
+        "State::Ready|>State::Closed"
+    );
 }
 
 #[test]
@@ -253,6 +296,37 @@ fn parses_deeply_nested_variant_refinements_with_linear_structure() {
     }
     assert_eq!(refinement_count, DEPTH + 1);
     assert_eq!(argument_count, DEPTH);
+}
+
+#[test]
+fn nested_refinement_argument_materialization_scales_linearly() {
+    let copied = [64, 128, 256].map(refinement_argument_token_copies);
+    eprintln!("variant refinement argument token copies at depths 64, 128, and 256: {copied:?}");
+
+    assert!(
+        copied[0] > 0,
+        "the metric must observe argument materialization"
+    );
+    assert!(
+        copied[1] <= copied[0] * 2 + 16 && copied[2] <= copied[1] * 2 + 16,
+        "doubling nesting depth must not cause quadratic token copying: {copied:?}"
+    );
+}
+
+fn refinement_argument_token_copies(depth: usize) -> usize {
+    let mut annotation = "Leaf::Value".to_string();
+    for _ in 0..depth {
+        annotation = format!("Layer<List<{annotation}>, domain::Marker>::Wrapped");
+    }
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
+    );
+
+    crate::parser::reset_refinement_argument_token_copies();
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    crate::parser::refinement_argument_token_copies()
 }
 
 #[test]

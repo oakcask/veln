@@ -40,6 +40,9 @@ thread_local! {
     static REFINEMENT_GROUPING_CANDIDATE_LOOKUPS: std::cell::Cell<usize> = const {
         std::cell::Cell::new(0)
     };
+    static REFINEMENT_ARGUMENT_TOKEN_COPIES: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
 }
 
 #[cfg(test)]
@@ -69,6 +72,22 @@ fn record_refinement_grouping_candidate_lookup() {
             .get()
             .saturating_add(1),
     );
+}
+
+#[cfg(test)]
+pub(crate) fn reset_refinement_argument_token_copies() {
+    REFINEMENT_ARGUMENT_TOKEN_COPIES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn refinement_argument_token_copies() -> usize {
+    REFINEMENT_ARGUMENT_TOKEN_COPIES.get()
+}
+
+#[cfg(test)]
+fn record_refinement_argument_token_copies(count: usize) {
+    REFINEMENT_ARGUMENT_TOKEN_COPIES
+        .set(REFINEMENT_ARGUMENT_TOKEN_COPIES.get().saturating_add(count));
 }
 
 fn is_contextual_identifier(kind: TokenKind) -> bool {
@@ -236,6 +255,18 @@ impl RecoveryStrategy {
 pub fn parse(source: &SourceFile) -> ParseOutput {
     let lexed = lex(source);
     Parser::new(source, lexed.tokens).parse()
+}
+
+pub(crate) fn variant_refinement_union_pipe_ranges(
+    source: &SourceFile,
+    tokens: &[Token],
+) -> Vec<TextRange> {
+    let (_, consumed_pipes) = body_and_types::build_variant_refinements(source, tokens);
+    tokens
+        .iter()
+        .zip(consumed_pipes)
+        .filter_map(|(token, consumed)| consumed.then_some(token.range))
+        .collect()
 }
 
 pub fn bare_expression_bool_literal(segments: &[String]) -> Option<bool> {

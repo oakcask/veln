@@ -450,6 +450,12 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
         })
         .collect::<Vec<_>>();
     for (index, token) in tokens.iter().enumerate() {
+        if token.kind == TokenKind::PipeGreater {
+            errors.push((
+                index,
+                "`|>` cannot separate ADT variant refinement alternatives",
+            ));
+        }
         if token.kind == TokenKind::DoubleColon {
             let left_can_be_base = index > 0
                 && (is_type_path_segment(&tokens[index - 1])
@@ -574,33 +580,52 @@ pub(super) fn build_variant_refinements(
     source: &SourceFile,
     tokens: &[Token],
 ) -> (Vec<VariantRefinementType>, Vec<bool>) {
-    let candidates = refinement_alternatives(source, tokens);
-    let mut children = candidates
+    let (generic_syntax, _) = scan_generic_syntax(tokens);
+    let raw_candidates = refinement_alternatives(tokens, &generic_syntax);
+    let mut children = raw_candidates
         .iter()
-        .map(|candidate| vec![Vec::new(); candidate.value.type_arguments.len()])
+        .map(|candidate| {
+            vec![
+                Vec::new();
+                candidate
+                    .shape
+                    .generic_open
+                    .map_or(0, |open| generic_syntax[open].arguments.len())
+            ]
+        })
         .collect::<Vec<_>>();
     let mut roots = Vec::new();
     let mut ancestors: Vec<usize> = Vec::new();
+    let mut next_arguments = vec![0usize; raw_candidates.len()];
 
-    for (index, candidate) in candidates.iter().enumerate() {
+    for (index, candidate) in raw_candidates.iter().enumerate() {
         while ancestors.last().is_some_and(|ancestor| {
-            let span = &candidates[*ancestor].value.span;
-            span.start.offset >= candidate.value.span.start.offset
-                || span.end.offset < candidate.value.span.end.offset
+            raw_candidate_offsets(tokens, &raw_candidates[*ancestor]).is_none_or(|(start, end)| {
+                let (candidate_start, candidate_end) =
+                    raw_candidate_offsets(tokens, candidate).unwrap_or((0, usize::MAX));
+                start >= candidate_start || end < candidate_end
+            })
         }) {
             ancestors.pop();
         }
 
-        let parent = ancestors.last().and_then(|parent| {
-            let arguments = &candidates[*parent].value.type_arguments;
-            let argument = arguments.partition_point(|argument| {
-                argument.span.end.offset <= candidate.value.span.start.offset
-            });
-            arguments.get(argument).and_then(|argument_value| {
-                (candidate.value.span.start.offset >= argument_value.span.start.offset
-                    && candidate.value.span.end.offset <= argument_value.span.end.offset)
-                    .then_some((*parent, argument))
-            })
+        let parent = ancestors.last().and_then(|&parent_index| {
+            let parent = &raw_candidates[parent_index];
+            let arguments = parent
+                .shape
+                .generic_open
+                .map(|open| generic_syntax[open].arguments.as_slice())?;
+            let (candidate_start, candidate_end) = raw_candidate_offsets(tokens, candidate)?;
+            let argument = &mut next_arguments[parent_index];
+            while arguments.get(*argument).is_some_and(|range| {
+                type_argument_text_range(tokens, range)
+                    .is_some_and(|range| range.end <= candidate_start)
+            }) {
+                *argument += 1;
+            }
+            let range = type_argument_text_range(tokens, arguments.get(*argument)?)?;
+            (candidate_start >= range.start && candidate_end <= range.end)
+                .then_some((parent_index, *argument))
         });
         if let Some((parent, argument)) = parent {
             children[parent][argument].push(index);
@@ -610,10 +635,21 @@ pub(super) fn build_variant_refinements(
         ancestors.push(index);
     }
 
-    let mut candidates = candidates.into_iter().map(Some).collect::<Vec<_>>();
+    let mut candidates = (0..raw_candidates.len()).map(|_| None).collect::<Vec<_>>();
     let mut consumed_pipes = vec![false; tokens.len()];
     for index in (0..candidates.len()).rev() {
+        let mut child_refinements_by_argument = Vec::with_capacity(children[index].len());
+        let mut child_token_ranges_by_argument = Vec::with_capacity(children[index].len());
         for (argument, child_indexes) in children[index].iter().enumerate() {
+            let child_token_ranges = child_indexes
+                .iter()
+                .map(|child| {
+                    (
+                        raw_candidates[*child].start_index,
+                        raw_candidates[*child].end_index + 1,
+                    )
+                })
+                .collect();
             let child_candidates = child_indexes
                 .iter()
                 .map(|child| {
@@ -624,23 +660,18 @@ pub(super) fn build_variant_refinements(
                 .collect();
             let child_refinements =
                 group_variant_refinements(source, tokens, child_candidates, &mut consumed_pipes);
-            let argument = &mut candidates[index]
-                .as_mut()
-                .expect("parent refinement candidate")
-                .value
-                .type_arguments[argument];
-            argument.ty_fragments =
-                type_argument_fragments(source, &argument.span, &child_refinements);
-            argument.ty_paths.retain(|path| {
-                !child_refinements.iter().any(|child| {
-                    path.segment_spans.iter().all(|segment| {
-                        segment.start.offset >= child.span.start.offset
-                            && segment.end.offset <= child.span.end.offset
-                    })
-                })
-            });
-            argument.ty_refinements = child_refinements;
+            debug_assert_eq!(argument, child_refinements_by_argument.len());
+            child_refinements_by_argument.push(child_refinements);
+            child_token_ranges_by_argument.push(child_token_ranges);
         }
+        candidates[index] = Some(materialize_refinement_candidate(
+            source,
+            tokens,
+            &generic_syntax,
+            &raw_candidates[index],
+            child_refinements_by_argument,
+            child_token_ranges_by_argument,
+        ));
     }
     let root_candidates = roots
         .into_iter()
@@ -758,6 +789,12 @@ struct RefinementCandidate {
     value: VariantRefinementAlternative,
 }
 
+struct RawRefinementCandidate {
+    start_index: usize,
+    end_index: usize,
+    shape: RefinementAlternativeShape,
+}
+
 #[derive(Clone, Copy)]
 struct RefinementAlternativeShape {
     base_end: usize,
@@ -765,37 +802,51 @@ struct RefinementAlternativeShape {
     generic_open: Option<usize>,
 }
 
-fn refinement_alternatives(source: &SourceFile, tokens: &[Token]) -> Vec<RefinementCandidate> {
+fn refinement_alternatives(
+    tokens: &[Token],
+    generic_syntax: &[GenericSyntax],
+) -> Vec<RawRefinementCandidate> {
     let mut candidates = Vec::new();
-    let (generic_syntax, _) = scan_generic_syntax(tokens);
     for start in 0..tokens.len() {
         if !is_type_path_segment(&tokens[start])
             || (start > 0 && tokens[start - 1].kind == TokenKind::DoubleColon)
         {
             continue;
         }
-        if let Some(candidate) = refinement_alternative_at(source, tokens, &generic_syntax, start) {
-            candidates.push(candidate);
+        if let Some(shape) = refinement_alternative_shape(tokens, generic_syntax, start) {
+            candidates.push(RawRefinementCandidate {
+                start_index: start,
+                end_index: shape.variant_index,
+                shape,
+            });
         }
     }
     candidates
 }
 
-fn refinement_alternative_at(
+fn materialize_refinement_candidate(
     source: &SourceFile,
     tokens: &[Token],
     generic_syntax: &[GenericSyntax],
-    start: usize,
-) -> Option<RefinementCandidate> {
-    let shape = refinement_alternative_shape(tokens, generic_syntax, start)?;
+    candidate: &RawRefinementCandidate,
+    child_refinements: Vec<Vec<VariantRefinementType>>,
+    child_token_ranges: Vec<Vec<(usize, usize)>>,
+) -> RefinementCandidate {
+    let shape = candidate.shape;
     let type_arguments = shape.generic_open.map_or_else(Vec::new, |open| {
-        refinement_type_arguments(source, tokens, &generic_syntax[open].arguments)
+        refinement_type_arguments(
+            source,
+            tokens,
+            &generic_syntax[open].arguments,
+            child_refinements,
+            child_token_ranges,
+        )
     });
-    let variant = tokens.get(shape.variant_index)?;
+    let variant = &tokens[shape.variant_index];
 
     let mut segments = Vec::new();
     let mut segment_spans = Vec::new();
-    let mut base_cursor = start;
+    let mut base_cursor = candidate.start_index;
     loop {
         segments.push(tokens[base_cursor].text.clone());
         segment_spans.push(source.span(tokens[base_cursor].range));
@@ -804,9 +855,9 @@ fn refinement_alternative_at(
         }
         base_cursor += 2;
     }
-    let span = source.span(tokens[start].range.cover(variant.range));
-    Some(RefinementCandidate {
-        start_index: start,
+    let span = source.span(tokens[candidate.start_index].range.cover(variant.range));
+    RefinementCandidate {
+        start_index: candidate.start_index,
         end_index: shape.variant_index,
         value: VariantRefinementAlternative {
             base: TypePathSegments {
@@ -818,7 +869,17 @@ fn refinement_alternative_at(
             variant_span: source.span(variant.range),
             span,
         },
-    })
+    }
+}
+
+fn raw_candidate_offsets(
+    tokens: &[Token],
+    candidate: &RawRefinementCandidate,
+) -> Option<(usize, usize)> {
+    Some((
+        tokens.get(candidate.start_index)?.range.start,
+        tokens.get(candidate.end_index)?.range.end,
+    ))
 }
 
 fn refinement_alternative_shape(
@@ -968,15 +1029,19 @@ fn refinement_type_arguments(
     source: &SourceFile,
     tokens: &[Token],
     ranges: &[TypeArgumentRange],
+    child_refinements: Vec<Vec<VariantRefinementType>>,
+    child_token_ranges: Vec<Vec<(usize, usize)>>,
 ) -> Vec<VariantRefinementTypeArgument> {
-    let mut arguments = Vec::new();
-    for range in ranges {
+    let mut arguments = Vec::with_capacity(ranges.len());
+    for ((range, child_refinements), child_token_ranges) in
+        ranges.iter().zip(child_refinements).zip(child_token_ranges)
+    {
         push_refinement_type_argument(
             source,
             tokens,
-            range.start,
-            range.end,
-            range.explicit_end,
+            range,
+            child_refinements,
+            &child_token_ranges,
             &mut arguments,
         );
     }
@@ -986,31 +1051,26 @@ fn refinement_type_arguments(
 fn push_refinement_type_argument(
     source: &SourceFile,
     tokens: &[Token],
-    start: usize,
-    end: usize,
-    explicit_end: Option<usize>,
+    argument_range: &TypeArgumentRange,
+    child_refinements: Vec<VariantRefinementType>,
+    child_token_ranges: &[(usize, usize)],
     arguments: &mut Vec<VariantRefinementTypeArgument>,
 ) {
-    let Some(first) = tokens.get(start) else {
+    let Some(range) = type_argument_text_range(tokens, argument_range) else {
         return;
-    };
-    let range = if let Some(end) = explicit_end {
-        TextRange::new(first.range.start, end)
-    } else {
-        let Some(last) = tokens.get(end.saturating_sub(1)) else {
-            return;
-        };
-        first.range.cover(last.range)
     };
     let text = &source.text()[range.start..range.end];
     let leading = text.len() - text.trim_start().len();
     let trailing = text.len() - text.trim_end().len();
     let range = TextRange::new(range.start + leading, range.end.saturating_sub(trailing));
-    let mut structure_tokens = tokens
-        .get(start..end)
-        .map_or_else(Vec::new, <[Token]>::to_vec);
-    if let Some(explicit_end) = explicit_end
-        && let Some(close) = tokens.get(end)
+    let mut structure_tokens = owned_type_argument_tokens(
+        tokens,
+        argument_range.start,
+        argument_range.end,
+        child_token_ranges,
+    );
+    if let Some(explicit_end) = argument_range.explicit_end
+        && let Some(close) = tokens.get(argument_range.end)
     {
         let included_closers = explicit_end.saturating_sub(close.range.start);
         if included_closers > 0 {
@@ -1025,12 +1085,41 @@ fn push_refinement_type_argument(
             });
         }
     }
+    #[cfg(test)]
+    super::record_refinement_argument_token_copies(structure_tokens.len());
     arguments.push(VariantRefinementTypeArgument {
-        ty_fragments: Vec::new(),
+        ty_fragments: type_argument_fragments(source, &source.span(range), &child_refinements),
         ty_paths: type_paths_from_tokens(source, &structure_tokens),
-        ty_refinements: Vec::new(),
+        ty_refinements: child_refinements,
         span: source.span(range),
     });
+}
+
+fn type_argument_text_range(tokens: &[Token], argument: &TypeArgumentRange) -> Option<TextRange> {
+    let first = tokens.get(argument.start)?;
+    if let Some(end) = argument.explicit_end {
+        Some(TextRange::new(first.range.start, end))
+    } else {
+        let last = tokens.get(argument.end.checked_sub(1)?)?;
+        Some(first.range.cover(last.range))
+    }
+}
+
+fn owned_type_argument_tokens(
+    tokens: &[Token],
+    start: usize,
+    end: usize,
+    child_token_ranges: &[(usize, usize)],
+) -> Vec<Token> {
+    let mut owned = Vec::new();
+    let mut cursor = start;
+    for &(child_start, child_end) in child_token_ranges {
+        let child_start = child_start.clamp(cursor, end);
+        owned.extend_from_slice(&tokens[cursor..child_start]);
+        cursor = child_end.clamp(child_start, end);
+    }
+    owned.extend_from_slice(&tokens[cursor..end]);
+    owned
 }
 
 fn starts_uppercase(text: &str) -> bool {

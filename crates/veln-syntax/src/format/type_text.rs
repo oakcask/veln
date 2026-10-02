@@ -1,14 +1,26 @@
 use super::*;
+use std::collections::HashSet;
+use veln_source::SourceFile;
 
 pub fn canonical_type_text(text: &str) -> String {
     canonicalize_variant_union_spacing(&canonicalize_commas(&canonicalize_type_segment(text)))
 }
 
 fn canonicalize_variant_union_spacing(text: &str) -> String {
+    let source = SourceFile::new("type.veln", text);
+    let tokens = crate::lex(&source)
+        .tokens
+        .into_iter()
+        .filter(|token| !token.kind.is_trivia() && token.kind != TokenKind::Eof)
+        .collect::<Vec<_>>();
+    let union_pipe_starts = crate::parser::variant_refinement_union_pipe_ranges(&source, &tokens)
+        .into_iter()
+        .map(|range| range.start)
+        .collect::<HashSet<_>>();
     let mut out = String::new();
-    let mut chars = text.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch != '|' {
+    let mut chars = text.char_indices().peekable();
+    while let Some((offset, ch)) = chars.next() {
+        if ch != '|' || !union_pipe_starts.contains(&offset) {
             out.push(ch);
             continue;
         }
@@ -16,7 +28,7 @@ fn canonicalize_variant_union_spacing(text: &str) -> String {
             out.pop();
         }
         out.push_str(" | ");
-        while chars.peek().is_some_and(|next| next.is_whitespace()) {
+        while chars.peek().is_some_and(|(_, next)| next.is_whitespace()) {
             chars.next();
         }
     }

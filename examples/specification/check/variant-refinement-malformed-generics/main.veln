@@ -41,3 +41,7 @@ end
 fn lowercase_variant(value: Result<Int, Error>::ok) -> ()
 	()
 end
+
+fn pipeline_separator(value: State::Ready |> State::Closed) -> ()
+	()
+end
