@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::use_decl_matches_import_path;
 use veln_ast::{NameClass, PublicAliasKind, SchemaField, SurfaceModule, UseDecl, Visibility};
 use veln_source::SourceSpan;
@@ -59,7 +60,7 @@ impl SchemaSymbolTable {
         }
     }
 
-    pub(super) fn from_module(module: &SurfaceModule) -> Self {
+    pub(super) fn from_module(module: &SurfaceModule, adts: &AdtRegistry) -> Self {
         let schemas = module
             .schemas
             .iter()
@@ -70,7 +71,7 @@ impl SchemaSymbolTable {
                     visibility: schema.visibility,
                     span: schema.span.clone(),
                     unsupported_format_neutral_encode_field:
-                        format_neutral_schema_first_unsupported_encode_field(module, schema),
+                        format_neutral_schema_first_unsupported_encode_field(module, schema, adts),
                 })
             })
             .collect();

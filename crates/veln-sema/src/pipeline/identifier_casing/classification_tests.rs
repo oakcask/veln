@@ -78,6 +78,20 @@ fn path_classification_preserves_dependency_alias_constructor_and_recovery_roles
     );
 }
 
+#[test]
+fn path_classification_builds_one_adt_registry_for_schema_helpers() {
+    let mut text = String::from("mod model\n");
+    for index in 0..16 {
+        text.push_str(&format!("pub schema Packet{index}\n  value: Int\nend\n"));
+    }
+    let module = named_module("model", &text);
+
+    crate::adt_source_less::reset_adt_registry_from_module_builds();
+    let _ = classified_project_qualified_path_segments(&module);
+
+    assert_eq!(crate::adt_source_less::adt_registry_from_module_builds(), 1);
+}
+
 fn named_module(name: &str, text: &str) -> SurfaceModule {
     let source = SourceFile::new(format!("{name}.veln"), text);
     let parsed = veln_syntax::parse(&source);
