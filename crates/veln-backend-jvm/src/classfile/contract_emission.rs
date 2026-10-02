@@ -16,7 +16,17 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             (ContractKind::Invariant, ContractCheckPosition::Entry) => "caller",
             (ContractKind::Invariant, ContractCheckPosition::Return) => "implementation",
         };
-        self.emit_contract_value(code, &contract.predicate, &contract.callsite_calls);
+        let mut callsite_calls = HashMap::with_capacity(contract.callsite_calls.len());
+        for call in &contract.callsite_calls {
+            if let Some(existing) = callsite_calls.insert(call.callee.as_str(), call) {
+                debug_assert_eq!(existing, call, "one callee must have one contract-call ABI");
+            }
+        }
+        #[cfg(test)]
+        {
+            code.contract_call_metadata_work += contract.callsite_calls.len();
+        }
+        self.emit_contract_value(code, &contract.predicate, &callsite_calls);
         let clause = match contract.kind {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
@@ -43,7 +53,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         &mut self,
         code: &mut MethodCode,
         text: &str,
-        callsite_calls: &[IrContractCall],
+        callsite_calls: &HashMap<&str, &IrContractCall>,
     ) {
         match parse_contract_value(text) {
             ContractValue::Not(value) => {
@@ -70,7 +80,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         value: &str,
         method: &str,
-        callsite_calls: &[IrContractCall],
+        callsite_calls: &HashMap<&str, &IrContractCall>,
     ) {
         self.emit_contract_value(code, value, callsite_calls);
         code.invokestatic(
@@ -86,7 +96,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         left: &str,
         right: &str,
         op: BinaryOp,
-        callsite_calls: &[IrContractCall],
+        callsite_calls: &HashMap<&str, &IrContractCall>,
     ) {
         self.emit_contract_value(code, left, callsite_calls);
         self.emit_contract_value(code, right, callsite_calls);
@@ -102,9 +112,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         callee: &str,
         args: &[&str],
-        callsite_calls: &[IrContractCall],
+        callsite_calls: &HashMap<&str, &IrContractCall>,
     ) {
-        let callsite_call = callsite_calls.iter().find(|call| call.callee == callee);
+        #[cfg(test)]
+        {
+            code.contract_call_metadata_work += 1;
+        }
+        let callsite_call = callsite_calls.get(callee).copied();
         let fixed_arg_count = callsite_call.map_or(args.len(), |call| call.fixed_arg_count);
         for arg in &args[..fixed_arg_count] {
             self.emit_contract_value(code, arg, callsite_calls);
@@ -131,7 +145,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         &mut self,
         code: &mut MethodCode,
         args: &[&str],
-        callsite_calls: &[IrContractCall],
+        callsite_calls: &HashMap<&str, &IrContractCall>,
     ) {
         for arg in args {
             self.emit_contract_value(code, arg, callsite_calls);
@@ -151,7 +165,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         base: &str,
         field: &str,
-        callsite_calls: &[IrContractCall],
+        callsite_calls: &HashMap<&str, &IrContractCall>,
     ) {
         self.emit_contract_value(code, base, callsite_calls);
         code.ldc_string(field);

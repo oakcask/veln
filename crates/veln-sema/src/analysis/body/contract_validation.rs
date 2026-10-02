@@ -1,5 +1,7 @@
 use super::*;
 
+type ContractCallSignature = (Vec<Type>, Option<Type>, Type, Vec<String>, bool);
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn validate_contract_predicate(
         &self,
@@ -225,10 +227,7 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    pub(super) fn contract_call_signature(
-        &self,
-        callee: &str,
-    ) -> Option<(Vec<Type>, Option<Type>, Type, Vec<String>, bool)> {
+    pub(super) fn contract_call_signature(&self, callee: &str) -> Option<ContractCallSignature> {
         let segments = contract_callee_segments(callee);
         let signature = match segments.as_slice() {
             [name] => self

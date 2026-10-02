@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 use veln_ast::{BinaryOp, ContractKind, PrefixOp};
@@ -80,6 +80,25 @@ pub(crate) fn function_code_footprint(program: &TypedProgram, function_name: &st
     let mut function_emitter = FunctionBytecodeEmitter::new(&emitter, function);
     function_emitter.emit(&mut code);
     code.code.len() + code.exceptions.len() * 8
+}
+
+#[cfg(test)]
+pub(crate) fn contract_call_metadata_work(program: &TypedProgram, function_name: &str) -> usize {
+    let options = SanitizedOptions {
+        program_class: "VelnProgram".to_string(),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    let emitter = ClassfileEmitter::new(program, options);
+    let function = program
+        .functions
+        .iter()
+        .find(|function| function.name == function_name)
+        .expect("function for contract call metadata work");
+    let class = ClassBuilder::new(&emitter.options.program_class);
+    let mut code = MethodCode::new(Rc::clone(&class.constant_pool));
+    let mut function_emitter = FunctionBytecodeEmitter::new(&emitter, function);
+    function_emitter.emit(&mut code);
+    code.contract_call_metadata_work
 }
 
 pub(crate) struct ClassfileEmitter<'a> {

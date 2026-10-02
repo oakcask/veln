@@ -205,6 +205,37 @@ fn bytecode_backend_evaluates_contract_calls_and_fields_when_java_is_available()
     assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n");
 }
 
+fn high_cardinality_contract(call_count: usize) -> TypedProgram {
+    let mut text = String::new();
+    for index in 0..call_count {
+        text.push_str(&format!(
+            "fn predicate_{index}() -> Int callsite\n  callsite.start_line\nend\n"
+        ));
+    }
+    text.push_str("pub fn guarded() -> Bool callsite\nrequire ");
+    for index in 0..call_count {
+        if index > 0 {
+            text.push_str(" + ");
+        }
+        text.push_str(&format!("predicate_{index}()"));
+    }
+    text.push_str(" > 0\n  true\nend\n");
+
+    lower_to_ir(&text)
+}
+
+#[test]
+fn contract_callsite_metadata_work_grows_linearly() {
+    let smaller_count = 32;
+    let larger_count = 64;
+    let smaller = contract_call_metadata_work(&high_cardinality_contract(smaller_count), "guarded");
+    let larger = contract_call_metadata_work(&high_cardinality_contract(larger_count), "guarded");
+
+    assert_eq!(smaller, smaller_count * 2);
+    assert_eq!(larger, larger_count * 2);
+    assert_eq!(larger, smaller * 2);
+}
+
 #[test]
 fn contract_binary_splitting_prefers_longest_tokens_and_left_associativity() {
     assert_eq!(
