@@ -114,6 +114,12 @@ Type arguments belong before the final segment. Each side of `|` must be a
 complete structural alternative, and `|>` remains the pipeline token rather
 than a type separator. In a non-generic multi-segment spelling, the last
 segment is the final variant and every preceding segment is the qualified base.
+An otherwise ordinary qualified generic type such as
+`Alias::Container<Int>` remains a named type for later name and casing
+analysis; uppercase qualifier spelling alone does not turn it into a malformed
+refinement. Once type arguments before `::Variant` make the refinement
+structure explicit, further type arguments after that final segment are
+malformed.
 The parser reports `parse.variant_refinement_type` for an incomplete
 alternative, a missing base or final segment, an empty or misplaced type
 argument, a segment following a generic base's final variant, a lowercase final

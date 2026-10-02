@@ -83,14 +83,25 @@ fn parses_variant_refinements_across_nested_type_forms() {
 
 #[test]
 fn preserves_qualified_generic_types_without_a_final_variant() {
-    let source = SourceFile::new(
-        "main.veln",
-        "fn inspect(value: Prelude::Option<Int>) -> ()\n  ()\nend\n",
-    );
+    for annotation in [
+        "Prelude::Option<Int>",
+        "Alias::Container<Int>",
+        "alias::Container<Int>",
+        "domain::Alias::Container<Int>",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("fn inspect(value: {annotation}) -> ()\n  ()\nend\n"),
+        );
 
-    let output = parse(&source);
-    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    assert!(first_function(&output).params[0].ty_refinements.is_empty());
+        let output = parse(&source);
+        assert!(
+            output.diagnostics.is_empty(),
+            "qualified generic type `{annotation}` should remain parseable: {:#?}",
+            output.diagnostics
+        );
+        assert!(first_function(&output).params[0].ty_refinements.is_empty());
+    }
 }
 
 #[test]
@@ -104,7 +115,6 @@ fn rejects_malformed_variant_refinement_forms() {
         "Connection::Connected || Connection::Closed",
         "Connection::",
         "::Connected",
-        "Connection::Connected<Int>",
         "Connection::Connected<Int> | Connection::Closed",
         "Result<>::Ok",
         "Result<Int> Ok",
@@ -135,6 +145,21 @@ fn rejects_malformed_variant_refinement_forms() {
             output.diagnostics
         );
     }
+}
+
+#[test]
+fn rejects_type_arguments_after_a_structurally_complete_generic_refinement() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid(value: State<Int>::Ready<Payload>) -> ()\n  ()\nend\n",
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.variant_refinement_type"
+            && diagnostic.message
+                == "variant refinement type arguments must precede the final `::Variant` segment"
+    }));
 }
 
 #[test]

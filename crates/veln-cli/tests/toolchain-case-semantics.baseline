@@ -12947,7 +12947,7 @@ field	source_errors	"forbidden"
 case_digest	"aa273c77ba7eb6e54606bc63a68b621e4be39f9f24b072c4f123a44da3cd9671"
 case	"examples/specification/fmt/variant-refinement-syntax"
 field	expectations.exit	0
-field	expectations.file_assertions[0].equals	{"logical_field":"expectations.file_assertions[0].equals","byte_length":520,"sha256":"6e9773952cdb588e142616af88055a36c0d81681124583c0f649c8d2d4eed208"}
+field	expectations.file_assertions[0].equals	{"logical_field":"expectations.file_assertions[0].equals","byte_length":554,"sha256":"173d569461311111645ae6cf1374a11ee4e6645f2a08db60a7fc59f6e3ba38b8"}
 field	expectations.file_assertions[0].operation	"equals"
 field	expectations.file_assertions[0].path	"main.veln"
 field	expectations.stderr.format	"empty"
@@ -12956,7 +12956,7 @@ field	invocation.command[0]	"fmt"
 field	invocation.command[1]	"main.veln"
 field	invocation.repeat	2
 field	source_errors	"expected"
-case_digest	"9c612dd77b6f8231731e2e86bd865854ea682fd4410a306a33311c8bac348f41"
+case_digest	"b02069be666030b53b2ccb75a3db5f8cd690271f4c22171254a3df232058b17f"
 case	"examples/specification/lsp/ambiguous-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62726,4 +62726,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"9ebc68d881d45ff70262890a88e3fa60075682cb2fab20c5d7fc54d8c416f1fc"
+aggregate_digest	"34332658d3e7b6dfcb265d9b719e1dd7b1ddc9c7e0f9058228dca7a62eb6b4ed"

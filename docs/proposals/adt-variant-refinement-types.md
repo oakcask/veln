@@ -34,22 +34,6 @@ pub fn reset(
 end
 ```
 
-The structural syntax foundation is already implemented. The parser records
-singleton and union spellings, the syntax can cross the AST lowering and wire
-boundaries, and the formatter preserves and spaces structurally complete
-forms. Parser tests and executable formatting and malformed-syntax cases cover
-that foundation.
-
-That foundation is not current semantic variant-refinement behavior. The type
-checker does not yet establish the identities, assignability, flow refinement,
-diagnostics, runtime and schema boundaries, or language-service behavior in
-this proposal. The current [source](../specification/source-surface.md#variant-refinement-shaped-type-text),
-[formatting](../specification/command-fmt.md#formatting-rules), and
-[diagnostic](../specification/diagnostics-json.md#diagnostic-families)
-specifications define only the implemented structural contract. Parseability
-and formatting therefore must not be presented as end-to-end support or as a
-type guarantee.
-
 `Connection::Connected` is the type of the complete `Connected` ADT value. It
 is not the type of the variant payload. The type
 `Connection::Connected | Connection::Closed` admits exactly those two
@@ -94,18 +78,14 @@ This table describes static call admission. It does not add a runtime state
 store, consume a value linearly, or prevent another function from constructing
 an otherwise visible variant.
 
-## Implemented Structural Foundation
+## Scope Boundary
 
-Structural parsing, AST and wire representation, formatting, and malformed-
-source behavior are already implemented. The current
+The implemented structural foundation is outside this proposal. The current
 [source](../specification/source-surface.md#variant-refinement-shaped-type-text),
 [formatting](../specification/command-fmt.md#formatting-rules), and
 [diagnostic](../specification/diagnostics-json.md#diagnostic-families)
-specifications own those contracts and their executable evidence.
-
-That implemented foundation validates syntax only. It does not resolve an ADT
-or variant, compare alternatives, or provide any semantic refinement. The
-remaining sections specify the planned semantic and tooling behavior.
+specifications own that contract and its limits. This proposal owns only the
+unimplemented semantic and tooling behavior below.
 
 ## Resolution And Visibility
 
@@ -662,10 +642,8 @@ whose analysis contains a refinement error. `doc` preserves written public
 refinements in canonical declaration signatures. JSON modes use the same
 diagnostic codes, details, spans, and related notes as their human modes.
 
-`fmt` formats a structurally complete refinement or variant union without
-requiring semantic resolution. Parser recovery must keep surrounding
-declarations available, but no command may treat a recovered or unresolved
-refinement as a successful static transition.
+No command may treat a recovered or unresolved refinement as a successful
+static transition.
 
 ## Language-Service Contract
 
@@ -731,10 +709,12 @@ coordinate and JSON adapters must not implement separate refinement lookup.
 
 ## Acceptance Model
 
-The current source, formatting, and diagnostic specifications linked under
-Implemented Structural Foundation own the completed syntax infrastructure.
-It is not a remaining acceptance target. The following evidence is required
-before semantic or tooling variant-refinement support is described as current
+The current [source](../specification/source-surface.md#variant-refinement-shaped-type-text),
+[formatting](../specification/command-fmt.md#formatting-rules), and
+[diagnostic](../specification/diagnostics-json.md#diagnostic-families)
+specifications own the completed structural foundation, which is outside the
+remaining acceptance targets. The following evidence is required before
+semantic or tooling variant-refinement support is described as current
 behavior:
 
 | Concern | Observable acceptance | Planned evidence |
@@ -781,8 +761,7 @@ documentation, and MCP describe the implemented contract. Completion also
 requires the public examples to explain both the state-machine benefit and the
 testing boundary.
 
-The implemented structural syntax foundation is not a partial semantic
-contract. This page remains the authority for the unimplemented rows, and no
-stage may claim end-to-end variant-refinement support until those rows are
-current and checked. After all remaining rows are complete, remove this
-proposal and its catalog entry.
+This page remains the authority for the unimplemented rows, and no stage may
+claim end-to-end variant-refinement support until those rows are current and
+checked. After all remaining rows are complete, remove this proposal and its
+catalog entry.

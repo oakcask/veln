@@ -36,7 +36,6 @@ fn diagnose_token(
     if token.kind == TokenKind::DoubleColon {
         diagnose_variant_separator(tokens, index, errors);
     }
-    diagnose_post_variant_type_arguments(tokens, index, token, errors);
     diagnose_generic_closer(tokens, surplus_closers, index, token, errors);
 }
 
@@ -76,36 +75,6 @@ fn lowercase_final_after_uppercase_base(tokens: &[Token], index: usize) -> bool 
             .get(index + 1)
             .is_some_and(|token| is_type_path_segment(token) && !starts_uppercase(&token.text))
         && tokens.get(index + 2).map(|token| token.kind) != Some(TokenKind::DoubleColon)
-}
-
-fn diagnose_post_variant_type_arguments(
-    tokens: &[Token],
-    index: usize,
-    token: &Token,
-    errors: &mut Vec<(usize, &'static str)>,
-) {
-    if token.kind != TokenKind::Less || index < 3 || is_prelude_qualified_generic(tokens, index) {
-        return;
-    }
-    let follows_variant = is_type_path_segment(&tokens[index - 1])
-        && starts_uppercase(&tokens[index - 1].text)
-        && tokens[index - 2].kind == TokenKind::DoubleColon;
-    let follows_base = (is_type_path_segment(&tokens[index - 3])
-        && starts_uppercase(&tokens[index - 3].text))
-        || closing_angle_count(tokens[index - 3].kind) > 0;
-    if follows_variant && follows_base {
-        errors.push((
-            index,
-            "variant refinement type arguments must precede the final `::Variant` segment",
-        ));
-    }
-}
-
-fn is_prelude_qualified_generic(tokens: &[Token], generic_open: usize) -> bool {
-    generic_open == 3
-        && tokens[0].text == "Prelude"
-        && tokens[1].kind == TokenKind::DoubleColon
-        && is_type_path_segment(&tokens[2])
 }
 
 fn diagnose_generic_closer(

@@ -1,4 +1,4 @@
-fn misplaced(value: State::Ready<Int>) -> ()
+fn misplaced(value: State<Int>::Ready<Payload>) -> ()
 	()
 end
 
