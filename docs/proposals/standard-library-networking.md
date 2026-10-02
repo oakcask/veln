@@ -22,9 +22,9 @@ This keeps two concerns separate:
 - The existing host `net` and `time` effects remain the trusted runtime
   boundary used by the system handler.
 
-The first delivery covers TCP stream clients and servers, address text,
-resolution, deadlines, cancellation, and cleanup. It does not attempt full API
-parity with another language's network library.
+The remaining delivery covers TCP stream clients and servers, resolution,
+deadlines, cancellation, and cleanup. It does not attempt full API parity with
+another language's network library.
 
 ## Motivation
 
@@ -401,7 +401,7 @@ already exist or pass.
 
 | Concern | Input or event | Required observation | Intended evidence |
 | --- | --- | --- | --- |
-| Export | `use net from "std"` | `net::listen` and every declared public type resolve to `std::net` | package and check cases under `examples/specification/` |
+| Export | `use net from "std"` with the proposed effectful declarations present | `net::listen`, `net::IO`, `Listener`, `Stream`, `ReadOutcome`, and `WriteOutcome` resolve to `std::net` | package and check cases under `examples/specification/` |
 | Effects | A public function calls `net::listen` without `net::IO` | Static diagnostic names `net::IO` and the call site | check cases |
 | System handling | A `net::IO` block is handled with `net::system()` | The remaining effects are host `net` and `time` | check cases and semantic tests |
 | No implicit authority | An entry point leaves `net::IO` unhandled | Static failure; the runner does not install a handler | check and run cases |
@@ -420,7 +420,7 @@ already exist or pass.
 | Scope cleanup | A handled block exits with owned resources open | Host resources close and a peer observes closure | loopback run case |
 | Escaped resource | A resource is returned from its owning handled scope | Scope cleanup closes it and another handler rejects it | runtime conformance test |
 | Editor identity | Definition or hover targets an imported network symbol | Location and package identity are `std::net` | LSP and MCP cases |
-| Package docs | Standard package documentation is generated | `net` API, effects, errors, and examples are present | package-documentation gate |
+| Package docs | Standard package documentation is generated after the effectful API is added | The effect, resource and outcome declarations, stream operations, system handler, and effectful examples are present | package-documentation gate |
 
 Loopback cases must bind only loopback addresses and must use bounded deadlines.
 They must not require external DNS or internet access. Cases that validate

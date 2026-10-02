@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"333f1cf5c230d084d034e04c91bf8902154de9f3"
+source_git_tree	"9500bc6e5c5522fec895e84ee88d899c142070f0"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1751
@@ -23716,26 +23716,74 @@ field	expectations.mcp_assertions[23].contains	"fn split_host_port(address: Stri
 field	expectations.mcp_assertions[23].id	8
 field	expectations.mcp_assertions[23].operation	"contains"
 field	expectations.mcp_assertions[23].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[24].contains	"# Type Network"
-field	expectations.mcp_assertions[24].id	9
+field	expectations.mcp_assertions[24].contains	"type Address"
+field	expectations.mcp_assertions[24].id	8
 field	expectations.mcp_assertions[24].operation	"contains"
 field	expectations.mcp_assertions[24].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[25].contains	"### Tcp6"
-field	expectations.mcp_assertions[25].id	9
+field	expectations.mcp_assertions[25].contains	"type Endpoint"
+field	expectations.mcp_assertions[25].id	8
 field	expectations.mcp_assertions[25].operation	"contains"
 field	expectations.mcp_assertions[25].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[26].contains	"# Function join_host_port"
-field	expectations.mcp_assertions[26].id	10
+field	expectations.mcp_assertions[26].contains	"type NetErrorKind"
+field	expectations.mcp_assertions[26].id	8
 field	expectations.mcp_assertions[26].operation	"contains"
 field	expectations.mcp_assertions[26].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[27].contains	"Result<String, NetError>"
-field	expectations.mcp_assertions[27].id	10
+field	expectations.mcp_assertions[27].contains	"type NetError"
+field	expectations.mcp_assertions[27].id	8
 field	expectations.mcp_assertions[27].operation	"contains"
 field	expectations.mcp_assertions[27].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[28].contains	"# Type Network"
+field	expectations.mcp_assertions[28].id	9
+field	expectations.mcp_assertions[28].operation	"contains"
+field	expectations.mcp_assertions[28].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[29].contains	"### Tcp6"
+field	expectations.mcp_assertions[29].id	9
+field	expectations.mcp_assertions[29].operation	"contains"
+field	expectations.mcp_assertions[29].path	"/result/contents/0/text"
 field	expectations.mcp_assertions[2].equals	"text/markdown; charset=utf-8"
 field	expectations.mcp_assertions[2].id	2
 field	expectations.mcp_assertions[2].operation	"equals"
 field	expectations.mcp_assertions[2].path	"/result/resources/11/mimeType"
+field	expectations.mcp_assertions[30].contains	"- Signature: type Network"
+field	expectations.mcp_assertions[30].id	9
+field	expectations.mcp_assertions[30].operation	"contains"
+field	expectations.mcp_assertions[30].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[31].contains	"### Tcp4"
+field	expectations.mcp_assertions[31].id	9
+field	expectations.mcp_assertions[31].operation	"contains"
+field	expectations.mcp_assertions[31].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[32].contains	"# Function join_host_port"
+field	expectations.mcp_assertions[32].id	10
+field	expectations.mcp_assertions[32].operation	"contains"
+field	expectations.mcp_assertions[32].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[33].contains	"fn join_host_port(host: String, port: Int) -> Result<String, NetError>"
+field	expectations.mcp_assertions[33].id	10
+field	expectations.mcp_assertions[33].operation	"contains"
+field	expectations.mcp_assertions[33].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[34].contains	"Address { network: Network, host: String, port: Int }"
+field	expectations.mcp_assertions[34].id	11
+field	expectations.mcp_assertions[34].operation	"contains"
+field	expectations.mcp_assertions[34].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[35].contains	"Endpoint { network: Network, address: String }"
+field	expectations.mcp_assertions[35].id	12
+field	expectations.mcp_assertions[35].operation	"contains"
+field	expectations.mcp_assertions[35].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[36].contains	"InvalidAddress"
+field	expectations.mcp_assertions[36].id	13
+field	expectations.mcp_assertions[36].operation	"contains"
+field	expectations.mcp_assertions[36].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[37].contains	"InvalidResource"
+field	expectations.mcp_assertions[37].id	13
+field	expectations.mcp_assertions[37].operation	"contains"
+field	expectations.mcp_assertions[37].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[38].contains	"NetError { operation: String, network: Option<Network>, address: Option<String>, kind: NetErrorKind, message: String }"
+field	expectations.mcp_assertions[38].id	14
+field	expectations.mcp_assertions[38].operation	"contains"
+field	expectations.mcp_assertions[38].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[39].contains	"fn split_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>"
+field	expectations.mcp_assertions[39].id	15
+field	expectations.mcp_assertions[39].operation	"contains"
+field	expectations.mcp_assertions[39].path	"/result/contents/0/text"
 field	expectations.mcp_assertions[3].id	2
 field	expectations.mcp_assertions[3].operation	"missing"
 field	expectations.mcp_assertions[3].path	"/result/resources/11/description"
@@ -23777,9 +23825,9 @@ field	expectations.stdout.contains[8]	"# Function join_host_port"
 field	expectations.stdout.contains[9]	"byte_chunk_len"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2428,"sha256":"bf1af1b15200f7841588df4cb598b0b52f28db354ea735690064fa8cd50565b3"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4053,"sha256":"9a9d2d85ea39743843aeb2db6151977a991c1ca48ad8bfe10dbf2359573d3979"}
 field	source_errors	"forbidden"
-case_digest	"38cec7118947a153a46659a808e807928c077a3debcf75d824cee35f927083ac"
+case_digest	"2ef056a33d061a4a626a080c5b438355e4a9c26d8bfe3b5b6291863f149cd120"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	{"code":-32602,"message":"Server not initialized"}
@@ -62881,4 +62929,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"64f2534b8b2106643b74c7dc39c8df1535923ba20afeeacd636064e3bcf04313"
+aggregate_digest	"453845d524eb6a4a39ed9a4de6407164f636a7fa718295b3fb35b511e73b5ff4"

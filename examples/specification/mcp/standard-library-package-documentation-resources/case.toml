@@ -142,6 +142,26 @@ path = "/result/contents/0/text"
 contains = "fn split_host_port(address: String)"
 
 [[mcp_assert]]
+id = 8
+path = "/result/contents/0/text"
+contains = "type Address"
+
+[[mcp_assert]]
+id = 8
+path = "/result/contents/0/text"
+contains = "type Endpoint"
+
+[[mcp_assert]]
+id = 8
+path = "/result/contents/0/text"
+contains = "type NetErrorKind"
+
+[[mcp_assert]]
+id = 8
+path = "/result/contents/0/text"
+contains = "type NetError"
+
+[[mcp_assert]]
 id = 9
 path = "/result/contents/0/text"
 contains = "# Type Network"
@@ -152,6 +172,16 @@ path = "/result/contents/0/text"
 contains = "### Tcp6"
 
 [[mcp_assert]]
+id = 9
+path = "/result/contents/0/text"
+contains = "- Signature: type Network"
+
+[[mcp_assert]]
+id = 9
+path = "/result/contents/0/text"
+contains = "### Tcp4"
+
+[[mcp_assert]]
 id = 10
 path = "/result/contents/0/text"
 contains = "# Function join_host_port"
@@ -159,4 +189,34 @@ contains = "# Function join_host_port"
 [[mcp_assert]]
 id = 10
 path = "/result/contents/0/text"
-contains = "Result<String, NetError>"
+contains = "fn join_host_port(host: String, port: Int) -> Result<String, NetError>"
+
+[[mcp_assert]]
+id = 11
+path = "/result/contents/0/text"
+contains = "Address { network: Network, host: String, port: Int }"
+
+[[mcp_assert]]
+id = 12
+path = "/result/contents/0/text"
+contains = "Endpoint { network: Network, address: String }"
+
+[[mcp_assert]]
+id = 13
+path = "/result/contents/0/text"
+contains = "InvalidAddress"
+
+[[mcp_assert]]
+id = 13
+path = "/result/contents/0/text"
+contains = "InvalidResource"
+
+[[mcp_assert]]
+id = 14
+path = "/result/contents/0/text"
+contains = "NetError { operation: String, network: Option<Network>, address: Option<String>, kind: NetErrorKind, message: String }"
+
+[[mcp_assert]]
+id = 15
+path = "/result/contents/0/text"
+contains = "fn split_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>"
