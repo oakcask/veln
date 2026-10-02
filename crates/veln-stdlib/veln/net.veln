@@ -1,0 +1,111 @@
+use prelude
+
+## A portable stream-network selection. Socket operations are not part of this
+## value-only module slice.
+pub type Network
+	pub Tcp
+	pub Tcp4
+	pub Tcp6
+end
+
+## An unresolved host and port paired with the requested network.
+## The pure constructor does not resolve or validate the host or port.
+pub type Address
+	pub Address(network: Network, host: String, port: Int)
+end
+
+## A resolved numeric address in host-port text form.
+pub type Endpoint
+	pub Endpoint(network: Network, address: String)
+end
+
+## Portable network failure classifications. This value-only slice produces
+## InvalidAddress; later network operations will use the remaining variants.
+pub type NetErrorKind
+	pub InvalidAddress
+	pub UnsupportedNetwork
+	pub NameNotFound
+	pub PermissionDenied
+	pub AddressInUse
+	pub ConnectionRefused
+	pub ConnectionReset
+	pub TimedOut
+	pub Cancelled
+	pub Closed
+	pub Busy
+	pub InvalidResource
+	pub Other
+end
+
+## A portable network failure with a stable operation and kind. The message is
+## explanatory text and is not a stable comparison key.
+pub type NetError
+	pub NetError(operation: String, network: Option<Network>, address: Option<String>, kind: NetErrorKind, message: String)
+end
+
+## Format a host and port without resolving the host. Hosts containing a colon
+## are bracketed. Ports outside the inclusive 0..65535 range are rejected.
+pub fn join_host_port(host: String, port: Int) -> Result<String, NetError>
+	if port < 0
+		Err(invalid_address("join_host_port", host, "port must be between 0 and 65535"))
+	else if port > 65535
+		Err(invalid_address("join_host_port", host, "port must be between 0 and 65535"))
+	else
+		join_valid_host_port(host, port)
+	end
+end
+
+fn join_valid_host_port(host: String, port: Int) -> Result<String, NetError>
+	let suffix = string::concat(":", int_to_string(port))
+	match string_split_once(host, ":")
+		Some(_) => Ok(string::concat(string::concat("[", host), string::concat("]", suffix)))
+		None => Ok(string::concat(host, suffix))
+	end
+end
+
+## Split host-port text without resolving the host. Bracketed IPv6 is accepted.
+## Unbracketed text containing more than one colon is ambiguous and rejected.
+pub fn split_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>
+	match string_split_once(address, "[")
+		Some(open) => split_bracketed_host_port(address, open.left, open.right)
+		None => split_unbracketed_host_port(address)
+	end
+end
+
+fn split_bracketed_host_port(address: String, prefix: String, remainder: String) -> Result<{ host : String, port : Int }, NetError>
+	if prefix != ""
+		Err(invalid_address("split_host_port", address, "opening bracket must begin the address"))
+	else
+		match string_split_once(remainder, "]:")
+			Some(parts) => parse_host_port(address, parts.left, parts.right)
+			None => Err(invalid_address("split_host_port", address, "bracketed host must be followed by one port"))
+		end
+	end
+end
+
+fn split_unbracketed_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>
+	match string_split_once(address, ":")
+		Some(parts) => match string_split_once(parts.right, ":")
+			Some(_) => Err(invalid_address("split_host_port", address, "IPv6 hosts must be bracketed"))
+			None => parse_host_port(address, parts.left, parts.right)
+		end
+		None => Err(invalid_address("split_host_port", address, "address must contain one port"))
+	end
+end
+
+fn parse_host_port(address: String, host: String, port_text: String) -> Result<{ host : String, port : Int }, NetError>
+	match string_parse_int(port_text)
+		Ok(port) => if port < 0
+			Err(invalid_address("split_host_port", address, "port must be between 0 and 65535"))
+		else if port > 65535
+			Err(invalid_address("split_host_port", address, "port must be between 0 and 65535"))
+		else
+			Ok({ host: host, port: port })
+		end
+		Err(_) => Err(invalid_address("split_host_port", address, "port must be one decimal integer"))
+	end
+end
+
+fn invalid_address(operation: String, address: String, message: String) -> NetError
+	NetError(operation, None, Some(address), InvalidAddress, message)
+end

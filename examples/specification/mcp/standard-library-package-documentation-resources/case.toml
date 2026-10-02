@@ -9,7 +9,10 @@ contains = [
   "\"name\":\"package-documentation-declaration\"",
   "# Package Documentation: std",
   "# Module prelude",
+  "# Module net",
   "# Alias Byte",
+  "# Type Network",
+  "# Function join_host_port",
   "byte_chunk_len",
   "byte_view_len",
   "\"code\":\"resource_not_found\"",
@@ -81,7 +84,12 @@ contains = "- Package identity: std"
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/cc6b693957a287a97ff2bc5848a6a25e37baba4e3ea493d9ac32f5b9f4d2d86a/documentation/4d7e90599ada3fb3a6e10d1b1b3c48b1229b9c26efb6ec5698b3b14bcb95060a/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+contains = "veln-doc:///package/std/snapshot/c8c6923b18697cb36bddbba9bad0a6dfb089e38b67bba83ecc1c6d915d2ed7a2/documentation/4a9bb71188894fe75c8c02daba9e09874808b0a99f1d508c28717bed2fb42dde/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/text"
+contains = "veln-doc:///package/std/snapshot/c8c6923b18697cb36bddbba9bad0a6dfb089e38b67bba83ecc1c6d915d2ed7a2/documentation/4a9bb71188894fe75c8c02daba9e09874808b0a99f1d508c28717bed2fb42dde/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 
 [[mcp_assert]]
 id = 5
@@ -91,17 +99,17 @@ contains = "- Source path: prelude.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/cc6b693957a287a97ff2bc5848a6a25e37baba4e3ea493d9ac32f5b9f4d2d86a/documentation/4d7e90599ada3fb3a6e10d1b1b3c48b1229b9c26efb6ec5698b3b14bcb95060a/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+contains = "veln-doc:///package/std/snapshot/c8c6923b18697cb36bddbba9bad0a6dfb089e38b67bba83ecc1c6d915d2ed7a2/documentation/4a9bb71188894fe75c8c02daba9e09874808b0a99f1d508c28717bed2fb42dde/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/cc6b693957a287a97ff2bc5848a6a25e37baba4e3ea493d9ac32f5b9f4d2d86a/documentation/4d7e90599ada3fb3a6e10d1b1b3c48b1229b9c26efb6ec5698b3b14bcb95060a/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+contains = "veln-doc:///package/std/snapshot/c8c6923b18697cb36bddbba9bad0a6dfb089e38b67bba83ecc1c6d915d2ed7a2/documentation/4a9bb71188894fe75c8c02daba9e09874808b0a99f1d508c28717bed2fb42dde/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/cc6b693957a287a97ff2bc5848a6a25e37baba4e3ea493d9ac32f5b9f4d2d86a/documentation/4d7e90599ada3fb3a6e10d1b1b3c48b1229b9c26efb6ec5698b3b14bcb95060a/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+contains = "veln-doc:///package/std/snapshot/c8c6923b18697cb36bddbba9bad0a6dfb089e38b67bba83ecc1c6d915d2ed7a2/documentation/4a9bb71188894fe75c8c02daba9e09874808b0a99f1d508c28717bed2fb42dde/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 
 [[mcp_assert]]
 id = 6
@@ -122,3 +130,33 @@ equals = -32002
 id = 7
 path = "/error/data/code"
 equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 8
+path = "/result/contents/0/text"
+contains = "- Source path: net.veln"
+
+[[mcp_assert]]
+id = 8
+path = "/result/contents/0/text"
+contains = "fn split_host_port(address: String)"
+
+[[mcp_assert]]
+id = 9
+path = "/result/contents/0/text"
+contains = "# Type Network"
+
+[[mcp_assert]]
+id = 9
+path = "/result/contents/0/text"
+contains = "### Tcp6"
+
+[[mcp_assert]]
+id = 10
+path = "/result/contents/0/text"
+contains = "# Function join_host_port"
+
+[[mcp_assert]]
+id = 10
+path = "/result/contents/0/text"
+contains = "Result<String, NetError>"

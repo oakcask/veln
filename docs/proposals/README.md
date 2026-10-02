@@ -20,8 +20,9 @@ also states it.
   identity, deferred observation, and LSP/MCP presentation for library-defined
   instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
-- Standard-library TCP stream networking, typed ordinary failures, resource
-  lifecycle, and a substitutable public effect with an explicit system handler:
+- Remaining standard-library TCP stream operations, typed host failures,
+  resource lifecycle, and a substitutable public effect with an explicit
+  system handler, building on the implemented network address values:
   [standard-library-networking.md](standard-library-networking.md).
 - Semantic and tooling support for the parsed ADT variant-refinement syntax,
   including typing, diagnostics, control-flow refinement, schema and runtime

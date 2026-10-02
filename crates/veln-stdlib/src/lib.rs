@@ -50,6 +50,7 @@ mod tests {
             [
                 "host_effects.veln",
                 "prelude.veln",
+                "net.veln",
                 "transport.veln",
                 "transport/net.veln",
                 "http2/frame.veln",
