@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = [
+  "error[core.callsite_contract_call_unsupported]: contract in an ordinary function has no call-site context to pass to `located`",
+  "note: Only a call-site-aware enclosing function has hidden context that its contract can forward.",
+]

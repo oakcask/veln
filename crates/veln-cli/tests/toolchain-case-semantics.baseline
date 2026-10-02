@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"f50cf9b4c4f0f793bc7fb18537bddeb09246a34e"
+source_git_tree	"9b6dd586ded5fa91b6a2176971fafc9ddca3f75a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1751
+case_count	1752
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37059,6 +37059,18 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"cf8cc8212de5744cb052561c0f7b8d95765c9049eb6c5a41119d7a5cb25cba61"
+case	"examples/specification/run/callsite-contract-runtime-boundary"
+field	expectations.exit	1
+field	expectations.stderr.contains[0]	"error[core.callsite_contract_call_unsupported]: contract in an ordinary function has no call-site context to pass to `located`"
+field	expectations.stderr.contains[1]	"note: Only a call-site-aware enclosing function has hidden context that its contract can forward."
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"51b0d62ecae5ed1bc7d278a8bb0c1e18d70ccfa4489a7f3dc5c91b3c39223efb"
 case	"examples/specification/run/callsite-direct-runtime"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62933,4 +62945,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ffbbc213e2217f3a02c483b7387591aa4c6f69e2abb0b2e5a66c3bbf55dc3158"
+aggregate_digest	"a69b6b930f5f6f329341cd680c7c379386f2f469ccd21d9bfcae28881661558f"

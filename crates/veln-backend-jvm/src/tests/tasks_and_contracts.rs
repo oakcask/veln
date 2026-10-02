@@ -237,6 +237,46 @@ fn contract_callsite_metadata_work_grows_linearly() {
 }
 
 #[test]
+fn variadic_contract_calls_reuse_temporary_local_slots() {
+    let call_count = 300;
+    let mut text = String::from(concat!(
+        "fn accepts(values: ...Int) -> Bool callsite\n",
+        "  true\n",
+        "end\n",
+        "fn guarded() -> Bool callsite\n",
+        "require ",
+    ));
+    for index in 0..call_count {
+        if index > 0 {
+            text.push_str(" and ");
+        }
+        text.push_str("accepts()");
+    }
+    text.push_str(concat!(
+        "\n",
+        "  true\n",
+        "end\n",
+        "pub fn main() -> Bool\n",
+        "  guarded()\n",
+        "end\n",
+    ));
+
+    let ir = lower_to_ir(&text);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("variadic-contract-local-reuse", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn contract_binary_splitting_prefers_longest_tokens_and_left_associativity() {
     assert_eq!(
         split_contract_binary("value >> 1 >> 1", ">>"),

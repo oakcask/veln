@@ -120,6 +120,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         }
         let callsite_call = callsite_calls.get(callee).copied();
         let fixed_arg_count = callsite_call.map_or(args.len(), |call| call.fixed_arg_count);
+        let abi_arg_count = fixed_arg_count
+            + usize::from(callsite_call.is_some_and(|call| call.variadic))
+            + usize::from(callsite_call.is_some());
+        code.max_stack = code.max_stack.max(
+            u16::try_from(abi_arg_count)
+                .expect("contract-call JVM operand stack requirement exceeds classfile limit"),
+        );
         for arg in &args[..fixed_arg_count] {
             self.emit_contract_value(code, arg, callsite_calls);
         }
@@ -131,9 +138,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         }
         let source_function = callee.rsplit("::").next().unwrap_or(callee);
         let function = callsite_call.map_or(source_function, |call| call.target.as_str());
-        let abi_arg_count = fixed_arg_count
-            + usize::from(callsite_call.is_some_and(|call| call.variadic))
-            + usize::from(callsite_call.is_some());
         code.invokestatic(
             &self.program.options.program_class,
             &self.program.function_name(function),
@@ -147,6 +151,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         args: &[&str],
         callsite_calls: &HashMap<&str, &IrContractCall>,
     ) {
+        let saved_next = self.next_local;
         let tail_slot = self.alloc_local();
         self.emit_list_nil(code);
         code.astore(tail_slot);
@@ -166,6 +171,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "listReverse",
             "(Ljava/lang/Object;)Ljava/lang/Object;",
         );
+        self.next_local = saved_next;
     }
 
     fn emit_contract_field(

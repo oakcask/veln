@@ -4,6 +4,10 @@ end
 
 pub fn observe = same_location
 
+pub fn fixed_boundary_location(expected: SourceLocation, arg01: Int, arg02: Int, arg03: Int, arg04: Int, arg05: Int, arg06: Int, arg07: Int, arg08: Int, arg09: Int, arg10: Int, arg11: Int, arg12: Int, arg13: Int, arg14: Int, arg15: Int, arg16: Int, arg17: Int, arg18: Int, arg19: Int, arg20: Int, arg21: Int, arg22: Int, arg23: Int, arg24: Int, arg25: Int, arg26: Int, arg27: Int, arg28: Int, arg29: Int, arg30: Int, arg31: Int, arg32: Int, arg33: Int, arg34: Int, arg35: Int, arg36: Int, arg37: Int, arg38: Int, arg39: Int, arg40: Int, arg41: Int, arg42: Int, arg43: Int, arg44: Int, arg45: Int, arg46: Int, arg47: Int, arg48: Int, arg49: Int, arg50: Int, arg51: Int, arg52: Int, arg53: Int, arg54: Int, arg55: Int, arg56: Int, arg57: Int, arg58: Int, arg59: Int, arg60: Int, arg61: Int, arg62: Int, arg63: Int) -> Bool callsite
+	same_location(expected)
+end
+
 fn expected_tail(observed: List<Int>) -> Bool
 	match observed
 		Nil => true
