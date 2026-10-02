@@ -95,12 +95,12 @@ fn callsite_contract_calls_retain_alias_targets_and_variadic_abi() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn located(expected: SourceLocation, values: ...SourceLocation) -> Bool callsite\n",
+            "fn located(expected: SourceLocation, values: ...Int) -> Bool callsite\n",
             "  callsite.start_line == expected.start_line\n",
             "end\n",
             "pub fn observe = located\n",
             "pub fn guarded() -> () callsite\n",
-            "require observe(callsite)\n",
+            "require observe(callsite, 17, 29)\n",
             "  ()\n",
             "end\n",
         ),
@@ -123,6 +123,48 @@ fn callsite_contract_calls_retain_alias_targets_and_variadic_abi() {
     assert_eq!(call.target, "located");
     assert_eq!(call.fixed_arg_count, 1);
     assert!(call.variadic);
+}
+
+#[test]
+fn callsite_contract_calls_type_check_each_variadic_argument() {
+    let diagnostics = diagnostics(concat!(
+        "fn located(expected: SourceLocation, values: ...Int) -> Bool callsite\n",
+        "  callsite.start_line == expected.start_line\n",
+        "end\n",
+        "pub fn guarded() -> () callsite\n",
+        "require located(callsite, 17, \"wrong\")\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.unsupported_construct"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"call_argument_type\"")
+    }));
+}
+
+#[test]
+fn callsite_contract_calls_require_all_fixed_arguments_before_the_variadic_tail() {
+    let diagnostics = diagnostics(concat!(
+        "fn located(expected: SourceLocation, values: ...Int) -> Bool callsite\n",
+        "  callsite.start_line == expected.start_line\n",
+        "end\n",
+        "pub fn guarded() -> () callsite\n",
+        "require located()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.unsupported_construct"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"call_arity\"")
+    }));
 }
 
 #[test]

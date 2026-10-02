@@ -4,6 +4,15 @@ end
 
 pub fn observe = same_location
 
-pub fn variadic_location(expected: SourceLocation, observed: ...SourceLocation) -> Bool callsite
-	callsite.package == expected.package and callsite.module == expected.module and callsite.file == expected.file and callsite.start_line == expected.start_line and callsite.start_column == expected.start_column and callsite.start_offset == expected.start_offset and callsite.end_line == expected.end_line and callsite.end_column == expected.end_column and callsite.end_offset == expected.end_offset
+fn expected_tail(observed: List<Int>) -> Bool
+	match observed
+		Nil => true
+		Cons(first, Cons(second, Nil)) => first == 17 and second == 29
+		_ => false
+	end
+end
+
+pub fn variadic_location(expected: SourceLocation, observed: ...Int) -> Bool callsite
+	let location_matches = callsite.package == expected.package and callsite.module == expected.module and callsite.file == expected.file and callsite.start_line == expected.start_line and callsite.start_column == expected.start_column and callsite.start_offset == expected.start_offset and callsite.end_line == expected.end_line and callsite.end_column == expected.end_column and callsite.end_offset == expected.end_offset
+	location_matches and expected_tail(observed)
 end

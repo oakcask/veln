@@ -3,5 +3,6 @@ use observer
 pub fn guarded() -> SourceLocation callsite
 require observer::observe(callsite)
 require observer::variadic_location(callsite)
+require observer::variadic_location(callsite, 17, 29)
 	callsite
 end

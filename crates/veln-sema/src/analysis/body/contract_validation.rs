@@ -74,7 +74,8 @@ impl<'a> FunctionChecker<'a> {
         call_index: usize,
         call: &ContractCall,
     ) -> Option<ContractValidation> {
-        let Some((params, return_type, effects)) = self.contract_call_signature(&call.callee)
+        let Some((params, variadic, return_type, effects)) =
+            self.contract_call_signature(&call.callee)
         else {
             return Some(ContractValidation::UnresolvedName {
                 name: call.callee.clone(),
@@ -95,12 +96,18 @@ impl<'a> FunctionChecker<'a> {
                 actual_type: return_type.render(),
             });
         }
-        if call.args.len() != params.len() {
+        if (variadic.is_none() && call.args.len() != params.len())
+            || (variadic.is_some() && call.args.len() < params.len())
+        {
             return Some(ContractValidation::UnsupportedConstruct {
                 reason: "call_arity",
             });
         }
-        for (arg, expected) in call.args.iter().zip(&params) {
+        for (index, arg) in call.args.iter().enumerate() {
+            let expected = params
+                .get(index)
+                .or(variadic.as_ref())
+                .expect("validated contract call arity provides an argument type");
             if let Some(validation) = self.validate_contract_call_argument(arg, expected, bindings)
             {
                 return Some(validation);
@@ -170,7 +177,7 @@ impl<'a> FunctionChecker<'a> {
             .find(|call| call.start == 0 && call.end == predicate.len())?;
         let return_type = self
             .contract_call_signature(&call.callee)
-            .map(|(_, return_type, _)| return_type)
+            .map(|(_, _, return_type, _)| return_type)
             .unwrap_or(Type::Unknown);
         Some(if return_type == Type::bool() {
             ContractValidation::Valid
@@ -188,7 +195,7 @@ impl<'a> FunctionChecker<'a> {
     ) -> Option<ContractValidation> {
         missing_contract_field(predicate, bindings, &|callee| {
             self.contract_call_signature(callee)
-                .map(|(_, return_type, _)| return_type)
+                .map(|(_, _, return_type, _)| return_type)
         })
         .map(|(base_type, field)| ContractValidation::MissingField { base_type, field })
     }
@@ -200,14 +207,14 @@ impl<'a> FunctionChecker<'a> {
     ) -> ContractValidation {
         if predicate_is_boolean_with_calls(predicate, bindings, &|callee| {
             self.contract_call_signature(callee)
-                .map(|(_, return_type, _)| return_type)
+                .map(|(_, _, return_type, _)| return_type)
         }) {
             ContractValidation::Valid
         } else {
             ContractValidation::NonBoolean {
                 actual_type: predicate_rendered_type_with_calls(predicate, bindings, &|callee| {
                     self.contract_call_signature(callee)
-                        .map(|(_, return_type, _)| return_type)
+                        .map(|(_, _, return_type, _)| return_type)
                 }),
             }
         }
@@ -216,7 +223,7 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn contract_call_signature(
         &self,
         callee: &str,
-    ) -> Option<(Vec<Type>, Type, Vec<String>)> {
+    ) -> Option<(Vec<Type>, Option<Type>, Type, Vec<String>)> {
         let segments = contract_callee_segments(callee);
         let signature = match segments.as_slice() {
             [name] => self
@@ -232,10 +239,11 @@ impl<'a> FunctionChecker<'a> {
                 if signature.module_name.as_deref() == Some("std::prelude")
                     && let Some((params, return_type)) = prelude_signature(&signature.name, None)
                 {
-                    return (params, return_type, signature.effects.clone());
+                    return (params, None, return_type, signature.effects.clone());
                 }
                 (
                     signature.params.clone(),
+                    signature.variadic.clone(),
                     signature.return_type.clone(),
                     signature.effects.clone(),
                 )
@@ -243,10 +251,10 @@ impl<'a> FunctionChecker<'a> {
             .or_else(|| match segments.as_slice() {
                 [name] if !self.bare_prelude_import_is_ambiguous(name) => {
                     prelude_signature(name, None)
-                        .map(|(params, return_type)| (params, return_type, Vec::new()))
+                        .map(|(params, return_type)| (params, None, return_type, Vec::new()))
                 }
                 _ => qualified_prelude_signature(&segments, None)
-                    .map(|(_, params, return_type)| (params, return_type, Vec::new())),
+                    .map(|(_, params, return_type)| (params, None, return_type, Vec::new())),
             })
     }
 
@@ -267,12 +275,12 @@ impl<'a> FunctionChecker<'a> {
         {
             return self
                 .contract_call_signature(&call.callee)
-                .map(|(_, return_type, _)| return_type)
+                .map(|(_, _, return_type, _)| return_type)
                 .unwrap_or(Type::Unknown);
         }
         if let Some(ty) = predicate_type_with_calls(trimmed, bindings, &|callee| {
             self.contract_call_signature(callee)
-                .map(|(_, return_type, _)| return_type)
+                .map(|(_, _, return_type, _)| return_type)
         }) {
             return ty;
         }
