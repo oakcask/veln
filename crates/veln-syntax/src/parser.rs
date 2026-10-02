@@ -9,7 +9,8 @@ use crate::{
     PatternField, PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField,
     SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
     SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypePathSegments,
-    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility,
+    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage,
+    VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
     lex,
 };
 
@@ -21,19 +22,39 @@ mod diagnostics_and_tokens;
 mod expression_aggregates;
 mod expression_control;
 mod expression_core;
+mod expression_names;
+mod expression_patterns;
 mod expression_primaries;
 mod functions_and_imports;
+mod generic_type_syntax;
 mod integer_literal_diagnostics;
 mod schemas;
+mod type_argument_lists;
+mod type_paths;
+mod variant_refinement_diagnostics;
+mod variant_refinements;
 
 use adr_lite::collect_adr_lite_records;
 use integer_literal_diagnostics::integer_literal_diagnostics;
-
+use type_argument_lists::TypeArgumentListState;
+use type_paths::type_paths_from_tokens;
 const MAX_CLEANUP_NESTING: usize = 128;
 
 #[cfg(test)]
 thread_local! {
     static MATCH_ARM_LOOKAHEAD_TOKEN_VISITS: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+    static REFINEMENT_GROUPING_CANDIDATE_LOOKUPS: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+    static REFINEMENT_ARGUMENT_TOKEN_COPIES: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+    static REFINEMENT_BOUNDARY_COVERAGE_WORK: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+    static FUNCTION_TYPE_SCOPE_WORK: std::cell::Cell<usize> = const {
         std::cell::Cell::new(0)
     };
 }
@@ -47,6 +68,78 @@ pub(crate) fn reset_match_arm_lookahead_token_visits() {
 pub(crate) fn match_arm_lookahead_token_visits() -> usize {
     MATCH_ARM_LOOKAHEAD_TOKEN_VISITS.get()
 }
+
+#[cfg(test)]
+pub(crate) fn reset_refinement_grouping_candidate_lookups() {
+    REFINEMENT_GROUPING_CANDIDATE_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn refinement_grouping_candidate_lookups() -> usize {
+    REFINEMENT_GROUPING_CANDIDATE_LOOKUPS.get()
+}
+
+#[cfg(test)]
+fn record_refinement_grouping_candidate_lookup() {
+    REFINEMENT_GROUPING_CANDIDATE_LOOKUPS.set(
+        REFINEMENT_GROUPING_CANDIDATE_LOOKUPS
+            .get()
+            .saturating_add(1),
+    );
+}
+
+#[cfg(test)]
+pub(crate) fn reset_refinement_argument_token_copies() {
+    REFINEMENT_ARGUMENT_TOKEN_COPIES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn refinement_argument_token_copies() -> usize {
+    REFINEMENT_ARGUMENT_TOKEN_COPIES.get()
+}
+
+#[cfg(test)]
+fn record_refinement_argument_token_copies(count: usize) {
+    REFINEMENT_ARGUMENT_TOKEN_COPIES
+        .set(REFINEMENT_ARGUMENT_TOKEN_COPIES.get().saturating_add(count));
+}
+
+#[cfg(test)]
+pub(crate) fn reset_refinement_boundary_coverage_work() {
+    REFINEMENT_BOUNDARY_COVERAGE_WORK.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn refinement_boundary_coverage_work() -> usize {
+    REFINEMENT_BOUNDARY_COVERAGE_WORK.get()
+}
+
+#[cfg(test)]
+fn record_refinement_boundary_coverage_work(count: usize) {
+    REFINEMENT_BOUNDARY_COVERAGE_WORK.set(
+        REFINEMENT_BOUNDARY_COVERAGE_WORK
+            .get()
+            .saturating_add(count),
+    );
+}
+
+#[cfg(test)]
+pub(crate) fn reset_function_type_scope_work() {
+    FUNCTION_TYPE_SCOPE_WORK.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn function_type_scope_work() -> usize {
+    FUNCTION_TYPE_SCOPE_WORK.get()
+}
+
+#[cfg(test)]
+fn record_function_type_scope_work(count: usize) {
+    FUNCTION_TYPE_SCOPE_WORK.set(FUNCTION_TYPE_SCOPE_WORK.get().saturating_add(count));
+}
+
+#[cfg(not(test))]
+fn record_function_type_scope_work(_count: usize) {}
 
 fn is_contextual_identifier(kind: TokenKind) -> bool {
     matches!(
@@ -245,10 +338,19 @@ struct FunctionReturn {
     ty: Option<String>,
     ty_span: Option<SourceSpan>,
     ty_paths: Vec<TypePathSegments>,
+    ty_refinements: Vec<VariantRefinementType>,
     effects: Option<Vec<String>>,
     effect_spans: Option<Vec<SourceSpan>>,
     effects_recovered: bool,
     callsite: Option<SourceSpan>,
+}
+
+struct FunctionReturnType {
+    binding: Option<crate::ResultBinding>,
+    ty: Option<String>,
+    span: Option<SourceSpan>,
+    paths: Vec<TypePathSegments>,
+    refinements: Vec<VariantRefinementType>,
 }
 
 struct HandlerHeader {
@@ -280,117 +382,6 @@ struct SchemaBody {
     fields: Vec<SchemaField>,
     validations: Vec<SchemaValidationClause>,
     end_present: bool,
-}
-
-#[derive(Default)]
-struct TypeArgumentNesting {
-    parentheses: usize,
-    braces: usize,
-    brackets: usize,
-    angles: usize,
-}
-
-struct AngleClosers {
-    total: usize,
-    nested: usize,
-}
-
-enum TypeArgumentTokenAction {
-    Finish { nested_angle_closers: usize },
-    Separate,
-    Append,
-}
-
-#[derive(Default)]
-struct TypeArgumentListState {
-    args: Vec<String>,
-    current: String,
-    nesting: TypeArgumentNesting,
-}
-
-impl TypeArgumentNesting {
-    fn is_outer_level(&self) -> bool {
-        self.parentheses == 0 && self.braces == 0 && self.brackets == 0 && self.angles == 0
-    }
-
-    fn consume_delimiter(&mut self, kind: TokenKind) {
-        match kind {
-            TokenKind::LParen => self.parentheses += 1,
-            TokenKind::RParen => self.parentheses = self.parentheses.saturating_sub(1),
-            TokenKind::LBrace => self.braces += 1,
-            TokenKind::RBrace => self.braces = self.braces.saturating_sub(1),
-            TokenKind::LBracket => self.brackets += 1,
-            TokenKind::RBracket => self.brackets = self.brackets.saturating_sub(1),
-            TokenKind::Less => self.angles += 1,
-            _ => {}
-        }
-    }
-
-    fn consume_angle_closers(&mut self, kind: TokenKind) -> Option<AngleClosers> {
-        let total = closing_angle_count(kind);
-        if total == 0 {
-            return None;
-        }
-        let nested = total.min(self.angles);
-        self.angles -= nested;
-        Some(AngleClosers { total, nested })
-    }
-
-    fn classify(&mut self, kind: TokenKind, close: TokenKind) -> TypeArgumentTokenAction {
-        if kind == close && self.is_outer_level() {
-            return TypeArgumentTokenAction::Finish {
-                nested_angle_closers: 0,
-            };
-        }
-        if kind == TokenKind::Comma && self.is_outer_level() {
-            return TypeArgumentTokenAction::Separate;
-        }
-        if let Some(closers) = self.consume_angle_closers(kind) {
-            return if closers.total > closers.nested {
-                TypeArgumentTokenAction::Finish {
-                    nested_angle_closers: closers.nested,
-                }
-            } else {
-                TypeArgumentTokenAction::Append
-            };
-        }
-        self.consume_delimiter(kind);
-        TypeArgumentTokenAction::Append
-    }
-}
-
-impl TypeArgumentListState {
-    fn consume(&mut self, token: &Token, close: TokenKind) -> bool {
-        match self.nesting.classify(token.kind, close) {
-            TypeArgumentTokenAction::Finish {
-                nested_angle_closers,
-            } => {
-                self.current.push_str(&">".repeat(nested_angle_closers));
-                self.flush_current(false);
-                true
-            }
-            TypeArgumentTokenAction::Separate => {
-                self.flush_current(true);
-                false
-            }
-            TypeArgumentTokenAction::Append => {
-                self.current.push_str(&token.text);
-                false
-            }
-        }
-    }
-
-    fn flush_current(&mut self, include_empty: bool) {
-        if include_empty || !self.current.is_empty() {
-            let current = std::mem::take(&mut self.current);
-            self.args.push(normalize_type_text(vec![current]));
-        }
-    }
-
-    fn finish(mut self) -> Vec<String> {
-        self.flush_current(false);
-        self.args
-    }
 }
 
 struct ExprParser<'a> {

@@ -133,12 +133,17 @@ fn collect_valid_segments_from_body_line(
     match &line.kind {
         veln_ast::BodyLineKind::Let {
             pattern,
-            annotation_paths,
+            annotation_structure,
             expr,
             ..
         } => {
             collect_valid_segments_from_pattern(pattern, current_module, environment, output);
-            collect_type_path_segments(annotation_paths, current_module, environment, output);
+            collect_type_path_segments(
+                &annotation_structure.paths,
+                current_module,
+                environment,
+                output,
+            );
             collect_valid_segments_from_expr(expr, current_module, environment, output);
         }
         veln_ast::BodyLineKind::Expr { expr } => {

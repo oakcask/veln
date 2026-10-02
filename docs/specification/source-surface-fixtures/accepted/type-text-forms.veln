@@ -1,0 +1,20 @@
+effect TypeForms
+	apply(callback: fn(Int, ...String) -> Result<(), Error> effects [io::Read]) -> domain::Result<Int, Error>
+end
+
+type Envelope
+	Wrapped(unit: (), scalar: Int, qualified: platform::Request, generic: Vec<Int>, qualified_generic: domain::Envelope<String, Result<(), AppError>>, record: {name: String, scores: Vec<Int>}, callback: fn(value: Int, ...String) -> Bool effects [stdio, ...E], singleton: State::Ready, qualified_refinement: protocol::State::Closed, generic_refinement: Result<Int, Error>::Ok, union_refinement: State::Ready | State::Closed, nested_generic: List<State::Ready | State::Closed>, nested_record: {state: State::Ready | State::Closed}, nested_function: fn(State::Ready | State::Closed) -> State::Ready)
+end
+
+fn preserve(value: Alias::Container<Int>, callback: fn(String, ...) -> List<String>) -> Result<fn(Int) -> Int effects [io::Read], Error>::Ok
+	let current: Connection::Connected | Connection::Closed = value
+	sink<State::Ready | State::Closed, Result<Int, Error>::Ok>(current)
+end
+
+fn preserve_inferred_tail(values: ...) -> {effect: (), values: List<String>}
+	{effect: (), values: values}
+end
+
+fn preserve_typed_tail(label: String, values: ...String) -> List<String>
+	values
+end

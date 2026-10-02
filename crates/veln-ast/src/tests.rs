@@ -4,6 +4,8 @@ use veln_syntax::parse;
 
 mod node_id_inventory;
 mod traversal;
+mod variant_refinements;
+mod wire_round_trip;
 
 use node_id_inventory::collect_module_node_ids;
 
@@ -22,153 +24,6 @@ fn lower_source_allowing_diagnostics(text: &str) -> SurfaceModule {
     let source = SourceFile::new("main.veln", text);
     let parsed = parse(&source);
     lower_surface_ast(&parsed.tree)
-}
-
-#[test]
-fn surface_wire_round_trip_preserves_expression_families() {
-    let sources = [
-        concat!(
-            "fn build(input: Int) -> ()\n",
-            "  let data = {answer: [1, 2.5, -input?], check: _value satisfy candidate => candidate > 0}\n",
-            "  let lookup = {\"one\": 1, \"two\": 2}\n",
-            "  data.answer |> sink<String>(\"ok\", ())\n",
-            "end\n",
-        ),
-        concat!(
-            "schema Header\n",
-            "  format binary\n",
-            "  length: UInt8\n",
-            "end\n",
-            "fn decode_header(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
-            "  decode Header from view at base\n",
-            "end\n",
-            "fn encode_header(packet: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode Header from packet\n",
-            "end\n",
-        ),
-        concat!(
-            "effect Ask\n",
-            "  value() -> Int\n",
-            "end\n",
-            "fn handled() -> Int\n",
-            "  handle perform Ask::value() with ask(41)\n",
-            "end\n",
-        ),
-        concat!(
-            "fn choose(first: Bool, second: Bool) -> Int\n",
-            "  if first\n",
-            "    match second\n",
-            "      true => 1\n",
-            "      false => 2\n",
-            "    end\n",
-            "  else if second\n",
-            "    3\n",
-            "  else\n",
-            "    4\n",
-            "  end\n",
-            "end\n",
-        ),
-        concat!(
-            "fn parse() -> Int\n",
-            "  1\n",
-            "end\n",
-            "pub fn Exposed = api::Parse\n",
-            "pub type Alias = api::_item\n",
-            "pub schema Packet = api::packet\n",
-        ),
-        concat!(
-            "fn cleanup() -> Int\n",
-            "  let resource = 1\n",
-            "  defer\n",
-            "    ()\n",
-            "  end\n",
-            "  begin\n",
-            "    let value = resource + 1\n",
-            "    value\n",
-            "  end\n",
-            "end\n",
-        ),
-    ];
-
-    for source in sources {
-        let module = lower_source(source);
-        let encoded = encode_surface_module(&module);
-        let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-
-        assert_eq!(encode_surface_module(&decoded), encoded);
-    }
-}
-
-#[test]
-fn surface_wire_round_trip_preserves_callsite_modifier_span() {
-    let module = lower_source("fn located() -> SourceLocation callsite\n  callsite\nend\n");
-    let encoded = encode_surface_module(&module);
-    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-
-    let callsite = decoded.functions[0]
-        .callsite
-        .as_ref()
-        .expect("callsite modifier span");
-    assert_eq!((callsite.start.line, callsite.start.column), (1, 32));
-    assert_eq!(encode_surface_module(&decoded), encoded);
-}
-
-#[test]
-fn surface_wire_round_trip_preserves_contract_callsite_reference_span() {
-    let module = lower_source("fn guarded() -> ()\nrequire callsite\n  ()\nend\n");
-    let encoded = encode_surface_module(&module);
-    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-
-    let reference = &decoded.functions[0].contracts[0].callsite_reference_spans[0];
-    assert_eq!((reference.start.line, reference.start.column), (2, 9));
-    assert_eq!((reference.end.line, reference.end.column), (2, 17));
-    assert_eq!(encode_surface_module(&decoded), encoded);
-}
-
-#[test]
-fn surface_wire_round_trip_preserves_cleanup_introducer_spans() {
-    let source = concat!(
-        "fn parse() -> Result<(), String>\n",
-        "  Ok(())\n",
-        "end\n",
-        "fn cleanup() -> ()\n",
-        "  defer\n",
-        "    parse()?\n",
-        "  end\n",
-        "  ()\n",
-        "end\n",
-    );
-    let module = lower_source(source);
-    let encoded = encode_surface_module(&module);
-    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-
-    let BodyLineKind::Defer {
-        body,
-        keyword_span,
-        block_span,
-    } = &decoded.functions[1].body[0].kind
-    else {
-        panic!("expected defer statement");
-    };
-    assert_eq!(
-        &source[keyword_span.start.offset..keyword_span.end.offset],
-        "defer"
-    );
-    assert_eq!(
-        &source[block_span.start.offset..block_span.end.offset],
-        "    parse()?\n  "
-    );
-
-    let BodyLineKind::Expr { expr } = &body[0].kind else {
-        panic!("expected deferred expression");
-    };
-    let ExprKind::Try { question_span, .. } = &expr.kind else {
-        panic!("expected try expression");
-    };
-    assert_eq!(
-        &source[question_span.start.offset..question_span.end.offset],
-        "?"
-    );
 }
 
 #[test]
@@ -201,27 +56,37 @@ fn legacy_codec_slot_offset(encoded: &[u8]) -> usize {
 }
 
 fn legacy_codec_declaration_slot() -> Vec<u8> {
-    fn push_string(bytes: &mut Vec<u8>, value: &str) {
-        bytes.extend_from_slice(&(value.len() as u32).to_le_bytes());
-        bytes.extend_from_slice(value.as_bytes());
-    }
-
-    fn push_span(bytes: &mut Vec<u8>) {
-        push_string(bytes, "legacy.veln");
-        for value in [1_u64, 1, 0, 4, 1, 3] {
-            bytes.extend_from_slice(&value.to_le_bytes());
-        }
-    }
-
     let mut bytes = Vec::new();
+    push_legacy_codec_identity(&mut bytes);
+    push_legacy_codec_shape(&mut bytes);
+    push_span(&mut bytes);
+    bytes
+}
+
+fn push_string(bytes: &mut Vec<u8>, value: &str) {
+    bytes.extend_from_slice(&(value.len() as u32).to_le_bytes());
+    bytes.extend_from_slice(value.as_bytes());
+}
+
+fn push_span(bytes: &mut Vec<u8>) {
+    push_string(bytes, "legacy.veln");
+    for value in [1_u64, 1, 0, 4, 1, 3] {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+}
+
+fn push_legacy_codec_identity(bytes: &mut Vec<u8>) {
     bytes.extend_from_slice(&1_u32.to_le_bytes());
     bytes.extend_from_slice(&7_u32.to_le_bytes());
     bytes.push(0);
     bytes.push(0);
     bytes.push(1);
-    push_string(&mut bytes, "LegacyCodec");
+    push_string(bytes, "LegacyCodec");
     bytes.push(1);
-    push_string(&mut bytes, "Packet");
+    push_string(bytes, "Packet");
+}
+
+fn push_legacy_codec_shape(bytes: &mut Vec<u8>) {
     bytes.extend_from_slice(&2_u32.to_le_bytes());
     bytes.push(0);
     bytes.push(1);
@@ -229,15 +94,13 @@ fn legacy_codec_declaration_slot() -> Vec<u8> {
     bytes.extend_from_slice(&8_u32.to_le_bytes());
     bytes.push(0);
     bytes.push(0);
-    push_span(&mut bytes);
+    push_span(bytes);
     bytes.extend_from_slice(&9_u32.to_le_bytes());
     bytes.push(1);
     bytes.push(1);
     bytes.push(1);
-    push_string(&mut bytes, "encode_packet");
-    push_span(&mut bytes);
-    push_span(&mut bytes);
-    bytes
+    push_string(bytes, "encode_packet");
+    push_span(bytes);
 }
 
 #[test]
@@ -443,6 +306,12 @@ fn lowers_schema_declarations_as_distinct_module_items() {
     assert!(module.types.is_empty());
     assert_eq!(module.schemas.len(), 1);
     let schema = &module.schemas[0];
+    assert_schema_declaration(schema);
+    assert_schema_fields(schema);
+    assert_schema_validation(schema);
+}
+
+fn assert_schema_declaration(schema: &SchemaDecl) {
     assert_eq!(schema.node_id.display("schema"), "schema-1");
     assert_eq!(schema.visibility, Visibility::Public);
     assert_eq!(schema.name.as_deref(), Some("Http2FrameHeader"));
@@ -450,6 +319,9 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
+}
+
+fn assert_schema_fields(schema: &SchemaDecl) {
     assert_eq!(schema.fields.len(), 7);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
@@ -477,6 +349,9 @@ fn lowers_schema_declarations_as_distinct_module_items() {
     );
     assert_eq!(schema.fields[6].name, "payload");
     assert_eq!(schema.fields[6].ty, "ByteView(length - padding_length)");
+}
+
+fn assert_schema_validation(schema: &SchemaDecl) {
     assert_eq!(schema.validations.len(), 1);
     assert_eq!(
         schema.validations[0].node_id.display("schema_validation"),

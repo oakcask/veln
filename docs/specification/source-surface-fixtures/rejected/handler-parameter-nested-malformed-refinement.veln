@@ -1,0 +1,7 @@
+effect Transition
+	move(value: State) -> State
+end
+
+handler gate(state: List<State::>) handles Transition
+	move(value) => value
+end

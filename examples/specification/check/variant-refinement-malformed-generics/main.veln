@@ -1,0 +1,92 @@
+fn misplaced(value: State<Int>::Ready<Payload>) -> ()
+	()
+end
+
+fn surplus(value: Result<Int>>::Ok | Result<Int>>::Err) -> ()
+	()
+end
+
+fn nested(value: List<Connection::>) -> ()
+	()
+end
+
+fn record(value: {state: Connection::}) -> ()
+	()
+end
+
+fn callback(value: fn(Connection::) -> ()) -> ()
+	()
+end
+
+fn leading_empty(value: State<, Int>::Ready) -> ()
+	()
+end
+
+fn middle_empty(value: State<Int,, Error>::Ready) -> ()
+	()
+end
+
+fn trailing_empty(value: State<Int,>::Ready) -> ()
+	()
+end
+
+fn generic_after_variant(value: Result<Int>::Ok<Error>) -> ()
+	()
+end
+
+fn segment_after_variant(value: Result<Int>::Ok::Bad) -> ()
+	()
+end
+
+fn surplus_closer_after_variant(value: State::Ready>) -> ()
+	()
+end
+
+fn surplus_fused_closers_after_variant(value: State::Ready>>) -> ()
+	()
+end
+
+fn explicit_call_fused_closers(value: State) -> ()
+	sink<List<State::Ready>>(value)
+	sink<State::Ready>>(value)
+end
+
+fn lowercase_variant(value: Result<Int, Error>::ok) -> ()
+	()
+end
+
+fn lowercase_plain_variant(value: State::ready) -> ()
+	()
+end
+
+fn lowercase_qualified_variant(value: protocol::State::ready) -> ()
+	()
+end
+
+fn pipeline_separator(value: State::Ready |> State::Closed) -> ()
+	()
+end
+
+fn unmatched_generic(value: Result<Int, Error::Ok) -> ()
+	()
+end
+
+fn adjacent_refinements(value: State::Ready State::Closed) -> ()
+	()
+end
+
+fn trailing_refinement_text(value: State::Ready | State::Closed Int) -> ()
+	()
+end
+
+fn nested_trailing_refinement_text(value: List<State::Ready Int>) -> ()
+	()
+end
+
+fn unmatched_sibling(first: Result<Int, second: String) -> ()
+	()
+end
+
+fn survivor() -> ()
+	()
+end

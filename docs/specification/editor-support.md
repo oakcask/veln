@@ -143,12 +143,14 @@ previously reported files that become clean or leave discovery.
 
 For documents outside resolved workspace roots, diagnostics remain
 document-scoped and are computed from the in-editor document text. Parse
-diagnostics are reported first. When parsing succeeds, the server lowers the
-document into the surface module model and publishes semantic diagnostics from
-the checked surface module. Parse-clean source invalid-name records are passed
-to that checked surface model, so document-scoped diagnostics include the
-implemented source identifier casing failures specified by
-[names-effects.md](names-effects.md).
+diagnostics are reported first. This includes
+`parse.variant_refinement_type` for malformed variant-refinement-shaped type
+text; its LSP range is the parser's incomplete or misplaced source span. When
+parsing succeeds, the server lowers the document into the surface module model
+and publishes semantic diagnostics from the checked surface module. Parse-clean
+source invalid-name records are passed to that checked surface model, so
+document-scoped diagnostics include the implemented source identifier casing
+failures specified by [names-effects.md](names-effects.md).
 For workspace sources, saved snapshots and open-document overlays publish
 source identifier casing diagnostics for the selected workspace project only,
 including source-path-derived module segment diagnostics at the zero-width

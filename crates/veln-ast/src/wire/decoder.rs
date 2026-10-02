@@ -130,6 +130,45 @@ impl<'a> Reader<'a> {
         })
     }
 
+    fn variant_refinement(&mut self) -> Result<VariantRefinementType, String> {
+        self.variant_refinement_at_depth(0)
+    }
+
+    fn variant_refinement_at_depth(
+        &mut self,
+        depth: usize,
+    ) -> Result<VariantRefinementType, String> {
+        if depth > veln_syntax::MAX_VARIANT_REFINEMENT_NESTING {
+            return Err("surface module variant refinements are nested too deeply".to_string());
+        }
+        Ok(VariantRefinementType {
+            alternatives: self.vec(|reader| reader.variant_refinement_alternative(depth))?,
+            pipe_spans: self.vec(Self::span)?,
+            span: self.span()?,
+        })
+    }
+
+    fn variant_refinement_alternative(
+        &mut self,
+        depth: usize,
+    ) -> Result<VariantRefinementAlternative, String> {
+        Ok(VariantRefinementAlternative {
+            base: self.type_path_segments()?,
+            type_arguments: self.vec(|reader| {
+                Ok(VariantRefinementTypeArgument {
+                    ty_fragments: reader.vec(Self::string)?,
+                    ty_paths: reader.vec(Self::type_path_segments)?,
+                    ty_refinements: reader
+                        .vec(|reader| reader.variant_refinement_at_depth(depth + 1))?,
+                    span: reader.span()?,
+                })
+            })?,
+            variant: self.string()?,
+            variant_span: self.span()?,
+            span: self.span()?,
+        })
+    }
+
     fn surface_module(&mut self) -> Result<SurfaceModule, String> {
         let module = self.option(Self::module_header)?;
         let uses = self.vec(Self::use_decl)?;
@@ -258,6 +297,7 @@ impl<'a> Reader<'a> {
             params: self.vec(Self::param)?,
             return_type: self.option(Self::string)?,
             return_type_paths: self.vec(Self::type_path_segments)?,
+            return_type_refinements: self.vec(Self::variant_refinement)?,
             span: self.span()?,
         })
     }
@@ -317,6 +357,7 @@ impl<'a> Reader<'a> {
             name: self.string()?,
             ty: self.string()?,
             ty_paths: self.vec(Self::type_path_segments)?,
+            ty_refinements: self.vec(Self::variant_refinement)?,
             span: self.span()?,
         })
     }
@@ -348,6 +389,7 @@ impl<'a> Reader<'a> {
             name: self.string()?,
             ty: self.string()?,
             ty_paths: self.vec(Self::type_path_segments)?,
+            ty_refinements: self.vec(Self::variant_refinement)?,
             where_clause: self.option(Self::schema_field_where)?,
             span: self.span()?,
         })
@@ -434,6 +476,7 @@ impl<'a> Reader<'a> {
             return_type: self.option(Self::string)?,
             return_type_span: self.option(Self::span)?,
             return_type_paths: self.vec(Self::type_path_segments)?,
+            return_type_refinements: self.vec(Self::variant_refinement)?,
             effects: self.option(|reader| reader.vec(Self::string))?,
             effect_spans: self.option(|reader| reader.vec(Self::span))?,
             callsite: self.option(Self::span)?,
@@ -466,6 +509,7 @@ impl<'a> Reader<'a> {
             ty: self.option(Self::string)?,
             ty_span: self.option(Self::span)?,
             ty_paths: self.vec(Self::type_path_segments)?,
+            ty_refinements: self.vec(Self::variant_refinement)?,
             is_variadic: self.bool()?,
             span: self.span()?,
         })
@@ -504,7 +548,10 @@ impl<'a> Reader<'a> {
             0 => BodyLineKind::Let {
                 pattern: self.pattern()?,
                 annotation: self.option(Self::string)?,
-                annotation_paths: self.vec(Self::type_path_segments)?,
+                annotation_structure: Box::new(TypeAnnotationStructure {
+                    paths: self.vec(Self::type_path_segments)?,
+                    variant_refinements: self.vec(Self::variant_refinement)?,
+                }),
                 expr: self.expr()?,
             },
             1 => BodyLineKind::Expr { expr: self.expr()? },

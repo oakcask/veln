@@ -156,12 +156,16 @@ impl<'a> ExprParser<'a> {
         start: TextRange,
         closing: TokenKind,
     ) -> Expr {
-        let (type_args, end) = self.parse_type_argument_list(closing);
+        let (type_args, type_arg_spans, type_arg_refinements, surplus_closers, end) =
+            self.parse_type_argument_list(closing);
         Expr {
             span: self.source.span(start.cover(end)),
             kind: ExprKind::TypeApply {
                 callee: Box::new(expr),
                 type_args,
+                type_arg_spans,
+                type_arg_refinements,
+                surplus_closers,
             },
         }
     }
@@ -278,7 +282,13 @@ impl<'a> ExprParser<'a> {
     pub(super) fn parse_type_argument_list(
         &mut self,
         close: TokenKind,
-    ) -> (Vec<String>, TextRange) {
+    ) -> (
+        Vec<String>,
+        Vec<SourceSpan>,
+        Vec<Vec<VariantRefinementType>>,
+        usize,
+        TextRange,
+    ) {
         let start = self.bump();
         let mut state = TypeArgumentListState::default();
         let mut end = start.range;
@@ -287,7 +297,53 @@ impl<'a> ExprParser<'a> {
             let token = self.bump();
             end = token.range;
             if state.consume(&token, close) {
-                return (state.finish(), end);
+                let (arguments, argument_ranges, argument_tokens, surplus_closers) = state.finish();
+                let argument_spans = argument_ranges
+                    .into_iter()
+                    .map(|range| self.source.span(range))
+                    .collect();
+                let refinements = argument_tokens
+                    .iter()
+                    .map(|tokens| {
+                        let (refinements, consumed_pipes) =
+                            super::body_and_types::build_variant_refinements(self.source, tokens);
+                        for (index, token) in tokens.iter().enumerate() {
+                            if token.kind == TokenKind::Pipe && !consumed_pipes[index] {
+                                self.error_at_token(
+                                    token,
+                                    DiagnosticRequest {
+                                        id: "parse.variant_refinement_type",
+                                        message: "`|` must join complete ADT variant refinement alternatives"
+                                            .to_string(),
+                                        parser_context: self.context,
+                                        expected: vec!["NamedAdtType::Variant"],
+                                        strategy: RecoveryStrategy::SkipToken,
+                                        anchor: Some("type argument"),
+                                        repair_candidates: Vec::new(),
+                                    },
+                                );
+                            }
+                        }
+                        for (index, message) in
+                            super::body_and_types::malformed_refinement_syntax(tokens)
+                        {
+                            self.error_at_token(
+                                &tokens[index],
+                                DiagnosticRequest {
+                                    id: "parse.variant_refinement_type",
+                                    message: message.to_string(),
+                                    parser_context: self.context,
+                                    expected: vec!["NamedAdtType::Variant"],
+                                    strategy: RecoveryStrategy::InsertToken,
+                                    anchor: Some("type argument"),
+                                    repair_candidates: Vec::new(),
+                                },
+                            );
+                        }
+                        refinements
+                    })
+                    .collect();
+                return (arguments, argument_spans, refinements, surplus_closers, end);
             }
         }
 
@@ -306,6 +362,15 @@ impl<'a> ExprParser<'a> {
                 "]"
             }),
         );
-        (state.finish(), end)
+        let (arguments, argument_ranges, argument_tokens, surplus_closers) = state.finish();
+        let argument_spans = argument_ranges
+            .into_iter()
+            .map(|range| self.source.span(range))
+            .collect();
+        let refinements = argument_tokens
+            .iter()
+            .map(|tokens| super::body_and_types::build_variant_refinements(self.source, tokens).0)
+            .collect();
+        (arguments, argument_spans, refinements, surplus_closers, end)
     }
 }

@@ -1,0 +1,26 @@
+type Envelope
+	Wrapped(protocol::Result<Int, Error>::Ok | protocol::Result<Int, Error>::Err)
+end
+
+schema Packet
+
+	state: State::Ready | State::Closed
+end
+
+schema WirePacket
+	format binary
+
+	state: State::Ready | State::Closed
+	count: uint8
+end
+
+fn transition(state: Alias::Ready | protocol::State::Closed | Alias::Ready, container: Alias::Container<Int>, callback: fn(State::Open | State::Closed) -> State::Open, rest: ...Result<List<Int>, Error>::Err) -> Result<List<Int>, Error>::Ok
+	let nested: { states : List<State::Open | State::Closed> } = state
+	sink<State::Open | State::Closed>(nested)
+	sink<State::Ready | State::Closed, Result<State::Ready | State::Closed, Error>::Ok>(nested)
+	sink<List<State::Ready>>(nested)
+end
+
+fn load() -> Result<fn(Int) -> Int effects [io::Read], Error>::Ok effects [db::Load]
+	Ok(identity)
+end

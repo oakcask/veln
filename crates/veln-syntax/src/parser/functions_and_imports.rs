@@ -64,6 +64,7 @@ impl<'a> Parser<'a> {
             return_type: return_decl.ty,
             return_type_span: return_decl.ty_span,
             return_type_paths: return_decl.ty_paths,
+            return_type_refinements: return_decl.ty_refinements,
             effects: return_decl.effects,
             effect_spans: return_decl.effect_spans,
             effects_recovered: return_decl.effects_recovered,
@@ -153,14 +154,15 @@ impl<'a> Parser<'a> {
         &mut self,
         kind: FunctionKind,
     ) -> FunctionReturn {
-        let (binding, ty, ty_span, ty_paths) = self.parse_function_return_clause(kind);
+        let return_type = self.parse_function_return_clause(kind);
         let (effects, effect_spans, effects_recovered) = self.parse_function_effects();
         let callsite = self.parse_callsite_modifier(kind);
         FunctionReturn {
-            binding,
-            ty,
-            ty_span,
-            ty_paths,
+            binding: return_type.binding,
+            ty: return_type.ty,
+            ty_span: return_type.span,
+            ty_paths: return_type.paths,
+            ty_refinements: return_type.refinements,
             effects,
             effect_spans,
             effects_recovered,
@@ -168,18 +170,16 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_function_return_clause(
-        &mut self,
-        kind: FunctionKind,
-    ) -> (
-        Option<crate::ResultBinding>,
-        Option<String>,
-        Option<SourceSpan>,
-        Vec<TypePathSegments>,
-    ) {
+    fn parse_function_return_clause(&mut self, kind: FunctionKind) -> FunctionReturnType {
         let return_context = Self::return_context(kind);
         if self.eat(TokenKind::Arrow).is_none() {
-            return (None, None, None, Vec::new());
+            return FunctionReturnType {
+                binding: None,
+                ty: None,
+                span: None,
+                paths: Vec::new(),
+                refinements: Vec::new(),
+            };
         }
 
         let binding = if matches!(
@@ -197,7 +197,7 @@ impl<'a> Parser<'a> {
             None
         };
         let type_start = self.current().range;
-        let (ty, ty_paths) = self.collect_return_type_until(
+        let (ty, ty_paths, ty_refinements) = self.collect_return_type_until(
             return_context,
             &[
                 TokenKind::Effects,
@@ -208,7 +208,13 @@ impl<'a> Parser<'a> {
         );
         let type_end = self.previous().map_or(type_start, |token| token.range);
         let type_span = self.source.span(type_start.cover(type_end));
-        (binding, Some(ty), Some(type_span), ty_paths)
+        FunctionReturnType {
+            binding,
+            ty: Some(ty),
+            span: Some(type_span),
+            paths: ty_paths,
+            refinements: ty_refinements,
+        }
     }
 
     fn parse_function_effects(&mut self) -> (Option<Vec<String>>, Option<Vec<SourceSpan>>, bool) {
@@ -335,18 +341,20 @@ impl<'a> Parser<'a> {
             let mut is_variadic = false;
             let mut ty_span = None;
             let mut ty_paths = Vec::new();
+            let mut ty_refinements = Vec::new();
             let ty = self.eat(TokenKind::Colon).map(|colon| {
                 if self.eat_variadic_marker() {
                     is_variadic = true;
                 }
                 let ty_start = self.current().range;
-                let (ty, paths) = self.collect_type_paths_until(
+                let (ty, paths, refinements) = self.collect_type_paths_until(
                     context,
                     &[TokenKind::Comma, TokenKind::RParen, TokenKind::Eof],
                 );
                 let ty_end = self.previous().map_or(colon.range, |token| token.range);
                 ty_span = Some(self.source.span(ty_start.cover(ty_end)));
                 ty_paths = paths;
+                ty_refinements = refinements;
                 ty
             });
             if require_types && ty.is_none() {
@@ -375,6 +383,7 @@ impl<'a> Parser<'a> {
                 ty,
                 ty_span,
                 ty_paths,
+                ty_refinements,
                 is_variadic,
                 span: self.source.span(start.cover(end)),
             });
@@ -512,21 +521,23 @@ impl<'a> Parser<'a> {
         } else if self.at(TokenKind::Let) {
             self.bump();
             let pattern = self.parse_let_pattern();
-            let (annotation, annotation_paths) = if self.eat(TokenKind::Colon).is_some() {
-                let (annotation, paths) = self.collect_type_paths_until(
-                    "let_statement",
-                    &[TokenKind::Equal, TokenKind::Newline, TokenKind::Eof],
-                );
-                (Some(annotation), paths)
-            } else {
-                (None, Vec::new())
-            };
+            let (annotation, annotation_paths, annotation_refinements) =
+                if self.eat(TokenKind::Colon).is_some() {
+                    let (annotation, paths, refinements) = self.collect_type_paths_until(
+                        "let_statement",
+                        &[TokenKind::Equal, TokenKind::Newline, TokenKind::Eof],
+                    );
+                    (Some(annotation), paths, refinements)
+                } else {
+                    (None, Vec::new(), Vec::new())
+                };
             self.expect(TokenKind::Equal, "let_statement", vec!["="]);
             let (expr, end) = self.parse_expr_for_body_line("let_statement");
             BodyLine::Let {
                 pattern,
                 annotation,
-                annotation_paths,
+                annotation_paths: annotation_paths.into_boxed_slice(),
+                annotation_refinements: annotation_refinements.into_boxed_slice(),
                 expr,
                 span: self.source.span(start.cover(end)),
             }

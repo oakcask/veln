@@ -18,8 +18,9 @@ use crate::{
     HandlerOperationClauseDecl, InvalidName, MatchArm, ModuleHeader, NameClass, NameOccurrence,
     NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias, PublicAliasKind,
     RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
-    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl, TypePathSegments,
-    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeAnnotationStructure, TypeDecl,
+    TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin,
+    VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
 };
 
 mod expressions;
@@ -265,6 +266,7 @@ impl AstBuilder {
                             name: field.name.clone(),
                             ty: field.ty.clone(),
                             ty_paths: self.lower_type_paths(&field.ty_paths),
+                            ty_refinements: self.lower_variant_refinements(&field.ty_refinements),
                             span: field.span.clone(),
                         })
                         .collect(),
@@ -308,6 +310,8 @@ impl AstBuilder {
             params: self.lower_params(&operation.params),
             return_type: operation.return_type.clone(),
             return_type_paths: self.lower_type_paths(&operation.return_type_paths),
+            return_type_refinements: self
+                .lower_variant_refinements(&operation.return_type_refinements),
             span: operation.span.clone(),
         }
     }
@@ -357,6 +361,7 @@ impl AstBuilder {
                     ty: None,
                     ty_span: None,
                     ty_paths: Vec::new(),
+                    ty_refinements: Vec::new(),
                     is_variadic: false,
                     span: param.span.clone(),
                 })
@@ -392,6 +397,7 @@ impl AstBuilder {
                     name: field.name.clone(),
                     ty: field.ty.clone(),
                     ty_paths: self.lower_type_paths(&field.ty_paths),
+                    ty_refinements: self.lower_variant_refinements(&field.ty_refinements),
                     where_clause: field.where_clause.as_ref().map(|where_clause| {
                         SchemaFieldWhereClause {
                             node_id: self.alloc(),
@@ -451,6 +457,8 @@ impl AstBuilder {
             return_type: function.return_type.clone(),
             return_type_span: function.return_type_span.clone(),
             return_type_paths: self.lower_type_paths(&function.return_type_paths),
+            return_type_refinements: self
+                .lower_variant_refinements(&function.return_type_refinements),
             effects: function.effects.clone(),
             effect_spans: function.effect_spans.clone(),
             callsite: function.callsite.clone(),
@@ -485,6 +493,7 @@ impl AstBuilder {
                 pattern,
                 annotation,
                 annotation_paths,
+                annotation_refinements,
                 expr,
                 span,
             } => BodyLine {
@@ -492,7 +501,10 @@ impl AstBuilder {
                 kind: BodyLineKind::Let {
                     pattern: self.lower_pattern(pattern),
                     annotation: annotation.clone(),
-                    annotation_paths: self.lower_type_paths(annotation_paths),
+                    annotation_structure: Box::new(TypeAnnotationStructure {
+                        paths: self.lower_type_paths(annotation_paths),
+                        variant_refinements: self.lower_variant_refinements(annotation_refinements),
+                    }),
                     expr: self.lower_expr(expr),
                 },
                 span: span.clone(),
@@ -531,6 +543,7 @@ impl AstBuilder {
                 ty: param.ty.clone(),
                 ty_span: param.ty_span.clone(),
                 ty_paths: self.lower_type_paths(&param.ty_paths),
+                ty_refinements: self.lower_variant_refinements(&param.ty_refinements),
                 is_variadic: param.is_variadic,
                 span: param.span.clone(),
             })
@@ -546,6 +559,43 @@ impl AstBuilder {
             .map(|path| TypePathSegments {
                 segments: path.segments.clone(),
                 segment_spans: path.segment_spans.clone(),
+            })
+            .collect()
+    }
+
+    fn lower_variant_refinements(
+        &mut self,
+        refinements: &[veln_syntax::VariantRefinementType],
+    ) -> Vec<VariantRefinementType> {
+        refinements
+            .iter()
+            .map(|refinement| VariantRefinementType {
+                alternatives: refinement
+                    .alternatives
+                    .iter()
+                    .map(|alternative| VariantRefinementAlternative {
+                        base: TypePathSegments {
+                            segments: alternative.base.segments.clone(),
+                            segment_spans: alternative.base.segment_spans.clone(),
+                        },
+                        type_arguments: alternative
+                            .type_arguments
+                            .iter()
+                            .map(|argument| VariantRefinementTypeArgument {
+                                ty_fragments: argument.ty_fragments.clone(),
+                                ty_paths: self.lower_type_paths(&argument.ty_paths),
+                                ty_refinements: self
+                                    .lower_variant_refinements(&argument.ty_refinements),
+                                span: argument.span.clone(),
+                            })
+                            .collect(),
+                        variant: alternative.variant.clone(),
+                        variant_span: alternative.variant_span.clone(),
+                        span: alternative.span.clone(),
+                    })
+                    .collect(),
+                pipe_spans: refinement.pipe_spans.clone(),
+                span: refinement.span.clone(),
             })
             .collect()
     }

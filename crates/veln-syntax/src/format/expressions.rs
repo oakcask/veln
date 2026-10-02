@@ -218,16 +218,22 @@ fn format_application_expr(
     comments: Option<&LineComments>,
 ) -> String {
     match kind {
-        ExprKind::TypeApply { callee, type_args } => {
+        ExprKind::TypeApply {
+            callee,
+            type_args,
+            surplus_closers,
+            ..
+        } => {
             let type_args = type_args
                 .iter()
                 .map(|arg| canonical_type_text(arg))
                 .collect::<Vec<_>>()
                 .join(", ");
             format!(
-                "{}<{}>",
+                "{}<{}>{}",
                 format_expr_at_indent_ctx(callee, indent, comments),
-                type_args
+                type_args,
+                ">".repeat(*surplus_closers)
             )
         }
         ExprKind::Call { callee, args } => format_call_expr(callee, args, prec, indent, comments),

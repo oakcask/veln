@@ -74,6 +74,10 @@ The index resource has name `language-index`, title `Veln Language Reference`,
 and media type `text/markdown; charset=utf-8`. Topic resources use their
 topic identifier as `name`, catalog title as `title`, catalog summary as
 `description`, and the same media type.
+The [language-reference catalog](language-reference-catalog.md#current-contract)
+owns the topic content and checked digest. A catalog content change therefore
+changes the exact snapshot URIs used by language-reference resource fixtures
+without changing the MCP list or read contract.
 
 Standard-library source resources use the canonical `veln-pkg:` URI from the
 embedded `std` snapshot virtual-source catalog. Their `name` is the package

@@ -51,6 +51,7 @@ impl<'a> Reader<'a> {
             8 => Ok(ExprKind::TypeApply {
                 callee: Box::new(self.expr()?),
                 type_args: self.vec(Self::string)?,
+                type_arg_refinements: self.vec(|reader| reader.vec(Self::variant_refinement))?,
             }),
             9 => Ok(ExprKind::Call {
                 callee: Box::new(self.expr()?),

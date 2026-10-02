@@ -8,7 +8,8 @@ update-when: Veln declarations, expressions, literals, schema syntax, companion 
 # Source Surface
 
 This page specifies implemented source syntax. The executable grammar in
-[source-surface-executable.pl](source-surface-executable.pl) corroborates the accepted and rejected source forms.
+[source-surface-executable.pl](source-surface-executable.pl) and the checked
+parser and command cases corroborate the accepted and rejected source forms.
 
 ## Usage and declaration forms
 
@@ -87,6 +88,70 @@ These forms have a public static, tooling, and executable surface. The
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries)
 specifies cleanup ordering, failure precedence, task cancellation, and runtime
 limits.
+
+### Variant-refinement-shaped type text
+
+Type positions recognize a structural variant alternative as a named ADT base
+whose leaf starts with an ASCII uppercase letter, optional type arguments, and
+an `::` plus an ASCII-uppercase final segment. Qualifier segments before the
+base leaf do not have a casing restriction. A `|` joins complete alternatives
+into one structural union:
+
+```veln
+fn transition(
+	state: protocol::State::Ready | protocol::State::Closed,
+) -> Result<Int, Error>::Ok
+	state
+end
+```
+
+The same structure is recognized in function, test, effect-operation, and
+handler parameter or return types; ADT payload and schema fields; local
+annotations; nested record and function types; generic arguments; and explicit
+call type arguments. The syntax tree and lowered AST preserve the written base
+paths, type arguments, final segments, alternative order, duplicates, and
+source spans. Encoding and decoding the lowered AST through its wire format
+preserves that structure and those spans.
+
+Type arguments belong before the final segment. Each side of `|` must be a
+complete structural alternative, and `|>` remains the pipeline token rather
+than a type separator. In a non-generic multi-segment spelling, the last
+segment is the final variant and every preceding segment is the qualified base.
+An otherwise ordinary qualified generic type such as
+`Alias::Container<Int>` remains a named type for later name and casing
+analysis. A path such as `protocol::state::Ready`, whose prospective base leaf
+is not uppercase, also remains named type text for later name and casing
+analysis rather than becoming refinement syntax. Once type arguments before
+`::Variant` make the refinement structure explicit, further type arguments
+after that final segment are malformed.
+
+Adjacent closing angle brackets close the innermost type arguments first.
+Thus `sink<List<State::Ready>>(value)` is valid: the first `>` closes `List`
+and the second closes the call's explicit type arguments. In
+`sink<State::Ready>>(value)`, the second `>` is surplus and remains part of the
+recovered source.
+
+#### Malformed variant-refinement forms
+
+The parser reports `parse.variant_refinement_type` for these malformed forms:
+
+- an incomplete union alternative;
+- a missing base or final segment;
+- a lowercase final segment;
+- an empty or misplaced type argument;
+- a missing generic closer;
+- a surplus generic closer before or after the final variant;
+- a segment following a generic base's final variant;
+- adjacent type text outside the completed structural position; or
+- `|>` between alternatives.
+
+Nesting beyond 256 containing generic-argument boundaries reports the same
+diagnostic and does not prevent lossless-tree construction.
+
+Structural recognition does not prove that a base names an ADT, that its final
+segment names a variant, or that union alternatives name the same instantiated
+ADT. The [type-system limits](types.md#compatibility-and-limits) distinguish
+this parser contract from semantic variant-refinement support.
 
 ## Test companion sources
 
@@ -267,25 +332,46 @@ HandlerOperationParams ::= Name ("," Name)*
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
-SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive
+SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | ByteViewPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive | DispatchPrimitive | ExtensionDispatchPrimitive
 LowercaseSchemaPrimitive ::= "uint" IntLiteral ("be" | "le")?
 LowercaseReservedBitsPrimitive ::= "uint" IntLiteral ("be" | "le")? "reserves" IntLiteral
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
-RepeatPrimitive ::= "Repeat" "(" CountExpr "," TypeText ")"
+ByteViewPrimitive ::= "ByteView" "(" CountExpr ")"
+RepeatPrimitive ::= "Repeat" "(" CountExpr "," SchemaFieldType ")"
 CanonicalRepeatPrimitive ::= "[" SchemaFieldType ";" CountExpr "]"
-CountExpr ::= Name | Name ("-" | "+" | "*" | "/") Name
+DispatchPrimitive ::= "Dispatch" "(" SchemaFieldReference ("," SchemaFieldReference)? "," DispatchCases ")"
+ExtensionDispatchPrimitive ::= "ExtensionDispatch" "(" SchemaFieldReference "," SchemaFieldReference "," DispatchCases ")"
+DispatchCases ::= IntLiteral "=>" SchemaFieldType ("," IntLiteral "=>" SchemaFieldType)*
+CountExpr ::= IntLiteral | SchemaFieldReference | SchemaFieldReference ("-" | "+" | "*" | "/") SchemaFieldReference
+SchemaFieldReference ::= Name ("." Name)*
 SchemaFieldWhere ::= "where" (ContractPredicate | ByteViewMultiplePredicate)
 ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral)
 SchemaValidation ::= "validate" ContractPredicate NL
 PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
+TypeText      ::= VariantRefinementType | NamedType | UnitType | RecordType | FunctionType
+NamedType     ::= TypePath NamedTypeArguments?
+UnitType      ::= "(" ")"
+RecordType    ::= "{" RecordTypeFields? "}"
+RecordTypeFields ::= RecordTypeField ("," RecordTypeField)* ","?
+RecordTypeField ::= FieldName ":" TypeText
+FieldName      ::= Name | "effect"
+FunctionType  ::= "fn" "(" FunctionTypeParams? ")" "->" TypeText Effects?
+FunctionTypeParams ::= FunctionTypeParam ("," FunctionTypeParam)* ","?
+FunctionTypeParam ::= Name ":" TypeText | TypeText | "..." TypeText?
+VariantRefinementType ::= VariantAlternative ("|" VariantAlternative)*
+VariantAlternative ::= NamedAdtBase RefinementTypeArguments? "::" UpperName
+NamedAdtBase  ::= (Name "::")* UpperName
+NamedTypeArguments ::= "<" TypeText ("," TypeText)* ","? ">"
+RefinementTypeArguments ::= "<" TypeText ("," TypeText)* ">"
+TypePath      ::= Name ("::" Name)*
 EffectBinder  ::= "<" "effect" Name ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
 TypeVariantField ::= Name ":" TypeText | TypeText
 ParamList     ::= Param ("," Param)* ","?
-Param         ::= Name (":" VariadicMarker? TypeText)?
+Param         ::= Name (":" (VariadicMarker TypeText? | TypeText))?
 VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"

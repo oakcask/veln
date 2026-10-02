@@ -91,6 +91,7 @@ pub struct EffectOperationDecl {
     pub params: Vec<Param>,
     pub return_type: Option<String>,
     pub return_type_paths: Vec<TypePathSegments>,
+    pub return_type_refinements: Vec<VariantRefinementType>,
     pub span: SourceSpan,
 }
 
@@ -143,6 +144,7 @@ pub struct TypeVariantField {
     pub name: String,
     pub ty: String,
     pub ty_paths: Vec<TypePathSegments>,
+    pub ty_refinements: Vec<VariantRefinementType>,
     pub span: SourceSpan,
 }
 
@@ -168,6 +170,7 @@ pub struct SchemaField {
     pub name: String,
     pub ty: String,
     pub ty_paths: Vec<TypePathSegments>,
+    pub ty_refinements: Vec<VariantRefinementType>,
     pub where_clause: Option<SchemaFieldWhereClause>,
     pub span: SourceSpan,
 }
@@ -198,6 +201,7 @@ pub struct FunctionDecl {
     pub return_type: Option<String>,
     pub return_type_span: Option<SourceSpan>,
     pub return_type_paths: Vec<TypePathSegments>,
+    pub return_type_refinements: Vec<VariantRefinementType>,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
     pub effects_recovered: bool,
@@ -233,6 +237,7 @@ pub struct Param {
     pub ty: Option<String>,
     pub ty_span: Option<SourceSpan>,
     pub ty_paths: Vec<TypePathSegments>,
+    pub ty_refinements: Vec<VariantRefinementType>,
     pub is_variadic: bool,
     pub span: SourceSpan,
 }
@@ -264,7 +269,8 @@ pub enum BodyLine {
     Let {
         pattern: Pattern,
         annotation: Option<String>,
-        annotation_paths: Vec<TypePathSegments>,
+        annotation_paths: Box<[TypePathSegments]>,
+        annotation_refinements: Box<[VariantRefinementType]>,
         expr: Expr,
         span: SourceSpan,
     },
@@ -284,6 +290,30 @@ pub enum BodyLine {
 pub struct TypePathSegments {
     pub segments: Vec<String>,
     pub segment_spans: Vec<SourceSpan>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VariantRefinementType {
+    pub alternatives: Vec<VariantRefinementAlternative>,
+    pub pipe_spans: Vec<SourceSpan>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VariantRefinementAlternative {
+    pub base: TypePathSegments,
+    pub type_arguments: Vec<VariantRefinementTypeArgument>,
+    pub variant: String,
+    pub variant_span: SourceSpan,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VariantRefinementTypeArgument {
+    pub ty_fragments: Vec<String>,
+    pub ty_paths: Vec<TypePathSegments>,
+    pub ty_refinements: Vec<VariantRefinementType>,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]
@@ -311,6 +341,9 @@ pub enum ExprKind {
     TypeApply {
         callee: Box<Expr>,
         type_args: Vec<String>,
+        type_arg_spans: Vec<SourceSpan>,
+        type_arg_refinements: Vec<Vec<VariantRefinementType>>,
+        surplus_closers: usize,
     },
     Call {
         callee: Box<Expr>,

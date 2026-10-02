@@ -48,55 +48,7 @@ impl<'a> ExprParser<'a> {
             return self.parse_nested_defer();
         }
         if self.at(TokenKind::Let) {
-            self.bump();
-            let pattern = self.parse_pattern();
-            let (annotation, annotation_paths) = if self.eat(TokenKind::Colon).is_some() {
-                let mut tokens = Vec::new();
-                let mut parts = Vec::new();
-                let mut depth = 0usize;
-                while !self.is_at_end() {
-                    if depth == 0 && (self.at(TokenKind::Equal) || self.at(TokenKind::Newline)) {
-                        break;
-                    }
-                    let token = self.bump();
-                    match token.kind {
-                        TokenKind::LParen
-                        | TokenKind::LBracket
-                        | TokenKind::LBrace
-                        | TokenKind::Less => depth += 1,
-                        TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                            depth = depth.saturating_sub(1)
-                        }
-                        kind if closing_angle_count(kind) > 0 => {
-                            depth = depth.saturating_sub(closing_angle_count(kind))
-                        }
-                        _ => {}
-                    }
-                    parts.push(token.text.clone());
-                    tokens.push(token);
-                }
-                (
-                    Some(normalize_type_text(parts)),
-                    cleanup_type_paths(self.source, &tokens),
-                )
-            } else {
-                (None, Vec::new())
-            };
-            self.expect_expr_token(
-                TokenKind::Equal,
-                "parse.let_statement",
-                "let statement is missing `=`",
-                vec!["="],
-            );
-            let expr = self.parse_expr(0);
-            let end = self.finish_cleanup_body_line(&expr);
-            return BodyLine::Let {
-                pattern,
-                annotation,
-                annotation_paths,
-                expr,
-                span: self.source.span(start.cover(end)),
-            };
+            return self.parse_cleanup_let_line(start);
         }
 
         let expr = self.parse_expr(0);
@@ -107,6 +59,119 @@ impl<'a> ExprParser<'a> {
         }
     }
 
+    fn parse_cleanup_let_line(&mut self, start: TextRange) -> BodyLine {
+        self.bump();
+        let pattern = self.parse_pattern();
+        let (annotation, annotation_paths, annotation_refinements) =
+            self.parse_cleanup_let_annotation();
+        self.expect_expr_token(
+            TokenKind::Equal,
+            "parse.let_statement",
+            "let statement is missing `=`",
+            vec!["="],
+        );
+        let expr = self.parse_expr(0);
+        let end = self.finish_cleanup_body_line(&expr);
+        BodyLine::Let {
+            pattern,
+            annotation,
+            annotation_paths: annotation_paths.into_boxed_slice(),
+            annotation_refinements: annotation_refinements.into_boxed_slice(),
+            expr,
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_cleanup_let_annotation(
+        &mut self,
+    ) -> (
+        Option<String>,
+        Vec<TypePathSegments>,
+        Vec<VariantRefinementType>,
+    ) {
+        if self.eat(TokenKind::Colon).is_none() {
+            return (None, Vec::new(), Vec::new());
+        }
+        let tokens = self.collect_cleanup_type_annotation_tokens();
+        let refinements = self.validate_cleanup_variant_refinements(&tokens);
+        let parts = tokens.iter().map(|token| token.text.clone()).collect();
+        (
+            Some(normalize_type_text(parts)),
+            cleanup_type_paths(self.source, &tokens),
+            refinements,
+        )
+    }
+
+    fn collect_cleanup_type_annotation_tokens(&mut self) -> Vec<Token> {
+        let mut tokens = Vec::new();
+        let mut depth = 0usize;
+        while !self.is_at_end() {
+            if depth == 0 && (self.at(TokenKind::Equal) || self.at(TokenKind::Newline)) {
+                break;
+            }
+            let token = self.bump();
+            match token.kind {
+                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace | TokenKind::Less => {
+                    depth += 1
+                }
+                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                    depth = depth.saturating_sub(1)
+                }
+                kind if closing_angle_count(kind) > 0 => {
+                    depth = depth.saturating_sub(closing_angle_count(kind))
+                }
+                _ => {}
+            }
+            tokens.push(token);
+        }
+        tokens
+    }
+
+    fn validate_cleanup_variant_refinements(
+        &mut self,
+        tokens: &[Token],
+    ) -> Vec<VariantRefinementType> {
+        let (refinements, consumed_pipes) =
+            super::body_and_types::build_variant_refinements(self.source, tokens);
+        for (index, token) in tokens.iter().enumerate() {
+            if token.kind == TokenKind::Pipe && !consumed_pipes[index] {
+                self.report_cleanup_variant_refinement_error(
+                    token,
+                    "`|` must join complete ADT variant refinement alternatives",
+                    RecoveryStrategy::SkipToken,
+                );
+            }
+        }
+        for (index, message) in super::body_and_types::malformed_refinement_syntax(tokens) {
+            self.report_cleanup_variant_refinement_error(
+                &tokens[index],
+                message,
+                RecoveryStrategy::InsertToken,
+            );
+        }
+        refinements
+    }
+
+    fn report_cleanup_variant_refinement_error(
+        &mut self,
+        token: &Token,
+        message: &str,
+        strategy: RecoveryStrategy,
+    ) {
+        self.error_at_token(
+            token,
+            DiagnosticRequest {
+                id: "parse.variant_refinement_type",
+                message: message.to_string(),
+                parser_context: "let_statement",
+                expected: vec!["NamedAdtType::Variant"],
+                strategy,
+                anchor: Some("type annotation"),
+                repair_candidates: Vec::new(),
+            },
+        );
+    }
+
     fn parse_nested_defer(&mut self) -> BodyLine {
         let start = self.bump().range;
         let header_end = self.expect_begin_newline("defer statement must continue on a new line");
@@ -114,12 +179,36 @@ impl<'a> ExprParser<'a> {
             return self.recover_overdeep_defer(start, header_end);
         }
         self.cleanup_depth += 1;
+        let body = self.parse_nested_cleanup_body();
+        let (end, block_end) = self.close_nested_defer(&body, header_end);
+        self.cleanup_depth -= 1;
+        self.eat(TokenKind::Newline);
+        BodyLine::Defer {
+            body,
+            keyword_span: self.source.span(start),
+            block_span: self.source.span(TextRange::new(
+                header_end.end,
+                block_end.max(header_end.end),
+            )),
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_nested_cleanup_body(&mut self) -> Vec<BodyLine> {
         let mut body = Vec::new();
         self.eat_newlines();
         while !self.at(TokenKind::End) && !self.at_cleanup_region_boundary() && !self.is_at_end() {
             body.push(self.parse_cleanup_body_line());
             self.eat_newlines();
         }
+        body
+    }
+
+    fn close_nested_defer(
+        &mut self,
+        body: &[BodyLine],
+        header_end: TextRange,
+    ) -> (TextRange, usize) {
         let close = self.eat(TokenKind::End);
         if close.is_none() {
             self.error_current(
@@ -135,19 +224,7 @@ impl<'a> ExprParser<'a> {
             |token| token.range,
         );
         let block_end = close.as_ref().map_or(end.end, |token| token.range.start);
-        self.cleanup_depth -= 1;
-        if self.at(TokenKind::Newline) {
-            self.bump();
-        }
-        BodyLine::Defer {
-            body,
-            keyword_span: self.source.span(start),
-            block_span: self.source.span(TextRange::new(
-                header_end.end,
-                block_end.max(header_end.end),
-            )),
-            span: self.source.span(start.cover(end)),
-        }
+        (end, block_end)
     }
 
     fn recover_overdeep_begin(&mut self, start: TextRange, header_end: TextRange) -> Expr {
@@ -261,6 +338,19 @@ impl<'a> ExprParser<'a> {
         let scrutinee = self.parse_expr(0);
         self.eat_newlines();
         self.control_blocks.push(TokenKind::Match);
+        let arms = self.parse_match_arms();
+        let end = self.close_match_expression(&scrutinee, &arms);
+        self.control_blocks.pop();
+        Expr {
+            kind: ExprKind::Match {
+                scrutinee: Box::new(scrutinee),
+                arms,
+            },
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_match_arms(&mut self) -> Vec<MatchArm> {
         let mut arms = Vec::new();
         while !self.at(TokenKind::End) && !self.is_at_end() {
             if self.at(TokenKind::Newline) {
@@ -284,22 +374,18 @@ impl<'a> ExprParser<'a> {
             });
             self.eat_newlines();
         }
-        let end = self.eat(TokenKind::End).map_or_else(
+        arms
+    }
+
+    fn close_match_expression(&mut self, scrutinee: &Expr, arms: &[MatchArm]) -> TextRange {
+        self.eat(TokenKind::End).map_or_else(
             || {
-                arms.last().map_or(lhs_range(&scrutinee), |arm| {
+                arms.last().map_or(lhs_range(scrutinee), |arm| {
                     TextRange::new(arm.span.start.offset, arm.span.end.offset)
                 })
             },
             |token| token.range,
-        );
-        self.control_blocks.pop();
-        Expr {
-            kind: ExprKind::Match {
-                scrutinee: Box::new(scrutinee),
-                arms,
-            },
-            span: self.source.span(start.cover(end)),
-        }
+        )
     }
 
     pub(super) fn parse_if(&mut self) -> Expr {
@@ -309,10 +395,24 @@ impl<'a> ExprParser<'a> {
         self.control_blocks.push(TokenKind::If);
         let then_branch = self.parse_if_branch_expr();
         self.eat_newlines();
+        let (else_if_branches, else_branch) = self.parse_else_branches();
+        let else_branch = self.require_final_else_branch(else_branch);
+        let end = self.close_if_expression(&else_branch);
+        self.control_blocks.pop();
 
+        Expr {
+            kind: ExprKind::If {
+                condition: Box::new(condition),
+                then_branch: Box::new(then_branch),
+                else_if_branches,
+                else_branch: Box::new(else_branch),
+            },
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_else_branches(&mut self) -> (Vec<IfBranch>, Option<Expr>) {
         let mut else_if_branches = Vec::new();
-        let mut else_branch = None;
-
         while self.at(TokenKind::Else) {
             let else_token = self.bump();
             if self.at(TokenKind::If) {
@@ -332,13 +432,15 @@ impl<'a> ExprParser<'a> {
             }
 
             self.eat_newlines();
-            let branch = self.parse_if_branch_expr();
-            else_branch = Some(branch);
+            let else_branch = self.parse_if_branch_expr();
             self.eat_newlines();
-            break;
+            return (else_if_branches, Some(else_branch));
         }
+        (else_if_branches, None)
+    }
 
-        let else_branch = else_branch.unwrap_or_else(|| {
+    fn require_final_else_branch(&mut self, else_branch: Option<Expr>) -> Expr {
+        else_branch.unwrap_or_else(|| {
             self.error_current(
                 "parse.if_missing_else",
                 "if expression is missing a final `else` branch",
@@ -347,8 +449,11 @@ impl<'a> ExprParser<'a> {
                 Some("else"),
             );
             self.missing_expr_at_current()
-        });
-        let end = if let Some(token) = self.eat(TokenKind::End) {
+        })
+    }
+
+    fn close_if_expression(&mut self, else_branch: &Expr) -> TextRange {
+        if let Some(token) = self.eat(TokenKind::End) {
             token.range
         } else {
             self.error_current(
@@ -358,18 +463,7 @@ impl<'a> ExprParser<'a> {
                 RecoveryStrategy::CloseBlock,
                 Some("end"),
             );
-            lhs_range(&else_branch)
-        };
-        self.control_blocks.pop();
-
-        Expr {
-            kind: ExprKind::If {
-                condition: Box::new(condition),
-                then_branch: Box::new(then_branch),
-                else_if_branches,
-                else_branch: Box::new(else_branch),
-            },
-            span: self.source.span(start.cover(end)),
+            lhs_range(else_branch)
         }
     }
 
@@ -403,191 +497,6 @@ impl<'a> ExprParser<'a> {
             return self.missing_expr_at_current();
         }
         self.parse_expr(0)
-    }
-
-    pub(super) fn parse_pattern(&mut self) -> Pattern {
-        let Some(token) = self.tokens.get(self.cursor).cloned() else {
-            return Pattern {
-                kind: PatternKind::Wildcard,
-                span: self.source.span(TextRange::at(self.source.len())),
-            };
-        };
-        match token.kind {
-            TokenKind::Underscore => {
-                self.bump();
-                Pattern {
-                    kind: PatternKind::Wildcard,
-                    span: self.source.span(token.range),
-                }
-            }
-            TokenKind::String => {
-                self.bump();
-                Pattern {
-                    kind: PatternKind::StringLiteral(token.text),
-                    span: self.source.span(token.range),
-                }
-            }
-            TokenKind::Int => {
-                self.bump();
-                Pattern {
-                    kind: PatternKind::IntLiteral(token.text),
-                    span: self.source.span(token.range),
-                }
-            }
-            TokenKind::MalformedInt => {
-                self.bump();
-                Pattern {
-                    kind: PatternKind::Wildcard,
-                    span: self.source.span(token.range),
-                }
-            }
-            TokenKind::Float => {
-                self.bump();
-                Pattern {
-                    kind: PatternKind::FloatLiteral(token.text),
-                    span: self.source.span(token.range),
-                }
-            }
-            TokenKind::LParen => {
-                let start = self.bump().range;
-                if let Some(end) = self.eat(TokenKind::RParen) {
-                    Pattern {
-                        kind: PatternKind::Unit,
-                        span: self.source.span(start.cover(end.range)),
-                    }
-                } else {
-                    self.error_current(
-                        "parse.pattern",
-                        "unsupported parenthesized pattern",
-                        vec!["pattern"],
-                        RecoveryStrategy::SkipToken,
-                        None,
-                    );
-                    Pattern {
-                        kind: PatternKind::Wildcard,
-                        span: self.source.span(start),
-                    }
-                }
-            }
-            TokenKind::LBrace => self.parse_record_pattern(),
-            TokenKind::Ident | TokenKind::Callsite | TokenKind::Hole => self.parse_name_pattern(),
-            _ => {
-                self.error_current(
-                    "parse.pattern",
-                    "expected a match pattern",
-                    vec!["pattern"],
-                    RecoveryStrategy::SkipToken,
-                    None,
-                );
-                self.bump();
-                Pattern {
-                    kind: PatternKind::Wildcard,
-                    span: self.source.span(token.range),
-                }
-            }
-        }
-    }
-
-    pub(super) fn parse_record_pattern(&mut self) -> Pattern {
-        let start = self.bump().range;
-        let (fields, end) = self.parse_braced_items(
-            start,
-            |this| {
-                let field_start = this.current().range;
-                let name = if this.at_contextual_identifier() {
-                    this.bump().text
-                } else {
-                    this.error_current(
-                        "parse.pattern",
-                        "record pattern field is missing a name",
-                        vec!["field name"],
-                        RecoveryStrategy::SkipToken,
-                        None,
-                    );
-                    this.bump();
-                    String::new()
-                };
-                this.expect_expr_token(
-                    TokenKind::Colon,
-                    "parse.pattern",
-                    "record pattern field is missing `:`",
-                    vec![":"],
-                );
-                let pattern = this.parse_pattern();
-                let span = this.source.span(field_start.cover(pattern_range(&pattern)));
-                PatternField {
-                    name,
-                    pattern,
-                    span,
-                }
-            },
-            |field| TextRange::new(field.span.start.offset, field.span.end.offset),
-        );
-        Pattern {
-            kind: PatternKind::Record(fields),
-            span: self.source.span(start.cover(end)),
-        }
-    }
-
-    pub(super) fn parse_name_pattern(&mut self) -> Pattern {
-        let start = self.current().range;
-        let mut end = start;
-        let first_segment = self.bump();
-        let mut segment_spans = vec![self.source.span(first_segment.range)];
-        let mut segments = vec![first_segment.text];
-        while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at_contextual_identifier() {
-                let segment = self.bump();
-                end = segment.range;
-                segment_spans.push(self.source.span(segment.range));
-                segments.push(segment.text);
-            } else {
-                break;
-            }
-        }
-        if segments == ["true"] {
-            return Pattern {
-                kind: PatternKind::BoolLiteral(true),
-                span: self.source.span(start.cover(end)),
-            };
-        }
-        if segments == ["false"] {
-            return Pattern {
-                kind: PatternKind::BoolLiteral(false),
-                span: self.source.span(start.cover(end)),
-            };
-        }
-        let is_constructor = segments.len() > 1
-            || segments
-                .last()
-                .and_then(|name| name.chars().next())
-                .is_some_and(char::is_uppercase);
-        if !is_constructor {
-            return Pattern {
-                kind: PatternKind::Binding(segments.remove(0)),
-                span: self.source.span(start.cover(end)),
-            };
-        }
-        let mut args = Vec::new();
-        if self.eat(TokenKind::LParen).is_some() {
-            while !self.at(TokenKind::RParen) && !self.is_at_end() {
-                args.push(self.parse_pattern());
-                if self.eat(TokenKind::Comma).is_none() {
-                    break;
-                }
-            }
-            if let Some(close) = self.eat(TokenKind::RParen) {
-                end = close.range;
-            }
-        }
-        Pattern {
-            kind: PatternKind::Constructor {
-                name: segments,
-                name_spans: segment_spans,
-                args,
-            },
-            span: self.source.span(start.cover(end)),
-        }
     }
 
     pub(super) fn parse_satisfy_clause(&mut self) -> Option<SatisfyClause> {
@@ -683,71 +592,6 @@ impl<'a> ExprParser<'a> {
             predicate_tokens.push(token);
         }
         (parts, predicate_tokens, end)
-    }
-
-    pub(super) fn parse_name_path(&mut self) -> Expr {
-        let start = self.current().range;
-        let mut end = start;
-        let first = self.bump();
-        let mut segments = vec![first.text];
-        let mut segment_spans = vec![self.source.span(first.range)];
-        while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at_contextual_identifier() || self.at(TokenKind::Decode) {
-                let segment = self.bump();
-                end = segment.range;
-                segment_spans.push(self.source.span(segment.range));
-                segments.push(segment.text);
-            } else {
-                break;
-            }
-        }
-        if let Some(value) = bare_expression_bool_literal(&segments) {
-            return Expr {
-                kind: ExprKind::BoolLiteral(value),
-                span: self.source.span(start.cover(end)),
-            };
-        }
-        Expr {
-            kind: ExprKind::NamePath {
-                segments,
-                segment_spans,
-            },
-            span: self.source.span(start.cover(end)),
-        }
-    }
-
-    pub(super) fn parse_name_path_segments(
-        &mut self,
-        context: &'static str,
-        expected_name: &'static str,
-    ) -> Vec<String> {
-        let mut segments = Vec::new();
-        if self.at_contextual_identifier() {
-            segments.push(self.bump().text);
-        } else {
-            self.error_current(
-                "parse.name_path",
-                format!("{context} is missing {expected_name}"),
-                vec![expected_name],
-                RecoveryStrategy::InsertToken,
-                None,
-            );
-        }
-        while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at_contextual_identifier() {
-                segments.push(self.bump().text);
-            } else {
-                self.error_current(
-                    "parse.name_path",
-                    format!("{context} has an incomplete path"),
-                    vec!["path segment"],
-                    RecoveryStrategy::InsertToken,
-                    None,
-                );
-                break;
-            }
-        }
-        segments
     }
 }
 

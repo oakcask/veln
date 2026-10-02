@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.variant_refinement_type\"", "type arguments must precede the final `::Variant` segment", "must join complete ADT variant refinement alternatives", "missing its final variant name", "has an empty type argument", "must end after its final variant name", "has surplus closing angle brackets after its final variant name", "final segment must start with an ASCII uppercase letter", "`|>` cannot separate ADT variant refinement alternatives", "generic type arguments are missing a closing `>`", "must be complete at its structural type position"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

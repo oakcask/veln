@@ -22,9 +22,9 @@ also states it.
 - Standard-library TCP stream networking, typed ordinary failures, resource
   lifecycle, and a substitutable public effect with an explicit system handler:
   [standard-library-networking.md](standard-library-networking.md).
-- ADT variant refinement types for state-transition signatures, including
-  syntax, typing, diagnostics, runtime erasure, LSP, MCP, and package
-  documentation:
+- Semantic and tooling support for the parsed ADT variant-refinement syntax,
+  including typing, diagnostics, control-flow refinement, schema and runtime
+  boundaries, LSP, MCP, and package documentation:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked

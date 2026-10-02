@@ -50,7 +50,10 @@ fn parses_type_argument_call_callees() {
         panic!("expected call expression");
     };
     assert_eq!(args.len(), 1);
-    let ExprKind::TypeApply { callee, type_args } = &callee.kind else {
+    let ExprKind::TypeApply {
+        callee, type_args, ..
+    } = &callee.kind
+    else {
         panic!("expected type-applied callee");
     };
     assert_eq!(type_args, &vec!["String".to_string()]);
@@ -82,7 +85,10 @@ fn parses_task_spawn_type_argument_call_callee() {
         panic!("expected call expression");
     };
     assert_eq!(args.len(), 1);
-    let ExprKind::TypeApply { callee, type_args } = &callee.kind else {
+    let ExprKind::TypeApply {
+        callee, type_args, ..
+    } = &callee.kind
+    else {
         panic!("expected type-applied callee");
     };
     assert_eq!(type_args, &vec!["String".to_string()]);
@@ -114,7 +120,10 @@ fn parses_task_spawn_with_result_and_context_type_arguments() {
         panic!("expected call expression");
     };
     assert_eq!(args.len(), 2);
-    let ExprKind::TypeApply { callee, type_args } = &callee.kind else {
+    let ExprKind::TypeApply {
+        callee, type_args, ..
+    } = &callee.kind
+    else {
         panic!("expected type-applied callee");
     };
     assert_eq!(

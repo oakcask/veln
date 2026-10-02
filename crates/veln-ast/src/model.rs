@@ -209,6 +209,7 @@ pub struct EffectOperationDecl {
     pub params: Vec<Param>,
     pub return_type: Option<String>,
     pub return_type_paths: Vec<TypePathSegments>,
+    pub return_type_refinements: Vec<VariantRefinementType>,
     pub span: SourceSpan,
 }
 
@@ -238,6 +239,7 @@ pub struct TypeVariantField {
     pub name: String,
     pub ty: String,
     pub ty_paths: Vec<TypePathSegments>,
+    pub ty_refinements: Vec<VariantRefinementType>,
     pub span: SourceSpan,
 }
 
@@ -266,6 +268,7 @@ pub struct SchemaField {
     pub name: String,
     pub ty: String,
     pub ty_paths: Vec<TypePathSegments>,
+    pub ty_refinements: Vec<VariantRefinementType>,
     pub where_clause: Option<SchemaFieldWhereClause>,
     pub span: SourceSpan,
 }
@@ -297,6 +300,7 @@ pub struct Function {
     pub return_type: Option<String>,
     pub return_type_span: Option<SourceSpan>,
     pub return_type_paths: Vec<TypePathSegments>,
+    pub return_type_refinements: Vec<VariantRefinementType>,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
     pub callsite: Option<SourceSpan>,
@@ -340,6 +344,7 @@ pub struct Param {
     pub ty: Option<String>,
     pub ty_span: Option<SourceSpan>,
     pub ty_paths: Vec<TypePathSegments>,
+    pub ty_refinements: Vec<VariantRefinementType>,
     pub is_variadic: bool,
     pub span: SourceSpan,
 }
@@ -348,6 +353,36 @@ pub struct Param {
 pub struct TypePathSegments {
     pub segments: Vec<String>,
     pub segment_spans: Vec<SourceSpan>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VariantRefinementType {
+    pub alternatives: Vec<VariantRefinementAlternative>,
+    pub pipe_spans: Vec<SourceSpan>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VariantRefinementAlternative {
+    pub base: TypePathSegments,
+    pub type_arguments: Vec<VariantRefinementTypeArgument>,
+    pub variant: String,
+    pub variant_span: SourceSpan,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VariantRefinementTypeArgument {
+    pub ty_fragments: Vec<String>,
+    pub ty_paths: Vec<TypePathSegments>,
+    pub ty_refinements: Vec<VariantRefinementType>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypeAnnotationStructure {
+    pub paths: Vec<TypePathSegments>,
+    pub variant_refinements: Vec<VariantRefinementType>,
 }
 
 #[derive(Clone, Debug)]
@@ -385,7 +420,7 @@ pub enum BodyLineKind {
     Let {
         pattern: Pattern,
         annotation: Option<String>,
-        annotation_paths: Vec<TypePathSegments>,
+        annotation_structure: Box<TypeAnnotationStructure>,
         expr: Expr,
     },
     Expr {
@@ -417,7 +452,9 @@ impl Expr {
     pub fn callee_name_path_and_type_args(&self) -> Option<(&[String], Option<&[String]>)> {
         match &self.kind {
             ExprKind::NamePath { segments, .. } => Some((segments, None)),
-            ExprKind::TypeApply { callee, type_args } => {
+            ExprKind::TypeApply {
+                callee, type_args, ..
+            } => {
                 let ExprKind::NamePath { segments, .. } = &callee.kind else {
                     return None;
                 };
@@ -447,6 +484,7 @@ pub enum ExprKind {
     TypeApply {
         callee: Box<Expr>,
         type_args: Vec<String>,
+        type_arg_refinements: Vec<Vec<VariantRefinementType>>,
     },
     Call {
         callee: Box<Expr>,

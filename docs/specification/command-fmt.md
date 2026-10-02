@@ -20,6 +20,18 @@ supported binary-schema primitive compatibility spellings. Indentation is one
 tab per level: top-level items and closing `end` lines use level zero, and
 function body lines use level one.
 
+In structurally recognized variant-refinement type text, the formatter writes
+one space on each side of `|`. It preserves the written alternative order,
+duplicate alternatives, base qualification, and type-argument content. It
+formats type arguments recursively: angle brackets have no adjacent inner
+spaces, commas have no preceding space and one following space, and nested
+generic arguments use the same rules at a refinement boundary. A malformed pipe
+that is not part of a complete structural union is not normalized as a union;
+in particular, `|>` remains one pipeline token during recovery. Nested generic
+and explicit-call type arguments retain the closing angle brackets required by
+each level. If a refinement has a surplus closing angle bracket, formatting
+preserves it so a subsequent parse reports the same malformed boundary.
+
 `begin` expressions and `defer` statements use one additional tab for each
 nested body and align their closing `end` with the form's header. They retain
 header and body comments. A comment following the closing `end` of an embedded

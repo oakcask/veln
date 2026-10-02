@@ -14,6 +14,7 @@ mod expressions;
 mod match_formatting;
 mod patterns;
 mod source_layout;
+mod structured_type_text;
 mod type_text;
 
 pub use declarations::format_tree;
@@ -23,4 +24,5 @@ use expressions::{format_defer_statement_with_comments, format_expr_at_indent_wi
 use match_formatting::{bool_match_rewrite, literal_match_rewrite};
 use patterns::format_pattern;
 use source_layout::*;
+use structured_type_text::prepare_structured_type_text;
 use type_text::{canonical_predicate_text, canonical_schema_field_type_text};

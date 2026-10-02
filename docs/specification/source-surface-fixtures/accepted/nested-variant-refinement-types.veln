@@ -1,0 +1,11 @@
+fn nested_generic(value: List<Connection::Ready>) -> ()
+	()
+end
+
+fn nested_record(value: {state: Connection::Ready}) -> ()
+	()
+end
+
+fn nested_function(callback: fn() -> State::Ready) -> ()
+	()
+end

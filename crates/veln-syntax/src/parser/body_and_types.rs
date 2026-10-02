@@ -1,5 +1,8 @@
 use super::*;
 
+pub(super) use super::variant_refinement_diagnostics::malformed_refinement_syntax;
+pub(super) use super::variant_refinements::build_variant_refinements;
+
 struct ExpressionLineCollector {
     start: TextRange,
     end: TextRange,
@@ -8,6 +11,42 @@ struct ExpressionLineCollector {
     block_stack: Vec<TokenKind>,
     previous_kind: Option<TokenKind>,
     at_line_start: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct TypeNesting {
+    paren: usize,
+    bracket: usize,
+    brace: usize,
+    angle: usize,
+}
+
+struct FunctionTypeScope {
+    nesting: TypeNesting,
+    unstarted_returns: usize,
+    started_returns: usize,
+}
+
+impl TypeNesting {
+    fn is_top_level(self) -> bool {
+        self.paren == 0 && self.bracket == 0 && self.brace == 0 && self.angle == 0
+    }
+
+    fn update(&mut self, kind: TokenKind) {
+        match kind {
+            TokenKind::LParen => self.paren += 1,
+            TokenKind::RParen => self.paren = self.paren.saturating_sub(1),
+            TokenKind::LBracket => self.bracket += 1,
+            TokenKind::RBracket => self.bracket = self.bracket.saturating_sub(1),
+            TokenKind::LBrace => self.brace += 1,
+            TokenKind::RBrace => self.brace = self.brace.saturating_sub(1),
+            TokenKind::Less => self.angle += 1,
+            kind if closing_angle_count(kind) > 0 => {
+                self.angle = self.angle.saturating_sub(closing_angle_count(kind));
+            }
+            _ => {}
+        }
+    }
 }
 
 impl ExpressionLineCollector {
@@ -120,12 +159,19 @@ impl<'a> Parser<'a> {
 
     pub(super) fn collect_type_paths_until(
         &mut self,
-        _context: &'static str,
+        context: &'static str,
         stop: &[TokenKind],
-    ) -> (String, Vec<TypePathSegments>) {
+    ) -> (String, Vec<TypePathSegments>, Vec<VariantRefinementType>) {
         let mut parts = Vec::new();
         let mut tokens = Vec::new();
-        let mut depth = 0usize;
+        let mut nesting = TypeNesting {
+            paren: 0,
+            bracket: 0,
+            brace: 0,
+            angle: 0,
+        };
+        let mut function_type_scopes = Vec::new();
+        let mut reported_unmatched_angle = false;
         while !self.at(TokenKind::Eof) {
             let contextual_callsite_type = self.at(TokenKind::Callsite)
                 && (self.peek_at(TokenKind::DoubleColon)
@@ -133,38 +179,100 @@ impl<'a> Parser<'a> {
                     || tokens
                         .last()
                         .is_some_and(|token: &Token| token.kind == TokenKind::Arrow));
-            if depth == 0 && stop.iter().any(|kind| self.at(*kind)) && !contextual_callsite_type {
+            if self.stops_type_collection(
+                context,
+                stop,
+                contextual_callsite_type,
+                nesting,
+                &function_type_scopes,
+                &mut reported_unmatched_angle,
+            ) {
                 break;
             }
             let token = self.current().clone();
-            match token.kind {
-                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace | TokenKind::Less => {
-                    depth += 1;
-                }
-                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                    depth = depth.saturating_sub(1);
-                }
-                kind if closing_angle_count(kind) > 0 => {
-                    depth = depth.saturating_sub(closing_angle_count(kind));
-                }
-                _ => {}
-            }
+            update_function_type_scopes(token.kind, nesting, &mut function_type_scopes);
+            nesting.update(token.kind);
+            prune_function_type_scopes(&mut function_type_scopes, nesting);
             let token = self.bump();
             parts.push(token.text.clone());
             tokens.push(token);
         }
+        if nesting.angle > 0 && !reported_unmatched_angle {
+            self.report_unmatched_generic_opener(context);
+        }
+        let refinements = self.variant_refinements_from_tokens(context, &tokens);
         (
             normalize_type_text(parts),
-            self.type_paths_from_tokens(&tokens),
+            type_paths_from_tokens(self.source, &tokens),
+            refinements,
         )
+    }
+
+    fn stops_type_collection(
+        &mut self,
+        context: &'static str,
+        stop: &[TokenKind],
+        contextual_callsite_type: bool,
+        nesting: TypeNesting,
+        function_type_scopes: &[FunctionTypeScope],
+        reported_unmatched_angle: &mut bool,
+    ) -> bool {
+        if !stop.iter().any(|kind| self.at(*kind)) || contextual_callsite_type {
+            return false;
+        }
+        if nesting.is_top_level() {
+            return true;
+        }
+        let unmatched_before_sibling = nesting.angle > 0
+            && nesting.paren == 0
+            && nesting.bracket == 0
+            && nesting.brace == 0
+            && self.at(TokenKind::Comma)
+            && stop.contains(&TokenKind::Comma)
+            && self.comma_precedes_named_type_sibling();
+        let unmatched_before_boundary = nesting.angle > 0
+            && unmatched_angle_reaches_annotation_boundary(
+                self.current().kind,
+                nesting.paren,
+                nesting.bracket,
+                nesting.brace,
+            )
+            && !effect_clause_belongs_to_nested_function_type(
+                self.current().kind,
+                nesting,
+                function_type_scopes,
+            );
+        if unmatched_before_sibling || unmatched_before_boundary {
+            self.report_unmatched_generic_opener(context);
+            *reported_unmatched_angle = true;
+            return true;
+        }
+        false
+    }
+
+    fn report_unmatched_generic_opener(&mut self, context: &'static str) {
+        self.error_current(
+            "parse.variant_refinement_type",
+            "generic type arguments are missing a closing `>`",
+            context,
+            vec![">"],
+            RecoveryStrategy::InsertToken,
+            Some(">"),
+        );
+    }
+
+    fn comma_precedes_named_type_sibling(&self) -> bool {
+        self.peek_kind(1)
+            .is_some_and(|kind| is_contextual_identifier(kind) || kind == TokenKind::Hole)
+            && self.peek_kind(2) == Some(TokenKind::Colon)
     }
 
     pub(super) fn collect_return_type_until(
         &mut self,
         context: &'static str,
         stop: &[TokenKind],
-    ) -> (String, Vec<TypePathSegments>) {
-        let (mut ty, paths) = self.collect_type_paths_until(context, stop);
+    ) -> (String, Vec<TypePathSegments>, Vec<VariantRefinementType>) {
+        let (mut ty, paths, refinements) = self.collect_type_paths_until(context, stop);
         if return_type_can_take_effects(&ty)
             && self.at(TokenKind::Effects)
             && (self.after_effect_clause_is(TokenKind::Effects)
@@ -178,7 +286,7 @@ impl<'a> Parser<'a> {
                 ty.push_str(&effects);
             }
         }
-        (ty, paths)
+        (ty, paths, refinements)
     }
 
     pub(super) fn after_effect_clause_is(&self, expected: TokenKind) -> bool {
@@ -351,74 +459,130 @@ impl<'a> Parser<'a> {
         self.diagnostics.extend(diagnostics);
         (expr, collector.range())
     }
-    fn type_paths_from_tokens(&self, tokens: &[Token]) -> Vec<TypePathSegments> {
-        let mut paths = Vec::new();
-        let mut cursor = 0usize;
-        while cursor < tokens.len() {
-            if tokens[cursor].kind == TokenKind::Effects {
-                cursor = skip_effect_clause(tokens, cursor);
-                continue;
+    fn variant_refinements_from_tokens(
+        &mut self,
+        context: &'static str,
+        tokens: &[Token],
+    ) -> Vec<VariantRefinementType> {
+        let (refinements, consumed_pipes) = build_variant_refinements(self.source, tokens);
+        for (index, token) in tokens.iter().enumerate() {
+            if token.kind == TokenKind::Pipe && !consumed_pipes[index] {
+                self.error_at_token(
+                    token,
+                    DiagnosticRequest {
+                        id: "parse.variant_refinement_type",
+                        message: "`|` must join complete ADT variant refinement alternatives"
+                            .to_string(),
+                        parser_context: context,
+                        expected: vec!["NamedAdtType::Variant"],
+                        strategy: RecoveryStrategy::SkipToken,
+                        anchor: Some("type annotation"),
+                        repair_candidates: Vec::new(),
+                    },
+                );
             }
-            if !is_type_path_segment(&tokens[cursor])
-                || tokens.get(cursor + 1).map(|token| token.kind) != Some(TokenKind::DoubleColon)
-            {
-                cursor += 1;
-                continue;
-            }
+        }
+        for (index, message) in malformed_refinement_syntax(tokens) {
+            self.error_at_token(
+                &tokens[index],
+                DiagnosticRequest {
+                    id: "parse.variant_refinement_type",
+                    message: message.to_string(),
+                    parser_context: context,
+                    expected: vec!["NamedAdtType::Variant"],
+                    strategy: RecoveryStrategy::InsertToken,
+                    anchor: Some("type annotation"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+        }
 
-            let mut segments = vec![tokens[cursor].text.clone()];
-            let mut segment_spans = vec![self.source.span(tokens[cursor].range)];
-            cursor += 2;
-            while let Some(token) = tokens.get(cursor) {
-                if !is_type_path_segment(token) {
-                    break;
-                }
-                segments.push(token.text.clone());
-                segment_spans.push(self.source.span(token.range));
-                cursor += 1;
-                if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::DoubleColon) {
-                    break;
-                }
-                cursor += 1;
-            }
+        refinements
+    }
+}
 
-            if segments.len() > 1 {
-                paths.push(TypePathSegments {
-                    segments,
-                    segment_spans,
+fn unmatched_angle_reaches_annotation_boundary(
+    boundary: TokenKind,
+    paren_depth: usize,
+    bracket_depth: usize,
+    brace_depth: usize,
+) -> bool {
+    match boundary {
+        TokenKind::Comma => false,
+        TokenKind::RParen => paren_depth == 0,
+        TokenKind::RBracket => bracket_depth == 0,
+        TokenKind::RBrace => brace_depth == 0,
+        _ => paren_depth == 0 && bracket_depth == 0 && brace_depth == 0,
+    }
+}
+
+fn effect_clause_belongs_to_nested_function_type(
+    boundary: TokenKind,
+    nesting: TypeNesting,
+    function_type_scopes: &[FunctionTypeScope],
+) -> bool {
+    boundary == TokenKind::Effects
+        && nesting.angle > 0
+        && function_type_scopes
+            .last()
+            .is_some_and(|scope| scope.nesting == nesting && scope.started_returns > 0)
+}
+
+fn update_function_type_scopes(
+    token: TokenKind,
+    nesting: TypeNesting,
+    scopes: &mut Vec<FunctionTypeScope>,
+) {
+    record_function_type_scope_work(1);
+    match token {
+        TokenKind::Comma => {
+            if scopes.last().is_some_and(|scope| scope.nesting == nesting) {
+                scopes.pop();
+            }
+        }
+        TokenKind::Fn => {
+            if let Some(scope) = scopes.last_mut().filter(|scope| scope.nesting == nesting) {
+                scope.unstarted_returns += 1;
+            } else {
+                scopes.push(FunctionTypeScope {
+                    nesting,
+                    unstarted_returns: 1,
+                    started_returns: 0,
                 });
             }
         }
-        paths
-    }
-}
-
-fn skip_effect_clause(tokens: &[Token], cursor: usize) -> usize {
-    let mut cursor = cursor + 1;
-    if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::LBracket) {
-        return cursor;
-    }
-    cursor += 1;
-    let mut depth = 1usize;
-    while let Some(token) = tokens.get(cursor) {
-        match token.kind {
-            TokenKind::LBracket => depth += 1,
-            TokenKind::RBracket => {
-                depth = depth.saturating_sub(1);
-                if depth == 0 {
-                    return cursor + 1;
+        TokenKind::Arrow => {
+            if let Some(scope) = scopes
+                .last_mut()
+                .filter(|scope| scope.nesting == nesting && scope.unstarted_returns > 0)
+            {
+                scope.unstarted_returns -= 1;
+                scope.started_returns += 1;
+            }
+        }
+        TokenKind::Effects => {
+            if let Some(scope) = scopes
+                .last_mut()
+                .filter(|scope| scope.nesting == nesting && scope.started_returns > 0)
+            {
+                scope.started_returns -= 1;
+                if scope.started_returns == 0 && scope.unstarted_returns == 0 {
+                    scopes.pop();
                 }
             }
-            _ => {}
         }
-        cursor += 1;
+        _ => {}
     }
-    cursor
 }
 
-fn is_type_path_segment(token: &Token) -> bool {
-    matches!(
-        token.kind,
-        TokenKind::Ident | TokenKind::Callsite | TokenKind::Hole
-    )
+fn prune_function_type_scopes(scopes: &mut Vec<FunctionTypeScope>, nesting: TypeNesting) {
+    while scopes.last().is_some_and(|scope| {
+        scope.nesting.paren > nesting.paren
+            || scope.nesting.bracket > nesting.bracket
+            || scope.nesting.brace > nesting.brace
+            || scope.nesting.angle > nesting.angle
+    }) {
+        record_function_type_scope_work(1);
+        scopes.pop();
+    }
 }

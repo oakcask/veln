@@ -1,0 +1,4 @@
+fn invalid(value: State) -> ()
+	let current: List<State::> = value
+	()
+end

@@ -1,0 +1,3 @@
+schema Envelope
+	state: List<State::>
+end

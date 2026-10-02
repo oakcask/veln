@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#runtime-readiness-and-host-boundaries; behavior=#runtime-readiness-and-host-boundaries; limits=#cleanup-limits
-update-when: The checked-core readiness, typed-IR readiness, runtime execution, codec, JVM backend, or execution evidence contract changes.
+update-when: The checked-core readiness, typed-IR readiness, runtime execution, source-visible runtime or binary-schema codec behavior, JVM backend, or execution evidence contract changes.
 ---
 
 # Execution Boundary

@@ -13,10 +13,22 @@ impl AstBuilder {
         if let Some(kind) = self.lower_scalar_expr_kind(expr) {
             return kind;
         }
-        if let Some(kind) = self.lower_call_like_expr_kind(expr) {
+        if let Some(kind) = self.lower_invocation_expr_kind(expr) {
             return kind;
         }
-        if let Some(kind) = self.lower_collection_expr_kind(expr) {
+        if let Some(kind) = self.lower_effect_expr_kind(expr) {
+            return kind;
+        }
+        if let Some(kind) = self.lower_schema_conversion_expr_kind(expr) {
+            return kind;
+        }
+        if let Some(kind) = self.lower_postfix_expr_kind(expr) {
+            return kind;
+        }
+        if let Some(kind) = self.lower_aggregate_expr_kind(expr) {
+            return kind;
+        }
+        if let Some(kind) = self.lower_control_flow_expr_kind(expr) {
             return kind;
         }
         self.lower_operator_expr_kind(expr)
@@ -45,16 +57,31 @@ impl AstBuilder {
         }
     }
 
-    fn lower_call_like_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
+    fn lower_invocation_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
         match &expr.kind {
-            SyntaxExprKind::TypeApply { callee, type_args } => Some(ExprKind::TypeApply {
+            SyntaxExprKind::TypeApply {
+                callee,
+                type_args,
+                type_arg_refinements,
+                ..
+            } => Some(ExprKind::TypeApply {
                 callee: Box::new(self.lower_expr(callee)),
                 type_args: type_args.clone(),
+                type_arg_refinements: type_arg_refinements
+                    .iter()
+                    .map(|refinements| self.lower_variant_refinements(refinements))
+                    .collect(),
             }),
             SyntaxExprKind::Call { callee, args } => Some(ExprKind::Call {
                 callee: Box::new(self.lower_expr(callee)),
                 args: self.lower_exprs(args),
             }),
+            _ => None,
+        }
+    }
+
+    fn lower_effect_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
+        match &expr.kind {
             SyntaxExprKind::Perform {
                 effect,
                 effect_span,
@@ -80,6 +107,12 @@ impl AstBuilder {
                 handler_span: handler_span.clone(),
                 args: self.lower_exprs(args),
             }),
+            _ => None,
+        }
+    }
+
+    fn lower_schema_conversion_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
+        match &expr.kind {
             SyntaxExprKind::SchemaDecode {
                 schema,
                 input,
@@ -94,6 +127,12 @@ impl AstBuilder {
                 schema: schema.clone(),
                 value: Box::new(self.lower_expr(value)),
             }),
+            _ => None,
+        }
+    }
+
+    fn lower_postfix_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
+        match &expr.kind {
             SyntaxExprKind::FieldAccess {
                 base,
                 field,
@@ -114,7 +153,7 @@ impl AstBuilder {
         }
     }
 
-    fn lower_collection_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
+    fn lower_aggregate_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
         match &expr.kind {
             SyntaxExprKind::Record(fields) => Some(ExprKind::Record(
                 fields
@@ -129,6 +168,12 @@ impl AstBuilder {
                     .collect(),
             )),
             SyntaxExprKind::List(items) => Some(ExprKind::List(self.lower_exprs(items))),
+            _ => None,
+        }
+    }
+
+    fn lower_control_flow_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
+        match &expr.kind {
             SyntaxExprKind::Match { scrutinee, arms } => {
                 Some(self.lower_match_expr(scrutinee, arms))
             }
