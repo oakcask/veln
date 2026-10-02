@@ -712,8 +712,21 @@ type_text_until(Stop, S0, S) :-
 valid_type_text_tokens(Tokens) :-
     (   top_level_type_token(pipe, Tokens)
     ->  phrase(variant_refinement_type, Tokens)
+    ;   singleton_variant_refinement_candidate(Tokens)
+    ->  phrase(variant_refinement_type, Tokens)
     ;   \+ top_level_type_token(pipe_greater, Tokens)
     ).
+
+singleton_variant_refinement_candidate(Tokens) :-
+    top_level_type_token(double_colon, Tokens),
+    \+ phrase(ordinary_qualified_generic_type, Tokens).
+
+ordinary_qualified_generic_type -->
+    ident,
+    tok(double_colon),
+    ident,
+    variant_base_path_tail,
+    variant_type_arguments.
 
 top_level_type_token(Expected, Tokens) :-
     top_level_type_token(Expected, Tokens, 0).
@@ -735,21 +748,28 @@ variant_refinement_tail -->
 variant_refinement_tail --> [].
 
 variant_alternative -->
-    ident,
-    variant_base_path_tail,
-    variant_type_arguments_opt,
+    variant_refinement_base,
     tok(double_colon),
     upper_name.
+
+variant_refinement_base -->
+    ident,
+    variant_base_path_tail,
+    variant_type_arguments_opt.
 
 variant_base_path_tail --> tok(double_colon), ident, variant_base_path_tail.
 variant_base_path_tail --> [].
 
 variant_type_arguments_opt -->
+    variant_type_arguments,
+    !.
+variant_type_arguments_opt --> [].
+
+variant_type_arguments -->
     tok(less),
     variant_type_argument,
     variant_type_argument_tail,
     tok(greater).
-variant_type_arguments_opt --> [].
 
 variant_type_argument_tail -->
     tok(comma),

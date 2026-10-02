@@ -151,6 +151,43 @@ fn preserves_qualified_generic_types_without_a_final_variant() {
 }
 
 #[test]
+fn excludes_qualified_effect_paths_from_variant_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn inspect(callback: fn() -> () effects [Logging::Audit]) -> ()\n  ()\nend\n",
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert!(
+        first_function(&output).params[0].ty_refinements.is_empty(),
+        "effect paths must not become variant refinement nodes"
+    );
+}
+
+#[test]
+fn rejects_pipes_inside_nested_effect_lists() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid(callback: fn() -> () effects [Logging::Audit | Tracing::Span]) -> ()\n  ()\nend\n",
+    );
+
+    let output = parse(&source);
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "parse.variant_refinement_type"
+                && diagnostic.message
+                    == "`|` must join complete ADT variant refinement alternatives"
+        })
+        .expect("a pipe in an effect list must remain invalid type syntax");
+    let span = diagnostic.span.as_ref().expect("pipe diagnostic span");
+    assert_eq!(&source.text()[span.start.offset..span.end.offset], "|");
+    assert!(first_function(&output).params[0].ty_refinements.is_empty());
+}
+
+#[test]
 fn rejects_malformed_variant_refinement_forms() {
     let cases = [
         "State::Ready |> State::Closed",

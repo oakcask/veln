@@ -13,3 +13,7 @@ end
 fn nested(value: Result<List<State::Ready | State::Closed>, Error>::Ok | Result<List<State::Ready | State::Closed>, Error>::Err) -> ()
   sink<State::Ready | State::Closed>(value)
 end
+
+fn qualified_generic(value: domain::Alias::Container<Int>) -> ()
+  ()
+end

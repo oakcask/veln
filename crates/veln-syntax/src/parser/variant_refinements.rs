@@ -1,7 +1,7 @@
 use super::generic_type_syntax::{
     GenericSyntax, TypeArgumentRange, scan_generic_syntax, type_argument_text_range,
 };
-use super::type_paths::is_type_path_segment;
+use super::type_paths::{is_type_path_segment, skip_effect_clause};
 use super::*;
 
 pub(super) fn build_variant_refinements(
@@ -382,10 +382,16 @@ pub(super) fn refinement_alternatives(
     generic_syntax: &[GenericSyntax],
 ) -> Vec<RawRefinementCandidate> {
     let mut candidates = Vec::new();
-    for start in 0..tokens.len() {
+    let mut start = 0usize;
+    while start < tokens.len() {
+        if tokens[start].kind == TokenKind::Effects {
+            start = skip_effect_clause(tokens, start);
+            continue;
+        }
         if !is_type_path_segment(&tokens[start])
             || (start > 0 && tokens[start - 1].kind == TokenKind::DoubleColon)
         {
+            start += 1;
             continue;
         }
         if let Some(shape) = refinement_alternative_shape(tokens, generic_syntax, start) {
@@ -395,6 +401,7 @@ pub(super) fn refinement_alternatives(
                 shape,
             });
         }
+        start += 1;
     }
     candidates
 }

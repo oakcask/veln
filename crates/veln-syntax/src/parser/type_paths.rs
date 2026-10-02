@@ -44,7 +44,7 @@ pub(super) fn type_paths_from_tokens(
     paths
 }
 
-fn skip_effect_clause(tokens: &[Token], cursor: usize) -> usize {
+pub(super) fn skip_effect_clause(tokens: &[Token], cursor: usize) -> usize {
     let mut cursor = cursor + 1;
     if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::LBracket) {
         return cursor;
