@@ -1494,12 +1494,17 @@ fn attach_classified_path_segments(
     );
     let segments =
         veln_sema::classified_project_qualified_path_segments_with_context(module, project);
+    let mut segments_by_file = BTreeMap::<String, Vec<QualifiedPathSegment>>::new();
+    for segment in segments {
+        segments_by_file
+            .entry(segment.span.file.as_str().to_string())
+            .or_default()
+            .push(segment);
+    }
     for file in files {
-        file.classified_path_segments = segments
-            .iter()
-            .filter(|segment| segment.span.file == *file.source.path())
-            .cloned()
-            .collect();
+        file.classified_path_segments = segments_by_file
+            .remove(file.source.path().as_str())
+            .unwrap_or_default();
     }
 }
 
