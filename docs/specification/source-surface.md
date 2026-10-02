@@ -125,9 +125,10 @@ malformed.
 The parser reports `parse.variant_refinement_type` for an incomplete
 alternative, a missing base or final segment, an empty or misplaced type
 argument, a segment following a generic base's final variant, a lowercase final
-segment, a surplus generic closer, or `|>` between alternatives. Nesting
-beyond 256 containing generic-argument boundaries reports the same diagnostic
-and does not prevent lossless-tree construction.
+segment, a surplus generic closer before or after the final variant, or `|>`
+between alternatives. Nesting beyond 256 containing generic-argument
+boundaries reports the same diagnostic and does not prevent lossless-tree
+construction.
 
 Structural recognition does not prove that a base names an ADT, that its final
 segment names a variant, or that union alternatives name the same instantiated
