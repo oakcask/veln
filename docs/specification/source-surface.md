@@ -315,7 +315,7 @@ PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 VariantRefinementType ::= VariantAlternative ("|" VariantAlternative)*
 VariantAlternative ::= TypePath TypeArguments? "::" UpperName
-TypeArguments ::= "<" TypeText ("," TypeText)* ","? ">"
+TypeArguments ::= "<" TypeText ("," TypeText)* ">"
 TypePath      ::= Name ("::" Name)*
 EffectBinder  ::= "<" "effect" Name ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL

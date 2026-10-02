@@ -82,6 +82,18 @@ fn parses_variant_refinements_across_nested_type_forms() {
 }
 
 #[test]
+fn preserves_qualified_generic_types_without_a_final_variant() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn inspect(value: Prelude::Option<Int>) -> ()\n  ()\nend\n",
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert!(first_function(&output).params[0].ty_refinements.is_empty());
+}
+
+#[test]
 fn rejects_malformed_variant_refinement_forms() {
     let cases = [
         "State::Ready |> State::Closed",

@@ -4,6 +4,8 @@ use veln_syntax::parse;
 
 mod node_id_inventory;
 mod traversal;
+mod variant_refinements;
+mod wire_round_trip;
 
 use node_id_inventory::collect_module_node_ids;
 
@@ -22,362 +24,6 @@ fn lower_source_allowing_diagnostics(text: &str) -> SurfaceModule {
     let source = SourceFile::new("main.veln", text);
     let parsed = parse(&source);
     lower_surface_ast(&parsed.tree)
-}
-
-#[test]
-fn surface_wire_round_trip_preserves_expression_families() {
-    let sources = [
-        concat!(
-            "fn build(input: Int) -> ()\n",
-            "  let data = {answer: [1, 2.5, -input?], check: _value satisfy candidate => candidate > 0}\n",
-            "  let lookup = {\"one\": 1, \"two\": 2}\n",
-            "  data.answer |> sink<String>(\"ok\", ())\n",
-            "end\n",
-        ),
-        concat!(
-            "schema Header\n",
-            "  format binary\n",
-            "  length: UInt8\n",
-            "end\n",
-            "fn decode_header(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
-            "  decode Header from view at base\n",
-            "end\n",
-            "fn encode_header(packet: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode Header from packet\n",
-            "end\n",
-        ),
-        concat!(
-            "effect Ask\n",
-            "  value() -> Int\n",
-            "end\n",
-            "fn handled() -> Int\n",
-            "  handle perform Ask::value() with ask(41)\n",
-            "end\n",
-        ),
-        concat!(
-            "fn choose(first: Bool, second: Bool) -> Int\n",
-            "  if first\n",
-            "    match second\n",
-            "      true => 1\n",
-            "      false => 2\n",
-            "    end\n",
-            "  else if second\n",
-            "    3\n",
-            "  else\n",
-            "    4\n",
-            "  end\n",
-            "end\n",
-        ),
-        concat!(
-            "fn parse() -> Int\n",
-            "  1\n",
-            "end\n",
-            "pub fn Exposed = api::Parse\n",
-            "pub type Alias = api::_item\n",
-            "pub schema Packet = api::packet\n",
-        ),
-        concat!(
-            "fn cleanup() -> Int\n",
-            "  let resource = 1\n",
-            "  defer\n",
-            "    ()\n",
-            "  end\n",
-            "  begin\n",
-            "    let value = resource + 1\n",
-            "    value\n",
-            "  end\n",
-            "end\n",
-        ),
-    ];
-
-    for source in sources {
-        let module = lower_source(source);
-        let encoded = encode_surface_module(&module);
-        let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-
-        assert_eq!(encode_surface_module(&decoded), encoded);
-    }
-}
-
-#[test]
-fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
-    let source = concat!(
-        "effect Transition\n",
-        "  move(state: State::Ready | State::Closed) -> Result<Int, Error>::Ok\n",
-        "end\n",
-        "type Boxed\n",
-        "  Box(value: protocol::State::Ready | protocol::State::Closed)\n",
-        "end\n",
-        "schema Packet\n",
-        "  state: State::Ready | State::Closed\n",
-        "end\n",
-        "fn advance(state: State::Ready | State::Closed) -> Result<List<domain::Item>, Wrapper<State::Ready | State::Closed>>::Ok\n",
-        "  let exact: State::Ready | State::Ready = state\n",
-        "  sink<State::Ready | State::Closed>(exact)\n",
-        "  exact\n",
-        "end\n",
-    );
-    let module = lower_source(source);
-    let encoded = encode_surface_module(&module);
-    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-
-    let parameter_union = &decoded.functions[0].params[0].ty_refinements[0];
-    assert_eq!(parameter_union.alternatives.len(), 2);
-    assert_eq!(parameter_union.alternatives[0].base.segments, ["State"]);
-    assert_eq!(parameter_union.alternatives[0].variant, "Ready");
-    assert_eq!(parameter_union.alternatives[1].variant, "Closed");
-    assert_eq!(
-        &source
-            [parameter_union.pipe_spans[0].start.offset..parameter_union.pipe_spans[0].end.offset],
-        "|"
-    );
-
-    let result = &decoded.functions[0].return_type_refinements[0].alternatives[0];
-    assert_eq!(result.base.segments, ["Result"]);
-    assert_eq!(result.type_arguments.len(), 2);
-    assert_eq!(
-        result.type_arguments[0].ty_fragments,
-        ["List<domain::Item>"]
-    );
-    assert_eq!(
-        result.type_arguments[0].ty_paths[0].segments,
-        ["domain", "Item"]
-    );
-    assert_eq!(result.type_arguments[1].ty_fragments, ["Wrapper<", ">"]);
-    assert_eq!(result.type_arguments[1].ty_refinements.len(), 1);
-    assert_eq!(
-        result.type_arguments[1].ty_refinements[0].alternatives[0].variant,
-        "Ready"
-    );
-    assert_eq!(
-        result.type_arguments[1].ty_refinements[0].alternatives[1].variant,
-        "Closed"
-    );
-    assert_eq!(result.variant, "Ok");
-
-    assert_eq!(
-        decoded.effects[0].operations[0].params[0]
-            .ty_refinements
-            .len(),
-        1
-    );
-    assert_eq!(
-        decoded.effects[0].operations[0]
-            .return_type_refinements
-            .len(),
-        1
-    );
-    assert_eq!(
-        decoded.types[0].variants[0].fields[0].ty_refinements.len(),
-        1
-    );
-    assert_eq!(decoded.schemas[0].fields[0].ty_refinements.len(), 1);
-    let BodyLineKind::Let {
-        annotation_structure,
-        ..
-    } = &decoded.functions[0].body[0].kind
-    else {
-        panic!("expected annotated let");
-    };
-    assert_eq!(
-        annotation_structure.variant_refinements[0]
-            .alternatives
-            .len(),
-        2
-    );
-    let BodyLineKind::Expr { expr } = &decoded.functions[0].body[1].kind else {
-        panic!("expected call expression line");
-    };
-    let ExprKind::Call { callee, .. } = &expr.kind else {
-        panic!("expected call expression");
-    };
-    let ExprKind::TypeApply {
-        type_arg_refinements,
-        ..
-    } = &callee.kind
-    else {
-        panic!("expected type application");
-    };
-    assert_eq!(type_arg_refinements[0][0].alternatives.len(), 2);
-    assert_eq!(encode_surface_module(&decoded), encoded);
-}
-
-#[test]
-fn deep_refinement_structure_remains_linear_through_lowering_and_wire_round_trip() {
-    let sizes = [64, 128, 256].map(refinement_wire_size);
-    eprintln!("variant refinement wire sizes at depths 64, 128, and 256: {sizes:?}");
-    let first_growth = sizes[1] - sizes[0];
-    let second_growth = sizes[2] - sizes[1];
-    assert!(
-        second_growth < first_growth * 3,
-        "doubling refinement depth should grow wire bytes proportionally: {sizes:?}"
-    );
-}
-
-#[test]
-fn excessive_source_refinement_nesting_remains_bounded_through_lowering_and_wire() {
-    let mut annotation = "Leaf::Value".to_string();
-    for _ in 0..4_096 {
-        annotation = format!("Layer<{annotation}>::Wrapped");
-    }
-    let source = format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n");
-
-    let module = lower_source_allowing_diagnostics(&source);
-    let mut refinements = module.functions[0].params[0].ty_refinements.as_slice();
-    let mut nesting = 0;
-    while let Some(refinement) = refinements.first() {
-        nesting += 1;
-        refinements = refinement.alternatives[0]
-            .type_arguments
-            .first()
-            .map_or(&[], |argument| argument.ty_refinements.as_slice());
-    }
-    assert_eq!(nesting, veln_syntax::MAX_VARIANT_REFINEMENT_NESTING + 1);
-    let encoded = encode_surface_module(&module);
-    decode_surface_module(&encoded).expect("bounded recovery AST should cross the wire boundary");
-}
-
-#[test]
-fn surface_wire_rejects_refinement_nesting_beyond_the_parser_limit() {
-    let mut module = lower_source("fn nested(value: Leaf::Value) -> ()\n  ()\nend\n");
-    let refinements = &mut module.functions[0].params[0].ty_refinements;
-    let template = refinements[0].alternatives[0].clone();
-    for _ in 0..=veln_syntax::MAX_VARIANT_REFINEMENT_NESTING {
-        let child = std::mem::take(refinements);
-        *refinements = vec![VariantRefinementType {
-            alternatives: vec![VariantRefinementAlternative {
-                base: template.base.clone(),
-                type_arguments: vec![VariantRefinementTypeArgument {
-                    ty_fragments: vec![String::new(), String::new()],
-                    ty_paths: Vec::new(),
-                    ty_refinements: child,
-                    span: template.span.clone(),
-                }],
-                variant: template.variant.clone(),
-                variant_span: template.variant_span.clone(),
-                span: template.span.clone(),
-            }],
-            pipe_spans: Vec::new(),
-            span: template.span.clone(),
-        }];
-    }
-
-    let encoded = encode_surface_module(&module);
-    let error = decode_surface_module(&encoded).expect_err("excessive nesting must be rejected");
-    assert_eq!(
-        error,
-        "surface module variant refinements are nested too deeply"
-    );
-}
-
-fn refinement_wire_size(depth: usize) -> usize {
-    let mut annotation = "domain::Leaf::Value".to_string();
-    for _ in 0..depth {
-        annotation = format!("domain::Layer<{annotation}>::Wrapped");
-    }
-    let source = format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n");
-
-    let module = lower_source(&source);
-    assert_refinement_chain(&module.functions[0].params[0].ty_refinements, depth + 1);
-
-    let encoded = encode_surface_module(&module);
-    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-    assert_refinement_chain(&decoded.functions[0].params[0].ty_refinements, depth + 1);
-    assert_eq!(encode_surface_module(&decoded), encoded);
-    encoded.len()
-}
-
-fn assert_refinement_chain(refinements: &[VariantRefinementType], expected_nodes: usize) {
-    let mut refinements = refinements;
-    let mut nodes = 0;
-    loop {
-        assert_eq!(refinements.len(), 1);
-        assert_eq!(refinements[0].alternatives.len(), 1);
-        nodes += 1;
-        let alternative = &refinements[0].alternatives[0];
-        let Some(argument) = alternative.type_arguments.first() else {
-            break;
-        };
-        assert_eq!(alternative.type_arguments.len(), 1);
-        assert!(
-            argument.ty_paths.is_empty(),
-            "paths owned by a child refinement must not be repeated by its parent argument"
-        );
-        refinements = &argument.ty_refinements;
-    }
-    assert_eq!(nodes, expected_nodes);
-}
-
-#[test]
-fn surface_wire_round_trip_preserves_callsite_modifier_span() {
-    let module = lower_source("fn located() -> SourceLocation callsite\n  callsite\nend\n");
-    let encoded = encode_surface_module(&module);
-    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-
-    let callsite = decoded.functions[0]
-        .callsite
-        .as_ref()
-        .expect("callsite modifier span");
-    assert_eq!((callsite.start.line, callsite.start.column), (1, 32));
-    assert_eq!(encode_surface_module(&decoded), encoded);
-}
-
-#[test]
-fn surface_wire_round_trip_preserves_contract_callsite_reference_span() {
-    let module = lower_source("fn guarded() -> ()\nrequire callsite\n  ()\nend\n");
-    let encoded = encode_surface_module(&module);
-    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-
-    let reference = &decoded.functions[0].contracts[0].callsite_reference_spans[0];
-    assert_eq!((reference.start.line, reference.start.column), (2, 9));
-    assert_eq!((reference.end.line, reference.end.column), (2, 17));
-    assert_eq!(encode_surface_module(&decoded), encoded);
-}
-
-#[test]
-fn surface_wire_round_trip_preserves_cleanup_introducer_spans() {
-    let source = concat!(
-        "fn parse() -> Result<(), String>\n",
-        "  Ok(())\n",
-        "end\n",
-        "fn cleanup() -> ()\n",
-        "  defer\n",
-        "    parse()?\n",
-        "  end\n",
-        "  ()\n",
-        "end\n",
-    );
-    let module = lower_source(source);
-    let encoded = encode_surface_module(&module);
-    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
-
-    let BodyLineKind::Defer {
-        body,
-        keyword_span,
-        block_span,
-    } = &decoded.functions[1].body[0].kind
-    else {
-        panic!("expected defer statement");
-    };
-    assert_eq!(
-        &source[keyword_span.start.offset..keyword_span.end.offset],
-        "defer"
-    );
-    assert_eq!(
-        &source[block_span.start.offset..block_span.end.offset],
-        "    parse()?\n  "
-    );
-
-    let BodyLineKind::Expr { expr } = &body[0].kind else {
-        panic!("expected deferred expression");
-    };
-    let ExprKind::Try { question_span, .. } = &expr.kind else {
-        panic!("expected try expression");
-    };
-    assert_eq!(
-        &source[question_span.start.offset..question_span.end.offset],
-        "?"
-    );
 }
 
 #[test]
@@ -410,27 +56,37 @@ fn legacy_codec_slot_offset(encoded: &[u8]) -> usize {
 }
 
 fn legacy_codec_declaration_slot() -> Vec<u8> {
-    fn push_string(bytes: &mut Vec<u8>, value: &str) {
-        bytes.extend_from_slice(&(value.len() as u32).to_le_bytes());
-        bytes.extend_from_slice(value.as_bytes());
-    }
-
-    fn push_span(bytes: &mut Vec<u8>) {
-        push_string(bytes, "legacy.veln");
-        for value in [1_u64, 1, 0, 4, 1, 3] {
-            bytes.extend_from_slice(&value.to_le_bytes());
-        }
-    }
-
     let mut bytes = Vec::new();
+    push_legacy_codec_identity(&mut bytes);
+    push_legacy_codec_shape(&mut bytes);
+    push_span(&mut bytes);
+    bytes
+}
+
+fn push_string(bytes: &mut Vec<u8>, value: &str) {
+    bytes.extend_from_slice(&(value.len() as u32).to_le_bytes());
+    bytes.extend_from_slice(value.as_bytes());
+}
+
+fn push_span(bytes: &mut Vec<u8>) {
+    push_string(bytes, "legacy.veln");
+    for value in [1_u64, 1, 0, 4, 1, 3] {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+}
+
+fn push_legacy_codec_identity(bytes: &mut Vec<u8>) {
     bytes.extend_from_slice(&1_u32.to_le_bytes());
     bytes.extend_from_slice(&7_u32.to_le_bytes());
     bytes.push(0);
     bytes.push(0);
     bytes.push(1);
-    push_string(&mut bytes, "LegacyCodec");
+    push_string(bytes, "LegacyCodec");
     bytes.push(1);
-    push_string(&mut bytes, "Packet");
+    push_string(bytes, "Packet");
+}
+
+fn push_legacy_codec_shape(bytes: &mut Vec<u8>) {
     bytes.extend_from_slice(&2_u32.to_le_bytes());
     bytes.push(0);
     bytes.push(1);
@@ -438,15 +94,13 @@ fn legacy_codec_declaration_slot() -> Vec<u8> {
     bytes.extend_from_slice(&8_u32.to_le_bytes());
     bytes.push(0);
     bytes.push(0);
-    push_span(&mut bytes);
+    push_span(bytes);
     bytes.extend_from_slice(&9_u32.to_le_bytes());
     bytes.push(1);
     bytes.push(1);
     bytes.push(1);
-    push_string(&mut bytes, "encode_packet");
-    push_span(&mut bytes);
-    push_span(&mut bytes);
-    bytes
+    push_string(bytes, "encode_packet");
+    push_span(bytes);
 }
 
 #[test]
@@ -652,6 +306,12 @@ fn lowers_schema_declarations_as_distinct_module_items() {
     assert!(module.types.is_empty());
     assert_eq!(module.schemas.len(), 1);
     let schema = &module.schemas[0];
+    assert_schema_declaration(schema);
+    assert_schema_fields(schema);
+    assert_schema_validation(schema);
+}
+
+fn assert_schema_declaration(schema: &SchemaDecl) {
     assert_eq!(schema.node_id.display("schema"), "schema-1");
     assert_eq!(schema.visibility, Visibility::Public);
     assert_eq!(schema.name.as_deref(), Some("Http2FrameHeader"));
@@ -659,6 +319,9 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
+}
+
+fn assert_schema_fields(schema: &SchemaDecl) {
     assert_eq!(schema.fields.len(), 7);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
@@ -686,6 +349,9 @@ fn lowers_schema_declarations_as_distinct_module_items() {
     );
     assert_eq!(schema.fields[6].name, "payload");
     assert_eq!(schema.fields[6].ty, "ByteView(length - padding_length)");
+}
+
+fn assert_schema_validation(schema: &SchemaDecl) {
     assert_eq!(schema.validations.len(), 1);
     assert_eq!(
         schema.validations[0].node_id.display("schema_validation"),

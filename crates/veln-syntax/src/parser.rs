@@ -24,11 +24,19 @@ mod expression_control;
 mod expression_core;
 mod expression_primaries;
 mod functions_and_imports;
+mod generic_type_syntax;
 mod integer_literal_diagnostics;
 mod schemas;
+mod type_argument_lists;
+mod type_paths;
+mod variant_refinement_diagnostics;
+mod variant_refinements;
 
 use adr_lite::collect_adr_lite_records;
 use integer_literal_diagnostics::integer_literal_diagnostics;
+use type_argument_lists::TypeArgumentListState;
+use type_paths::type_paths_from_tokens;
+use variant_refinements::build_variant_refinements;
 
 const MAX_CLEANUP_NESTING: usize = 128;
 
@@ -261,7 +269,7 @@ pub(crate) fn variant_refinement_union_pipe_ranges(
     source: &SourceFile,
     tokens: &[Token],
 ) -> Vec<TextRange> {
-    let (_, consumed_pipes) = body_and_types::build_variant_refinements(source, tokens);
+    let (_, consumed_pipes) = build_variant_refinements(source, tokens);
     tokens
         .iter()
         .zip(consumed_pipes)
@@ -343,125 +351,6 @@ struct SchemaBody {
     fields: Vec<SchemaField>,
     validations: Vec<SchemaValidationClause>,
     end_present: bool,
-}
-
-#[derive(Default)]
-struct TypeArgumentNesting {
-    parentheses: usize,
-    braces: usize,
-    brackets: usize,
-    angles: usize,
-}
-
-struct AngleClosers {
-    total: usize,
-    nested: usize,
-}
-
-enum TypeArgumentTokenAction {
-    Finish { nested_angle_closers: usize },
-    Separate,
-    Append,
-}
-
-#[derive(Default)]
-struct TypeArgumentListState {
-    args: Vec<String>,
-    arg_tokens: Vec<Vec<Token>>,
-    current: String,
-    current_tokens: Vec<Token>,
-    nesting: TypeArgumentNesting,
-}
-
-impl TypeArgumentNesting {
-    fn is_outer_level(&self) -> bool {
-        self.parentheses == 0 && self.braces == 0 && self.brackets == 0 && self.angles == 0
-    }
-
-    fn consume_delimiter(&mut self, kind: TokenKind) {
-        match kind {
-            TokenKind::LParen => self.parentheses += 1,
-            TokenKind::RParen => self.parentheses = self.parentheses.saturating_sub(1),
-            TokenKind::LBrace => self.braces += 1,
-            TokenKind::RBrace => self.braces = self.braces.saturating_sub(1),
-            TokenKind::LBracket => self.brackets += 1,
-            TokenKind::RBracket => self.brackets = self.brackets.saturating_sub(1),
-            TokenKind::Less => self.angles += 1,
-            _ => {}
-        }
-    }
-
-    fn consume_angle_closers(&mut self, kind: TokenKind) -> Option<AngleClosers> {
-        let total = closing_angle_count(kind);
-        if total == 0 {
-            return None;
-        }
-        let nested = total.min(self.angles);
-        self.angles -= nested;
-        Some(AngleClosers { total, nested })
-    }
-
-    fn classify(&mut self, kind: TokenKind, close: TokenKind) -> TypeArgumentTokenAction {
-        if kind == close && self.is_outer_level() {
-            return TypeArgumentTokenAction::Finish {
-                nested_angle_closers: 0,
-            };
-        }
-        if kind == TokenKind::Comma && self.is_outer_level() {
-            return TypeArgumentTokenAction::Separate;
-        }
-        if let Some(closers) = self.consume_angle_closers(kind) {
-            return if closers.total > closers.nested {
-                TypeArgumentTokenAction::Finish {
-                    nested_angle_closers: closers.nested,
-                }
-            } else {
-                TypeArgumentTokenAction::Append
-            };
-        }
-        self.consume_delimiter(kind);
-        TypeArgumentTokenAction::Append
-    }
-}
-
-impl TypeArgumentListState {
-    fn consume(&mut self, token: &Token, close: TokenKind) -> bool {
-        match self.nesting.classify(token.kind, close) {
-            TypeArgumentTokenAction::Finish {
-                nested_angle_closers,
-            } => {
-                self.current.push_str(&">".repeat(nested_angle_closers));
-                if nested_angle_closers > 0 {
-                    self.current_tokens.push(token.clone());
-                }
-                self.flush_current(false);
-                true
-            }
-            TypeArgumentTokenAction::Separate => {
-                self.flush_current(true);
-                false
-            }
-            TypeArgumentTokenAction::Append => {
-                self.current.push_str(&token.text);
-                self.current_tokens.push(token.clone());
-                false
-            }
-        }
-    }
-
-    fn flush_current(&mut self, include_empty: bool) {
-        if include_empty || !self.current.is_empty() {
-            let current = std::mem::take(&mut self.current);
-            self.args.push(normalize_type_text(vec![current]));
-            self.arg_tokens
-                .push(std::mem::take(&mut self.current_tokens));
-        }
-    }
-
-    fn finish(mut self) -> (Vec<String>, Vec<Vec<Token>>) {
-        self.flush_current(false);
-        (self.args, self.arg_tokens)
-    }
 }
 
 struct ExprParser<'a> {
