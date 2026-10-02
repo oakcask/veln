@@ -8,9 +8,12 @@ use crate::type_syntax::parse_type_annotation;
 pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
     module: &SurfaceModule,
     schema: &SchemaDecl,
+    adts: &AdtRegistry,
 ) -> Option<FunctionSignature> {
     let schema_name = schema.name.as_ref()?;
-    let decoded_type = Type::Record(format_neutral_schema_decode_record_fields(module, schema)?);
+    let decoded_type = Type::Record(format_neutral_schema_decode_record_fields_with_adts(
+        module, schema, adts,
+    )?);
     Some(FunctionSignature {
         name: schema_decode_function_name(schema_name),
         target_name: format!("{SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX}{schema_name}"),
@@ -30,13 +33,21 @@ pub(crate) fn format_neutral_schema_decode_record_fields(
     schema: &SchemaDecl,
 ) -> Option<Vec<(String, Type)>> {
     let adts = AdtRegistry::from_module(module);
+    format_neutral_schema_decode_record_fields_with_adts(module, schema, &adts)
+}
+
+fn format_neutral_schema_decode_record_fields_with_adts(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+) -> Option<Vec<(String, Type)>> {
     schema
         .fields
         .iter()
         .map(|field| {
             Some((
                 field.name.clone(),
-                format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)?,
+                format_neutral_schema_field_type_for_schema(module, schema, adts, &field.ty)?,
             ))
         })
         .collect()
@@ -167,14 +178,14 @@ fn format_neutral_schema_encode_type_is_source_adt_candidate(ty: &Type) -> bool 
 pub(super) fn format_neutral_schema_encode_record_fields(
     module: &SurfaceModule,
     schema: &SchemaDecl,
+    adts: &AdtRegistry,
 ) -> Option<Vec<(String, Type)>> {
-    let adts = AdtRegistry::from_module(module);
     schema
         .fields
         .iter()
         .map(|field| {
             let ty = format_neutral_schema_encode_field_type_for_schema(
-                module, schema, &adts, &field.ty,
+                module, schema, adts, &field.ty,
             )?;
             Some((field.name.clone(), ty))
         })
@@ -184,22 +195,22 @@ pub(super) fn format_neutral_schema_encode_record_fields(
 pub(crate) fn format_neutral_schema_first_unsupported_encode_field(
     module: &SurfaceModule,
     schema: &SchemaDecl,
+    adts: &AdtRegistry,
 ) -> Option<SchemaField> {
     if schema.format.is_some() {
         return None;
     }
-    let adts = AdtRegistry::from_module(module);
     schema
         .fields
         .iter()
         .find(|field| {
             let declaration_diagnostic_exists =
-                format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)
+                format_neutral_schema_field_type_for_schema(module, schema, adts, &field.ty)
                     .is_none()
                     && format_neutral_schema_encode_field_is_source_adt_candidate(&field.ty);
             !declaration_diagnostic_exists
                 && format_neutral_schema_encode_field_type_for_schema(
-                    module, schema, &adts, &field.ty,
+                    module, schema, adts, &field.ty,
                 )
                 .is_none()
         })

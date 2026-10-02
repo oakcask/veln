@@ -83,7 +83,7 @@ pub(super) fn from_module_with_base(
 pub(super) fn from_module_for_path_classification(module: &SurfaceModule) -> TypeEnvironment {
     let declarations = declaration_facts(module, None);
     let mut callables = declared_callable_facts(module, None, &declarations);
-    append_schema_helpers(module, &mut callables.functions);
+    append_schema_helpers(module, &mut callables.functions, &declarations.adts);
     finish_environment(module, None, declarations, callables)
 }
 
@@ -93,7 +93,7 @@ fn finish_environment(
     declarations: DeclarationFacts,
     mut callables: CallableFacts,
 ) -> TypeEnvironment {
-    let symbols = symbol_facts(module, base);
+    let symbols = symbol_facts(module, base, &declarations.adts);
     let aliases = function_alias_signatures(module, &callables.functions);
     callables.functions.extend(aliases);
     let functions_by_name = function_name_index(&callables.functions);
@@ -369,7 +369,7 @@ fn callable_facts(
     infer_private_function_call_site_signature_types(module, &mut functions, &declarations.adts);
     infer_private_function_body_return_types(module, &mut functions, &declarations.adts);
     infer_private_prelude_callback_return_types(module, &mut functions, &declarations.adts);
-    append_schema_helpers(module, &mut functions);
+    append_schema_helpers(module, &mut functions, &declarations.adts);
     infer_function_and_private_handler_effects(
         module,
         &mut functions,
@@ -382,14 +382,22 @@ fn callable_facts(
     }
 }
 
-fn append_schema_helpers(module: &SurfaceModule, functions: &mut Vec<FunctionSignature>) {
-    functions.extend(schema_decode_function_signatures(module));
-    functions.extend(schema_encode_function_signatures(module));
+fn append_schema_helpers(
+    module: &SurfaceModule,
+    functions: &mut Vec<FunctionSignature>,
+    adts: &AdtRegistry,
+) {
+    functions.extend(schema_decode_function_signatures(module, adts));
+    functions.extend(schema_encode_function_signatures(module, adts));
     functions.extend(schema_validate_function_signatures(module));
 }
 
-fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> SymbolFacts {
-    let mut schema_symbols = SchemaSymbolTable::from_module(module);
+fn symbol_facts(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+    adts: &AdtRegistry,
+) -> SymbolFacts {
+    let mut schema_symbols = SchemaSymbolTable::from_module(module, adts);
     extend_with_base_facts(&mut schema_symbols, base.map(|base| &base.schema_symbols));
     let mut type_symbols = named_type_symbols(module);
     extend_with_base_facts(&mut type_symbols, base.map(|base| &base.type_symbols));

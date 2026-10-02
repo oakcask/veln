@@ -1,4 +1,5 @@
 use super::*;
+use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::{
     normal_imported_use_for_path, schema_composition_imported_use_for_path,
 };
@@ -126,23 +127,27 @@ fn schema_in_module<'a>(
     schema
 }
 
-pub(super) fn schema_decode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
+pub(super) fn schema_decode_function_signatures(
+    module: &SurfaceModule,
+    adts: &AdtRegistry,
+) -> Vec<FunctionSignature> {
     module
         .schemas
         .iter()
-        .flat_map(|schema| schema_decode_function_signatures_for_schema(module, schema))
+        .flat_map(|schema| schema_decode_function_signatures_for_schema(module, schema, adts))
         .collect()
 }
 
 fn schema_decode_function_signatures_for_schema(
     module: &SurfaceModule,
     schema: &SchemaDecl,
+    adts: &AdtRegistry,
 ) -> Vec<FunctionSignature> {
     let Some(schema_name) = schema.name.as_ref() else {
         return Vec::new();
     };
     if schema.format.is_none() {
-        return format_neutral_schema_decode_function_signature_for_schema(module, schema)
+        return format_neutral_schema_decode_function_signature_for_schema(module, schema, adts)
             .into_iter()
             .collect();
     }
@@ -192,11 +197,14 @@ pub(crate) fn schema_decode_value_type(
     schema_decode_value_type_inner(module, schema, &mut Vec::new())
 }
 
-pub(super) fn schema_encode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
+pub(super) fn schema_encode_function_signatures(
+    module: &SurfaceModule,
+    adts: &AdtRegistry,
+) -> Vec<FunctionSignature> {
     module
         .schemas
         .iter()
-        .filter_map(|schema| schema_encode_function_signature_for_schema(module, schema))
+        .filter_map(|schema| schema_encode_function_signature_for_schema(module, schema, adts))
         .collect()
 }
 
@@ -240,10 +248,13 @@ fn schema_validate_function_signature_for_schema(
 fn schema_encode_function_signature_for_schema(
     module: &SurfaceModule,
     schema: &SchemaDecl,
+    adts: &AdtRegistry,
 ) -> Option<FunctionSignature> {
     let schema_name = schema.name.as_ref()?;
     if schema.format.is_none() {
-        let value_type = Type::Record(format_neutral_schema_encode_record_fields(module, schema)?);
+        let value_type = Type::Record(format_neutral_schema_encode_record_fields(
+            module, schema, adts,
+        )?);
         return Some(FunctionSignature {
             name: schema_encode_function_name(schema_name),
             target_name: format!("{SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX}{schema_name}"),
@@ -284,7 +295,8 @@ pub(crate) fn schema_encode_value_type(
     module: &SurfaceModule,
     schema: &SchemaDecl,
 ) -> Option<Type> {
-    schema_encode_function_signature_for_schema(module, schema)
+    let adts = AdtRegistry::from_module(module);
+    schema_encode_function_signature_for_schema(module, schema, &adts)
         .and_then(|signature| signature.params.into_iter().next())
 }
 
