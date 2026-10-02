@@ -19,8 +19,8 @@ fn run_blocks_callsite_references_before_jdk_execution() {
     assert_contains_all(
         stderr(&output),
         &[
-            "main.veln:2:3: error[core.callsite_runtime_unsupported]: `callsite` is not available during execution",
-            "note: Runtime support for call-site locations and their hidden call ABI is not implemented.",
+            "main.veln:1:33: error[core.callsite_entry_unsupported]: run entry `main` cannot require call-site context",
+            "note: A run entry has no Veln call expression from which to construct the hidden location.",
         ],
     );
     assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));

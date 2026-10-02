@@ -57,9 +57,11 @@ local reference.
 
 For a direct call from an ordinary function, the supplied value covers the
 complete call expression from its callee through its closing parenthesis. For
-a direct call from a call-site-aware function, the supplied value is that
-function's existing `callsite` value. A chain of call-site-aware wrappers
-therefore preserves the outer ordinary caller's call expression.
+a pipeline call, it covers the right-hand call expression and excludes the
+piped argument and pipeline operator. For a direct call from a call-site-aware
+function, the supplied value is that function's existing `callsite` value. A
+chain of call-site-aware wrappers therefore preserves the outer ordinary
+caller's call expression.
 
 The built-in value behaves as an ordinary `SourceLocation` after it enters the
 callee. The function can return it or pass it to an explicit

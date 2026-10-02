@@ -4,6 +4,7 @@ pub fn main() -> () effects [stdio]
 	let direct = locations::direct()
 	let nested = locations::wrapper()
 	let explicit = locations::forward()
+	let pipeline = "input" |> locations::piped()
 	stdio::println(direct.module)
 	stdio::println(direct.file)
 	stdio::println(int_to_string(direct.start_line))
@@ -13,4 +14,10 @@ pub fn main() -> () effects [stdio]
 	stdio::println(explicit.module)
 	stdio::println(explicit.file)
 	stdio::println(int_to_string(explicit.start_line))
+	stdio::println(int_to_string(pipeline.start_line))
+	stdio::println(int_to_string(pipeline.start_column))
+	stdio::println(int_to_string(pipeline.start_offset))
+	stdio::println(int_to_string(pipeline.end_line))
+	stdio::println(int_to_string(pipeline.end_column))
+	stdio::println(int_to_string(pipeline.end_offset))
 end

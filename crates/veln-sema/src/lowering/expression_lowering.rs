@@ -275,7 +275,7 @@ impl<'a> CoreLowerer<'a> {
         let mut piped_args = Vec::with_capacity(args.len() + 1);
         piped_args.push(left.clone());
         piped_args.extend(args.iter().cloned());
-        self.lower_call(expr, callee, &piped_args, expected)
+        self.lower_call_with_callsite(expr, right, callee, &piped_args, expected)
     }
 
     pub(super) fn numeric_operand_type(

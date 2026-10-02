@@ -8,6 +8,17 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
+        self.lower_call_with_callsite(expr, expr, callee, args, expected)
+    }
+
+    pub(super) fn lower_call_with_callsite(
+        &mut self,
+        expr: &Expr,
+        callsite_expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
         if let Some(call) = self.lower_constructor_call(expr, callee, args, expected) {
             return call;
         }
@@ -17,7 +28,7 @@ impl<'a> CoreLowerer<'a> {
         if let Some(call) = self.lower_type_applied_concurrency_call(expr, callee, args, expected) {
             return call;
         }
-        self.lower_general_call(expr, callee, args, expected)
+        self.lower_general_call(expr, callsite_expr, callee, args, expected)
     }
 
     pub(super) fn lower_perform(
@@ -260,6 +271,7 @@ impl<'a> CoreLowerer<'a> {
     pub(super) fn lower_general_call(
         &mut self,
         expr: &Expr,
+        callsite_expr: &Expr,
         callee: &Expr,
         args: &[Expr],
         expected: Option<&CoreType>,
@@ -290,7 +302,7 @@ impl<'a> CoreLowerer<'a> {
             .as_ref()
             .is_some_and(|signature| signature.callsite)
         {
-            lowered_args.push(self.lower_direct_callsite(expr));
+            lowered_args.push(self.lower_direct_callsite(callsite_expr));
         }
         let (target, return_type) = signature.map_or_else(
             || {

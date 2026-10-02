@@ -13,3 +13,7 @@ end
 pub fn wrapper() -> SourceLocation callsite
 	forward()
 end
+
+pub fn piped(label: String) -> SourceLocation callsite
+	callsite
+end
