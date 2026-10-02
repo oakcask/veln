@@ -266,6 +266,12 @@ paths inside function type
 `effects [...]` annotations are effect paths, not qualified type paths, and do
 not produce source identifier casing diagnostics. An unresolved or
 ambiguous intermediate segment is not assigned a role from spelling alone.
+An ordinary qualified generic type such as `Alias::Container<Int>` keeps
+`Container` as its final type segment. In structurally recognized
+variant-refinement-shaped type text, only the written base is a qualified type
+path for casing analysis. The parser owns the final structural segment: a
+lowercase final segment reports `parse.variant_refinement_type` instead of
+`name.invalid_case`.
 Each invalid role-fixed segment reports `name.invalid_case` at the exact
 segment token span with occurrence `path_segment` and the zero-based
 `segment_index`. A call-target diagnostic whose only cause is the resolved or

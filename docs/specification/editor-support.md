@@ -143,12 +143,14 @@ previously reported files that become clean or leave discovery.
 
 For documents outside resolved workspace roots, diagnostics remain
 document-scoped and are computed from the in-editor document text. Parse
-diagnostics are reported first. When parsing succeeds, the server lowers the
-document into the surface module model and publishes semantic diagnostics from
-the checked surface module. Parse-clean source invalid-name records are passed
-to that checked surface model, so document-scoped diagnostics include the
-implemented source identifier casing failures specified by
-[names-effects.md](names-effects.md).
+diagnostics are reported first. This includes
+`parse.variant_refinement_type` for malformed variant-refinement-shaped type
+text; its LSP range is the parser's incomplete or misplaced source span. When
+parsing succeeds, the server lowers the document into the surface module model
+and publishes semantic diagnostics from the checked surface module. Parse-clean
+source invalid-name records are passed to that checked surface model, so
+document-scoped diagnostics include the implemented source identifier casing
+failures specified by [names-effects.md](names-effects.md).
 For workspace sources, saved snapshots and open-document overlays publish
 source identifier casing diagnostics for the selected workspace project only,
 including source-path-derived module segment diagnostics at the zero-width
@@ -179,6 +181,13 @@ diagnostics include LSP `data` with the observable source-path origin
 projection: `origin`, `occurrence`, `source_path`, `source_kind`, `segment`,
 and `segment_index`. The remaining diagnostic detail contract is the shared
 compiler diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md).
+
+Full-document formatting uses the shared formatter. It spaces each `|` in a
+structurally complete variant-refinement union and preserves written
+alternatives, qualification, and type arguments as specified by the
+[format command](command-fmt.md#formatting-rules). This structural formatting
+does not add semantic-token, navigation, or rename support for refinement
+segments.
 
 ## LSP Navigation, Formatting, And Rename
 

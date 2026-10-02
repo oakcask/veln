@@ -8,7 +8,8 @@ update-when: Veln declarations, expressions, literals, schema syntax, companion 
 # Source Surface
 
 This page specifies implemented source syntax. The executable grammar in
-[source-surface-executable.pl](source-surface-executable.pl) corroborates the accepted and rejected source forms.
+[source-surface-executable.pl](source-surface-executable.pl) and the checked
+parser and command cases corroborate the accepted and rejected source forms.
 
 ## Usage and declaration forms
 
@@ -120,6 +121,7 @@ analysis; uppercase qualifier spelling alone does not turn it into a malformed
 refinement. Once type arguments before `::Variant` make the refinement
 structure explicit, further type arguments after that final segment are
 malformed.
+
 The parser reports `parse.variant_refinement_type` for an incomplete
 alternative, a missing base or final segment, an empty or misplaced type
 argument, a segment following a generic base's final variant, a lowercase final

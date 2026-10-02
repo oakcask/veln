@@ -139,4 +139,7 @@ The harness also checks that a selected repository authority is current.
 Recorded topic listings must match checked published or archived catalog
 evidence and its snapshot digest. A stale snapshot scenario must replace the
 server that returned the URI with a distinct server that retains the current
-published snapshot before the read fails.
+published snapshot before the read fails. Because scenario events record exact
+snapshot URIs, a checked catalog content change updates the current base digest,
+the derived archived snapshot digests, and every affected scenario URI
+together; that evidence refresh does not add a routing outcome.

@@ -659,8 +659,6 @@ The existing LSP surface gains the following behavior:
 - Semantic tokens classify each base path as `type`, each final variant as
   `enumMember`, and `|` as the existing operator token class. Declaration and
   existing modifiers follow the underlying type and constructor identities.
-- Full-document formatting preserves and canonically spaces singleton and
-  union refinements, including generic alternatives.
 - Published diagnostics project the diagnostic table with the existing UTF-16
   range conversion and related information.
 - Definition on the base type goes to the type or selected type alias.
@@ -697,9 +695,11 @@ The existing MCP surface gains matching saved-snapshot behavior:
 - Package-documentation declaration signatures preserve public singleton and
   union refinement annotations. Constructor documentation identity remains
   the owning ADT and constructor identity rather than a synthetic declaration.
-- The language-reference catalog receives a variant-refinement topic. The
+- The language-reference catalog expands its parser-only refinement material
+  to cover the current semantic contract, either in the existing types topic
+  or in a focused topic if the catalog's subject boundaries require one. The
   existing `search_docs` and `read_doc` tools and language-reference resources
-  expose it after the feature becomes current behavior.
+  expose that semantic material after the feature becomes current behavior.
 
 Protocol-invalid input, failed stable capture, failed analysis, pagination
 failure, and rename refusal create no partial result, consume no unrelated
