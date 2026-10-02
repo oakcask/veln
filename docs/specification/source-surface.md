@@ -125,11 +125,18 @@ analysis rather than becoming refinement syntax. Once type arguments before
 `::Variant` make the refinement structure explicit, further type arguments
 after that final segment are malformed.
 
+Adjacent closing angle brackets close the innermost type arguments first.
+Thus `sink<List<State::Ready>>(value)` is valid: the first `>` closes `List`
+and the second closes the call's explicit type arguments. In
+`sink<State::Ready>>(value)`, the second `>` is surplus and remains part of the
+recovered source.
+
 The parser reports `parse.variant_refinement_type` for an incomplete
 alternative, a missing base or final segment, an empty or misplaced type
 argument, a segment following a generic base's final variant, a lowercase final
-segment, a surplus generic closer before or after the final variant, or `|>`
-between alternatives. Nesting beyond 256 containing generic-argument
+segment, a missing generic closer, a surplus generic closer before or after the
+final variant, adjacent type text outside the completed structural position,
+or `|>` between alternatives. Nesting beyond 256 containing generic-argument
 boundaries reports the same diagnostic and does not prevent lossless-tree
 construction.
 
