@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"e255e15f95f75542249daba40bbfb2668c1e8c9a"
+source_git_tree	"67ffc823c9d916e2581d731747c58d44635c734f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1750
