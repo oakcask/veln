@@ -1,0 +1,11 @@
+use contracts
+
+pub fn main() -> () effects [stdio]
+  let required_location = contracts::required(4)
+  let invariant_location = contracts::invariant_checked(5)
+  let ensured_location = contracts::ensured(6)
+  stdio::println(required_location.file)
+  stdio::println(int_to_string(required_location.start_line))
+  stdio::println(int_to_string(invariant_location.start_line))
+  stdio::println(int_to_string(ensured_location.start_line))
+end

@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"19c36cbd1cf1891da5f201dd905703893ae9216a"
+source_git_tree	"e255e15f95f75542249daba40bbfb2668c1e8c9a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1748
+case_count	1750
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -36924,12 +36924,50 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"f00a9ea9d8a375fc87b84a00008426a0e3db2fee600557aa9ef74c98b69be7e6"
+case	"examples/specification/run/callsite-contract-failure"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"failed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	"contract"
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"error.kind"
+field	expectations.json_assertions[2].equals	"ensure"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"error.details.clause"
+field	expectations.json_assertions[3].equals	"callsite.start_line == expected_line"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"error.details.predicate"
+field	expectations.json_assertions[4].equals	"implementation"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"error.details.blame"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.command[4]	"contracts.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"584b2cc66f2c45e6b54020beefddfb2257742fbb3766d24b8d6986160caf4957"
+case	"examples/specification/run/callsite-contract-runtime"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"contracts.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"cf8cc8212de5744cb052561c0f7b8d95765c9049eb6c5a41119d7a5cb25cba61"
 case	"examples/specification/run/callsite-contract-runtime-boundary"
 field	expectations.exit	1
-field	expectations.stderr.contains[0]	"error[core.callsite_runtime_unsupported]: `callsite` is not available during execution"
-field	expectations.stderr.contains[1]	"Runtime support for this use of call-site locations is not implemented."
-field	expectations.stderr.contains[2]	"error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract"
-field	expectations.stderr.contains[3]	"Runtime contract calls do not yet supply the hidden call-site location."
+field	expectations.stderr.contains[0]	"error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract"
+field	expectations.stderr.contains[1]	"Runtime contract calls do not yet supply the hidden call-site location."
 field	expectations.stderr.format	"text"
 field	expectations.stdout.format	"empty"
 field	invocation.command[0]	"run"
@@ -36937,7 +36975,7 @@ field	invocation.command[1]	"main"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"b60553de75930a1cd283ece974133370a2ae10942b141df1032e957f65e4109c"
+case_digest	"b4a1c10fceefebb686d9867f28eef5ea5386cf78d6a168f5d1f4da6db9e3d22b"
 case	"examples/specification/run/callsite-direct-runtime"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62791,4 +62829,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"6d7960b14bf230cda30a27814e384fa6a9f7c5c5abfe074af2b9a955cdf9c95a"
+aggregate_digest	"4822f2255340c302b594b7ab42bd9180d1a7cf24ec690395c9ffb3f4e6700356"

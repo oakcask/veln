@@ -1,13 +1,8 @@
-fn guarded() -> SourceLocation callsite
-require callsite.start_line > 0
-	callsite
-end
-
 fn located() -> Bool callsite
 	callsite.start_line > 0
 end
 
-pub fn main() -> SourceLocation
+pub fn main() -> ()
 	require located()
-	guarded()
+	()
 end

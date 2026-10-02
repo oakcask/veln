@@ -216,7 +216,7 @@ impl CaseManifest {
                 && self.expectations.exit != 0
                 && self.expectations.stderr.contains.iter().any(|fragment| {
                     fragment.contains("runnable entry retains user-defined effect")
-                        || fragment.contains("error[core.callsite_runtime_unsupported]")
+                        || fragment.contains("error[core.callsite_contract_call_unsupported]")
                 })
     }
 

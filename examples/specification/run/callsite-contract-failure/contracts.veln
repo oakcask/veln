@@ -1,0 +1,4 @@
+pub fn rejected(expected_line: Int) -> SourceLocation callsite
+ensure callsite.start_line == expected_line
+	callsite
+end

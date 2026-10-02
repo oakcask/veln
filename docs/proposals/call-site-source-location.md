@@ -31,10 +31,9 @@ specification. Devirtualization and inlining must not change the observed
 location. The implicit context must not become an explicit override at a call
 expression.
 
-Runtime-required contract predicates in call-site-aware functions must be able
-to read the function's supplied location. A runtime-required predicate that
-directly calls a call-site-aware function must propagate the same location that
-the enclosing function body would supply.
+A runtime-required predicate that directly calls a call-site-aware function
+must propagate the same location that the enclosing function body would
+supply.
 
 Completion and signature help must present the `callsite` modifier. Completion
 inside the function body must include the built-in local variable.
@@ -60,12 +59,11 @@ file value.
 | S7 | Equivalent packages under two absolute roots contain dependencies with the same package-relative source path. | Exposed `file` values are package-relative or canonical virtual paths, all fields contain neither root and remain identical after relocation, and `package` plus `module` disambiguate the dependency sources. | Relocation and dependency-collision test. |
 | S8 | LSP and MCP present the declaration. | Each service identifies the modifier and built-in local variable, and signature help presents the modifier. | LSP and MCP cases. |
 | S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
-| S11 | A runtime-required predicate in a call-site-aware function reads `callsite`. | The predicate observes the function's supplied location and does not block execution lowering. | Run contract case. |
 | S12 | A runtime-required predicate directly calls a call-site-aware function. | The predicate callee observes the location supplied by the enclosing function's direct caller. | Run contract case. |
 
 ## Verification and Promotion
 
-Remaining implementation must extend function-value and runtime-contract
+Remaining implementation must extend function-value and runtime-contract call
 lowering, ABI metadata, generated-source mapping, lifetime coverage, LSP, and
 MCP.
 

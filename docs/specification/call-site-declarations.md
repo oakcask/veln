@@ -69,6 +69,11 @@ callee. The function can return it or pass it to an explicit
 are zero-based UTF-8 byte offsets. End positions are exclusive, and columns
 count Unicode scalar values.
 
+Runtime-required `require`, `invariant`, and `ensure` predicates in a
+call-site-aware function read the same supplied `SourceLocation` as the
+function body. Their coordinates therefore identify the call expression
+selected by the direct-call and wrapper propagation rules above.
+
 Direct-call construction copies the call expression's existing source
 identifier into `file`. An ordinary package-selected source therefore uses its
 package-relative path. The current `package` field is empty. The `module` field
@@ -101,8 +106,8 @@ Veln call expression from which to obtain a location. Generated-source origin
 mapping, canonical virtual-source naming, dependency source-identity
 collisions, relocation guarantees, deferred-observation lifetime guarantees,
 and call-site-specific LSP and MCP presentation are also not implemented.
-Runtime contract predicates that refer to the built-in, or call a
-call-site-aware function, remain blocked.
+Runtime-required contract predicates that call a call-site-aware function
+remain blocked.
 
 An unmodified function can use an ordinary binding named `callsite`, including
 in its contracts, and execution treats that binding like any other local value.
@@ -126,7 +131,10 @@ Functions without the modifier retain their ordinary call ABI.
   `examples/specification/run/callsite-runtime-boundary/case.toml`.
 - Run-entry boundary evidence:
   the `callsite-entry-runtime-boundary` run specification case.
-- Runtime-contract boundary evidence:
+- Runtime contract built-in reference evidence:
+  the `callsite-contract-runtime` and `callsite-contract-failure` run
+  specification cases.
+- Remaining runtime-contract call boundary evidence:
   the `callsite-contract-runtime-boundary` run specification case.
 - Ordinary-identifier execution evidence:
   `examples/specification/run/callsite-ordinary-identifier/case.toml`.

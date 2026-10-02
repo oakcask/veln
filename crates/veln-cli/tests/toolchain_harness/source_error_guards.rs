@@ -153,7 +153,7 @@ command = ["run", "main", "main.veln"]
 exit = 1
 
 [stderr]
-contains = ["error[core.callsite_runtime_unsupported]"]
+contains = ["error[core.callsite_contract_call_unsupported]"]
 "#,
     );
     assert!(
