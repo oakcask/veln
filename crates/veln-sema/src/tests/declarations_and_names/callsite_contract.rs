@@ -123,7 +123,7 @@ fn ordinary_function_contract_calls_that_need_callsite_context_remain_blocked() 
     assert!(diagnostic.related.iter().any(|related| {
         related
             .to_json()
-            .contains("do not yet supply the hidden call-site location")
+            .contains("Only a call-site-aware enclosing function has hidden context")
     }));
     assert!(lowered.ir.is_none());
 }

@@ -83,8 +83,8 @@ fn run_blocks_callsite_aware_contract_calls_before_jdk_execution() {
     assert_contains_all(
         stderr(&output),
         &[
-            "main.veln:5:9: error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract",
-            "note: Runtime contract calls do not yet supply the hidden call-site location.",
+            "main.veln:5:9: error[core.callsite_contract_call_unsupported]: contract in an ordinary function has no call-site context to pass to `located`",
+            "note: Only a call-site-aware enclosing function has hidden context that its contract can forward.",
         ],
     );
     assert!(
@@ -130,7 +130,7 @@ fn run_json_reports_callsite_contract_call_gate_details() {
             "\"details\":{\"phase\":\"core_lowering\"",
             "\"reason\":\"callsite_contract_call_unsupported\"",
             "\"callee\":\"located\"",
-            "\"related\":[{\"kind\":\"runtime_support\",\"message\":\"Runtime contract calls do not yet supply the hidden call-site location.\"}]",
+            "\"related\":[{\"kind\":\"runtime_support\",\"message\":\"Only a call-site-aware enclosing function has hidden context that its contract can forward.\"}]",
         ],
     );
 }

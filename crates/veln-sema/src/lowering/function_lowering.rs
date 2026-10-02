@@ -232,7 +232,7 @@ impl<'a> CoreLowerer<'a> {
             Severity::Error,
             DiagnosticKind::Type,
             format!(
-                "call-site-aware function `{callee}` cannot be called from an executable contract"
+                "contract in an ordinary function has no call-site context to pass to `{callee}`"
             ),
             Some(span.clone()),
             JsonValue::object([
@@ -247,7 +247,7 @@ impl<'a> CoreLowerer<'a> {
             (
                 "message",
                 JsonValue::string(
-                    "Runtime contract calls do not yet supply the hidden call-site location.",
+                    "Only a call-site-aware enclosing function has hidden context that its contract can forward.",
                 ),
             ),
         ]));
