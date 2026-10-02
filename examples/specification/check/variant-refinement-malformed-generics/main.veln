@@ -42,6 +42,14 @@ fn lowercase_variant(value: Result<Int, Error>::ok) -> ()
 	()
 end
 
+fn lowercase_plain_variant(value: State::ready) -> ()
+	()
+end
+
+fn lowercase_qualified_variant(value: protocol::State::ready) -> ()
+	()
+end
+
 fn pipeline_separator(value: State::Ready |> State::Closed) -> ()
 	()
 end

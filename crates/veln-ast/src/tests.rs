@@ -214,6 +214,62 @@ fn deep_refinement_structure_remains_linear_through_lowering_and_wire_round_trip
     );
 }
 
+#[test]
+fn excessive_source_refinement_nesting_remains_bounded_through_lowering_and_wire() {
+    let mut annotation = "Leaf::Value".to_string();
+    for _ in 0..4_096 {
+        annotation = format!("Layer<{annotation}>::Wrapped");
+    }
+    let source = format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n");
+
+    let module = lower_source_allowing_diagnostics(&source);
+    let mut refinements = module.functions[0].params[0].ty_refinements.as_slice();
+    let mut nesting = 0;
+    while let Some(refinement) = refinements.first() {
+        nesting += 1;
+        refinements = refinement.alternatives[0]
+            .type_arguments
+            .first()
+            .map_or(&[], |argument| argument.ty_refinements.as_slice());
+    }
+    assert_eq!(nesting, veln_syntax::MAX_VARIANT_REFINEMENT_NESTING + 1);
+    let encoded = encode_surface_module(&module);
+    decode_surface_module(&encoded).expect("bounded recovery AST should cross the wire boundary");
+}
+
+#[test]
+fn surface_wire_rejects_refinement_nesting_beyond_the_parser_limit() {
+    let mut module = lower_source("fn nested(value: Leaf::Value) -> ()\n  ()\nend\n");
+    let refinements = &mut module.functions[0].params[0].ty_refinements;
+    let template = refinements[0].alternatives[0].clone();
+    for _ in 0..=veln_syntax::MAX_VARIANT_REFINEMENT_NESTING {
+        let child = std::mem::take(refinements);
+        *refinements = vec![VariantRefinementType {
+            alternatives: vec![VariantRefinementAlternative {
+                base: template.base.clone(),
+                type_arguments: vec![VariantRefinementTypeArgument {
+                    ty_fragments: vec![String::new(), String::new()],
+                    ty_paths: Vec::new(),
+                    ty_refinements: child,
+                    span: template.span.clone(),
+                }],
+                variant: template.variant.clone(),
+                variant_span: template.variant_span.clone(),
+                span: template.span.clone(),
+            }],
+            pipe_spans: Vec::new(),
+            span: template.span.clone(),
+        }];
+    }
+
+    let encoded = encode_surface_module(&module);
+    let error = decode_surface_module(&encoded).expect_err("excessive nesting must be rejected");
+    assert_eq!(
+        error,
+        "surface module variant refinements are nested too deeply"
+    );
+}
+
 fn refinement_wire_size(depth: usize) -> usize {
     let mut annotation = "domain::Leaf::Value".to_string();
     for _ in 0..depth {

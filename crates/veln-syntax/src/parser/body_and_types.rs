@@ -439,15 +439,10 @@ fn type_paths_from_tokens(source: &SourceFile, tokens: &[Token]) -> Vec<TypePath
 pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'static str)> {
     let mut errors = Vec::new();
     let (generic_syntax, surplus_closers) = scan_generic_syntax(tokens);
-    let candidate_ends = (0..tokens.len())
-        .filter(|start| {
-            is_type_path_segment(&tokens[*start])
-                && (*start == 0 || tokens[*start - 1].kind != TokenKind::DoubleColon)
-        })
-        .filter_map(|start| {
-            refinement_alternative_shape(tokens, &generic_syntax, start)
-                .map(|shape| shape.variant_index)
-        })
+    let raw_candidates = refinement_alternatives(tokens, &generic_syntax);
+    let candidate_ends = raw_candidates
+        .iter()
+        .map(|candidate| candidate.shape.variant_index)
         .collect::<Vec<_>>();
     for (index, token) in tokens.iter().enumerate() {
         if token.kind == TokenKind::PipeGreater {
@@ -469,6 +464,21 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
                 errors.push((
                     index,
                     "variant refinement is missing its final variant name",
+                ));
+            }
+
+            let lowercase_final_after_uppercase_base = index > 0
+                && tokens.get(index - 1).is_some_and(|token| {
+                    is_type_path_segment(token) && starts_uppercase(&token.text)
+                })
+                && tokens.get(index + 1).is_some_and(|token| {
+                    is_type_path_segment(token) && !starts_uppercase(&token.text)
+                })
+                && tokens.get(index + 2).map(|token| token.kind) != Some(TokenKind::DoubleColon);
+            if lowercase_final_after_uppercase_base {
+                errors.push((
+                    index + 1,
+                    "variant refinement final segment must start with an ASCII uppercase letter",
                 ));
             }
         }
@@ -507,6 +517,18 @@ pub(super) fn malformed_refinement_syntax(tokens: &[Token]) -> Vec<(usize, &'sta
                 "variant refinement generic base must be followed by `::Variant`",
             ));
         }
+    }
+
+    let depths = refinement_candidate_depths(tokens, &raw_candidates);
+    if let Some((candidate, _)) = raw_candidates
+        .iter()
+        .zip(depths)
+        .find(|(_, depth)| *depth > crate::MAX_VARIANT_REFINEMENT_NESTING)
+    {
+        errors.push((
+            candidate.start_index,
+            "variant refinement types are nested too deeply",
+        ));
     }
     for (open, syntax) in generic_syntax.iter().enumerate() {
         let Some(matched) = syntax.matched else {
@@ -582,6 +604,7 @@ pub(super) fn build_variant_refinements(
 ) -> (Vec<VariantRefinementType>, Vec<bool>) {
     let (generic_syntax, _) = scan_generic_syntax(tokens);
     let raw_candidates = refinement_alternatives(tokens, &generic_syntax);
+    let depths = refinement_candidate_depths(tokens, &raw_candidates);
     let mut children = raw_candidates
         .iter()
         .map(|candidate| {
@@ -597,6 +620,7 @@ pub(super) fn build_variant_refinements(
     let mut roots = Vec::new();
     let mut ancestors: Vec<usize> = Vec::new();
     let mut next_arguments = vec![0usize; raw_candidates.len()];
+    let mut retained = vec![false; raw_candidates.len()];
 
     for (index, candidate) in raw_candidates.iter().enumerate() {
         while ancestors.last().is_some_and(|ancestor| {
@@ -627,9 +651,12 @@ pub(super) fn build_variant_refinements(
             (candidate_start >= range.start && candidate_end <= range.end)
                 .then_some((parent_index, *argument))
         });
+        retained[index] = depths[index] <= crate::MAX_VARIANT_REFINEMENT_NESTING;
         if let Some((parent, argument)) = parent {
-            children[parent][argument].push(index);
-        } else {
+            if retained[index] && retained[parent] {
+                children[parent][argument].push(index);
+            }
+        } else if retained[index] {
             roots.push(index);
         }
         ancestors.push(index);
@@ -638,6 +665,9 @@ pub(super) fn build_variant_refinements(
     let mut candidates = (0..raw_candidates.len()).map(|_| None).collect::<Vec<_>>();
     let mut consumed_pipes = vec![false; tokens.len()];
     for index in (0..candidates.len()).rev() {
+        if !retained[index] {
+            continue;
+        }
         let mut child_refinements_by_argument = Vec::with_capacity(children[index].len());
         let mut child_token_ranges_by_argument = Vec::with_capacity(children[index].len());
         for (argument, child_indexes) in children[index].iter().enumerate() {
@@ -680,6 +710,27 @@ pub(super) fn build_variant_refinements(
     let refinements =
         group_variant_refinements(source, tokens, root_candidates, &mut consumed_pipes);
     (refinements, consumed_pipes)
+}
+
+fn refinement_candidate_depths(
+    tokens: &[Token],
+    candidates: &[RawRefinementCandidate],
+) -> Vec<usize> {
+    let mut depths = vec![0usize; candidates.len()];
+    let mut ancestors: Vec<usize> = Vec::new();
+    for (index, candidate) in candidates.iter().enumerate() {
+        let (candidate_start, candidate_end) =
+            raw_candidate_offsets(tokens, candidate).unwrap_or((0, usize::MAX));
+        while ancestors.last().is_some_and(|ancestor| {
+            raw_candidate_offsets(tokens, &candidates[*ancestor])
+                .is_none_or(|(start, end)| start >= candidate_start || end < candidate_end)
+        }) {
+            ancestors.pop();
+        }
+        depths[index] = ancestors.len();
+        ancestors.push(index);
+    }
+    depths
 }
 
 fn type_argument_fragments(

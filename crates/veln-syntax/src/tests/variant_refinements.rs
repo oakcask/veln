@@ -170,6 +170,8 @@ fn formatter_spaces_only_structurally_recognized_refinement_union_pipes() {
 #[test]
 fn rejects_lowercase_final_variants_after_generic_adt_bases() {
     let cases = [
+        "fn invalid(value: State::ready) -> ()\n  ()\nend\n",
+        "fn invalid(value: protocol::State::ready) -> ()\n  ()\nend\n",
         "fn invalid(value: Result<Int, Error>::ok) -> ()\n  ()\nend\n",
         "fn invalid(value: protocol::Result<Int, Error>::error) -> ()\n  ()\nend\n",
         "fn invalid(value: State) -> ()\n  sink<Result<Int, Error>::ok>(value)\nend\n",
@@ -199,10 +201,40 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
             .expect("diagnostic should have a span");
         let written_name = &source.text()[span.start.offset..span.end.offset];
         assert!(
-            matches!(written_name, "ok" | "error"),
+            matches!(written_name, "ready" | "ok" | "error"),
             "diagnostic should point at the lowercase final segment, got `{written_name}`"
         );
     }
+}
+
+#[test]
+fn rejects_refinement_nesting_beyond_the_lowering_and_wire_limit() {
+    let mut annotation = "Leaf::Value".to_string();
+    for _ in 0..4_096 {
+        annotation = format!("Layer<{annotation}>::Wrapped");
+    }
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.variant_refinement_type"
+            && diagnostic.message == "variant refinement types are nested too deeply"
+    }));
+
+    let function = first_function(&output);
+    let mut refinements = function.params[0].ty_refinements.as_slice();
+    let mut nesting = 0;
+    while let Some(refinement) = refinements.first() {
+        nesting += 1;
+        refinements = refinement.alternatives[0]
+            .type_arguments
+            .first()
+            .map_or(&[], |argument| argument.ty_refinements.as_slice());
+    }
+    assert!(nesting <= crate::MAX_VARIANT_REFINEMENT_NESTING + 1);
 }
 
 #[test]

@@ -16,5 +16,9 @@ pub use parser::*;
 pub use token::*;
 pub use tree::*;
 
+/// Maximum number of generic argument boundaries that may contain a variant
+/// refinement. This bounds recursive lowering and wire processing.
+pub const MAX_VARIANT_REFINEMENT_NESTING: usize = 256;
+
 #[cfg(test)]
 mod tests;

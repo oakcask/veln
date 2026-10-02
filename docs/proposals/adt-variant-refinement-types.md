@@ -131,6 +131,8 @@ Current structural evidence is maintained by the parser cases in
 in `../../examples/specification/fmt/variant-refinement-syntax/`, and the
 malformed-source case in
 `../../examples/specification/check/variant-refinement-malformed-generics/`.
+The lowering and wire round-trip cases are in
+`../../crates/veln-ast/src/tests.rs`.
 
 ## Resolution And Visibility
 

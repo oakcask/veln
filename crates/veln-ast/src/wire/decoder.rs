@@ -131,21 +131,35 @@ impl<'a> Reader<'a> {
     }
 
     fn variant_refinement(&mut self) -> Result<VariantRefinementType, String> {
+        self.variant_refinement_at_depth(0)
+    }
+
+    fn variant_refinement_at_depth(
+        &mut self,
+        depth: usize,
+    ) -> Result<VariantRefinementType, String> {
+        if depth > veln_syntax::MAX_VARIANT_REFINEMENT_NESTING {
+            return Err("surface module variant refinements are nested too deeply".to_string());
+        }
         Ok(VariantRefinementType {
-            alternatives: self.vec(Self::variant_refinement_alternative)?,
+            alternatives: self.vec(|reader| reader.variant_refinement_alternative(depth))?,
             pipe_spans: self.vec(Self::span)?,
             span: self.span()?,
         })
     }
 
-    fn variant_refinement_alternative(&mut self) -> Result<VariantRefinementAlternative, String> {
+    fn variant_refinement_alternative(
+        &mut self,
+        depth: usize,
+    ) -> Result<VariantRefinementAlternative, String> {
         Ok(VariantRefinementAlternative {
             base: self.type_path_segments()?,
             type_arguments: self.vec(|reader| {
                 Ok(VariantRefinementTypeArgument {
                     ty_fragments: reader.vec(Self::string)?,
                     ty_paths: reader.vec(Self::type_path_segments)?,
-                    ty_refinements: reader.vec(Self::variant_refinement)?,
+                    ty_refinements: reader
+                        .vec(|reader| reader.variant_refinement_at_depth(depth + 1))?,
                     span: reader.span()?,
                 })
             })?,
