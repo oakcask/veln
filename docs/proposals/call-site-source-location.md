@@ -19,11 +19,9 @@ The declaration, static-checking, and direct-call runtime behavior are specified
 This proposal tracks only the remaining indirect-call, source-identity,
 lifetime, and presentation work below.
 
-Runtime-constructed `SourceLocation` values use one-based lines and columns.
-Columns count Unicode scalar values. Offsets count UTF-8 bytes.
-`file` is a package-relative or virtual source path; it is never a
-machine-specific absolute path. `package` and `module` disambiguate equal
-relative paths from different dependencies.
+The remaining source-identity work must make `package` and `module`
+disambiguate equal relative paths from different dependencies and must verify
+that relocation preserves those identities.
 
 ## Remaining propagation
 

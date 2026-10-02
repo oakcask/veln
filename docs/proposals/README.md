@@ -30,8 +30,9 @@ also states it.
 ## Blocked
 
 - Standard-library structured logs, events, metrics, traces, explicit context
-  propagation, and substitutable exporters are blocked until call-site source
-  locations are implemented:
+  propagation, and substitutable exporters are blocked until call-site
+  locations have relocation-safe source identities and a verified
+  deferred-observation lifetime:
   [observability.md](observability.md).
 - Generic named-type and function variance remains separate from ADT variant
   refinement and is blocked until its constructor classifications and complete
