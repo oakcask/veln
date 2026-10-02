@@ -474,6 +474,7 @@ impl AstBuilder {
                     },
                     text: contract.text.clone(),
                     callsite_reference_spans: contract.callsite_reference_spans.clone(),
+                    call_callee_spans: contract.call_callee_spans.clone(),
                     span: contract.span.clone(),
                 })
                 .collect(),

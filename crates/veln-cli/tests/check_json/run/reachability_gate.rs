@@ -32,6 +32,46 @@ fn run_blocks_callsite_references_before_jdk_execution() {
 }
 
 #[test]
+fn run_blocks_callsite_aware_contract_calls_before_jdk_execution() {
+    let project = TestProject::new("run-callsite-contract-call-boundary");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn located() -> Bool callsite\n",
+            "  callsite.start_line > 0\n",
+            "end\n",
+            "pub fn main() -> ()\n",
+            "require located()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run_with_path(&["main", "main.veln"], "");
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "main.veln:5:9: error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract",
+            "note: Runtime contract calls do not yet supply the hidden call-site location.",
+        ],
+    );
+    assert!(
+        !stderr(&output).contains("NoSuchMethodError"),
+        "{}",
+        stderr(&output)
+    );
+    assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));
+    assert!(
+        !stderr(&output).contains("java` was not found"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
 fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(

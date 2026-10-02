@@ -70,6 +70,49 @@ fn callsite_contract_references_remain_blocked_during_execution_lowering() {
 }
 
 #[test]
+fn callsite_aware_contract_calls_are_blocked_during_execution_lowering() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located() -> Bool callsite\n",
+            "  callsite.start_line > 0\n",
+            "end\n",
+            "pub fn main() -> ()\n",
+            "require located()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
+    let blockers = match &lowered.core.as_ref().expect("checked core").readiness {
+        CoreReadiness::Blocked(blockers) => blockers,
+        CoreReadiness::Complete => panic!("call-site-aware contract calls must block execution"),
+    };
+    assert!(blockers.iter().any(|blocker| matches!(
+        blocker,
+        CoreBlocker::UnsupportedExpression { reason, .. }
+            if reason == "callsite_contract_call_unsupported"
+    )));
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "core.callsite_contract_call_unsupported")
+        .expect("call-site contract call diagnostic");
+    assert_diagnostic_span(diagnostic, 5, 9, 5, 16);
+    assert!(diagnostic.message.contains("`located`"));
+    assert!(diagnostic.related.iter().any(|related| {
+        related
+            .to_json()
+            .contains("do not yet supply the hidden call-site location")
+    }));
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn ordinary_callsite_parameter_lowers_in_contract_and_body() {
     let source = SourceFile::new(
         "main.veln",

@@ -93,7 +93,8 @@ function value. A `veln run` entry cannot carry the modifier because it has no
 Veln call expression from which to obtain a location. Generated-source origin
 mapping, dependency source-identity collisions, deferred-observation lifetime
 guarantees, and call-site-specific LSP and MCP presentation are also not
-implemented. Runtime contract predicates that refer to the built-in remain
+implemented. Runtime contract predicates that refer to the built-in, or call a
+call-site-aware function, remain
 blocked.
 
 An unmodified function can use an ordinary binding named `callsite`, including

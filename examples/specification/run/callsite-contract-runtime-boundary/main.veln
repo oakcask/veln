@@ -3,6 +3,11 @@ require callsite.start_line > 0
 	callsite
 end
 
+fn located() -> Bool callsite
+	callsite.start_line > 0
+end
+
 pub fn main() -> SourceLocation
+	require located()
 	guarded()
 end

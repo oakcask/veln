@@ -113,24 +113,56 @@ impl<'a> CoreLowerer<'a> {
         contracts
             .iter()
             .map(|contract| {
+                let obligation_status = if contract_predicate_is_statically_true(&contract.text) {
+                    ContractObligationStatus::StaticallyProven
+                } else {
+                    ContractObligationStatus::RuntimeRequired
+                };
                 if self.block_unsupported_callsite_runtime && self.function.callsite.is_some() {
                     for span in &contract.callsite_reference_spans {
                         self.unsupported_callsite_reference(contract.node_id, span);
+                    }
+                }
+                if self.block_unsupported_callsite_runtime
+                    && obligation_status == ContractObligationStatus::RuntimeRequired
+                {
+                    let unsupported_calls = contract
+                        .call_callee_spans
+                        .iter()
+                        .filter(|(callee, _)| self.contract_call_requires_callsite(callee))
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    for (callee, span) in unsupported_calls {
+                        self.unsupported_callsite_contract_call(contract.node_id, &span, &callee);
                     }
                 }
                 CoreContract {
                     node_id: contract.node_id,
                     kind: contract.kind,
                     predicate: contract.text.clone(),
-                    obligation_status: if contract_predicate_is_statically_true(&contract.text) {
-                        ContractObligationStatus::StaticallyProven
-                    } else {
-                        ContractObligationStatus::RuntimeRequired
-                    },
+                    obligation_status,
                     span: contract.span.clone(),
                 }
             })
             .collect()
+    }
+
+    fn contract_call_requires_callsite(&self, callee: &str) -> bool {
+        let segments = callee
+            .split("::")
+            .filter(|segment| !segment.is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let signature = match segments.as_slice() {
+            [name] => self
+                .environment
+                .unqualified_function(name, self.function.module_name.as_deref())
+                .found(),
+            _ => self
+                .environment
+                .function_path(&segments, self.function.module_name.as_deref()),
+        };
+        signature.is_some_and(|signature| signature.callsite)
     }
 
     pub(super) fn lowered_function_name(&self) -> String {
@@ -213,6 +245,44 @@ impl<'a> CoreLowerer<'a> {
                 "message",
                 JsonValue::string(
                     "Runtime support for this use of call-site locations is not implemented.",
+                ),
+            ),
+        ]));
+        self.diagnostics.push(diagnostic);
+    }
+
+    pub(super) fn unsupported_callsite_contract_call(
+        &mut self,
+        node_id: veln_ast::NodeId,
+        span: &veln_source::SourceSpan,
+        callee: &str,
+    ) {
+        const REASON: &str = "callsite_contract_call_unsupported";
+        self.blockers.push(CoreBlocker::UnsupportedExpression {
+            node_id,
+            reason: REASON.to_string(),
+        });
+        let mut diagnostic = Diagnostic::new(
+            "core.callsite_contract_call_unsupported",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "call-site-aware function `{callee}` cannot be called from an executable contract"
+            ),
+            Some(span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("core_lowering")),
+                ("node_id", JsonValue::string(node_id.display("expr"))),
+                ("reason", JsonValue::string(REASON)),
+                ("callee", JsonValue::string(callee)),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("runtime_support")),
+            (
+                "message",
+                JsonValue::string(
+                    "Runtime contract calls do not yet supply the hidden call-site location.",
                 ),
             ),
         ]));

@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"d4062022cd9befc49b59c6c47213a24e25d3e9cf"
+source_git_tree	"19c36cbd1cf1891da5f201dd905703893ae9216a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1748
@@ -36928,6 +36928,8 @@ case	"examples/specification/run/callsite-contract-runtime-boundary"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[core.callsite_runtime_unsupported]: `callsite` is not available during execution"
 field	expectations.stderr.contains[1]	"Runtime support for this use of call-site locations is not implemented."
+field	expectations.stderr.contains[2]	"error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract"
+field	expectations.stderr.contains[3]	"Runtime contract calls do not yet supply the hidden call-site location."
 field	expectations.stderr.format	"text"
 field	expectations.stdout.format	"empty"
 field	invocation.command[0]	"run"
@@ -36935,7 +36937,7 @@ field	invocation.command[1]	"main"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"36faff0a195d570cf464542416f0261f3b5b3f1ebc73cc6d711abc3075451d51"
+case_digest	"b60553de75930a1cd283ece974133370a2ae10942b141df1032e957f65e4109c"
 case	"examples/specification/run/callsite-direct-runtime"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62789,4 +62791,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"df390b0bb218e5825b160f2145c3bf2baae44e424cc868cfa6620a4dc0e6a479"
+aggregate_digest	"6d7960b14bf230cda30a27814e384fa6a9f7c5c5abfe074af2b9a955cdf9c95a"
