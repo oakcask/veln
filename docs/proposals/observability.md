@@ -17,8 +17,11 @@ This proposal depends on:
   span can finish across normal and abrupt exits;
 - the implemented [wall-clock boundary](../specification/effects.md#network-and-time-boundary-calls),
   so exported records can be correlated across processes; and
-- [call-site source location](call-site-source-location.md), so library
-  wrappers preserve the user's source location.
+- implemented [direct call-site propagation](../specification/call-site-declarations.md),
+  so library wrappers preserve the user's call expression, plus the remaining
+  [source-identity and deferred-lifetime work](call-site-source-location.md),
+  so retained locations remain meaningful across package relocation and later
+  observation.
 
 The existing monotonic clock remains the source for elapsed duration.
 

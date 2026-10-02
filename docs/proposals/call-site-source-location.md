@@ -14,10 +14,11 @@ The location must be captured when the library API is called. A trace can be
 finished or exported after the originating call stack no longer exists, so a
 later stack walk cannot recover the required logical call site.
 
-The declaration, static-checking, and direct-call runtime behavior are specified in
-[Call-site Declarations](../specification/call-site-declarations.md).
-This proposal tracks only the remaining indirect-call, source-identity,
-lifetime, and presentation work below.
+The declaration, static-checking, and direct-call runtime behavior are
+specified in
+[Call-site Declarations](../specification/call-site-declarations.md). This
+proposal tracks only the remaining indirect-call, runtime-contract,
+source-identity, lifetime, and presentation work below.
 
 The remaining source-identity work must make `package` and `module`
 disambiguate equal relative paths from different dependencies and must verify
@@ -29,6 +30,11 @@ Indirect calls must match the direct-call propagation defined by the current
 specification. Devirtualization and inlining must not change the observed
 location. The implicit context must not become an explicit override at a call
 expression.
+
+Runtime-required contract predicates in call-site-aware functions must be able
+to read the function's supplied location. A runtime-required predicate that
+directly calls a call-site-aware function must propagate the same location that
+the enclosing function body would supply.
 
 Completion and signature help must present the `callsite` modifier. Completion
 inside the function body must include the built-in local variable.
@@ -52,13 +58,16 @@ file value.
 | S4 | A call-site-aware function is invoked through a function value from a non-call-site-aware function. | The callee observes the indirect call expression. | Run case. |
 | S6 | Source is generated and has an origin mapping. | The exposed location is the mapped user location. | Generated-source fixture. |
 | S7 | Equivalent packages under two absolute roots contain dependencies with the same package-relative source path. | Exposed `file` values are package-relative or canonical virtual paths, all fields contain neither root and remain identical after relocation, and `package` plus `module` disambiguate the dependency sources. | Relocation and dependency-collision test. |
-| S8 | LSP and MCP present the declaration. | Each service identifies the modifier and built-in local variable. | LSP and MCP cases. |
+| S8 | LSP and MCP present the declaration. | Each service identifies the modifier and built-in local variable, and signature help presents the modifier. | LSP and MCP cases. |
 | S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
+| S11 | A runtime-required predicate in a call-site-aware function reads `callsite`. | The predicate observes the function's supplied location and does not block execution lowering. | Run contract case. |
+| S12 | A runtime-required predicate directly calls a call-site-aware function. | The predicate callee observes the location supplied by the enclosing function's direct caller. | Run contract case. |
 
 ## Verification and Promotion
 
-Remaining implementation must extend function-value lowering and ABI metadata,
-generated-source mapping, lifetime coverage, LSP, and MCP.
+Remaining implementation must extend function-value and runtime-contract
+lowering, ABI metadata, generated-source mapping, lifetime coverage, LSP, and
+MCP.
 
 ## Non-goals
 

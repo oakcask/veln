@@ -65,10 +65,17 @@ caller's call expression.
 
 The built-in value behaves as an ordinary `SourceLocation` after it enters the
 callee. The function can return it or pass it to an explicit
-`SourceLocation` parameter. Its lines and columns are one-based. Columns count
-Unicode scalar values, while offsets count UTF-8 bytes. Its `file` field uses
-the package-relative source path or a canonical virtual-source name and never
-uses a machine-specific absolute path.
+`SourceLocation` parameter. Its lines and columns are one-based. Its offsets
+are zero-based UTF-8 byte offsets. End positions are exclusive, and columns
+count Unicode scalar values.
+
+Direct-call construction copies the call expression's existing source
+identifier into `file`. An ordinary package-selected source therefore uses its
+package-relative path. The current `package` field is empty. The `module` field
+is the caller's resolved module name, or empty when the caller has no resolved
+module name. Generated-source origin mapping, canonical virtual-source naming,
+dependency disambiguation, and relocation guarantees are not part of the
+current value construction.
 
 ## Limits and diagnostics
 
@@ -91,11 +98,11 @@ Indirect calls through function values do not yet carry hidden call-site
 context. Execution lowering rejects using a call-site-aware function as a
 function value. A `veln run` entry cannot carry the modifier because it has no
 Veln call expression from which to obtain a location. Generated-source origin
-mapping, dependency source-identity collisions, deferred-observation lifetime
-guarantees, and call-site-specific LSP and MCP presentation are also not
-implemented. Runtime contract predicates that refer to the built-in, or call a
-call-site-aware function, remain
-blocked.
+mapping, canonical virtual-source naming, dependency source-identity
+collisions, relocation guarantees, deferred-observation lifetime guarantees,
+and call-site-specific LSP and MCP presentation are also not implemented.
+Runtime contract predicates that refer to the built-in, or call a
+call-site-aware function, remain blocked.
 
 An unmodified function can use an ordinary binding named `callsite`, including
 in its contracts, and execution treats that binding like any other local value.

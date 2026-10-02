@@ -51,6 +51,14 @@ Valid obligations run on executable `run` and `test` paths. `require` runs when
 the function is entered. `ensure` runs before normal return and before a `?`
 error return. `invariant` runs at entry and before normal or `?` return.
 
+Runtime-required obligations do not yet receive hidden call-site context. Any
+contract that refers to its function's built-in `callsite` value blocks
+execution before backend launch. A runtime-required contract that calls a
+call-site-aware function is also blocked; a statically proven obligation emits
+no runtime call. Direct calls in ordinary function bodies remain executable.
+The focused boundary is specified by
+[Call-site Declarations](call-site-declarations.md#limits-and-diagnostics).
+
 | Clause | Entry failure blames | Return failure blames |
 | --- | --- | --- |
 | `require` | caller | — |

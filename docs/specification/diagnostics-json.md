@@ -139,6 +139,22 @@ message, and the containing deferred-block span. The primary span remains the
 specific propagation `?` token, non-unit block result, or nested `defer` keyword that
 failed.
 
+Call-site execution-gate diagnostics use kind `type` and
+`phase: "core_lowering"`:
+
+| Identifier | Stable details | Failed fact |
+| --- | --- | --- |
+| `core.callsite_entry_unsupported` | `entry`, `boundary: "run_entry"` | The selected run entry declares the `callsite` modifier, but no Veln call expression can supply its hidden location. |
+| `core.indirect_callsite_call` | `node_id`, `reason: "indirect_callsite_call"` | Execution uses a call-site-aware function as a function value before indirect propagation is supported. |
+| `core.callsite_runtime_unsupported` | `node_id`, `reason: "callsite_runtime_unsupported"` | A runtime contract refers to its function's built-in `callsite` value. |
+| `core.callsite_contract_call_unsupported` | `node_id`, `reason: "callsite_contract_call_unsupported"`, `callee` | A runtime contract calls a call-site-aware function. |
+
+The entry, built-in-reference, and contract-call records include a related
+`runtime_support` note that states the unavailable runtime boundary. These
+diagnostics stop `veln run` before backend launch. Direct calls in ordinary
+function bodies and direct forwarding through call-site-aware wrappers do not
+produce these diagnostics.
+
 A schema declaration used as an ordinary local annotation type reports
 `type.schema_reference` with `schema` and `use_kind: "local_annotation"`.
 Exact-width and lowercase schema primitives in the same position report

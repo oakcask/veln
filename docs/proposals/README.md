@@ -16,8 +16,9 @@ also states it.
 
 ## Ready
 
-- Indirect call-site propagation, generated-source identity, deferred
-  observation, and LSP/MCP presentation for library-defined instrumentation:
+- Indirect and runtime-contract call-site propagation, generated-source
+  identity, deferred observation, and LSP/MCP presentation for library-defined
+  instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
 - Standard-library TCP stream networking, typed ordinary failures, resource
   lifecycle, and a substitutable public effect with an explicit system handler:
