@@ -75,7 +75,10 @@ function body. Their coordinates therefore identify the call expression
 selected by the direct-call and wrapper propagation rules above. When such a
 predicate directly calls another call-site-aware function, the predicate
 callee receives that same value as hidden context. The source-level call keeps
-its declared arity.
+its declared arity. Calling through a public function alias reaches the
+aliased declaration with the same hidden context. Fixed and variadic source
+arguments bind as they do for an ordinary direct call; the hidden context does
+not enter the variadic argument sequence.
 
 Direct-call construction copies the call expression's existing source
 identifier into `file`. An ordinary package-selected source therefore uses its
