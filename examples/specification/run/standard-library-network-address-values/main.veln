@@ -23,7 +23,7 @@ end
 
 fn round_trip_label(host: String, port: Int) -> String
 	match net::join_host_port(host, port)
-		Ok(address) => split_label(net::split_host_port(address))
+		Ok(address) => string::concat(string::concat(address, " -> "), split_label(net::split_host_port(address)))
 		Err(_) => "unexpected"
 	end
 end

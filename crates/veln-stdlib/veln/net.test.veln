@@ -34,7 +34,7 @@ test host_port_success_boundaries_round_trip() -> Result<(), String>
 			Ok({ host: "127.0.0.1", port: 0 }) => match net::join_host_port("example.test", 65535)
 				Ok(hostname) => match net::split_host_port(hostname)
 					Ok({ host: "example.test", port: 65535 }) => match net::join_host_port("2001:db8::1", 443)
-						Ok(ipv6) => match net::split_host_port(ipv6)
+						Ok("[2001:db8::1]:443") => match net::split_host_port("[2001:db8::1]:443")
 							Ok({ host: "2001:db8::1", port: 443 }) => Ok(())
 							_ => Err("IPv6 round trip did not match")
 						end
