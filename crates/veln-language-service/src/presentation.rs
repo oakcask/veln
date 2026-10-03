@@ -1,6 +1,6 @@
 use veln_source::SourceFile;
 use veln_syntax::{
-    FunctionDecl, FunctionKind, SyntaxItem, TokenKind, canonical_type_text,
+    FunctionDecl, FunctionKind, SyntaxItem, Token, TokenKind, canonical_type_text,
     declaration_function_signature, lex, parse,
 };
 
@@ -51,6 +51,7 @@ pub fn completion_at(
     if function.kind != FunctionKind::Function {
         return Vec::new();
     }
+    let tokens = lex(source).tokens;
     let header_end = source.text()[function.span.start.offset..]
         .find('\n')
         .map(|relative| function.span.start.offset + relative)
@@ -73,10 +74,9 @@ pub fn completion_at(
             .into_iter()
             .collect();
     }
-    let header_suffix = &source.text()[offset.min(header_end)..header_end];
     if function.callsite.is_none()
-        && header_suffix.trim().is_empty()
-        && function_parameters_are_closed(source, function.span.start.offset, offset)
+        && terminal_modifier_slot_is_clear(&tokens, offset, header_end)
+        && function_parameters_are_closed(&tokens, function.span.start.offset, offset)
     {
         return vec![CompletionCandidate {
             label: "callsite",
@@ -87,10 +87,35 @@ pub fn completion_at(
     Vec::new()
 }
 
-fn function_parameters_are_closed(source: &SourceFile, start: usize, offset: usize) -> bool {
+fn terminal_modifier_slot_is_clear(tokens: &[Token], offset: usize, header_end: usize) -> bool {
+    let trailing_comment_start = tokens
+        .iter()
+        .find(|token| {
+            token.kind == TokenKind::Comment
+                && token.range.start < header_end
+                && offset <= token.range.end
+        })
+        .map(|token| token.range.start);
+    if trailing_comment_start.is_some_and(|comment_start| comment_start < offset) {
+        return false;
+    }
+    let suffix_end = trailing_comment_start.unwrap_or(header_end);
+    for token in tokens
+        .iter()
+        .filter(|token| token.range.end > offset && token.range.start < suffix_end)
+    {
+        match token.kind {
+            TokenKind::Whitespace => {}
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn function_parameters_are_closed(tokens: &[Token], start: usize, offset: usize) -> bool {
     let mut saw_parameters = false;
     let mut depth = 0usize;
-    for token in lex(source).tokens {
+    for token in tokens {
         if token.range.start < start || token.range.start >= offset {
             continue;
         }
@@ -137,41 +162,66 @@ pub fn signature_help_at(
             _ => {}
         }
     }
-    let open_index = *open.last()?;
-    let (_, callee) = *significant.get(open_index.checked_sub(1)?)?;
-    if !matches!(callee.kind, TokenKind::Ident | TokenKind::Callsite) {
-        return None;
-    }
-    let result = navigate(
-        snapshot,
-        SourcePosition {
-            source: position.source,
-            line: source.line_col(callee.range.start).line,
-            column: source.line_col(callee.range.start).column,
-        },
-    )?;
-    let definition = function_signature_definition(snapshot, &result).unwrap_or(result.definition);
-    let declaration_source = match &definition.source {
-        NavigationSource::Workspace => snapshot.workspace_source(&definition.span.file)?.clone(),
-        NavigationSource::Package { uri } => SourceFile::new(
-            definition.span.file.clone(),
-            std::str::from_utf8(snapshot.resolve_virtual_source(uri)?).ok()?,
-        ),
-    };
-    let parsed = parse(&declaration_source);
-    let function = parsed.tree.items.iter().find_map(|item| match item {
-        SyntaxItem::Function(function)
-            if function
-                .name_span
-                .as_ref()
-                .is_some_and(|span| span.start.offset == definition.span.start.offset) =>
-        {
-            Some(function.as_ref())
+    for open_index in open.into_iter().rev() {
+        let Some(callee_index) = open_index.checked_sub(1) else {
+            continue;
+        };
+        let Some((_, callee)) = significant.get(callee_index).copied() else {
+            continue;
+        };
+        if !matches!(callee.kind, TokenKind::Ident | TokenKind::Callsite) {
+            continue;
         }
-        _ => None,
-    })?;
-    let active_parameter = active_parameter(&significant, open_index, offset);
-    Some(signature_help(function, active_parameter))
+        let Some(result) = navigate(
+            snapshot,
+            SourcePosition {
+                source: position.source.clone(),
+                line: source.line_col(callee.range.start).line,
+                column: source.line_col(callee.range.start).column,
+            },
+        ) else {
+            continue;
+        };
+        if matches!(
+            &result.selected_symbol.declaration.source,
+            NavigationSource::Workspace
+        ) && result.selected_symbol.declaration.span.file == position.source
+            && result.selection.start.offset == result.selected_symbol.declaration.span.start.offset
+        {
+            continue;
+        }
+        let Some(definition) = function_signature_definition(snapshot, &result) else {
+            continue;
+        };
+        let Some(declaration_source) = (match &definition.source {
+            NavigationSource::Workspace => {
+                snapshot.workspace_source(&definition.span.file).cloned()
+            }
+            NavigationSource::Package { uri } => snapshot
+                .resolve_virtual_source(uri)
+                .and_then(|bytes| std::str::from_utf8(bytes).ok())
+                .map(|text| SourceFile::new(definition.span.file.clone(), text)),
+        }) else {
+            continue;
+        };
+        let parsed = parse(&declaration_source);
+        let Some(function) = parsed.tree.items.iter().find_map(|item| match item {
+            SyntaxItem::Function(function)
+                if function
+                    .name_span
+                    .as_ref()
+                    .is_some_and(|span| span.start.offset == definition.span.start.offset) =>
+            {
+                Some(function.as_ref())
+            }
+            _ => None,
+        }) else {
+            continue;
+        };
+        let active_parameter = active_parameter(&significant, open_index, offset);
+        return Some(signature_help(function, active_parameter));
+    }
+    None
 }
 
 fn signature_help(function: &FunctionDecl, active_parameter: usize) -> SignatureHelp {
@@ -360,6 +410,45 @@ mod tests {
     }
 
     #[test]
+    fn modifier_completion_stops_at_a_trailing_comment() {
+        let snapshot = snapshot(concat!(
+            "fn noted() -> Int # keep this note\n",
+            "  1\n",
+            "end\n",
+        ));
+
+        for column in [18, 19] {
+            let candidates = completion_at(
+                &snapshot,
+                &SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 1,
+                    column,
+                },
+            );
+            assert_eq!(
+                candidates.first().map(|candidate| candidate.kind),
+                Some(CompletionCandidateKind::DeclarationModifier),
+                "column {column}"
+            );
+        }
+        for column in [20, 35] {
+            assert!(
+                completion_at(
+                    &snapshot,
+                    &SourcePosition {
+                        source: SourcePath::new("main.veln"),
+                        line: 1,
+                        column,
+                    },
+                )
+                .is_empty(),
+                "column {column}"
+            );
+        }
+    }
+
+    #[test]
     fn signature_help_keeps_callsite_outside_the_parameter_list() {
         let snapshot = snapshot(concat!(
             "fn located(message: String) -> SourceLocation callsite\n",
@@ -384,6 +473,128 @@ mod tests {
         );
         assert_eq!(help.parameters, ["message: String"]);
         assert_eq!(help.active_parameter, 0);
+    }
+
+    #[test]
+    fn signature_help_is_absent_in_a_function_declaration_header() {
+        let snapshot = snapshot(concat!(
+            "fn located(message: String) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+        ));
+
+        assert!(
+            signature_help_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 1,
+                    column: 20,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn signature_help_is_absent_in_a_test_declaration_header() {
+        let snapshot = snapshot(concat!(
+            "test example(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+        ));
+
+        assert!(
+            signature_help_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 1,
+                    column: 22,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn signature_help_skips_grouping_inside_a_call_argument() {
+        let snapshot = snapshot(concat!(
+            "fn located(value: Int) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn caller() -> SourceLocation\n",
+            "  located((1 + 2))\n",
+            "end\n",
+        ));
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 5,
+                column: 15,
+            },
+        )
+        .expect("outer call signature help");
+        assert_eq!(
+            help.label,
+            "fn located(value: Int) -> SourceLocation callsite"
+        );
+    }
+
+    #[test]
+    fn signature_help_prefers_the_innermost_nested_call() {
+        let snapshot = snapshot(concat!(
+            "fn outer(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn inner(message: String) -> Int callsite\n",
+            "  1\n",
+            "end\n",
+            "fn caller() -> Int\n",
+            "  outer(inner(\"hello\"))\n",
+            "end\n",
+        ));
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 8,
+                column: 21,
+            },
+        )
+        .expect("inner call signature help");
+        assert_eq!(help.label, "fn inner(message: String) -> Int callsite");
+        assert_eq!(help.parameters, ["message: String"]);
+    }
+
+    #[test]
+    fn signature_help_skips_a_non_function_identifier_before_grouping() {
+        let snapshot = snapshot(concat!(
+            "fn located(value: Int) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn caller() -> SourceLocation\n",
+            "  let value: Int = 1\n",
+            "  located(value(1))\n",
+            "end\n",
+        ));
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 6,
+                column: 18,
+            },
+        )
+        .expect("outer call signature help");
+        assert_eq!(
+            help.label,
+            "fn located(value: Int) -> SourceLocation callsite"
+        );
     }
 
     #[test]

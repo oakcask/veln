@@ -53,6 +53,8 @@ The implemented semantic token types are standard LSP token types:
 | use alias segment | `namespace` | `declaration` |
 | function declaration name | `function` | `declaration` |
 | function call or known function reference | `function` | none |
+| `callsite` declaration modifier | `keyword` | none |
+| built-in `callsite` body reference | `variable` | `readonly` |
 | test declaration name | `function` | `declaration`, `test` |
 | schema declaration name | `type` | `declaration` |
 | parameter declaration | `parameter` | `declaration`, `readonly` |
@@ -671,6 +673,10 @@ The authoritative implementations are `crates/veln-editor`, `crates/veln-lsp`,
 and `crates/veln-language-service`. Their unit and protocol checks verify
 the token legend, LSP encoding, workspace diagnostics, navigation, formatting,
 rename, and virtual-document boundaries.
+The checked
+[`callsite-presentation`](../../examples/specification/lsp/callsite-presentation/)
+transcript pins the public semantic-token legend and complete encoded token
+data for a `callsite` declaration modifier and built-in body reference.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect and
 effect-operation references.

@@ -1,0 +1,6 @@
+fn located(value: Int) -> SourceLocation callsite
+  callsite
+end
+fn grouped() -> SourceLocation
+  located((1 + 2))
+end

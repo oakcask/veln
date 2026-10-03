@@ -1,0 +1,15 @@
+[
+  {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
+  {"jsonrpc":"2.0","id":2,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":1,"character":0}}},
+  {"jsonrpc":"2.0","id":3,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":6,"character":2}}},
+  {"jsonrpc":"2.0","id":4,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":5,"character":20}}},
+  {"jsonrpc":"2.0","id":5,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":10,"character":16}}},
+  {"jsonrpc":"2.0","id":6,"method":"textDocument/semanticTokens/full","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}}}},
+  {"jsonrpc":"2.0","id":7,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"commented.veln"}},"position":{"line":0,"character":18}}},
+  {"jsonrpc":"2.0","id":8,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"commented.veln"}},"position":{"line":0,"character":19}}},
+  {"jsonrpc":"2.0","id":9,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"commented.veln"}},"position":{"line":0,"character":34}}},
+  {"jsonrpc":"2.0","id":10,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"signatures.veln"}},"position":{"line":0,"character":19}}},
+  {"jsonrpc":"2.0","id":11,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"signatures.veln"}},"position":{"line":4,"character":14}}},
+  {"jsonrpc":"2.0","id":12,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","method":"exit","params":null}
+]

@@ -54,3 +54,58 @@ length = 1
 id = 6
 path = "/result/structuredContent/signature/activeParameter"
 equals = 0
+
+[[mcp_assert]]
+id = 7
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent"
+equals = {"code":"invalid_path","details":{},"message":"source path does not exist"}
+
+[[mcp_assert]]
+id = 8
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent"
+equals = {"code":"invalid_position","details":{"source":"main.veln","line":99,"column":1},"message":"position is outside the selected source"}
+
+[[mcp_assert]]
+id = 9
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/items/0"
+equals = {"label":"callsite","kind":"builtin_local","detail":"built-in SourceLocation local"}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/items"
+equals = [{"label":"callsite","kind":"modifier","detail":"call-site declaration modifier"}]
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/items"
+equals = []
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/items"
+equals = []
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/signature"
+equals = null
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/signature"
+equals = {"label":"fn located(value: Int) -> SourceLocation callsite","parameters":["value: Int"],"activeParameter":0}

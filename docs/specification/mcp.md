@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#workspace-selection; behavior=#rename; limits=#selection-state
+specification-coverage: usage=#workspace-selection; behavior=#saved-workspace-navigation; limits=#selection-state
 update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, saved navigation tools, MCP resources, tool schemas, or executable MCP cases change.
 ---
 
@@ -472,20 +472,27 @@ function body, including an empty body insertion line, it instead returns a
 `callsite` item with kind `builtin_local` and identifies its `SourceLocation`
 type in `detail`. It returns no built-in candidate in a contract, ordinary
 function, test, handler clause, declaration header, or top-level context.
+For a header with a trailing comment, the position immediately before the `#`
+marker is the terminal modifier position. Positions inside the comment,
+including the end of the comment line, return no modifier candidate.
 
 `signature_help` returns either `signature: null` or one signature object. The
 object contains the canonical source declaration `label`, source-parameter
 labels, and zero-based `activeParameter`. A call-site-aware declaration's label
 ends with `callsite` after any effects clause. The hidden context does not add
 a parameter or change active-parameter counting. Public workspace function
-aliases resolve to the target declaration before rendering the signature.
+aliases resolve to the target declaration before rendering the signature. A
+position inside a function declaration header returns `signature: null`.
+Grouping parentheses inside a call argument do not hide the enclosing call's
+signature.
 
 Both tools use the saved-source capture and positive one-based Unicode-scalar
-coordinate contract. Invalid paths return `invalid_path`, invalid coordinates
-return `invalid_position`, and exhausted stable capture returns
-`snapshot_changed`. They build a read-only navigation snapshot: successful and
-failed calls do not admit dependency resources, change the listed resource
-set, or consume a references cursor.
+coordinate contract. For `completion`, invalid paths return `invalid_path`,
+and invalid coordinates return `invalid_position`. A failed completion does
+not prevent a later request for the same saved source from succeeding. These
+tools do not create a references cursor. Stable-capture failure, resource
+admission, refresh, and existing cursor state follow the
+[selection-state contract](#selection-state).
 
 ### Rename
 
@@ -767,7 +774,12 @@ boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`
 The checked
 [`callsite-presentation`](../../examples/specification/mcp/callsite-presentation/)
 transcript covers modifier and empty-body built-in completion, an ordinary-body
-boundary, and call-site-aware signature help without hidden-parameter arity.
+boundary, call-site-aware signature help without hidden-parameter arity,
+`invalid_path` and `invalid_position` completion failures, and successful
+completion from the same saved source after those failures. It also covers the
+eligible position before a trailing header comment and the in-comment and
+end-of-line boundaries. Its signature-help checks cover the declaration-header
+boundary and an enclosing call whose argument uses grouping parentheses.
 The checked
 `examples/specification/mcp/references-recovery-navigation/` transcript covers
 recovery selection from a declaration and reference, declaration exclusion and

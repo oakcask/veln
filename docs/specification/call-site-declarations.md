@@ -58,7 +58,10 @@ local reference.
 LSP semantic tokens identify the declaration modifier as a keyword and the
 built-in body reference as a read-only variable. Completion offers the
 `callsite` modifier in an eligible source-function header that does not already
-have it. Completion offers the built-in `callsite` local only in the body of a
+have it. For a header with a trailing comment, the position immediately before
+the `#` marker remains eligible. A position inside the comment, including the
+end of the line, does not offer the modifier.
+Completion offers the built-in `callsite` local only in the body of a
 call-site-aware source function; ordinary function bodies and other declaration
 forms do not receive that candidate. MCP exposes the same candidates through
 its `completion` tool for saved workspace sources.
@@ -66,7 +69,9 @@ its `completion` tool for saved workspace sources.
 LSP signature help and the MCP `signature_help` tool render the complete source
 declaration, including a trailing `callsite` modifier after any effects clause.
 The modifier remains outside the parameter list, and active-parameter counting
-uses only source parameters.
+uses only source parameters. A position inside the declaration's own header
+does not produce signature help. Grouping parentheses within a call argument do
+not hide the enclosing call's signature.
 
 For a direct call from an ordinary function, the supplied value covers the
 complete call expression from its callee through its closing parenthesis. For
@@ -183,7 +188,11 @@ Functions without the modifier retain their ordinary call ABI.
   [`callsite-contract-runtime-boundary`](../../examples/specification/run/callsite-contract-runtime-boundary/).
 - Ordinary-identifier execution evidence:
   `examples/specification/run/callsite-ordinary-identifier/case.toml`.
-- LSP presentation evidence:
+- LSP presentation contract:
+  [Editor Support](editor-support.md#token-classes).
+- Checked LSP presentation evidence:
   [`callsite-presentation`](../../examples/specification/lsp/callsite-presentation/).
-- MCP presentation evidence:
+- MCP presentation contract:
+  [MCP Server](mcp.md#source-presentation).
+- Checked MCP presentation evidence:
   [`callsite-presentation`](../../examples/specification/mcp/callsite-presentation/).

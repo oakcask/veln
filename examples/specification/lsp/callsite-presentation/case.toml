@@ -1,5 +1,5 @@
 command = ["lsp"]
-stdin_file = "case-text/root-stdin-1.raw"
+stdin_jsonrpc_file = "requests.json"
 exit = 0
 
 [stdout]
@@ -11,8 +11,52 @@ contains = [
   "\"id\":4,\"result\":[{\"label\":\"callsite\",\"kind\":14,\"detail\":\"call-site declaration modifier\"}]",
   "fn located(message: String) -> SourceLocation callsite",
   "\"parameters\":[{\"label\":\"message: String\"}]",
-  "\"id\":6,\"result\":{\"data\":[",
 ]
 
 [stderr]
 format = "empty"
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/semanticTokensProvider/legend/tokenTypes"
+equals = ["namespace", "type", "parameter", "variable", "property", "enumMember", "function", "keyword", "comment", "string", "number", "operator"]
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/semanticTokensProvider/legend/tokenModifiers"
+equals = ["declaration", "readonly", "defaultLibrary", "test", "result", "hole"]
+
+[[lsp_assert]]
+id = 6
+path = "/result/data"
+equals = [0, 0, 2, 7, 0, 0, 3, 7, 6, 1, 0, 7, 1, 11, 0, 0, 1, 7, 2, 3, 0, 7, 1, 11, 0, 0, 2, 6, 1, 0, 0, 6, 1, 11, 0, 0, 2, 2, 11, 0, 0, 3, 14, 1, 0, 0, 15, 8, 7, 0, 2, 1, 8, 3, 2, 1, 0, 3, 7, 0, 2, 0, 2, 7, 0, 0, 3, 8, 6, 1, 0, 8, 1, 11, 0, 0, 1, 1, 11, 0, 0, 2, 2, 11, 0, 0, 3, 3, 1, 0, 1, 1, 1, 10, 0, 1, 0, 3, 7, 0, 2, 0, 2, 7, 0, 0, 3, 6, 6, 1, 0, 6, 1, 11, 0, 0, 1, 1, 11, 0, 0, 2, 2, 11, 0, 0, 3, 14, 1, 0, 1, 1, 7, 6, 0, 0, 7, 1, 11, 0, 0, 1, 7, 9, 0, 0, 7, 1, 11, 0, 1, 0, 3, 7, 0]
+
+[[lsp_assert]]
+id = 7
+path = "/result"
+equals = [{"label":"callsite","kind":14,"detail":"call-site declaration modifier"}]
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 9
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 11
+path = "/result/signatures/0"
+equals = {"label":"fn located(value: Int) -> SourceLocation callsite","parameters":[{"label":"value: Int"}]}
+
+[[lsp_assert]]
+id = 11
+path = "/result/activeParameter"
+equals = 0
