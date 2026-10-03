@@ -9,3 +9,4 @@ include!("tests/handler_rename.rs");
 include!("tests/dependencies.rs");
 include!("tests/standard_and_diagnostics.rs");
 include!("tests/cleanup_regions.rs");
+include!("tests/callsite_presentation.rs");

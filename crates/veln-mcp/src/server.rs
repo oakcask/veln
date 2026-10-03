@@ -9,6 +9,7 @@ use crate::definition;
 use crate::language_resources::{LanguageResources, ResourceCapacityError};
 use crate::language_tools;
 use crate::outcome::ToolOutcome;
+use crate::presentation;
 use crate::references;
 use crate::rename;
 use crate::schema;
@@ -177,6 +178,8 @@ impl Server {
             "refresh_workspace" => self.refresh_workspace_tool(refresh),
             "check_project" => self.check_project_tool(arguments),
             "definition" => self.definition_tool(arguments),
+            "completion" => self.completion_tool(arguments),
+            "signature_help" => self.signature_help_tool(arguments),
             "references" => self.references_tool(arguments),
             "rename" => self.rename_tool(arguments),
             "list_language_topics" => self.list_language_topics_tool(),
@@ -237,6 +240,32 @@ impl Server {
         render_tool_outcome(
             "definition",
             definition::definition(
+                &self.base,
+                &self.selection,
+                &mut self.language_resources,
+                &mut self.capture_cache,
+                arguments,
+            ),
+        )
+    }
+
+    fn completion_tool(&mut self, arguments: &Value) -> Value {
+        render_tool_outcome(
+            "completion",
+            presentation::completion(
+                &self.base,
+                &self.selection,
+                &mut self.language_resources,
+                &mut self.capture_cache,
+                arguments,
+            ),
+        )
+    }
+
+    fn signature_help_tool(&mut self, arguments: &Value) -> Value {
+        render_tool_outcome(
+            "signature_help",
+            presentation::signature_help(
                 &self.base,
                 &self.selection,
                 &mut self.language_resources,

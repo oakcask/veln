@@ -2,6 +2,7 @@
 
 mod navigation;
 mod package_documentation;
+mod presentation;
 mod uri_encoding;
 mod virtual_source;
 
@@ -21,6 +22,9 @@ pub use package_documentation::{
     PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule, PackageDocReference,
     PackageDocResult, PackageDocResultKind, PackageDocSearchCandidate, PackageDocTypeConstructor,
     RenderedPackageDocResource, render_package_documentation,
+};
+pub use presentation::{
+    CompletionCandidate, CompletionCandidateKind, SignatureHelp, completion_at, signature_help_at,
 };
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
 

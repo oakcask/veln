@@ -1,0 +1,18 @@
+command = ["lsp"]
+stdin_file = "case-text/root-stdin-1.raw"
+exit = 0
+
+[stdout]
+contains = [
+  "\"completionProvider\"",
+  "\"signatureHelpProvider\"",
+  "\"id\":2,\"result\":[{\"label\":\"callsite\",\"kind\":6,\"detail\":\"built-in SourceLocation local\"}]",
+  "\"id\":3,\"result\":[]",
+  "\"id\":4,\"result\":[{\"label\":\"callsite\",\"kind\":14,\"detail\":\"call-site declaration modifier\"}]",
+  "fn located(message: String) -> SourceLocation callsite",
+  "\"parameters\":[{\"label\":\"message: String\"}]",
+  "\"id\":6,\"result\":{\"data\":[",
+]
+
+[stderr]
+format = "empty"

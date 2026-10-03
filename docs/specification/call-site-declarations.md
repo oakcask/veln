@@ -55,6 +55,19 @@ ordinary identifier. The formatter preserves the modifier after the optional
 function effects clause and formats the built-in reference like any other
 local reference.
 
+LSP semantic tokens identify the declaration modifier as a keyword and the
+built-in body reference as a read-only variable. Completion offers the
+`callsite` modifier in an eligible source-function header that does not already
+have it. Completion offers the built-in `callsite` local only in the body of a
+call-site-aware source function; ordinary function bodies and other declaration
+forms do not receive that candidate. MCP exposes the same candidates through
+its `completion` tool for saved workspace sources.
+
+LSP signature help and the MCP `signature_help` tool render the complete source
+declaration, including a trailing `callsite` modifier after any effects clause.
+The modifier remains outside the parameter list, and active-parameter counting
+uses only source parameters.
+
 For a direct call from an ordinary function, the supplied value covers the
 complete call expression from its callee through its closing parenthesis. For
 a pipeline call, it covers the right-hand call expression and excludes the
@@ -129,8 +142,8 @@ repair.
 A `veln run` entry cannot carry the modifier because it has no Veln call
 expression from which to obtain a location. Generated-source origin mapping,
 canonical virtual-source naming, dependency source-identity collisions,
-relocation guarantees, deferred-observation lifetime guarantees, and
-call-site-specific LSP and MCP presentation are not implemented.
+relocation guarantees, and deferred-observation lifetime guarantees are not
+implemented.
 Runtime-required contract predicates in ordinary functions do not construct
 call-site context. Execution rejects a direct call from such a predicate to a
 call-site-aware function because the enclosing function has no hidden context
@@ -170,3 +183,7 @@ Functions without the modifier retain their ordinary call ABI.
   [`callsite-contract-runtime-boundary`](../../examples/specification/run/callsite-contract-runtime-boundary/).
 - Ordinary-identifier execution evidence:
   `examples/specification/run/callsite-ordinary-identifier/case.toml`.
+- LSP presentation evidence:
+  [`callsite-presentation`](../../examples/specification/lsp/callsite-presentation/).
+- MCP presentation evidence:
+  [`callsite-presentation`](../../examples/specification/mcp/callsite-presentation/).

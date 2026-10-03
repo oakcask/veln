@@ -248,7 +248,7 @@ impl<'a> Classifier<'a> {
     ) {
         while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
             let token = &self.tokens[self.cursor];
-            if token.kind == TokenKind::Ident
+            if matches!(token.kind, TokenKind::Ident | TokenKind::Callsite)
                 && (!require_type_separator
                     || self.next_significant_kind() == Some(TokenKind::Colon))
             {

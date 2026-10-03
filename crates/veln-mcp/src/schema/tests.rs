@@ -96,6 +96,12 @@ fn definition_input_requires_closed_positive_coordinates() {
 }
 
 #[test]
+fn presentation_inputs_require_closed_positive_coordinates() {
+    assert_position_input_schema(tool("completion").unwrap());
+    assert_position_input_schema(tool("signature_help").unwrap());
+}
+
+#[test]
 fn references_input_requires_closed_positive_coordinates() {
     let tool = tool("references").unwrap();
     assert!(tool.input_schema().get("additionalProperties").is_none());

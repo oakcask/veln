@@ -14,6 +14,10 @@ const CHECK_PROJECT_INPUT: &str = include_str!("../schemas/mcp/v1/check-project-
 const CHECK_PROJECT_RESULT: &str = include_str!("../schemas/mcp/v1/check-project-result.json");
 const DEFINITION_INPUT: &str = include_str!("../schemas/mcp/v1/definition-input.json");
 const DEFINITION_RESULT: &str = include_str!("../schemas/mcp/v1/definition-result.json");
+const COMPLETION_INPUT: &str = include_str!("../schemas/mcp/v1/completion-input.json");
+const COMPLETION_RESULT: &str = include_str!("../schemas/mcp/v1/completion-result.json");
+const SIGNATURE_HELP_INPUT: &str = include_str!("../schemas/mcp/v1/signature-help-input.json");
+const SIGNATURE_HELP_RESULT: &str = include_str!("../schemas/mcp/v1/signature-help-result.json");
 const REFERENCES_INPUT: &str = include_str!("../schemas/mcp/v1/references-input.json");
 const REFERENCES_RESULT: &str = include_str!("../schemas/mcp/v1/references-result.json");
 const RENAME_INPUT: &str = include_str!("../schemas/mcp/v1/rename-input.json");
@@ -57,7 +61,9 @@ impl ToolSchema {
                     && object.get("project").is_none_or(Value::is_string)
                     && object.get("source").is_none_or(Value::is_string)
             }
-            "definition" | "references" | "rename" => matches_schema(&self.input_schema(), value),
+            "definition" | "completion" | "signature_help" | "references" | "rename" => {
+                matches_schema(&self.input_schema(), value)
+            }
             "search_docs" => {
                 matches_schema(&self.input_schema(), value)
                     && value["query"].as_str().is_some_and(|query| {
@@ -76,7 +82,7 @@ impl ToolSchema {
     }
 }
 
-pub(crate) const TOOLS: [ToolSchema; 9] = [
+pub(crate) const TOOLS: [ToolSchema; 11] = [
     ToolSchema {
         name: "workspace_projects",
         description: "Return the current workspace project selection without refreshing it",
@@ -100,6 +106,18 @@ pub(crate) const TOOLS: [ToolSchema; 9] = [
         description: "Resolve a supported symbol in one saved workspace source",
         input: DEFINITION_INPUT,
         result: DEFINITION_RESULT,
+    },
+    ToolSchema {
+        name: "completion",
+        description: "Return context-sensitive completion candidates for one saved Veln source position",
+        input: COMPLETION_INPUT,
+        result: COMPLETION_RESULT,
+    },
+    ToolSchema {
+        name: "signature_help",
+        description: "Return callable signature help for one saved Veln source position",
+        input: SIGNATURE_HELP_INPUT,
+        result: SIGNATURE_HELP_RESULT,
     },
     ToolSchema {
         name: "references",

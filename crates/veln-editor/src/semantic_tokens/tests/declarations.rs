@@ -332,6 +332,46 @@ fn collector_classifies_handler_declarations() {
 }
 
 #[test]
+fn collector_distinguishes_callsite_modifier_builtin_and_ordinary_identifier() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located() -> SourceLocation callsite\n",
+            "require callsite.start_line > 0\n",
+            "  callsite.callsite\n",
+            "end\n",
+            "fn ordinary(callsite: Int) -> Int\n",
+            "  callsite\n",
+            "end\n",
+            "fn duplicate() -> SourceLocation callsite callsite\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+    let tokens = collect_text(&source);
+    let callsites = tokens
+        .iter()
+        .filter(|(text, _, _)| text == "callsite")
+        .collect::<Vec<_>>();
+    assert_eq!(callsites[0].1, SemanticTokenType::Keyword);
+    assert_eq!(callsites[1].1, SemanticTokenType::Variable);
+    assert_eq!(callsites[1].2, SemanticTokenModifiers::empty().bits());
+    assert_eq!(callsites[2].1, SemanticTokenType::Variable);
+    assert_eq!(
+        callsites[2].2,
+        SemanticTokenModifiers::empty()
+            .with(SemanticTokenModifier::Readonly)
+            .bits()
+    );
+    assert_eq!(callsites[3].1, SemanticTokenType::Property);
+    assert_eq!(callsites[4].1, SemanticTokenType::Parameter);
+    assert_eq!(callsites[5].1, SemanticTokenType::Parameter);
+    assert_eq!(callsites[6].1, SemanticTokenType::Keyword);
+    assert_eq!(callsites[7].1, SemanticTokenType::Keyword);
+    assert_eq!(callsites[8].1, SemanticTokenType::Variable);
+}
+
+#[test]
 fn collector_classifies_multiline_handler_operation_clause_bodies() {
     let source = SourceFile::new(
         "main.veln",

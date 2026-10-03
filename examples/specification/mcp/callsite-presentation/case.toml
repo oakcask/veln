@@ -1,0 +1,56 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/tools/4/name"
+equals = "completion"
+
+[[mcp_assert]]
+id = 2
+path = "/result/tools/5/name"
+equals = "signature_help"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/items/0/label"
+equals = "callsite"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/items/0/kind"
+equals = "builtin_local"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/items/0/detail"
+equals = "built-in SourceLocation local"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/items"
+length = 0
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/items/0/kind"
+equals = "modifier"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/signature/label"
+equals = "fn located(message: String) -> SourceLocation callsite"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/signature/parameters"
+length = 1
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/signature/activeParameter"
+equals = 0

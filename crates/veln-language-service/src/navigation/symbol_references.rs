@@ -532,14 +532,27 @@ impl SymbolIndex {
         })
     }
 
+    fn function_alias_target_symbol(&self, symbol: &FunctionSymbol) -> Option<FunctionSymbol> {
+        let target_name = symbol.alias_target_name.as_deref()?;
+        let target_module = self.function_alias_target_module(symbol)?;
+        let mut candidates = self.functions.iter().filter(|candidate| {
+            candidate.name == target_name
+                && candidate.module == target_module
+                && candidate.package == symbol.package
+                && candidate.package_origin == symbol.package_origin
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
     fn function_alias_target_module(&self, symbol: &FunctionSymbol) -> Option<String> {
         let Some(target_module) = symbol.alias_target_module.as_deref() else {
             return Some(symbol.module.clone());
         };
         let declaring_file = self.files.iter().find(|file| {
             file.source.path() == &symbol.declaration.span.file
-                && matches!(
-                    (&file.origin, symbol.package.as_deref(), symbol.package_origin),
+                && match (&file.origin, symbol.package.as_deref(), symbol.package_origin) {
+                    (IndexedOrigin::Workspace, None, None) => true,
                     (
                         IndexedOrigin::Package {
                             identity,
@@ -548,13 +561,16 @@ impl SymbolIndex {
                         },
                         Some(package),
                         Some(origin),
-                    ) if identity == package
-                        && if *standard_library {
-                            origin == PackageOrigin::StandardLibrary
-                        } else {
-                            origin == PackageOrigin::DirectDependency
-                        }
-                )
+                    ) => {
+                        identity == package
+                            && if *standard_library {
+                                origin == PackageOrigin::StandardLibrary
+                            } else {
+                                origin == PackageOrigin::DirectDependency
+                            }
+                    }
+                    _ => false,
+                }
         });
         match declaring_file {
             None => None,

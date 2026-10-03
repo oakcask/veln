@@ -246,6 +246,21 @@ pub fn navigate(
     navigate_in_index(snapshot.navigation_index(), &position)
 }
 
+pub(crate) fn function_signature_definition(
+    snapshot: &EffectiveProjectSnapshot,
+    result: &NavigationResult,
+) -> Option<NavigationLocation> {
+    let index = snapshot.navigation_index();
+    let mut symbol = index.selected_function(result)?;
+    for _ in 0..64 {
+        if symbol.declaration_kind != SymbolDeclarationKind::PublicAlias {
+            return Some(symbol.declaration);
+        }
+        symbol = index.function_alias_target_symbol(&symbol)?;
+    }
+    None
+}
+
 pub fn navigate_for_rename(
     snapshot: &EffectiveProjectSnapshot,
     position: SourcePosition,

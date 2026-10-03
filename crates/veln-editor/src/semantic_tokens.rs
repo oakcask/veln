@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use veln_source::{SourceFile, SourceSpan};
-use veln_syntax::{Token, TokenKind, lex};
+use veln_syntax::{SyntaxItem, Token, TokenKind, lex, parse};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticToken {
@@ -123,8 +123,69 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
     let lexed = lex(source);
     let tokens = lexed.tokens;
     let function_names = collect_function_names(&tokens);
+    let parsed = parse(source);
+    let modifier_offsets = parsed
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Function(function) => {
+                function.callsite.as_ref().map(|span| span.start.offset)
+            }
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    let callsite_scopes = parsed
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Function(function) => function.callsite.as_ref().map(|modifier| {
+                (
+                    function
+                        .contracts
+                        .last()
+                        .map_or(modifier.end.offset, |contract| contract.span.end.offset),
+                    function.span.end.offset,
+                )
+            }),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let callsite_modifier_lines = parsed
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Function(function) => function
+                .callsite
+                .as_ref()
+                .map(|modifier| (modifier.start.offset, modifier.start.line)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
     let mut classifier = Classifier::new(source, &tokens, function_names);
-    classifier.collect()
+    let mut semantic_tokens = classifier.collect();
+    for token in &mut semantic_tokens {
+        if modifier_offsets.contains(&token.span.start.offset)
+            || (&source.text()[token.span.start.offset..token.span.end.offset] == "callsite"
+                && callsite_modifier_lines.iter().any(|(start, line)| {
+                    *start <= token.span.start.offset && token.span.start.line == *line
+                }))
+        {
+            token.kind.token_type = SemanticTokenType::Keyword;
+            token.modifiers = SemanticTokenModifiers::empty();
+        } else if &source.text()[token.span.start.offset..token.span.end.offset] == "callsite"
+            && token.kind.token_type == SemanticTokenType::Variable
+            && callsite_scopes.iter().any(|(start, end)| {
+                *start <= token.span.start.offset && token.span.end.offset <= *end
+            })
+        {
+            token.kind.token_type = SemanticTokenType::Variable;
+            token.modifiers = SemanticTokenModifiers::empty().with(SemanticTokenModifier::Readonly);
+        }
+    }
+    semantic_tokens
 }
 
 pub fn encode_lsp_semantic_tokens(tokens: &[SemanticToken]) -> Vec<LspSemanticToken> {
