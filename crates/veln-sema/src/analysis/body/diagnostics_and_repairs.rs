@@ -88,57 +88,64 @@ impl<'a> FunctionChecker<'a> {
             && !type_contains_unknown(actual)
             && let Some(mismatch) = variant_mismatch_sets(expected, actual, &self.environment.adts)
         {
-            let actual_text = self.variant_diagnostics.rendered_type(actual);
-            let expected_facts = self
-                .variant_diagnostics
-                .expected_facts(expected, mismatch.expected_variants);
-            let exclusion_facts = self.variant_diagnostics.exclusion_facts(
+            self.push_variant_mismatch_diagnostic(
+                expr,
+                expected,
                 actual,
-                &mismatch.exclusion,
-                &actual_text,
-                &expected_facts,
+                expected_source,
+                constraint,
+                mismatch,
             );
-            let mut diagnostic = Diagnostic::new_text(
-                "type.variant_mismatch",
-                Severity::Error,
-                DiagnosticKind::Type,
-                exclusion_facts.primary_message.clone(),
-                Some(expr.span.clone()),
-                JsonValue::object([
-                    ("phase", JsonValue::string("type_check")),
-                    ("node_id", JsonValue::string(expr.node_id.display("expr"))),
-                    ("actual_type", JsonValue::text(actual_text.clone())),
-                    (
-                        "expected_type",
-                        JsonValue::text(expected_facts.rendered_type.clone()),
-                    ),
-                    (
-                        "expected_variants",
-                        expected_facts.expected_variants.clone(),
-                    ),
-                    (
-                        "excluded_variants",
-                        exclusion_facts.excluded_variants.clone(),
-                    ),
-                    ("constraint", JsonValue::string(constraint)),
-                ]),
-            );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("variant_exclusion")),
-                ("message", JsonValue::text(exclusion_facts.message.clone())),
-                ("span", span_json(&expr.span)),
-            ]));
-            if let Some(origin_span) = &expected_source.origin_span {
-                diagnostic.related.push(JsonValue::object([
-                    ("kind", JsonValue::string("expected_type_origin")),
-                    ("message", JsonValue::string(expected_source.origin_message)),
-                    ("span", span_json(origin_span)),
-                ]));
-            }
-            self.diagnostics.push(diagnostic);
             return;
         }
-        self.diagnostics.push(Diagnostic::new(
+        self.push_type_mismatch_diagnostic(expr, expected, actual, expected_source, constraint);
+    }
+
+    fn push_variant_mismatch_diagnostic(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_source: &ExpectedType,
+        constraint: &'static str,
+        mismatch: VariantMismatchFacts<'_>,
+    ) {
+        let actual_text = self.variant_diagnostics.rendered_type(actual);
+        let expected_facts = self
+            .variant_diagnostics
+            .expected_facts(expected, mismatch.expected_variants);
+        let exclusion_facts = self.variant_diagnostics.exclusion_facts(
+            actual,
+            &mismatch.exclusion,
+            &actual_text,
+            &expected_facts,
+        );
+        let mut diagnostic = variant_mismatch_diagnostic(
+            expr,
+            constraint,
+            &actual_text,
+            &expected_facts,
+            &exclusion_facts,
+        );
+        if let Some(origin_span) = &expected_source.origin_span {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("expected_type_origin")),
+                ("message", JsonValue::string(expected_source.origin_message)),
+                ("span", span_json(origin_span)),
+            ]));
+        }
+        self.diagnostics.push(diagnostic);
+    }
+
+    fn push_type_mismatch_diagnostic(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_source: &ExpectedType,
+        constraint: &'static str,
+    ) {
+        let diagnostic = Diagnostic::new(
             "type.mismatch",
             Severity::Error,
             DiagnosticKind::Type,
@@ -161,7 +168,8 @@ impl<'a> FunctionChecker<'a> {
                     expr.node_id.display("expr"),
                 ],
             ),
-        ));
+        );
+        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn push_invalid_type_annotation(
@@ -757,6 +765,40 @@ fn variant_mismatch_sets<'a>(
         }
         _ => None,
     }
+}
+
+fn variant_mismatch_diagnostic(
+    expr: &Expr,
+    constraint: &'static str,
+    actual_text: &DiagnosticText,
+    expected: &ExpectedVariantDiagnosticFacts,
+    exclusion: &VariantExclusionDiagnosticFacts,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new_text(
+        "type.variant_mismatch",
+        Severity::Error,
+        DiagnosticKind::Type,
+        exclusion.primary_message.clone(),
+        Some(expr.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("type_check")),
+            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+            ("actual_type", JsonValue::text(actual_text.clone())),
+            (
+                "expected_type",
+                JsonValue::text(expected.rendered_type.clone()),
+            ),
+            ("expected_variants", expected.expected_variants.clone()),
+            ("excluded_variants", exclusion.excluded_variants.clone()),
+            ("constraint", JsonValue::string(constraint)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("variant_exclusion")),
+        ("message", JsonValue::text(exclusion.message.clone())),
+        ("span", span_json(&expr.span)),
+    ]));
+    diagnostic
 }
 
 struct VariantMismatchFacts<'a> {

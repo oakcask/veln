@@ -24,6 +24,29 @@ pub(crate) fn private_call_site_non_target_params(
     expected: Option<&Type>,
     context: &mut PrivateCallSiteExprContext<'_, '_>,
 ) -> Vec<Type> {
+    if let Some(constructor) = private_non_target_constructor(segments, expected, context) {
+        return private_constructor_non_target_params(constructor, expected);
+    }
+    if let Some(signature) = private_call_site_declared_signature(
+        segments,
+        context.current_module,
+        context.constraints.uses,
+        context.constraints.signatures_by_path,
+    )
+    .filter(|signature| {
+        context.current_module == Some("std::prelude")
+            || signature.module_name.as_deref() != Some("std::prelude")
+    }) {
+        return signature.params.clone();
+    }
+    private_prelude_non_target_params(segments, args, expected, context).unwrap_or_default()
+}
+
+fn private_non_target_constructor<'a>(
+    segments: &[String],
+    expected: Option<&Type>,
+    context: &PrivateCallSiteExprContext<'a, '_>,
+) -> Option<AdtConstructor<'a>> {
     let expected_constructor = (segments.len() == 1)
         .then_some(expected)
         .flatten()
@@ -50,39 +73,38 @@ pub(crate) fn private_call_site_non_target_params(
         ConstructorLookup::Found(constructor) => Some(constructor),
         ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
     };
-    if let Some(constructor) = expected_constructor.or(ordinary_constructor) {
-        return expected
-            .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
-            .map(|_| {
-                constructor
-                    .variant
-                    .payload_fields
-                    .iter()
-                    .enumerate()
-                    .map(|(index, _)| {
-                        expected
-                            .and_then(|expected| adt::payload_type(expected, constructor, index))
-                            .filter(|ty| !type_has_unknown(ty))
-                            .unwrap_or(Type::Unknown)
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-    }
+    expected_constructor.or(ordinary_constructor)
+}
 
-    if let Some(signature) = private_call_site_declared_signature(
-        segments,
-        context.current_module,
-        context.constraints.uses,
-        context.constraints.signatures_by_path,
-    )
-    .filter(|signature| {
-        context.current_module == Some("std::prelude")
-            || signature.module_name.as_deref() != Some("std::prelude")
-    }) {
-        return signature.params.clone();
-    }
+fn private_constructor_non_target_params(
+    constructor: AdtConstructor<'_>,
+    expected: Option<&Type>,
+) -> Vec<Type> {
+    expected
+        .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
+        .map(|_| {
+            constructor
+                .variant
+                .payload_fields
+                .iter()
+                .enumerate()
+                .map(|(index, _)| {
+                    expected
+                        .and_then(|expected| adt::payload_type(expected, constructor, index))
+                        .filter(|ty| !type_has_unknown(ty))
+                        .unwrap_or(Type::Unknown)
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
 
+fn private_prelude_non_target_params(
+    segments: &[String],
+    args: &[Expr],
+    expected: Option<&Type>,
+    context: &mut PrivateCallSiteExprContext<'_, '_>,
+) -> Option<Vec<Type>> {
     private_prelude_constraint_name(
         segments,
         context.current_module,
@@ -119,7 +141,6 @@ pub(crate) fn private_call_site_non_target_params(
         }
         Some(params)
     })
-    .unwrap_or_default()
 }
 
 pub(crate) fn private_prelude_input_arg<'a>(

@@ -133,216 +133,211 @@ pub(crate) fn canonicalize_type_effects(
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Type {
-    record_type_canonicalization_visit();
-    match ty {
-        Type::Named { name, args, .. } => {
-            if let Some((base_name, variant)) = name.rsplit_once("::")
-                && let Some(descriptor) =
-                    adts.descriptor_for_type_path(base_name, args.len(), current_module, uses)
-                && descriptor
-                    .variants
-                    .iter()
-                    .any(|candidate| candidate.name == variant)
-            {
-                let args = canonical_variant_arguments(
-                    args,
-                    uses,
-                    quarantined_uses,
-                    current_module,
-                    effects,
-                    adts,
-                    companion_effect_access_targets,
-                );
-                return canonical_variant_refinement(descriptor, args, vec![variant.to_string()]);
+    TypeCanonicalizer {
+        uses,
+        quarantined_uses,
+        current_module,
+        effects,
+        adts,
+        companion_effect_access_targets,
+    }
+    .canonicalize(ty)
+}
+
+struct TypeCanonicalizer<'a> {
+    uses: &'a [UseDecl],
+    quarantined_uses: &'a [UseDecl],
+    current_module: Option<&'a str>,
+    effects: &'a [EffectSignature],
+    adts: &'a AdtRegistry,
+    companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
+}
+
+impl TypeCanonicalizer<'_> {
+    fn canonicalize(&self, ty: Type) -> Type {
+        record_type_canonicalization_visit();
+        match ty {
+            Type::Named { name, args, .. } => self.canonicalize_named(name, args),
+            Type::VariantRefinement {
+                name,
+                args,
+                variants,
+                unresolved_alternatives,
+                ..
+            } => self.canonicalize_refinement(name, args, variants, unresolved_alternatives),
+            Type::Record(fields) => Type::Record(
+                fields
+                    .into_iter()
+                    .map(|(name, ty)| (name, self.canonicalize(ty)))
+                    .collect(),
+            ),
+            Type::Function {
+                params,
+                variadic,
+                return_type,
+                effects,
+            } => self.canonicalize_function(params, variadic, *return_type, effects),
+            Type::Unknown => Type::Unknown,
+        }
+    }
+
+    fn canonicalize_named(&self, name: String, args: Vec<Type>) -> Type {
+        if let Some(refinement) = self.canonicalize_named_variant(&name, &args) {
+            return refinement;
+        }
+        let descriptor =
+            self.adts
+                .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses);
+        if args.is_empty()
+            && let Some(annotation_type) = descriptor
+                .and_then(|descriptor| self.adts.annotation_type_for_descriptor(descriptor))
+        {
+            return annotation_type.clone();
+        }
+        if args.is_empty() && descriptor.is_none() {
+            if name == "WallTime" {
+                return Type::wall_time();
             }
-            let descriptor = adts.descriptor_for_type_path(&name, args.len(), current_module, uses);
-            if args.is_empty() {
-                if let Some(annotation_type) = descriptor
-                    .and_then(|descriptor| adts.annotation_type_for_descriptor(descriptor))
-                {
-                    return annotation_type.clone();
-                }
-                if name == "WallTime" && descriptor.is_none() {
-                    return Type::wall_time();
-                }
-                if name == "SourceLocation" && descriptor.is_none() {
-                    return Type::source_location();
-                }
-            }
-            let Some(canonical_name) = descriptor
-                .map(|descriptor| descriptor.type_name.clone())
-                .or_else(|| {
-                    canonical_type_name_without_descriptor(
-                        &name,
-                        current_module,
-                        uses,
-                        quarantined_uses,
-                        args.len(),
-                        adts,
-                    )
-                })
-            else {
-                return Type::Unknown;
-            };
-            let args = args
-                .into_iter()
-                .map(|arg| {
-                    canonicalize_type_effects(
-                        arg,
-                        uses,
-                        quarantined_uses,
-                        current_module,
-                        effects,
-                        adts,
-                        companion_effect_access_targets,
-                    )
-                })
-                .collect();
-            if let Some(descriptor) = descriptor {
-                Type::resolved_named(canonical_name, descriptor.identity(), args)
-            } else {
-                Type::named(canonical_name, args)
+            if name == "SourceLocation" {
+                return Type::source_location();
             }
         }
-        Type::VariantRefinement {
-            name,
-            args,
+        let Some(canonical_name) = descriptor
+            .map(|descriptor| descriptor.type_name.clone())
+            .or_else(|| {
+                canonical_type_name_without_descriptor(
+                    &name,
+                    self.current_module,
+                    self.uses,
+                    self.quarantined_uses,
+                    args.len(),
+                    self.adts,
+                )
+            })
+        else {
+            return Type::Unknown;
+        };
+        let args = self.canonicalize_args(args);
+        if let Some(descriptor) = descriptor {
+            Type::resolved_named(canonical_name, descriptor.identity(), args)
+        } else {
+            Type::named(canonical_name, args)
+        }
+    }
+
+    fn canonicalize_named_variant(&self, name: &str, args: &[Type]) -> Option<Type> {
+        let (base_name, variant) = name.rsplit_once("::")?;
+        let descriptor = self.adts.descriptor_for_type_path(
+            base_name,
+            args.len(),
+            self.current_module,
+            self.uses,
+        )?;
+        descriptor
+            .variants
+            .iter()
+            .any(|candidate| candidate.name == variant)
+            .then(|| {
+                canonical_variant_refinement(
+                    descriptor,
+                    self.canonicalize_args(args.to_vec()),
+                    vec![variant.to_string()],
+                )
+            })
+    }
+
+    fn canonicalize_refinement(
+        &self,
+        name: String,
+        args: Vec<Type>,
+        variants: Vec<String>,
+        unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
+    ) -> Type {
+        let Some(descriptor) =
+            self.adts
+                .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
+        else {
+            return Type::Unknown;
+        };
+        let declared_variants = descriptor
+            .variants
+            .iter()
+            .map(|candidate| candidate.name.as_str())
+            .collect::<HashSet<_>>();
+        if variants.iter().any(|variant| {
+            crate::type_relations::record_variant_set_lookup();
+            !declared_variants.contains(variant.as_str())
+        }) {
+            return Type::Unknown;
+        }
+        let canonical_args = self.canonicalize_args(args);
+        let Some(variants) = self.resolve_refinement_alternatives(
+            descriptor,
+            canonical_args.as_slice(),
             variants,
             unresolved_alternatives,
-            ..
-        } => {
-            let Some(descriptor) =
-                adts.descriptor_for_type_path(&name, args.len(), current_module, uses)
-            else {
-                return Type::Unknown;
-            };
-            let declared_variants = descriptor
-                .variants
-                .iter()
-                .map(|candidate| candidate.name.as_str())
-                .collect::<HashSet<_>>();
-            if variants.iter().any(|variant| {
-                crate::type_relations::record_variant_set_lookup();
-                !declared_variants.contains(variant.as_str())
-            }) {
-                return Type::Unknown;
-            }
-            let canonical_args = canonical_variant_arguments(
-                args,
-                uses,
-                quarantined_uses,
-                current_module,
-                effects,
-                adts,
-                companion_effect_access_targets,
-            );
-            let mut variants = variants;
-            let mut selected_variants = variants.iter().cloned().collect::<HashSet<_>>();
-            for (alternative_name, alternative_args, alternative_variant) in unresolved_alternatives
+            &declared_variants,
+        ) else {
+            return Type::Unknown;
+        };
+        canonical_variant_refinement(descriptor, canonical_args, variants)
+    }
+
+    fn resolve_refinement_alternatives(
+        &self,
+        descriptor: &crate::adt::descriptors::AdtDescriptor,
+        canonical_args: &[Type],
+        mut variants: Vec<String>,
+        unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
+        declared_variants: &HashSet<&str>,
+    ) -> Option<Vec<String>> {
+        let mut selected_variants = variants.iter().cloned().collect::<HashSet<_>>();
+        for (name, args, variant) in unresolved_alternatives {
+            let alternative_descriptor = self.adts.descriptor_for_type_path(
+                &name,
+                args.len(),
+                self.current_module,
+                self.uses,
+            )?;
+            crate::type_relations::record_variant_set_lookup();
+            if alternative_descriptor.identity() != descriptor.identity()
+                || self.canonicalize_args(args) != canonical_args
+                || !declared_variants.contains(variant.as_str())
             {
-                let Some(alternative_descriptor) = adts.descriptor_for_type_path(
-                    &alternative_name,
-                    alternative_args.len(),
-                    current_module,
-                    uses,
-                ) else {
-                    return Type::Unknown;
-                };
-                if alternative_descriptor.identity() != descriptor.identity()
-                    || canonical_variant_arguments(
-                        alternative_args,
-                        uses,
-                        quarantined_uses,
-                        current_module,
-                        effects,
-                        adts,
-                        companion_effect_access_targets,
-                    ) != canonical_args
-                    || {
-                        crate::type_relations::record_variant_set_lookup();
-                        !declared_variants.contains(alternative_variant.as_str())
-                    }
-                {
-                    return Type::Unknown;
-                }
-                crate::type_relations::record_variant_set_lookup();
-                if selected_variants.insert(alternative_variant.clone()) {
-                    variants.push(alternative_variant);
-                }
+                return None;
             }
-            canonical_variant_refinement(descriptor, canonical_args, variants)
+            crate::type_relations::record_variant_set_lookup();
+            if selected_variants.insert(variant.clone()) {
+                variants.push(variant);
+            }
         }
-        Type::Record(fields) => Type::Record(
-            fields
-                .into_iter()
-                .map(|(name, ty)| {
-                    (
-                        name,
-                        canonicalize_type_effects(
-                            ty,
-                            uses,
-                            quarantined_uses,
-                            current_module,
-                            effects,
-                            adts,
-                            companion_effect_access_targets,
-                        ),
-                    )
-                })
-                .collect(),
-        ),
+        Some(variants)
+    }
+
+    fn canonicalize_function(
+        &self,
+        params: Vec<Type>,
+        variadic: Option<Box<Type>>,
+        return_type: Type,
+        effects: Vec<String>,
+    ) -> Type {
         Type::Function {
-            params,
-            variadic,
-            return_type,
-            effects: declared,
-        } => Type::Function {
-            params: params
-                .into_iter()
-                .map(|param| {
-                    canonicalize_type_effects(
-                        param,
-                        uses,
-                        quarantined_uses,
-                        current_module,
-                        effects,
-                        adts,
-                        companion_effect_access_targets,
-                    )
-                })
-                .collect(),
-            variadic: variadic
-                .map(|ty| {
-                    canonicalize_type_effects(
-                        *ty,
-                        uses,
-                        quarantined_uses,
-                        current_module,
-                        effects,
-                        adts,
-                        companion_effect_access_targets,
-                    )
-                })
-                .map(Box::new),
-            return_type: Box::new(canonicalize_type_effects(
-                *return_type,
-                uses,
-                quarantined_uses,
-                current_module,
-                effects,
-                adts,
-                companion_effect_access_targets,
-            )),
+            params: self.canonicalize_args(params),
+            variadic: variadic.map(|ty| Box::new(self.canonicalize(*ty))),
+            return_type: Box::new(self.canonicalize(return_type)),
             effects: canonical_declared_effects(
-                declared,
-                uses,
-                quarantined_uses,
-                current_module,
                 effects,
-                companion_effect_access_targets,
+                self.uses,
+                self.quarantined_uses,
+                self.current_module,
+                self.effects,
+                self.companion_effect_access_targets,
             ),
-        },
-        Type::Unknown => Type::Unknown,
+        }
+    }
+
+    fn canonicalize_args(&self, args: Vec<Type>) -> Vec<Type> {
+        args.into_iter().map(|arg| self.canonicalize(arg)).collect()
     }
 }
 
@@ -372,31 +367,6 @@ fn canonical_variant_refinement(
             variants,
         )
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn canonical_variant_arguments(
-    args: Vec<Type>,
-    uses: &[UseDecl],
-    quarantined_uses: &[UseDecl],
-    current_module: Option<&str>,
-    effects: &[EffectSignature],
-    adts: &AdtRegistry,
-    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
-) -> Vec<Type> {
-    args.into_iter()
-        .map(|arg| {
-            canonicalize_type_effects(
-                arg,
-                uses,
-                quarantined_uses,
-                current_module,
-                effects,
-                adts,
-                companion_effect_access_targets,
-            )
-        })
-        .collect()
 }
 
 fn canonical_type_name_without_descriptor(

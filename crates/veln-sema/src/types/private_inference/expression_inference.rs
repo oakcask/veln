@@ -547,6 +547,26 @@ pub(crate) fn infer_private_signature_name_type(
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
+    if let Some(constructor) =
+        private_nullary_constructor(segments, expected, current_module, uses, adts)
+    {
+        let args = expected
+            .and_then(|expected| {
+                unification::adt_args(expected, constructor.descriptor).map(<[Type]>::to_vec)
+            })
+            .unwrap_or_else(|| vec![Type::Unknown; constructor.descriptor.type_parameters.len()]);
+        return adt::refined_constructed_type_from_args(constructor, &args);
+    }
+    private_name_value_type(segments, current_module, uses, bindings, returns_by_path)
+}
+
+fn private_nullary_constructor<'a>(
+    segments: &[String],
+    expected: Option<&Type>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    adts: &'a AdtRegistry,
+) -> Option<AdtConstructor<'a>> {
     let expected_constructor = (segments.len() == 1)
         .then_some(expected)
         .flatten()
@@ -555,7 +575,7 @@ pub(crate) fn infer_private_signature_name_type(
             adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
         })
         .filter(|constructor| constructor.variant.payload_fields.is_empty());
-    let constructor = expected_constructor.or_else(|| {
+    expected_constructor.or_else(|| {
         match adts.nullary_constructor(segments, current_module, uses) {
             ConstructorLookup::Found(constructor) => Some(constructor),
             ConstructorLookup::Ambiguous => expected
@@ -568,15 +588,16 @@ pub(crate) fn infer_private_signature_name_type(
                 .filter(|constructor| constructor.variant.payload_fields.is_empty()),
             ConstructorLookup::Missing => None,
         }
-    });
-    if let Some(constructor) = constructor {
-        let args = expected
-            .and_then(|expected| {
-                unification::adt_args(expected, constructor.descriptor).map(<[Type]>::to_vec)
-            })
-            .unwrap_or_else(|| vec![Type::Unknown; constructor.descriptor.type_parameters.len()]);
-        return adt::refined_constructed_type_from_args(constructor, &args);
-    }
+    })
+}
+
+fn private_name_value_type(
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
+    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+) -> Type {
     match segments {
         [name] => bindings
             .iter()
@@ -646,89 +667,110 @@ pub(crate) fn infer_private_signature_call_type(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
-    if let ExprKind::NamePath { segments, .. } = &callee.kind {
-        let expected_constructor = (segments.len() == 1)
-            .then_some(expected)
-            .flatten()
-            .and_then(|expected| {
-                context
-                    .adts
-                    .descriptor_for_type_prefer_module(expected, context.current_module)
-            })
-            .and_then(|descriptor| {
-                context.adts.constructor_for_descriptor(
-                    segments,
-                    descriptor,
-                    context.current_module,
-                    context.uses,
-                )
-            })
-            .filter(|constructor| !constructor.variant.payload_fields.is_empty());
-        let ordinary_constructor =
-            match context
-                .adts
-                .constructor(segments, context.current_module, context.uses)
-            {
-                ConstructorLookup::Found(constructor) => Some(constructor),
-                ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
-            };
-        if let Some(constructor) = expected_constructor.or(ordinary_constructor) {
-            let mut inferred_type_args =
-                vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
-            for (index, arg) in args.iter().enumerate() {
-                let payload_expected = expected
-                    .and_then(|expected| adt::payload_type(expected, constructor, index))
-                    .or_else(|| {
-                        adt::payload_type_with_args(constructor, &inferred_type_args, index)
-                    })
-                    .unwrap_or(Type::Unknown);
-                let actual = context.infer(arg, item_type_unknown_as_none(&payload_expected));
-                let inferred_actual =
-                    inferred_private_aggregate_member_type(actual, &payload_expected);
-                adt::merge_type_args_from_payload(
-                    &mut inferred_type_args,
-                    constructor,
-                    index,
-                    &inferred_actual,
-                );
-            }
-            if let Some(expected_args) = expected
-                .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
-            {
-                for (inferred, expected) in inferred_type_args.iter_mut().zip(expected_args) {
-                    if *inferred == Type::Unknown {
-                        *inferred = expected.clone();
-                    }
-                }
-            }
-            return adt::refined_constructed_type_from_args(constructor, &inferred_type_args);
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
+        return Type::Unknown;
+    };
+    if let Some(constructor) = private_payload_constructor(segments, expected, context) {
+        return infer_private_constructor_call(constructor, args, expected, context);
+    }
+    if let Some(return_type) = private_declared_call_return(segments, context) {
+        return return_type.clone();
+    }
+    if let Some(name) = segments.last()
+        && let Some((params, return_type)) = crate::prelude::prelude_signature(name, expected)
+    {
+        for (arg, param) in args.iter().zip(params.iter()) {
+            context.infer(arg, Some(param));
         }
-        if let Some(name) = segments.last() {
-            if let Some(return_type) = match segments.as_slice() {
-                [name] => context
-                    .returns_by_path
-                    .get(&(context.current_module.map(str::to_string), name.clone())),
-                [_, .., name] => imported_use_for_path(
-                    context.uses,
-                    &segments[..segments.len() - 1],
-                    context.current_module,
-                )
-                .and_then(|use_decl| {
-                    context
-                        .returns_by_path
-                        .get(&(Some(use_decl.name.clone()), name.clone()))
-                }),
-                _ => None,
-            } {
-                return return_type.clone();
-            }
-            if let Some((params, return_type)) = crate::prelude::prelude_signature(name, expected) {
-                for (arg, param) in args.iter().zip(params.iter()) {
-                    context.infer(arg, Some(param));
-                }
-                return return_type;
+        return return_type;
+    }
+    Type::Unknown
+}
+
+fn private_payload_constructor<'a>(
+    segments: &[String],
+    expected: Option<&Type>,
+    context: &PrivateSignatureInferContext<'a>,
+) -> Option<AdtConstructor<'a>> {
+    let expected_constructor = (segments.len() == 1)
+        .then_some(expected)
+        .flatten()
+        .and_then(|expected| {
+            context
+                .adts
+                .descriptor_for_type_prefer_module(expected, context.current_module)
+        })
+        .and_then(|descriptor| {
+            context.adts.constructor_for_descriptor(
+                segments,
+                descriptor,
+                context.current_module,
+                context.uses,
+            )
+        })
+        .filter(|constructor| !constructor.variant.payload_fields.is_empty());
+    let ordinary_constructor =
+        match context
+            .adts
+            .constructor(segments, context.current_module, context.uses)
+        {
+            ConstructorLookup::Found(constructor) => Some(constructor),
+            ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
+        };
+    expected_constructor.or(ordinary_constructor)
+}
+
+fn infer_private_constructor_call(
+    constructor: AdtConstructor<'_>,
+    args: &[Expr],
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_>,
+) -> Type {
+    let mut inferred_type_args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
+    for (index, arg) in args.iter().enumerate() {
+        let payload_expected = expected
+            .and_then(|expected| adt::payload_type(expected, constructor, index))
+            .or_else(|| adt::payload_type_with_args(constructor, &inferred_type_args, index))
+            .unwrap_or(Type::Unknown);
+        let actual = context.infer(arg, item_type_unknown_as_none(&payload_expected));
+        let inferred_actual = inferred_private_aggregate_member_type(actual, &payload_expected);
+        adt::merge_type_args_from_payload(
+            &mut inferred_type_args,
+            constructor,
+            index,
+            &inferred_actual,
+        );
+    }
+    if let Some(expected_args) =
+        expected.and_then(|expected| unification::adt_args(expected, constructor.descriptor))
+    {
+        for (inferred, expected) in inferred_type_args.iter_mut().zip(expected_args) {
+            if *inferred == Type::Unknown {
+                *inferred = expected.clone();
             }
         }
     }
-    Type::Unknown
+    adt::refined_constructed_type_from_args(constructor, &inferred_type_args)
+}
+
+fn private_declared_call_return<'a>(
+    segments: &[String],
+    context: &'a PrivateSignatureInferContext<'_>,
+) -> Option<&'a Type> {
+    match segments {
+        [name] => context
+            .returns_by_path
+            .get(&(context.current_module.map(str::to_string), name.clone())),
+        [_, .., name] => imported_use_for_path(
+            context.uses,
+            &segments[..segments.len() - 1],
+            context.current_module,
+        )
+        .and_then(|use_decl| {
+            context
+                .returns_by_path
+                .get(&(Some(use_decl.name.clone()), name.clone()))
+        }),
+        _ => None,
+    }
 }

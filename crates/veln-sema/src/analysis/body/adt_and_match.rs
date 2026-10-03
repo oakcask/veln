@@ -9,9 +9,37 @@ impl<'a> FunctionChecker<'a> {
         constructor: AdtConstructor,
     ) -> Type {
         let diagnostic_count = self.diagnostics.len();
-        let mut actual_args = Vec::new();
         let expected = expected
             .filter(|expected| adt::type_matches_descriptor(&expected.ty, constructor.descriptor));
+        let mut inferred_type_args =
+            self.infer_constructor_type_args(expr, args, expected, constructor);
+        fill_unknown_constructor_type_args(&mut inferred_type_args, expected, constructor);
+        let expected_type_args = expected
+            .and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor));
+        let type_args = if self.diagnostics.len() != diagnostic_count {
+            expected_type_args.unwrap_or(&inferred_type_args)
+        } else {
+            &inferred_type_args
+        };
+        let inferred_base = adt::constructed_type_from_args(constructor, type_args);
+        if type_contains_unknown(&inferred_base) && expected.is_none() {
+            self.push_ambiguous_constructor_type(
+                expr.node_id,
+                expr.span.clone(),
+                &constructor.variant.name,
+                &inferred_base,
+            );
+        }
+        adt::refined_constructed_type_from_args(constructor, type_args)
+    }
+
+    fn infer_constructor_type_args(
+        &mut self,
+        expr: &Expr,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+        constructor: AdtConstructor,
+    ) -> Vec<Type> {
         let mut arg_expected = expected.cloned().unwrap_or_else(|| ExpectedType {
             ty: Type::Unknown,
             source: ExpectedTypeSource::Inferred,
@@ -66,39 +94,11 @@ impl<'a> FunctionChecker<'a> {
                 index,
                 &inferred_arg,
             );
-            actual_args.push(actual_arg);
         }
         for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
         }
-
-        if let Some(expected_args) = expected
-            .and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor))
-        {
-            for (inferred, expected) in inferred_type_args.iter_mut().zip(expected_args) {
-                if *inferred == Type::Unknown {
-                    *inferred = expected.clone();
-                }
-            }
-        }
-        let expected_type_args = expected
-            .and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor));
-        let type_args = if self.diagnostics.len() != diagnostic_count {
-            expected_type_args.unwrap_or(&inferred_type_args)
-        } else {
-            &inferred_type_args
-        };
-        let inferred_base = adt::constructed_type_from_args(constructor, type_args);
-        if type_contains_unknown(&inferred_base) && expected.is_none() {
-            self.push_ambiguous_constructor_type(
-                expr.node_id,
-                expr.span.clone(),
-                &constructor.variant.name,
-                &inferred_base,
-            );
-            return adt::refined_constructed_type_from_args(constructor, type_args);
-        }
-        adt::refined_constructed_type_from_args(constructor, type_args)
+        inferred_type_args
     }
 
     pub(super) fn infer_list(
@@ -378,6 +378,23 @@ impl<'a> FunctionChecker<'a> {
         }
         if *result_type == Type::Unknown {
             *result_type = inferred_control_flow_result_type(actual);
+        }
+    }
+}
+
+fn fill_unknown_constructor_type_args(
+    inferred_type_args: &mut [Type],
+    expected: Option<&ExpectedType>,
+    constructor: AdtConstructor<'_>,
+) {
+    let Some(expected_args) =
+        expected.and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor))
+    else {
+        return;
+    };
+    for (inferred, expected) in inferred_type_args.iter_mut().zip(expected_args) {
+        if *inferred == Type::Unknown {
+            *inferred = expected.clone();
         }
     }
 }

@@ -111,72 +111,26 @@ impl<'a> FunctionChecker<'a> {
         let mut key_type = expected_key.clone();
         let mut value_type = expected_value.clone();
         for entry in entries {
-            let key_expected = collection_item_expected(
-                if key_type == Type::Unknown {
-                    expected_key.clone()
-                } else {
-                    key_type.clone()
-                },
+            key_type = self.infer_dict_member(
+                &entry.key,
+                &key_type,
+                &expected_key,
+                contextual_key,
                 expected,
-                expr.node_id,
-                expr.span.clone(),
+                expr,
                 "Dict key type inferred here.",
+                "dict_key",
             );
-            let actual_key = self.infer_expr(&entry.key, Some(&key_expected));
-            let aggregate_key =
-                inferred_aggregate_member_type_with_expected(actual_key.clone(), &key_expected.ty);
-            let common_key_base = common_variant_base(&key_expected.ty, &aggregate_key);
-            if !contextual_key && let Some(base) = &common_key_base {
-                key_type = base.clone();
-            }
-            if !is_assignable_nested(&key_expected.ty, &aggregate_key)
-                && (contextual_key || common_key_base.is_none())
-            {
-                self.check_assignable_nested(
-                    &entry.key,
-                    &key_expected.ty,
-                    &actual_key,
-                    &key_expected,
-                    "dict_key",
-                );
-            }
-            if key_type == Type::Unknown {
-                key_type = aggregate_key;
-            }
-            let value_expected = collection_item_expected(
-                if value_type == Type::Unknown {
-                    expected_value.clone()
-                } else {
-                    value_type.clone()
-                },
+            value_type = self.infer_dict_member(
+                &entry.value,
+                &value_type,
+                &expected_value,
+                contextual_value,
                 expected,
-                expr.node_id,
-                expr.span.clone(),
+                expr,
                 "Dict value type inferred here.",
+                "dict_value",
             );
-            let actual_value = self.infer_expr(&entry.value, Some(&value_expected));
-            let aggregate_value = inferred_aggregate_member_type_with_expected(
-                actual_value.clone(),
-                &value_expected.ty,
-            );
-            let common_value_base = common_variant_base(&value_expected.ty, &aggregate_value);
-            if !contextual_value && let Some(base) = &common_value_base {
-                value_type = base.clone();
-            }
-            if !is_assignable_nested(&value_expected.ty, &aggregate_value)
-                && (contextual_value || common_value_base.is_none())
-            {
-                self.check_assignable_nested(
-                    &entry.value,
-                    &value_expected.ty,
-                    &actual_value,
-                    &value_expected,
-                    "dict_value",
-                );
-            }
-            if value_type == Type::Unknown {
-                value_type = aggregate_value;
-            }
         }
         let actual = Type::dict(key_type, value_type);
         if let Some(expected) = expected
@@ -187,6 +141,55 @@ impl<'a> FunctionChecker<'a> {
             expected.ty.clone()
         } else {
             actual
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn infer_dict_member(
+        &mut self,
+        item: &Expr,
+        current_type: &Type,
+        contextual_type: &Type,
+        has_contextual_type: bool,
+        expected: Option<&ExpectedType>,
+        dict_expr: &Expr,
+        origin_message: &'static str,
+        constraint: &'static str,
+    ) -> Type {
+        let item_type = if current_type == &Type::Unknown {
+            contextual_type.clone()
+        } else {
+            current_type.clone()
+        };
+        let item_expected = collection_item_expected(
+            item_type,
+            expected,
+            dict_expr.node_id,
+            dict_expr.span.clone(),
+            origin_message,
+        );
+        let actual = self.infer_expr(item, Some(&item_expected));
+        let aggregate =
+            inferred_aggregate_member_type_with_expected(actual.clone(), &item_expected.ty);
+        let common_base = common_variant_base(&item_expected.ty, &aggregate);
+        if !is_assignable_nested(&item_expected.ty, &aggregate)
+            && (has_contextual_type || common_base.is_none())
+        {
+            self.check_assignable_nested(
+                item,
+                &item_expected.ty,
+                &actual,
+                &item_expected,
+                constraint,
+            );
+        }
+        if !has_contextual_type && let Some(base) = common_base {
+            return base;
+        }
+        if current_type == &Type::Unknown {
+            aggregate
+        } else {
+            current_type.clone()
         }
     }
 
