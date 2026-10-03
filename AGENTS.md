@@ -1,3 +1,4 @@
+* This project is experimental; maintaining backward compatibility is not required.
 * Do not write machine-specific absolute filesystem paths in repository files.
 * Deterministic effect tests must inject scoped fake handlers written in Veln
   through separate test support. Production handlers use real host effects by
