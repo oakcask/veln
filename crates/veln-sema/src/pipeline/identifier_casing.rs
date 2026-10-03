@@ -18,8 +18,6 @@ type RecoveredQualifiedSegmentPush = fn(
     &mut Vec<InvalidName>,
 );
 
-#[cfg(test)]
-mod classification_tests;
 mod occurrence_index;
 mod recovered_segments;
 mod recovered_traversal;
@@ -186,27 +184,6 @@ fn invalid_path_segment_is_already_classified(
         })
 }
 
-#[cfg(test)]
-mod invalid_path_classification_counters {
-    use std::cell::Cell;
-
-    thread_local! {
-        static INDEX_LOOKUPS: Cell<usize> = const { Cell::new(0) };
-    }
-
-    pub(super) fn reset() {
-        INDEX_LOOKUPS.set(0);
-    }
-
-    pub(super) fn record_index_lookup() {
-        INDEX_LOOKUPS.set(INDEX_LOOKUPS.get() + 1);
-    }
-
-    pub(super) fn index_lookups() -> usize {
-        INDEX_LOOKUPS.get()
-    }
-}
-
 fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
     let subject = match invalid.class {
         NameClass::Type => "type name",
@@ -266,3 +243,27 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
         JsonValue::object(details),
     )
 }
+
+#[cfg(test)]
+mod invalid_path_classification_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static INDEX_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(super) fn reset() {
+        INDEX_LOOKUPS.set(0);
+    }
+
+    pub(super) fn record_index_lookup() {
+        INDEX_LOOKUPS.set(INDEX_LOOKUPS.get() + 1);
+    }
+
+    pub(super) fn index_lookups() -> usize {
+        INDEX_LOOKUPS.get()
+    }
+}
+
+#[cfg(test)]
+mod classification_tests;
