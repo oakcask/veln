@@ -25,6 +25,16 @@ fn inferred_ready()
 	State::Ready
 end
 
+fn annotated_ready()
+	let value: State::Ready = State::Ready
+	value
+end
+
+fn annotated_some()
+	let value: Option<Int>::Some = Some(1)
+	value
+end
+
 fn inferred_wrapped()
 	Envelope::Wrapped(1)
 end
@@ -85,7 +95,10 @@ fn main() -> State
 	let exact = Ready
 	let same: State::Ready = accept_one(exact)
 	let inferred: State::Ready = inferred_ready()
+	let annotated: State::Ready = annotated_ready()
+	let annotated_option: Option<Int>::Some = annotated_some()
 	accept_one(inferred)
+	accept_one(annotated)
 	accept_wrapped(inferred_wrapped())
 	let transitioned: State = inferred_transition(true)
 	let ready_envelope: ReadyEnvelope = wrap_ready()

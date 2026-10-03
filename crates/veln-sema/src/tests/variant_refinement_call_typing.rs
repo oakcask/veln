@@ -922,6 +922,82 @@ fn private_constructor_results_retain_singleton_refinements() {
 }
 
 #[test]
+fn private_results_canonicalize_explicit_local_refinements() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "states",
+            SourceFile::new(
+                "states.veln",
+                concat!(
+                    "pub type ImportedState\n",
+                    "  pub Ready\n",
+                    "  pub Closed\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "main",
+            SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use states\n",
+                    "type State\n",
+                    "  Ready\n",
+                    "  Closed\n",
+                    "end\n",
+                    "fn local_ready()\n",
+                    "  let state: State::Ready = State::Ready\n",
+                    "  state\n",
+                    "end\n",
+                    "fn imported_ready()\n",
+                    "  let state: states::ImportedState::Ready = states::ImportedState::Ready\n",
+                    "  state\n",
+                    "end\n",
+                    "fn some()\n",
+                    "  let value: Option<Int>::Some = Some(1)\n",
+                    "  value\n",
+                    "end\n",
+                    "fn accept_local(value: State::Ready) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn accept_imported(value: states::ImportedState::Ready) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn accept_some(value: Option<Int>::Some) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn main() -> ()\n",
+                    "  accept_local(local_ready())\n",
+                    "  accept_imported(imported_ready())\n",
+                    "  accept_some(some())\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in [
+        ("local_ready", "State::Ready"),
+        ("imported_ready", "ImportedState::Ready"),
+        ("some", "Option<Int>::Some"),
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("{function} should be present"))
+                .return_type
+                .render(),
+            expected,
+        );
+    }
+}
+
+#[test]
 fn private_control_flow_results_keep_only_a_common_singleton() {
     let source = SourceFile::new(
         "main.veln",

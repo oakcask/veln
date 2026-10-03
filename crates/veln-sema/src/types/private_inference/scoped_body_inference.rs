@@ -147,9 +147,14 @@ pub(super) fn infer_private_body_type(
                 expr,
                 ..
             } => {
-                let annotation_type = annotation
-                    .as_deref()
-                    .map(|annotation| parse_type_or_unknown(Some(annotation)));
+                let annotation_type = annotation.as_deref().map(|annotation| {
+                    canonicalize_private_annotation_type(
+                        parse_type_or_unknown(Some(annotation)),
+                        uses,
+                        current_module,
+                        adts,
+                    )
+                });
                 let ty = annotation_type.unwrap_or_else(|| {
                     infer_private_signature_expr_type(
                         expr,
@@ -193,6 +198,23 @@ pub(super) fn infer_private_body_type(
         }
     }
     tail
+}
+
+fn canonicalize_private_annotation_type(
+    ty: Type,
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+    adts: &AdtRegistry,
+) -> Type {
+    crate::types::canonicalize_type_effects(
+        ty,
+        uses,
+        &[],
+        current_module,
+        &[],
+        adts,
+        &BTreeMap::new(),
+    )
 }
 
 pub(crate) fn private_function_body_bindings(
