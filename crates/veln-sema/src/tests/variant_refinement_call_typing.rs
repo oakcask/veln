@@ -140,6 +140,96 @@ fn expected_adt_disambiguates_nullary_constructors() {
 }
 
 #[test]
+fn expected_imported_adt_overrides_local_constructor_preference() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "left",
+            SourceFile::new(
+                "left.veln",
+                concat!(
+                    "pub type State\n",
+                    "  pub Ready\n",
+                    "  pub Wrapped(Int)\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "main",
+            SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "type Other\n",
+                    "  Ready\n",
+                    "  Wrapped(String)\n",
+                    "end\n",
+                    "fn ready() -> left::State::Ready\n",
+                    "  Ready\n",
+                    "end\n",
+                    "fn wrapped() -> left::State::Wrapped\n",
+                    "  Wrapped(1)\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for (function_name, variant_name, payload_count) in
+        [("ready", "Ready", 0), ("wrapped", "Wrapped", 1)]
+    {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("{function_name} should return a constructor");
+        };
+        assert!(
+            matches!(&expr.kind, CoreExprKind::AdtVariant { name, payloads }
+                if name == &vec!["State".to_string(), variant_name.to_string()]
+                    && payloads.len() == payload_count),
+            "{function_name} should lower to the imported State constructor"
+        );
+    }
+}
+
+#[test]
+fn variant_refinement_casing_stays_in_semantic_analysis() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "helper",
+            SourceFile::new("helper.veln", "pub type Item\n  pub Ready\nend\n"),
+        ),
+        (
+            "main",
+            SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use helper\n",
+                    "fn inspect(value: Helper::Item::Ready) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"name_class\":\"module\"")
+    }));
+}
+
+#[test]
 fn rejected_calls_and_results_report_variant_mismatches() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -593,8 +683,23 @@ fn recursive_adt_payload_construction_uses_the_nested_constructor_base() {
         "  Ready\n",
         "  Wrapped(State)\n",
         "end\n",
-        "fn main() -> ()\n",
-        "  let invalid = Wrapped(Ready)\n",
+        "fn main() -> State::Wrapped\n",
+        "  Wrapped(Ready)\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn recursive_generic_payload_preserves_base_arguments_under_refined_expectation() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Chain<A>\n",
+        "  End(A)\n",
+        "  More(Chain<A>)\n",
+        "end\n",
+        "fn main() -> Chain<Int>::More\n",
+        "  More(End(1))\n",
         "end\n",
     ));
 

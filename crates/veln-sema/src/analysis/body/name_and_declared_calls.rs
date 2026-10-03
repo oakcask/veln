@@ -8,6 +8,26 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if segments.len() == 1
+            && let Some(constructor) = expected
+                .and_then(|expected| {
+                    self.environment.adts.descriptor_for_type_prefer_module(
+                        &expected.ty,
+                        self.function.module_name.as_deref(),
+                    )
+                })
+                .and_then(|descriptor| {
+                    self.environment.adts.constructor_for_descriptor(
+                        segments,
+                        descriptor,
+                        self.function.module_name.as_deref(),
+                        &self.environment.uses,
+                    )
+                })
+                .filter(|constructor| constructor.variant.payload_fields.is_empty())
+        {
+            return self.infer_nullary_constructor_name(segments, expr, expected, constructor);
+        }
         match self.environment.adts.nullary_constructor(
             segments,
             self.function.module_name.as_deref(),
@@ -277,6 +297,26 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
         if let ExprKind::NamePath { segments, .. } = &callee.kind {
+            if segments.len() == 1
+                && let Some(constructor) = expected
+                    .and_then(|expected| {
+                        self.environment.adts.descriptor_for_type_prefer_module(
+                            &expected.ty,
+                            self.function.module_name.as_deref(),
+                        )
+                    })
+                    .and_then(|descriptor| {
+                        self.environment.adts.constructor_for_descriptor(
+                            segments,
+                            descriptor,
+                            self.function.module_name.as_deref(),
+                            &self.environment.uses,
+                        )
+                    })
+                    .filter(|constructor| !constructor.variant.payload_fields.is_empty())
+            {
+                return Some(self.infer_adt_constructor(expr, args, expected, constructor));
+            }
             match self.environment.adts.constructor(
                 segments,
                 self.function.module_name.as_deref(),

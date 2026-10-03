@@ -479,16 +479,28 @@ pub(crate) fn infer_private_signature_name_type(
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
-    let constructor = match adts.nullary_constructor(segments, current_module, uses) {
-        ConstructorLookup::Found(constructor) => Some(constructor),
-        ConstructorLookup::Ambiguous => expected
-            .and_then(|expected| adts.descriptor_for_type_prefer_module(expected, current_module))
-            .and_then(|descriptor| {
-                adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
-            })
-            .filter(|constructor| constructor.variant.payload_fields.is_empty()),
-        ConstructorLookup::Missing => None,
-    };
+    let expected_constructor = (segments.len() == 1)
+        .then_some(expected)
+        .flatten()
+        .and_then(|expected| adts.descriptor_for_type_prefer_module(expected, current_module))
+        .and_then(|descriptor| {
+            adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+        })
+        .filter(|constructor| constructor.variant.payload_fields.is_empty());
+    let constructor = expected_constructor.or_else(|| {
+        match adts.nullary_constructor(segments, current_module, uses) {
+            ConstructorLookup::Found(constructor) => Some(constructor),
+            ConstructorLookup::Ambiguous => expected
+                .and_then(|expected| {
+                    adts.descriptor_for_type_prefer_module(expected, current_module)
+                })
+                .and_then(|descriptor| {
+                    adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+                })
+                .filter(|constructor| constructor.variant.payload_fields.is_empty()),
+            ConstructorLookup::Missing => None,
+        }
+    });
     if let Some(constructor) = constructor {
         return expected
             .and_then(|expected| {
@@ -566,11 +578,32 @@ pub(crate) fn infer_private_signature_call_type(
     context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     if let ExprKind::NamePath { segments, .. } = &callee.kind {
-        if let ConstructorLookup::Found(constructor) =
-            context
+        let expected_constructor = (segments.len() == 1)
+            .then_some(expected)
+            .flatten()
+            .and_then(|expected| {
+                context
+                    .adts
+                    .descriptor_for_type_prefer_module(expected, context.current_module)
+            })
+            .and_then(|descriptor| {
+                context.adts.constructor_for_descriptor(
+                    segments,
+                    descriptor,
+                    context.current_module,
+                    context.uses,
+                )
+            })
+            .filter(|constructor| !constructor.variant.payload_fields.is_empty());
+        let ordinary_constructor =
+            match context
                 .adts
                 .constructor(segments, context.current_module, context.uses)
-        {
+            {
+                ConstructorLookup::Found(constructor) => Some(constructor),
+                ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
+            };
+        if let Some(constructor) = expected_constructor.or(ordinary_constructor) {
             let actual_args = args
                 .iter()
                 .map(|arg| context.infer(arg, None))

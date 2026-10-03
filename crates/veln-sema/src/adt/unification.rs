@@ -11,7 +11,15 @@ pub(super) fn payload_type_from_args(
 ) -> Option<Type> {
     match payload {
         AdtPayloadType::TypeParameter(index) => adt_args(ty, descriptor)?.get(*index).cloned(),
-        AdtPayloadType::SelfType => Some(ty.clone()),
+        AdtPayloadType::SelfType => Some(match ty {
+            Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                ..
+            } => Type::resolved_named(name.clone(), identity.clone(), args.clone()),
+            _ => ty.clone(),
+        }),
         AdtPayloadType::Concrete(template) => {
             let args = adt_args(ty, descriptor)?;
             Some(substitute_type_parameters(template, args))

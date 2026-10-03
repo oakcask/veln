@@ -352,6 +352,7 @@ impl AdtRegistry {
             {
                 return Some(constructor);
             }
+            ConstructorLookup::Found(_) if segments.len() == 1 => {}
             ConstructorLookup::Ambiguous => {}
             _ => return None,
         }

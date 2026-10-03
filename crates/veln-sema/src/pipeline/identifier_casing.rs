@@ -90,7 +90,23 @@ fn classified_qualified_path_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<QualifiedPathSegment> {
-    let mut segments = valid_qualified_path_segments(module, environment);
+    classified_qualified_path_segments_with_refinements(module, environment, true)
+}
+
+fn classified_qualified_path_segments_for_navigation(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<QualifiedPathSegment> {
+    classified_qualified_path_segments_with_refinements(module, environment, false)
+}
+
+fn classified_qualified_path_segments_with_refinements(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    include_variant_refinements: bool,
+) -> Vec<QualifiedPathSegment> {
+    let mut segments =
+        valid_qualified_path_segments(module, environment, include_variant_refinements);
     segments.extend(recovered_qualified_type_segments(module, environment));
     segments.extend(recovered_qualified_module_segments(module, environment));
     segments.extend(recovered_qualified_function_segments(module, environment));

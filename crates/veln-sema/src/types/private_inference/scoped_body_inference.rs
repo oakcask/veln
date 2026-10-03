@@ -24,6 +24,16 @@ pub(crate) fn tail_expr_can_use_expected(
         ExprKind::Dict(_) => expected.dict_parts().is_some(),
         ExprKind::Record(fields) => record_tail_can_use_expected(fields, expected),
         ExprKind::NamePath { segments, .. } => {
+            if segments.len() == 1
+                && adts
+                    .descriptor_for_type_prefer_module(expected, current_module)
+                    .and_then(|descriptor| {
+                        adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+                    })
+                    .is_some_and(|constructor| constructor.variant.payload_fields.is_empty())
+            {
+                return true;
+            }
             match adts.nullary_constructor(segments, current_module, uses) {
                 ConstructorLookup::Found(constructor) => {
                     unification::adt_args(expected, constructor.descriptor).is_some()
@@ -80,6 +90,16 @@ fn constructor_tail_can_use_expected(
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return false;
     };
+    if segments.len() == 1
+        && adts
+            .descriptor_for_type_prefer_module(expected, current_module)
+            .and_then(|descriptor| {
+                adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+            })
+            .is_some_and(|constructor| !constructor.variant.payload_fields.is_empty())
+    {
+        return true;
+    }
     matches!(
         adts.constructor(segments, current_module, uses),
         ConstructorLookup::Found(constructor)

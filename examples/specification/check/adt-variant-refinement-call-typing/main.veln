@@ -8,6 +8,11 @@ type Envelope<A>
 	Wrapped(A)
 end
 
+type Chain<A>
+	End(A)
+	More(Chain<A>)
+end
+
 fn accept_one(value: State::Ready) -> State::Ready
 	value
 end
@@ -36,6 +41,10 @@ fn pass_decoded(value: DecodeStep<Int>::Decoded) -> DecodeStep<Int>
 	keep_decode_pair(value)
 end
 
+fn wrap_chain() -> Chain<Int>::More
+	More(End(1))
+end
+
 fn canonical_decode_complete(value: DecodeStep<Int>::Invalid | DecodeStep<Int>::NeedMore | DecodeStep<Int>::Decoded) -> DecodeStep<Int>
 	value
 end
@@ -60,5 +69,6 @@ fn main() -> State
 	let states_base: Vec<State> = states
 	let envelope = Wrapped(Ready)
 	let envelope_base: Envelope<State> = envelope
+	let chain: Chain<Int>::More = wrap_chain()
 	widened
 end
