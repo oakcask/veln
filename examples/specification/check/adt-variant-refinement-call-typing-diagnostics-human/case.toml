@@ -16,6 +16,11 @@ contains = [
   "note: main.veln:22:1: Return type declared here.",
   "main.veln:33:13: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
   "note: main.veln:30:1: Return type declared here.",
+  "error[type.invalid_annotation]: invalid type annotation `Choice::Absent`: `Choice` expects 1 type argument(s), found 0",
+  "error[type.mismatch]: expected `{state: State}`, but found `{state: State::Ready}`",
+  "error[type.mismatch]: expected `{state: State::Ready}`, but found `{state: State}`",
+  "error[type.mismatch]: expected `fn(State::Ready) -> State::Ready`, but found `fn(State) -> State`",
+  "error[type.mismatch]: expected `fn(State) -> State`, but found `fn(State::Ready) -> State::Ready`",
 ]
 
 [stderr]

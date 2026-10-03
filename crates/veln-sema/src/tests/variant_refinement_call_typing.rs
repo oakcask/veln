@@ -412,13 +412,29 @@ fn explicitly_refined_nested_positions_remain_invariant() {
             "fn reject_record(value: {state: State::Ready}) -> ()\n",
             "  let widened: {state: State} = value\n",
             "end\n",
+            "fn reject_record_narrowing(value: {state: State}) -> ()\n",
+            "  let narrowed: {state: State::Ready} = value\n",
+            "end\n",
             "fn reject_named(value: Box<State::Ready>) -> ()\n",
             "  let widened: Box<State> = value\n",
+            "end\n",
+            "fn reject_named_narrowing(value: Box<State>) -> ()\n",
+            "  let narrowed: Box<State::Ready> = value\n",
+            "end\n",
+            "fn accepts_base(value: State) -> State\n",
+            "  value\n",
+            "end\n",
+            "fn accepts_ready(value: State::Ready) -> State::Ready\n",
+            "  value\n",
+            "end\n",
+            "fn reject_function_positions() -> ()\n",
+            "  let narrowed: fn(State::Ready) -> State::Ready = accepts_base\n",
+            "  let widened: fn(State) -> State = accepts_ready\n",
             "end\n",
         )
     ));
 
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
     assert!(
         diagnostics
             .iter()
@@ -553,6 +569,64 @@ fn compiler_known_refinements_require_base_type_arguments() {
             .message
             .contains("`Option` expects 1 type argument(s), found 0")
     }));
+}
+
+#[test]
+fn source_defined_refinements_require_base_type_arguments() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Choice<A>\n",
+        "  Present(A)\n",
+        "  Absent\n",
+        "end\n",
+        "fn keep(value: Choice::Absent) -> Choice::Absent\n",
+        "  value\n",
+        "end\n",
+        "fn main() -> ()\n",
+        "  keep(1)\n",
+        "end\n",
+    ));
+
+    let invalid_annotations = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_annotations.len(), 2, "{diagnostics:#?}");
+    assert!(invalid_annotations.iter().all(|diagnostic| {
+        diagnostic
+            .message
+            .contains("`Choice` expects 1 type argument(s), found 0")
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.invalid_annotation"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn nested_refinement_canonicalization_handles_increasing_depths() {
+    fn canonicalization_work(depth: usize) -> usize {
+        let mut annotation = "Int".to_string();
+        for _ in 0..depth {
+            annotation = format!("Choice<{annotation}>::Present");
+        }
+        let source = format!(
+            "type Choice<A>\n  Present(A)\n  Absent\nend\nfn keep(value: {annotation}) -> {annotation}\n  value\nend\n"
+        );
+        crate::types::reset_type_canonicalization_visits();
+        let diagnostics = diagnostics_for(&source);
+        assert!(diagnostics.is_empty(), "depth {depth}: {diagnostics:#?}");
+        crate::types::take_type_canonicalization_visits()
+    }
+
+    let work = [16, 32, 64].map(canonicalization_work);
+    eprintln!("type canonicalization visits at depths 16, 32, and 64: {work:?}");
+    assert!(work[0] > 0, "the metric must observe canonicalization work");
+    assert!(
+        work[1] <= work[0] * 2 + 32 && work[2] <= work[1] * 2 + 32,
+        "doubling refinement depth must add only linear canonicalization work: {work:?}"
+    );
 }
 
 #[test]

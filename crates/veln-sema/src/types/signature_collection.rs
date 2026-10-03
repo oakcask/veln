@@ -1,3 +1,5 @@
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::BTreeMap;
 
 use veln_ast::{FunctionKind, HandlerDecl, SurfaceModule, UseDecl, Visibility};
@@ -15,6 +17,26 @@ use super::signatures::{
     HandlerOperationClauseSignature, HandlerSignature, synthetic_handler_clause_function_name,
 };
 use super::symbols::imported_use_for_path;
+
+#[cfg(test)]
+thread_local! {
+    static TYPE_CANONICALIZATION_VISITS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_type_canonicalization_visits() {
+    TYPE_CANONICALIZATION_VISITS.with(|visits| visits.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_type_canonicalization_visits() -> usize {
+    TYPE_CANONICALIZATION_VISITS.with(|visits| visits.replace(0))
+}
+
+fn record_type_canonicalization_visit() {
+    #[cfg(test)]
+    TYPE_CANONICALIZATION_VISITS.with(|visits| visits.set(visits.get() + 1));
+}
 
 pub(super) fn ordinary_function_signatures(
     module: &SurfaceModule,
@@ -111,6 +133,7 @@ pub(super) fn canonicalize_type_effects(
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Type {
+    record_type_canonicalization_visit();
     match ty {
         Type::Named { name, args, .. } => {
             if let Some((base_name, variant)) = name.rsplit_once("::")
@@ -121,10 +144,8 @@ pub(super) fn canonicalize_type_effects(
                     .iter()
                     .any(|candidate| candidate.name == variant)
             {
-                return canonical_variant_refinement(
-                    descriptor,
+                let args = canonical_variant_arguments(
                     args,
-                    vec![variant.to_string()],
                     uses,
                     quarantined_uses,
                     current_module,
@@ -132,6 +153,7 @@ pub(super) fn canonicalize_type_effects(
                     adts,
                     companion_effect_access_targets,
                 );
+                return canonical_variant_refinement(descriptor, args, vec![variant.to_string()]);
             }
             let descriptor = adts.descriptor_for_type_path(&name, args.len(), current_module, uses);
             if args.is_empty() {
@@ -203,7 +225,7 @@ pub(super) fn canonicalize_type_effects(
                 return Type::Unknown;
             }
             let canonical_args = canonical_variant_arguments(
-                args.clone(),
+                args,
                 uses,
                 quarantined_uses,
                 current_module,
@@ -243,17 +265,7 @@ pub(super) fn canonicalize_type_effects(
                     variants.push(alternative_variant);
                 }
             }
-            canonical_variant_refinement(
-                descriptor,
-                canonical_args,
-                variants,
-                uses,
-                quarantined_uses,
-                current_module,
-                effects,
-                adts,
-                companion_effect_access_targets,
-            )
+            canonical_variant_refinement(descriptor, canonical_args, variants)
         }
         Type::Record(fields) => Type::Record(
             fields
@@ -334,22 +346,7 @@ fn canonical_variant_refinement(
     descriptor: &crate::adt::descriptors::AdtDescriptor,
     args: Vec<Type>,
     variants: Vec<String>,
-    uses: &[UseDecl],
-    quarantined_uses: &[UseDecl],
-    current_module: Option<&str>,
-    effects: &[EffectSignature],
-    adts: &AdtRegistry,
-    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Type {
-    let args = canonical_variant_arguments(
-        args,
-        uses,
-        quarantined_uses,
-        current_module,
-        effects,
-        adts,
-        companion_effect_access_targets,
-    );
     let variants = descriptor
         .variants
         .iter()

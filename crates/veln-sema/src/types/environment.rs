@@ -257,6 +257,34 @@ impl TypeEnvironment {
         ty: &Type,
         current_module: Option<&str>,
     ) -> Option<String> {
+        let canonical = self.canonicalize_type_annotation(ty.clone(), current_module);
+        self.variant_refinement_annotation_error_with_canonical(ty, &canonical, current_module)
+    }
+
+    fn variant_refinement_annotation_error_with_canonical(
+        &self,
+        ty: &Type,
+        canonical: &Type,
+        current_module: Option<&str>,
+    ) -> Option<String> {
+        if let Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } = ty
+            && let Some((base, _)) = name.rsplit_once("::").or_else(|| {
+                matches!(ty, Type::VariantRefinement { .. }).then_some((name.as_str(), ""))
+            })
+            && self
+                .adts
+                .descriptor_for_type_path(base, args.len(), current_module, &self.uses)
+                .is_none()
+            && let Some(descriptor) =
+                self.adts
+                    .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+        {
+            return Some(format!(
+                "`{base}` expects {} type argument(s), found {}",
+                descriptor.type_parameters.len(),
+                args.len()
+            ));
+        }
         let refinement_candidate = match ty {
             Type::VariantRefinement { .. } => true,
             Type::Named { name, args, .. } => name.rsplit_once("::").is_some_and(|(base, _)| {
@@ -266,9 +294,7 @@ impl TypeEnvironment {
             }),
             _ => false,
         };
-        if refinement_candidate
-            && self.canonicalize_type_annotation(ty.clone(), current_module) == Type::Unknown
-        {
+        if refinement_candidate && canonical == &Type::Unknown {
             return Some(
                 "variant refinement alternatives must resolve to declared variants of one ADT"
                     .to_string(),
@@ -291,9 +317,40 @@ impl TypeEnvironment {
                 .collect(),
             Type::Unknown => Vec::new(),
         };
-        children
-            .into_iter()
-            .find_map(|child| self.variant_refinement_annotation_error(child, current_module))
+        let canonical_children: Vec<&Type> = match canonical {
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+                args.iter().collect()
+            }
+            Type::Record(fields) => fields.iter().map(|(_, ty)| ty).collect(),
+            Type::Function {
+                params,
+                variadic,
+                return_type,
+                ..
+            } => params
+                .iter()
+                .chain(variadic.iter().map(Box::as_ref))
+                .chain(std::iter::once(return_type.as_ref()))
+                .collect(),
+            Type::Unknown => Vec::new(),
+        };
+        children.into_iter().enumerate().find_map(|(index, child)| {
+            if let Some(canonical_child) = canonical_children.get(index) {
+                self.variant_refinement_annotation_error_with_canonical(
+                    child,
+                    canonical_child,
+                    current_module,
+                )
+            } else {
+                let canonical_child =
+                    self.canonicalize_type_annotation(child.clone(), current_module);
+                self.variant_refinement_annotation_error_with_canonical(
+                    child,
+                    &canonical_child,
+                    current_module,
+                )
+            }
+        })
     }
 
     pub(crate) fn function_for(&self, source: &Function) -> Option<&FunctionSignature> {

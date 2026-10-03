@@ -11,6 +11,8 @@ contains = [
   "\"excluded_variants\":{\"form\":\"listed\",\"variants\":[\"Closed\"]}",
   "\"kind\":\"variant_exclusion\"",
   "\"kind\":\"expected_type_origin\"",
+  "\"id\":\"type.mismatch\"",
+  "invalid type annotation `Choice::Absent`: `Choice` expects 1 type argument(s), found 0",
 ]
 
 [stderr]
@@ -22,7 +24,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 10
+equals = 16
 
 [[diagnostics]]
 id = "type.variant_mismatch"

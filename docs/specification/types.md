@@ -426,9 +426,10 @@ or final result. Its JSON details contain the rendered `actual_type`, rendered
 `form: all_except_expected` and an empty `variants` array when the actual type
 is the complete base ADT. A `variant_exclusion` related note renders the same
 fact for human output, and another related note identifies the expected local
-annotation, parameter, or result declaration. A nested generic invariance
-failure that has no truthful variant exclusion uses the ordinary
-`type.mismatch` diagnostic instead. The checked examples cover
+annotation, parameter, or result declaration. A nested record, named argument,
+ADT payload, or function-position invariance failure has no truthful top-level
+variant exclusion and uses the ordinary `type.mismatch` diagnostic instead.
+The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures
 in `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-json/`,

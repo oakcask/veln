@@ -722,37 +722,6 @@ fn variant_mismatch_sets(
                 exclusion: VariantExclusion::AllExceptExpected,
             })
         }
-        (Type::Named { .. }, Type::Named { .. }) => None,
-        (Type::Record(expected), Type::Record(actual)) => {
-            expected.iter().find_map(|(name, expected)| {
-                actual
-                    .iter()
-                    .find(|(actual_name, _)| actual_name == name)
-                    .and_then(|(_, actual)| variant_mismatch_sets(expected, actual, adts))
-            })
-        }
-        (
-            Type::Function {
-                params: expected_params,
-                variadic: expected_variadic,
-                return_type: expected_return,
-                ..
-            },
-            Type::Function {
-                params: actual_params,
-                variadic: actual_variadic,
-                return_type: actual_return,
-                ..
-            },
-        ) => expected_params
-            .iter()
-            .zip(actual_params)
-            .find_map(|(expected, actual)| variant_mismatch_sets(expected, actual, adts))
-            .or_else(|| match (expected_variadic, actual_variadic) {
-                (Some(expected), Some(actual)) => variant_mismatch_sets(expected, actual, adts),
-                _ => None,
-            })
-            .or_else(|| variant_mismatch_sets(expected_return, actual_return, adts)),
         _ => None,
     }
 }

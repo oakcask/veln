@@ -241,23 +241,43 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
+        self.descriptor_for_type_path_with_arity(name, Some(args_len), current_module, uses)
+    }
+
+    pub(crate) fn descriptor_for_type_path_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        self.descriptor_for_type_path_with_arity(name, None, current_module, uses)
+    }
+
+    fn descriptor_for_type_path_with_arity(
+        &self,
+        name: &str,
+        args_len: Option<usize>,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let arity_matches = |descriptor: &&AdtDescriptor| {
+            args_len.is_none_or(|args_len| descriptor.type_parameters.len() == args_len)
+        };
         if !name.contains("::") {
             return self
                 .descriptors_named(name)
                 .rev()
                 .find(|descriptor| {
-                    descriptor.module_name.as_deref() == current_module
-                        && descriptor.type_parameters.len() == args_len
+                    descriptor.module_name.as_deref() == current_module && arity_matches(descriptor)
                 })
                 .or_else(|| {
                     self.descriptors_named(name).find(|descriptor| {
-                        descriptor.module_name.is_none()
-                            && descriptor.type_parameters.len() == args_len
+                        descriptor.module_name.is_none() && arity_matches(descriptor)
                     })
                 })
                 .or_else(|| {
                     let mut imported = self.descriptors_named(name).filter(|descriptor| {
-                        descriptor.type_parameters.len() == args_len
+                        arity_matches(descriptor)
                             && descriptor.visibility == Visibility::Public
                             && descriptor.module_name.as_ref().is_some_and(|module| {
                                 uses.iter().any(|use_decl| &use_decl.name == module)
@@ -270,7 +290,7 @@ impl AdtRegistry {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
         self.descriptors_named(type_name).rev().find(|descriptor| {
-            descriptor.type_parameters.len() == args_len
+            arity_matches(descriptor)
                 && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
         })
     }

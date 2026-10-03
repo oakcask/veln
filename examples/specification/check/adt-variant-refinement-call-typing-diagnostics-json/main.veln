@@ -66,3 +66,33 @@ end
 fn mixed_union(value: State::Ready | Other::Foreign) -> ()
 	()
 end
+
+type Choice<A>
+	Present(A)
+	Absent
+end
+
+fn invalid_source_arity(value: Choice::Absent) -> Choice::Absent
+	value
+end
+
+fn reject_record_widening(value: {state: State::Ready}) -> ()
+	let rejected: {state: State} = value
+end
+
+fn reject_record_narrowing(value: {state: State}) -> ()
+	let rejected: {state: State::Ready} = value
+end
+
+fn accepts_base(value: State) -> State
+	value
+end
+
+fn accepts_ready(value: State::Ready) -> State::Ready
+	value
+end
+
+fn reject_function_positions() -> ()
+	let narrowed: fn(State::Ready) -> State::Ready = accepts_base
+	let widened: fn(State) -> State = accepts_ready
+end
