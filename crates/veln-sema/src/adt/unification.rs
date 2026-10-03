@@ -89,10 +89,12 @@ pub(super) fn merge_type_slot(slot: &mut Type, actual: &Type) {
             Type::Named {
                 name: slot_name,
                 args: slot_args,
+                ..
             },
             Type::Named {
                 name: actual_name,
                 args: actual_args,
+                ..
             },
         ) if slot_name == actual_name && slot_args.len() == actual_args.len() => {
             for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
@@ -220,10 +222,13 @@ pub(super) fn unify_core_self_type(
 pub(super) fn unify_template(args: &mut [Type], template: &Type, actual: &Type) {
     match (template, actual) {
         (
-            Type::Named { name, args: nested },
+            Type::Named {
+                name, args: nested, ..
+            },
             Type::Named {
                 name: _actual_name,
                 args: _actual_args,
+                ..
             },
         ) if name.starts_with("$param") && nested.is_empty() => {
             if let Ok(index) = name.trim_start_matches("$param").parse::<usize>() {
@@ -231,10 +236,13 @@ pub(super) fn unify_template(args: &mut [Type], template: &Type, actual: &Type) 
             }
         }
         (
-            Type::Named { name, args: nested },
+            Type::Named {
+                name, args: nested, ..
+            },
             Type::Named {
                 name: actual_name,
                 args: actual_args,
+                ..
             },
         ) if name == actual_name && nested.len() == actual_args.len() => {
             for (nested, actual) in nested.iter().zip(actual_args) {
@@ -295,15 +303,21 @@ pub(super) fn unify_core_template(args: &mut [CoreType], template: &CoreType, ac
 
 pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type {
     match template {
-        Type::Named { name, args: nested } if name.starts_with("$param") && nested.is_empty() => {
-            name.trim_start_matches("$param")
-                .parse::<usize>()
-                .ok()
-                .and_then(|index| args.get(index).cloned())
-                .unwrap_or(Type::Unknown)
-        }
-        Type::Named { name, args: nested } => Type::Named {
+        Type::Named {
+            name, args: nested, ..
+        } if name.starts_with("$param") && nested.is_empty() => name
+            .trim_start_matches("$param")
+            .parse::<usize>()
+            .ok()
+            .and_then(|index| args.get(index).cloned())
+            .unwrap_or(Type::Unknown),
+        Type::Named {
+            name,
+            identity,
+            args: nested,
+        } => Type::Named {
             name: name.clone(),
+            identity: identity.clone(),
             args: nested
                 .iter()
                 .map(|arg| substitute_type_parameters(arg, args))
@@ -314,6 +328,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
             identity,
             args: nested,
             variants,
+            unresolved_alternatives,
         } => Type::VariantRefinement {
             name: name.clone(),
             identity: identity.clone(),
@@ -322,6 +337,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
                 .map(|arg| substitute_type_parameters(arg, args))
                 .collect(),
             variants: variants.clone(),
+            unresolved_alternatives: unresolved_alternatives.clone(),
         },
         Type::Record(fields) => Type::Record(
             fields
@@ -396,7 +412,7 @@ pub(super) fn substitute_core_type_parameters(template: &CoreType, args: &[CoreT
 pub(super) fn core_type_template(ty: &Type) -> CoreType {
     match ty {
         Type::Unknown => CoreType::Unknown,
-        Type::Named { name, args } => CoreType::Named {
+        Type::Named { name, args, .. } => CoreType::Named {
             name: name.clone(),
             args: args.iter().map(core_type_template).collect(),
         },
@@ -439,7 +455,7 @@ pub(crate) fn adt_args<'a, T: NamedTypeArguments>(
 impl NamedTypeArguments for Type {
     fn named_type_arguments(&self) -> Option<(&str, &[Self])> {
         match self {
-            Self::Named { name, args } | Self::VariantRefinement { name, args, .. } => {
+            Self::Named { name, args, .. } | Self::VariantRefinement { name, args, .. } => {
                 Some((name, args))
             }
             _ => None,

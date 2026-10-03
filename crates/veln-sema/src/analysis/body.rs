@@ -46,6 +46,29 @@ fn invalid_value_binding_name(name: &str) -> bool {
     !valid_value_binding_name(name)
 }
 
+fn type_contains_variant_refinement(ty: &Type) -> bool {
+    match ty {
+        Type::VariantRefinement { .. } => true,
+        Type::Named { args, .. } => args.iter().any(type_contains_variant_refinement),
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, ty)| type_contains_variant_refinement(ty)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(type_contains_variant_refinement)
+                || variadic
+                    .as_deref()
+                    .is_some_and(type_contains_variant_refinement)
+                || type_contains_variant_refinement(return_type)
+        }
+        Type::Unknown => false,
+    }
+}
+
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
@@ -133,7 +156,7 @@ impl MatchDomain {
         current_module: Option<&str>,
     ) -> Option<Self> {
         match ty {
-            Type::Named { name, args } if name == "Bool" && args.is_empty() => Some(Self::Bool),
+            Type::Named { name, args, .. } if name == "Bool" && args.is_empty() => Some(Self::Bool),
             _ => environment
                 .adts
                 .descriptor_for_type_prefer_module(ty, current_module)

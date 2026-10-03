@@ -11,7 +11,7 @@ use veln_ast::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
-use crate::adt::descriptors::{AdtConstructor, AdtVariantKind};
+use crate::adt::descriptors::{AdtConstructor, AdtPayloadType, AdtVariantKind};
 use crate::adt::registry::ConstructorLookup;
 use crate::adt::{type_operations as adt, unification};
 use crate::contracts::{
@@ -42,7 +42,7 @@ use crate::semantic_model::{
     Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type,
 };
 use crate::source_less_lookup::prelude_symbol;
-use crate::type_relations::is_assignable;
+use crate::type_relations::{is_assignable, is_assignable_nested};
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{
     CompanionAccessTarget, EffectSignature, FunctionLookup, HandlerPathResolution,

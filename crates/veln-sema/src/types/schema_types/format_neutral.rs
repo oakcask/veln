@@ -127,7 +127,7 @@ fn binary_schema_anonymous_record_type(fields: Vec<(String, Type)>) -> Option<Ve
 
 fn binary_schema_anonymous_record_leaf_type(ty: &Type) -> Option<()> {
     match ty {
-        Type::Named { name, args }
+        Type::Named { name, args, .. }
             if args.is_empty() && exact_width_schema_primitive(name).is_some() =>
         {
             Some(())
@@ -143,7 +143,7 @@ fn format_neutral_schema_scalar_type_is_supported(name: &str, args: &[Type]) -> 
 fn format_neutral_schema_scalar_type(ty: &Type) -> bool {
     matches!(
         ty,
-        Type::Named { name, args }
+        Type::Named { name, args, .. }
             if format_neutral_schema_scalar_type_is_supported(name, args)
     )
 }
@@ -284,7 +284,7 @@ fn format_neutral_schema_visible_shape_type_for_schema(
     traversal: FormatNeutralSchemaTraversal,
 ) -> Option<Type> {
     match ty {
-        Type::Named { name, args }
+        Type::Named { name, args, .. }
             if matches!(name.as_str(), "List" | "Vec") && args.len() == 1 =>
         {
             Some(Type::named(
@@ -299,7 +299,7 @@ fn format_neutral_schema_visible_shape_type_for_schema(
                 )?],
             ))
         }
-        Type::Named { name, args } if name == "Option" && args.len() == 1 => Some(Type::named(
+        Type::Named { name, args, .. } if name == "Option" && args.len() == 1 => Some(Type::named(
             "Option",
             vec![format_neutral_schema_visible_shape_type_for_schema(
                 module,
@@ -310,8 +310,8 @@ fn format_neutral_schema_visible_shape_type_for_schema(
                 traversal,
             )?],
         )),
-        Type::Named { name, args } if name == "Dict" && args.len() == 2 => {
-            if !matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
+        Type::Named { name, args, .. } if name == "Dict" && args.len() == 2 => {
+            if !matches!(&args[0], Type::Named { name, args, .. } if name == "String" && args.is_empty())
             {
                 return None;
             }
@@ -327,7 +327,7 @@ fn format_neutral_schema_visible_shape_type_for_schema(
                 )?,
             ))
         }
-        Type::Named { name, args } if name == "Result" && args.len() == 2 => Some(Type::named(
+        Type::Named { name, args, .. } if name == "Result" && args.len() == 2 => Some(Type::named(
             "Result",
             vec![
                 format_neutral_schema_visible_shape_type_for_schema(
@@ -474,7 +474,11 @@ fn format_neutral_schema_descriptor_type(ty: &Type, descriptor: &AdtDescriptor) 
     let Type::Named { args, .. } = ty else {
         return ty.clone();
     };
-    Type::named(descriptor.type_name.clone(), args.clone())
+    Type::resolved_named(
+        descriptor.type_name.clone(),
+        descriptor.identity(),
+        args.clone(),
+    )
 }
 
 fn format_neutral_schema_source_adt_descriptor<'a>(
@@ -483,7 +487,7 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
     adts: &'a AdtRegistry,
     ty: &Type,
 ) -> Option<&'a AdtDescriptor> {
-    let Type::Named { name, args } = ty else {
+    let Type::Named { name, args, .. } = ty else {
         return None;
     };
     let segments = name.split("::").collect::<Vec<_>>();

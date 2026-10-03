@@ -212,6 +212,32 @@ fn collect_variant_refinement_segments(
                     environment,
                     output,
                 );
+            } else if environment
+                .adts
+                .descriptor_for_type_path(
+                    &alternative.base.segments.join("::"),
+                    alternative.type_arguments.len(),
+                    current_module,
+                    &environment.uses,
+                )
+                .is_some()
+            {
+                for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
+                    let role = if index + 1 == segments.len() {
+                        NameClass::Constructor
+                    } else if index + 2 == segments.len() {
+                        NameClass::Type
+                    } else {
+                        NameClass::Module
+                    };
+                    output.push(qualified_path_segment_from_parts(
+                        segment,
+                        role,
+                        span,
+                        index,
+                        QualifiedPathSegmentEvidence::Resolved,
+                    ));
+                }
             }
             for argument in &alternative.type_arguments {
                 collect_type_path_segments(&argument.ty_paths, current_module, environment, output);

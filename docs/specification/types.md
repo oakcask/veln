@@ -358,10 +358,14 @@ the arms that prove partial coverage.
 The type checker resolves a structurally valid `A<T>::V` annotation to the
 singleton variant type for `V` of the finite ADT `A<T>`. A union of alternatives
 for the same ADT identity and generic arguments denotes their finite variant
-set. Duplicate alternatives are removed and display follows ADT declaration
-order. `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this
-same representation. A union containing every declared variant is equivalent
-to the base ADT.
+set. The alternatives are resolved before their base identities are compared,
+so qualified and unqualified spellings of the same ADT can form one union.
+Duplicate alternatives are removed and display follows ADT declaration order.
+`Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
+representation. A union containing every declared variant is equivalent to the
+base ADT. An unknown variant, invalid base arity, or union of different resolved
+ADTs is an invalid type annotation; it does not become an assignable `unknown`
+contract.
 
 A resolved constructor expression has its singleton variant type. The expected
 base ADT can supply generic arguments to the constructor, and the singleton can
@@ -382,6 +386,10 @@ defined as follows:
 | `A<T>` | a singleton or variant set | Rejected. |
 | `A<T>::W` | a different singleton `A<T>::V` | Rejected. |
 
+The base ADT identity is nominal and includes the resolved owning module. A
+refinement of one ADT cannot widen to a same-spelled base ADT from another
+module.
+
 The type checker applies the same rules to refined call parameters and declared
 function results. A final `if` or `match` checks every successfully typed branch
 or arm against the declared result, including a branch excluded by a constant
@@ -398,9 +406,13 @@ shape and effect rules.
 An incompatible complete refinement comparison reports
 `type.variant_mismatch` at the assigned expression, call argument, branch, arm,
 or final result. Its JSON details contain the rendered `actual_type`, rendered
-`expected_type`, declaration-ordered `expected_variants`, and the
-declaration-ordered `excluded_variants`. A related note identifies the expected
-local annotation, parameter, or result declaration. The checked examples cover
+`expected_type`, declaration-ordered `expected_variants`, and an
+`excluded_variants` fact. That fact has `form: listed` and a declaration-ordered
+`variants` array when the actual type is a finite refinement. It has
+`form: all_except_expected` and an empty `variants` array when the actual type
+is the complete base ADT. A `variant_exclusion` related note renders the same
+fact for human output, and another related note identifies the expected local
+annotation, parameter, or result declaration. The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures
 in `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-json/`,

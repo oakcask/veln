@@ -97,7 +97,7 @@ pub(super) fn source_prelude_known_type_names(module: &SurfaceModule) -> BTreeSe
 pub(super) fn source_prelude_concrete_type(ty: &Type, known_types: &BTreeSet<String>) -> Type {
     match ty {
         Type::Unknown => Type::Unknown,
-        Type::Named { name, args } if source_prelude_type_name_is_known(name, known_types) => {
+        Type::Named { name, args, .. } if source_prelude_type_name_is_known(name, known_types) => {
             Type::named(
                 name.clone(),
                 args.iter()
@@ -111,6 +111,7 @@ pub(super) fn source_prelude_concrete_type(ty: &Type, known_types: &BTreeSet<Str
             identity,
             args,
             variants,
+            ..
         } if source_prelude_type_name_is_known(name, known_types) => {
             Type::resolved_variant_refinement(
                 name.clone(),

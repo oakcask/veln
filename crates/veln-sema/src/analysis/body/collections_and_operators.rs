@@ -7,6 +7,7 @@ impl<'a> FunctionChecker<'a> {
         fields: &[RecordField],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        let diagnostic_count = self.diagnostics.len();
         if fields.is_empty()
             && let Some(expected) = expected
             && expected.ty.dict_parts().is_some()
@@ -55,23 +56,18 @@ impl<'a> FunctionChecker<'a> {
                     }),
                 });
             let actual = self.infer_expr(&field.expr, field_expected.as_ref());
-            if let Some(field_expected) = &field_expected {
-                self.check_assignable(
-                    &field.expr,
-                    &field_expected.ty,
-                    &actual,
-                    field_expected,
-                    "assignable",
-                );
-            }
             actual_fields.push((field.name.clone(), actual));
         }
+        let actual = Type::Record(actual_fields);
         if let Some(expected) = expected
             && matches!(expected.ty, Type::Record(_))
+            && (self.diagnostics.len() != diagnostic_count
+                || !type_contains_variant_refinement(&actual))
         {
-            return expected.ty.clone();
+            expected.ty.clone()
+        } else {
+            actual
         }
-        Type::Record(actual_fields)
     }
 
     pub(super) fn infer_dict(
@@ -80,6 +76,7 @@ impl<'a> FunctionChecker<'a> {
         entries: &[DictEntry],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        let diagnostic_count = self.diagnostics.len();
         if entries.is_empty()
             && let Some(expected) = expected
             && expected.ty.dict_parts().is_some()
@@ -97,47 +94,76 @@ impl<'a> FunctionChecker<'a> {
             .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
                 (key.clone(), value.clone())
             });
-        let mut key_type = expected_key;
-        let mut value_type = expected_value;
+        let mut key_type = if entries.is_empty() {
+            expected_key.clone()
+        } else {
+            Type::Unknown
+        };
+        let mut value_type = if entries.is_empty() {
+            expected_value.clone()
+        } else {
+            Type::Unknown
+        };
         for entry in entries {
             let key_expected = collection_item_expected(
-                key_type.clone(),
+                if key_type == Type::Unknown {
+                    expected_key.clone()
+                } else {
+                    key_type.clone()
+                },
                 expected,
                 expr.node_id,
                 expr.span.clone(),
                 "Dict key type inferred here.",
             );
             let actual_key = self.infer_expr(&entry.key, Some(&key_expected));
-            self.check_assignable(
-                &entry.key,
-                &key_expected.ty,
-                &actual_key,
-                &key_expected,
-                "dict_key",
-            );
+            if !is_assignable(&key_expected.ty, &actual_key) {
+                self.check_assignable_nested(
+                    &entry.key,
+                    &key_expected.ty,
+                    &actual_key,
+                    &key_expected,
+                    "dict_key",
+                );
+            }
             if key_type == Type::Unknown {
                 key_type = actual_key;
             }
             let value_expected = collection_item_expected(
-                value_type.clone(),
+                if value_type == Type::Unknown {
+                    expected_value.clone()
+                } else {
+                    value_type.clone()
+                },
                 expected,
                 expr.node_id,
                 expr.span.clone(),
                 "Dict value type inferred here.",
             );
             let actual_value = self.infer_expr(&entry.value, Some(&value_expected));
-            self.check_assignable(
-                &entry.value,
-                &value_expected.ty,
-                &actual_value,
-                &value_expected,
-                "dict_value",
-            );
+            if !is_assignable(&value_expected.ty, &actual_value) {
+                self.check_assignable_nested(
+                    &entry.value,
+                    &value_expected.ty,
+                    &actual_value,
+                    &value_expected,
+                    "dict_value",
+                );
+            }
             if value_type == Type::Unknown {
                 value_type = actual_value;
             }
         }
-        Type::dict(key_type, value_type)
+        let actual = Type::dict(key_type, value_type);
+        if let Some(expected) = expected
+            && expected.ty.dict_parts().is_some()
+            && (self.diagnostics.len() != diagnostic_count
+                || !type_contains_variant_refinement(&actual))
+        {
+            expected.ty.clone()
+        } else {
+            actual
+        }
     }
 
     pub(super) fn infer_try(

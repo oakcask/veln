@@ -5,7 +5,7 @@ use crate::semantic_model::Type;
 pub(crate) fn core_type(ty: &Type) -> CoreType {
     match ty {
         Type::Unknown => CoreType::Unknown,
-        Type::Named { name, args } => {
+        Type::Named { name, args, .. } => {
             CoreType::named(name.clone(), args.iter().map(core_type).collect())
         }
         Type::VariantRefinement { name, args, .. } => {

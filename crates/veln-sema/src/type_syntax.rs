@@ -37,7 +37,7 @@ pub(crate) fn parse_type_annotation(text: &str) -> Result<Type, String> {
 
 fn collect_type_reference_paths(ty: &Type, paths: &mut Vec<Vec<String>>) {
     match ty {
-        Type::Named { name, args } => {
+        Type::Named { name, args, .. } => {
             paths.push(name.split("::").map(str::to_string).collect());
             for arg in args {
                 collect_type_reference_paths(arg, paths);

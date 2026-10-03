@@ -5,6 +5,7 @@ exit = 1
 format = "text"
 contains = [
   "main.veln:11:14: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "Excluded variants: Closed.",
   "note: main.veln:6:1: Callee parameter type declared here.",
 ]
 

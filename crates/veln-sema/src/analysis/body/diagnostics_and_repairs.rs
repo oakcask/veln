@@ -10,13 +10,53 @@ impl<'a> FunctionChecker<'a> {
         expected_source: &ExpectedType,
         constraint: &'static str,
     ) {
-        if is_assignable(expected, actual) {
+        self.check_assignable_with_widening(
+            expr,
+            expected,
+            actual,
+            expected_source,
+            constraint,
+            true,
+        );
+    }
+
+    pub(in crate::analysis) fn check_assignable_nested(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_source: &ExpectedType,
+        constraint: &'static str,
+    ) {
+        self.check_assignable_with_widening(
+            expr,
+            expected,
+            actual,
+            expected_source,
+            constraint,
+            false,
+        );
+    }
+
+    fn check_assignable_with_widening(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_source: &ExpectedType,
+        constraint: &'static str,
+        direct: bool,
+    ) {
+        if if direct {
+            is_assignable(expected, actual)
+        } else {
+            is_assignable_nested(expected, actual)
+        } {
             return;
         }
         if !type_contains_unknown(expected)
             && !type_contains_unknown(actual)
-            && let Some((expected_variants, excluded_variants)) =
-                variant_mismatch_sets(expected, actual, &self.environment.adts)
+            && let Some(mismatch) = variant_mismatch_sets(expected, actual, &self.environment.adts)
         {
             let mut diagnostic = Diagnostic::new(
                 "type.variant_mismatch",
@@ -35,15 +75,30 @@ impl<'a> FunctionChecker<'a> {
                     ("expected_type", JsonValue::string(expected.render())),
                     (
                         "expected_variants",
-                        JsonValue::array(expected_variants.into_iter().map(JsonValue::string)),
+                        JsonValue::array(
+                            mismatch
+                                .expected_variants
+                                .iter()
+                                .cloned()
+                                .map(JsonValue::string),
+                        ),
                     ),
-                    (
-                        "excluded_variants",
-                        JsonValue::array(excluded_variants.into_iter().map(JsonValue::string)),
-                    ),
+                    ("excluded_variants", mismatch.exclusion.json()),
                     ("constraint", JsonValue::string(constraint)),
                 ]),
             );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("variant_exclusion")),
+                (
+                    "message",
+                    JsonValue::string(
+                        mismatch
+                            .exclusion
+                            .message(&actual.render(), &mismatch.expected_variants),
+                    ),
+                ),
+                ("span", span_json(&expr.span)),
+            ]));
             if let Some(origin_span) = &expected_source.origin_span {
                 diagnostic.related.push(JsonValue::object([
                     ("kind", JsonValue::string("expected_type_origin")),
@@ -616,63 +671,74 @@ fn variant_mismatch_sets(
     expected: &Type,
     actual: &Type,
     adts: &AdtRegistry,
-) -> Option<(Vec<String>, Vec<String>)> {
+) -> Option<VariantMismatchFacts> {
     match (expected, actual) {
         (
             Type::VariantRefinement {
+                name: expected_name,
                 identity: expected_identity,
                 args: expected_args,
                 variants: expected_variants,
                 ..
             },
             Type::VariantRefinement {
+                name: actual_name,
                 identity: actual_identity,
                 args: actual_args,
                 variants: actual_variants,
                 ..
             },
         ) => {
-            let excluded = actual_variants
-                .iter()
-                .filter(|variant| !expected_variants.contains(variant))
-                .cloned()
-                .collect::<Vec<_>>();
-            (expected_identity == actual_identity
-                && expected_args == actual_args
-                && !excluded.is_empty())
-            .then(|| (expected_variants.clone(), excluded))
+            if expected_identity != actual_identity && expected_name != actual_name {
+                return None;
+            }
+            let excluded = if expected_identity == actual_identity && expected_args == actual_args {
+                actual_variants
+                    .iter()
+                    .filter(|variant| !expected_variants.contains(variant))
+                    .cloned()
+                    .collect::<Vec<_>>()
+            } else {
+                actual_variants.clone()
+            };
+            (!excluded.is_empty()).then(|| VariantMismatchFacts {
+                expected_variants: expected_variants.clone(),
+                exclusion: VariantExclusion::Listed(excluded),
+            })
         }
         (
             Type::VariantRefinement {
-                name,
-                args,
+                name: expected_name,
                 variants,
                 ..
             },
             Type::Named {
-                name: actual_name,
-                args: actual_args,
+                name: actual_name, ..
             },
-        ) if name == actual_name && args == actual_args => {
-            let actual_variants = adts.variant_names_for_type(actual)?;
-            let excluded = actual_variants
-                .into_iter()
-                .filter(|variant| !variants.contains(variant))
-                .collect::<Vec<_>>();
-            Some((variants.clone(), excluded))
+        ) if expected_name == actual_name => {
+            adts.descriptor_for_type(actual)?;
+            Some(VariantMismatchFacts {
+                expected_variants: variants.clone(),
+                exclusion: VariantExclusion::AllExceptExpected,
+            })
         }
         (
-            Type::Named { name, args },
+            Type::Named {
+                name: expected_name,
+                ..
+            },
             Type::VariantRefinement {
                 name: actual_name,
-                args: actual_args,
                 variants,
                 ..
             },
-        ) if name == actual_name && args == actual_args => Some((
-            adts.variant_names_for_type(expected).unwrap_or_default(),
-            variants.clone(),
-        )),
+        ) if expected_name == actual_name => {
+            let expected_variants = adts.variant_names_for_type(expected)?;
+            Some(VariantMismatchFacts {
+                expected_variants,
+                exclusion: VariantExclusion::Listed(variants.clone()),
+            })
+        }
         (Type::Named { args: expected, .. }, Type::Named { args: actual, .. }) => expected
             .iter()
             .zip(actual)
@@ -708,5 +774,43 @@ fn variant_mismatch_sets(
             })
             .or_else(|| variant_mismatch_sets(expected_return, actual_return, adts)),
         _ => None,
+    }
+}
+
+struct VariantMismatchFacts {
+    expected_variants: Vec<String>,
+    exclusion: VariantExclusion,
+}
+
+enum VariantExclusion {
+    Listed(Vec<String>),
+    AllExceptExpected,
+}
+
+impl VariantExclusion {
+    fn json(&self) -> JsonValue {
+        match self {
+            Self::Listed(variants) => JsonValue::object([
+                ("form", JsonValue::string("listed")),
+                (
+                    "variants",
+                    JsonValue::array(variants.iter().cloned().map(JsonValue::string)),
+                ),
+            ]),
+            Self::AllExceptExpected => JsonValue::object([
+                ("form", JsonValue::string("all_except_expected")),
+                ("variants", JsonValue::array(std::iter::empty())),
+            ]),
+        }
+    }
+
+    fn message(&self, actual: &str, expected: &[String]) -> String {
+        match self {
+            Self::Listed(variants) => format!("Excluded variants: {}.", variants.join(", ")),
+            Self::AllExceptExpected => format!(
+                "Excluded variants: every `{actual}` variant except {}.",
+                expected.join(", ")
+            ),
+        }
     }
 }

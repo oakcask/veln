@@ -112,8 +112,13 @@ pub fn byte(value: Int) -> Result<Byte, String>
 	else if value > 255
 		Err("byte value must be between 0 and 255")
 	else
-		Ok(Byte(value))
+		byte_valid(value)
 	end
+end
+
+fn byte_valid(value: Int) -> Result<Byte, String>
+	let result: Byte = Byte(value)
+	Ok(result)
 end
 
 pub fn byte_to_int(value: Byte) -> Int
@@ -209,7 +214,7 @@ end
 
 fn byte_chunks_produce_from(chunks: List<ByteChunk>, budget: ByteCount, produced: ByteCount) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
 	match chunks
-		Nil => {chunks: Nil, produced: produced, remaining: Nil}
+		Nil => byte_chunks_produce_result(Nil, produced, Nil)
 		Cons(head, tail) => byte_chunks_produce_cons(chunks, head, tail, budget, produced)
 	end
 end
@@ -217,14 +222,18 @@ end
 fn byte_chunks_produce_cons(chunks: List<ByteChunk>, head: ByteChunk, tail: List<ByteChunk>, budget: ByteCount, produced: ByteCount) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
 	let next = byte_count_to_int(produced) + byte_count_to_int(byte_chunk_count(head))
 	if next > byte_count_to_int(budget)
-		{chunks: Nil, produced: produced, remaining: chunks}
+		byte_chunks_produce_result(Nil, produced, chunks)
 	else
 		byte_chunks_prepend_produced(head, byte_chunks_produce_from(tail, budget, ByteCount(next)))
 	end
 end
 
 fn byte_chunks_prepend_produced(head: ByteChunk, rest: {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
-	{chunks: Cons(head, rest.chunks), produced: rest.produced, remaining: rest.remaining}
+	byte_chunks_produce_result(Cons(head, rest.chunks), rest.produced, rest.remaining)
+end
+
+fn byte_chunks_produce_result(chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
+	{chunks: chunks, produced: produced, remaining: remaining}
 end
 
 pub fn byte_read_u8_be(view: ByteView) -> Result<Int, String>
@@ -379,8 +388,13 @@ pub fn byte_count(value: Int) -> Result<ByteCount, String>
 	if value < 0
 		Err("byte count must be non-negative")
 	else
-		Ok(ByteCount(value))
+		byte_count_valid(value)
 	end
+end
+
+fn byte_count_valid(value: Int) -> Result<ByteCount, String>
+	let result: ByteCount = ByteCount(value)
+	Ok(result)
 end
 
 pub fn byte_count_to_int(value: ByteCount) -> Int
@@ -393,8 +407,13 @@ pub fn byte_offset(value: Int) -> Result<ByteOffset, String>
 	if value < 0
 		Err("byte offset must be non-negative")
 	else
-		Ok(ByteOffset(value))
+		byte_offset_valid(value)
 	end
+end
+
+fn byte_offset_valid(value: Int) -> Result<ByteOffset, String>
+	let result: ByteOffset = ByteOffset(value)
+	Ok(result)
 end
 
 pub fn byte_offset_to_int(value: ByteOffset) -> Int
@@ -452,24 +471,32 @@ fn vec_filter_step(state: { values : Vec<A>, keep : fn(A) -> Bool }, item: A) ->
 end
 
 pub fn vec_try_map(items: Vec<Item>, f: fn(Item) -> Result<A, E>) -> Result<Vec<A>, E>
-	let state: { values : Result<Vec<A>, E>, map : fn(Item) -> Result<A, E> } = prelude_builtin::vec_fold(items, { values: Ok([]), map: f }, vec_try_map_step)
+	let state: { values : Result<Vec<A>, E>, map : fn(Item) -> Result<A, E> } = prelude_builtin::vec_fold(items, vec_try_map_state(Ok([]), f), vec_try_map_step)
 	state.values
+end
+
+fn vec_try_map_state(values: Result<Vec<A>, E>, map: fn(Item) -> Result<A, E>) -> { values : Result<Vec<A>, E>, map : fn(Item) -> Result<A, E> }
+	{ values: values, map: map }
 end
 
 fn vec_try_map_step(state: { values : Result<Vec<A>, E>, map : fn(Item) -> Result<A, E> }, item: Item) -> { values : Result<Vec<A>, E>, map : fn(Item) -> Result<A, E> }
 	let map = state.map
 	match state.values
 		Ok(values) => match map(item)
-			Ok(mapped) => { values: Ok(vec_push(values, mapped)), map: map }
-			Err(error) => { values: Err(error), map: map }
+			Ok(mapped) => vec_try_map_state(Ok(vec_push(values, mapped)), map)
+			Err(error) => vec_try_map_state(Err(error), map)
 		end
-		Err(error) => { values: Err(error), map: map }
+		Err(error) => vec_try_map_state(Err(error), map)
 	end
 end
 
 pub fn vec_try_map_with(context: C, items: Vec<Item>, f: fn(C, Item) -> Result<A, E>) -> Result<Vec<A>, E>
-	let state: { values : Result<Vec<A>, E>, map : fn(C, Item) -> Result<A, E>, context : C } = prelude_builtin::vec_fold(items, { values: Ok([]), map: f, context: context }, vec_try_map_with_step)
+	let state: { values : Result<Vec<A>, E>, map : fn(C, Item) -> Result<A, E>, context : C } = prelude_builtin::vec_fold(items, vec_try_map_with_state(Ok([]), f, context), vec_try_map_with_step)
 	state.values
+end
+
+fn vec_try_map_with_state(values: Result<Vec<A>, E>, map: fn(C, Item) -> Result<A, E>, context: C) -> { values : Result<Vec<A>, E>, map : fn(C, Item) -> Result<A, E>, context : C }
+	{ values: values, map: map, context: context }
 end
 
 fn vec_try_map_with_step(state: { values : Result<Vec<A>, E>, map : fn(C, Item) -> Result<A, E>, context : C }, item: Item) -> { values : Result<Vec<A>, E>, map : fn(C, Item) -> Result<A, E>, context : C }
@@ -477,10 +504,10 @@ fn vec_try_map_with_step(state: { values : Result<Vec<A>, E>, map : fn(C, Item) 
 	let context = state.context
 	match state.values
 		Ok(values) => match map(context, item)
-			Ok(mapped) => { values: Ok(vec_push(values, mapped)), map: map, context: context }
-			Err(error) => { values: Err(error), map: map, context: context }
+			Ok(mapped) => vec_try_map_with_state(Ok(vec_push(values, mapped)), map, context)
+			Err(error) => vec_try_map_with_state(Err(error), map, context)
 		end
-		Err(error) => { values: Err(error), map: map, context: context }
+		Err(error) => vec_try_map_with_state(Err(error), map, context)
 	end
 end
 
@@ -633,8 +660,12 @@ pub fn dict_try_map(dict: Dict<K, V>, f: fn(K, V) -> Result<A, E>) -> Result<Dic
 end
 
 pub fn dict_try_map_with(context: C, dict: Dict<K, V>, f: fn(C, K, V) -> Result<A, E>) -> Result<Dict<K, A>, E>
-	let state: { values : Result<Dict<K, A>, E>, map : fn(C, K, V) -> Result<A, E>, context : C } = prelude_builtin::dict_fold(dict, { values: Ok({}), map: f, context: context }, dict_try_map_with_step)
+	let state: { values : Result<Dict<K, A>, E>, map : fn(C, K, V) -> Result<A, E>, context : C } = prelude_builtin::dict_fold(dict, dict_try_map_with_state(Ok({}), f, context), dict_try_map_with_step)
 	state.values
+end
+
+fn dict_try_map_with_state(values: Result<Dict<K, A>, E>, map: fn(C, K, V) -> Result<A, E>, context: C) -> { values : Result<Dict<K, A>, E>, map : fn(C, K, V) -> Result<A, E>, context : C }
+	{ values: values, map: map, context: context }
 end
 
 fn dict_try_map_with_step(state: { values : Result<Dict<K, A>, E>, map : fn(C, K, V) -> Result<A, E>, context : C }, key: K, value: V) -> { values : Result<Dict<K, A>, E>, map : fn(C, K, V) -> Result<A, E>, context : C }
@@ -642,10 +673,10 @@ fn dict_try_map_with_step(state: { values : Result<Dict<K, A>, E>, map : fn(C, K
 	let context = state.context
 	match state.values
 		Ok(values) => match map(context, key, value)
-			Ok(mapped) => { values: Ok(prelude_builtin::dict_insert(values, key, mapped)), map: map, context: context }
-			Err(error) => { values: Err(error), map: map, context: context }
+			Ok(mapped) => dict_try_map_with_state(Ok(prelude_builtin::dict_insert(values, key, mapped)), map, context)
+			Err(error) => dict_try_map_with_state(Err(error), map, context)
 		end
-		Err(error) => { values: Err(error), map: map, context: context }
+		Err(error) => dict_try_map_with_state(Err(error), map, context)
 	end
 end
 

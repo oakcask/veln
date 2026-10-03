@@ -26,7 +26,7 @@ pub(crate) fn predicate_is_boolean_with_calls(
 ) -> bool {
     let trimmed = predicate.trim();
     predicate_type_with_calls(trimmed, bindings, call_type).is_some_and(
-        |ty| matches!(ty, Type::Named { name, args } if name == "Bool" && args.is_empty()),
+        |ty| matches!(ty, Type::Named { name, args, .. } if name == "Bool" && args.is_empty()),
     )
 }
 
@@ -83,7 +83,7 @@ pub(super) fn predicate_unary_type(
 ) -> Option<Type> {
     if let Some(rest) = predicate.strip_prefix('-') {
         let ty = predicate_type_with_calls(rest, bindings, call_type)?;
-        return matches!(ty, Type::Named { ref name, ref args } if args.is_empty() && (name == "Int" || name == "Float"))
+        return matches!(ty, Type::Named { ref name, ref args, .. } if args.is_empty() && (name == "Int" || name == "Float"))
             .then_some(ty);
     }
     if let Some(rest) = predicate.strip_prefix('~') {

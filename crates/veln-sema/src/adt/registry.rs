@@ -194,12 +194,14 @@ impl AdtRegistry {
     }
 
     pub(crate) fn descriptor_for_type(&self, ty: &Type) -> Option<&AdtDescriptor> {
-        let (name, args) = match ty {
-            Type::Named { name, args } | Type::VariantRefinement { name, args, .. } => (name, args),
+        let (identity, args) = match ty {
+            Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+                (identity, args)
+            }
             _ => return None,
         };
-        self.descriptors_named(name).find(|descriptor| {
-            descriptor.type_name == *name && descriptor.type_parameters.len() == args.len()
+        self.descriptors.iter().find(|descriptor| {
+            descriptor.identity() == *identity && descriptor.type_parameters.len() == args.len()
         })
     }
 
@@ -209,7 +211,9 @@ impl AdtRegistry {
         module_name: Option<&str>,
     ) -> Option<&AdtDescriptor> {
         let (name, args) = match ty {
-            Type::Named { name, args } | Type::VariantRefinement { name, args, .. } => (name, args),
+            Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } => {
+                (name, args)
+            }
             _ => return None,
         };
         if name.contains("::") {
@@ -250,6 +254,17 @@ impl AdtRegistry {
                         descriptor.module_name.is_none()
                             && descriptor.type_parameters.len() == args_len
                     })
+                })
+                .or_else(|| {
+                    let mut imported = self.descriptors_named(name).filter(|descriptor| {
+                        descriptor.type_parameters.len() == args_len
+                            && descriptor.visibility == Visibility::Public
+                            && descriptor.module_name.as_ref().is_some_and(|module| {
+                                uses.iter().any(|use_decl| &use_decl.name == module)
+                            })
+                    });
+                    let descriptor = imported.next()?;
+                    imported.next().is_none().then_some(descriptor)
                 });
         }
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();

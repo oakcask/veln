@@ -77,8 +77,174 @@ fn rejected_calls_and_results_report_variant_mismatches() {
     assert_eq!(mismatches.len(), 2, "{diagnostics:#?}");
     assert!(mismatches[0].message.contains("State::Closed"));
     assert!(mismatches[0].message.contains("State::Ready"));
-    assert_eq!(mismatches[0].related.len(), 1);
+    assert_eq!(mismatches[0].related.len(), 2);
     assert!(mismatches[1].message.contains("State`"));
+}
+
+#[test]
+fn resolved_base_identity_rejects_same_spelled_adt_from_another_module() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "left",
+            SourceFile::new(
+                "left.veln",
+                "pub type State\n  pub Ready\n  pub Closed\nend\n",
+            ),
+        ),
+        (
+            "right",
+            SourceFile::new(
+                "right.veln",
+                "pub type State\n  pub Ready\n  pub Closed\nend\n",
+            ),
+        ),
+        (
+            "main",
+            SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n",
+                    "fn wrong() -> left::State\n",
+                    "  right::Ready\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn qualified_and_unqualified_union_bases_resolve_before_identity_comparison() {
+    let module = merged_modules_with_identities(vec![(
+        "state",
+        SourceFile::new(
+            "state.veln",
+            concat!(
+                "pub type State\n",
+                "  pub Ready\n",
+                "  pub Closed\n",
+                "end\n",
+                "fn keep(value: state::State::Ready | State::Closed) -> State\n",
+                "  value\n",
+                "end\n",
+            ),
+        ),
+    )]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn nested_aggregate_widening_is_rejected_for_inline_and_bound_values() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "end\n",
+            "fn records() -> ()\n",
+            "  let inline: {state: State} = {state: Ready}\n",
+            "  let retained = {state: Ready}\n",
+            "  let bound: {state: State} = retained\n",
+            "end\n",
+            "fn payloads() -> ()\n",
+            "  let inline: Box<State> = Boxed(Ready)\n",
+            "  let retained = Boxed(Ready)\n",
+            "  let bound: Box<State> = retained\n",
+            "end\n",
+            "fn collections() -> ()\n",
+            "  let inline: Vec<State> = [Ready]\n",
+            "  let retained = [Ready]\n",
+            "  let bound: Vec<State> = retained\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .count(),
+        6,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_refinement_annotations_are_diagnosed_instead_of_becoming_unknown() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn missing(value: State::Missing) -> State::Missing\n",
+            "  value\n",
+            "end\n",
+            "fn wrong_arity(value: Option<Int, String>::Some) -> ()\n",
+            "  ()\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+            .count(),
+        3,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn base_mismatch_diagnostic_output_grows_linearly_with_variant_count() {
+    fn diagnostic_bytes(variant_count: usize) -> (usize, usize) {
+        let mut source = String::from("type State\n");
+        for index in 0..variant_count {
+            source.push_str(&format!("  Variant{index:03}\n"));
+        }
+        source.push_str("end\n");
+        for index in 0..variant_count {
+            source.push_str(&format!(
+                "fn reject{index:03}(value: State) -> State::Variant{index:03}\n  value\nend\n"
+            ));
+        }
+        let diagnostics = diagnostics_for(&source);
+        let mismatches = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .collect::<Vec<_>>();
+        let bytes = mismatches
+            .iter()
+            .map(|diagnostic| {
+                veln_diagnostics::diagnostic_to_json(diagnostic)
+                    .to_json()
+                    .len()
+            })
+            .sum();
+        (mismatches.len(), bytes)
+    }
+
+    let (small_count, small_bytes) = diagnostic_bytes(32);
+    let (large_count, large_bytes) = diagnostic_bytes(64);
+    eprintln!(
+        "variant mismatch diagnostic bytes at 32 and 64 variants: {small_bytes}, {large_bytes}"
+    );
+    assert_eq!((small_count, large_count), (32, 64));
+    assert!(
+        large_bytes <= small_bytes * 3,
+        "diagnostic bytes grew too quickly: {small_bytes} -> {large_bytes}"
+    );
 }
 
 #[test]

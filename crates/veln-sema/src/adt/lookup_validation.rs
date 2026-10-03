@@ -191,6 +191,7 @@ pub(super) fn is_self_type(ty: &Type, decl: &TypeDecl) -> bool {
     let Type::Named {
         name: ty_name,
         args,
+        ..
     } = ty
     else {
         return false;
@@ -198,20 +199,31 @@ pub(super) fn is_self_type(ty: &Type, decl: &TypeDecl) -> bool {
     ty_name == name
         && args.len() == decl.params.len()
         && args.iter().zip(&decl.params).all(|(arg, param)| {
-            matches!(arg, Type::Named { name, args } if name == param && args.is_empty())
+            matches!(arg, Type::Named { name, args, .. } if name == param && args.is_empty())
         })
 }
 
 pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Type {
     match ty {
-        Type::Named { name, args } if args.is_empty() => params
-            .iter()
-            .position(|param| param == &name)
-            .map_or(Type::Named { name, args }, |index| {
-                Type::named(format!("$param{index}"), Vec::new())
-            }),
-        Type::Named { name, args } => Type::Named {
+        Type::Named {
             name,
+            identity,
+            args,
+        } if args.is_empty() => params.iter().position(|param| param == &name).map_or(
+            Type::Named {
+                name,
+                identity,
+                args,
+            },
+            |index| Type::named(format!("$param{index}"), Vec::new()),
+        ),
+        Type::Named {
+            name,
+            identity,
+            args,
+        } => Type::Named {
+            name,
+            identity,
             args: args
                 .into_iter()
                 .map(|arg| type_parameters_to_placeholders(arg, params))
@@ -222,6 +234,7 @@ pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Ty
             identity,
             args,
             variants,
+            unresolved_alternatives,
         } => Type::VariantRefinement {
             name,
             identity,
@@ -230,6 +243,7 @@ pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Ty
                 .map(|arg| type_parameters_to_placeholders(arg, params))
                 .collect(),
             variants,
+            unresolved_alternatives,
         },
         Type::Record(fields) => Type::Record(
             fields

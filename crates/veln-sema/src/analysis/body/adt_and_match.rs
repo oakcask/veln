@@ -8,6 +8,7 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         constructor: AdtConstructor,
     ) -> Type {
+        let diagnostic_count = self.diagnostics.len();
         let mut actual_args = Vec::new();
         let expected = expected.filter(|expected| {
             unification::adt_args(&expected.ty, constructor.descriptor).is_some()
@@ -21,7 +22,7 @@ impl<'a> FunctionChecker<'a> {
         });
         let mut inferred_type_args =
             vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
-        for (index, _) in constructor.variant.payload_fields.iter().enumerate() {
+        for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
             arg_expected.ty = expected
                 .and_then(|expected| adt::payload_type(&expected.ty, constructor, index))
                 .or_else(|| adt::payload_type_with_args(constructor, &inferred_type_args, index))
@@ -30,30 +31,62 @@ impl<'a> FunctionChecker<'a> {
                 continue;
             };
             let actual_arg = self.infer_expr(arg, Some(&arg_expected));
-            self.check_assignable(
-                arg,
-                &arg_expected.ty,
-                &actual_arg,
-                &arg_expected,
-                "call_argument",
-            );
-            if expected.is_none() {
-                adt::merge_type_args_from_payload(
-                    &mut inferred_type_args,
-                    constructor,
-                    index,
+            match &field.ty {
+                AdtPayloadType::SelfType => self.check_assignable(
+                    arg,
+                    &arg_expected.ty,
                     &actual_arg,
-                );
+                    &arg_expected,
+                    "call_argument",
+                ),
+                AdtPayloadType::Concrete(_) => self.check_assignable_nested(
+                    arg,
+                    &arg_expected.ty,
+                    &actual_arg,
+                    &arg_expected,
+                    "call_argument",
+                ),
+                AdtPayloadType::TypeParameter(_)
+                    if !is_assignable(&arg_expected.ty, &actual_arg) =>
+                {
+                    self.check_assignable_nested(
+                        arg,
+                        &arg_expected.ty,
+                        &actual_arg,
+                        &arg_expected,
+                        "call_argument",
+                    );
+                }
+                AdtPayloadType::TypeParameter(_) => {}
             }
+            adt::merge_type_args_from_payload(
+                &mut inferred_type_args,
+                constructor,
+                index,
+                &actual_arg,
+            );
             actual_args.push(actual_arg);
         }
         for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
         }
 
-        let type_args = expected
+        if let Some(expected_args) = expected
             .and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor))
-            .unwrap_or(&inferred_type_args);
+        {
+            for (inferred, expected) in inferred_type_args.iter_mut().zip(expected_args) {
+                if *inferred == Type::Unknown {
+                    *inferred = expected.clone();
+                }
+            }
+        }
+        let expected_type_args = expected
+            .and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor));
+        let type_args = if self.diagnostics.len() != diagnostic_count {
+            expected_type_args.unwrap_or(&inferred_type_args)
+        } else {
+            &inferred_type_args
+        };
         let inferred_base = adt::constructed_type_from_args(constructor, type_args);
         if type_contains_unknown(&inferred_base) {
             self.push_ambiguous_constructor_type(
@@ -73,6 +106,7 @@ impl<'a> FunctionChecker<'a> {
         items: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        let diagnostic_count = self.diagnostics.len();
         if items.is_empty()
             && let Some(expected) = expected
             && expected.ty.vec_part().is_some()
@@ -89,28 +123,47 @@ impl<'a> FunctionChecker<'a> {
             .and_then(|expected| expected.ty.vec_part())
             .cloned()
             .unwrap_or(Type::Unknown);
-        let mut item_type = expected_item.clone();
+        let mut item_type = if items.is_empty() {
+            expected_item.clone()
+        } else {
+            Type::Unknown
+        };
         for item in items {
             let item_expected = collection_item_expected(
-                item_type.clone(),
+                if item_type == Type::Unknown {
+                    expected_item.clone()
+                } else {
+                    item_type.clone()
+                },
                 expected,
                 expr.node_id,
                 expr.span.clone(),
                 "Vec element type inferred here.",
             );
             let actual = self.infer_expr(item, Some(&item_expected));
-            self.check_assignable(
-                item,
-                &item_expected.ty,
-                &actual,
-                &item_expected,
-                "list_element",
-            );
+            if !is_assignable(&item_expected.ty, &actual) {
+                self.check_assignable_nested(
+                    item,
+                    &item_expected.ty,
+                    &actual,
+                    &item_expected,
+                    "list_element",
+                );
+            }
             if item_type == Type::Unknown {
                 item_type = actual;
             }
         }
-        Type::vec(item_type)
+        let actual = Type::vec(item_type);
+        if let Some(expected) = expected
+            && expected.ty.vec_part().is_some()
+            && (self.diagnostics.len() != diagnostic_count
+                || !type_contains_variant_refinement(&actual))
+        {
+            expected.ty.clone()
+        } else {
+            actual
+        }
     }
 
     pub(super) fn infer_match(

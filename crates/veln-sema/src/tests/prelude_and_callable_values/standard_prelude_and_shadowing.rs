@@ -28,7 +28,8 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
             "\n",
             "\n",
             "pub fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
-            "  NeedMore(NeedEnd)\n",
+            "  let readiness: DecodeReadiness = NeedEnd\n",
+            "  NeedMore(readiness)\n",
             "end\n",
         ),
     );

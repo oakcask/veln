@@ -26,6 +26,15 @@ pub(crate) struct AdtDescriptor {
     pub(crate) visibility: Visibility,
 }
 
+impl AdtDescriptor {
+    pub(crate) fn identity(&self) -> String {
+        match self.module_name.as_deref() {
+            None | Some("std::prelude") => self.type_name.clone(),
+            Some(module) => format!("{module}::{}", self.type_name),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdtVariantDescriptor {
     pub(crate) name: String,

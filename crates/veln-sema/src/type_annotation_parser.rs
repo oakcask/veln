@@ -83,6 +83,14 @@ impl<'a> TypeParser<'a> {
             let Some(variant) = self.parse_single_ident() else {
                 return Err("expected variant name after `::`".to_string());
             };
+            if let Some(expected) = (self.builtin_type_arity)(&name)?
+                && args.len() != expected
+            {
+                return Err(format!(
+                    "`{name}` expects {expected} type argument(s), found {}",
+                    args.len()
+                ));
+            }
             return Ok(Type::variant_refinement(name, args, vec![variant]));
         }
         self.validate_named_type(name, args)
@@ -341,7 +349,7 @@ impl<'a> TypeParser<'a> {
 
 fn normalize_variadic_type(ty: Type) -> Type {
     match ty {
-        Type::Named { name, args } if name == "unknown" && args.is_empty() => Type::Unknown,
+        Type::Named { name, args, .. } if name == "unknown" && args.is_empty() => Type::Unknown,
         ty => ty,
     }
 }
@@ -350,25 +358,31 @@ fn variant_union(alternatives: Vec<Type>) -> Result<Type, String> {
     let mut base_name = None::<String>;
     let mut base_args = None::<Vec<Type>>;
     let mut variants = Vec::new();
+    let mut unresolved_alternatives = Vec::new();
     for alternative in alternatives {
         let (name, args, mut alternative_variants) = unresolved_refinement_parts(alternative)?;
-        if let (Some(expected_name), Some(expected_args)) = (&base_name, &base_args)
-            && (expected_name != &name || expected_args != &args)
-        {
-            return Err("variant union alternatives must have the same base type".to_string());
+        let matches_primary = base_name.is_none()
+            || (base_name.as_ref() == Some(&name) && base_args.as_ref() == Some(&args));
+        if !matches_primary {
+            for variant in &alternative_variants {
+                unresolved_alternatives.push((name.clone(), args.clone(), variant.clone()));
+            }
         }
-        base_name.get_or_insert(name);
-        base_args.get_or_insert(args);
-        for variant in alternative_variants.drain(..) {
-            if !variants.contains(&variant) {
-                variants.push(variant);
+        base_name.get_or_insert_with(|| name.clone());
+        base_args.get_or_insert_with(|| args.clone());
+        if matches_primary {
+            for variant in alternative_variants.drain(..) {
+                if !variants.contains(&variant) {
+                    variants.push(variant);
+                }
             }
         }
     }
-    Ok(Type::variant_refinement(
+    Ok(Type::unresolved_variant_union(
         base_name.unwrap_or_default(),
         base_args.unwrap_or_default(),
         variants,
+        unresolved_alternatives,
     ))
 }
 
@@ -380,7 +394,7 @@ fn unresolved_refinement_parts(ty: Type) -> Result<(String, Vec<Type>, Vec<Strin
             variants,
             ..
         } => Ok((name, args, variants)),
-        Type::Named { name, args } => {
+        Type::Named { name, args, .. } => {
             let Some((base, variant)) = name.rsplit_once("::") else {
                 return Err("variant union alternatives must name ADT variants".to_string());
             };

@@ -148,6 +148,7 @@ pub(crate) enum Type {
     Unknown,
     Named {
         name: String,
+        identity: String,
         args: Vec<Type>,
     },
     VariantRefinement {
@@ -155,6 +156,7 @@ pub(crate) enum Type {
         identity: String,
         args: Vec<Type>,
         variants: Vec<String>,
+        unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
     },
     Record(Vec<(String, Type)>),
     Function {
@@ -167,8 +169,22 @@ pub(crate) enum Type {
 
 impl Type {
     pub(crate) fn named(name: impl Into<String>, args: Vec<Type>) -> Self {
+        let name = name.into();
+        Self::Named {
+            identity: name.clone(),
+            name,
+            args,
+        }
+    }
+
+    pub(crate) fn resolved_named(
+        name: impl Into<String>,
+        identity: impl Into<String>,
+        args: Vec<Type>,
+    ) -> Self {
         Self::Named {
             name: name.into(),
+            identity: identity.into(),
             args,
         }
     }
@@ -184,6 +200,7 @@ impl Type {
             name,
             args,
             variants,
+            unresolved_alternatives: Vec::new(),
         }
     }
 
@@ -198,6 +215,22 @@ impl Type {
             identity: identity.into(),
             args,
             variants,
+            unresolved_alternatives: Vec::new(),
+        }
+    }
+
+    pub(crate) fn unresolved_variant_union(
+        name: String,
+        args: Vec<Type>,
+        variants: Vec<String>,
+        unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
+    ) -> Self {
+        Self::VariantRefinement {
+            identity: name.clone(),
+            name,
+            args,
+            variants,
+            unresolved_alternatives,
         }
     }
 
@@ -281,9 +314,9 @@ impl Type {
     pub(crate) fn render(&self) -> String {
         match self {
             Self::Unknown => "unknown".to_string(),
-            Self::Named { name, args } if name == "Unit" && args.is_empty() => "()".to_string(),
-            Self::Named { name, args } if args.is_empty() => name.clone(),
-            Self::Named { name, args } => {
+            Self::Named { name, args, .. } if name == "Unit" && args.is_empty() => "()".to_string(),
+            Self::Named { name, args, .. } if args.is_empty() => name.clone(),
+            Self::Named { name, args, .. } => {
                 let args = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
                 format!("{name}<{args}>")
             }
@@ -336,14 +369,14 @@ impl Type {
 
     pub(crate) fn vec_part(&self) -> Option<&Type> {
         match self {
-            Self::Named { name, args } if name == "Vec" && args.len() == 1 => Some(&args[0]),
+            Self::Named { name, args, .. } if name == "Vec" && args.len() == 1 => Some(&args[0]),
             _ => None,
         }
     }
 
     pub(crate) fn dict_parts(&self) -> Option<(&Type, &Type)> {
         match self {
-            Self::Named { name, args } if name == "Dict" && args.len() == 2 => {
+            Self::Named { name, args, .. } if name == "Dict" && args.len() == 2 => {
                 Some((&args[0], &args[1]))
             }
             _ => None,

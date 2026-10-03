@@ -268,6 +268,14 @@ fn parses_singleton_and_same_base_variant_union_annotations() {
 }
 
 #[test]
+fn refinement_annotations_validate_builtin_base_arity() {
+    assert_eq!(
+        parse_type_annotation("Option<Int, String>::Some"),
+        Err("`Option` expects 1 type argument(s), found 2".to_string())
+    );
+}
+
+#[test]
 fn parses_nested_type_annotations_with_whitespace() {
     assert_eq!(
         parse_type_annotation(

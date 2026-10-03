@@ -310,6 +310,7 @@ fn ir_schema_anonymous_record_spec_inner(
             Type::Named {
                 name: ty_name,
                 args,
+                ..
             } => {
                 if !args.is_empty() {
                     return None;

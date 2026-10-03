@@ -252,6 +252,50 @@ impl TypeEnvironment {
         )
     }
 
+    pub(crate) fn variant_refinement_annotation_error(
+        &self,
+        ty: &Type,
+        current_module: Option<&str>,
+    ) -> Option<String> {
+        let refinement_candidate = match ty {
+            Type::VariantRefinement { .. } => true,
+            Type::Named { name, args, .. } => name.rsplit_once("::").is_some_and(|(base, _)| {
+                self.adts
+                    .descriptor_for_type_path(base, args.len(), current_module, &self.uses)
+                    .is_some()
+            }),
+            _ => false,
+        };
+        if refinement_candidate
+            && self.canonicalize_type_annotation(ty.clone(), current_module) == Type::Unknown
+        {
+            return Some(
+                "variant refinement alternatives must resolve to declared variants of one ADT"
+                    .to_string(),
+            );
+        }
+        let children: Vec<&Type> = match ty {
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+                args.iter().collect()
+            }
+            Type::Record(fields) => fields.iter().map(|(_, ty)| ty).collect(),
+            Type::Function {
+                params,
+                variadic,
+                return_type,
+                ..
+            } => params
+                .iter()
+                .chain(variadic.iter().map(Box::as_ref))
+                .chain(std::iter::once(return_type.as_ref()))
+                .collect(),
+            Type::Unknown => Vec::new(),
+        };
+        children
+            .into_iter()
+            .find_map(|child| self.variant_refinement_annotation_error(child, current_module))
+    }
+
     pub(crate) fn function_for(&self, source: &Function) -> Option<&FunctionSignature> {
         let name = source.name.as_deref()?;
         self.functions_named(name).find(|function| {

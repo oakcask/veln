@@ -8,7 +8,8 @@ contains = [
   "\"actual_type\":\"State::Closed\"",
   "\"expected_type\":\"State::Ready\"",
   "\"expected_variants\":[\"Ready\"]",
-  "\"excluded_variants\":[\"Closed\"]",
+  "\"excluded_variants\":{\"form\":\"listed\",\"variants\":[\"Closed\"]}",
+  "\"kind\":\"variant_exclusion\"",
   "\"kind\":\"expected_type_origin\"",
 ]
 
@@ -21,7 +22,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 5
+equals = 7
 
 [[diagnostics]]
 id = "type.variant_mismatch"
@@ -68,6 +69,28 @@ line = 30
 column = 13
 
 [[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 36
+column = 28
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `Option<Int>::None` is not assignable to variant type `Option<Int>::Some`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 44
+column = 13
+
+[[diagnostics]]
 id = "name.unresolved"
 severity = "error"
 kind = "name"
@@ -75,13 +98,37 @@ message = "unresolved value `missing`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 36
+line = 48
 column = 2
 
 [[json_assert]]
-path = "diagnostics.0.details.excluded_variants.0"
+path = "diagnostics.0.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.variants.0"
 equals = "Closed"
 
 [[json_assert]]
-path = "diagnostics.0.related.0.kind"
+path = "diagnostics.0.related.1.kind"
 equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.4.details.constraint"
+equals = "assignable"
+
+[[json_assert]]
+path = "diagnostics.5.details.actual_type"
+equals = "Option<Int>::None"
+
+[[json_assert]]
+path = "diagnostics.5.details.expected_type"
+equals = "Option<Int>::Some"
+
+[[json_assert]]
+path = "diagnostics.5.details.excluded_variants.variants.0"
+equals = "None"

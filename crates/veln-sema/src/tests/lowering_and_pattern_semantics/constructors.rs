@@ -121,7 +121,8 @@ fn lowers_qualified_builtin_constructors() {
             "  if_missing(use_result)\n",
             "end\n",
             "fn if_missing(use_result: Bool) -> Result<Option<String>, AppError>\n",
-            "  Result::Ok(Option::Some(\"ok\"))\n",
+            "  let value: Option<String> = Option::Some(\"ok\")\n",
+            "  Result::Ok(value)\n",
             "end\n",
         ),
     );
@@ -138,7 +139,14 @@ fn lowers_qualified_builtin_constructors() {
         .iter()
         .find(|function| function.name == "if_missing")
         .expect("helper should be lowered");
-    let CoreStmtKind::Return { expr } = &helper.body[0].kind else {
+    let CoreStmtKind::Let {
+        expr: option_expr, ..
+    } = &helper.body[0].kind
+    else {
+        panic!("option binding should lower as let");
+    };
+    assert!(matches!(option_expr.kind, CoreExprKind::OptionSome(_)));
+    let CoreStmtKind::Return { expr } = &helper.body[1].kind else {
         panic!("tail expression should lower as return");
     };
     assert_eq!(
@@ -151,7 +159,7 @@ fn lowers_qualified_builtin_constructors() {
     let CoreExprKind::ResultOk(value) = &expr.kind else {
         panic!("Result::Ok call should lower to a result constructor");
     };
-    assert!(matches!(value.kind, CoreExprKind::OptionSome(_)));
+    assert!(matches!(&value.kind, CoreExprKind::Local(name) if name == "value"));
 }
 
 #[test]
@@ -163,7 +171,8 @@ fn lowers_name_paths_by_resolution_category() {
             "  \"ok\"\n",
             "end\n",
             "pub fn main(value: Int) -> {local: Int, constructor: Option<String>, callback: fn(Int) -> String}\n",
-            "  {local: value, constructor: None, callback: stringify}\n",
+            "  let constructor: Option<String> = None\n",
+            "  {local: value, constructor: constructor, callback: stringify}\n",
             "end\n",
         ),
     );
@@ -180,7 +189,15 @@ fn lowers_name_paths_by_resolution_category() {
         .iter()
         .find(|function| function.name == "main")
         .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+    let CoreStmtKind::Let {
+        expr: constructor_expr,
+        ..
+    } = &main.body[0].kind
+    else {
+        panic!("constructor binding should lower as let");
+    };
+    assert!(matches!(constructor_expr.kind, CoreExprKind::OptionNone));
+    let CoreStmtKind::Return { expr } = &main.body[1].kind else {
         panic!("tail expression should lower as return");
     };
     let CoreExprKind::Record(fields) = &expr.kind else {
@@ -190,7 +207,7 @@ fn lowers_name_paths_by_resolution_category() {
         &fields[0].expr.kind,
         CoreExprKind::Local(name) if name == "value"
     ));
-    assert!(matches!(fields[1].expr.kind, CoreExprKind::OptionNone));
+    assert!(matches!(&fields[1].expr.kind, CoreExprKind::Local(name) if name == "constructor"));
     assert_eq!(fields[1].expr.ty, CoreType::option(CoreType::string()));
     assert!(matches!(
         &fields[2].expr.kind,
@@ -206,11 +223,11 @@ fn infers_payload_constructor_type_arguments_without_expected_adt_type() {
             "type Box<A>\n",
             "  Box(value: A)\n",
             "end\n",
-            "fn main() -> {option: Option<Int>, list: List<Int>, boxed: Box<String>}\n",
+            "fn main() -> Int\n",
             "  let option = Some(1)\n",
             "  let list = Cons(1, Nil)\n",
             "  let boxed = Box(\"ok\")\n",
-            "  {option: option, list: list, boxed: boxed}\n",
+            "  1\n",
             "end\n",
         ),
     );

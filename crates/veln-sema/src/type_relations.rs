@@ -4,6 +4,10 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
     is_assignable_at_boundary(expected, actual, true)
 }
 
+pub(crate) fn is_assignable_nested(expected: &Type, actual: &Type) -> bool {
+    is_assignable_at_boundary(expected, actual, false)
+}
+
 fn is_assignable_at_boundary(expected: &Type, actual: &Type, direct: bool) -> bool {
     if expected == &Type::Unknown || actual == &Type::Unknown || expected == actual {
         return true;
@@ -32,15 +36,16 @@ fn is_assignable_at_boundary(expected: &Type, actual: &Type, direct: bool) -> bo
             }
             (
                 Type::Named {
-                    name: expected_name,
+                    identity: expected_identity,
                     args: expected_args,
+                    ..
                 },
                 Type::VariantRefinement {
-                    name: actual_name,
+                    identity: actual_identity,
                     args: actual_args,
                     ..
                 },
-            ) => return expected_name == actual_name && expected_args == actual_args,
+            ) => return expected_identity == actual_identity && expected_args == actual_args,
             _ => {}
         }
     }
@@ -57,15 +62,17 @@ fn is_assignable_at_boundary(expected: &Type, actual: &Type, direct: bool) -> bo
         }
         (
             Type::Named {
-                name: expected_name,
+                identity: expected_identity,
                 args: expected_args,
+                ..
             },
             Type::Named {
-                name: actual_name,
+                identity: actual_identity,
                 args: actual_args,
+                ..
             },
         ) => {
-            expected_name == actual_name
+            expected_identity == actual_identity
                 && expected_args.len() == actual_args.len()
                 && expected_args
                     .iter()

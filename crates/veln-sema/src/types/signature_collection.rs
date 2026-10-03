@@ -112,7 +112,7 @@ pub(super) fn canonicalize_type_effects(
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Type {
     match ty {
-        Type::Named { name, args } => {
+        Type::Named { name, args, .. } => {
             if let Some((base_name, variant)) = name.rsplit_once("::")
                 && let Some(descriptor) =
                     adts.descriptor_for_type_path(base_name, args.len(), current_module, uses)
@@ -162,28 +162,31 @@ pub(super) fn canonicalize_type_effects(
             else {
                 return Type::Unknown;
             };
-            Type::Named {
-                name: canonical_name,
-                args: args
-                    .into_iter()
-                    .map(|arg| {
-                        canonicalize_type_effects(
-                            arg,
-                            uses,
-                            quarantined_uses,
-                            current_module,
-                            effects,
-                            adts,
-                            companion_effect_access_targets,
-                        )
-                    })
-                    .collect(),
+            let args = args
+                .into_iter()
+                .map(|arg| {
+                    canonicalize_type_effects(
+                        arg,
+                        uses,
+                        quarantined_uses,
+                        current_module,
+                        effects,
+                        adts,
+                        companion_effect_access_targets,
+                    )
+                })
+                .collect();
+            if let Some(descriptor) = descriptor {
+                Type::resolved_named(canonical_name, descriptor.identity(), args)
+            } else {
+                Type::named(canonical_name, args)
             }
         }
         Type::VariantRefinement {
             name,
             args,
             variants,
+            unresolved_alternatives,
             ..
         } => {
             let Some(descriptor) =
@@ -199,9 +202,50 @@ pub(super) fn canonicalize_type_effects(
             }) {
                 return Type::Unknown;
             }
+            let canonical_args = canonical_variant_arguments(
+                args.clone(),
+                uses,
+                quarantined_uses,
+                current_module,
+                effects,
+                adts,
+                companion_effect_access_targets,
+            );
+            let mut variants = variants;
+            for (alternative_name, alternative_args, alternative_variant) in unresolved_alternatives
+            {
+                let Some(alternative_descriptor) = adts.descriptor_for_type_path(
+                    &alternative_name,
+                    alternative_args.len(),
+                    current_module,
+                    uses,
+                ) else {
+                    return Type::Unknown;
+                };
+                if alternative_descriptor.identity() != descriptor.identity()
+                    || canonical_variant_arguments(
+                        alternative_args,
+                        uses,
+                        quarantined_uses,
+                        current_module,
+                        effects,
+                        adts,
+                        companion_effect_access_targets,
+                    ) != canonical_args
+                    || !alternative_descriptor
+                        .variants
+                        .iter()
+                        .any(|candidate| candidate.name == alternative_variant)
+                {
+                    return Type::Unknown;
+                }
+                if !variants.contains(&alternative_variant) {
+                    variants.push(alternative_variant);
+                }
+            }
             canonical_variant_refinement(
                 descriptor,
-                args,
+                canonical_args,
                 variants,
                 uses,
                 quarantined_uses,
@@ -297,8 +341,44 @@ fn canonical_variant_refinement(
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Type {
-    let args = args
-        .into_iter()
+    let args = canonical_variant_arguments(
+        args,
+        uses,
+        quarantined_uses,
+        current_module,
+        effects,
+        adts,
+        companion_effect_access_targets,
+    );
+    let variants = descriptor
+        .variants
+        .iter()
+        .filter(|candidate| variants.contains(&candidate.name))
+        .map(|candidate| candidate.name.clone())
+        .collect::<Vec<_>>();
+    if variants.len() == descriptor.variants.len() {
+        Type::resolved_named(&descriptor.type_name, descriptor.identity(), args)
+    } else {
+        Type::resolved_variant_refinement(
+            &descriptor.type_name,
+            descriptor.identity(),
+            args,
+            variants,
+        )
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn canonical_variant_arguments(
+    args: Vec<Type>,
+    uses: &[UseDecl],
+    quarantined_uses: &[UseDecl],
+    current_module: Option<&str>,
+    effects: &[EffectSignature],
+    adts: &AdtRegistry,
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
+) -> Vec<Type> {
+    args.into_iter()
         .map(|arg| {
             canonicalize_type_effects(
                 arg,
@@ -310,26 +390,7 @@ fn canonical_variant_refinement(
                 companion_effect_access_targets,
             )
         })
-        .collect::<Vec<_>>();
-    let variants = descriptor
-        .variants
-        .iter()
-        .filter(|candidate| variants.contains(&candidate.name))
-        .map(|candidate| candidate.name.clone())
-        .collect::<Vec<_>>();
-    if variants.len() == descriptor.variants.len() {
-        Type::named(&descriptor.type_name, args)
-    } else {
-        Type::resolved_variant_refinement(
-            &descriptor.type_name,
-            descriptor.module_name.as_ref().map_or_else(
-                || descriptor.type_name.clone(),
-                |module| format!("{module}::{}", descriptor.type_name),
-            ),
-            args,
-            variants,
-        )
-    }
+        .collect()
 }
 
 fn canonical_type_name_without_descriptor(

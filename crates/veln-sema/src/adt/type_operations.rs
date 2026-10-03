@@ -41,7 +41,11 @@ pub(crate) fn core_constructed_type(
 }
 
 pub(crate) fn constructed_type_from_args(constructor: AdtConstructor<'_>, args: &[Type]) -> Type {
-    Type::named(&constructor.descriptor.type_name, args.to_vec())
+    Type::resolved_named(
+        &constructor.descriptor.type_name,
+        constructor.descriptor.identity(),
+        args.to_vec(),
+    )
 }
 
 pub(crate) fn refined_constructed_type_from_args(
@@ -50,16 +54,9 @@ pub(crate) fn refined_constructed_type_from_args(
 ) -> Type {
     Type::resolved_variant_refinement(
         &constructor.descriptor.type_name,
-        descriptor_identity(constructor.descriptor),
+        constructor.descriptor.identity(),
         args.to_vec(),
         vec![constructor.variant.name.clone()],
-    )
-}
-
-fn descriptor_identity(descriptor: &crate::adt::descriptors::AdtDescriptor) -> String {
-    descriptor.module_name.as_ref().map_or_else(
-        || descriptor.type_name.clone(),
-        |module| format!("{module}::{}", descriptor.type_name),
     )
 }
 
