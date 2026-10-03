@@ -82,6 +82,12 @@ fn scan_expr_tail_recursion(
                     facts.has_indirect_value_call = true;
                     scan_expr_tail_recursion(callsite, function, false, facts);
                 }
+                IrCallTarget::CallbackBoundary { target, callsite } => {
+                    if matches!(target, IrCallbackTarget::Function(_)) {
+                        facts.has_indirect_value_call = true;
+                    }
+                    scan_expr_tail_recursion(callsite, function, false, facts);
+                }
                 _ => {}
             }
             for arg in args {

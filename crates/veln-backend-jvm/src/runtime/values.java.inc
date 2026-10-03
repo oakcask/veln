@@ -338,6 +338,26 @@
         Object call(Object[] args, Object callsite);
     }
 
+    private static final class BoundCallsiteFn implements Fn, CallsiteFn {
+        private final Object function;
+        private final Object callsite;
+
+        BoundCallsiteFn(Object function, Object callsite) {
+            this.function = function;
+            this.callsite = callsite;
+        }
+
+        @Override
+        public Object call(Object... args) {
+            return callAt(function, args, callsite);
+        }
+
+        @Override
+        public Object call(Object[] args, Object forwardedCallsite) {
+            return callAt(function, args, forwardedCallsite);
+        }
+    }
+
     private static final InheritableThreadLocal<java.util.List<HandlerFrame>> HANDLERS =
         new InheritableThreadLocal<java.util.List<HandlerFrame>>() {
             @Override

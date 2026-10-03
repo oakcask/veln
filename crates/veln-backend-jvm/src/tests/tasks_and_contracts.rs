@@ -29,6 +29,38 @@ fn bytecode_backend_runs_task_function_values_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_binds_callsite_callbacks_for_tasks() {
+    let ir = lower_to_ir(concat!(
+        "fn produce(value: Int) -> {value: Int, location: SourceLocation} effects [concurrency] callsite\n",
+        "  {value: value, location: callsite}\n",
+        "end\n",
+        "pub fn main() -> Result<(), JoinError> effects [stdio, concurrency]\n",
+        "  let stored: fn(Int) -> {value: Int, location: SourceLocation} effects [concurrency] = produce\n",
+        "  let task = task::spawn_with(stored, 41)\n",
+        "  let result: {value: Int, location: SourceLocation} = task::join(task)?\n",
+        "  stdio::println(int_to_string(result.value))\n",
+        "  stdio::println(int_to_string(result.location.start_line))\n",
+        "  stdio::println(int_to_string(result.location.start_column))\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-callsite-task", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "41\n6\n14\n");
+}
+
+#[test]
 fn bytecode_backend_runs_argument_task_function_values_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn produce(input: String) -> String effects [concurrency]\n",

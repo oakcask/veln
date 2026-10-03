@@ -1,4 +1,5 @@
 use super::*;
+use veln_ir::IrCallbackTarget;
 
 #[test]
 fn pure_source_less_calls_lower_with_string_and_path_types() {
@@ -254,7 +255,10 @@ fn task_spawn_and_join_preserve_item_type() {
             if matches!(
                 &value.kind,
                 IrExprKind::Call {
-                    target: IrCallTarget::ConcurrencyBuiltin(name),
+                    target: IrCallTarget::CallbackBoundary {
+                        target: IrCallbackTarget::ConcurrencyBuiltin(name),
+                        ..
+                    },
                     ..
                 } if name == "task::spawn"
             )
@@ -314,7 +318,10 @@ fn task_spawn_with_preserves_argument_and_item_type() {
             if matches!(
                 &value.kind,
                 IrExprKind::Call {
-                    target: IrCallTarget::ConcurrencyBuiltin(name),
+                    target: IrCallTarget::CallbackBoundary {
+                        target: IrCallbackTarget::ConcurrencyBuiltin(name),
+                        ..
+                    },
                     args,
                 } if name == "task::spawn_with" && args.len() == 2
             )

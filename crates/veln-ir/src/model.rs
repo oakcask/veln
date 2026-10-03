@@ -285,8 +285,23 @@ pub enum IrCallTarget {
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),
     PreludeBuiltin(String),
+    CallbackBoundary {
+        target: IrCallbackTarget,
+        callsite: Box<IrExpr>,
+    },
     Value(String),
-    CallsiteValue { name: String, callsite: Box<IrExpr> },
+    CallsiteValue {
+        name: String,
+        callsite: Box<IrExpr>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IrCallbackTarget {
+    Function(String),
+    ConcurrencyBuiltin(String),
+    StandardLibraryBuiltin(String),
+    PreludeBuiltin(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]

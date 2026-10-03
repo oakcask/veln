@@ -41,6 +41,24 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::PreludeBuiltin(name) => {
                 self.emit_runtime_call(code, prelude_method(name), args);
             }
+            IrCallTarget::CallbackBoundary { target, callsite } => {
+                if let IrCallbackTarget::Function(name) = target {
+                    self.emit_callback_args(code, args, callsite);
+                    code.invokestatic(
+                        &self.program.options.program_class,
+                        &self.program.function_name(name),
+                        &object_method_descriptor(args.len()),
+                    );
+                    return;
+                }
+                let method = match target {
+                    IrCallbackTarget::Function(_) => unreachable!(),
+                    IrCallbackTarget::ConcurrencyBuiltin(name) => concurrency_method(name),
+                    IrCallbackTarget::StandardLibraryBuiltin(name) => standard_library_method(name),
+                    IrCallbackTarget::PreludeBuiltin(name) => prelude_method(name),
+                };
+                self.emit_runtime_callback_call(code, method, args, callsite);
+            }
             IrCallTarget::Value(name) => self.emit_value_call(code, name, args),
             IrCallTarget::CallsiteValue { name, callsite } => {
                 self.emit_callsite_value_call(code, name, args, callsite)
@@ -202,6 +220,35 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             method,
             &object_method_descriptor(args.len()),
         );
+    }
+
+    fn emit_runtime_callback_call(
+        &mut self,
+        code: &mut MethodCode,
+        method: &str,
+        args: &[IrExpr],
+        callsite: &IrExpr,
+    ) {
+        self.emit_callback_args(code, args, callsite);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            method,
+            &object_method_descriptor(args.len()),
+        );
+    }
+
+    fn emit_callback_args(&mut self, code: &mut MethodCode, args: &[IrExpr], callsite: &IrExpr) {
+        for arg in args {
+            self.emit_expr(code, arg);
+            if matches!(arg.ty, CoreType::Function { .. }) {
+                self.emit_expr(code, callsite);
+                code.invokestatic(
+                    &self.program.options.runtime_class,
+                    "bindCallsite",
+                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                );
+            }
+        }
     }
 
     pub(super) fn emit_unary_runtime(

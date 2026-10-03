@@ -153,6 +153,36 @@ fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_availab
 }
 
 #[test]
+fn bytecode_backend_binds_callsite_callbacks_for_vec_fold() {
+    let ir = lower_to_ir(concat!(
+        "fn add(state: {sum: Int, location: SourceLocation}, item: Int) -> {sum: Int, location: SourceLocation} callsite\n",
+        "  {sum: state.sum + item, location: callsite}\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let stored: fn({sum: Int, location: SourceLocation}, Int) -> {sum: Int, location: SourceLocation} = add\n",
+        "  let result: {sum: Int, location: SourceLocation} = vec_fold([2, 3], {sum: 0, location: {package: \"\", module: \"\", file: \"\", start_line: 0, start_column: 0, start_offset: 0, end_line: 0, end_column: 0, end_offset: 0}}, stored)\n",
+        "  stdio::println(int_to_string(result.sum))\n",
+        "  stdio::println(int_to_string(result.location.start_line))\n",
+        "  stdio::println(int_to_string(result.location.start_column))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-callsite-vec-fold", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "5\n6\n54\n");
+}
+
+#[test]
 fn bytecode_backend_runs_dict_callback_aliases_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn label(context: String, key: String, value: Int) -> String\n",

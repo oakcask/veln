@@ -4,9 +4,9 @@ use veln_ast::{
     SurfaceModule, Visibility,
 };
 use veln_core::{
-    CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreCleanupRegion,
-    CoreContract, CoreContractCall, CoreDeferredBlock, CoreDeferredCapture, CoreDictEntry,
-    CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
+    CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreCallbackTarget,
+    CoreCleanupRegion, CoreContract, CoreContractCall, CoreDeferredBlock, CoreDeferredCapture,
+    CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
     CoreHandlerProvider, CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind,
     CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };

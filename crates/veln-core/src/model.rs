@@ -236,12 +236,24 @@ pub enum CoreCallTarget {
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),
     PreludeBuiltin(String),
+    CallbackBoundary {
+        target: CoreCallbackTarget,
+        callsite: Box<CoreExpr>,
+    },
     Value(String),
     CallsiteValue {
         name: String,
         callsite: Box<CoreExpr>,
     },
     Unresolved(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CoreCallbackTarget {
+    Function(String),
+    ConcurrencyBuiltin(String),
+    StandardLibraryBuiltin(String),
+    PreludeBuiltin(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]

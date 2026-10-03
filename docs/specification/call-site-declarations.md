@@ -74,6 +74,16 @@ the declared source parameters. Function values for declarations without the
 modifier keep the ordinary calling convention and do not receive or use the
 hidden value.
 
+When a call passes a call-site-aware value toward a runtime-backed collection,
+option, result, or task callback consumer, the call expression becomes the
+callback context. Ordinary forwarding calls preserve that bound value until
+the runtime invokes the callback. The bound value also remains attached when
+a task runs asynchronously. A call-site-aware wrapper forwards its existing
+context instead of replacing it with an inner operation expression. If Veln
+code invokes the value before it reaches the runtime, the ordinary indirect
+call rules apply at that invocation. Callbacks without the modifier keep the
+ordinary runtime callback ABI.
+
 The built-in value behaves as an ordinary `SourceLocation` after it enters the
 callee. The function can return it or pass it to an explicit
 `SourceLocation` parameter. Its lines and columns are one-based. Its offsets
@@ -147,6 +157,8 @@ Functions without the modifier retain their ordinary call ABI.
   the `callsite-unicode-coordinates` run specification case.
 - Indirect-call propagation evidence:
   [`callsite-indirect-runtime`](../../examples/specification/run/callsite-indirect-runtime/).
+- Runtime-backed collection and task callback evidence:
+  [`callsite-runtime-callbacks`](../../examples/specification/run/callsite-runtime-callbacks/).
 - Run-entry boundary evidence:
   the `callsite-entry-runtime-boundary` run specification case.
 - Runtime contract built-in reference evidence:

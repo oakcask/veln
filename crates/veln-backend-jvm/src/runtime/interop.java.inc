@@ -123,6 +123,12 @@
         }
         throw new IllegalStateException("value is not callable");
     }
+    public static Object bindCallsite(Object fn, Object callsite) {
+        if (fn instanceof BoundCallsiteFn || !(fn instanceof CallsiteFn)) {
+            return fn;
+        }
+        return new BoundCallsiteFn(fn, callsite);
+    }
     public static String format(Object value) {
         value = diagnosticResultValue(value);
         if (value == UNIT) {

@@ -1,15 +1,16 @@
-fn located() -> SourceLocation callsite
-	callsite
+fn located(value: Int) -> {value: Int, location: SourceLocation} callsite
+	{value: value, location: callsite}
 end
 
-fn invoke(callback: fn() -> SourceLocation) -> SourceLocation
-	callback()
+fn forward(value: Int) -> {value: Int, location: SourceLocation} callsite
+	let stored: fn(Int) -> {value: Int, location: SourceLocation} = located
+	stored(value)
 end
 
 pub fn main() -> () effects [stdio]
-	let stored: fn() -> SourceLocation = located
-	let observed = invoke(stored)
-	stdio::println(observed.file)
-	stdio::println(int_to_string(observed.start_line))
-	stdio::println(int_to_string(observed.start_column))
+	let observed = forward(37)
+	stdio::println(observed.location.file)
+	stdio::println(int_to_string(observed.value))
+	stdio::println(int_to_string(observed.location.start_line))
+	stdio::println(int_to_string(observed.location.start_column))
 end
