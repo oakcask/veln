@@ -122,3 +122,18 @@ fn wrong_box_argument(value: Box<{x: Int, y: Int}>::Boxed) -> ()
 	needs_narrow_box(value)
 	needs_base_box(value)
 end
+
+fn wrong_prelude_helper_argument() -> Vec<State::Ready>
+	vec_push([Ready], Closed)
+end
+
+fn wrong_local_function_value() -> ()
+	let transition: fn(State::Ready) -> State::Ready = needs_ready
+	transition(Closed)
+	()
+end
+
+fn wrong_parameter_function_value(transition: fn(State::Ready) -> State::Ready) -> ()
+	transition(Closed)
+	()
+end

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::*;
 use crate::adt::registry::AdtRegistry;
 
@@ -693,9 +695,13 @@ fn variant_mismatch_sets(
             if expected_args != actual_args {
                 return None;
             }
+            let expected_variants_set = expected_variants
+                .iter()
+                .map(String::as_str)
+                .collect::<HashSet<_>>();
             let excluded = actual_variants
                 .iter()
-                .filter(|variant| !expected_variants.contains(variant))
+                .filter(|variant| !expected_variants_set.contains(variant.as_str()))
                 .cloned()
                 .collect::<Vec<_>>();
             (!excluded.is_empty()).then(|| VariantMismatchFacts {

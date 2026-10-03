@@ -63,3 +63,18 @@ fn reject_function_positions() -> ()
 	let narrowed: fn(State::Ready) -> State::Ready = accepts_base
 	let widened: fn(State) -> State = accepts_ready
 end
+
+fn wrong_prelude_helper_argument() -> Vec<State::Ready>
+	vec_push([Ready], Closed)
+end
+
+fn wrong_local_function_value() -> ()
+	let transition: fn(State::Ready) -> State::Ready = needs_ready
+	transition(Closed)
+	()
+end
+
+fn wrong_parameter_function_value(transition: fn(State::Ready) -> State::Ready) -> ()
+	transition(Closed)
+	()
+end

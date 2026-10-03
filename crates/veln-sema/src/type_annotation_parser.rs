@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::semantic_model::Type;
 
 pub(crate) fn parse_type_annotation_with_arity(
@@ -367,6 +369,7 @@ fn variant_union(alternatives: Vec<Type>) -> Result<Type, String> {
     let mut base_name = None::<String>;
     let mut base_args = None::<Vec<Type>>;
     let mut variants = Vec::new();
+    let mut seen_variants = HashSet::new();
     let mut unresolved_alternatives = Vec::new();
     for alternative in alternatives {
         let (name, args, mut alternative_variants) = unresolved_refinement_parts(alternative)?;
@@ -381,7 +384,8 @@ fn variant_union(alternatives: Vec<Type>) -> Result<Type, String> {
         base_args.get_or_insert_with(|| args.clone());
         if matches_primary {
             for variant in alternative_variants.drain(..) {
-                if !variants.contains(&variant) {
+                crate::type_relations::record_variant_set_lookup();
+                if seen_variants.insert(variant.clone()) {
                     variants.push(variant);
                 }
             }

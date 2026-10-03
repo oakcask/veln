@@ -23,8 +23,17 @@ pub(crate) struct EffectUse {
 pub(crate) struct Binding {
     pub(crate) name: String,
     pub(crate) ty: Type,
+    pub(crate) type_origin: Option<TypeOrigin>,
     pub(crate) private_function_value: Option<FunctionKey>,
     pub(crate) is_diagnosed_unknown: bool,
+}
+
+#[derive(Clone)]
+pub(crate) struct TypeOrigin {
+    pub(crate) node_id: NodeId,
+    pub(crate) span: SourceSpan,
+    pub(crate) source: ExpectedTypeSource,
+    pub(crate) message: &'static str,
 }
 
 #[cfg(test)]
@@ -40,6 +49,7 @@ impl Clone for Binding {
         Self {
             name: self.name.clone(),
             ty: self.ty.clone(),
+            type_origin: self.type_origin.clone(),
             private_function_value: self.private_function_value.clone(),
             is_diagnosed_unknown: self.is_diagnosed_unknown,
         }
@@ -72,6 +82,7 @@ impl Binding {
         Self {
             name,
             ty,
+            type_origin: None,
             private_function_value: None,
             is_diagnosed_unknown: false,
         }
@@ -81,6 +92,7 @@ impl Binding {
         Self {
             name: "callsite".to_string(),
             ty: Type::source_location(),
+            type_origin: None,
             private_function_value: None,
             is_diagnosed_unknown: false,
         }
@@ -90,6 +102,7 @@ impl Binding {
         Self {
             name,
             ty,
+            type_origin: None,
             private_function_value: Some(target),
             is_diagnosed_unknown: false,
         }
@@ -99,6 +112,7 @@ impl Binding {
         Self {
             name,
             ty,
+            type_origin: None,
             private_function_value: None,
             is_diagnosed_unknown: true,
         }

@@ -39,7 +39,7 @@ use crate::repair_candidates::{
     candidate_evidence, candidate_known_limits, candidate_satisfy_status,
 };
 use crate::semantic_model::{
-    Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type,
+    Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type, TypeOrigin,
 };
 use crate::source_less_lookup::prelude_symbol;
 use crate::type_relations::{is_assignable, is_assignable_nested};

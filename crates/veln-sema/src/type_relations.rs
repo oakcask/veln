@@ -1,4 +1,27 @@
+use std::collections::HashSet;
+
 use crate::semantic_model::Type;
+
+#[cfg(test)]
+thread_local! {
+    static VARIANT_SET_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_variant_set_lookups() {
+    VARIANT_SET_LOOKUPS.with(|lookups| lookups.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_variant_set_lookups() -> usize {
+    VARIANT_SET_LOOKUPS.with(|lookups| lookups.replace(0))
+}
+
+#[inline(always)]
+pub(crate) fn record_variant_set_lookup() {
+    #[cfg(test)]
+    VARIANT_SET_LOOKUPS.with(|lookups| lookups.set(lookups.get() + 1));
+}
 
 pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
     is_assignable_at_boundary(expected, actual, true)
@@ -30,15 +53,20 @@ fn is_assignable_at_boundary(expected: &Type, actual: &Type, direct: bool) -> bo
                     ..
                 },
             ) => {
+                let expected_variants = expected_variants
+                    .iter()
+                    .map(String::as_str)
+                    .collect::<HashSet<_>>();
                 return same_type_identity(
                     expected_name,
                     expected_identity,
                     actual_name,
                     actual_identity,
                 ) && invariant_args_match(expected_args, actual_args)
-                    && actual_variants
-                        .iter()
-                        .all(|variant| expected_variants.contains(variant));
+                    && actual_variants.iter().all(|variant| {
+                        record_variant_set_lookup();
+                        expected_variants.contains(variant.as_str())
+                    });
             }
             (
                 Type::Named {

@@ -55,6 +55,33 @@ fn compiler_known_generic_refinements_resolve_and_widen() {
 }
 
 #[test]
+fn compiler_known_prelude_arguments_report_variant_mismatches() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn main() -> Vec<State::Ready>\n",
+            "  vec_push([Ready], Closed)\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let mismatch = &diagnostics[0];
+    assert_eq!(mismatch.id, "type.variant_mismatch", "{diagnostics:#?}");
+    let json = veln_diagnostics::diagnostic_to_json(mismatch).to_json();
+    assert!(json.contains("\"actual_type\":\"State::Closed\""), "{json}");
+    assert!(
+        json.contains("\"expected_type\":\"State::Ready\""),
+        "{json}"
+    );
+    assert!(json.contains("\"expected_variants\":[\"Ready\"]"), "{json}");
+    assert!(json.contains("\"variants\":[\"Closed\"]"), "{json}");
+    assert!(json.contains("\"constraint\":\"call_argument\""), "{json}");
+    assert!(json.contains("\"kind\":\"variant_exclusion\""), "{json}");
+    assert!(json.contains("\"kind\":\"expected_type_origin\""), "{json}");
+}
+
+#[test]
 fn compiler_known_variant_unions_resolve_and_canonicalize() {
     let source = SourceFile::new(
         "main.veln",
@@ -808,6 +835,56 @@ fn nested_refinement_canonicalization_handles_increasing_depths() {
     assert!(
         work[1] <= work[0] * 2 + 32 && work[2] <= work[1] * 2 + 32,
         "doubling refinement depth must add only linear canonicalization work: {work:?}"
+    );
+}
+
+fn large_variant_union_source(variant_count: usize) -> String {
+    let variants = (0..=variant_count)
+        .map(|index| format!("Variant{index:04}"))
+        .collect::<Vec<_>>();
+    let mut source = String::from("type State\n");
+    for variant in &variants {
+        source.push_str(&format!("  {variant}\n"));
+    }
+    source.push_str("end\n");
+    let broad = variants[..variant_count]
+        .iter()
+        .map(|variant| format!("State::{variant}"))
+        .collect::<Vec<_>>()
+        .join(" | ");
+    let narrow = variants[..variant_count - 1]
+        .iter()
+        .map(|variant| format!("State::{variant}"))
+        .collect::<Vec<_>>()
+        .join(" | ");
+    source.push_str(&format!(
+        "fn accept(value: {narrow}) -> ()\n  ()\nend\nfn check(value: {broad}) -> ()\n  accept(value)\nend\n"
+    ));
+    source
+}
+
+#[test]
+fn large_variant_union_semantic_analysis_work_grows_linearly() {
+    let work = [128, 256, 512].map(|variant_count| {
+        let source = SourceFile::new("main.veln", large_variant_union_source(variant_count));
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::type_relations::reset_variant_set_lookups();
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        eprintln!(
+            "{variant_count}-variant semantic analysis: {:?}",
+            started.elapsed()
+        );
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+        assert_eq!(diagnostics[0].id, "type.variant_mismatch");
+        crate::type_relations::take_variant_set_lookups()
+    });
+    assert!(work[0] > 0, "the metric must observe variant-set work");
+    assert!(
+        work[1] <= work[0] * 2 + 32 && work[2] <= work[1] * 2 + 32,
+        "doubling the variant count must add only linear set work: {work:?}"
     );
 }
 

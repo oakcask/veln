@@ -1,5 +1,14 @@
 use super::*;
 
+struct LetBindingContext {
+    type_origin: Option<TypeOrigin>,
+    annotation_is_omitted: bool,
+    initializer_has_diagnostic: bool,
+    initializer_unknown_is_diagnosed: bool,
+    deferred_initializer_diagnostic: Option<usize>,
+    pattern_has_diagnostic: bool,
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn check_body_line(&mut self, index: usize, line: &BodyLine) {
         match &line.kind {
@@ -196,27 +205,27 @@ impl<'a> FunctionChecker<'a> {
             .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
         let pattern_bindings = self.let_pattern_bindings(pattern, &binding_type);
         let pattern_has_diagnostic = self.diagnostics.len() != pattern_diagnostic_count;
+        let binding_context = LetBindingContext {
+            type_origin: expected.as_ref().and_then(|expected| {
+                expected.origin_span.as_ref().map(|span| TypeOrigin {
+                    node_id: expected.origin_node_id,
+                    span: span.clone(),
+                    source: expected.source,
+                    message: expected.origin_message,
+                })
+            }),
+            annotation_is_omitted: annotation.is_none(),
+            initializer_has_diagnostic,
+            initializer_unknown_is_diagnosed,
+            deferred_initializer_diagnostic,
+            pattern_has_diagnostic,
+        };
         for binding in pattern_bindings {
-            self.bind_let_pattern(
-                binding,
-                annotation.is_none(),
-                initializer_has_diagnostic,
-                initializer_unknown_is_diagnosed,
-                deferred_initializer_diagnostic,
-                pattern_has_diagnostic,
-            );
+            self.bind_let_pattern(binding, &binding_context);
         }
     }
 
-    pub(super) fn bind_let_pattern(
-        &mut self,
-        binding: PatternBinding,
-        annotation_is_omitted: bool,
-        initializer_has_diagnostic: bool,
-        initializer_unknown_is_diagnosed: bool,
-        deferred_initializer_diagnostic: Option<usize>,
-        pattern_has_diagnostic: bool,
-    ) {
+    fn bind_let_pattern(&mut self, binding: PatternBinding, context: &LetBindingContext) {
         if !valid_value_binding_name(&binding.name) {
             self.push_invalid_binding_recovery(binding);
             return;
@@ -230,21 +239,28 @@ impl<'a> FunctionChecker<'a> {
         ) {
             return;
         }
-        self.bindings.push(if initializer_unknown_is_diagnosed {
+        let mut admitted = if context.initializer_unknown_is_diagnosed {
             Binding::diagnosed_unknown(binding.name.clone(), binding.ty.clone())
         } else {
             Binding::new(binding.name.clone(), binding.ty.clone())
-        });
-        if annotation_is_omitted
-            && (!initializer_has_diagnostic || deferred_initializer_diagnostic.is_some())
-            && !pattern_has_diagnostic
+        };
+        if matches!(binding.ty, Type::Function { .. })
+            && let Some(type_origin) = &context.type_origin
+        {
+            admitted.type_origin = Some(type_origin.clone());
+        }
+        self.bindings.push(admitted);
+        if context.annotation_is_omitted
+            && (!context.initializer_has_diagnostic
+                || context.deferred_initializer_diagnostic.is_some())
+            && !context.pattern_has_diagnostic
             && type_contains_unknown(&binding.ty)
         {
             self.omitted_local_bindings.push(OmittedLocalBinding {
                 name: binding.name,
                 node_id: binding.node_id,
                 span: binding.span,
-                deferred_initializer_diagnostic,
+                deferred_initializer_diagnostic: context.deferred_initializer_diagnostic,
             });
         }
     }

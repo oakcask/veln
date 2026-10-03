@@ -1,6 +1,6 @@
 #[cfg(test)]
 use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use veln_ast::{FunctionKind, HandlerDecl, SurfaceModule, UseDecl, Visibility};
 
@@ -216,11 +216,14 @@ pub(super) fn canonicalize_type_effects(
             else {
                 return Type::Unknown;
             };
+            let declared_variants = descriptor
+                .variants
+                .iter()
+                .map(|candidate| candidate.name.as_str())
+                .collect::<HashSet<_>>();
             if variants.iter().any(|variant| {
-                !descriptor
-                    .variants
-                    .iter()
-                    .any(|candidate| candidate.name == *variant)
+                crate::type_relations::record_variant_set_lookup();
+                !declared_variants.contains(variant.as_str())
             }) {
                 return Type::Unknown;
             }
@@ -234,6 +237,7 @@ pub(super) fn canonicalize_type_effects(
                 companion_effect_access_targets,
             );
             let mut variants = variants;
+            let mut selected_variants = variants.iter().cloned().collect::<HashSet<_>>();
             for (alternative_name, alternative_args, alternative_variant) in unresolved_alternatives
             {
                 let Some(alternative_descriptor) = adts.descriptor_for_type_path(
@@ -254,14 +258,15 @@ pub(super) fn canonicalize_type_effects(
                         adts,
                         companion_effect_access_targets,
                     ) != canonical_args
-                    || !alternative_descriptor
-                        .variants
-                        .iter()
-                        .any(|candidate| candidate.name == alternative_variant)
+                    || {
+                        crate::type_relations::record_variant_set_lookup();
+                        !declared_variants.contains(alternative_variant.as_str())
+                    }
                 {
                     return Type::Unknown;
                 }
-                if !variants.contains(&alternative_variant) {
+                crate::type_relations::record_variant_set_lookup();
+                if selected_variants.insert(alternative_variant.clone()) {
                     variants.push(alternative_variant);
                 }
             }
@@ -347,10 +352,14 @@ fn canonical_variant_refinement(
     args: Vec<Type>,
     variants: Vec<String>,
 ) -> Type {
+    let requested = variants.iter().map(String::as_str).collect::<HashSet<_>>();
     let variants = descriptor
         .variants
         .iter()
-        .filter(|candidate| variants.contains(&candidate.name))
+        .filter(|candidate| {
+            crate::type_relations::record_variant_set_lookup();
+            requested.contains(candidate.name.as_str())
+        })
         .map(|candidate| candidate.name.clone())
         .collect::<Vec<_>>();
     if variants.len() == descriptor.variants.len() {

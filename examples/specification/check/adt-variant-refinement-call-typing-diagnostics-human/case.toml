@@ -21,6 +21,12 @@ contains = [
   "error[type.mismatch]: expected `{state: State::Ready}`, but found `{state: State}`",
   "error[type.mismatch]: expected `fn(State::Ready) -> State::Ready`, but found `fn(State) -> State`",
   "error[type.mismatch]: expected `fn(State) -> State`, but found `fn(State::Ready) -> State::Ready`",
+  "main.veln:68:20: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:68:2: Prelude helper parameter type inferred here.",
+  "main.veln:73:13: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:72:2: Type annotation declared here.",
+  "main.veln:78:13: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:77:35: Parameter type declared here.",
 ]
 
 [stderr]

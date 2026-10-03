@@ -5,10 +5,6 @@ exit = 1
 format = "json"
 contains = [
   "\"id\":\"type.variant_mismatch\"",
-  "\"actual_type\":\"State::Closed\"",
-  "\"expected_type\":\"State::Ready\"",
-  "\"expected_variants\":[\"Ready\"]",
-  "\"excluded_variants\":{\"form\":\"listed\",\"variants\":[\"Closed\"]}",
   "\"kind\":\"variant_exclusion\"",
   "\"kind\":\"expected_type_origin\"",
   "\"id\":\"type.mismatch\"",
@@ -24,7 +20,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 19
+equals = 22
 
 [[diagnostics]]
 id = "type.variant_mismatch"
@@ -137,12 +133,28 @@ line = 66
 column = 16
 
 [[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
 path = "diagnostics.0.details.excluded_variants.form"
 equals = "listed"
 
 [[json_assert]]
 path = "diagnostics.0.details.excluded_variants.variants.0"
 equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.0.details.constraint"
+equals = "call_argument"
 
 [[json_assert]]
 path = "diagnostics.0.related.1.kind"
@@ -331,3 +343,67 @@ equals = "type.mismatch"
 [[json_assert]]
 path = "diagnostics.18.id"
 equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.19.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.19.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.19.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.19.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.19.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.19.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.20.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.20.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.20.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.20.related.1.message"
+equals = "Type annotation declared here."
+
+[[json_assert]]
+path = "diagnostics.20.related.1.span.start.line"
+equals = 131
+
+[[json_assert]]
+path = "diagnostics.21.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.21.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.21.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.21.related.1.message"
+equals = "Parameter type declared here."
+
+[[json_assert]]
+path = "diagnostics.21.related.1.span.start.line"
+equals = 136

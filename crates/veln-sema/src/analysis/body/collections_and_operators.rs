@@ -473,33 +473,11 @@ impl<'a> FunctionChecker<'a> {
         expected: &ExpectedType,
         actual: &Type,
     ) {
-        if is_assignable(&expected.ty, actual) {
+        let diagnostic_count = self.diagnostics.len();
+        self.check_assignable(arg, &expected.ty, actual, expected, "call_argument");
+        let Some(diagnostic) = self.diagnostics.get_mut(diagnostic_count) else {
             return;
-        }
-        let mut diagnostic = Diagnostic::new(
-            "type.mismatch",
-            Severity::Error,
-            DiagnosticKind::Type,
-            format!(
-                "expected `{}`, but found `{}`",
-                expected.ty.render(),
-                actual.render()
-            ),
-            Some(arg.span.clone()),
-            type_details(
-                arg.node_id.display("expr"),
-                expected.ty.render(),
-                actual.render(),
-                expected.source.as_type_source(),
-                "inferred_expression",
-                "call_argument",
-                [
-                    self.function.node_id.display("fn"),
-                    expected.origin_node_id.display("expr"),
-                    arg.node_id.display("expr"),
-                ],
-            ),
-        );
+        };
         if helper_name == "vec_map"
             && arg_index == 1
             && function_returns_result(&expected.ty).is_none()
@@ -514,7 +492,6 @@ impl<'a> FunctionChecker<'a> {
                 ("span", span_json(&arg.span)),
             ]));
         }
-        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn numeric_operand_type(
