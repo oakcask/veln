@@ -205,6 +205,37 @@ fn bytecode_backend_evaluates_contract_calls_and_fields_when_java_is_available()
     assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n");
 }
 
+#[test]
+fn bytecode_backend_evaluates_logical_contract_calls_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn positive(value: Int) -> Bool callsite\n",
+        "  value > 0 and callsite.start_line > 0\n",
+        "end\n",
+        "fn checked(value: Int) -> Int callsite\n",
+        "require positive(value) and true\n",
+        "require false or positive(value)\n",
+        "  value\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(checked(1)))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-logical-contract-call", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n");
+}
+
 fn high_cardinality_contract(call_count: usize) -> TypedProgram {
     let mut text = String::new();
     for index in 0..call_count {
@@ -278,6 +309,15 @@ fn variadic_contract_calls_reuse_temporary_local_slots() {
 
 #[test]
 fn contract_binary_splitting_prefers_longest_tokens_and_left_associativity() {
+    assert_eq!(
+        split_contract_binary("left or right and tail", "or"),
+        Some(("left", "right and tail"))
+    );
+    assert_eq!(
+        split_contract_binary("candy and true", "and"),
+        Some(("candy", "true"))
+    );
+    assert_eq!(split_contract_binary("candy", "and"), None);
     assert_eq!(
         split_contract_binary("value >> 1 >> 1", ">>"),
         Some(("value >> 1", "1"))

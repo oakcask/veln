@@ -64,6 +64,8 @@ pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
 
 fn contract_binary_operators() -> &'static [(&'static str, BinaryOp)] {
     &[
+        ("or", BinaryOp::Or),
+        ("and", BinaryOp::And),
         ("|", BinaryOp::BitwiseOr),
         ("^", BinaryOp::BitwiseXor),
         ("&", BinaryOp::BitwiseAnd),
@@ -154,6 +156,10 @@ fn contract_operator_at(text: &[u8], index: usize, operator: &[u8]) -> bool {
         .copied();
     let next = text.get(index + operator.len()).copied();
     match operator {
+        b"and" | b"or" => {
+            !previous.is_some_and(is_contract_identifier_byte)
+                && !next.is_some_and(is_contract_identifier_byte)
+        }
         b">" => previous != Some(b'>') && !matches!(next, Some(b'>' | b'=')),
         b">>" | b">>>" => previous != Some(b'>') && next != Some(b'>'),
         b"<" => previous != Some(b'<') && !matches!(next, Some(b'<' | b'=')),
@@ -161,6 +167,10 @@ fn contract_operator_at(text: &[u8], index: usize, operator: &[u8]) -> bool {
         b"|" => next != Some(b'>'),
         _ => true,
     }
+}
+
+fn is_contract_identifier_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_'
 }
 
 fn strip_contract_outer_parens(mut text: &str) -> &str {
