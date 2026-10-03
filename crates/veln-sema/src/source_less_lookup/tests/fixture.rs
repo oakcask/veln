@@ -148,6 +148,7 @@ pub(super) fn valid_adt_descriptor() -> AdtDescriptor {
         type_name: "Boxed".to_string(),
         name_class: SourceLessNameClass::Type,
         module_name: None,
+        nominal_identity: None,
         type_parameters: Vec::new(),
         variants: vec![AdtVariantDescriptor {
             name: "Boxed".to_string(),

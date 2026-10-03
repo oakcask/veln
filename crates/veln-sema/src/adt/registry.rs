@@ -83,6 +83,9 @@ impl AdtRegistry {
                     .push((descriptor_index, variant_index));
             }
         }
+        for indices in descriptors_by_identity.values_mut() {
+            indices.sort_by_key(|index| descriptors[*index].nominal_identity.is_some());
+        }
         Self {
             descriptors,
             descriptors_by_type_name,
@@ -748,6 +751,8 @@ fn type_alias_descriptors(
                 alias.module_name.as_deref(),
             )?;
             let mut descriptor = target.clone();
+            descriptor.nominal_identity =
+                (alias.module_name.as_deref() != Some("std::prelude")).then(|| target.identity());
             descriptor.type_name = name;
             descriptor.module_name = alias.module_name.clone();
             descriptor.visibility = Visibility::Public;

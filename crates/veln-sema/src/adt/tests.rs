@@ -181,6 +181,7 @@ fn validated_registry_indexes_descriptor_and_constructor_owners() {
         type_name: "Owned".to_string(),
         name_class: SourceLessNameClass::Type,
         module_name: Some("example".to_string()),
+        nominal_identity: None,
         type_parameters: Vec::new(),
         variants: vec![AdtVariantDescriptor {
             name: "OwnedValue".to_string(),

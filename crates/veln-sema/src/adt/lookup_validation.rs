@@ -152,6 +152,7 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
         type_name: name.clone(),
         name_class: SourceLessNameClass::Type,
         module_name: decl.module_name.clone(),
+        nominal_identity: None,
         type_parameters: decl.params.clone(),
         variants,
         diagnostic_name: name.to_lowercase(),
