@@ -24,7 +24,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 16
+equals = 19
 
 [[diagnostics]]
 id = "type.variant_mismatch"
@@ -307,3 +307,27 @@ equals = "Closed"
 [[json_assert]]
 path = "diagnostics.8.details.excluded_variants.variants.1"
 equals = "Failed"
+
+[[json_assert]]
+path = "diagnostics.16.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.16.details.actual_type"
+equals = "DecodeStep<Int>"
+
+[[json_assert]]
+path = "diagnostics.16.details.expected_type"
+equals = "DecodeStep<Int>::Decoded | DecodeStep<Int>::NeedMore"
+
+[[json_assert]]
+path = "diagnostics.16.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.17.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.18.id"
+equals = "type.mismatch"

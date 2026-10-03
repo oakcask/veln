@@ -147,7 +147,96 @@ fn invariant_args_match(expected: &[Type], actual: &[Type]) -> bool {
         && expected
             .iter()
             .zip(actual)
-            .all(|(expected, actual)| is_assignable_at_boundary(expected, actual, false))
+            .all(|(expected, actual)| invariant_types_match(expected, actual))
+}
+
+fn invariant_types_match(expected: &Type, actual: &Type) -> bool {
+    match (expected, actual) {
+        (Type::Unknown, _) | (_, Type::Unknown) => true,
+        (
+            Type::Named {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            },
+        ) => {
+            same_type_identity(
+                expected_name,
+                expected_identity,
+                actual_name,
+                actual_identity,
+            ) && invariant_args_match(expected_args, actual_args)
+        }
+        (
+            Type::VariantRefinement {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+                variants: expected_variants,
+                ..
+            },
+            Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                variants: actual_variants,
+                ..
+            },
+        ) => {
+            same_type_identity(
+                expected_name,
+                expected_identity,
+                actual_name,
+                actual_identity,
+            ) && invariant_args_match(expected_args, actual_args)
+                && expected_variants == actual_variants
+        }
+        (Type::Record(expected_fields), Type::Record(actual_fields)) => {
+            expected_fields.len() == actual_fields.len()
+                && expected_fields.iter().all(|(expected_name, expected_ty)| {
+                    actual_fields
+                        .iter()
+                        .find(|(actual_name, _)| actual_name == expected_name)
+                        .is_some_and(|(_, actual_ty)| invariant_types_match(expected_ty, actual_ty))
+                })
+        }
+        (
+            Type::Function {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                effects: expected_effects,
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: actual_effects,
+            },
+        ) => {
+            expected_params.len() == actual_params.len()
+                && expected_params
+                    .iter()
+                    .zip(actual_params)
+                    .all(|(expected, actual)| invariant_types_match(expected, actual))
+                && match (expected_variadic, actual_variadic) {
+                    (Some(expected), Some(actual)) => invariant_types_match(expected, actual),
+                    (None, None) => true,
+                    _ => false,
+                }
+                && invariant_types_match(expected_return, actual_return)
+                && expected_effects.len() == actual_effects.len()
+                && expected_effects
+                    .iter()
+                    .all(|expected| actual_effects.contains(expected))
+        }
+        _ => false,
+    }
 }
 
 fn effects_are_assignable(expected: &[String], actual: &[String]) -> bool {

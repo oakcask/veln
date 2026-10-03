@@ -96,3 +96,29 @@ fn reject_function_positions() -> ()
 	let narrowed: fn(State::Ready) -> State::Ready = accepts_base
 	let widened: fn(State) -> State = accepts_ready
 end
+
+fn needs_decode_pair(value: DecodeStep<Int>::NeedMore | DecodeStep<Int>::Decoded) -> ()
+	()
+end
+
+fn wrong_builtin_union(value: DecodeStep<Int>::Invalid | DecodeStep<Int>::NeedMore | DecodeStep<Int>::Decoded) -> ()
+	needs_decode_pair(value)
+end
+
+type Box<A>
+	Boxed(A)
+	Empty
+end
+
+fn needs_narrow_box(value: Box<{x: Int}>::Boxed) -> ()
+	()
+end
+
+fn needs_base_box(value: Box<{x: Int}>) -> ()
+	()
+end
+
+fn wrong_box_argument(value: Box<{x: Int, y: Int}>::Boxed) -> ()
+	needs_narrow_box(value)
+	needs_base_box(value)
+end

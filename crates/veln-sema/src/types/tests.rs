@@ -181,6 +181,15 @@ fn variant_refinement_assignability_matches_the_normative_table() {
     );
     let r = Type::string();
     let p = Type::bool();
+    let narrow_record = Type::Record(vec![("x".to_string(), Type::int())]);
+    let wide_record = Type::Record(vec![
+        ("x".to_string(), Type::int()),
+        ("y".to_string(), Type::int()),
+    ]);
+    let unresolved_record = Type::Record(vec![
+        ("x".to_string(), Type::Unknown),
+        ("y".to_string(), Type::Unknown),
+    ]);
     let cases = vec![
         (v.clone(), v.clone(), true),
         (v.clone(), vw.clone(), true),
@@ -191,6 +200,25 @@ fn variant_refinement_assignability_matches_the_normative_table() {
         (base.clone(), v.clone(), false),
         (base.clone(), vw.clone(), false),
         (w, v.clone(), false),
+        (
+            Type::variant_refinement("Box", vec![wide_record.clone()], vec!["Boxed".to_string()]),
+            Type::variant_refinement(
+                "Box",
+                vec![narrow_record.clone()],
+                vec!["Boxed".to_string()],
+            ),
+            false,
+        ),
+        (
+            Type::variant_refinement("Box", vec![wide_record.clone()], vec!["Boxed".to_string()]),
+            Type::named("Box", vec![narrow_record]),
+            false,
+        ),
+        (
+            Type::variant_refinement("Box", vec![wide_record], vec!["Boxed".to_string()]),
+            Type::named("Box", vec![unresolved_record]),
+            true,
+        ),
         (
             Type::function(vec![v.clone()], r.clone(), Vec::new()),
             Type::function(vec![v.clone()], r.clone(), Vec::new()),

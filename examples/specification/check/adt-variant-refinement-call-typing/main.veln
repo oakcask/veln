@@ -28,6 +28,18 @@ fn keep_nil(value: List<Int>::Nil) -> List<Int>::Nil
 	value
 end
 
+fn keep_decode_pair(value: DecodeStep<Int>::NeedMore | DecodeStep<Int>::Decoded | DecodeStep<Int>::NeedMore) -> DecodeStep<Int>::Decoded | DecodeStep<Int>::NeedMore
+	value
+end
+
+fn pass_decoded(value: DecodeStep<Int>::Decoded) -> DecodeStep<Int>
+	keep_decode_pair(value)
+end
+
+fn canonical_decode_complete(value: DecodeStep<Int>::Invalid | DecodeStep<Int>::NeedMore | DecodeStep<Int>::Decoded) -> DecodeStep<Int>
+	value
+end
+
 fn keep_ready_values(first: Int, values: ...State::Ready) -> ()
 	()
 end

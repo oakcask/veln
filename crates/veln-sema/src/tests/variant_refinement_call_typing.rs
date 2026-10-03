@@ -55,6 +55,39 @@ fn compiler_known_generic_refinements_resolve_and_widen() {
 }
 
 #[test]
+fn compiler_known_variant_unions_resolve_and_canonicalize() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn accept_pair(value: DecodeStep<Int>::NeedMore | DecodeStep<Int>::Decoded | DecodeStep<Int>::NeedMore) -> DecodeStep<Int>\n",
+            "  value\n",
+            "end\n",
+            "fn accept_complete(value: DecodeStep<Int>::Invalid | DecodeStep<Int>::NeedMore | DecodeStep<Int>::Decoded) -> DecodeStep<Int>\n",
+            "  value\n",
+            "end\n",
+            "fn pass_singleton(value: DecodeStep<Int>::Decoded) -> DecodeStep<Int>\n",
+            "  accept_pair(value)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+
+    assert_eq!(
+        environment.function("accept_pair").unwrap().params[0].render(),
+        "DecodeStep<Int>::Decoded | DecodeStep<Int>::NeedMore"
+    );
+    assert_eq!(
+        environment.function("accept_complete").unwrap().params[0].render(),
+        "DecodeStep<Int>"
+    );
+}
+
+#[test]
 fn unresolved_generic_constructor_locals_preserve_their_variant() {
     let diagnostics = diagnostics_for(concat!(
         "type Choice<A>\n",
@@ -456,6 +489,50 @@ fn base_with_different_generic_arguments_uses_an_ordinary_mismatch() {
 
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
     assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+}
+
+#[test]
+fn refinements_require_identical_resolved_generic_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "  Empty\n",
+            "end\n",
+            "fn needs_refined(value: Box<{x: Int}>::Boxed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn needs_base(value: Box<{x: Int}>) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn reject(value: Box<{x: Int, y: Int}>::Boxed) -> ()\n",
+            "  needs_refined(value)\n",
+            "  needs_base(value)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment.function("needs_refined").unwrap().params[0].render(),
+        "Box<{x: Int}>::Boxed"
+    );
+    assert_eq!(
+        environment.function("reject").unwrap().params[0].render(),
+        "Box<{x: Int, y: Int}>::Boxed"
+    );
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
