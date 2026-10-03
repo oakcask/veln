@@ -88,8 +88,10 @@ note renders that fact for human output. One `expected_type_origin` related
 note identifies the declaration or local annotation that supplied the
 expectation. When a compiler-known helper infers a parameter expectation from
 the call, the note instead identifies that helper at the call site. A nested
-generic invariance failure with no truthful finite variant exclusion reports
-ordinary `type.mismatch`. If an earlier error leaves the value untyped,
+aggregate invariance failure with no truthful finite variant exclusion reports
+ordinary `type.mismatch`. This includes assigning an inferred record with a
+singleton-refined field to a record type whose corresponding field uses the
+base ADT. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
