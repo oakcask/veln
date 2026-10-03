@@ -164,8 +164,112 @@ path = "diagnostics.1.related.1.message"
 equals = "Return type declared here."
 
 [[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.2.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.2.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.2.details.constraint"
+equals = "if_branch"
+
+[[json_assert]]
+path = "diagnostics.2.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.2.related.1.message"
+equals = "Return type declared here."
+
+[[json_assert]]
+path = "diagnostics.2.related.1.span.start.line"
+equals = 19
+
+[[json_assert]]
+path = "diagnostics.3.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.3.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.3.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.3.details.constraint"
+equals = "match_arm"
+
+[[json_assert]]
+path = "diagnostics.3.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.3.related.1.message"
+equals = "Return type declared here."
+
+[[json_assert]]
+path = "diagnostics.3.related.1.span.start.line"
+equals = 27
+
+[[json_assert]]
+path = "diagnostics.4.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.4.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.4.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.4.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.4.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
 path = "diagnostics.4.details.constraint"
 equals = "assignable"
+
+[[json_assert]]
+path = "diagnostics.4.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.4.related.1.message"
+equals = "Type annotation declared here."
+
+[[json_assert]]
+path = "diagnostics.4.related.1.span.start.line"
+equals = 36
 
 [[json_assert]]
 path = "diagnostics.5.details.actual_type"

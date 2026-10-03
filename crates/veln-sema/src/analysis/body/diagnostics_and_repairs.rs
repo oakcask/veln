@@ -675,35 +675,29 @@ fn variant_mismatch_sets(
     match (expected, actual) {
         (
             Type::VariantRefinement {
-                name: expected_name,
                 identity: expected_identity,
                 args: expected_args,
                 variants: expected_variants,
                 ..
             },
             Type::VariantRefinement {
-                name: actual_name,
                 identity: actual_identity,
                 args: actual_args,
                 variants: actual_variants,
                 ..
             },
         ) => {
-            if expected_identity != actual_identity && expected_name != actual_name {
+            if expected_identity != actual_identity {
                 return None;
             }
             if expected_args != actual_args {
                 return None;
             }
-            let excluded = if expected_identity == actual_identity {
-                actual_variants
-                    .iter()
-                    .filter(|variant| !expected_variants.contains(variant))
-                    .cloned()
-                    .collect::<Vec<_>>()
-            } else {
-                actual_variants.clone()
-            };
+            let excluded = actual_variants
+                .iter()
+                .filter(|variant| !expected_variants.contains(variant))
+                .cloned()
+                .collect::<Vec<_>>();
             (!excluded.is_empty()).then(|| VariantMismatchFacts {
                 expected_variants: expected_variants.clone(),
                 exclusion: VariantExclusion::Listed(excluded),
@@ -711,40 +705,19 @@ fn variant_mismatch_sets(
         }
         (
             Type::VariantRefinement {
-                name: expected_name,
+                identity: expected_identity,
                 variants,
                 ..
             },
             Type::Named {
-                name: actual_name, ..
+                identity: actual_identity,
+                ..
             },
-        ) if expected_name == actual_name => {
+        ) if expected_identity == actual_identity => {
             adts.descriptor_for_type(actual)?;
             Some(VariantMismatchFacts {
                 expected_variants: variants.clone(),
                 exclusion: VariantExclusion::AllExceptExpected,
-            })
-        }
-        (
-            Type::Named {
-                name: expected_name,
-                args: expected_args,
-                ..
-            },
-            Type::VariantRefinement {
-                name: actual_name,
-                args: actual_args,
-                variants,
-                ..
-            },
-        ) if expected_name == actual_name => {
-            if expected_args != actual_args {
-                return None;
-            }
-            let expected_variants = adts.variant_names_for_type(expected)?;
-            Some(VariantMismatchFacts {
-                expected_variants,
-                exclusion: VariantExclusion::Listed(variants.clone()),
             })
         }
         (Type::Named { .. }, Type::Named { .. }) => None,

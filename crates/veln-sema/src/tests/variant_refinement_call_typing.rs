@@ -126,18 +126,78 @@ fn resolved_base_identity_rejects_same_spelled_adt_from_another_module() {
                     "fn wrong() -> left::State\n",
                     "  right::Ready\n",
                     "end\n",
+                    "fn wrong_refinement() -> left::State::Ready\n",
+                    "  right::Ready\n",
+                    "end\n",
+                    "fn wrong_base_to_refinement(value: right::State) -> left::State::Ready\n",
+                    "  value\n",
+                    "end\n",
                 ),
             ),
         ),
     ]);
 
     let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
     assert_eq!(
         diagnostics
             .iter()
-            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
             .count(),
-        1,
+        3,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn resolved_named_types_reject_same_spelled_adts_from_another_module() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "left",
+            SourceFile::new(
+                "left.veln",
+                "pub type State\n  pub Ready\n  pub Closed\nend\n",
+            ),
+        ),
+        (
+            "right",
+            SourceFile::new(
+                "right.veln",
+                "pub type State\n  pub Ready\n  pub Closed\nend\n",
+            ),
+        ),
+        (
+            "main",
+            SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n",
+                    "fn consume(value: left::State) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn wrong_assignment(value: right::State) -> ()\n",
+                    "  let local: left::State = value\n",
+                    "end\n",
+                    "fn wrong_argument(value: right::State) -> ()\n",
+                    "  consume(value)\n",
+                    "end\n",
+                    "fn wrong_result(value: right::State) -> left::State\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        3,
         "{diagnostics:#?}"
     );
 }
@@ -196,29 +256,44 @@ fn nested_aggregate_widening_is_rejected_for_inline_and_bound_values() {
             "end\n",
             "fn records() -> ()\n",
             "  let inline: {state: State} = {state: Ready}\n",
+            "  let exact: {state: State::Ready} = {state: Closed}\n",
             "  let retained = {state: Ready}\n",
             "  let bound: {state: State} = retained\n",
             "end\n",
             "fn payloads() -> ()\n",
             "  let inline: Box<State> = Boxed(Ready)\n",
+            "  let exact: Box<State::Ready> = Boxed(Closed)\n",
             "  let retained = Boxed(Ready)\n",
             "  let bound: Box<State> = retained\n",
             "end\n",
             "fn collections() -> ()\n",
             "  let inline: Vec<State> = [Ready]\n",
+            "  let exact: Vec<State::Ready> = [Closed]\n",
             "  let retained = [Ready]\n",
             "  let bound: Vec<State> = retained\n",
+            "end\n",
+            "fn dictionaries() -> ()\n",
+            "  let value_inline: Dict<String, State> = {\"state\": Ready}\n",
+            "  let value_exact: Dict<String, State::Ready> = {\"state\": Closed}\n",
+            "  let key_inline: Dict<State, String> = {ready(): \"state\"}\n",
+            "  let key_exact: Dict<State::Ready, String> = {closed(): \"state\"}\n",
+            "end\n",
+            "fn ready() -> State::Ready\n",
+            "  Ready\n",
+            "end\n",
+            "fn closed() -> State::Closed\n",
+            "  Closed\n",
             "end\n",
         )
     ));
 
-    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 13, "{diagnostics:#?}");
     assert_eq!(
         diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
             .count(),
-        1,
+        5,
         "{diagnostics:#?}"
     );
     assert_eq!(
@@ -226,7 +301,7 @@ fn nested_aggregate_widening_is_rejected_for_inline_and_bound_values() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.mismatch")
             .count(),
-        2,
+        8,
         "{diagnostics:#?}"
     );
 }
@@ -286,7 +361,7 @@ fn refinement_function_variadics_are_invariant() {
     assert_eq!(
         diagnostics
             .iter()
-            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
             .count(),
         1,
         "{diagnostics:#?}"
@@ -320,7 +395,7 @@ fn variant_mismatch_lists_multiple_variants_in_declaration_order() {
 }
 
 #[test]
-fn recursive_adt_payload_construction_supplies_direct_context() {
+fn recursive_adt_payload_construction_rejects_nested_widening() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",
         "  Ready\n",
@@ -331,7 +406,8 @@ fn recursive_adt_payload_construction_supplies_direct_context() {
         "end\n",
     ));
 
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
 }
 
 #[test]
@@ -417,23 +493,26 @@ fn source_annotations_canonicalize_variant_sets() {
 }
 
 #[test]
-fn base_mismatch_diagnostic_output_grows_linearly_with_variant_count() {
+fn nested_mismatch_diagnostic_output_grows_linearly_with_variant_count() {
     fn diagnostic_bytes(variant_count: usize) -> (usize, usize) {
         let mut source = String::from("type State\n");
         for index in 0..variant_count {
             source.push_str(&format!("  Variant{index:03}\n"));
         }
         source.push_str("end\n");
+        source.push_str("fn reject() -> ()\n");
         for index in 0..variant_count {
             source.push_str(&format!(
-                "fn reject{index:03}(value: State) -> State::Variant{index:03}\n  value\nend\n"
+                "  let rejected{index:03}: {{state: State}} = {{state: Variant{index:03}}}\n"
             ));
         }
+        source.push_str("end\n");
         let diagnostics = diagnostics_for(&source);
         let mismatches = diagnostics
             .iter()
-            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
             .collect::<Vec<_>>();
+        assert_eq!(mismatches.len(), diagnostics.len(), "{diagnostics:#?}");
         let bytes = mismatches
             .iter()
             .map(|diagnostic| {
@@ -445,14 +524,14 @@ fn base_mismatch_diagnostic_output_grows_linearly_with_variant_count() {
         (mismatches.len(), bytes)
     }
 
-    let (small_count, small_bytes) = diagnostic_bytes(32);
-    let (large_count, large_bytes) = diagnostic_bytes(64);
+    let (small_count, small_bytes) = diagnostic_bytes(64);
+    let (large_count, large_bytes) = diagnostic_bytes(128);
     eprintln!(
-        "variant mismatch diagnostic bytes at 32 and 64 variants: {small_bytes}, {large_bytes}"
+        "nested mismatch diagnostic bytes at 64 and 128 variants: {small_bytes}, {large_bytes}"
     );
-    assert_eq!((small_count, large_count), (32, 64));
+    assert_eq!((small_count, large_count), (64, 128));
     assert!(
-        large_bytes <= small_bytes * 3,
+        large_bytes * 2 <= small_bytes * 5,
         "diagnostic bytes grew too quickly: {small_bytes} -> {large_bytes}"
     );
 }

@@ -275,16 +275,6 @@ impl AdtRegistry {
         })
     }
 
-    pub(crate) fn variant_names_for_type(&self, ty: &Type) -> Option<Vec<String>> {
-        self.descriptor_for_type(ty).map(|descriptor| {
-            descriptor
-                .variants
-                .iter()
-                .map(|variant| variant.name.clone())
-                .collect()
-        })
-    }
-
     pub(crate) fn descriptor_for_core_type(&self, ty: &CoreType) -> Option<&AdtDescriptor> {
         let CoreType::Named { name, args } = ty else {
             return None;

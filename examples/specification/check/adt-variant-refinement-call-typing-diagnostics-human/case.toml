@@ -10,6 +10,12 @@ contains = [
   "main.veln:15:14: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
   "Excluded variants: Closed.",
   "note: main.veln:6:1: Callee parameter type declared here.",
+  "main.veln:19:28: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:19:2: Type annotation declared here.",
+  "main.veln:26:3: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:22:1: Return type declared here.",
+  "main.veln:33:13: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:30:1: Return type declared here.",
 ]
 
 [stderr]

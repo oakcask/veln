@@ -133,9 +133,8 @@ one unambiguous result in the decision tables. Implementation requires:
   analysis or execute a program.
 
 After those cases pass, update the assignment-compatibility section of the
-current type specification. If ADT variant refinements are current by then,
-add nested refinement cases to their smallest current specification and
-executable evidence as well.
+current type specification. Update the current ADT variant-refinement
+specification and executable evidence with nested refinement cases as well.
 
 ## Non-Goals
 

@@ -56,7 +56,7 @@ impl<'a> FunctionChecker<'a> {
                 });
             let actual = self.infer_expr(&field.expr, field_expected.as_ref());
             if let Some(field_expected) = &field_expected {
-                self.check_assignable(
+                self.check_assignable_nested(
                     &field.expr,
                     &field_expected.ty,
                     &actual,
@@ -100,16 +100,10 @@ impl<'a> FunctionChecker<'a> {
             .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
                 (key.clone(), value.clone())
             });
-        let mut key_type = if entries.is_empty() {
-            expected_key.clone()
-        } else {
-            Type::Unknown
-        };
-        let mut value_type = if entries.is_empty() {
-            expected_value.clone()
-        } else {
-            Type::Unknown
-        };
+        let contextual_key = expected_key != Type::Unknown;
+        let contextual_value = expected_value != Type::Unknown;
+        let mut key_type = expected_key.clone();
+        let mut value_type = expected_value.clone();
         for entry in entries {
             let key_expected = collection_item_expected(
                 if key_type == Type::Unknown {
@@ -123,19 +117,20 @@ impl<'a> FunctionChecker<'a> {
                 "Dict key type inferred here.",
             );
             let actual_key = self.infer_expr(&entry.key, Some(&key_expected));
-            if let Some(base) = common_variant_base(&key_expected.ty, &actual_key) {
-                key_type = base;
+            let common_key_base = common_variant_base(&key_expected.ty, &actual_key);
+            if !contextual_key && let Some(base) = &common_key_base {
+                key_type = base.clone();
             }
-            if !is_assignable(&key_expected.ty, &actual_key) {
-                if common_variant_base(&key_expected.ty, &actual_key).is_none() {
-                    self.check_assignable_nested(
-                        &entry.key,
-                        &key_expected.ty,
-                        &actual_key,
-                        &key_expected,
-                        "dict_key",
-                    );
-                }
+            if !is_assignable_nested(&key_expected.ty, &actual_key)
+                && (contextual_key || common_key_base.is_none())
+            {
+                self.check_assignable_nested(
+                    &entry.key,
+                    &key_expected.ty,
+                    &actual_key,
+                    &key_expected,
+                    "dict_key",
+                );
             }
             if key_type == Type::Unknown {
                 key_type = actual_key;
@@ -152,19 +147,20 @@ impl<'a> FunctionChecker<'a> {
                 "Dict value type inferred here.",
             );
             let actual_value = self.infer_expr(&entry.value, Some(&value_expected));
-            if let Some(base) = common_variant_base(&value_expected.ty, &actual_value) {
-                value_type = base;
+            let common_value_base = common_variant_base(&value_expected.ty, &actual_value);
+            if !contextual_value && let Some(base) = &common_value_base {
+                value_type = base.clone();
             }
-            if !is_assignable(&value_expected.ty, &actual_value) {
-                if common_variant_base(&value_expected.ty, &actual_value).is_none() {
-                    self.check_assignable_nested(
-                        &entry.value,
-                        &value_expected.ty,
-                        &actual_value,
-                        &value_expected,
-                        "dict_value",
-                    );
-                }
+            if !is_assignable_nested(&value_expected.ty, &actual_value)
+                && (contextual_value || common_value_base.is_none())
+            {
+                self.check_assignable_nested(
+                    &entry.value,
+                    &value_expected.ty,
+                    &actual_value,
+                    &value_expected,
+                    "dict_value",
+                );
             }
             if value_type == Type::Unknown {
                 value_type = actual_value;

@@ -78,17 +78,21 @@ fn is_assignable_at_boundary(expected: &Type, actual: &Type, direct: bool) -> bo
         (
             Type::Named {
                 name: expected_name,
+                identity: expected_identity,
                 args: expected_args,
-                ..
             },
             Type::Named {
                 name: actual_name,
+                identity: actual_identity,
                 args: actual_args,
-                ..
             },
         ) => {
-            expected_name == actual_name
-                && expected_args.len() == actual_args.len()
+            same_type_identity(
+                expected_name,
+                expected_identity,
+                actual_name,
+                actual_identity,
+            ) && expected_args.len() == actual_args.len()
                 && expected_args
                     .iter()
                     .zip(actual_args)

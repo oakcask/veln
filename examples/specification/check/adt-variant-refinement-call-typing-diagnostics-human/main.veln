@@ -14,3 +14,22 @@ end
 fn main() -> State::Ready
 	needs_ready(Closed)
 end
+
+fn wrong_local() -> ()
+	let local: State::Ready = Closed
+end
+
+fn wrong_if() -> State::Ready
+	if true
+		Ready
+	else
+		Closed
+	end
+end
+
+fn wrong_match(value: State::Ready) -> State::Ready
+	match value
+		Ready => Ready
+		Closed => Closed
+	end
+end

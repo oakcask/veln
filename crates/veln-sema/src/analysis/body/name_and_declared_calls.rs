@@ -82,11 +82,6 @@ impl<'a> FunctionChecker<'a> {
             }
             return inferred_base;
         }
-        if matching_expected.is_some_and(|expected| matches!(expected.ty, Type::Named { .. })) {
-            return matching_expected
-                .map(|expected| expected.ty.clone())
-                .unwrap_or_else(|| adt::constructed_type_from_args(constructor, &inferred_args));
-        }
         inferred
     }
 

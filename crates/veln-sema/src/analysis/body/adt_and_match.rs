@@ -46,7 +46,7 @@ impl<'a> FunctionChecker<'a> {
                     "call_argument",
                 ),
                 AdtPayloadType::TypeParameter(_)
-                    if !is_assignable(&arg_expected.ty, &actual_arg) =>
+                    if !is_assignable_nested(&arg_expected.ty, &actual_arg) =>
                 {
                     self.check_assignable_nested(
                         arg,
@@ -96,10 +96,7 @@ impl<'a> FunctionChecker<'a> {
             );
             return adt::constructed_type(constructor, &actual_args);
         }
-        let refined = adt::refined_constructed_type_from_args(constructor, type_args);
-        expected
-            .filter(|expected| matches!(expected.ty, Type::Named { .. }))
-            .map_or(refined, |expected| expected.ty.clone())
+        adt::refined_constructed_type_from_args(constructor, type_args)
     }
 
     pub(super) fn infer_list(
@@ -125,11 +122,8 @@ impl<'a> FunctionChecker<'a> {
             .and_then(|expected| expected.ty.vec_part())
             .cloned()
             .unwrap_or(Type::Unknown);
-        let mut item_type = if items.is_empty() {
-            expected_item.clone()
-        } else {
-            Type::Unknown
-        };
+        let contextual_item = expected_item != Type::Unknown;
+        let mut item_type = expected_item.clone();
         for item in items {
             let item_expected = collection_item_expected(
                 if item_type == Type::Unknown {
@@ -143,19 +137,20 @@ impl<'a> FunctionChecker<'a> {
                 "Vec element type inferred here.",
             );
             let actual = self.infer_expr(item, Some(&item_expected));
-            if let Some(base) = common_variant_base(&item_expected.ty, &actual) {
-                item_type = base;
+            let common_base = common_variant_base(&item_expected.ty, &actual);
+            if !contextual_item && let Some(base) = &common_base {
+                item_type = base.clone();
             }
-            if !is_assignable(&item_expected.ty, &actual) {
-                if common_variant_base(&item_expected.ty, &actual).is_none() {
-                    self.check_assignable_nested(
-                        item,
-                        &item_expected.ty,
-                        &actual,
-                        &item_expected,
-                        "list_element",
-                    );
-                }
+            if !is_assignable_nested(&item_expected.ty, &actual)
+                && (contextual_item || common_base.is_none())
+            {
+                self.check_assignable_nested(
+                    item,
+                    &item_expected.ty,
+                    &actual,
+                    &item_expected,
+                    "list_element",
+                );
             }
             if item_type == Type::Unknown {
                 item_type = actual;
