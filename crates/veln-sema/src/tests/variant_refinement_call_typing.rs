@@ -1045,6 +1045,33 @@ fn repeated_broad_variant_mismatch_source(variant_count: usize, use_count: usize
     source
 }
 
+fn distinct_variant_mismatch_source(expected_count: usize, actual_count: usize) -> String {
+    let expected_variants = (0..expected_count)
+        .map(|index| format!("Expected{index:04}"))
+        .collect::<Vec<_>>();
+    let actual_variants = (0..actual_count)
+        .map(|index| format!("Actual{index:04}"))
+        .collect::<Vec<_>>();
+    let mut source = String::from("type State\n");
+    for variant in expected_variants.iter().chain(&actual_variants) {
+        source.push_str(&format!("  {variant}\n"));
+    }
+    source.push_str("end\n");
+    let broad = expected_variants
+        .iter()
+        .map(|variant| format!("State::{variant}"))
+        .collect::<Vec<_>>()
+        .join(" | ");
+    source.push_str(&format!(
+        "fn accept(value: {broad}) -> ()\n  ()\nend\nfn check() -> ()\n"
+    ));
+    for variant in &actual_variants {
+        source.push_str(&format!("  accept({variant})\n"));
+    }
+    source.push_str("end\n");
+    source
+}
+
 fn detail_field<'a>(diagnostic: &'a Diagnostic, name: &str) -> &'a JsonValue {
     let JsonValue::Object(entries) = &diagnostic.details else {
         panic!("diagnostic details must be an object")
@@ -1108,6 +1135,40 @@ fn repeated_broad_variant_mismatches_share_retained_diagnostic_facts() {
                 "{json}"
             );
         }
+    }
+}
+
+#[test]
+fn distinct_variant_mismatches_retain_linear_diagnostic_cache_keys() {
+    for (expected_count, actual_count) in [(64, 64), (128, 128)] {
+        let source = SourceFile::new(
+            "main.veln",
+            distinct_variant_mismatch_source(expected_count, actual_count),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::analysis::reset_retained_variant_diagnostic_key_variants();
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        let elapsed = started.elapsed();
+        let retained = crate::analysis::take_retained_variant_diagnostic_key_variants();
+        eprintln!(
+            "{expected_count} expected and {actual_count} distinct actual variants: {elapsed:?}, {retained} retained cache-key variants"
+        );
+
+        assert_eq!(diagnostics.len(), actual_count, "{diagnostics:#?}");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id == "type.variant_mismatch"),
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            retained,
+            expected_count + actual_count,
+            "one broad expected key and each singleton actual key should be retained once"
+        );
     }
 }
 

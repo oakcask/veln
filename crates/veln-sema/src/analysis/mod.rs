@@ -57,6 +57,10 @@ mod repair_reasoning;
 
 pub(in crate::analysis) use body::FunctionChecker;
 pub(crate) use body::{VariantDiagnosticInterner, check_function_body};
+#[cfg(test)]
+pub(crate) use body::{
+    reset_retained_variant_diagnostic_key_variants, take_retained_variant_diagnostic_key_variants,
+};
 pub(crate) use boundary::{
     check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,

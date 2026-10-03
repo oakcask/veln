@@ -367,6 +367,10 @@ mod collections_and_operators;
 mod contract_validation;
 mod diagnostics_and_repairs;
 pub(crate) use diagnostics_and_repairs::VariantDiagnosticInterner;
+#[cfg(test)]
+pub(crate) use diagnostics_and_repairs::{
+    reset_retained_variant_diagnostic_key_variants, take_retained_variant_diagnostic_key_variants,
+};
 mod expression_effects;
 mod name_and_declared_calls;
 mod patterns_and_exhaustiveness;

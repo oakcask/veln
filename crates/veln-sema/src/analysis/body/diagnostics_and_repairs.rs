@@ -4,6 +4,32 @@ use std::sync::Arc;
 use super::*;
 use crate::adt::registry::AdtRegistry;
 
+#[cfg(test)]
+thread_local! {
+    static RETAINED_VARIANT_DIAGNOSTIC_KEY_VARIANTS: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_retained_variant_diagnostic_key_variants() {
+    RETAINED_VARIANT_DIAGNOSTIC_KEY_VARIANTS.with(|retained| retained.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_retained_variant_diagnostic_key_variants() -> usize {
+    RETAINED_VARIANT_DIAGNOSTIC_KEY_VARIANTS.with(|retained| retained.replace(0))
+}
+
+#[cfg(test)]
+fn record_retained_variant_diagnostic_key(ty: &Type) {
+    let Type::VariantRefinement { variants, .. } = ty else {
+        return;
+    };
+    RETAINED_VARIANT_DIAGNOSTIC_KEY_VARIANTS.with(|retained| {
+        retained.set(retained.get() + variants.len());
+    });
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(in crate::analysis) fn check_assignable(
         &mut self,
@@ -65,9 +91,8 @@ impl<'a> FunctionChecker<'a> {
             let actual_text = self.variant_diagnostics.rendered_type(actual);
             let expected_facts = self
                 .variant_diagnostics
-                .expected_facts(expected, &mismatch.expected_variants);
+                .expected_facts(expected, mismatch.expected_variants);
             let exclusion_facts = self.variant_diagnostics.exclusion_facts(
-                expected,
                 actual,
                 &mismatch.exclusion,
                 &actual_text,
@@ -748,10 +773,11 @@ enum VariantExclusion {
 pub(crate) struct VariantDiagnosticInterner {
     rendered_types: HashMap<Type, DiagnosticText>,
     expected: HashMap<Type, Arc<ExpectedVariantDiagnosticFacts>>,
-    exclusions: HashMap<(Type, Type), Arc<VariantExclusionDiagnosticFacts>>,
+    exclusions: HashMap<(usize, Type), Arc<VariantExclusionDiagnosticFacts>>,
 }
 
 struct ExpectedVariantDiagnosticFacts {
+    cache_id: usize,
     rendered_type: DiagnosticText,
     expected_variants: JsonValue,
     joined_variants: DiagnosticText,
@@ -780,6 +806,7 @@ impl VariantDiagnosticInterner {
             return facts.clone();
         }
         let facts = Arc::new(ExpectedVariantDiagnosticFacts {
+            cache_id: self.expected.len(),
             rendered_type: self.rendered_type(expected),
             expected_variants: JsonValue::shared(JsonValue::array(
                 variants.iter().cloned().map(JsonValue::string),
@@ -787,18 +814,19 @@ impl VariantDiagnosticInterner {
             joined_variants: DiagnosticText::from(variants.join(", ")),
         });
         self.expected.insert(expected.clone(), facts.clone());
+        #[cfg(test)]
+        record_retained_variant_diagnostic_key(expected);
         facts
     }
 
     fn exclusion_facts(
         &mut self,
-        expected: &Type,
         actual: &Type,
         exclusion: &VariantExclusion,
         actual_text: &DiagnosticText,
         expected_facts: &ExpectedVariantDiagnosticFacts,
     ) -> Arc<VariantExclusionDiagnosticFacts> {
-        let key = (expected.clone(), actual.clone());
+        let key = (expected_facts.cache_id, actual.clone());
         if let Some(facts) = self.exclusions.get(&key) {
             return facts.clone();
         }
@@ -837,6 +865,8 @@ impl VariantDiagnosticInterner {
             },
         });
         self.exclusions.insert(key, facts.clone());
+        #[cfg(test)]
+        record_retained_variant_diagnostic_key(actual);
         facts
     }
 }
