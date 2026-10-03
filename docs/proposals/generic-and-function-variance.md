@@ -151,6 +151,5 @@ The source-ADT inference model is selected. This proposal remains blocked while
 the compiler-owned type classifications and complete function composition
 table are undecided. ADT variant refinement can proceed with direct-boundary
 widening and does not depend on this proposal. Once this proposal is complete
-and implemented, the refinement proposal or current refinement specification
-can adopt recursive widening through the positions that the variance contract
-proves safe.
+and implemented, the current refinement specification can adopt recursive
+widening through the positions that the variance contract proves safe.

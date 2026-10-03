@@ -133,6 +133,36 @@ function-value invariance, constructor singleton inference, call and result
 checking, and runtime erasure. The sections below define only the remaining
 semantic extensions.
 
+The examples below use this illustrative API. Its direct call and result
+typing is current behavior; only the aggregate, propagation, and control-flow
+rules described after it remain proposed.
+
+```veln
+pub type Connection
+	pub Disconnected
+	pub Connected(socket: Int)
+	pub Closed(reason: String)
+end
+
+pub type Box<A>
+	pub Boxed(value: A)
+end
+
+pub fn connect(state: Connection::Disconnected) -> Connection::Connected
+	Connected(1)
+end
+
+pub fn close(state: Connection::Connected) -> Connection::Closed
+	Closed("normal")
+end
+
+pub fn reset(
+	state: Connection::Connected | Connection::Closed,
+) -> Connection::Disconnected
+	Disconnected
+end
+```
+
 ### Aggregate Retention, Contextual Widening, And Joins
 
 An aggregate without an expected aggregate type retains every refinement that
