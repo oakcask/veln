@@ -93,19 +93,12 @@ impl<'a> FunctionChecker<'a> {
                 reason: "call_arity",
             });
         }
-        if return_type != Type::bool()
-            && !contract_call_result_is_compared(predicate, call.start, call.end)
-            && !contract_call_result_feeds_boolean_predicate(predicate, call.start, call.end)
-            && !contract_call_result_has_field_access(predicate, call.end)
-            && !contract_call_is_argument(calls, call_index)
-        {
+        if contract_call_result_requires_boolean(predicate, calls, call_index, call, &return_type) {
             return Some(ContractValidation::NonBoolean {
                 actual_type: return_type.render(),
             });
         }
-        if (variadic.is_none() && call.args.len() != params.len())
-            || (variadic.is_some() && call.args.len() < params.len())
-        {
+        if !contract_call_arity_matches(params.len(), variadic.is_some(), call.args.len()) {
             return Some(ContractValidation::UnsupportedConstruct {
                 reason: "call_arity",
             });
@@ -455,5 +448,27 @@ impl<'a> FunctionChecker<'a> {
                         origin_message: "Private return type inferred here.",
                     })
             })
+    }
+}
+
+fn contract_call_result_requires_boolean(
+    predicate: &str,
+    calls: &[ContractCall],
+    call_index: usize,
+    call: &ContractCall,
+    return_type: &Type,
+) -> bool {
+    return_type != &Type::bool()
+        && !contract_call_result_is_compared(predicate, call.start, call.end)
+        && !contract_call_result_feeds_boolean_predicate(predicate, call.start, call.end)
+        && !contract_call_result_has_field_access(predicate, call.end)
+        && !contract_call_is_argument(calls, call_index)
+}
+
+fn contract_call_arity_matches(fixed: usize, variadic: bool, actual: usize) -> bool {
+    if variadic {
+        actual >= fixed
+    } else {
+        actual == fixed
     }
 }
