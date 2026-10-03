@@ -41,7 +41,13 @@ fn needs_some(value: Option<Int>::Some) -> Option<Int>::Some
 end
 
 fn wrong_builtin() -> Option<Int>::Some
-	needs_some(None)
+	let value = None
+	needs_some(value)
+end
+
+fn wrong_generic_argument(value: Option<String>) -> ()
+	needs_some(value)
+	()
 end
 
 fn prior_error() -> State::Ready

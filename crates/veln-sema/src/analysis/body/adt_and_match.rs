@@ -30,28 +30,30 @@ impl<'a> FunctionChecker<'a> {
                 continue;
             };
             let actual_arg = self.infer_expr(arg, Some(&arg_expected));
+            let inferred_arg =
+                inferred_aggregate_member_type_with_expected(actual_arg.clone(), &arg_expected.ty);
             match &field.ty {
                 AdtPayloadType::SelfType => self.check_assignable_nested(
                     arg,
                     &arg_expected.ty,
-                    &actual_arg,
+                    &inferred_arg,
                     &arg_expected,
                     "call_argument",
                 ),
                 AdtPayloadType::Concrete(_) => self.check_assignable_nested(
                     arg,
                     &arg_expected.ty,
-                    &actual_arg,
+                    &inferred_arg,
                     &arg_expected,
                     "call_argument",
                 ),
                 AdtPayloadType::TypeParameter(_)
-                    if !is_assignable_nested(&arg_expected.ty, &actual_arg) =>
+                    if !is_assignable_nested(&arg_expected.ty, &inferred_arg) =>
                 {
                     self.check_assignable_nested(
                         arg,
                         &arg_expected.ty,
-                        &actual_arg,
+                        &inferred_arg,
                         &arg_expected,
                         "call_argument",
                     );
@@ -62,7 +64,7 @@ impl<'a> FunctionChecker<'a> {
                 &mut inferred_type_args,
                 constructor,
                 index,
-                &actual_arg,
+                &inferred_arg,
             );
             actual_args.push(actual_arg);
         }
@@ -94,7 +96,7 @@ impl<'a> FunctionChecker<'a> {
                 &constructor.variant.name,
                 &inferred_base,
             );
-            return adt::constructed_type(constructor, &actual_args);
+            return adt::refined_constructed_type_from_args(constructor, type_args);
         }
         adt::refined_constructed_type_from_args(constructor, type_args)
     }
@@ -137,11 +139,13 @@ impl<'a> FunctionChecker<'a> {
                 "Vec element type inferred here.",
             );
             let actual = self.infer_expr(item, Some(&item_expected));
-            let common_base = common_variant_base(&item_expected.ty, &actual);
+            let aggregate_actual =
+                inferred_aggregate_member_type_with_expected(actual.clone(), &item_expected.ty);
+            let common_base = common_variant_base(&item_expected.ty, &aggregate_actual);
             if !contextual_item && let Some(base) = &common_base {
                 item_type = base.clone();
             }
-            if !is_assignable_nested(&item_expected.ty, &actual)
+            if !is_assignable_nested(&item_expected.ty, &aggregate_actual)
                 && (contextual_item || common_base.is_none())
             {
                 self.check_assignable_nested(
@@ -153,7 +157,7 @@ impl<'a> FunctionChecker<'a> {
                 );
             }
             if item_type == Type::Unknown {
-                item_type = actual;
+                item_type = aggregate_actual;
             }
         }
         let actual = Type::vec(item_type);

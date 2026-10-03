@@ -81,6 +81,26 @@ fn inferred_control_flow_result_type(ty: Type) -> Type {
     }
 }
 
+fn inferred_aggregate_member_type(ty: Type) -> Type {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Type::resolved_named(name, identity, args),
+        ty => ty,
+    }
+}
+
+fn inferred_aggregate_member_type_with_expected(ty: Type, expected: &Type) -> Type {
+    if matches!(expected, Type::VariantRefinement { .. }) {
+        ty
+    } else {
+        inferred_aggregate_member_type(ty)
+    }
+}
+
 fn common_variant_base(left: &Type, right: &Type) -> Option<Type> {
     match (left, right) {
         (

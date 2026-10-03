@@ -55,16 +55,22 @@ impl<'a> FunctionChecker<'a> {
                     }),
                 });
             let actual = self.infer_expr(&field.expr, field_expected.as_ref());
+            let aggregate_actual = field_expected.as_ref().map_or_else(
+                || inferred_aggregate_member_type(actual.clone()),
+                |expected| {
+                    inferred_aggregate_member_type_with_expected(actual.clone(), &expected.ty)
+                },
+            );
             if let Some(field_expected) = &field_expected {
                 self.check_assignable_nested(
                     &field.expr,
                     &field_expected.ty,
-                    &actual,
+                    &aggregate_actual,
                     field_expected,
                     "record_field",
                 );
             }
-            actual_fields.push((field.name.clone(), actual));
+            actual_fields.push((field.name.clone(), aggregate_actual));
         }
         let actual = Type::Record(actual_fields);
         if let Some(expected) = expected
@@ -117,11 +123,13 @@ impl<'a> FunctionChecker<'a> {
                 "Dict key type inferred here.",
             );
             let actual_key = self.infer_expr(&entry.key, Some(&key_expected));
-            let common_key_base = common_variant_base(&key_expected.ty, &actual_key);
+            let aggregate_key =
+                inferred_aggregate_member_type_with_expected(actual_key.clone(), &key_expected.ty);
+            let common_key_base = common_variant_base(&key_expected.ty, &aggregate_key);
             if !contextual_key && let Some(base) = &common_key_base {
                 key_type = base.clone();
             }
-            if !is_assignable_nested(&key_expected.ty, &actual_key)
+            if !is_assignable_nested(&key_expected.ty, &aggregate_key)
                 && (contextual_key || common_key_base.is_none())
             {
                 self.check_assignable_nested(
@@ -133,7 +141,7 @@ impl<'a> FunctionChecker<'a> {
                 );
             }
             if key_type == Type::Unknown {
-                key_type = actual_key;
+                key_type = aggregate_key;
             }
             let value_expected = collection_item_expected(
                 if value_type == Type::Unknown {
@@ -147,11 +155,15 @@ impl<'a> FunctionChecker<'a> {
                 "Dict value type inferred here.",
             );
             let actual_value = self.infer_expr(&entry.value, Some(&value_expected));
-            let common_value_base = common_variant_base(&value_expected.ty, &actual_value);
+            let aggregate_value = inferred_aggregate_member_type_with_expected(
+                actual_value.clone(),
+                &value_expected.ty,
+            );
+            let common_value_base = common_variant_base(&value_expected.ty, &aggregate_value);
             if !contextual_value && let Some(base) = &common_value_base {
                 value_type = base.clone();
             }
-            if !is_assignable_nested(&value_expected.ty, &actual_value)
+            if !is_assignable_nested(&value_expected.ty, &aggregate_value)
                 && (contextual_value || common_value_base.is_none())
             {
                 self.check_assignable_nested(
@@ -163,7 +175,7 @@ impl<'a> FunctionChecker<'a> {
                 );
             }
             if value_type == Type::Unknown {
-                value_type = actual_value;
+                value_type = aggregate_value;
             }
         }
         let actual = Type::dict(key_type, value_type);

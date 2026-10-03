@@ -117,6 +117,10 @@ pub(crate) fn merge_type_args_from_payload(
     }
 }
 
+pub(crate) fn merge_type_holes(current: &mut Type, expected: &Type) {
+    super::unification::merge_type_slot(current, expected);
+}
+
 pub(crate) fn merge_core_type_args_from_payload(
     args: &mut [CoreType],
     constructor: AdtConstructor<'_>,

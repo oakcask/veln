@@ -80,7 +80,7 @@ impl<'a> FunctionChecker<'a> {
                     &inferred_base,
                 );
             }
-            return inferred_base;
+            return inferred;
         }
         inferred
     }
@@ -193,6 +193,12 @@ impl<'a> FunctionChecker<'a> {
             && let Some(expected) = expected
             && !type_contains_unknown(&expected.ty)
         {
+            if matches!(current, Type::VariantRefinement { .. }) {
+                let mut constrained = current.clone();
+                adt::merge_type_holes(&mut constrained, &expected.ty);
+                self.bindings[index].ty = constrained.clone();
+                return Some(constrained);
+            }
             self.bindings[index].ty = expected.ty.clone();
             return Some(expected.ty.clone());
         }

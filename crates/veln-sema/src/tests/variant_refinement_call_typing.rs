@@ -55,6 +55,41 @@ fn compiler_known_generic_refinements_resolve_and_widen() {
 }
 
 #[test]
+fn unresolved_generic_constructor_locals_preserve_their_variant() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Choice<A>\n",
+        "  Present(A)\n",
+        "  Absent\n",
+        "end\n",
+        "fn needs_some(value: Option<Int>::Some) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn needs_present(value: Choice<Int>::Present) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main() -> ()\n",
+        "  let builtin = None\n",
+        "  let source = Absent\n",
+        "  needs_some(builtin)\n",
+        "  needs_present(source)\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id == "type.variant_mismatch"
+            && diagnostic.details.to_json().contains("\"form\":\"listed\"")
+    }));
+}
+
+#[test]
 fn expected_adt_disambiguates_nullary_constructors() {
     let diagnostics = diagnostics_for(concat!(
         "type Left\n",
@@ -247,7 +282,7 @@ fn variant_unions_reject_mixed_resolved_adts() {
 }
 
 #[test]
-fn nested_aggregate_widening_is_rejected_for_inline_and_bound_values() {
+fn aggregate_construction_erases_base_components_and_rejects_excluded_variants() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -287,7 +322,7 @@ fn nested_aggregate_widening_is_rejected_for_inline_and_bound_values() {
         )
     ));
 
-    assert_eq!(diagnostics.len(), 13, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
     assert_eq!(
         diagnostics
             .iter()
@@ -301,9 +336,33 @@ fn nested_aggregate_widening_is_rejected_for_inline_and_bound_values() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.mismatch")
             .count(),
-        8,
+        0,
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn aggregate_inference_uses_base_types_for_mixed_variants() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  let record = {state: Ready}\n",
+            "  let states = [Ready, Closed]\n",
+            "  let table = {\"ready\": Ready, \"closed\": Closed}\n",
+            "  let boxed = Boxed(Ready)\n",
+            "  let record_base: {state: State} = record\n",
+            "  let states_base: Vec<State> = states\n",
+            "  let table_base: Dict<String, State> = table\n",
+            "  let boxed_base: Box<State> = boxed\n",
+            "end\n",
+        )
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]
@@ -325,7 +384,7 @@ fn record_fields_report_ordinary_nested_type_mismatches() {
 }
 
 #[test]
-fn nested_generic_invariance_does_not_claim_the_outer_variant_is_excluded() {
+fn inferred_generic_payload_uses_its_base_type() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -337,6 +396,46 @@ fn nested_generic_invariance_does_not_claim_the_outer_variant_is_excluded() {
             "  let widened: Box<State> = retained\n",
             "end\n",
         )
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn explicitly_refined_nested_positions_remain_invariant() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "end\n",
+            "fn reject_record(value: {state: State::Ready}) -> ()\n",
+            "  let widened: {state: State} = value\n",
+            "end\n",
+            "fn reject_named(value: Box<State::Ready>) -> ()\n",
+            "  let widened: Box<State> = value\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn base_with_different_generic_arguments_uses_an_ordinary_mismatch() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn needs_some(value: Option<Int>::Some) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main(value: Option<String>) -> ()\n",
+        "  needs_some(value)\n",
+        "end\n",
     ));
 
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
@@ -395,7 +494,7 @@ fn variant_mismatch_lists_multiple_variants_in_declaration_order() {
 }
 
 #[test]
-fn recursive_adt_payload_construction_rejects_nested_widening() {
+fn recursive_adt_payload_construction_uses_the_nested_constructor_base() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",
         "  Ready\n",
@@ -406,8 +505,7 @@ fn recursive_adt_payload_construction_rejects_nested_widening() {
         "end\n",
     ));
 
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]
@@ -500,13 +598,13 @@ fn nested_mismatch_diagnostic_output_grows_linearly_with_variant_count() {
             source.push_str(&format!("  Variant{index:03}\n"));
         }
         source.push_str("end\n");
-        source.push_str("fn reject() -> ()\n");
         for index in 0..variant_count {
             source.push_str(&format!(
-                "  let rejected{index:03}: {{state: State}} = {{state: Variant{index:03}}}\n"
+                "fn reject{index:03}(value: {{state: State::Variant{index:03}}}) -> ()\n"
             ));
+            source.push_str("  let rejected: {state: State} = value\n");
+            source.push_str("end\n");
         }
-        source.push_str("end\n");
         let diagnostics = diagnostics_for(&source);
         let mismatches = diagnostics
             .iter()

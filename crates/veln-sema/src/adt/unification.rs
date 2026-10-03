@@ -101,6 +101,33 @@ pub(super) fn merge_type_slot(slot: &mut Type, actual: &Type) {
                 merge_type_slot(slot_arg, actual_arg);
             }
         }
+        (
+            Type::VariantRefinement {
+                name: slot_name,
+                identity: slot_identity,
+                args: slot_args,
+                ..
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            }
+            | Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            },
+        ) if slot_args.len() == actual_args.len()
+            && (slot_identity == actual_identity
+                || (slot_name == actual_name
+                    && (slot_identity == slot_name || actual_identity == actual_name))) =>
+        {
+            for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
+                merge_type_slot(slot_arg, actual_arg);
+            }
+        }
         (Type::Record(slot_fields), Type::Record(actual_fields)) => {
             for (slot_name, slot_ty) in slot_fields {
                 if let Some((_, actual_ty)) = actual_fields

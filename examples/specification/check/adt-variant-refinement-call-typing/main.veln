@@ -40,5 +40,13 @@ fn main() -> State
 	let ok: Result<Int, String>::Ok = keep_ok(Ok(1))
 	let nil: List<Int>::Nil = keep_nil(Nil)
 	let variadic: fn(Int, ...State::Ready) -> () = keep_ready_values
+	let unresolved = None
+	let resolved: Option<Int> = unresolved
+	let record = {state: Ready}
+	let record_base: {state: State} = record
+	let states = [Ready, Closed]
+	let states_base: Vec<State> = states
+	let envelope = Wrapped(Ready)
+	let envelope_base: Envelope<State> = envelope
 	widened
 end

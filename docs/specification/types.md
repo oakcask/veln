@@ -373,8 +373,19 @@ contract.
 A resolved constructor expression has its singleton variant type. The expected
 base ADT can supply generic arguments to the constructor, and the singleton can
 widen directly to that base without a runtime conversion. An unannotated local
-binding retains the singleton. Core lowering erases the refinement to the base
-ADT, so constructor tags, payloads, and runtime representation are unchanged.
+binding retains the singleton, including while a later expected type fills an
+unknown generic argument. The later constraint does not replace the
+constructor's variant identity. Core lowering erases the refinement to the
+base ADT, so constructor tags, payloads, and runtime representation are
+unchanged.
+
+An unannotated aggregate does not retain nested constructor refinements in
+this slice. A constructor used as a record field, collection element,
+dictionary key or value, or inferred generic ADT payload contributes its base
+ADT type to that aggregate position. The outer constructor expression still
+has its singleton type. Explicitly refined nested types remain invariant, and
+an expected aggregate type does not add contextual widening at its component
+positions.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
@@ -424,11 +435,12 @@ in `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-
 and human diagnostics in
 `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-human/`.
 
-Alias spelling and provenance, public/private exposure paths, refinement joins
-inside inferred aggregates, postfix `?`, pattern-based control-flow
-refinement, schema boundaries, package-documentation signatures, LSP, MCP, and
-language-reference publication remain proposal work. This slice also does not
-add recursive generic or function variance.
+Alias spelling and provenance, public/private exposure paths, refinement
+retention and joins inside inferred aggregates, contextual aggregate
+construction, postfix `?`, pattern-based control-flow refinement, schema
+boundaries, package-documentation signatures, command-wide coverage, LSP, MCP,
+and language-reference publication remain proposal work. This slice also does
+not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual

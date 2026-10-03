@@ -706,14 +706,16 @@ fn variant_mismatch_sets(
         (
             Type::VariantRefinement {
                 identity: expected_identity,
+                args: expected_args,
                 variants,
                 ..
             },
             Type::Named {
                 identity: actual_identity,
+                args: actual_args,
                 ..
             },
-        ) if expected_identity == actual_identity => {
+        ) if expected_identity == actual_identity && expected_args == actual_args => {
             adts.descriptor_for_type(actual)?;
             Some(VariantMismatchFacts {
                 expected_variants: variants.clone(),

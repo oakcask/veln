@@ -25,7 +25,8 @@ also states it.
   [standard-library-networking.md](standard-library-networking.md).
 - Remaining ADT variant-refinement support for aliases and visibility,
   aggregate retention and joins, result propagation, control-flow refinement,
-  schema boundaries, package documentation, LSP, MCP, and publication:
+  schema boundaries, package documentation, command-wide enforcement, LSP,
+  MCP, and publication:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked

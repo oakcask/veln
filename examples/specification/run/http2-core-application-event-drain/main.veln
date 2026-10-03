@@ -38,6 +38,17 @@ fn header_name(headers: HeaderList, index: Int) -> String
 	end
 end
 
+fn header_count_at(headers: HeaderList, index: Int) -> Int
+	match http2::hpack::header_list_at(headers, index)
+		Some(_) => 1 + header_count_at(headers, index + 1)
+		None => 0
+	end
+end
+
+fn header_count(headers: HeaderList) -> Int
+	header_count_at(headers, 0)
+end
+
 fn bool_label(value: Bool) -> String
 	if value
 		"true"
@@ -54,7 +65,7 @@ fn print_event(label: String, event: Http2ApplicationEvent) -> Result<(), String
 	stdio::print(" end ")
 	stdio::print(bool_label(http2::core::application_event_end_stream(event)))
 	stdio::print(" headers ")
-	stdio::print(int_to_string(http2::hpack::header_list_count(headers)))
+	stdio::print(int_to_string(header_count(headers)))
 	stdio::print(" names ")
 	stdio::print(header_name(headers, 0))
 	stdio::print(",")

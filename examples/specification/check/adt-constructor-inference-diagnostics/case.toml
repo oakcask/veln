@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.inference_ambiguous\"", "\"inferred_type\":\"Result<Int, unknown>\"", "\"inferred_type\":\"Result<unknown, String>\"", "\"id\":\"type.mismatch\"", "expected `Int`, but found `String`", "expected `List<Int>`, but found `List<String>::Cons`"]
+contains = ["\"id\":\"type.inference_ambiguous\"", "\"inferred_type\":\"Result<Int, unknown>\"", "\"inferred_type\":\"Result<unknown, String>\"", "\"id\":\"type.mismatch\"", "expected `Int`, but found `String`", "expected `List<Int>`, but found `List<String>`"]
 
 [stderr]
 format = "empty"
@@ -77,7 +77,7 @@ column = 22
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `List<Int>`, but found `List<String>::Cons`"
+message = "expected `List<Int>`, but found `List<String>`"
 
 [diagnostics.span]
 file = "main.veln"

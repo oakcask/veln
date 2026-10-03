@@ -22,7 +22,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 9
+equals = 10
 
 [[diagnostics]]
 id = "type.variant_mismatch"
@@ -87,7 +87,18 @@ message = "value of type `Option<Int>::None` is not assignable to variant type `
 
 [diagnostics.span]
 file = "main.veln"
-line = 44
+line = 45
+column = 13
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Option<Int>::Some`, but found `Option<String>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 49
 column = 13
 
 [[diagnostics]]
@@ -98,7 +109,7 @@ message = "unresolved value `missing`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 48
+line = 54
 column = 2
 
 [[diagnostics]]
@@ -109,7 +120,7 @@ message = "value of type `State::Closed | State::Failed` is not assignable to va
 
 [diagnostics.span]
 file = "main.veln"
-line = 52
+line = 58
 column = 14
 
 [[diagnostics]]
@@ -120,7 +131,7 @@ message = "invalid type annotation `State::Ready | Other::Foreign`: variant refi
 
 [diagnostics.span]
 file = "main.veln"
-line = 60
+line = 66
 column = 16
 
 [[json_assert]]
@@ -284,13 +295,13 @@ path = "diagnostics.5.details.excluded_variants.variants.0"
 equals = "None"
 
 [[json_assert]]
-path = "diagnostics.7.details.expected_variants.0"
+path = "diagnostics.8.details.expected_variants.0"
 equals = "Ready"
 
 [[json_assert]]
-path = "diagnostics.7.details.excluded_variants.variants.0"
+path = "diagnostics.8.details.excluded_variants.variants.0"
 equals = "Closed"
 
 [[json_assert]]
-path = "diagnostics.7.details.excluded_variants.variants.1"
+path = "diagnostics.8.details.excluded_variants.variants.1"
 equals = "Failed"
