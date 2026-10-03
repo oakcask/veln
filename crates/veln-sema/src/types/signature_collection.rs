@@ -124,7 +124,7 @@ pub(super) fn ordinary_function_signatures(
         .collect()
 }
 
-pub(super) fn canonicalize_type_effects(
+pub(crate) fn canonicalize_type_effects(
     ty: Type,
     uses: &[UseDecl],
     quarantined_uses: &[UseDecl],

@@ -139,10 +139,47 @@ impl AdtRegistry {
         extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
 
         descriptors.extend(aliases);
+        let source_descriptor_start = descriptors.len();
         descriptors.extend(source_descriptors);
         let mut companion_targets = base.companion_access_targets.clone();
         companion_targets.extend(companion_access_targets(module));
-        Self::from_parts_with_annotation_types(descriptors, companion_targets, annotation_types)
+        let mut registry = Self::from_parts_with_annotation_types(
+            descriptors,
+            companion_targets,
+            annotation_types,
+        );
+        registry.canonicalize_source_payload_types(module, source_descriptor_start);
+        registry
+    }
+
+    fn canonicalize_source_payload_types(
+        &mut self,
+        module: &SurfaceModule,
+        source_descriptor_start: usize,
+    ) {
+        let lookup = self.clone();
+        let uses = normal_use_decls(module);
+        let no_quarantined_uses = Vec::new();
+        let no_effects = Vec::new();
+        let no_effect_access_targets = BTreeMap::new();
+        for descriptor in &mut self.descriptors[source_descriptor_start..] {
+            for variant in &mut descriptor.variants {
+                for field in &mut variant.payload_fields {
+                    let super::descriptors::AdtPayloadType::Concrete(ty) = &mut field.ty else {
+                        continue;
+                    };
+                    *ty = crate::types::canonicalize_type_effects(
+                        ty.clone(),
+                        &uses,
+                        &no_quarantined_uses,
+                        descriptor.module_name.as_deref(),
+                        &no_effects,
+                        &lookup,
+                        &no_effect_access_targets,
+                    );
+                }
+            }
+        }
     }
 
     pub(crate) fn descriptors(&self) -> &[AdtDescriptor] {

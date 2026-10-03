@@ -1,5 +1,6 @@
 use super::*;
 use crate::types::TypeEnvironment;
+use veln_diagnostics::JsonValue;
 
 fn diagnostics_for(source: &str) -> Vec<Diagnostic> {
     let source = SourceFile::new("main.veln", source);
@@ -478,7 +479,7 @@ fn aggregate_construction_erases_base_components_and_rejects_excluded_variants()
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
             .count(),
-        5,
+        0,
         "{diagnostics:#?}"
     );
     assert_eq!(
@@ -486,7 +487,7 @@ fn aggregate_construction_erases_base_components_and_rejects_excluded_variants()
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.mismatch")
             .count(),
-        0,
+        5,
         "{diagnostics:#?}"
     );
 }
@@ -918,6 +919,196 @@ fn private_constructor_results_retain_singleton_refinements() {
             .render(),
         "GenericState<Int>::Ready"
     );
+}
+
+#[test]
+fn private_control_flow_results_keep_only_a_common_singleton() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "fn same(value: Bool)\n",
+            "  if value\n",
+            "    Ready\n",
+            "  else\n",
+            "    Ready\n",
+            "  end\n",
+            "end\n",
+            "fn mixed_if(value: Bool)\n",
+            "  if value\n",
+            "    Ready\n",
+            "  else\n",
+            "    Closed\n",
+            "  end\n",
+            "end\n",
+            "fn mixed_match(value: Bool)\n",
+            "  match value\n",
+            "    true => Ready\n",
+            "    false => Closed\n",
+            "  end\n",
+            "end\n",
+            "fn accept(value: State) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  accept(mixed_if(true))\n",
+            "  accept(mixed_match(true))\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+
+    assert_eq!(
+        environment.function("same").unwrap().return_type.render(),
+        "State::Ready"
+    );
+    assert_eq!(
+        environment
+            .function("mixed_if")
+            .unwrap()
+            .return_type
+            .render(),
+        "State"
+    );
+    assert_eq!(
+        environment
+            .function("mixed_match")
+            .unwrap()
+            .return_type
+            .render(),
+        "State"
+    );
+}
+
+#[test]
+fn source_adt_payload_refinement_annotations_are_canonical() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "type Envelope\n",
+        "  ReadyOnly(State::Ready)\n",
+        "end\n",
+        "fn main() -> Envelope\n",
+        "  ReadyOnly(Ready)\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "type Envelope\n",
+        "  ReadyOnly(State::Ready)\n",
+        "end\n",
+        "fn reject(value: State) -> Envelope\n",
+        "  ReadyOnly(value)\n",
+        "end\n",
+    ));
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+}
+
+fn repeated_broad_variant_mismatch_source(variant_count: usize, use_count: usize) -> String {
+    let variants = (0..variant_count)
+        .map(|index| format!("Variant{index:04}"))
+        .collect::<Vec<_>>();
+    let mut source = String::from("type State\n");
+    for variant in &variants {
+        source.push_str(&format!("  {variant}\n"));
+    }
+    source.push_str("  Excluded\nend\n");
+    let broad = variants
+        .iter()
+        .map(|variant| format!("State::{variant}"))
+        .collect::<Vec<_>>()
+        .join(" | ");
+    source.push_str(&format!(
+        "fn accept(value: {broad}) -> ()\n  ()\nend\nfn check(value: State) -> ()\n"
+    ));
+    for _ in 0..use_count {
+        source.push_str("  accept(value)\n");
+    }
+    source.push_str("end\n");
+    source
+}
+
+fn detail_field<'a>(diagnostic: &'a Diagnostic, name: &str) -> &'a JsonValue {
+    let JsonValue::Object(entries) = &diagnostic.details else {
+        panic!("diagnostic details must be an object")
+    };
+    entries
+        .iter()
+        .find_map(|(field, value)| (field == name).then_some(value))
+        .unwrap_or_else(|| panic!("missing diagnostic detail `{name}`"))
+}
+
+#[test]
+fn repeated_broad_variant_mismatches_share_retained_diagnostic_facts() {
+    for (variant_count, use_count) in [(64, 64), (64, 128), (128, 64), (128, 128)] {
+        let diagnostics = diagnostics_for(&repeated_broad_variant_mismatch_source(
+            variant_count,
+            use_count,
+        ));
+        assert_eq!(diagnostics.len(), use_count, "{diagnostics:#?}");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id == "type.variant_mismatch"),
+            "{diagnostics:#?}"
+        );
+        let first = &diagnostics[0];
+        let JsonValue::Shared(first_expected_variants) = detail_field(first, "expected_variants")
+        else {
+            panic!("expected variants must use shared retained storage")
+        };
+        let JsonValue::Shared(first_excluded_variants) = detail_field(first, "excluded_variants")
+        else {
+            panic!("excluded variants must use shared retained storage")
+        };
+        for diagnostic in diagnostics.iter().skip(1) {
+            assert!(diagnostic.message.shares_storage_with(&first.message));
+            let JsonValue::Shared(expected_variants) =
+                detail_field(diagnostic, "expected_variants")
+            else {
+                panic!("expected variants must use shared retained storage")
+            };
+            let JsonValue::Shared(excluded_variants) =
+                detail_field(diagnostic, "excluded_variants")
+            else {
+                panic!("excluded variants must use shared retained storage")
+            };
+            assert!(std::sync::Arc::ptr_eq(
+                expected_variants,
+                first_expected_variants
+            ));
+            assert!(std::sync::Arc::ptr_eq(
+                excluded_variants,
+                first_excluded_variants
+            ));
+        }
+        for diagnostic in [first, diagnostics.last().unwrap()] {
+            let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+            assert!(json.contains("\"form\":\"all_except_expected\""), "{json}");
+            assert!(json.contains("State::Variant0000"), "{json}");
+            assert!(
+                json.contains(&format!("State::Variant{:04}", variant_count - 1)),
+                "{json}"
+            );
+        }
+    }
 }
 
 fn large_variant_union_source(variant_count: usize) -> String {

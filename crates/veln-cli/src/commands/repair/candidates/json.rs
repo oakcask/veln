@@ -9,30 +9,21 @@ pub(super) fn object_value<'a>(value: &'a JsonValue, key: &str) -> Option<&'a Js
         .find_map(|(entry_key, value)| (entry_key == key).then_some(value))
 }
 
-pub(super) fn object_array<'a>(value: &'a JsonValue, key: &str) -> Option<&'a Vec<JsonValue>> {
-    match object_value(value, key)? {
-        JsonValue::Array(values) => Some(values),
-        _ => None,
-    }
+pub(super) fn object_array<'a>(value: &'a JsonValue, key: &str) -> Option<&'a [JsonValue]> {
+    object_value(value, key)?.as_array()
 }
 
 pub(super) fn object_string_array(value: &JsonValue, key: &str) -> Option<Vec<String>> {
     object_array(value, key).map(|values| {
         values
             .iter()
-            .filter_map(|value| match value {
-                JsonValue::String(value) => Some(value.clone()),
-                _ => None,
-            })
+            .filter_map(|value| value.as_text().map(str::to_string))
             .collect()
     })
 }
 
 pub(super) fn object_string<'a>(value: &'a JsonValue, key: &str) -> Option<&'a str> {
-    match object_value(value, key)? {
-        JsonValue::String(value) => Some(value),
-        _ => None,
-    }
+    object_value(value, key)?.as_text()
 }
 
 pub(super) fn object_number(value: &JsonValue, key: &str) -> Option<i64> {

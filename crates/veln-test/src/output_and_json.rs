@@ -47,10 +47,8 @@ pub(super) fn reconstructed_stream(events: &[JsonValue], stream: &str) -> String
 
 pub(super) fn json_field<'a>(fields: &'a [(String, JsonValue)], key: &str) -> Option<&'a str> {
     fields.iter().find_map(|(field, value)| {
-        if field == key
-            && let JsonValue::String(value) = value
-        {
-            return Some(value.as_str());
+        if field == key {
+            return value.as_text();
         }
         None
     })

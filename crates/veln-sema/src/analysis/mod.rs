@@ -8,7 +8,7 @@ use veln_ast::{
     FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternField, PatternKind, RecordField,
     SatisfyClause, SurfaceModule, Visibility,
 };
-use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, DiagnosticText, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::adt::descriptors::{AdtConstructor, AdtPayloadType, AdtVariantKind};
@@ -56,7 +56,7 @@ mod handlers;
 mod repair_reasoning;
 
 pub(in crate::analysis) use body::FunctionChecker;
-pub(crate) use body::check_function_body;
+pub(crate) use body::{VariantDiagnosticInterner, check_function_body};
 pub(crate) use boundary::{
     check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,

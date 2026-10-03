@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use veln_ast::{BodyLine, Param};
 
@@ -23,8 +23,10 @@ type ScopedLocalName = (String, Option<LocalNameDeclaration>);
 pub(crate) fn check_function_body(
     function: &Function,
     environment: &TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
 ) -> Vec<Diagnostic> {
-    let mut checker = FunctionChecker::for_source_declaration(function, environment);
+    let mut checker =
+        FunctionChecker::for_source_declaration(function, environment, variant_diagnostics);
     checker.check_body();
     checker.diagnostics
 }
@@ -33,7 +35,7 @@ fn json_string_field_is(value: &JsonValue, field: &str, expected: &str) -> bool 
     matches!(
         value,
         JsonValue::Object(entries) if entries.iter().any(|(name, value)| {
-            name == field && matches!(value, JsonValue::String(actual) if actual == expected)
+            name == field && value.as_text() == Some(expected)
         })
     )
 }
@@ -139,6 +141,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) diagnostics: Vec<Diagnostic>,
     suppressed_diagnostic_indices: BTreeSet<usize>,
     defer_blocks: Vec<SourceSpan>,
+    variant_diagnostics: &'a mut VariantDiagnosticInterner,
 }
 
 pub(in crate::analysis) struct PatternBinding {
@@ -297,25 +300,29 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn for_source_declaration(
         function: &'a Function,
         environment: &'a TypeEnvironment,
+        variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
         Self::new(
             function,
             environment,
             function.kind == FunctionKind::Function,
+            variant_diagnostics,
         )
     }
 
     pub(super) fn for_synthetic_declaration(
         function: &'a Function,
         environment: &'a TypeEnvironment,
+        variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
-        Self::new(function, environment, false)
+        Self::new(function, environment, false, variant_diagnostics)
     }
 
     fn new(
         function: &'a Function,
         environment: &'a TypeEnvironment,
         supports_callsite_modifier: bool,
+        variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
         Self {
             function,
@@ -334,6 +341,7 @@ impl<'a> FunctionChecker<'a> {
             diagnostics: Vec::new(),
             suppressed_diagnostic_indices: BTreeSet::new(),
             defer_blocks: Vec::new(),
+            variant_diagnostics,
         }
     }
 
@@ -358,6 +366,7 @@ mod body_lines;
 mod collections_and_operators;
 mod contract_validation;
 mod diagnostics_and_repairs;
+pub(crate) use diagnostics_and_repairs::VariantDiagnosticInterner;
 mod expression_effects;
 mod name_and_declared_calls;
 mod patterns_and_exhaustiveness;

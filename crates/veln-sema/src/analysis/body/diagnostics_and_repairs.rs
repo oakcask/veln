@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use super::*;
 use crate::adt::registry::AdtRegistry;
@@ -56,49 +57,50 @@ impl<'a> FunctionChecker<'a> {
         } {
             return;
         }
-        if !type_contains_unknown(expected)
+        if direct
+            && !type_contains_unknown(expected)
             && !type_contains_unknown(actual)
             && let Some(mismatch) = variant_mismatch_sets(expected, actual, &self.environment.adts)
         {
-            let mut diagnostic = Diagnostic::new(
+            let actual_text = self.variant_diagnostics.rendered_type(actual);
+            let expected_facts = self
+                .variant_diagnostics
+                .expected_facts(expected, &mismatch.expected_variants);
+            let exclusion_facts = self.variant_diagnostics.exclusion_facts(
+                expected,
+                actual,
+                &mismatch.exclusion,
+                &actual_text,
+                &expected_facts,
+            );
+            let mut diagnostic = Diagnostic::new_text(
                 "type.variant_mismatch",
                 Severity::Error,
                 DiagnosticKind::Type,
-                format!(
-                    "value of type `{}` is not assignable to variant type `{}`",
-                    actual.render(),
-                    expected.render()
-                ),
+                exclusion_facts.primary_message.clone(),
                 Some(expr.span.clone()),
                 JsonValue::object([
                     ("phase", JsonValue::string("type_check")),
                     ("node_id", JsonValue::string(expr.node_id.display("expr"))),
-                    ("actual_type", JsonValue::string(actual.render())),
-                    ("expected_type", JsonValue::string(expected.render())),
+                    ("actual_type", JsonValue::text(actual_text.clone())),
+                    (
+                        "expected_type",
+                        JsonValue::text(expected_facts.rendered_type.clone()),
+                    ),
                     (
                         "expected_variants",
-                        JsonValue::array(
-                            mismatch
-                                .expected_variants
-                                .iter()
-                                .cloned()
-                                .map(JsonValue::string),
-                        ),
+                        expected_facts.expected_variants.clone(),
                     ),
-                    ("excluded_variants", mismatch.exclusion.json()),
+                    (
+                        "excluded_variants",
+                        exclusion_facts.excluded_variants.clone(),
+                    ),
                     ("constraint", JsonValue::string(constraint)),
                 ]),
             );
             diagnostic.related.push(JsonValue::object([
                 ("kind", JsonValue::string("variant_exclusion")),
-                (
-                    "message",
-                    JsonValue::string(
-                        mismatch
-                            .exclusion
-                            .message(&actual.render(), &mismatch.expected_variants),
-                    ),
-                ),
+                ("message", JsonValue::text(exclusion_facts.message.clone())),
                 ("span", span_json(&expr.span)),
             ]));
             if let Some(origin_span) = &expected_source.origin_span {
@@ -669,11 +671,11 @@ impl<'a> FunctionChecker<'a> {
     }
 }
 
-fn variant_mismatch_sets(
-    expected: &Type,
-    actual: &Type,
+fn variant_mismatch_sets<'a>(
+    expected: &'a Type,
+    actual: &'a Type,
     adts: &AdtRegistry,
-) -> Option<VariantMismatchFacts> {
+) -> Option<VariantMismatchFacts<'a>> {
     match (expected, actual) {
         (
             Type::VariantRefinement {
@@ -705,7 +707,7 @@ fn variant_mismatch_sets(
                 .cloned()
                 .collect::<Vec<_>>();
             (!excluded.is_empty()).then(|| VariantMismatchFacts {
-                expected_variants: expected_variants.clone(),
+                expected_variants,
                 exclusion: VariantExclusion::Listed(excluded),
             })
         }
@@ -724,7 +726,7 @@ fn variant_mismatch_sets(
         ) if expected_identity == actual_identity && expected_args == actual_args => {
             adts.descriptor_for_type(actual)?;
             Some(VariantMismatchFacts {
-                expected_variants: variants.clone(),
+                expected_variants: variants,
                 exclusion: VariantExclusion::AllExceptExpected,
             })
         }
@@ -732,8 +734,8 @@ fn variant_mismatch_sets(
     }
 }
 
-struct VariantMismatchFacts {
-    expected_variants: Vec<String>,
+struct VariantMismatchFacts<'a> {
+    expected_variants: &'a [String],
     exclusion: VariantExclusion,
 }
 
@@ -742,30 +744,112 @@ enum VariantExclusion {
     AllExceptExpected,
 }
 
-impl VariantExclusion {
-    fn json(&self) -> JsonValue {
-        match self {
-            Self::Listed(variants) => JsonValue::object([
-                ("form", JsonValue::string("listed")),
-                (
-                    "variants",
-                    JsonValue::array(variants.iter().cloned().map(JsonValue::string)),
-                ),
-            ]),
-            Self::AllExceptExpected => JsonValue::object([
-                ("form", JsonValue::string("all_except_expected")),
-                ("variants", JsonValue::array(std::iter::empty())),
-            ]),
-        }
+#[derive(Default)]
+pub(crate) struct VariantDiagnosticInterner {
+    rendered_types: HashMap<Type, DiagnosticText>,
+    expected: HashMap<Type, Arc<ExpectedVariantDiagnosticFacts>>,
+    exclusions: HashMap<(Type, Type), Arc<VariantExclusionDiagnosticFacts>>,
+}
+
+struct ExpectedVariantDiagnosticFacts {
+    rendered_type: DiagnosticText,
+    expected_variants: JsonValue,
+    joined_variants: DiagnosticText,
+}
+
+struct VariantExclusionDiagnosticFacts {
+    excluded_variants: JsonValue,
+    primary_message: DiagnosticText,
+    message: DiagnosticText,
+}
+
+impl VariantDiagnosticInterner {
+    fn rendered_type(&mut self, ty: &Type) -> DiagnosticText {
+        self.rendered_types
+            .entry(ty.clone())
+            .or_insert_with(|| DiagnosticText::from(ty.render()))
+            .clone()
     }
 
-    fn message(&self, actual: &str, expected: &[String]) -> String {
-        match self {
-            Self::Listed(variants) => format!("Excluded variants: {}.", variants.join(", ")),
-            Self::AllExceptExpected => format!(
-                "Excluded variants: every `{actual}` variant except {}.",
-                expected.join(", ")
-            ),
+    fn expected_facts(
+        &mut self,
+        expected: &Type,
+        variants: &[String],
+    ) -> Arc<ExpectedVariantDiagnosticFacts> {
+        if let Some(facts) = self.expected.get(expected) {
+            return facts.clone();
         }
+        let facts = Arc::new(ExpectedVariantDiagnosticFacts {
+            rendered_type: self.rendered_type(expected),
+            expected_variants: JsonValue::shared(JsonValue::array(
+                variants.iter().cloned().map(JsonValue::string),
+            )),
+            joined_variants: DiagnosticText::from(variants.join(", ")),
+        });
+        self.expected.insert(expected.clone(), facts.clone());
+        facts
     }
+
+    fn exclusion_facts(
+        &mut self,
+        expected: &Type,
+        actual: &Type,
+        exclusion: &VariantExclusion,
+        actual_text: &DiagnosticText,
+        expected_facts: &ExpectedVariantDiagnosticFacts,
+    ) -> Arc<VariantExclusionDiagnosticFacts> {
+        let key = (expected.clone(), actual.clone());
+        if let Some(facts) = self.exclusions.get(&key) {
+            return facts.clone();
+        }
+        let facts = Arc::new(match exclusion {
+            VariantExclusion::Listed(variants) => {
+                let joined = DiagnosticText::from(variants.join(", "));
+                VariantExclusionDiagnosticFacts {
+                    excluded_variants: JsonValue::shared(JsonValue::object([
+                        ("form", JsonValue::string("listed")),
+                        (
+                            "variants",
+                            JsonValue::array(variants.iter().cloned().map(JsonValue::string)),
+                        ),
+                    ])),
+                    primary_message: variant_mismatch_message(actual_text, expected_facts),
+                    message: DiagnosticText::parts([
+                        DiagnosticText::from("Excluded variants: "),
+                        joined,
+                        DiagnosticText::from("."),
+                    ]),
+                }
+            }
+            VariantExclusion::AllExceptExpected => VariantExclusionDiagnosticFacts {
+                excluded_variants: JsonValue::shared(JsonValue::object([
+                    ("form", JsonValue::string("all_except_expected")),
+                    ("variants", JsonValue::array(std::iter::empty())),
+                ])),
+                primary_message: variant_mismatch_message(actual_text, expected_facts),
+                message: DiagnosticText::parts([
+                    DiagnosticText::from("Excluded variants: every `"),
+                    actual_text.clone(),
+                    DiagnosticText::from("` variant except "),
+                    expected_facts.joined_variants.clone(),
+                    DiagnosticText::from("."),
+                ]),
+            },
+        });
+        self.exclusions.insert(key, facts.clone());
+        facts
+    }
+}
+
+fn variant_mismatch_message(
+    actual: &DiagnosticText,
+    expected: &ExpectedVariantDiagnosticFacts,
+) -> DiagnosticText {
+    DiagnosticText::parts([
+        DiagnosticText::from("value of type `"),
+        actual.clone(),
+        DiagnosticText::from("` is not assignable to variant type `"),
+        expected.rendered_type.clone(),
+        DiagnosticText::from("`"),
+    ])
 }

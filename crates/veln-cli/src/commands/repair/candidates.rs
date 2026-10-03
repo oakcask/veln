@@ -288,11 +288,13 @@ fn collect_saved_repair_candidates(value: &JsonValue, candidates: &mut Vec<Repai
                 }
             }
         }
+        JsonValue::Shared(value) => collect_saved_repair_candidates(value, candidates),
         JsonValue::Null
         | JsonValue::Bool(_)
         | JsonValue::Number(_)
         | JsonValue::Decimal(_)
-        | JsonValue::String(_) => {}
+        | JsonValue::String(_)
+        | JsonValue::Text(_) => {}
     }
 }
 

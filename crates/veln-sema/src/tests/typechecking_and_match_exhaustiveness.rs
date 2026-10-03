@@ -5,7 +5,12 @@ fn diagnostic_summary<'a>(
 ) -> Vec<(String, String)> {
     diagnostics
         .into_iter()
-        .map(|diagnostic| (diagnostic.id.to_string(), diagnostic.message.clone()))
+        .map(|diagnostic| {
+            (
+                diagnostic.id.to_string(),
+                diagnostic.message.to_owned_string(),
+            )
+        })
         .collect()
 }
 

@@ -31,7 +31,7 @@ pub(crate) fn parse_type_or_unknown(text: Option<&str>) -> Type {
 pub(crate) fn parse_type_annotation(text: &str) -> Result<Type, String> {
     parse_type_annotation_with_arity(text, &|name| {
         with_builtin_type_syntax_registry(|registry| registry.arity(name))
-            .map_err(|failure| failure.diagnostic().message)
+            .map_err(|failure| failure.diagnostic().message.to_owned_string())
     })
 }
 

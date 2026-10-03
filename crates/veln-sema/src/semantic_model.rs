@@ -157,7 +157,7 @@ impl ExpectedTypeSource {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Type {
     Unknown,
     Named {

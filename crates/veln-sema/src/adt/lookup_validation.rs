@@ -181,7 +181,7 @@ pub(super) fn adt_builtin_type_arity(name: &str) -> Result<Option<usize>, String
         BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
     )
     .map(|registry| registry.arity(name))
-    .map_err(|failure| failure.diagnostic().message)
+    .map_err(|failure| failure.diagnostic().message.to_owned_string())
 }
 
 pub(super) fn is_self_type(ty: &Type, decl: &TypeDecl) -> bool {

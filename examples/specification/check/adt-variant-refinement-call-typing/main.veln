@@ -8,6 +8,10 @@ type Envelope<A>
 	Wrapped(A)
 end
 
+type ReadyEnvelope
+	ReadyOnly(State::Ready)
+end
+
 type Chain<A>
 	End(A)
 	More(Chain<A>)
@@ -23,6 +27,18 @@ end
 
 fn inferred_wrapped()
 	Envelope::Wrapped(1)
+end
+
+fn inferred_transition(value: Bool)
+	if value
+		Ready
+	else
+		Closed
+	end
+end
+
+fn wrap_ready() -> ReadyEnvelope
+	ReadyOnly(Ready)
 end
 
 fn accept_wrapped(value: Envelope<Int>::Wrapped) -> ()
@@ -71,6 +87,8 @@ fn main() -> State
 	let inferred: State::Ready = inferred_ready()
 	accept_one(inferred)
 	accept_wrapped(inferred_wrapped())
+	let transitioned: State = inferred_transition(true)
+	let ready_envelope: ReadyEnvelope = wrap_ready()
 	let widened: State = accept_two(same)
 	let some: Option<Int>::Some = keep_some(Some(1))
 	let ok: Result<Int, String>::Ok = keep_ok(Ok(1))

@@ -55,6 +55,9 @@ qualified and unqualified constructor names, postfix `?` result propagation for
 `Result`, and finite-domain exhaustiveness. Source ADTs may be generic and
 recursive through variant payloads. Constructor payload types instantiate the
 declared type parameters from surrounding context and payload expressions.
+Refinement annotations in source-declared payloads resolve against the owning
+module like function annotations. An exact singleton payload is accepted, but
+the direct-widening rule does not recurse into a payload type.
 Nullary generic constructors require surrounding type context; when no
 assignment, return, call, match, or other expected type determines the omitted
 parameter, inference reports an ambiguous constructor type.
@@ -212,6 +215,10 @@ edges do not supply inference facts for the recursive helper itself, so an
 omitted recursive slot still needs a non-recursive concrete fact or an
 annotation. Public functions, tests, exported aliases, and imported public
 functions do not receive inferred signatures.
+For an omitted private result whose final expression is `if` or `match`, equal
+constructor singletons in every typed branch retain that singleton. Different
+singletons of the same instantiated ADT infer the base ADT instead of selecting
+the first branch's refinement.
 
 Empty `Vec<T>` literals, `Nil` for `List<T>`, and empty dictionary literals
 accept concrete expected collection types from local annotations, return

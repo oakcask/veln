@@ -1,14 +1,19 @@
+use std::sync::Arc;
 use veln_source::SourceSpan;
 
-#[derive(Clone, Debug, PartialEq)]
+use crate::DiagnosticText;
+
+#[derive(Clone, Debug)]
 pub enum JsonValue {
     Null,
     Bool(bool),
     Number(i64),
     Decimal(String),
     String(String),
+    Text(DiagnosticText),
     Array(Vec<JsonValue>),
     Object(Vec<(String, JsonValue)>),
+    Shared(Arc<JsonValue>),
 }
 
 pub fn parse_json_value(source: &str) -> Result<JsonValue, String> {
@@ -47,6 +52,39 @@ impl JsonValue {
         Self::Array(values.into_iter().collect())
     }
 
+    pub fn text(value: impl Into<DiagnosticText>) -> Self {
+        Self::Text(value.into())
+    }
+
+    pub fn shared(value: JsonValue) -> Self {
+        Self::Shared(Arc::new(value))
+    }
+
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            Self::String(value) => Some(value),
+            Self::Text(value) => Some(value.as_str()),
+            Self::Shared(value) => value.as_text(),
+            _ => None,
+        }
+    }
+
+    pub fn as_array(&self) -> Option<&[JsonValue]> {
+        match self {
+            Self::Array(values) => Some(values),
+            Self::Shared(value) => value.as_array(),
+            _ => None,
+        }
+    }
+
+    pub fn as_object(&self) -> Option<&[(String, JsonValue)]> {
+        match self {
+            Self::Object(entries) => Some(entries),
+            Self::Shared(value) => value.as_object(),
+            _ => None,
+        }
+    }
+
     pub fn object<K, I>(entries: I) -> Self
     where
         K: Into<String>,
@@ -73,6 +111,7 @@ impl JsonValue {
             Self::Number(value) => out.push_str(&value.to_string()),
             Self::Decimal(value) => out.push_str(value),
             Self::String(value) => write_json_string(out, value),
+            Self::Text(value) => write_json_string(out, value.as_str()),
             Self::Array(values) => {
                 out.push('[');
                 for (index, value) in values.iter().enumerate() {
@@ -95,6 +134,27 @@ impl JsonValue {
                 }
                 out.push('}');
             }
+            Self::Shared(value) => value.write_json(out),
+        }
+    }
+}
+
+impl PartialEq for JsonValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Shared(left), right) => left.as_ref() == right,
+            (left, Self::Shared(right)) => left == right.as_ref(),
+            (Self::Null, Self::Null) => true,
+            (Self::Bool(left), Self::Bool(right)) => left == right,
+            (Self::Number(left), Self::Number(right)) => left == right,
+            (Self::Decimal(left), Self::Decimal(right)) => left == right,
+            (Self::String(left), Self::String(right)) => left == right,
+            (Self::Text(left), Self::Text(right)) => left == right,
+            (Self::String(left), Self::Text(right)) => left == right.as_str(),
+            (Self::Text(left), Self::String(right)) => left.as_str() == right,
+            (Self::Array(left), Self::Array(right)) => left == right,
+            (Self::Object(left), Self::Object(right)) => left == right,
+            _ => false,
         }
     }
 }

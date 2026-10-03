@@ -234,9 +234,7 @@ pub(crate) fn infer_private_match_type(
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     for arm in arms {
         let actual = context.infer(&arm.expr, item_type_unknown_as_none(&result));
-        if result == Type::Unknown {
-            result = actual;
-        }
+        merge_private_control_flow_result(&mut result, actual);
     }
     result
 }
@@ -254,11 +252,59 @@ pub(crate) fn infer_private_if_result_type(
         .chain(std::iter::once(else_branch))
     {
         let actual = context.infer(branch_expr, item_type_unknown_as_none(&result));
-        if result == Type::Unknown {
-            result = actual;
-        }
+        merge_private_control_flow_result(&mut result, actual);
     }
     result
+}
+
+fn merge_private_control_flow_result(result: &mut Type, actual: Type) {
+    if *result == Type::Unknown {
+        *result = actual;
+        return;
+    }
+    if *result == actual || actual == Type::Unknown {
+        return;
+    }
+    let common_base = match (&*result, &actual) {
+        (
+            Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                ..
+            },
+            Type::VariantRefinement {
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            }
+            | Type::Named {
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            },
+        ) if identity == actual_identity && args == actual_args => {
+            Some(Type::resolved_named(name, identity, args.clone()))
+        }
+        (
+            Type::Named {
+                name,
+                identity,
+                args,
+            },
+            Type::VariantRefinement {
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            },
+        ) if identity == actual_identity && args == actual_args => {
+            Some(Type::resolved_named(name, identity, args.clone()))
+        }
+        _ => None,
+    };
+    if let Some(common_base) = common_base {
+        *result = common_base;
+    }
 }
 
 pub(crate) fn infer_private_binary_type(

@@ -86,16 +86,11 @@ fn json_string_field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a str> {
     let JsonValue::Object(fields) = value else {
         return None;
     };
-    fields.iter().find_map(|(field, value)| {
-        if field == key {
-            match value {
-                JsonValue::String(value) => Some(value.as_str()),
-                _ => None,
-            }
-        } else {
-            None
-        }
-    })
+    fields.iter().find_map(
+        |(field, value)| {
+            if field == key { value.as_text() } else { None }
+        },
+    )
 }
 
 fn unvalidated_visible_module_path(source: &SourceFile) -> Option<String> {
