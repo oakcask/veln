@@ -508,6 +508,7 @@ impl AdtRegistry {
                 });
             }
         }
+        deduplicate_nominal_constructors(&mut matches);
         matches
     }
 
@@ -610,6 +611,27 @@ impl AdtRegistry {
                 && use_decl.name == target_module
         })
     }
+}
+
+fn deduplicate_nominal_constructors(constructors: &mut Vec<AdtConstructor<'_>>) {
+    let mut unique = Vec::<AdtConstructor<'_>>::with_capacity(constructors.len());
+    for constructor in constructors.drain(..) {
+        let duplicate = unique.iter_mut().find(|candidate| {
+            candidate.descriptor.identity() == constructor.descriptor.identity()
+                && candidate.variant.name == constructor.variant.name
+        });
+        match duplicate {
+            Some(candidate)
+                if candidate.descriptor.nominal_identity.is_some()
+                    && constructor.descriptor.nominal_identity.is_none() =>
+            {
+                *candidate = constructor;
+            }
+            Some(_) => {}
+            None => unique.push(constructor),
+        }
+    }
+    *constructors = unique;
 }
 
 fn remove_replaced_standard_descriptors(
