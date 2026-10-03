@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn run_blocks_callsite_references_before_jdk_execution() {
-    let project = TestProject::new("run-callsite-runtime-boundary");
+    let project = TestProject::new("run-callsite-entry-runtime-boundary");
     project.write(
         "main.veln",
         concat!(

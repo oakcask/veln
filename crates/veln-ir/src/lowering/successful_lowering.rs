@@ -57,6 +57,7 @@ fn function_shape_fixture(
         return_binding: None,
         return_type: result_unit.clone(),
         effects: vec!["stdio".to_string()],
+        callsite: false,
         contracts: Vec::new(),
         body: function_shape_body(surface, result_unit),
         span: surface.span.clone(),

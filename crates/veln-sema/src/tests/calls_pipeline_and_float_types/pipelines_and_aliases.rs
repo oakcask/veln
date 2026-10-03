@@ -174,7 +174,11 @@ fn assert_let_function_value(
     let CoreStmtKind::Let { expr, .. } = &function.body[0].kind else {
         panic!("{function_name} should start with let");
     };
-    let CoreExprKind::FunctionValue(target) = &expr.kind else {
+    let CoreExprKind::FunctionValue {
+        name: target,
+        callsite: false,
+    } = &expr.kind
+    else {
         panic!("{function_name} let value should lower as function value");
     };
     assert_eq!(target, expected, "{function_name}");

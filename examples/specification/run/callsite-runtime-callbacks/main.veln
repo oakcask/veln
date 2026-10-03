@@ -1,0 +1,29 @@
+fn initial_location() -> SourceLocation callsite
+	callsite
+end
+
+fn add(state: {sum: Int, location: SourceLocation}, item: Int) -> {sum: Int, location: SourceLocation} callsite
+	{sum: state.sum + item, location: callsite}
+end
+
+fn produce(value: Int) -> {value: Int, location: SourceLocation} effects [concurrency] callsite
+	{value: value, location: callsite}
+end
+
+pub fn main() -> Result<(), JoinError> effects [stdio, concurrency]
+	let stored_fold: fn({sum: Int, location: SourceLocation}, Int) -> {sum: Int, location: SourceLocation} = add
+	let seed = initial_location()
+	let folded: {sum: Int, location: SourceLocation} = vec_fold([2, 3], {sum: 0, location: seed}, stored_fold)
+	let stored_worker: fn(Int) -> {value: Int, location: SourceLocation} effects [concurrency] = produce
+	let task = task::spawn_with(stored_worker, 41)
+	let produced: {value: Int, location: SourceLocation} = task::join(task)?
+	stdio::println(int_to_string(folded.sum))
+	stdio::println(folded.location.file)
+	stdio::println(int_to_string(folded.location.start_line))
+	stdio::println(int_to_string(folded.location.start_column))
+	stdio::println(int_to_string(produced.value))
+	stdio::println(produced.location.file)
+	stdio::println(int_to_string(produced.location.start_line))
+	stdio::println(int_to_string(produced.location.start_column))
+	Ok(())
+end

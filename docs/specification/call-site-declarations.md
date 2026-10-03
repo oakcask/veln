@@ -2,14 +2,14 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage; behavior=#declaration-behavior; limits=#limits-and-diagnostics
-update-when: The SourceLocation value, callsite declaration, direct-call propagation, or related static and execution limits change.
+update-when: The SourceLocation value, callsite declaration, direct or indirect call propagation, or related static and execution limits change.
 ---
 
 # Call-site Declarations
 
 Call-site-aware declarations let a function body refer to compiler-supplied
-source-location context. Direct calls construct and propagate that context as
-an ordinary `SourceLocation` value.
+source-location context. Direct and indirect calls construct and propagate
+that context as an ordinary `SourceLocation` value.
 
 ## Usage
 
@@ -63,6 +63,27 @@ function, the supplied value is that function's existing `callsite` value. A
 chain of call-site-aware wrappers therefore preserves the outer ordinary
 caller's call expression.
 
+A call-site-aware declaration can be obtained and stored as an ordinary
+function value. When an ordinary function invokes that value, the supplied
+location covers the complete indirect call expression. The function-value
+acquisition expression does not affect the location. When a call-site-aware
+function invokes a function value, the invocation forwards that function's
+existing `callsite` value. The hidden context remains outside the callable's
+source parameter list, so indirect-call arity and arity diagnostics use only
+the declared source parameters. Function values for declarations without the
+modifier keep the ordinary calling convention and do not receive or use the
+hidden value.
+
+When a call passes a call-site-aware value toward a runtime-backed collection,
+option, result, or task callback consumer, the call expression becomes the
+callback context. Ordinary forwarding calls preserve that bound value until
+the runtime invokes the callback. The bound value also remains attached when
+a task runs asynchronously. A call-site-aware wrapper forwards its existing
+context instead of replacing it with an inner operation expression. If Veln
+code invokes the value before it reaches the runtime, the ordinary indirect
+call rules apply at that invocation. Callbacks without the modifier keep the
+ordinary runtime callback ABI.
+
 The built-in value behaves as an ordinary `SourceLocation` after it enters the
 callee. The function can return it or pass it to an explicit
 `SourceLocation` parameter. Its lines and columns are one-based. Its offsets
@@ -105,13 +126,11 @@ references in those bodies use the ordinary unresolved-name diagnostic. A
 second modifier is rejected at the duplicate token and offers removal as a
 repair.
 
-Indirect calls through function values do not yet carry hidden call-site
-context. Execution lowering rejects using a call-site-aware function as a
-function value. A `veln run` entry cannot carry the modifier because it has no
-Veln call expression from which to obtain a location. Generated-source origin
-mapping, canonical virtual-source naming, dependency source-identity
-collisions, relocation guarantees, deferred-observation lifetime guarantees,
-and call-site-specific LSP and MCP presentation are also not implemented.
+A `veln run` entry cannot carry the modifier because it has no Veln call
+expression from which to obtain a location. Generated-source origin mapping,
+canonical virtual-source naming, dependency source-identity collisions,
+relocation guarantees, deferred-observation lifetime guarantees, and
+call-site-specific LSP and MCP presentation are not implemented.
 Runtime-required contract predicates in ordinary functions do not construct
 call-site context. Execution rejects a direct call from such a predicate to a
 call-site-aware function because the enclosing function has no hidden context
@@ -136,8 +155,10 @@ Functions without the modifier retain their ordinary call ABI.
   the `callsite-direct-runtime` run specification case.
 - Unicode coordinate evidence:
   the `callsite-unicode-coordinates` run specification case.
-- Remaining indirect-call boundary evidence:
-  `examples/specification/run/callsite-runtime-boundary/case.toml`.
+- Indirect-call propagation evidence:
+  [`callsite-indirect-runtime`](../../examples/specification/run/callsite-indirect-runtime/).
+- Runtime-backed collection and task callback evidence:
+  [`callsite-runtime-callbacks`](../../examples/specification/run/callsite-runtime-callbacks/).
 - Run-entry boundary evidence:
   the `callsite-entry-runtime-boundary` run specification case.
 - Runtime contract built-in reference evidence:

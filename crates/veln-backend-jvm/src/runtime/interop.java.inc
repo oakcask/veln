@@ -114,6 +114,21 @@
         }
         throw new IllegalStateException("value is not callable");
     }
+    public static Object callAt(Object fn, Object[] args, Object callsite) {
+        if (fn instanceof CallsiteFn) {
+            return ((CallsiteFn) fn).call(args, callsite);
+        }
+        if (fn instanceof Fn) {
+            return ((Fn) fn).call(args);
+        }
+        throw new IllegalStateException("value is not callable");
+    }
+    public static Object bindCallsite(Object fn, Object callsite) {
+        if (fn instanceof BoundCallsiteFn || !(fn instanceof CallsiteFn)) {
+            return fn;
+        }
+        return new BoundCallsiteFn(fn, callsite);
+    }
     public static String format(Object value) {
         value = diagnosticResultValue(value);
         if (value == UNIT) {

@@ -57,6 +57,7 @@ fn function_shell(function: &Function) -> CoreFunction {
         return_binding: None,
         return_type: CoreType::unit(),
         effects: Vec::new(),
+        callsite: false,
         contracts: Vec::new(),
         body: CoreCleanupRegion::new(Vec::new()),
         span: function.span.clone(),

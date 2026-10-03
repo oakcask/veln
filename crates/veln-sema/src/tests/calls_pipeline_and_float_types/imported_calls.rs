@@ -213,7 +213,7 @@ fn resolves_qualified_function_values_through_import_aliases() {
     };
     assert!(matches!(
         &args[1].kind,
-        CoreExprKind::FunctionValue(name) if name == "stringify"
+        CoreExprKind::FunctionValue { name, callsite: false } if name == "stringify"
     ));
 }
 
@@ -322,7 +322,7 @@ fn resolves_unqualified_imported_function_values() {
     };
     assert!(matches!(
         &args[1].kind,
-        CoreExprKind::FunctionValue(name) if name == "stringify"
+        CoreExprKind::FunctionValue { name, callsite: false } if name == "stringify"
     ));
 }
 

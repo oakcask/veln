@@ -37,6 +37,7 @@ impl<'a> CoreLowerer<'a> {
                 .map(|binding| binding.name.clone()),
             return_type,
             effects: self.lower_effects(),
+            callsite: self.function.callsite.is_some(),
             contracts,
             body: CoreCleanupRegion::new(body),
             span: self.function.span.clone(),

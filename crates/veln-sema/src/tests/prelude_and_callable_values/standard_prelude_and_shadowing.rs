@@ -1,4 +1,6 @@
 use super::*;
+use veln_core::CoreCallbackTarget;
+use veln_ir::IrCallbackTarget;
 
 #[test]
 fn imported_public_codec_decode_resolves_through_qualified_module_path() {
@@ -617,6 +619,14 @@ fn infers_prelude_helper_calls_from_expected_types() {
             CoreExprKind::Call {
                 target: CoreCallTarget::PreludeBuiltin(name),
                 ..
+            }
+            | CoreExprKind::Call {
+                target:
+                    CoreCallTarget::CallbackBoundary {
+                        target: CoreCallbackTarget::PreludeBuiltin(name),
+                        ..
+                    },
+                ..
             } => Some(name.as_str()),
             _ => None,
         })
@@ -653,6 +663,14 @@ fn infers_prelude_helper_calls_from_expected_types() {
         .filter_map(|field| match &field.value.kind {
             IrExprKind::Call {
                 target: IrCallTarget::PreludeBuiltin(name),
+                ..
+            }
+            | IrExprKind::Call {
+                target:
+                    IrCallTarget::CallbackBoundary {
+                        target: IrCallbackTarget::PreludeBuiltin(name),
+                        ..
+                    },
                 ..
             } => Some(name.as_str()),
             _ => None,

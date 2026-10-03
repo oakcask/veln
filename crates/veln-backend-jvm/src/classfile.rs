@@ -4,10 +4,10 @@ use std::rc::Rc;
 
 use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
-    ContractObligationStatus, IrCallTarget, IrContract, IrContractCall, IrDeferredBlock,
-    IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm, IrPattern,
-    IrPatternField, IrPatternKind, IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec,
-    IrStmt, IrStmtKind, TypedProgram,
+    ContractObligationStatus, CoreType, IrCallTarget, IrCallbackTarget, IrContract, IrContractCall,
+    IrDeferredBlock, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
+    IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrSchemaDecodeDispatchCase,
+    IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
 use veln_literals::parse_integer_literal;
 
@@ -125,6 +125,14 @@ impl<'a> ClassfileEmitter<'a> {
         }
     }
 
+    fn function_callsite(&self, name: &str) -> bool {
+        self.program
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .is_some_and(|function| function.callsite)
+    }
+
     pub(crate) fn emit(
         &self,
         entry_function: &str,
@@ -189,14 +197,24 @@ impl<'a> ClassfileEmitter<'a> {
         );
         let mut class = ClassBuilder::new(&adapter);
         class.access_flags = 0x0031;
-        class.interfaces.push(self.runtime_nested("Fn"));
+        class
+            .interfaces
+            .push(self.runtime_nested(if function.callsite {
+                "CallsiteFn"
+            } else {
+                "Fn"
+            }));
         class.add_default_constructor(0x0001);
 
         let mut code = MethodCode::new(Rc::clone(&class.constant_pool));
-        for index in 0..function.params.len() {
+        let source_param_count = function.params.len() - usize::from(function.callsite);
+        for index in 0..source_param_count {
             code.aload(1);
             code.push_i32(index as i32);
             code.op(0x32);
+        }
+        if function.callsite {
+            code.aload(2);
         }
         code.invokestatic(
             &self.options.program_class,
@@ -207,9 +225,13 @@ impl<'a> ClassfileEmitter<'a> {
         class.add_method(MethodInfo {
             access_flags: 0x0081,
             name: "call".to_string(),
-            descriptor: "([Ljava/lang/Object;)Ljava/lang/Object;".to_string(),
+            descriptor: if function.callsite {
+                "([Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;".to_string()
+            } else {
+                "([Ljava/lang/Object;)Ljava/lang/Object;".to_string()
+            },
             max_stack: code.max_stack,
-            max_locals: 2,
+            max_locals: if function.callsite { 3 } else { 2 },
             code: code.code,
             exceptions: Vec::new(),
         });

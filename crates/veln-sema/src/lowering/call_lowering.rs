@@ -256,13 +256,20 @@ impl<'a> CoreLowerer<'a> {
             args,
             signature.as_ref().map(|(params, _)| params.as_slice()),
         );
+        let name = segments.join("::");
+        let target = self.callback_boundary_target(
+            CoreCallbackTarget::ConcurrencyBuiltin(name.clone()),
+            CoreCallTarget::ConcurrencyBuiltin(name),
+            &lowered_args,
+            expr,
+        );
         self.core_expr(
             expr,
             signature
                 .map(|(_, return_type)| return_type)
                 .unwrap_or(CoreType::Unknown),
             CoreExprKind::Call {
-                target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
+                target,
                 args: lowered_args,
             },
         )
@@ -311,6 +318,31 @@ impl<'a> CoreLowerer<'a> {
             },
             |signature| (signature.target, signature.return_type),
         );
+        let target = match target {
+            CoreCallTarget::Value(name) => CoreCallTarget::CallsiteValue {
+                name,
+                callsite: Box::new(self.lower_direct_callsite(callsite_expr)),
+            },
+            CoreCallTarget::Function(name) => self.callback_boundary_target(
+                CoreCallbackTarget::Function(name.clone()),
+                CoreCallTarget::Function(name),
+                &lowered_args,
+                callsite_expr,
+            ),
+            CoreCallTarget::StandardLibraryBuiltin(name) => self.callback_boundary_target(
+                CoreCallbackTarget::StandardLibraryBuiltin(name.clone()),
+                CoreCallTarget::StandardLibraryBuiltin(name),
+                &lowered_args,
+                callsite_expr,
+            ),
+            CoreCallTarget::PreludeBuiltin(name) => self.callback_boundary_target(
+                CoreCallbackTarget::PreludeBuiltin(name.clone()),
+                CoreCallTarget::PreludeBuiltin(name),
+                &lowered_args,
+                callsite_expr,
+            ),
+            target => target,
+        };
 
         self.core_expr(
             expr,
@@ -320,6 +352,26 @@ impl<'a> CoreLowerer<'a> {
                 args: lowered_args,
             },
         )
+    }
+
+    fn callback_boundary_target(
+        &self,
+        callback_target: CoreCallbackTarget,
+        ordinary_target: CoreCallTarget,
+        args: &[CoreExpr],
+        callsite_expr: &Expr,
+    ) -> CoreCallTarget {
+        if args
+            .iter()
+            .any(|arg| matches!(arg.ty, CoreType::Function { .. }))
+        {
+            CoreCallTarget::CallbackBoundary {
+                target: callback_target,
+                callsite: Box::new(self.lower_direct_callsite(callsite_expr)),
+            }
+        } else {
+            ordinary_target
+        }
     }
 
     fn lower_direct_callsite(&self, expr: &Expr) -> CoreExpr {

@@ -568,7 +568,18 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 target: IrCallTarget::Function(name),
                 args,
             } if self.tail_loop_start.is_some() && name == &self.function.name => {
-                self.emit_tail_self_call(code, args);
+                self.emit_tail_self_call(code, args, None);
+                true
+            }
+            IrExprKind::Call {
+                target:
+                    IrCallTarget::CallbackBoundary {
+                        target: IrCallbackTarget::Function(name),
+                        callsite,
+                    },
+                args,
+            } if self.tail_loop_start.is_some() && name == &self.function.name => {
+                self.emit_tail_self_call(code, args, Some(callsite));
                 true
             }
             IrExprKind::Match { scrutinee, arms } => self.emit_tail_match(code, scrutinee, arms),
@@ -579,10 +590,19 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         }
     }
 
-    pub(super) fn emit_tail_self_call(&mut self, code: &mut MethodCode, args: &[IrExpr]) {
+    pub(super) fn emit_tail_self_call(
+        &mut self,
+        code: &mut MethodCode,
+        args: &[IrExpr],
+        callback_callsite: Option<&IrExpr>,
+    ) {
         let mut temp_slots = Vec::with_capacity(args.len());
         for arg in args {
-            self.emit_expr(code, arg);
+            if let Some(callsite) = callback_callsite {
+                self.emit_callback_arg(code, arg, callsite);
+            } else {
+                self.emit_expr(code, arg);
+            }
             let slot = self.alloc_local();
             code.astore(slot);
             temp_slots.push(slot);
@@ -652,7 +672,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrExprKind::IntLiteral(value) => self.emit_int_literal(code, value),
             IrExprKind::FloatLiteral(value) => self.emit_float_literal(code, value),
             IrExprKind::Unit => self.emit_unit(code),
-            IrExprKind::FunctionValue(name) => self.emit_function_value(code, name),
+            IrExprKind::FunctionValue { name, callsite } => {
+                self.emit_function_value(code, name, *callsite)
+            }
             IrExprKind::ResultOk(value) => self.emit_result_constructor(code, "ok", value),
             IrExprKind::ResultErr(value) => self.emit_result_constructor(code, "err", value),
             IrExprKind::OptionSome(value) => self.emit_option_some(code, value),
@@ -724,7 +746,21 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         );
     }
 
-    pub(super) fn emit_function_value(&mut self, code: &mut MethodCode, name: &str) {
+    pub(super) fn emit_function_value(
+        &mut self,
+        code: &mut MethodCode,
+        name: &str,
+        callsite: bool,
+    ) {
+        debug_assert_eq!(
+            self.program
+                .program
+                .functions
+                .iter()
+                .find(|function| function.name == name)
+                .map(|function| function.callsite),
+            Some(callsite)
+        );
         let class_name = format!(
             "{}${}",
             self.program.options.program_class,

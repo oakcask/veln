@@ -351,6 +351,12 @@ helper calls for large list traversals do not consume one host stack frame per
 list element, and this remains runtime support rather than a general
 tail-call optimization guarantee.
 
+When a runtime-backed prelude helper accepts a call-site-aware callback, the
+helper call supplies the callback's hidden source location without changing
+its declared function type or arity. Forwarding and runtime invocation
+preserve that value as specified by
+[Call-site Declarations](call-site-declarations.md#declaration-behavior).
+
 `string_split_once` splits at the first occurrence of `separator`, returning
 `None` when the separator is absent. `string_parse_int` accepts the backend
 integer spelling and returns the original input string in `Err` when parsing

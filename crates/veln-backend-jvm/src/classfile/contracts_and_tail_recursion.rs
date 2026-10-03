@@ -67,7 +67,7 @@ fn scan_expr_tail_recursion(
     facts: &mut TailRecursionFacts,
 ) {
     match &expr.kind {
-        IrExprKind::Call { target, args } => {
+        IrExprKind::Call { target, args, .. } => {
             match target {
                 IrCallTarget::Function(name) if name == function && tail_position => {
                     facts.has_tail_self_call = true;
@@ -77,6 +77,27 @@ fn scan_expr_tail_recursion(
                 }
                 IrCallTarget::Value(_) => {
                     facts.has_indirect_value_call = true;
+                }
+                IrCallTarget::CallsiteValue { callsite, .. } => {
+                    facts.has_indirect_value_call = true;
+                    scan_expr_tail_recursion(callsite, function, false, facts);
+                }
+                IrCallTarget::CallbackBoundary {
+                    target: IrCallbackTarget::Function(name),
+                    callsite,
+                } if name == function && tail_position => {
+                    facts.has_tail_self_call = true;
+                    scan_expr_tail_recursion(callsite, function, false, facts);
+                }
+                IrCallTarget::CallbackBoundary {
+                    target: IrCallbackTarget::Function(name),
+                    callsite,
+                } if name == function => {
+                    facts.has_non_tail_self_call = true;
+                    scan_expr_tail_recursion(callsite, function, false, facts);
+                }
+                IrCallTarget::CallbackBoundary { callsite, .. } => {
+                    scan_expr_tail_recursion(callsite, function, false, facts);
                 }
                 _ => {}
             }
@@ -157,7 +178,7 @@ fn scan_expr_tail_recursion(
         | IrExprKind::IntLiteral(_)
         | IrExprKind::FloatLiteral(_)
         | IrExprKind::Unit
-        | IrExprKind::FunctionValue(_)
+        | IrExprKind::FunctionValue { .. }
         | IrExprKind::OptionNone
         | IrExprKind::ListNil => {}
     }

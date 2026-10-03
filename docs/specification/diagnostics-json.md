@@ -145,15 +145,15 @@ Call-site execution-gate diagnostics use kind `type` and
 | Identifier | Stable details | Failed fact |
 | --- | --- | --- |
 | `core.callsite_entry_unsupported` | `entry`, `boundary: "run_entry"` | The selected run entry declares the `callsite` modifier, but no Veln call expression can supply its hidden location. |
-| `core.indirect_callsite_call` | `node_id`, `reason: "indirect_callsite_call"` | Execution uses a call-site-aware function as a function value before indirect propagation is supported. |
 | `core.callsite_contract_call_unsupported` | `node_id`, `reason: "callsite_contract_call_unsupported"`, `callee` | A runtime contract on an ordinary function calls a call-site-aware function without enclosing hidden context to forward. |
 
 The entry and contract-call records include a related
 `runtime_support` note that states the unavailable runtime boundary. These
-diagnostics stop `veln run` before backend launch. Direct calls in ordinary
-function bodies, direct forwarding through call-site-aware wrappers, and
-direct built-in references or call-site-aware direct calls in runtime
-contracts on call-site-aware functions do not produce these diagnostics. The
+diagnostics stop `veln run` before backend launch. Direct and indirect calls in
+ordinary function bodies, forwarding through call-site-aware wrappers, passing
+call-site-aware callbacks to runtime-backed consumers, and direct built-in
+references or call-site-aware direct calls in runtime contracts on
+call-site-aware functions do not produce these diagnostics. The
 ordinary-function contract diagnostic represents a deliberate boundary: its
 enclosing function has no hidden call-site context to forward.
 

@@ -1,13 +1,14 @@
 use veln_ast::NodeId;
 use veln_core::{
-    CheckedProgram, CoreBlocker, CoreCallTarget, CoreExpr, CoreExprKind, CoreReadiness, CoreStmt,
-    CoreStmtKind,
+    CheckedProgram, CoreBlocker, CoreCallTarget, CoreCallbackTarget, CoreExpr, CoreExprKind,
+    CoreReadiness, CoreStmt, CoreStmtKind,
 };
 
 use crate::{
-    IrCallTarget, IrCleanupRegion, IrContract, IrContractCall, IrDeferredBlock, IrDeferredCapture,
-    IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm, IrParam, IrPattern,
-    IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
+    IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrContractCall, IrDeferredBlock,
+    IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
+    IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind,
+    TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -53,6 +54,7 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
         return_binding: function.return_binding.clone(),
         return_type: function.return_type.clone(),
         effects: function.effects.clone(),
+        callsite: function.callsite,
         contracts: function
             .contracts
             .iter()
@@ -175,7 +177,10 @@ fn lower_scalar_expr(expr: &CoreExpr) -> Option<IrExprKind> {
         CoreExprKind::IntLiteral(value) => Some(IrExprKind::IntLiteral(value.clone())),
         CoreExprKind::FloatLiteral(value) => Some(IrExprKind::FloatLiteral(value.clone())),
         CoreExprKind::Unit => Some(IrExprKind::Unit),
-        CoreExprKind::FunctionValue(name) => Some(IrExprKind::FunctionValue(name.clone())),
+        CoreExprKind::FunctionValue { name, callsite } => Some(IrExprKind::FunctionValue {
+            name: name.clone(),
+            callsite: *callsite,
+        }),
         CoreExprKind::OptionNone => Some(IrExprKind::OptionNone),
         CoreExprKind::ListNil => Some(IrExprKind::ListNil),
         _ => None,
@@ -443,7 +448,28 @@ fn lower_non_schema_call_target(
             Ok(IrCallTarget::StandardLibraryBuiltin(name.clone()))
         }
         CoreCallTarget::PreludeBuiltin(name) => Ok(IrCallTarget::PreludeBuiltin(name.clone())),
+        CoreCallTarget::CallbackBoundary { target, callsite } => {
+            Ok(IrCallTarget::CallbackBoundary {
+                target: match target {
+                    CoreCallbackTarget::Function(name) => IrCallbackTarget::Function(name.clone()),
+                    CoreCallbackTarget::ConcurrencyBuiltin(name) => {
+                        IrCallbackTarget::ConcurrencyBuiltin(name.clone())
+                    }
+                    CoreCallbackTarget::StandardLibraryBuiltin(name) => {
+                        IrCallbackTarget::StandardLibraryBuiltin(name.clone())
+                    }
+                    CoreCallbackTarget::PreludeBuiltin(name) => {
+                        IrCallbackTarget::PreludeBuiltin(name.clone())
+                    }
+                },
+                callsite: Box::new(lower_expr(callsite)?),
+            })
+        }
         CoreCallTarget::Value(name) => Ok(IrCallTarget::Value(name.clone())),
+        CoreCallTarget::CallsiteValue { name, callsite } => Ok(IrCallTarget::CallsiteValue {
+            name: name.clone(),
+            callsite: Box::new(lower_expr(callsite)?),
+        }),
         CoreCallTarget::Unresolved(symbol) => Err(IrLowerError::UnresolvedCallTarget {
             node_id,
             symbol: symbol.clone(),

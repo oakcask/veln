@@ -1,4 +1,6 @@
 use super::*;
+use veln_core::CoreCallbackTarget;
+use veln_ir::IrCallbackTarget;
 
 #[test]
 fn lowers_function_declarations_as_callable_values() {
@@ -28,12 +30,19 @@ fn lowers_function_declarations_as_callable_values() {
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
-    let CoreExprKind::Call { args, .. } = &expr.kind else {
+    let CoreExprKind::Call { target, args } = &expr.kind else {
         panic!("tail expression should lower as call");
     };
     assert!(matches!(
+        target,
+        CoreCallTarget::CallbackBoundary {
+            target: CoreCallbackTarget::PreludeBuiltin(name),
+            callsite,
+        } if name == "vec_map" && matches!(callsite.kind, CoreExprKind::Record(_))
+    ));
+    assert!(matches!(
         &args[1].kind,
-        CoreExprKind::FunctionValue(name) if name == "stringify"
+        CoreExprKind::FunctionValue { name, callsite: false } if name == "stringify"
     ));
     assert_eq!(
         args[1].ty,
@@ -54,13 +63,297 @@ fn lowers_function_declarations_as_callable_values() {
     let IrStmtKind::Return { value } = &main.body[0].kind else {
         panic!("tail expression should lower as IR return");
     };
-    let IrExprKind::Call { args, .. } = &value.kind else {
+    let IrExprKind::Call { target, args } = &value.kind else {
         panic!("tail expression should lower as IR call");
     };
     assert!(matches!(
-        &args[1].kind,
-        IrExprKind::FunctionValue(name) if name == "stringify"
+        target,
+        IrCallTarget::CallbackBoundary {
+            target: IrCallbackTarget::PreludeBuiltin(name),
+            callsite,
+        } if name == "vec_map" && matches!(callsite.kind, IrExprKind::Record(_))
     ));
+    assert!(matches!(
+        &args[1].kind,
+        IrExprKind::FunctionValue { name, callsite: false } if name == "stringify"
+    ));
+}
+
+#[test]
+fn runtime_callback_boundaries_forward_callsite_wrapper_context() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn add(total: Int, item: Int) -> Int callsite\n",
+            "  total + item + callsite.start_line\n",
+            "end\n",
+            "pub fn fold(items: Vec<Int>) -> Int callsite\n",
+            "  vec_fold(items, 0, add)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_project_reachable_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_eq!(core.readiness, CoreReadiness::Complete);
+    let fold = core
+        .functions
+        .iter()
+        .find(|function| function.name == "fold")
+        .expect("wrapper should be lowered");
+    let CoreStmtKind::Return { expr } = &fold.body[0].kind else {
+        panic!("runtime callback call should lower as a return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::CallbackBoundary {
+                target: CoreCallbackTarget::PreludeBuiltin(name),
+                callsite,
+            },
+            args,
+        } if name == "vec_fold"
+            && matches!(callsite.kind, CoreExprKind::Local(ref name) if name == "callsite")
+            && matches!(&args[2].kind, CoreExprKind::FunctionValue { name, callsite: true } if name == "add")
+    ));
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    let fold = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "fold")
+        .expect("wrapper should reach IR");
+    let IrStmtKind::Return { value } = &fold.body[0].kind else {
+        panic!("runtime callback call should reach IR");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::CallbackBoundary {
+                target: IrCallbackTarget::PreludeBuiltin(name),
+                callsite,
+            },
+            args,
+        } if name == "vec_fold"
+            && matches!(callsite.kind, IrExprKind::Local(ref name) if name == "callsite")
+            && matches!(&args[2].kind, IrExprKind::FunctionValue { name, callsite: true } if name == "add")
+    ));
+}
+
+#[test]
+fn callsite_wrapper_forwards_context_after_explicit_function_value_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located(value: Int) -> {value: Int, location: SourceLocation} callsite\n",
+            "  {value: value, location: callsite}\n",
+            "end\n",
+            "fn forward(value: Int) -> {value: Int, location: SourceLocation} callsite\n",
+            "  let stored: fn(Int) -> {value: Int, location: SourceLocation} = located\n",
+            "  stored(value)\n",
+            "end\n",
+            "pub fn main() -> {value: Int, location: SourceLocation}\n",
+            "  forward(37)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_project_reachable_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_eq!(core.readiness, CoreReadiness::Complete);
+    let forward = core
+        .functions
+        .iter()
+        .find(|function| function.name == "forward")
+        .expect("wrapper should be lowered");
+    assert!(forward.callsite);
+    assert_eq!(forward.params.len(), 2);
+    assert_eq!(forward.params[0].name, "value");
+    assert_eq!(forward.params[1].name, "callsite");
+    let CoreStmtKind::Let { expr: stored, .. } = &forward.body[0].kind else {
+        panic!("stored function should lower as a let binding");
+    };
+    assert!(matches!(
+        stored.kind,
+        CoreExprKind::FunctionValue {
+            ref name,
+            callsite: true,
+        } if name == "located"
+    ));
+    let CoreType::Function { params, .. } = &stored.ty else {
+        panic!("stored value should retain its callable type");
+    };
+    assert_eq!(params, &[CoreType::int()]);
+    let CoreStmtKind::Return { expr: invoked } = &forward.body[1].kind else {
+        panic!("indirect invocation should lower as a return");
+    };
+    assert!(matches!(
+        &invoked.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::CallsiteValue { name, callsite },
+            args,
+        } if name == "stored"
+            && matches!(callsite.kind, CoreExprKind::Local(ref name) if name == "callsite")
+            && matches!(args.as_slice(), [arg] if matches!(arg.kind, CoreExprKind::Local(ref name) if name == "value"))
+    ));
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    let forward = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "forward")
+        .expect("wrapper should reach IR");
+    assert!(forward.callsite);
+    assert_eq!(forward.params.len(), 2);
+    let IrStmtKind::Return { value: invoked } = &forward.body[1].kind else {
+        panic!("indirect invocation should reach IR");
+    };
+    assert!(matches!(
+        &invoked.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::CallsiteValue { name, callsite },
+            args,
+        } if name == "stored"
+            && matches!(callsite.kind, IrExprKind::Local(ref name) if name == "callsite")
+            && matches!(args.as_slice(), [arg] if matches!(arg.kind, IrExprKind::Local(ref name) if name == "value"))
+    ));
+}
+
+#[test]
+fn callsite_function_values_preserve_metadata_and_lower_indirect_context() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn invoke(callback: fn() -> SourceLocation) -> SourceLocation\n",
+            "  callback()\n",
+            "end\n",
+            "pub fn main() -> SourceLocation\n",
+            "  let stored: fn() -> SourceLocation = located\n",
+            "  invoke(stored)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_project_reachable_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_eq!(core.readiness, CoreReadiness::Complete);
+    let located = core
+        .functions
+        .iter()
+        .find(|function| function.name == "located")
+        .expect("callsite function should be lowered");
+    assert!(located.callsite);
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Let { expr, .. } = &main.body[0].kind else {
+        panic!("stored function should lower as a let binding");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::FunctionValue { name, callsite: true } if name == "located"
+    ));
+    let invoke = core
+        .functions
+        .iter()
+        .find(|function| function.name == "invoke")
+        .expect("invoke should be lowered");
+    let CoreStmtKind::Return { expr } = &invoke.body[0].kind else {
+        panic!("indirect invocation should lower as a return");
+    };
+    let CoreExprKind::Call { target, args } = &expr.kind else {
+        panic!("indirect invocation should lower as a call");
+    };
+    assert!(
+        args.is_empty(),
+        "hidden context must not enter source arguments"
+    );
+    assert!(matches!(
+        target,
+        CoreCallTarget::CallsiteValue { name, callsite }
+            if name == "callback" && matches!(callsite.kind, CoreExprKind::Record(_))
+    ));
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    let located = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "located")
+        .expect("callsite function should reach IR");
+    assert!(located.callsite);
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should reach IR");
+    let IrStmtKind::Let { value, .. } = &main.body[0].kind else {
+        panic!("stored function should reach IR");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::FunctionValue { name, callsite: true } if name == "located"
+    ));
+    let invoke = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "invoke")
+        .expect("invoke should reach IR");
+    let IrStmtKind::Return { value } = &invoke.body[0].kind else {
+        panic!("indirect invocation should reach IR");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::CallsiteValue { name, callsite },
+            args,
+        } if name == "callback"
+            && args.is_empty()
+            && matches!(callsite.kind, IrExprKind::Record(_))
+    ));
+}
+
+#[test]
+fn callsite_function_value_hidden_context_does_not_change_arity_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "pub fn main() -> SourceLocation\n",
+            "  let stored: fn() -> SourceLocation = located\n",
+            "  stored(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "core.call_arity_mismatch")
+        .expect("source arity mismatch should be reported");
+    assert_eq!(diagnostic.message, "call expects 0 argument(s), but got 1");
 }
 
 #[test]
@@ -156,10 +449,14 @@ fn call_resolution_prefers_local_callable_over_function_declaration() {
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
-    let CoreExprKind::Call { target, args } = &expr.kind else {
+    let CoreExprKind::Call { target, args, .. } = &expr.kind else {
         panic!("tail expression should lower as call");
     };
-    assert_eq!(target, &CoreCallTarget::Value("stringify".to_string()));
+    assert!(matches!(
+        target,
+        CoreCallTarget::CallsiteValue { name, callsite }
+            if name == "stringify" && matches!(callsite.kind, CoreExprKind::Record(_))
+    ));
     assert!(matches!(&args[0].kind, CoreExprKind::IntLiteral(value) if value == "1"));
 }
 

@@ -158,12 +158,12 @@ contains = ["error[core.callsite_contract_call_unsupported]"]
     );
     assert!(
         !run_lowering_manifest.needs_command_source_error_guard(Path::new(
-            "examples/specification/run/callsite-runtime-boundary"
+            "examples/specification/run/callsite-contract-runtime-boundary"
         ))
     );
     assert!(
         !run_lowering_manifest.needs_pre_command_source_error_guard(Path::new(
-            "examples/specification/run/callsite-runtime-boundary"
+            "examples/specification/run/callsite-contract-runtime-boundary"
         ))
     );
 }

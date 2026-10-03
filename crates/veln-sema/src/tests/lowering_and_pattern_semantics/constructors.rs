@@ -194,7 +194,7 @@ fn lowers_name_paths_by_resolution_category() {
     assert_eq!(fields[1].expr.ty, CoreType::option(CoreType::string()));
     assert!(matches!(
         &fields[2].expr.kind,
-        CoreExprKind::FunctionValue(name) if name == "stringify"
+        CoreExprKind::FunctionValue { name, callsite: false } if name == "stringify"
     ));
 }
 

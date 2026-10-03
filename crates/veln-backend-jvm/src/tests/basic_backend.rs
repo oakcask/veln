@@ -123,6 +123,73 @@ fn bytecode_backend_preserves_distinct_calling_conventions() {
 }
 
 #[test]
+fn bytecode_backend_passes_indirect_call_location_to_callsite_function_values() {
+    let ir = lower_to_ir(concat!(
+        "fn located(value: Int) -> {value: Int, location: SourceLocation} callsite\n",
+        "  {value: value, location: callsite}\n",
+        "end\n",
+        "fn forward(value: Int) -> {value: Int, location: SourceLocation} callsite\n",
+        "  let stored: fn(Int) -> {value: Int, location: SourceLocation} = located\n",
+        "  stored(value)\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let observed = forward(37)\n",
+        "  stdio::println(int_to_string(observed.value))\n",
+        "  stdio::println(int_to_string(observed.location.start_line))\n",
+        "  stdio::println(int_to_string(observed.location.start_column))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-callsite-function-value", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "37\n9\n18\n");
+}
+
+#[test]
+fn bytecode_backend_prefers_indirect_call_context_over_bound_callback_context() {
+    let ir = lower_to_ir(concat!(
+        "fn located() -> SourceLocation callsite\n",
+        "  callsite\n",
+        "end\n",
+        "fn invoke(callback: fn() -> SourceLocation) -> SourceLocation\n",
+        "  callback()\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let stored: fn() -> SourceLocation = located\n",
+        "  let observed = invoke(stored)\n",
+        "  stdio::println(int_to_string(observed.start_line))\n",
+        "  stdio::println(int_to_string(observed.start_column))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-bound-callsite-function-value",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "5\n3\n");
+}
+
+#[test]
 fn bytecode_backend_schema_encode_step_calls_match_runtime_metadata_contract() {
     for budgeted in [false, true] {
         let mut ir = lower_to_ir(concat!(
