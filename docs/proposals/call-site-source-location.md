@@ -64,6 +64,10 @@ generated-source mapping, lifetime coverage, LSP, and MCP.
 ## Non-goals
 
 - This proposal does not expose a runtime stack trace.
+- This proposal does not make a runtime-required predicate in an ordinary
+  function construct call-site context for a call-site-aware callee. Only an
+  enclosing call-site-aware function has hidden context that its predicate can
+  forward.
 - Source locations are not stable identifiers across source edits.
 - The proposal does not add general optional or default parameters.
 - The proposal does not add syntax that overrides implicit call-site context at

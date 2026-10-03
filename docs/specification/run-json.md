@@ -71,8 +71,9 @@ The same envelope reports call-site execution gates. A call-site-aware entry,
 an indirect use of a call-site-aware function, and a runtime contract on an
 ordinary function that calls a call-site-aware function all fail before
 backend launch. Direct built-in references and call-site-aware direct calls in
-runtime contracts on call-site-aware functions are executable. The remaining
-gate diagnostic identifiers and stable details are specified by
+runtime contracts on call-site-aware functions are executable. An ordinary
+function's runtime contract deliberately does not construct hidden call-site
+context. The gate diagnostic identifiers and stable details are specified by
 [Check JSON And Diagnostics](diagnostics-json.md#diagnostic-families).
 
 Checked-core readiness can stop a diagnostic-free run for unsupported lowered

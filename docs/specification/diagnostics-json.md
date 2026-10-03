@@ -153,7 +153,9 @@ The entry and contract-call records include a related
 diagnostics stop `veln run` before backend launch. Direct calls in ordinary
 function bodies, direct forwarding through call-site-aware wrappers, and
 direct built-in references or call-site-aware direct calls in runtime
-contracts on call-site-aware functions do not produce these diagnostics.
+contracts on call-site-aware functions do not produce these diagnostics. The
+ordinary-function contract diagnostic represents a deliberate boundary: its
+enclosing function has no hidden call-site context to forward.
 
 A schema declaration used as an ordinary local annotation type reports
 `type.schema_reference` with `schema` and `use_kind: "local_annotation"`.

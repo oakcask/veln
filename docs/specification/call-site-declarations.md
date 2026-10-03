@@ -112,9 +112,11 @@ Veln call expression from which to obtain a location. Generated-source origin
 mapping, canonical virtual-source naming, dependency source-identity
 collisions, relocation guarantees, deferred-observation lifetime guarantees,
 and call-site-specific LSP and MCP presentation are also not implemented.
-Runtime-required contract predicates in ordinary functions cannot yet call a
-call-site-aware function because no enclosing hidden context is available to
-forward.
+Runtime-required contract predicates in ordinary functions do not construct
+call-site context. Execution rejects a direct call from such a predicate to a
+call-site-aware function because the enclosing function has no hidden context
+to forward. This is a deliberate boundary rather than pending direct-call
+propagation.
 
 An unmodified function can use an ordinary binding named `callsite`, including
 in its contracts, and execution treats that binding like any other local value.
@@ -143,7 +145,7 @@ Functions without the modifier retain their ordinary call ABI.
 - Runtime contract call propagation and failure evidence:
   the `callsite-contract-call-runtime` and `callsite-contract-failure` run
   specification cases.
-- Remaining ordinary-function runtime contract boundary evidence:
+- Ordinary-function runtime contract boundary evidence:
   [`callsite-contract-runtime-boundary`](../../examples/specification/run/callsite-contract-runtime-boundary/).
 - Ordinary-identifier execution evidence:
   `examples/specification/run/callsite-ordinary-identifier/case.toml`.

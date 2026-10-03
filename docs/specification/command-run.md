@@ -47,7 +47,9 @@ Runtime contracts in those functions can read the supplied built-in value.
 Their direct calls to other call-site-aware functions forward that value.
 Using a call-site-aware function as a function value, or calling one from a
 runtime contract on an ordinary function, blocks execution before backend
-launch. The exact propagation and remaining limits are specified by
+launch. The latter boundary is deliberate: an ordinary function's contract
+does not construct hidden call-site context. The exact propagation and
+remaining limits are specified by
 [Call-site Declarations](call-site-declarations.md).
 
 The reachable program is lowered to typed IR and JVM classfiles. Ordinary

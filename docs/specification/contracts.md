@@ -60,8 +60,9 @@ A call-site-aware callee can use fixed and variadic source parameters. The
 call must supply every fixed argument, and each variadic tail argument must
 match the declared element type. A variadic contract call to an ordinary
 function remains rejected until its runtime ABI is supported. A contract on
-an ordinary function also cannot call a call-site-aware function because it
-has no hidden context to forward. This call-site boundary is specified under
+an ordinary function does not construct call-site context and cannot call a
+call-site-aware function because it has no hidden context to forward. This
+deliberate call-site boundary is specified under
 [Limits and diagnostics](call-site-declarations.md#limits-and-diagnostics).
 A statically proven obligation emits no runtime call. Direct calls in ordinary
 function bodies remain executable.
