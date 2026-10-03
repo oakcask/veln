@@ -28,6 +28,10 @@ fn keep_nil(value: List<Int>::Nil) -> List<Int>::Nil
 	value
 end
 
+fn keep_ready_values(first: Int, values: ...State::Ready) -> ()
+	()
+end
+
 fn main() -> State
 	let exact = Ready
 	let same: State::Ready = accept_one(exact)
@@ -35,5 +39,6 @@ fn main() -> State
 	let some: Option<Int>::Some = keep_some(Some(1))
 	let ok: Result<Int, String>::Ok = keep_ok(Ok(1))
 	let nil: List<Int>::Nil = keep_nil(Nil)
+	let variadic: fn(Int, ...State::Ready) -> () = keep_ready_values
 	widened
 end

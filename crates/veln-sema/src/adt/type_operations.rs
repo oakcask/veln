@@ -6,14 +6,12 @@ use veln_core::CoreType;
 
 use crate::semantic_model::Type;
 
-use super::descriptors::AdtConstructor;
+use super::descriptors::{AdtConstructor, AdtDescriptor};
 #[cfg(test)]
 use crate::source_less_names::InvalidStandardSymbolCase;
 
 #[cfg(test)]
 use super::builtin_descriptors::build_builtin_descriptors;
-#[cfg(test)]
-use super::descriptors::AdtDescriptor;
 #[cfg(test)]
 use super::lookup_validation::validate_adt_lookup_descriptors;
 
@@ -58,6 +56,29 @@ pub(crate) fn refined_constructed_type_from_args(
         args.to_vec(),
         vec![constructor.variant.name.clone()],
     )
+}
+
+pub(crate) fn type_matches_descriptor(ty: &Type, descriptor: &AdtDescriptor) -> bool {
+    let (name, identity, args) = match ty {
+        Type::Named {
+            name,
+            identity,
+            args,
+        }
+        | Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => (name, identity, args),
+        _ => return false,
+    };
+    args.len() == descriptor.type_parameters.len()
+        && if identity == name {
+            name == &descriptor.type_name
+        } else {
+            identity == &descriptor.identity()
+        }
 }
 
 pub(crate) fn core_constructed_type_from_args(

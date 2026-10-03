@@ -16,36 +16,51 @@ fn is_assignable_at_boundary(expected: &Type, actual: &Type, direct: bool) -> bo
         match (expected, actual) {
             (
                 Type::VariantRefinement {
+                    name: expected_name,
                     identity: expected_identity,
                     args: expected_args,
                     variants: expected_variants,
                     ..
                 },
                 Type::VariantRefinement {
+                    name: actual_name,
                     identity: actual_identity,
                     args: actual_args,
                     variants: actual_variants,
                     ..
                 },
             ) => {
-                return expected_identity == actual_identity
-                    && expected_args == actual_args
+                return same_type_identity(
+                    expected_name,
+                    expected_identity,
+                    actual_name,
+                    actual_identity,
+                ) && invariant_args_match(expected_args, actual_args)
                     && actual_variants
                         .iter()
                         .all(|variant| expected_variants.contains(variant));
             }
             (
                 Type::Named {
+                    name: expected_name,
                     identity: expected_identity,
                     args: expected_args,
                     ..
                 },
                 Type::VariantRefinement {
+                    name: actual_name,
                     identity: actual_identity,
                     args: actual_args,
                     ..
                 },
-            ) => return expected_identity == actual_identity && expected_args == actual_args,
+            ) => {
+                return same_type_identity(
+                    expected_name,
+                    expected_identity,
+                    actual_name,
+                    actual_identity,
+                ) && invariant_args_match(expected_args, actual_args);
+            }
             _ => {}
         }
     }
@@ -62,17 +77,17 @@ fn is_assignable_at_boundary(expected: &Type, actual: &Type, direct: bool) -> bo
         }
         (
             Type::Named {
-                identity: expected_identity,
+                name: expected_name,
                 args: expected_args,
                 ..
             },
             Type::Named {
-                identity: actual_identity,
+                name: actual_name,
                 args: actual_args,
                 ..
             },
         ) => {
-            expected_identity == actual_identity
+            expected_name == actual_name
                 && expected_args.len() == actual_args.len()
                 && expected_args
                     .iter()
@@ -110,6 +125,25 @@ fn is_assignable_at_boundary(expected: &Type, actual: &Type, direct: bool) -> bo
         }
         _ => false,
     }
+}
+
+fn same_type_identity(
+    expected_name: &str,
+    expected_identity: &str,
+    actual_name: &str,
+    actual_identity: &str,
+) -> bool {
+    expected_identity == actual_identity
+        || (expected_name == actual_name
+            && (expected_identity == expected_name || actual_identity == actual_name))
+}
+
+fn invariant_args_match(expected: &[Type], actual: &[Type]) -> bool {
+    expected.len() == actual.len()
+        && expected
+            .iter()
+            .zip(actual)
+            .all(|(expected, actual)| is_assignable_at_boundary(expected, actual, false))
 }
 
 fn effects_are_assignable(expected: &[String], actual: &[String]) -> bool {

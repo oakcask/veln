@@ -7,7 +7,6 @@ impl<'a> FunctionChecker<'a> {
         fields: &[RecordField],
         expected: Option<&ExpectedType>,
     ) -> Type {
-        let diagnostic_count = self.diagnostics.len();
         if fields.is_empty()
             && let Some(expected) = expected
             && expected.ty.dict_parts().is_some()
@@ -56,13 +55,20 @@ impl<'a> FunctionChecker<'a> {
                     }),
                 });
             let actual = self.infer_expr(&field.expr, field_expected.as_ref());
+            if let Some(field_expected) = &field_expected {
+                self.check_assignable(
+                    &field.expr,
+                    &field_expected.ty,
+                    &actual,
+                    field_expected,
+                    "record_field",
+                );
+            }
             actual_fields.push((field.name.clone(), actual));
         }
         let actual = Type::Record(actual_fields);
         if let Some(expected) = expected
             && matches!(expected.ty, Type::Record(_))
-            && (self.diagnostics.len() != diagnostic_count
-                || !type_contains_variant_refinement(&actual))
         {
             expected.ty.clone()
         } else {
@@ -117,14 +123,19 @@ impl<'a> FunctionChecker<'a> {
                 "Dict key type inferred here.",
             );
             let actual_key = self.infer_expr(&entry.key, Some(&key_expected));
+            if let Some(base) = common_variant_base(&key_expected.ty, &actual_key) {
+                key_type = base;
+            }
             if !is_assignable(&key_expected.ty, &actual_key) {
-                self.check_assignable_nested(
-                    &entry.key,
-                    &key_expected.ty,
-                    &actual_key,
-                    &key_expected,
-                    "dict_key",
-                );
+                if common_variant_base(&key_expected.ty, &actual_key).is_none() {
+                    self.check_assignable_nested(
+                        &entry.key,
+                        &key_expected.ty,
+                        &actual_key,
+                        &key_expected,
+                        "dict_key",
+                    );
+                }
             }
             if key_type == Type::Unknown {
                 key_type = actual_key;
@@ -141,14 +152,19 @@ impl<'a> FunctionChecker<'a> {
                 "Dict value type inferred here.",
             );
             let actual_value = self.infer_expr(&entry.value, Some(&value_expected));
+            if let Some(base) = common_variant_base(&value_expected.ty, &actual_value) {
+                value_type = base;
+            }
             if !is_assignable(&value_expected.ty, &actual_value) {
-                self.check_assignable_nested(
-                    &entry.value,
-                    &value_expected.ty,
-                    &actual_value,
-                    &value_expected,
-                    "dict_value",
-                );
+                if common_variant_base(&value_expected.ty, &actual_value).is_none() {
+                    self.check_assignable_nested(
+                        &entry.value,
+                        &value_expected.ty,
+                        &actual_value,
+                        &value_expected,
+                        "dict_value",
+                    );
+                }
             }
             if value_type == Type::Unknown {
                 value_type = actual_value;

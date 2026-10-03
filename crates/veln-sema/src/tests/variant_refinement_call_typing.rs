@@ -55,6 +55,23 @@ fn compiler_known_generic_refinements_resolve_and_widen() {
 }
 
 #[test]
+fn expected_adt_disambiguates_nullary_constructors() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Left\n",
+        "  Ready\n",
+        "end\n",
+        "type Right\n",
+        "  Ready\n",
+        "end\n",
+        "fn pick() -> Left\n",
+        "  Ready\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn rejected_calls_and_results_report_variant_mismatches() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -148,6 +165,28 @@ fn qualified_and_unqualified_union_bases_resolve_before_identity_comparison() {
 }
 
 #[test]
+fn variant_unions_reject_mixed_resolved_adts() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Other\n",
+            "  Ready\n",
+            "end\n",
+            "fn invalid(value: State::Ready | Other::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+        )
+    ));
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn nested_aggregate_widening_is_rejected_for_inline_and_bound_values() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -173,18 +212,115 @@ fn nested_aggregate_widening_is_rejected_for_inline_and_bound_values() {
         )
     ));
 
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
     assert_eq!(
         diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
             .count(),
-        6,
+        1,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        2,
         "{diagnostics:#?}"
     );
 }
 
 #[test]
-fn recursive_adt_payloads_reject_nested_refinement_widening() {
+fn record_fields_report_ordinary_nested_type_mismatches() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn main() -> ()\n",
+        "  let value: {n: Int} = {n: \"wrong\"}\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn nested_generic_invariance_does_not_claim_the_outer_variant_is_excluded() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  let retained = Boxed(Ready)\n",
+            "  let widened: Box<State> = retained\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+}
+
+#[test]
+fn refinement_function_variadics_are_invariant() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn ready_values(first: Int, values: ...State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  let exact: fn(Int, ...State::Ready) -> () = ready_values\n",
+            "  let base: fn(Int, ...State) -> () = ready_values\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn variant_mismatch_lists_multiple_variants_in_declaration_order() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn needs_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn wrong(value: State::Failed | State::Closed) -> ()\n",
+            "  needs_ready(value)\n",
+            "end\n",
+        )
+    ));
+
+    let mismatch = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .unwrap_or_else(|| panic!("{diagnostics:#?}"));
+    let json = veln_diagnostics::diagnostic_to_json(mismatch).to_json();
+    assert!(json.contains("\"expected_variants\":[\"Ready\"]"), "{json}");
+    assert!(
+        json.contains("\"variants\":[\"Closed\",\"Failed\"]"),
+        "{json}"
+    );
+}
+
+#[test]
+fn recursive_adt_payload_construction_supplies_direct_context() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",
         "  Ready\n",
@@ -195,13 +331,7 @@ fn recursive_adt_payloads_reject_nested_refinement_widening() {
         "end\n",
     ));
 
-    let mismatches = diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
-        .collect::<Vec<_>>();
-    assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
-    assert!(mismatches[0].message.contains("State::Ready"));
-    assert!(mismatches[0].message.contains("State`"));
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]

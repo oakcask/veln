@@ -237,8 +237,11 @@ current inferred type, and constructor type-context constraint. Bare,
 type-qualified,
 import-alias-qualified, and import-alias-and-type-qualified constructor forms
 use the same visibility and descriptor resolution rules as constructor calls
-with expected type context. Nullary generic constructors still require
-surrounding type context.
+with expected type context. When visible ADTs share an unqualified constructor
+leaf, an expected ADT selects the variant owned by that ADT for both nullary
+and payload-carrying constructors. Without that expectation the ordinary
+ambiguity rule applies. Nullary generic constructors still require surrounding
+type context.
 
 Compiler-known collection and option/result helpers propagate concrete callback context.
 The input container determines callback item types; an explicit `_with` context is the
@@ -412,7 +415,9 @@ or final result. Its JSON details contain the rendered `actual_type`, rendered
 `form: all_except_expected` and an empty `variants` array when the actual type
 is the complete base ADT. A `variant_exclusion` related note renders the same
 fact for human output, and another related note identifies the expected local
-annotation, parameter, or result declaration. The checked examples cover
+annotation, parameter, or result declaration. A nested generic invariance
+failure that has no truthful variant exclusion uses the ordinary
+`type.mismatch` diagnostic instead. The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures
 in `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-json/`,

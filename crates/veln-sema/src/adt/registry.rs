@@ -342,8 +342,7 @@ impl AdtRegistry {
             {
                 return Some(constructor);
             }
-            ConstructorLookup::Ambiguous
-                if descriptor_allows_expected_constructor_disambiguation(descriptor) => {}
+            ConstructorLookup::Ambiguous => {}
             _ => return None,
         }
 
@@ -630,14 +629,6 @@ fn descriptor_type_segment_index(descriptor: &AdtDescriptor, segments: &[String]
         .rev()
         .find_map(|(index, segment)| (segment == &descriptor.type_name).then_some(index))
         .filter(|index| *index > 0)
-}
-
-fn descriptor_allows_expected_constructor_disambiguation(descriptor: &AdtDescriptor) -> bool {
-    matches!(
-        descriptor.module_name.as_deref(),
-        None | Some("std::prelude")
-    ) && matches!(descriptor.type_name.as_str(), "DecodeStep" | "EncodeStep")
-        && descriptor.visibility == Visibility::Public
 }
 
 fn type_alias_descriptors(

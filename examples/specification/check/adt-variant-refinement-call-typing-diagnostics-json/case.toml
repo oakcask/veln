@@ -22,7 +22,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 7
+equals = 9
 
 [[diagnostics]]
 id = "type.variant_mismatch"
@@ -101,6 +101,28 @@ file = "main.veln"
 line = 48
 column = 2
 
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed | State::Failed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 52
+column = 14
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `State::Ready | Other::Foreign`: variant refinement alternatives must resolve to declared variants of one ADT"
+
+[diagnostics.span]
+file = "main.veln"
+line = 60
+column = 16
+
 [[json_assert]]
 path = "diagnostics.0.details.excluded_variants.form"
 equals = "listed"
@@ -156,3 +178,15 @@ equals = "Option<Int>::Some"
 [[json_assert]]
 path = "diagnostics.5.details.excluded_variants.variants.0"
 equals = "None"
+
+[[json_assert]]
+path = "diagnostics.7.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.7.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.7.details.excluded_variants.variants.1"
+equals = "Failed"

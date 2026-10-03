@@ -13,7 +13,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 8
+equals = 7
 
 [[diagnostics]]
 id = "name.duplicate"
@@ -47,17 +47,6 @@ message = "constructor `Missing` needs type context"
 file = "inference.veln"
 line = 7
 column = 14
-
-[[diagnostics]]
-id = "name.ambiguous"
-severity = "error"
-kind = "name"
-message = "ambiguous call_target `Wrap`"
-
-[diagnostics.span]
-file = "duplicate.veln"
-line = 39
-column = 2
 
 [[diagnostics]]
 id = "type.match_non_exhaustive"

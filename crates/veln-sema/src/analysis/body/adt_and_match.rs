@@ -10,9 +10,8 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         let diagnostic_count = self.diagnostics.len();
         let mut actual_args = Vec::new();
-        let expected = expected.filter(|expected| {
-            unification::adt_args(&expected.ty, constructor.descriptor).is_some()
-        });
+        let expected = expected
+            .filter(|expected| adt::type_matches_descriptor(&expected.ty, constructor.descriptor));
         let mut arg_expected = expected.cloned().unwrap_or_else(|| ExpectedType {
             ty: Type::Unknown,
             source: ExpectedTypeSource::Inferred,
@@ -88,7 +87,7 @@ impl<'a> FunctionChecker<'a> {
             &inferred_type_args
         };
         let inferred_base = adt::constructed_type_from_args(constructor, type_args);
-        if type_contains_unknown(&inferred_base) {
+        if type_contains_unknown(&inferred_base) && expected.is_none() {
             self.push_ambiguous_constructor_type(
                 expr.node_id,
                 expr.span.clone(),
@@ -97,7 +96,10 @@ impl<'a> FunctionChecker<'a> {
             );
             return adt::constructed_type(constructor, &actual_args);
         }
-        adt::refined_constructed_type_from_args(constructor, type_args)
+        let refined = adt::refined_constructed_type_from_args(constructor, type_args);
+        expected
+            .filter(|expected| matches!(expected.ty, Type::Named { .. }))
+            .map_or(refined, |expected| expected.ty.clone())
     }
 
     pub(super) fn infer_list(
@@ -141,14 +143,19 @@ impl<'a> FunctionChecker<'a> {
                 "Vec element type inferred here.",
             );
             let actual = self.infer_expr(item, Some(&item_expected));
+            if let Some(base) = common_variant_base(&item_expected.ty, &actual) {
+                item_type = base;
+            }
             if !is_assignable(&item_expected.ty, &actual) {
-                self.check_assignable_nested(
-                    item,
-                    &item_expected.ty,
-                    &actual,
-                    &item_expected,
-                    "list_element",
-                );
+                if common_variant_base(&item_expected.ty, &actual).is_none() {
+                    self.check_assignable_nested(
+                        item,
+                        &item_expected.ty,
+                        &actual,
+                        &item_expected,
+                        "list_element",
+                    );
+                }
             }
             if item_type == Type::Unknown {
                 item_type = actual;
@@ -307,7 +314,7 @@ impl<'a> FunctionChecker<'a> {
             self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
         }
         if *result_type == Type::Unknown {
-            *result_type = actual;
+            *result_type = inferred_control_flow_result_type(actual);
         }
     }
 
@@ -371,7 +378,7 @@ impl<'a> FunctionChecker<'a> {
             self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
         }
         if *result_type == Type::Unknown {
-            *result_type = actual;
+            *result_type = inferred_control_flow_result_type(actual);
         }
     }
 }

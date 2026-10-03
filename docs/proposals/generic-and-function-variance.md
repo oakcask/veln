@@ -14,12 +14,12 @@ every nested type relationship has the same direction. The compiler infers
 variance from type-parameter occurrences. Veln does not add declaration-site
 variance modifiers such as `in`, `out`, `+`, or `-`.
 
-This proposal is separate from
-[ADT Variant Refinement Types](adt-variant-refinement-types.md). That proposal
-permits refinements in nested annotations but widens a refinement to its base
-ADT only at a direct value boundary. This proposal owns any future rule that
-allows `Container<A::V>` to widen to `Container<A>` or relates function types
-whose parameter or result refinements differ.
+This proposal is separate from the current
+[ADT variant-refinement contract](../specification/types.md#compatibility-and-limits).
+That contract permits refinements in nested annotations but widens a
+refinement to its base ADT only at a direct value boundary. This proposal owns
+any future rule that allows `Container<A::V>` to widen to `Container<A>` or
+relates function types whose parameter or result refinements differ.
 
 ## Motivation And Safety Boundary
 

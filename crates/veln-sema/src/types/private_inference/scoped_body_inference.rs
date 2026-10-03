@@ -23,11 +23,20 @@ pub(crate) fn tail_expr_can_use_expected(
         ExprKind::List(_) => expected.vec_part().is_some(),
         ExprKind::Dict(_) => expected.dict_parts().is_some(),
         ExprKind::Record(fields) => record_tail_can_use_expected(fields, expected),
-        ExprKind::NamePath { segments, .. } => matches!(
-            adts.nullary_constructor(segments, current_module, uses),
-            ConstructorLookup::Found(constructor)
-                if unification::adt_args(expected, constructor.descriptor).is_some()
-        ),
+        ExprKind::NamePath { segments, .. } => {
+            match adts.nullary_constructor(segments, current_module, uses) {
+                ConstructorLookup::Found(constructor) => {
+                    unification::adt_args(expected, constructor.descriptor).is_some()
+                }
+                ConstructorLookup::Ambiguous => adts
+                    .descriptor_for_type_prefer_module(expected, current_module)
+                    .and_then(|descriptor| {
+                        adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+                    })
+                    .is_some_and(|constructor| constructor.variant.payload_fields.is_empty()),
+                ConstructorLookup::Missing => false,
+            }
+        }
         ExprKind::Call { callee, .. } => {
             constructor_tail_can_use_expected(callee, expected, current_module, uses, adts)
         }

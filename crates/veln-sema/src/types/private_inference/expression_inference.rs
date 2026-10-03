@@ -479,9 +479,17 @@ pub(crate) fn infer_private_signature_name_type(
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
-    if let ConstructorLookup::Found(constructor) =
-        adts.nullary_constructor(segments, current_module, uses)
-    {
+    let constructor = match adts.nullary_constructor(segments, current_module, uses) {
+        ConstructorLookup::Found(constructor) => Some(constructor),
+        ConstructorLookup::Ambiguous => expected
+            .and_then(|expected| adts.descriptor_for_type_prefer_module(expected, current_module))
+            .and_then(|descriptor| {
+                adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+            })
+            .filter(|constructor| constructor.variant.payload_fields.is_empty()),
+        ConstructorLookup::Missing => None,
+    };
+    if let Some(constructor) = constructor {
         return expected
             .and_then(|expected| {
                 unification::adt_args(expected, constructor.descriptor).map(|_| expected.clone())

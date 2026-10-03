@@ -60,8 +60,8 @@ fn encoded_imported_payload_score(result: Result<{payload: Payload, imported_pay
 end
 
 pub fn main() -> () effects [stdio]
-	let direct_packet = {payload: Metadata({label: "math", scores: {"math": 17}}), imported_payload: wire::WirePayload(23)}
-	let explicit_packet = {payload: Scalar(31), imported_payload: wire::WirePayload(37)}
+	let direct_packet: {payload: Payload, imported_payload: wire::WirePayload} = {payload: Metadata({label: "math", scores: {"math": 17}}), imported_payload: wire::WirePayload(23)}
+	let explicit_packet: {payload: Payload, imported_payload: wire::WirePayload} = {payload: Scalar(31), imported_payload: wire::WirePayload(37)}
 	let direct = byte_encode_packet(direct_packet)
 	let explicit = encode Packet from explicit_packet
 	stdio::println(encoded_payload_text(direct))

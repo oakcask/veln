@@ -244,7 +244,16 @@ fn variant_refinement_widening_is_direct_and_erases_for_core_types() {
         vec![Type::int()],
         vec!["Ready".to_string()],
     );
-    assert!(!is_assignable(&refined, &other_identity));
+    let resolved_refined = Type::resolved_variant_refinement(
+        "State",
+        "current::State",
+        vec![Type::int()],
+        vec!["Ready".to_string()],
+    );
+    assert!(!is_assignable(&resolved_refined, &other_identity));
+
+    let inferred_base = Type::named("State", vec![Type::Unknown]);
+    assert!(is_assignable(&inferred_base, &refined));
 }
 
 #[test]

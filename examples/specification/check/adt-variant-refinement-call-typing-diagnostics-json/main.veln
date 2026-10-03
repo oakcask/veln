@@ -47,3 +47,16 @@ end
 fn prior_error() -> State::Ready
 	missing
 end
+
+fn wrong_set(value: State::Failed | State::Closed) -> ()
+	needs_ready(value)
+	()
+end
+
+type Other
+	Foreign
+end
+
+fn mixed_union(value: State::Ready | Other::Foreign) -> ()
+	()
+end

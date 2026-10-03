@@ -17,6 +17,30 @@ impl<'a> FunctionChecker<'a> {
                 self.infer_nullary_constructor_name(segments, expr, expected, constructor)
             }
             ConstructorLookup::Ambiguous => {
+                if let Some(constructor) = expected
+                    .and_then(|expected| {
+                        self.environment.adts.descriptor_for_type_prefer_module(
+                            &expected.ty,
+                            self.function.module_name.as_deref(),
+                        )
+                    })
+                    .and_then(|descriptor| {
+                        self.environment.adts.constructor_for_descriptor(
+                            segments,
+                            descriptor,
+                            self.function.module_name.as_deref(),
+                            &self.environment.uses,
+                        )
+                    })
+                    .filter(|constructor| constructor.variant.payload_fields.is_empty())
+                {
+                    return self.infer_nullary_constructor_name(
+                        segments,
+                        expr,
+                        expected,
+                        constructor,
+                    );
+                }
                 self.push_ambiguous_name(
                     expr.node_id,
                     expr.span.clone(),
@@ -36,7 +60,9 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         constructor: AdtConstructor<'_>,
     ) -> Type {
-        let inferred_args = expected
+        let matching_expected = expected
+            .filter(|expected| adt::type_matches_descriptor(&expected.ty, constructor.descriptor));
+        let inferred_args = matching_expected
             .and_then(|expected| {
                 unification::adt_args(&expected.ty, constructor.descriptor).map(<[Type]>::to_vec)
             })
@@ -55,6 +81,11 @@ impl<'a> FunctionChecker<'a> {
                 );
             }
             return inferred_base;
+        }
+        if matching_expected.is_some_and(|expected| matches!(expected.ty, Type::Named { .. })) {
+            return matching_expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or_else(|| adt::constructed_type_from_args(constructor, &inferred_args));
         }
         inferred
     }

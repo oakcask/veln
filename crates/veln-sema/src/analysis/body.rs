@@ -69,6 +69,39 @@ fn type_contains_variant_refinement(ty: &Type) -> bool {
     }
 }
 
+fn inferred_control_flow_result_type(ty: Type) -> Type {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Type::resolved_named(name, identity, args),
+        ty => ty,
+    }
+}
+
+fn common_variant_base(left: &Type, right: &Type) -> Option<Type> {
+    match (left, right) {
+        (
+            Type::VariantRefinement {
+                name: left_name,
+                identity: left_identity,
+                args: left_args,
+                ..
+            },
+            Type::VariantRefinement {
+                identity: right_identity,
+                args: right_args,
+                ..
+            },
+        ) if left_identity == right_identity && left_args == right_args => Some(
+            Type::resolved_named(left_name.clone(), left_identity.clone(), left_args.clone()),
+        ),
+        _ => None,
+    }
+}
+
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,

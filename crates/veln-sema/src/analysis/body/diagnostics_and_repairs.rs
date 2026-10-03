@@ -692,7 +692,10 @@ fn variant_mismatch_sets(
             if expected_identity != actual_identity && expected_name != actual_name {
                 return None;
             }
-            let excluded = if expected_identity == actual_identity && expected_args == actual_args {
+            if expected_args != actual_args {
+                return None;
+            }
+            let excluded = if expected_identity == actual_identity {
                 actual_variants
                     .iter()
                     .filter(|variant| !expected_variants.contains(variant))
@@ -725,24 +728,26 @@ fn variant_mismatch_sets(
         (
             Type::Named {
                 name: expected_name,
+                args: expected_args,
                 ..
             },
             Type::VariantRefinement {
                 name: actual_name,
+                args: actual_args,
                 variants,
                 ..
             },
         ) if expected_name == actual_name => {
+            if expected_args != actual_args {
+                return None;
+            }
             let expected_variants = adts.variant_names_for_type(expected)?;
             Some(VariantMismatchFacts {
                 expected_variants,
                 exclusion: VariantExclusion::Listed(variants.clone()),
             })
         }
-        (Type::Named { args: expected, .. }, Type::Named { args: actual, .. }) => expected
-            .iter()
-            .zip(actual)
-            .find_map(|(expected, actual)| variant_mismatch_sets(expected, actual, adts)),
+        (Type::Named { .. }, Type::Named { .. }) => None,
         (Type::Record(expected), Type::Record(actual)) => {
             expected.iter().find_map(|(name, expected)| {
                 actual
