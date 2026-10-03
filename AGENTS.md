@@ -22,8 +22,8 @@
   work, use `$proposal-implementation-audit`.
 * When adding, moving, classifying, or reorganizing documentation, or changing
   documentation routes or metadata, use `$docs-progressive-disclosure`.
-* When creating or substantially revising any document that specifies
-  behavior, including proposals, design notes, and reference material, use
+* When creating, substantially revising, or reviewing any document that
+  specifies behavior, including proposals, design notes, and reference material, use
   `$verifiable-specification-writing`.
 * When adding or changing human diagnostics, keep the primary message focused
   on the specific failed fact at the reported span. Put causes, provenance,

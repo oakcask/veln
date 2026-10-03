@@ -41,6 +41,12 @@ the procedure for applying them.
 
 ## Review Procedure
 
+- For proposal authoring or substantive revision, apply the authoring policy's
+  `Proposal Related Work` section. Use `$bibliography-fetch` when discovering
+  references or looking up citations. Inspect relevant source material and
+  connect findings to alternatives and design choices before finalizing the
+  proposal. During review, check those connections and flag unsupported claims
+  or uninspected sources.
 - Compare every normative claim with the acceptance condition and authority
   identified for it.
 - Check that planned evidence is not described as implemented or passing.

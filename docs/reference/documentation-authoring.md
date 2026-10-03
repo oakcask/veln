@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The repository documentation classification, metadata, presentation, specification-writing, or verification policy changes.
+update-when: The repository documentation classification, metadata, presentation, proposal source support, specification-writing, or verification policy changes.
 ---
 
 # Documentation Authoring Policy
@@ -213,6 +213,47 @@ Do not present planned evidence as implemented or passing. Do not invent exact
 versions, digests, compatibility values, or expected outputs when no
 independent authority can establish them. Specify the evidence that must
 produce the value or keep the work explicitly incomplete.
+
+### Proposal Related Work
+
+When creating or substantively revising a proposal, include related work that
+informs the design and its alternatives. Review relevant literature, web
+materials, past Veln pull requests, and other open-source implementations as
+appropriate to the subject. Do not require an entry from every source category
+when it has no bearing on the proposal.
+
+For each source used in a design claim, record:
+
+- **Identity and locator:** a title or project name and a direct source link.
+  Use a DOI or another stable identifier for literature when available. For a
+  Veln pull request, include its number and link. For an implementation,
+  identify the repository, revision or release, and relevant code or tests;
+  prefer a permalink to the inspected revision.
+- **Relevant finding:** the behavior, mechanism, result, or tradeoff supported
+  by the inspected passage, discussion, code, or tests.
+- **Applicability and limits:** how the source relates to Veln's constraints,
+  including differences that limit transferring its conclusions.
+- **Design consequence:** what the proposal adopts, adapts, rejects, or leaves
+  open, and why. Link the source beside the decision or alternative it informs
+  so readers can assess that reasoning without reconstructing a bibliography.
+
+Read the relevant primary material before attributing a claim to it. Distinguish
+source findings from the proposal author's inference. A past pull request is
+evidence of discussion or a change at that revision; compare current-behavior
+claims with the matching specification and implementation. An external
+implementation is comparative evidence, not authority for Veln behavior.
+
+If relevant sources cannot be found or inspected, state the search scope or
+access limitation and the design questions that remain unsupported. Mark
+uninspected candidate sources as follow-up rather than verified support. Do not
+invent citations or treat a lack of search results as proof of novelty.
+
+Review source support semantically: check that locators identify the material
+used, findings agree with that material, and the proposal explains the resulting
+choice and material differences. A source list or a heading alone does not
+establish this. Keep acceptance conditions and planned verification explicit;
+related work supports rationale but does not demonstrate that Veln implements
+the proposed behavior.
 
 ### Current Specification Pages
 
