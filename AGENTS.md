@@ -14,11 +14,8 @@
   filenames unless testing date-pattern behavior or preserving an externally
   defined identifier such as a URL. Machine-maintained cache metadata may use
   dates when its schema or freshness logic requires them.
-* Treat `docs/specification/` as the source of current implemented
-  behavior. Keep only `role: proposal` proposal pages in `docs/proposals/`;
-  remove or relocate rejected, superseded, implemented, or otherwise closed
-  proposals. Do not cite or edit proposal text as current behavior unless the
-  matching specification page also states it.
+* Treat `docs/specification/` as the source of current implemented behavior.
+  Use the documentation and proposal skills for placement and lifecycle rules.
 * When selecting, implementing, completing, reviewing, or cleaning up proposal
   work, use `$proposal-implementation-audit`.
 * When adding, moving, classifying, or reorganizing documentation, or changing
@@ -39,7 +36,3 @@
   work complete.
 * When running broad tests, stress cases, generated-input tests, or analysis
   commands that may process large inputs, use `$agent-safe-local-runs`.
-* Do not split Rust source into numbered bucket file series such as
-  `parser01.rs` / `parser02.rs` or `part01.rs` / `part02.rs`. Module and file
-  names must describe the responsibility or concept they own, especially when
-  responding to code-metrics or complexity logs.
