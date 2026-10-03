@@ -7,6 +7,10 @@ fn needs_ready(value: State::Ready) -> State::Ready
 	value
 end
 
+fn wrong_result(value: State) -> State::Ready
+	value
+end
+
 fn main() -> State::Ready
 	needs_ready(Closed)
 end

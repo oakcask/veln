@@ -252,7 +252,8 @@ fn descriptor_routed_qualified_list_constructor_checks_expected_head_type() {
             "  Cons(head: A, tail: List<A>)\n",
             "end\n",
             "fn main() -> List<Int>\n",
-            "  List::Cons(\"no\", List::Nil)\n",
+            "  let tail: List<Int> = List::Nil\n",
+            "  List::Cons(\"no\", tail)\n",
             "end\n",
         ),
     );
@@ -264,7 +265,7 @@ fn descriptor_routed_qualified_list_constructor_checks_expected_head_type() {
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
-    assert_diagnostic_span(&diagnostics[0], 6, 14, 6, 18);
+    assert_diagnostic_span(&diagnostics[0], 7, 14, 7, 18);
     let details = diagnostics[0].details.to_json();
     assert!(details.contains("\"expected_type\":\"Int\""));
     assert!(details.contains("\"actual_type\":\"String\""));

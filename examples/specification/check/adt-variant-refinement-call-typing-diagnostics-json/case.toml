@@ -118,6 +118,30 @@ path = "diagnostics.1.details.excluded_variants.form"
 equals = "all_except_expected"
 
 [[json_assert]]
+path = "diagnostics.1.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.variants"
+length = 0
+
+[[json_assert]]
+path = "diagnostics.1.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.1.related.1.message"
+equals = "Return type declared here."
+
+[[json_assert]]
 path = "diagnostics.4.details.constraint"
 equals = "assignable"
 

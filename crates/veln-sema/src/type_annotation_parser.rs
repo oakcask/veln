@@ -228,6 +228,15 @@ impl<'a> TypeParser<'a> {
     }
 
     fn validate_named_type(&self, name: String, args: Vec<Type>) -> Result<Type, String> {
+        if args.is_empty()
+            && let Some((base, _)) = name.rsplit_once("::")
+            && let Some(expected) = (self.builtin_type_arity)(base)?
+            && expected != 0
+        {
+            return Err(format!(
+                "`{base}` expects {expected} type argument(s), found 0"
+            ));
+        }
         let expected_arity = (self.builtin_type_arity)(&name)?;
         if let Some(expected) = expected_arity
             && args.len() != expected

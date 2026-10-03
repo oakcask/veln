@@ -32,7 +32,7 @@ impl<'a> FunctionChecker<'a> {
             };
             let actual_arg = self.infer_expr(arg, Some(&arg_expected));
             match &field.ty {
-                AdtPayloadType::SelfType => self.check_assignable(
+                AdtPayloadType::SelfType => self.check_assignable_nested(
                     arg,
                     &arg_expected.ty,
                     &actual_arg,

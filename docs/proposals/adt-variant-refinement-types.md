@@ -461,15 +461,14 @@ trap or process failure.
 
 ## Command Behavior
 
-Every command that invokes shared semantic analysis observes the same variant
-resolution, refinement, assignability, and diagnostics. `check` reports the
-result without execution. `run` and `test` do not execute a selected program
-whose analysis contains a refinement error. `doc` preserves written public
-refinements in canonical declaration signatures. JSON modes use the same
-diagnostic codes, details, spans, and related notes as their human modes.
+`run` and `test` will use the shared semantic analysis and will not execute a
+selected program whose analysis contains a refinement error. `doc` will use the
+same analysis and preserve written public refinements in canonical declaration
+signatures. Their machine-readable modes will use the same diagnostic codes,
+details, spans, and related notes as their human modes.
 
-No command may treat a recovered or unresolved refinement as a successful
-static transition.
+These commands will not treat a recovered or unresolved refinement as a
+successful static transition.
 
 ## Language-Service Contract
 
@@ -550,7 +549,7 @@ current behavior:
 | Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, and complete union arms are exhaustive. A valid variant outside the original domain is impossible; a valid constructor or catch-all with no remaining variants is redundant. Invalid arm heads take diagnostic precedence, contribute no coverage, and can use only unambiguous recovery for binding and body checking. Impossible and redundant arms still receive independent body checks and any expected-type check inherited from the enclosing expression, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, duplicate variants, complete prior coverage, invalid casing, hidden and private constructors, wrong-ADT constructors, qualified immutable values, recovered binding and body types, declared-result mismatches in final `match` expressions, and computed-expression boundaries, plus state-machine `check` examples. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Base-refinement reasons use only the closed values in the diagnostic contract. Independent casing, resolution, arity, base-eligibility, variant, visibility, union-base, and assignability failures compose as specified; derivative failures are suppressed; and each failure retains exactly the specified navigation identities. Impossible and redundant-arm cases use separate codes, while intrinsic casing, resolution, visibility, ADT, generic, arity, and pattern failures suppress derivative arm-classification diagnostics. | Human and JSON command fixtures covering every diagnostic row, base-reason value, refinement-overlap row, identity-retention outcome, and arm-precedence overlap. |
-| Commands | Check, run, test, doc, and their machine-readable modes share semantic analysis and preserve their execution or recovery boundaries. | Command harness cases with accepted, rejected, and recovered sources. |
+| Commands | `run` and `test` share semantic analysis and preserve their no-execution boundary on refinement errors; `doc` shares semantic analysis, preserves written public refinements in canonical declaration signatures, and preserves its recovery boundary. Their machine-readable modes use the same diagnostic contract as their human modes. | Command harness cases for `run`, `test`, and `doc` with accepted, rejected, and recovered sources. |
 | LSP | Tokens, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
 | MCP | Check, navigation, pagination, rename, package signatures, reference publication, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 | Cross-transport identity | LSP and MCP select the same declaration and reference set from the same saved source before coordinate projection. | Shared language-service cases consumed by both adapter suites. |

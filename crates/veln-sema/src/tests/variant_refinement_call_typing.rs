@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::TypeEnvironment;
 
 fn diagnostics_for(source: &str) -> Vec<Diagnostic> {
     let source = SourceFile::new("main.veln", source);
@@ -183,6 +184,27 @@ fn nested_aggregate_widening_is_rejected_for_inline_and_bound_values() {
 }
 
 #[test]
+fn recursive_adt_payloads_reject_nested_refinement_widening() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Wrapped(State)\n",
+        "end\n",
+        "fn main() -> ()\n",
+        "  let invalid = Wrapped(Ready)\n",
+        "end\n",
+    ));
+
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+    assert!(mismatches[0].message.contains("State::Ready"));
+    assert!(mismatches[0].message.contains("State`"));
+}
+
+#[test]
 fn invalid_refinement_annotations_are_diagnosed_instead_of_becoming_unknown() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -203,6 +225,64 @@ fn invalid_refinement_annotations_are_diagnosed_instead_of_becoming_unknown() {
             .count(),
         3,
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn compiler_known_refinements_require_base_type_arguments() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn keep(value: Option::Some) -> Option::Some\n",
+        "  value\n",
+        "end\n",
+        "fn main() -> Option<Int>\n",
+        "  keep(None)\n",
+        "end\n",
+    ));
+
+    let invalid_annotations = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_annotations.len(), 2, "{diagnostics:#?}");
+    assert!(invalid_annotations.iter().all(|diagnostic| {
+        diagnostic
+            .message
+            .contains("`Option` expects 1 type argument(s), found 0")
+    }));
+}
+
+#[test]
+fn source_annotations_canonicalize_variant_sets() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "fn finite(value: State::Closed | State::Ready | State::Closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn complete(value: State::Failed | State::Ready | State::Closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+
+    assert_eq!(
+        environment.function("finite").unwrap().params[0].render(),
+        "State::Ready | State::Closed"
+    );
+    assert_eq!(
+        environment.function("complete").unwrap().params[0].render(),
+        "State"
     );
 }
 

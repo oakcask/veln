@@ -66,7 +66,8 @@ fn minimal_list_adt_constructor_calls_lower_with_declared_context() {
             "  Cons(head: A, tail: List<A>)\n",
             "end\n",
             "fn main() -> List<Int>\n",
-            "  List::Cons(1, List::Nil)\n",
+            "  let tail: List<Int> = List::Nil\n",
+            "  List::Cons(1, tail)\n",
             "end\n",
         ),
     );
@@ -82,7 +83,7 @@ fn minimal_list_adt_constructor_calls_lower_with_declared_context() {
         .iter()
         .find(|function| function.name == "main")
         .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+    let CoreStmtKind::Return { expr } = &main.body[1].kind else {
         panic!("tail expression should lower as return");
     };
     assert_eq!(expr.ty, CoreType::named("List", vec![CoreType::int()]));
@@ -91,7 +92,7 @@ fn minimal_list_adt_constructor_calls_lower_with_declared_context() {
     };
     assert_eq!(head.ty, CoreType::int());
     assert_eq!(tail.ty, CoreType::named("List", vec![CoreType::int()]));
-    assert!(matches!(tail.kind, CoreExprKind::ListNil));
+    assert!(matches!(&tail.kind, CoreExprKind::Local(name) if name == "tail"));
 }
 
 #[test]

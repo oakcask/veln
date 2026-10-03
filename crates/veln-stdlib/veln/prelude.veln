@@ -198,7 +198,7 @@ pub fn byte_chunks_empty() -> List<ByteChunk>
 end
 
 pub fn byte_chunks_one(chunk: ByteChunk) -> List<ByteChunk>
-	Cons(chunk, Nil)
+	Cons(chunk, byte_chunks_empty())
 end
 
 pub fn byte_chunks_append(left: List<ByteChunk>, right: List<ByteChunk>) -> List<ByteChunk>

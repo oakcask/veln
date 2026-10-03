@@ -225,7 +225,8 @@ fn infers_payload_constructor_type_arguments_without_expected_adt_type() {
             "end\n",
             "fn main() -> Int\n",
             "  let option = Some(1)\n",
-            "  let list = Cons(1, Nil)\n",
+            "  let tail: List<Int> = Nil\n",
+            "  let list = Cons(1, tail)\n",
             "  let boxed = Box(\"ok\")\n",
             "  1\n",
             "end\n",
@@ -249,11 +250,11 @@ fn infers_payload_constructor_type_arguments_without_expected_adt_type() {
         panic!("option binding should lower as let");
     };
     assert_eq!(expr.ty, CoreType::option(CoreType::int()));
-    let CoreStmtKind::Let { expr, .. } = &main.body[1].kind else {
+    let CoreStmtKind::Let { expr, .. } = &main.body[2].kind else {
         panic!("list binding should lower as let");
     };
     assert_eq!(expr.ty, CoreType::named("List", vec![CoreType::int()]));
-    let CoreStmtKind::Let { expr, .. } = &main.body[2].kind else {
+    let CoreStmtKind::Let { expr, .. } = &main.body[3].kind else {
         panic!("box binding should lower as let");
     };
     assert_eq!(expr.ty, CoreType::named("Box", vec![CoreType::string()]));
