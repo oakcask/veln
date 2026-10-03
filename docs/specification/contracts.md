@@ -65,19 +65,15 @@ call-site boundary is specified under
 A statically proven obligation emits no runtime call. Direct calls in ordinary
 function bodies remain executable.
 
+Runtime-required predicates evaluate `not` before `and`, and `and` before
+`or`, as in ordinary source expressions. Parentheses can override that
+precedence.
+
 | Clause | Entry failure blames | Return failure blames |
 | --- | --- | --- |
 | `require` | caller | — |
 | `ensure` | — | implementation |
 | `invariant` | caller | implementation |
-
-The JVM backend does not correctly evaluate every predicate accepted by the
-checker. In particular, a runtime-required `and` or `or` expression is not
-lowered as a boolean operator. For example, `require value >= 0 and ready`
-can fail with a JVM type-cast error even when both conditions hold. Separate
-`require` clauses, as above, check both conditions correctly. Statically proven
-boolean combinations do not encounter this limitation because they emit no
-runtime check.
 
 ## Static classification
 

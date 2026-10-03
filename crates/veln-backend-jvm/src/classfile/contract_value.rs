@@ -30,9 +30,6 @@ pub(super) enum ContractScalar<'a> {
 
 pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
     let text = strip_contract_outer_parens(text.trim());
-    if let Some(rest) = text.strip_prefix("not ") {
-        return ContractValue::Not(rest);
-    }
     for (operator, op) in contract_binary_operators() {
         if let Some((left, right)) = split_contract_binary(text, operator) {
             return ContractValue::Binary {
@@ -41,6 +38,9 @@ pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
                 op: *op,
             };
         }
+    }
+    if let Some(rest) = text.strip_prefix("not ") {
+        return ContractValue::Not(rest);
     }
     if let Some(rest) = text.strip_prefix('~') {
         return ContractValue::BitwiseNot(rest);
