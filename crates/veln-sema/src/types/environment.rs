@@ -267,6 +267,11 @@ impl TypeEnvironment {
         canonical: &Type,
         current_module: Option<&str>,
     ) -> Option<String> {
+        if self.variant_refinement_uses_type_alias(ty, current_module) {
+            return Some(
+                "variant refinement annotations cannot use a type alias as their base".to_string(),
+            );
+        }
         if let Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } = ty
             && let Some((base, _)) = name.rsplit_once("::").or_else(|| {
                 matches!(ty, Type::VariantRefinement { .. }).then_some((name.as_str(), ""))
@@ -347,6 +352,35 @@ impl TypeEnvironment {
                     current_module,
                 )
             })
+    }
+
+    fn variant_refinement_uses_type_alias(&self, ty: &Type, current_module: Option<&str>) -> bool {
+        match ty {
+            Type::Named { name, args, .. } => name.rsplit_once("::").is_some_and(|(base, _)| {
+                self.adts
+                    .type_path_is_alias(base, args.len(), current_module, &self.uses)
+            }),
+            Type::VariantRefinement {
+                name,
+                args,
+                unresolved_alternatives,
+                ..
+            } => {
+                self.adts
+                    .type_path_is_alias(name, args.len(), current_module, &self.uses)
+                    || unresolved_alternatives.iter().any(
+                        |(alternative_name, alternative_args, _)| {
+                            self.adts.type_path_is_alias(
+                                alternative_name,
+                                alternative_args.len(),
+                                current_module,
+                                &self.uses,
+                            )
+                        },
+                    )
+            }
+            Type::Record(_) | Type::Function { .. } | Type::Unknown => false,
+        }
     }
 
     pub(crate) fn function_for(&self, source: &Function) -> Option<&FunctionSignature> {

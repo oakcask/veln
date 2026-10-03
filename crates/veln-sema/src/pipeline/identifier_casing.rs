@@ -131,10 +131,17 @@ fn classified_qualified_path_segments_with_refinements(
                 segment.segment_index,
             ))
     });
-    let classified_keys = segments
-        .iter()
-        .map(classified_segment_key)
-        .collect::<BTreeSet<_>>();
+    let mut classified_locations = BTreeMap::<String, BTreeSet<(usize, usize, usize)>>::new();
+    for segment in &segments {
+        classified_locations
+            .entry(segment.span.file.as_str().to_string())
+            .or_default()
+            .insert((
+                segment.span.start.offset,
+                segment.span.end.offset,
+                segment.segment_index,
+            ));
+    }
     let occurrence_index = QualifiedPathOccurrenceIndex::new(module);
     segments.extend(
         module
@@ -142,7 +149,7 @@ fn classified_qualified_path_segments_with_refinements(
             .iter()
             .filter(|invalid| invalid.occurrence == NameOccurrence::PathSegment)
             .filter(|invalid| {
-                !invalid_path_segment_is_already_classified(invalid, &classified_keys)
+                !invalid_path_segment_is_already_classified(invalid, &classified_locations)
             })
             .filter_map(|invalid| {
                 classified_invalid_path_segment(invalid, &occurrence_index, module, environment)
@@ -159,31 +166,45 @@ fn classified_qualified_path_segments_with_refinements(
     segments
 }
 
-fn classified_segment_key(
-    segment: &QualifiedPathSegment,
-) -> (String, usize, usize, usize, &'static str) {
-    (
-        segment.span.file.as_str().to_string(),
-        segment.span.start.offset,
-        segment.span.end.offset,
-        segment.segment_index,
-        segment.role.as_str(),
-    )
-}
-
 fn invalid_path_segment_is_already_classified(
     invalid: &InvalidName,
-    classified_keys: &BTreeSet<(String, usize, usize, usize, &'static str)>,
+    classified_locations: &BTreeMap<String, BTreeSet<(usize, usize, usize)>>,
 ) -> bool {
     let Some(segment_index) = invalid.segment_index else {
         return false;
     };
-    classified_keys.iter().any(|(file, start, end, index, _)| {
-        file == invalid.span.file.as_str()
-            && *start == invalid.span.start.offset
-            && *end == invalid.span.end.offset
-            && *index == segment_index
-    })
+    #[cfg(test)]
+    invalid_path_classification_counters::record_index_lookup();
+    classified_locations
+        .get(invalid.span.file.as_str())
+        .is_some_and(|locations| {
+            locations.contains(&(
+                invalid.span.start.offset,
+                invalid.span.end.offset,
+                segment_index,
+            ))
+        })
+}
+
+#[cfg(test)]
+mod invalid_path_classification_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static INDEX_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(super) fn reset() {
+        INDEX_LOOKUPS.set(0);
+    }
+
+    pub(super) fn record_index_lookup() {
+        INDEX_LOOKUPS.set(INDEX_LOOKUPS.get() + 1);
+    }
+
+    pub(super) fn index_lookups() -> usize {
+        INDEX_LOOKUPS.get()
+    }
 }
 
 fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {

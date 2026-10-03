@@ -378,9 +378,11 @@ set. The alternatives are resolved before their base identities are compared,
 so qualified and unqualified spellings of the same ADT can form one union.
 Duplicate alternatives are removed and display follows ADT declaration order.
 `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
-representation. A union containing every declared variant is equivalent to the
-base ADT. An unknown variant, invalid base arity, or union of different resolved
-ADTs is an invalid type annotation; it does not become an assignable `unknown`
+representation. A type alias cannot qualify a variant refinement in this
+slice; an alias-qualified singleton or union alternative is an invalid type
+annotation. A union containing every declared variant is equivalent to the base
+ADT. An unknown variant, invalid base arity, or union of different resolved ADTs
+is an invalid type annotation; it does not become an assignable `unknown`
 contract.
 
 A resolved constructor expression has its singleton variant type. The expected
@@ -395,10 +397,11 @@ unchanged.
 An unannotated aggregate does not retain nested constructor refinements in
 this slice. A constructor used as a record field, collection element,
 dictionary key or value, or inferred generic ADT payload contributes its base
-ADT type to that aggregate position. The outer constructor expression still
-has its singleton type. Explicitly refined nested types remain invariant, and
-an expected aggregate type does not add contextual widening at its component
-positions.
+ADT type to that aggregate position. Private omitted-return inference applies
+the same member erasure, so its inferred signature agrees with the body type.
+The outer constructor expression still has its singleton type. Explicitly
+refined nested types remain invariant, and an expected aggregate type does not
+add contextual widening at its component positions.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:

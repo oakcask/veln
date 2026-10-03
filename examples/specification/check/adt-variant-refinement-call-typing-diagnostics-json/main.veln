@@ -137,3 +137,9 @@ fn wrong_parameter_function_value(transition: fn(State::Ready) -> State::Ready) 
 	transition(Closed)
 	()
 end
+
+pub type StateAlias = State
+
+fn rejected_alias_refinement(value: StateAlias::Ready) -> ()
+	()
+end

@@ -39,6 +39,22 @@ fn inferred_wrapped()
 	Envelope::Wrapped(1)
 end
 
+fn inferred_state_list()
+	[Ready]
+end
+
+fn inferred_state_record()
+	{state: Ready}
+end
+
+fn inferred_state_dict()
+	{"state": Ready}
+end
+
+fn inferred_state_envelope()
+	Wrapped(Ready)
+end
+
 fn inferred_transition(value: Bool)
 	if value
 		Ready
@@ -52,6 +68,22 @@ fn wrap_ready() -> ReadyEnvelope
 end
 
 fn accept_wrapped(value: Envelope<Int>::Wrapped) -> ()
+	()
+end
+
+fn accept_state_list(value: Vec<State>) -> ()
+	()
+end
+
+fn accept_state_record(value: {state: State}) -> ()
+	()
+end
+
+fn accept_state_dict(value: Dict<String, State>) -> ()
+	()
+end
+
+fn accept_state_envelope(value: Envelope<State>::Wrapped) -> ()
 	()
 end
 
@@ -100,6 +132,10 @@ fn main() -> State
 	accept_one(inferred)
 	accept_one(annotated)
 	accept_wrapped(inferred_wrapped())
+	accept_state_list(inferred_state_list())
+	accept_state_record(inferred_state_record())
+	accept_state_dict(inferred_state_dict())
+	accept_state_envelope(inferred_state_envelope())
 	let transitioned: State = inferred_transition(true)
 	let ready_envelope: ReadyEnvelope = wrap_ready()
 	let widened: State = accept_two(same)

@@ -411,6 +411,44 @@ fn qualified_and_unqualified_union_bases_resolve_before_identity_comparison() {
 }
 
 #[test]
+fn alias_qualified_refinement_annotations_are_rejected() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "pub type First = State\n",
+        "pub type Second = State\n",
+        "fn direct(value: State::Ready) -> State::Ready\n",
+        "  value\n",
+        "end\n",
+        "fn alias_singleton(value: First::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn alias_union(value: State::Ready | Second::Closed) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let invalid_annotations = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_annotations.len(), 2, "{diagnostics:#?}");
+    assert!(invalid_annotations.iter().all(|diagnostic| {
+        diagnostic
+            .message
+            .contains("variant refinement annotations cannot use a type alias as their base")
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.invalid_annotation"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn variant_unions_reject_mixed_resolved_adts() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -919,6 +957,73 @@ fn private_constructor_results_retain_singleton_refinements() {
             .render(),
         "GenericState<Int>::Ready"
     );
+}
+
+#[test]
+fn private_aggregate_results_erase_member_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "end\n",
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "end\n",
+            "fn states()\n",
+            "  [State::Ready]\n",
+            "end\n",
+            "fn state_record()\n",
+            "  {state: State::Ready}\n",
+            "end\n",
+            "fn state_dict()\n",
+            "  {\"state\": State::Ready}\n",
+            "end\n",
+            "fn boxed_state()\n",
+            "  Box::Boxed(State::Ready)\n",
+            "end\n",
+            "fn accept_states(value: Vec<State>) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn accept_record(value: {state: State}) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn accept_dict(value: Dict<String, State>) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn accept_box(value: Box<State>) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  accept_states(states())\n",
+            "  accept_record(state_record())\n",
+            "  accept_dict(state_dict())\n",
+            "  accept_box(boxed_state())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in [
+        ("states", "Vec<State>"),
+        ("state_record", "{state: State}"),
+        ("state_dict", "Dict<String, State>"),
+        ("boxed_state", "Box<State>::Boxed"),
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("{function} should be present"))
+                .return_type
+                .render(),
+            expected,
+        );
+    }
 }
 
 #[test]

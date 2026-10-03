@@ -19,9 +19,11 @@ use super::lookup_validation::{
 pub(crate) struct AdtRegistry {
     descriptors: Vec<AdtDescriptor>,
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
+    descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
+    type_alias_identities: BTreeSet<(Option<String>, String)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,10 +65,15 @@ impl AdtRegistry {
         annotation_types: BTreeMap<(Option<String>, String), Type>,
     ) -> Self {
         let mut descriptors_by_type_name = HashMap::<String, Vec<usize>>::new();
+        let mut descriptors_by_identity = HashMap::<String, Vec<usize>>::new();
         let mut variants_by_name = HashMap::<String, Vec<(usize, usize)>>::new();
         for (descriptor_index, descriptor) in descriptors.iter().enumerate() {
             descriptors_by_type_name
                 .entry(descriptor.type_name.clone())
+                .or_default()
+                .push(descriptor_index);
+            descriptors_by_identity
+                .entry(descriptor.identity())
                 .or_default()
                 .push(descriptor_index);
             for (variant_index, variant) in descriptor.variants.iter().enumerate() {
@@ -79,9 +86,11 @@ impl AdtRegistry {
         Self {
             descriptors,
             descriptors_by_type_name,
+            descriptors_by_identity,
             variants_by_name,
             companion_access_targets,
             annotation_types,
+            type_alias_identities: BTreeSet::new(),
         }
     }
 
@@ -136,6 +145,8 @@ impl AdtRegistry {
         let mut alias_targets = descriptors.clone();
         alias_targets.extend(source_descriptors.clone());
         let aliases = type_alias_descriptors(module, &alias_targets);
+        let mut type_alias_identities = base.type_alias_identities.clone();
+        type_alias_identities.extend(aliases.iter().map(descriptor_identity));
         extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
 
         descriptors.extend(aliases);
@@ -148,6 +159,7 @@ impl AdtRegistry {
             companion_targets,
             annotation_types,
         );
+        registry.type_alias_identities = type_alias_identities;
         registry.canonicalize_source_payload_types(module, source_descriptor_start);
         registry
     }
@@ -223,11 +235,22 @@ impl AdtRegistry {
             })
             .map(|(identity, ty)| (identity.clone(), ty.clone()))
             .collect();
-        Self::from_parts_with_annotation_types(
+        let mut registry = Self::from_parts_with_annotation_types(
             descriptors,
             companion_access_targets,
             annotation_types,
-        )
+        );
+        registry.type_alias_identities = self
+            .type_alias_identities
+            .iter()
+            .filter(|(module_name, _)| {
+                module_name
+                    .as_ref()
+                    .is_none_or(|module_name| module_names.contains(module_name))
+            })
+            .cloned()
+            .collect();
+        registry
     }
 
     pub(crate) fn descriptor_for_type(&self, ty: &Type) -> Option<&AdtDescriptor> {
@@ -237,9 +260,16 @@ impl AdtRegistry {
             }
             _ => return None,
         };
-        self.descriptors.iter().find(|descriptor| {
-            descriptor.identity() == *identity && descriptor.type_parameters.len() == args.len()
-        })
+        self.descriptors_by_identity
+            .get(identity)
+            .into_iter()
+            .flatten()
+            .map(|index| {
+                #[cfg(test)]
+                descriptor_lookup_counters::record_candidate_scan();
+                &self.descriptors[*index]
+            })
+            .find(|descriptor| descriptor.type_parameters.len() == args.len())
     }
 
     pub(crate) fn descriptor_for_type_in_module(
@@ -288,6 +318,20 @@ impl AdtRegistry {
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
         self.descriptor_for_type_path_with_arity(name, None, current_module, uses)
+    }
+
+    pub(crate) fn type_path_is_alias(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        self.descriptor_for_type_path(name, args_len, current_module, uses)
+            .is_some_and(|descriptor| {
+                self.type_alias_identities
+                    .contains(&descriptor_identity(descriptor))
+            })
     }
 
     fn descriptor_for_type_path_with_arity(
@@ -756,6 +800,27 @@ fn descriptor_identity(descriptor: &AdtDescriptor) -> (Option<String>, String) {
 
 #[cfg(test)]
 pub(super) mod constructor_lookup_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(in crate::adt) fn reset() {
+        CANDIDATE_SCANS.set(0);
+    }
+
+    pub(super) fn record_candidate_scan() {
+        CANDIDATE_SCANS.set(CANDIDATE_SCANS.get() + 1);
+    }
+
+    pub(in crate::adt) fn candidate_scans() -> usize {
+        CANDIDATE_SCANS.get()
+    }
+}
+
+#[cfg(test)]
+pub(super) mod descriptor_lookup_counters {
     use std::cell::Cell;
 
     thread_local! {

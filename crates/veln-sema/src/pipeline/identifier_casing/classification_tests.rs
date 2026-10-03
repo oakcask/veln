@@ -92,6 +92,35 @@ fn path_classification_builds_one_adt_registry_for_schema_helpers() {
     assert_eq!(crate::adt_source_less::adt_registry_from_module_builds(), 1);
 }
 
+#[test]
+fn invalid_path_classification_work_grows_with_invalid_segments() {
+    fn index_lookups(count: usize) -> usize {
+        let mut text = String::from("mod main\n");
+        for index in 0..count {
+            text.push_str(&format!(
+                "fn caller_{index}() -> Int\n  Missing{index}::value\nend\n"
+            ));
+        }
+        let module = named_module("main", &text);
+        let environment = TypeEnvironment::from_module(&module);
+        invalid_path_classification_counters::reset();
+        let _ = classified_qualified_path_segments(&module, &environment);
+        invalid_path_classification_counters::index_lookups()
+    }
+
+    let smaller = index_lookups(32);
+    let larger = index_lookups(64);
+    assert!(
+        smaller > 0,
+        "generated invalid paths must exercise the index"
+    );
+    assert_eq!(
+        larger,
+        smaller * 2,
+        "invalid-path index work must grow linearly across adjacent input sizes"
+    );
+}
+
 fn named_module(name: &str, text: &str) -> SurfaceModule {
     let source = SourceFile::new(format!("{name}.veln"), text);
     let parsed = veln_syntax::parse(&source);

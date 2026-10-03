@@ -992,6 +992,13 @@ field	expectations.diagnostics[0].severity	"error"
 field	expectations.diagnostics[0].span.column	14
 field	expectations.diagnostics[0].span.file	"main.veln"
 field	expectations.diagnostics[0].span.line	12
+field	expectations.diagnostics[10].id	"type.invalid_annotation"
+field	expectations.diagnostics[10].kind	"type"
+field	expectations.diagnostics[10].message	"invalid type annotation `StateAlias::Ready`: variant refinement annotations cannot use a type alias as their base"
+field	expectations.diagnostics[10].severity	"error"
+field	expectations.diagnostics[10].span.column	30
+field	expectations.diagnostics[10].span.file	"main.veln"
+field	expectations.diagnostics[10].span.line	143
 field	expectations.diagnostics[1].id	"type.variant_mismatch"
 field	expectations.diagnostics[1].kind	"type"
 field	expectations.diagnostics[1].message	"value of type `State` is not assignable to variant type `State::Ready`"
@@ -1089,7 +1096,7 @@ field	expectations.json_assertions[18].path	"diagnostics.2.details.expected_vari
 field	expectations.json_assertions[19].equals	"listed"
 field	expectations.json_assertions[19].operation	"equals"
 field	expectations.json_assertions[19].path	"diagnostics.2.details.excluded_variants.form"
-field	expectations.json_assertions[1].equals	22
+field	expectations.json_assertions[1].equals	23
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"summary.diagnostic_count"
 field	expectations.json_assertions[20].equals	"Closed"
@@ -1284,13 +1291,14 @@ field	expectations.stdout.contains[1]	"\"kind\":\"variant_exclusion\""
 field	expectations.stdout.contains[2]	"\"kind\":\"expected_type_origin\""
 field	expectations.stdout.contains[3]	"\"id\":\"type.mismatch\""
 field	expectations.stdout.contains[4]	"invalid type annotation `Choice::Absent`: `Choice` expects 1 type argument(s), found 0"
+field	expectations.stdout.contains[5]	"variant refinement annotations cannot use a type alias as their base"
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"4eea7b6fea05d2fd09d8dee1d81804ce99b9f1f00b5dffb4a3c463c5a92873e3"
+case_digest	"70c869705ba878ba2df7a77c3844d8be3b4957e2fc6617bc35338a8cb6ed79b1"
 case	"examples/specification/check/anonymous-outer-package-boundary"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -63333,4 +63341,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"c3627b055843f2a4b3a81b114e57273a7ba966a1fe8ddd2920561335b6eccf9a"
+aggregate_digest	"4580f7e7ec3c6110143f5861e09b50427101d8bbd064197a38ccfb03d887c2bf"

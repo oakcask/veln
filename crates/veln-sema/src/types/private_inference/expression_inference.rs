@@ -158,6 +158,7 @@ pub(crate) fn infer_private_list_type(
         .unwrap_or(Type::Unknown);
     for item in items {
         let actual = context.infer(item, item_type_unknown_as_none(&item_type));
+        let actual = inferred_private_aggregate_member_type(actual, &item_type);
         if item_type == Type::Unknown {
             item_type = actual;
         }
@@ -177,10 +178,12 @@ pub(crate) fn infer_private_dict_type(
         });
     for entry in entries {
         let key_actual = context.infer(&entry.key, item_type_unknown_as_none(&key_type));
+        let key_actual = inferred_private_aggregate_member_type(key_actual, &key_type);
         if key_type == Type::Unknown {
             key_type = key_actual;
         }
         let value_actual = context.infer(&entry.value, item_type_unknown_as_none(&value_type));
+        let value_actual = inferred_private_aggregate_member_type(value_actual, &value_type);
         if value_type == Type::Unknown {
             value_type = value_actual;
         }
@@ -205,13 +208,32 @@ pub(crate) fn infer_private_record_type(
             .map(|field| {
                 let field_expected =
                     expected.and_then(|expected| expected.record_field(&field.name));
+                let actual = context.infer(&field.expr, field_expected);
                 (
                     field.name.clone(),
-                    context.infer(&field.expr, field_expected),
+                    inferred_private_aggregate_member_type(
+                        actual,
+                        field_expected.unwrap_or(&Type::Unknown),
+                    ),
                 )
             })
             .collect(),
     )
+}
+
+fn inferred_private_aggregate_member_type(ty: Type, expected: &Type) -> Type {
+    if matches!(expected, Type::VariantRefinement { .. }) {
+        return ty;
+    }
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Type::resolved_named(name, identity, args),
+        ty => ty,
+    }
 }
 
 pub(crate) fn infer_private_match_type(
@@ -651,18 +673,23 @@ pub(crate) fn infer_private_signature_call_type(
                 ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
             };
         if let Some(constructor) = expected_constructor.or(ordinary_constructor) {
-            let actual_args = args
-                .iter()
-                .map(|arg| context.infer(arg, None))
-                .collect::<Vec<_>>();
             let mut inferred_type_args =
                 vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
-            for (index, actual) in actual_args.iter().enumerate() {
+            for (index, arg) in args.iter().enumerate() {
+                let payload_expected = expected
+                    .and_then(|expected| adt::payload_type(expected, constructor, index))
+                    .or_else(|| {
+                        adt::payload_type_with_args(constructor, &inferred_type_args, index)
+                    })
+                    .unwrap_or(Type::Unknown);
+                let actual = context.infer(arg, item_type_unknown_as_none(&payload_expected));
+                let inferred_actual =
+                    inferred_private_aggregate_member_type(actual, &payload_expected);
                 adt::merge_type_args_from_payload(
                     &mut inferred_type_args,
                     constructor,
                     index,
-                    actual,
+                    &inferred_actual,
                 );
             }
             if let Some(expected_args) = expected
