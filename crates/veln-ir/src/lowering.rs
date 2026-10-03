@@ -5,7 +5,7 @@ use veln_core::{
 };
 
 use crate::{
-    IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrContractCall, IrDeferredBlock,
+    IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrDeferredBlock,
     IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
     IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind,
     TypedProgram,
@@ -62,16 +62,7 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
                 node_id: contract.node_id,
                 kind: contract.kind,
                 predicate: contract.predicate.clone(),
-                callsite_calls: contract
-                    .callsite_calls
-                    .iter()
-                    .map(|call| IrContractCall {
-                        callee: call.callee.clone(),
-                        target: call.target.clone(),
-                        fixed_arg_count: call.fixed_arg_count,
-                        variadic: call.variadic,
-                    })
-                    .collect(),
+                callsite_calls: contract.callsite_calls.clone(),
                 obligation_status: contract.obligation_status,
                 span: contract.span.clone(),
             })
