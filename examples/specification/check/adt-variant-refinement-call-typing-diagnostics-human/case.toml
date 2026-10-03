@@ -1,0 +1,12 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "main.veln:11:14: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:6:1: Callee parameter type declared here.",
+]
+
+[stderr]
+format = "empty"

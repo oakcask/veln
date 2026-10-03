@@ -1,8 +1,48 @@
 use crate::semantic_model::Type;
 
 pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
+    is_assignable_at_boundary(expected, actual, true)
+}
+
+fn is_assignable_at_boundary(expected: &Type, actual: &Type, direct: bool) -> bool {
     if expected == &Type::Unknown || actual == &Type::Unknown || expected == actual {
         return true;
+    }
+    if direct {
+        match (expected, actual) {
+            (
+                Type::VariantRefinement {
+                    identity: expected_identity,
+                    args: expected_args,
+                    variants: expected_variants,
+                    ..
+                },
+                Type::VariantRefinement {
+                    identity: actual_identity,
+                    args: actual_args,
+                    variants: actual_variants,
+                    ..
+                },
+            ) => {
+                return expected_identity == actual_identity
+                    && expected_args == actual_args
+                    && actual_variants
+                        .iter()
+                        .all(|variant| expected_variants.contains(variant));
+            }
+            (
+                Type::Named {
+                    name: expected_name,
+                    args: expected_args,
+                },
+                Type::VariantRefinement {
+                    name: actual_name,
+                    args: actual_args,
+                    ..
+                },
+            ) => return expected_name == actual_name && expected_args == actual_args,
+            _ => {}
+        }
     }
     match (expected, actual) {
         (Type::Record(expected_fields), Type::Record(actual_fields)) => {
@@ -10,7 +50,9 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                 actual_fields
                     .iter()
                     .find(|(actual_name, _)| actual_name == expected_name)
-                    .is_some_and(|(_, actual_ty)| is_assignable(expected_ty, actual_ty))
+                    .is_some_and(|(_, actual_ty)| {
+                        is_assignable_at_boundary(expected_ty, actual_ty, false)
+                    })
             })
         }
         (
@@ -28,7 +70,7 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                 && expected_args
                     .iter()
                     .zip(actual_args)
-                    .all(|(expected, actual)| is_assignable(expected, actual))
+                    .all(|(expected, actual)| is_assignable_at_boundary(expected, actual, false))
         }
         (
             Type::Function {
@@ -48,13 +90,15 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                 && expected_params
                     .iter()
                     .zip(actual_params)
-                    .all(|(expected, actual)| is_assignable(expected, actual))
+                    .all(|(expected, actual)| is_assignable_at_boundary(expected, actual, false))
                 && match (expected_variadic, actual_variadic) {
-                    (Some(expected), Some(actual)) => is_assignable(expected, actual),
+                    (Some(expected), Some(actual)) => {
+                        is_assignable_at_boundary(expected, actual, false)
+                    }
                     (None, None) => true,
                     _ => false,
                 }
-                && is_assignable(expected_return, actual_return)
+                && is_assignable_at_boundary(expected_return, actual_return, false)
                 && effects_are_assignable(expected_effects, actual_effects)
         }
         _ => false,

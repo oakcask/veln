@@ -74,6 +74,15 @@ recovery retains the surrounding declaration and lossless source tree. This
 diagnostic does not assert that a structurally valid base or final name resolves
 semantically.
 
+A value whose complete ADT variant set is not assignable at a direct local,
+argument, branch, arm, or result boundary reports `type.variant_mismatch` at
+that value expression. The primary message states the actual and expected
+types. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
+declaration-ordered `expected_variants`, declaration-ordered
+`excluded_variants`, and `constraint`. One `expected_type_origin` related note
+identifies the declaration or local annotation that supplied the expectation.
+If an earlier error leaves the value untyped, this diagnostic is omitted.
+
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
 `observed_initial`. Qualified written paths add zero-based `segment_index`.

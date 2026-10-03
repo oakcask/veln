@@ -94,6 +94,27 @@ fn classified_qualified_path_segments(
     segments.extend(recovered_qualified_type_segments(module, environment));
     segments.extend(recovered_qualified_module_segments(module, environment));
     segments.extend(recovered_qualified_function_segments(module, environment));
+    let resolved_locations = segments
+        .iter()
+        .filter(|segment| segment.evidence != QualifiedPathSegmentEvidence::Syntax)
+        .map(|segment| {
+            (
+                segment.span.file.as_str().to_string(),
+                segment.span.start.offset,
+                segment.span.end.offset,
+                segment.segment_index,
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    segments.retain(|segment| {
+        segment.evidence != QualifiedPathSegmentEvidence::Syntax
+            || !resolved_locations.contains(&(
+                segment.span.file.as_str().to_string(),
+                segment.span.start.offset,
+                segment.span.end.offset,
+                segment.segment_index,
+            ))
+    });
     let classified_keys = segments
         .iter()
         .map(classified_segment_key)
@@ -141,13 +162,12 @@ fn invalid_path_segment_is_already_classified(
     let Some(segment_index) = invalid.segment_index else {
         return false;
     };
-    classified_keys.contains(&(
-        invalid.span.file.as_str().to_string(),
-        invalid.span.start.offset,
-        invalid.span.end.offset,
-        segment_index,
-        invalid.class.as_str(),
-    ))
+    classified_keys.iter().any(|(file, start, end, index, _)| {
+        file == invalid.span.file.as_str()
+            && *start == invalid.span.start.offset
+            && *end == invalid.span.end.offset
+            && *index == segment_index
+    })
 }
 
 fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {

@@ -1,0 +1,39 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+type Envelope<A>
+	Wrapped(A)
+end
+
+fn accept_one(value: State::Ready) -> State::Ready
+	value
+end
+
+fn accept_two(value: State::Ready | State::Closed) -> State
+	value
+end
+
+fn keep_some(value: Option<Int>::Some) -> Option<Int>::Some
+	value
+end
+
+fn keep_ok(value: Result<Int, String>::Ok) -> Result<Int, String>::Ok
+	value
+end
+
+fn keep_nil(value: List<Int>::Nil) -> List<Int>::Nil
+	value
+end
+
+fn main() -> State
+	let exact = Ready
+	let same: State::Ready = accept_one(exact)
+	let widened: State = accept_two(same)
+	let some: Option<Int>::Some = keep_some(Some(1))
+	let ok: Result<Int, String>::Ok = keep_ok(Ok(1))
+	let nil: List<Int>::Nil = keep_nil(Nil)
+	widened
+end

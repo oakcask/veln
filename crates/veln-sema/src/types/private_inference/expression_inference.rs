@@ -453,7 +453,9 @@ pub(crate) fn same_constructor_descriptor(
 pub(crate) fn type_has_unknown(ty: &Type) -> bool {
     match ty {
         Type::Unknown => true,
-        Type::Named { args, .. } => args.iter().any(type_has_unknown),
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            args.iter().any(type_has_unknown)
+        }
         Type::Record(fields) => fields.iter().any(|(_, ty)| type_has_unknown(ty)),
         Type::Function {
             params,

@@ -62,7 +62,7 @@ fn inferred_type_contains(inferred: &Type, current: &Type) -> bool {
     }
     match inferred {
         Type::Unknown => false,
-        Type::Named { args, .. } => args
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args
             .iter()
             .any(|arg| arg == current || inferred_type_contains(arg, current)),
         Type::Record(fields) => fields

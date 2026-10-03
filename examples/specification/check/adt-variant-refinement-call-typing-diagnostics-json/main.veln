@@ -1,0 +1,37 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+fn needs_ready(value: State::Ready) -> State::Ready
+	value
+end
+
+fn wrong_call() -> State::Ready
+	needs_ready(Closed)
+end
+
+fn wrong_result(value: State) -> State::Ready
+	value
+end
+
+fn wrong_if() -> State::Ready
+	if true
+		Ready
+	else
+		Closed
+	end
+end
+
+fn wrong_match(value: State::Ready) -> State::Ready
+	match value
+		Ready => Ready
+		Closed => Closed
+		Failed => Ready
+	end
+end
+
+fn prior_error() -> State::Ready
+	missing
+end

@@ -113,6 +113,26 @@ pub(super) fn canonicalize_type_effects(
 ) -> Type {
     match ty {
         Type::Named { name, args } => {
+            if let Some((base_name, variant)) = name.rsplit_once("::")
+                && let Some(descriptor) =
+                    adts.descriptor_for_type_path(base_name, args.len(), current_module, uses)
+                && descriptor
+                    .variants
+                    .iter()
+                    .any(|candidate| candidate.name == variant)
+            {
+                return canonical_variant_refinement(
+                    descriptor,
+                    args,
+                    vec![variant.to_string()],
+                    uses,
+                    quarantined_uses,
+                    current_module,
+                    effects,
+                    adts,
+                    companion_effect_access_targets,
+                );
+            }
             let descriptor = adts.descriptor_for_type_path(&name, args.len(), current_module, uses);
             if args.is_empty() {
                 if let Some(annotation_type) = descriptor
@@ -159,6 +179,37 @@ pub(super) fn canonicalize_type_effects(
                     })
                     .collect(),
             }
+        }
+        Type::VariantRefinement {
+            name,
+            args,
+            variants,
+            ..
+        } => {
+            let Some(descriptor) =
+                adts.descriptor_for_type_path(&name, args.len(), current_module, uses)
+            else {
+                return Type::Unknown;
+            };
+            if variants.iter().any(|variant| {
+                !descriptor
+                    .variants
+                    .iter()
+                    .any(|candidate| candidate.name == *variant)
+            }) {
+                return Type::Unknown;
+            }
+            canonical_variant_refinement(
+                descriptor,
+                args,
+                variants,
+                uses,
+                quarantined_uses,
+                current_module,
+                effects,
+                adts,
+                companion_effect_access_targets,
+            )
         }
         Type::Record(fields) => Type::Record(
             fields
@@ -231,6 +282,53 @@ pub(super) fn canonicalize_type_effects(
             ),
         },
         Type::Unknown => Type::Unknown,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn canonical_variant_refinement(
+    descriptor: &crate::adt::descriptors::AdtDescriptor,
+    args: Vec<Type>,
+    variants: Vec<String>,
+    uses: &[UseDecl],
+    quarantined_uses: &[UseDecl],
+    current_module: Option<&str>,
+    effects: &[EffectSignature],
+    adts: &AdtRegistry,
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
+) -> Type {
+    let args = args
+        .into_iter()
+        .map(|arg| {
+            canonicalize_type_effects(
+                arg,
+                uses,
+                quarantined_uses,
+                current_module,
+                effects,
+                adts,
+                companion_effect_access_targets,
+            )
+        })
+        .collect::<Vec<_>>();
+    let variants = descriptor
+        .variants
+        .iter()
+        .filter(|candidate| variants.contains(&candidate.name))
+        .map(|candidate| candidate.name.clone())
+        .collect::<Vec<_>>();
+    if variants.len() == descriptor.variants.len() {
+        Type::named(&descriptor.type_name, args)
+    } else {
+        Type::resolved_variant_refinement(
+            &descriptor.type_name,
+            descriptor.module_name.as_ref().map_or_else(
+                || descriptor.type_name.clone(),
+                |module| format!("{module}::{}", descriptor.type_name),
+            ),
+            args,
+            variants,
+        )
     }
 }
 

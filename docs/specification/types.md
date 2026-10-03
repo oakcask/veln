@@ -41,6 +41,9 @@ Implemented type annotations:
   with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
+- a source-defined or compiler-known finite ADT singleton such as
+  `State::Ready` or `Option<Int>::Some`, and a same-ADT finite set such as
+  `State::Ready | State::Closed`
 
 Angle brackets are the source spelling for type constructor arguments. Legacy
 parenthesized type constructor arguments in type positions are invalid type
@@ -352,14 +355,63 @@ the arms that prove partial coverage.
 
 ## Compatibility and limits
 
-The parser structurally recognizes `Type::Variant` and unions such as
-`Type::First | Type::Second` in type positions, as specified by the
-[source surface](source-surface.md#variant-refinement-shaped-type-text). The
-type checker does not yet interpret that structure as a variant refinement: it
-does not resolve the final segment as an ADT variant, establish union identity,
-or provide refinement assignability or control-flow narrowing. Parseability and
-AST preservation therefore do not make these forms implemented semantic type
-annotations.
+The type checker resolves a structurally valid `A<T>::V` annotation to the
+singleton variant type for `V` of the finite ADT `A<T>`. A union of alternatives
+for the same ADT identity and generic arguments denotes their finite variant
+set. Duplicate alternatives are removed and display follows ADT declaration
+order. `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this
+same representation. A union containing every declared variant is equivalent
+to the base ADT.
+
+A resolved constructor expression has its singleton variant type. The expected
+base ADT can supply generic arguments to the constructor, and the singleton can
+widen directly to that base without a runtime conversion. An unannotated local
+binding retains the singleton. Core lowering erases the refinement to the base
+ADT, so constructor tags, payloads, and runtime representation are unchanged.
+
+At a direct assignment, argument, or result boundary, variant assignability is
+defined as follows:
+
+| Actual | Expected | Outcome |
+| --- | --- | --- |
+| `A<T>::V` | `A<T>::V` | Accepted. |
+| `A<T>::V` | `A<T>::V \| A<T>::W` | Accepted. |
+| `A<T>::V \| A<T>::W` | a same-base superset | Accepted. |
+| a variant set | a same-base strict subset | Rejected. |
+| a singleton or variant set | `A<T>` | Accepted by direct widening. |
+| `A<T>` | a singleton or variant set | Rejected. |
+| `A<T>::W` | a different singleton `A<T>::V` | Rejected. |
+
+The type checker applies the same rules to refined call parameters and declared
+function results. A final `if` or `match` checks every successfully typed branch
+or arm against the declared result, including a branch excluded by a constant
+condition. An earlier error that leaves an expression untyped does not add a
+derivative refinement mismatch.
+
+Refinement widening is direct only. It does not recurse through named type
+arguments, records, ADT payload types, or function parameter, variadic, or
+result positions. A refinement-bearing nested position must be identical on
+both sides. Function values therefore remain compatible only when every
+refinement-bearing position matches, in addition to the existing function
+shape and effect rules.
+
+An incompatible complete refinement comparison reports
+`type.variant_mismatch` at the assigned expression, call argument, branch, arm,
+or final result. Its JSON details contain the rendered `actual_type`, rendered
+`expected_type`, declaration-ordered `expected_variants`, and the
+declaration-ordered `excluded_variants`. A related note identifies the expected
+local annotation, parameter, or result declaration. The checked examples cover
+accepted source and compiler-known cases in
+`examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures
+in `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-json/`,
+and human diagnostics in
+`examples/specification/check/adt-variant-refinement-call-typing-diagnostics-human/`.
+
+Alias spelling and provenance, public/private exposure paths, refinement joins
+inside inferred aggregates, postfix `?`, pattern-based control-flow
+refinement, schema boundaries, package-documentation signatures, LSP, MCP, and
+language-reference publication remain proposal work. This slice also does not
+add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual

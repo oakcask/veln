@@ -15,6 +15,12 @@ pub(super) fn valid_qualified_path_segments(
                     environment,
                     &mut segments,
                 );
+                collect_variant_refinement_segments(
+                    &field.ty_refinements,
+                    current_module,
+                    environment,
+                    &mut segments,
+                );
             }
         }
     }
@@ -28,9 +34,21 @@ pub(super) fn valid_qualified_path_segments(
                     environment,
                     &mut segments,
                 );
+                collect_variant_refinement_segments(
+                    &param.ty_refinements,
+                    current_module,
+                    environment,
+                    &mut segments,
+                );
             }
             collect_type_path_segments(
                 &operation.return_type_paths,
+                current_module,
+                environment,
+                &mut segments,
+            );
+            collect_variant_refinement_segments(
+                &operation.return_type_refinements,
                 current_module,
                 environment,
                 &mut segments,
@@ -41,6 +59,12 @@ pub(super) fn valid_qualified_path_segments(
         let current_module = schema.module_name.as_deref();
         for field in &schema.fields {
             collect_type_path_segments(&field.ty_paths, current_module, environment, &mut segments);
+            collect_variant_refinement_segments(
+                &field.ty_refinements,
+                current_module,
+                environment,
+                &mut segments,
+            );
         }
     }
     for function in &module.functions {
@@ -51,8 +75,20 @@ pub(super) fn valid_qualified_path_segments(
             environment,
             &mut segments,
         );
+        collect_variant_refinement_segments(
+            &function.return_type_refinements,
+            current_module,
+            environment,
+            &mut segments,
+        );
         for param in &function.params {
             collect_type_path_segments(&param.ty_paths, current_module, environment, &mut segments);
+            collect_variant_refinement_segments(
+                &param.ty_refinements,
+                current_module,
+                environment,
+                &mut segments,
+            );
         }
         for line in &function.body {
             collect_valid_segments_from_body_line(line, current_module, environment, &mut segments);
@@ -62,11 +98,23 @@ pub(super) fn valid_qualified_path_segments(
         let current_module = handler.module_name.as_deref();
         for param in &handler.params {
             collect_type_path_segments(&param.ty_paths, current_module, environment, &mut segments);
+            collect_variant_refinement_segments(
+                &param.ty_refinements,
+                current_module,
+                environment,
+                &mut segments,
+            );
         }
         for clause in &handler.operation_clauses {
             for param in &clause.params {
                 collect_type_path_segments(
                     &param.ty_paths,
+                    current_module,
+                    environment,
+                    &mut segments,
+                );
+                collect_variant_refinement_segments(
+                    &param.ty_refinements,
                     current_module,
                     environment,
                     &mut segments,
@@ -101,6 +149,21 @@ fn collect_type_path_segments(
         {
             continue;
         }
+        if matches!(
+            environment
+                .adts
+                .constructor(&path.segments, current_module, &environment.uses),
+            crate::adt::registry::ConstructorLookup::Found(_)
+        ) {
+            push_constructor_path_segments(
+                &path.segments,
+                &path.segment_spans,
+                current_module,
+                environment,
+                output,
+            );
+            continue;
+        }
         for index in 0..path.segments.len() {
             if quarantined_import_lacks_leaf && index + 1 == path.segments.len() {
                 continue;
@@ -124,6 +187,45 @@ fn collect_type_path_segments(
     }
 }
 
+fn collect_variant_refinement_segments(
+    refinements: &[veln_ast::VariantRefinementType],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    output: &mut Vec<QualifiedPathSegment>,
+) {
+    for refinement in refinements {
+        for alternative in &refinement.alternatives {
+            let mut segments = alternative.base.segments.clone();
+            segments.push(alternative.variant.clone());
+            let mut spans = alternative.base.segment_spans.clone();
+            spans.push(alternative.variant_span.clone());
+            if matches!(
+                environment
+                    .adts
+                    .constructor(&segments, current_module, &environment.uses),
+                crate::adt::registry::ConstructorLookup::Found(_)
+            ) {
+                push_constructor_path_segments(
+                    &segments,
+                    &spans,
+                    current_module,
+                    environment,
+                    output,
+                );
+            }
+            for argument in &alternative.type_arguments {
+                collect_type_path_segments(&argument.ty_paths, current_module, environment, output);
+                collect_variant_refinement_segments(
+                    &argument.ty_refinements,
+                    current_module,
+                    environment,
+                    output,
+                );
+            }
+        }
+    }
+}
+
 fn collect_valid_segments_from_body_line(
     line: &veln_ast::BodyLine,
     current_module: Option<&str>,
@@ -140,6 +242,12 @@ fn collect_valid_segments_from_body_line(
             collect_valid_segments_from_pattern(pattern, current_module, environment, output);
             collect_type_path_segments(
                 &annotation_structure.paths,
+                current_module,
+                environment,
+                output,
+            );
+            collect_variant_refinement_segments(
+                &annotation_structure.variant_refinements,
                 current_module,
                 environment,
                 output,

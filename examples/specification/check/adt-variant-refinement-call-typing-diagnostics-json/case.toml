@@ -1,0 +1,87 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"type.variant_mismatch\"",
+  "\"actual_type\":\"State::Closed\"",
+  "\"expected_type\":\"State::Ready\"",
+  "\"expected_variants\":[\"Ready\"]",
+  "\"excluded_variants\":[\"Closed\"]",
+  "\"kind\":\"expected_type_origin\"",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 5
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 12
+column = 14
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 16
+column = 2
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 23
+column = 3
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 30
+column = 13
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `missing`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 36
+column = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "expected_type_origin"

@@ -165,6 +165,109 @@ fn assignability_allows_unknowns_record_width_and_function_shapes() {
 }
 
 #[test]
+fn variant_refinement_assignability_matches_the_normative_table() {
+    let base = Type::named("State", vec![Type::int()]);
+    let v = Type::variant_refinement("State", vec![Type::int()], vec!["V".to_string()]);
+    let w = Type::variant_refinement("State", vec![Type::int()], vec!["W".to_string()]);
+    let vw = Type::variant_refinement(
+        "State",
+        vec![Type::int()],
+        vec!["V".to_string(), "W".to_string()],
+    );
+    let vwx = Type::variant_refinement(
+        "State",
+        vec![Type::int()],
+        vec!["V".to_string(), "W".to_string(), "X".to_string()],
+    );
+    let r = Type::string();
+    let p = Type::bool();
+    let cases = vec![
+        (v.clone(), v.clone(), true),
+        (v.clone(), vw.clone(), true),
+        (vw.clone(), vwx, true),
+        (vw.clone(), v.clone(), false),
+        (v.clone(), base.clone(), true),
+        (vw.clone(), base.clone(), true),
+        (base.clone(), v.clone(), false),
+        (base.clone(), vw.clone(), false),
+        (w, v.clone(), false),
+        (
+            Type::function(vec![v.clone()], r.clone(), Vec::new()),
+            Type::function(vec![v.clone()], r.clone(), Vec::new()),
+            true,
+        ),
+        (
+            Type::function(vec![base.clone()], r.clone(), Vec::new()),
+            Type::function(vec![v.clone()], r.clone(), Vec::new()),
+            false,
+        ),
+        (
+            Type::function(vec![p.clone()], v.clone(), Vec::new()),
+            Type::function(vec![p], base.clone(), Vec::new()),
+            false,
+        ),
+    ];
+
+    for (actual, expected, accepted) in cases {
+        assert_eq!(
+            is_assignable(&expected, &actual),
+            accepted,
+            "actual {}, expected {}",
+            actual.render(),
+            expected.render()
+        );
+    }
+}
+
+#[test]
+fn variant_refinement_widening_is_direct_and_erases_for_core_types() {
+    let refined = Type::variant_refinement("State", vec![Type::int()], vec!["Ready".to_string()]);
+    let base = Type::named("State", vec![Type::int()]);
+
+    assert!(!is_assignable(
+        &Type::named("Box", vec![base.clone()]),
+        &Type::named("Box", vec![refined.clone()])
+    ));
+    assert!(!is_assignable(
+        &Type::Record(vec![("state".to_string(), base.clone())]),
+        &Type::Record(vec![("state".to_string(), refined.clone())])
+    ));
+    assert_eq!(refined.render(), "State<Int>::Ready");
+    assert_eq!(
+        core_type(&refined),
+        CoreType::named("State", vec![CoreType::int()])
+    );
+
+    let other_identity = Type::resolved_variant_refinement(
+        "State",
+        "other::State",
+        vec![Type::int()],
+        vec!["Ready".to_string()],
+    );
+    assert!(!is_assignable(&refined, &other_identity));
+}
+
+#[test]
+fn parses_singleton_and_same_base_variant_union_annotations() {
+    assert_eq!(
+        parse_type_annotation("Option<Int>::Some"),
+        Ok(Type::variant_refinement(
+            "Option",
+            vec![Type::int()],
+            vec!["Some".to_string()]
+        ))
+    );
+    assert_eq!(
+        parse_type_annotation("State::Ready | State::Closed"),
+        Ok(Type::variant_refinement(
+            "State",
+            Vec::new(),
+            vec!["Ready".to_string(), "Closed".to_string()]
+        ))
+    );
+}
+
+#[test]
 fn parses_nested_type_annotations_with_whitespace() {
     assert_eq!(
         parse_type_annotation(

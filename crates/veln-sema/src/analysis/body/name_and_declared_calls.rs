@@ -36,22 +36,25 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         constructor: AdtConstructor<'_>,
     ) -> Type {
-        let inferred = expected
+        let inferred_args = expected
             .and_then(|expected| {
-                unification::adt_args(&expected.ty, constructor.descriptor)
-                    .map(|_| expected.ty.clone())
+                unification::adt_args(&expected.ty, constructor.descriptor).map(<[Type]>::to_vec)
             })
-            .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
-        if type_contains_unknown(&inferred)
-            && ((expected.is_none() && constructor.variant.kind != AdtVariantKind::ListNil)
-                || (expected.is_some() && constructor.variant.kind == AdtVariantKind::ListNil))
-        {
-            self.push_ambiguous_constructor_type(
-                expr.node_id,
-                expr.span.clone(),
-                &segments.join("::"),
-                &inferred,
-            );
+            .unwrap_or_else(|| vec![Type::Unknown; constructor.descriptor.type_parameters.len()]);
+        let inferred = adt::refined_constructed_type_from_args(constructor, &inferred_args);
+        if type_contains_unknown(&inferred) {
+            let inferred_base = adt::constructed_type_from_args(constructor, &inferred_args);
+            if (expected.is_none() && constructor.variant.kind != AdtVariantKind::ListNil)
+                || (expected.is_some() && constructor.variant.kind == AdtVariantKind::ListNil)
+            {
+                self.push_ambiguous_constructor_type(
+                    expr.node_id,
+                    expr.span.clone(),
+                    &segments.join("::"),
+                    &inferred_base,
+                );
+            }
+            return inferred_base;
         }
         inferred
     }

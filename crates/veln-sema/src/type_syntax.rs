@@ -43,6 +43,12 @@ fn collect_type_reference_paths(ty: &Type, paths: &mut Vec<Vec<String>>) {
                 collect_type_reference_paths(arg, paths);
             }
         }
+        Type::VariantRefinement { name, args, .. } => {
+            paths.push(name.split("::").map(str::to_string).collect());
+            for arg in args {
+                collect_type_reference_paths(arg, paths);
+            }
+        }
         Type::Record(fields) => {
             for (_, field_type) in fields {
                 collect_type_reference_paths(field_type, paths);

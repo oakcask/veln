@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"9b6dd586ded5fa91b6a2176971fafc9ddca3f75a"
+source_git_tree	"d40c93d43e58bafb1111ddbb37c0494424ad2453"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1753
+case_count	1756
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -936,6 +936,96 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"ba08075dea9dfed3413e3ed564142a04ebdcff3c5473e6f3cbbd536eb64361f6"
+case	"examples/specification/check/adt-variant-refinement-call-typing"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"ok"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	0
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"15d41c1d00ba95afe844c6b0eadd32ff350236dd76510ab310ab3c41ec48f3e1"
+case	"examples/specification/check/adt-variant-refinement-call-typing-diagnostics-human"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"main.veln:11:14: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`"
+field	expectations.stdout.contains[1]	"note: main.veln:6:1: Callee parameter type declared here."
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"81d1478c7aea7939f92653e6a30c74c78c26186fb7fe61705591015d7d162db7"
+case	"examples/specification/check/adt-variant-refinement-call-typing-diagnostics-json"
+field	expectations.diagnostics[0].id	"type.variant_mismatch"
+field	expectations.diagnostics[0].kind	"type"
+field	expectations.diagnostics[0].message	"value of type `State::Closed` is not assignable to variant type `State::Ready`"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	14
+field	expectations.diagnostics[0].span.file	"main.veln"
+field	expectations.diagnostics[0].span.line	12
+field	expectations.diagnostics[1].id	"type.variant_mismatch"
+field	expectations.diagnostics[1].kind	"type"
+field	expectations.diagnostics[1].message	"value of type `State` is not assignable to variant type `State::Ready`"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	2
+field	expectations.diagnostics[1].span.file	"main.veln"
+field	expectations.diagnostics[1].span.line	16
+field	expectations.diagnostics[2].id	"type.variant_mismatch"
+field	expectations.diagnostics[2].kind	"type"
+field	expectations.diagnostics[2].message	"value of type `State::Closed` is not assignable to variant type `State::Ready`"
+field	expectations.diagnostics[2].severity	"error"
+field	expectations.diagnostics[2].span.column	3
+field	expectations.diagnostics[2].span.file	"main.veln"
+field	expectations.diagnostics[2].span.line	23
+field	expectations.diagnostics[3].id	"type.variant_mismatch"
+field	expectations.diagnostics[3].kind	"type"
+field	expectations.diagnostics[3].message	"value of type `State::Closed` is not assignable to variant type `State::Ready`"
+field	expectations.diagnostics[3].severity	"error"
+field	expectations.diagnostics[3].span.column	13
+field	expectations.diagnostics[3].span.file	"main.veln"
+field	expectations.diagnostics[3].span.line	30
+field	expectations.diagnostics[4].id	"name.unresolved"
+field	expectations.diagnostics[4].kind	"name"
+field	expectations.diagnostics[4].message	"unresolved value `missing`"
+field	expectations.diagnostics[4].severity	"error"
+field	expectations.diagnostics[4].span.column	2
+field	expectations.diagnostics[4].span.file	"main.veln"
+field	expectations.diagnostics[4].span.line	36
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	5
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.json_assertions[2].equals	"Closed"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.details.excluded_variants.0"
+field	expectations.json_assertions[3].equals	"expected_type_origin"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.related.0.kind"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"type.variant_mismatch\""
+field	expectations.stdout.contains[1]	"\"actual_type\":\"State::Closed\""
+field	expectations.stdout.contains[2]	"\"expected_type\":\"State::Ready\""
+field	expectations.stdout.contains[3]	"\"expected_variants\":[\"Ready\"]"
+field	expectations.stdout.contains[4]	"\"excluded_variants\":[\"Closed\"]"
+field	expectations.stdout.contains[5]	"\"kind\":\"expected_type_origin\""
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"0dd51e246800f28d5a29ee2f8e8428e956a31dafe470247bab49c44415c423e0"
 case	"examples/specification/check/anonymous-outer-package-boundary"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -62956,4 +63046,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8f305d739636f91fb5898826727ac86a20a421f5b053865b54368fd5a33bc6ec"
+aggregate_digest	"100962b6dfb115f6f8403df4ed5303bb8e193b0f294cdce2c199013c40a040b8"

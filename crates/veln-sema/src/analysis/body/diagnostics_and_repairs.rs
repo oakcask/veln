@@ -1,4 +1,5 @@
 use super::*;
+use crate::adt::registry::AdtRegistry;
 
 impl<'a> FunctionChecker<'a> {
     pub(in crate::analysis) fn check_assignable(
@@ -10,6 +11,47 @@ impl<'a> FunctionChecker<'a> {
         constraint: &'static str,
     ) {
         if is_assignable(expected, actual) {
+            return;
+        }
+        if !type_contains_unknown(expected)
+            && !type_contains_unknown(actual)
+            && let Some((expected_variants, excluded_variants)) =
+                variant_mismatch_sets(expected, actual, &self.environment.adts)
+        {
+            let mut diagnostic = Diagnostic::new(
+                "type.variant_mismatch",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!(
+                    "value of type `{}` is not assignable to variant type `{}`",
+                    actual.render(),
+                    expected.render()
+                ),
+                Some(expr.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("type_check")),
+                    ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+                    ("actual_type", JsonValue::string(actual.render())),
+                    ("expected_type", JsonValue::string(expected.render())),
+                    (
+                        "expected_variants",
+                        JsonValue::array(expected_variants.into_iter().map(JsonValue::string)),
+                    ),
+                    (
+                        "excluded_variants",
+                        JsonValue::array(excluded_variants.into_iter().map(JsonValue::string)),
+                    ),
+                    ("constraint", JsonValue::string(constraint)),
+                ]),
+            );
+            if let Some(origin_span) = &expected_source.origin_span {
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("expected_type_origin")),
+                    ("message", JsonValue::string(expected_source.origin_message)),
+                    ("span", span_json(origin_span)),
+                ]));
+            }
+            self.diagnostics.push(diagnostic);
             return;
         }
         self.diagnostics.push(Diagnostic::new(
@@ -567,5 +609,104 @@ impl<'a> FunctionChecker<'a> {
             self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings),
             ContractValidation::Valid
         )
+    }
+}
+
+fn variant_mismatch_sets(
+    expected: &Type,
+    actual: &Type,
+    adts: &AdtRegistry,
+) -> Option<(Vec<String>, Vec<String>)> {
+    match (expected, actual) {
+        (
+            Type::VariantRefinement {
+                identity: expected_identity,
+                args: expected_args,
+                variants: expected_variants,
+                ..
+            },
+            Type::VariantRefinement {
+                identity: actual_identity,
+                args: actual_args,
+                variants: actual_variants,
+                ..
+            },
+        ) => {
+            let excluded = actual_variants
+                .iter()
+                .filter(|variant| !expected_variants.contains(variant))
+                .cloned()
+                .collect::<Vec<_>>();
+            (expected_identity == actual_identity
+                && expected_args == actual_args
+                && !excluded.is_empty())
+            .then(|| (expected_variants.clone(), excluded))
+        }
+        (
+            Type::VariantRefinement {
+                name,
+                args,
+                variants,
+                ..
+            },
+            Type::Named {
+                name: actual_name,
+                args: actual_args,
+            },
+        ) if name == actual_name && args == actual_args => {
+            let actual_variants = adts.variant_names_for_type(actual)?;
+            let excluded = actual_variants
+                .into_iter()
+                .filter(|variant| !variants.contains(variant))
+                .collect::<Vec<_>>();
+            Some((variants.clone(), excluded))
+        }
+        (
+            Type::Named { name, args },
+            Type::VariantRefinement {
+                name: actual_name,
+                args: actual_args,
+                variants,
+                ..
+            },
+        ) if name == actual_name && args == actual_args => Some((
+            adts.variant_names_for_type(expected).unwrap_or_default(),
+            variants.clone(),
+        )),
+        (Type::Named { args: expected, .. }, Type::Named { args: actual, .. }) => expected
+            .iter()
+            .zip(actual)
+            .find_map(|(expected, actual)| variant_mismatch_sets(expected, actual, adts)),
+        (Type::Record(expected), Type::Record(actual)) => {
+            expected.iter().find_map(|(name, expected)| {
+                actual
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == name)
+                    .and_then(|(_, actual)| variant_mismatch_sets(expected, actual, adts))
+            })
+        }
+        (
+            Type::Function {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                ..
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                ..
+            },
+        ) => expected_params
+            .iter()
+            .zip(actual_params)
+            .find_map(|(expected, actual)| variant_mismatch_sets(expected, actual, adts))
+            .or_else(|| match (expected_variadic, actual_variadic) {
+                (Some(expected), Some(actual)) => variant_mismatch_sets(expected, actual, adts),
+                _ => None,
+            })
+            .or_else(|| variant_mismatch_sets(expected_return, actual_return, adts)),
+        _ => None,
     }
 }

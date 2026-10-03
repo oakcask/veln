@@ -33,6 +33,23 @@ impl<'a> TypeParser<'a> {
     }
 
     fn parse_type(&mut self) -> Result<Type, String> {
+        let first = self.parse_non_union_type()?;
+        self.skip_ws();
+        if !self.eat('|') {
+            return Ok(first);
+        }
+        let mut alternatives = vec![first];
+        loop {
+            alternatives.push(self.parse_non_union_type()?);
+            self.skip_ws();
+            if !self.eat('|') {
+                break;
+            }
+        }
+        variant_union(alternatives)
+    }
+
+    fn parse_non_union_type(&mut self) -> Result<Type, String> {
         self.skip_ws();
         if self.eat('{') {
             return self.parse_record_type();
@@ -61,6 +78,13 @@ impl<'a> TypeParser<'a> {
         } else {
             Vec::new()
         };
+        self.skip_ws();
+        if self.eat_str("::") {
+            let Some(variant) = self.parse_single_ident() else {
+                return Err("expected variant name after `::`".to_string());
+            };
+            return Ok(Type::variant_refinement(name, args, vec![variant]));
+        }
         self.validate_named_type(name, args)
     }
 
@@ -240,6 +264,19 @@ impl<'a> TypeParser<'a> {
         (self.cursor > start).then(|| self.text[start..self.cursor].to_string())
     }
 
+    fn parse_single_ident(&mut self) -> Option<String> {
+        self.skip_ws();
+        let start = self.cursor;
+        while let Some(ch) = self.current() {
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                self.cursor += ch.len_utf8();
+            } else {
+                break;
+            }
+        }
+        (self.cursor > start).then(|| self.text[start..self.cursor].to_string())
+    }
+
     fn skip_ws(&mut self) {
         while self.current().is_some_and(char::is_whitespace) {
             self.cursor += 1;
@@ -306,6 +343,50 @@ fn normalize_variadic_type(ty: Type) -> Type {
     match ty {
         Type::Named { name, args } if name == "unknown" && args.is_empty() => Type::Unknown,
         ty => ty,
+    }
+}
+
+fn variant_union(alternatives: Vec<Type>) -> Result<Type, String> {
+    let mut base_name = None::<String>;
+    let mut base_args = None::<Vec<Type>>;
+    let mut variants = Vec::new();
+    for alternative in alternatives {
+        let (name, args, mut alternative_variants) = unresolved_refinement_parts(alternative)?;
+        if let (Some(expected_name), Some(expected_args)) = (&base_name, &base_args)
+            && (expected_name != &name || expected_args != &args)
+        {
+            return Err("variant union alternatives must have the same base type".to_string());
+        }
+        base_name.get_or_insert(name);
+        base_args.get_or_insert(args);
+        for variant in alternative_variants.drain(..) {
+            if !variants.contains(&variant) {
+                variants.push(variant);
+            }
+        }
+    }
+    Ok(Type::variant_refinement(
+        base_name.unwrap_or_default(),
+        base_args.unwrap_or_default(),
+        variants,
+    ))
+}
+
+fn unresolved_refinement_parts(ty: Type) -> Result<(String, Vec<Type>, Vec<String>), String> {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            args,
+            variants,
+            ..
+        } => Ok((name, args, variants)),
+        Type::Named { name, args } => {
+            let Some((base, variant)) = name.rsplit_once("::") else {
+                return Err("variant union alternatives must name ADT variants".to_string());
+            };
+            Ok((base.to_string(), args, vec![variant.to_string()]))
+        }
+        _ => Err("variant union alternatives must name ADT variants".to_string()),
     }
 }
 

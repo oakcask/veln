@@ -217,6 +217,20 @@ pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Ty
                 .map(|arg| type_parameters_to_placeholders(arg, params))
                 .collect(),
         },
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+        } => Type::VariantRefinement {
+            name,
+            identity,
+            args: args
+                .into_iter()
+                .map(|arg| type_parameters_to_placeholders(arg, params))
+                .collect(),
+            variants,
+        },
         Type::Record(fields) => Type::Record(
             fields
                 .into_iter()

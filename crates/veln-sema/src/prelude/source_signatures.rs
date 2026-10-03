@@ -106,6 +106,22 @@ pub(super) fn source_prelude_concrete_type(ty: &Type, known_types: &BTreeSet<Str
             )
         }
         Type::Named { .. } => Type::Unknown,
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+        } if source_prelude_type_name_is_known(name, known_types) => {
+            Type::resolved_variant_refinement(
+                name.clone(),
+                identity.clone(),
+                args.iter()
+                    .map(|arg| source_prelude_concrete_type(arg, known_types))
+                    .collect(),
+                variants.clone(),
+            )
+        }
+        Type::VariantRefinement { .. } => Type::Unknown,
         Type::Record(fields) => Type::Record(
             fields
                 .iter()
@@ -149,7 +165,9 @@ pub(super) fn concrete_function_parameter(ty: &Type) -> bool {
 fn prelude_type_has_unknown(ty: &Type) -> bool {
     match ty {
         Type::Unknown => true,
-        Type::Named { args, .. } => args.iter().any(prelude_type_has_unknown),
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            args.iter().any(prelude_type_has_unknown)
+        }
         Type::Record(fields) => fields.iter().any(|(_, ty)| prelude_type_has_unknown(ty)),
         Type::Function {
             params,

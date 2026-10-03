@@ -150,6 +150,12 @@ pub(crate) enum Type {
         name: String,
         args: Vec<Type>,
     },
+    VariantRefinement {
+        name: String,
+        identity: String,
+        args: Vec<Type>,
+        variants: Vec<String>,
+    },
     Record(Vec<(String, Type)>),
     Function {
         params: Vec<Type>,
@@ -164,6 +170,34 @@ impl Type {
         Self::Named {
             name: name.into(),
             args,
+        }
+    }
+
+    pub(crate) fn variant_refinement(
+        name: impl Into<String>,
+        args: Vec<Type>,
+        variants: Vec<String>,
+    ) -> Self {
+        let name = name.into();
+        Self::VariantRefinement {
+            identity: name.clone(),
+            name,
+            args,
+            variants,
+        }
+    }
+
+    pub(crate) fn resolved_variant_refinement(
+        name: impl Into<String>,
+        identity: impl Into<String>,
+        args: Vec<Type>,
+        variants: Vec<String>,
+    ) -> Self {
+        Self::VariantRefinement {
+            name: name.into(),
+            identity: identity.into(),
+            args,
+            variants,
         }
     }
 
@@ -252,6 +286,24 @@ impl Type {
             Self::Named { name, args } => {
                 let args = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
                 format!("{name}<{args}>")
+            }
+            Self::VariantRefinement {
+                name,
+                args,
+                variants,
+                ..
+            } => {
+                let base = if args.is_empty() {
+                    name.clone()
+                } else {
+                    let args = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
+                    format!("{name}<{args}>")
+                };
+                variants
+                    .iter()
+                    .map(|variant| format!("{base}::{variant}"))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
             }
             Self::Record(fields) => {
                 let fields = fields

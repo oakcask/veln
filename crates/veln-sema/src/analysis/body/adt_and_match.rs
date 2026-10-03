@@ -51,20 +51,20 @@ impl<'a> FunctionChecker<'a> {
             self.infer_expr(arg, None);
         }
 
-        if let Some(expected) = expected {
-            return expected.ty.clone();
-        }
-        let inferred = adt::constructed_type_from_args(constructor, &inferred_type_args);
-        if type_contains_unknown(&inferred) {
+        let type_args = expected
+            .and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor))
+            .unwrap_or(&inferred_type_args);
+        let inferred_base = adt::constructed_type_from_args(constructor, type_args);
+        if type_contains_unknown(&inferred_base) {
             self.push_ambiguous_constructor_type(
                 expr.node_id,
                 expr.span.clone(),
                 &constructor.variant.name,
-                &inferred,
+                &inferred_base,
             );
             return adt::constructed_type(constructor, &actual_args);
         }
-        inferred
+        adt::refined_constructed_type_from_args(constructor, type_args)
     }
 
     pub(super) fn infer_list(

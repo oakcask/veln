@@ -55,7 +55,7 @@ pub(super) fn collect_schema_type_references<'a>(
     schemas: &mut Vec<&'a SchemaDecl>,
 ) {
     match ty {
-        Type::Named { name, args } => {
+        Type::Named { name, args } | Type::VariantRefinement { name, args, .. } => {
             if let Some(schema) = schema_for_type_name(module, current_module, name) {
                 schemas.push(schema);
             }
@@ -87,7 +87,7 @@ pub(super) fn collect_exact_width_schema_primitive_references<'a>(
     primitives: &mut Vec<&'a str>,
 ) {
     match ty {
-        Type::Named { name, args } => {
+        Type::Named { name, args } | Type::VariantRefinement { name, args, .. } => {
             if let Some(primitive) = exact_width_binary_primitive_name(name) {
                 primitives.push(primitive);
             }
@@ -119,7 +119,7 @@ pub(super) fn collect_lowercase_schema_primitive_references<'a>(
     primitives: &mut Vec<&'a str>,
 ) {
     match ty {
-        Type::Named { name, args } => {
+        Type::Named { name, args } | Type::VariantRefinement { name, args, .. } => {
             if lowercase_schema_primitive(name).is_some() {
                 primitives.push(name);
             }

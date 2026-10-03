@@ -23,9 +23,9 @@ also states it.
   resource lifecycle, and a substitutable public effect with an explicit
   system handler, building on the implemented network address values:
   [standard-library-networking.md](standard-library-networking.md).
-- Semantic and tooling support for the parsed ADT variant-refinement syntax,
-  including typing, diagnostics, control-flow refinement, schema and runtime
-  boundaries, LSP, MCP, and package documentation:
+- Remaining ADT variant-refinement support for aliases and visibility,
+  aggregate retention and joins, result propagation, control-flow refinement,
+  schema boundaries, package documentation, LSP, MCP, and publication:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked

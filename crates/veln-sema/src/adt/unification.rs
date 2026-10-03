@@ -309,6 +309,20 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
                 .map(|arg| substitute_type_parameters(arg, args))
                 .collect(),
         },
+        Type::VariantRefinement {
+            name,
+            identity,
+            args: nested,
+            variants,
+        } => Type::VariantRefinement {
+            name: name.clone(),
+            identity: identity.clone(),
+            args: nested
+                .iter()
+                .map(|arg| substitute_type_parameters(arg, args))
+                .collect(),
+            variants: variants.clone(),
+        },
         Type::Record(fields) => Type::Record(
             fields
                 .iter()
@@ -386,6 +400,10 @@ pub(super) fn core_type_template(ty: &Type) -> CoreType {
             name: name.clone(),
             args: args.iter().map(core_type_template).collect(),
         },
+        Type::VariantRefinement { name, args, .. } => CoreType::Named {
+            name: name.clone(),
+            args: args.iter().map(core_type_template).collect(),
+        },
         Type::Record(fields) => CoreType::Record(
             fields
                 .iter()
@@ -420,10 +438,12 @@ pub(crate) fn adt_args<'a, T: NamedTypeArguments>(
 
 impl NamedTypeArguments for Type {
     fn named_type_arguments(&self) -> Option<(&str, &[Self])> {
-        let Self::Named { name, args } = self else {
-            return None;
-        };
-        Some((name, args))
+        match self {
+            Self::Named { name, args } | Self::VariantRefinement { name, args, .. } => {
+                Some((name, args))
+            }
+            _ => None,
+        }
     }
 }
 

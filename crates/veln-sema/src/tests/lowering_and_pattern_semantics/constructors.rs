@@ -318,7 +318,7 @@ fn non_constructor_expected_type_still_reports_outer_mismatch() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(
         diagnostics[0].message,
-        "expected `Int`, but found `Option<Int>`"
+        "expected `Int`, but found `Option<Int>::Some`"
     );
 }
 
@@ -345,7 +345,7 @@ fn unrelated_adt_expected_type_does_not_constrain_constructor_payloads() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(
         diagnostics[0].message,
-        "expected `Option<Int>`, but found `Box<String>`"
+        "expected `Option<Int>`, but found `Box<String>::Box`"
     );
     assert_diagnostic_span(&diagnostics[0], 5, 3, 5, 12);
 }
