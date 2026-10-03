@@ -255,6 +255,24 @@ impl<'a> ClassfileEmitter<'a> {
         code.branch_to(0xa2, loop_done);
 
         let dispatched = code.new_label();
+        self.emit_test_entry_dispatch(&mut code, entry_functions, dispatched);
+
+        code.bind(dispatched);
+        code.iinc(3, 1);
+        code.branch_to(0xa7, loop_start);
+        code.bind(loop_done);
+        let try_end = code.mark();
+        code.op(0xb1);
+
+        self.finish_entry_class(class, code, try_start, try_end)
+    }
+
+    fn emit_test_entry_dispatch(
+        &self,
+        code: &mut MethodCode,
+        entry_functions: &[String],
+        dispatched: usize,
+    ) {
         for entry_function in entry_functions {
             code.aload(0);
             code.iload(3);
@@ -268,7 +286,7 @@ impl<'a> ClassfileEmitter<'a> {
                 &object_method_descriptor(0),
             );
             code.astore(1);
-            self.emit_entry_result(&mut code);
+            self.emit_entry_result(code);
             code.branch_to(0xa7, dispatched);
             code.bind(next);
         }
@@ -278,15 +296,6 @@ impl<'a> ClassfileEmitter<'a> {
         code.push_i32(1);
         code.invokestatic("java/lang/System", "exit", "(I)V");
         code.op(0xb1);
-
-        code.bind(dispatched);
-        code.iinc(3, 1);
-        code.branch_to(0xa7, loop_start);
-        code.bind(loop_done);
-        let try_end = code.mark();
-        code.op(0xb1);
-
-        self.finish_entry_class(class, code, try_start, try_end)
     }
 
     fn finish_entry_class(

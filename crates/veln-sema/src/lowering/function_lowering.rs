@@ -51,21 +51,7 @@ impl<'a> CoreLowerer<'a> {
             .iter()
             .enumerate()
             .map(|(index, param)| {
-                let mut ty = signature
-                    .and_then(|function| function.params.get(index))
-                    .map(core_type)
-                    .unwrap_or_else(|| {
-                        param.ty.as_deref().map_or(CoreType::Unknown, |annotation| {
-                            self.core_type_annotation(annotation)
-                        })
-                    });
-                if param.is_variadic {
-                    ty = signature
-                        .and_then(|function| function.variadic.as_ref())
-                        .map(core_type)
-                        .map(|ty| CoreType::named("List", vec![ty]))
-                        .unwrap_or_else(|| CoreType::named("List", vec![ty]));
-                }
+                let ty = self.lower_param_type(param, index, signature);
                 self.bindings.push(CoreBinding {
                     name: param.name.clone(),
                     ty: ty.clone(),
@@ -92,6 +78,31 @@ impl<'a> CoreLowerer<'a> {
             });
         }
         params
+    }
+
+    fn lower_param_type(
+        &self,
+        param: &veln_ast::Param,
+        index: usize,
+        signature: Option<&crate::types::signatures::FunctionSignature>,
+    ) -> CoreType {
+        let ty = signature
+            .and_then(|function| function.params.get(index))
+            .map(core_type)
+            .unwrap_or_else(|| {
+                param.ty.as_deref().map_or(CoreType::Unknown, |annotation| {
+                    self.core_type_annotation(annotation)
+                })
+            });
+        if param.is_variadic {
+            signature
+                .and_then(|function| function.variadic.as_ref())
+                .map(core_type)
+                .map(|ty| CoreType::named("List", vec![ty]))
+                .unwrap_or_else(|| CoreType::named("List", vec![ty]))
+        } else {
+            ty
+        }
     }
 
     pub(super) fn lower_return_type(&self) -> CoreType {

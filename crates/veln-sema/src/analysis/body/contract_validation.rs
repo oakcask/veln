@@ -282,14 +282,21 @@ impl<'a> FunctionChecker<'a> {
         }) {
             return ty;
         }
-        let segments = contract_callee_segments(trimmed);
+        if let Some(ty) = self.contract_function_value_type(trimmed) {
+            return ty;
+        }
+        contract_binding_field_type(trimmed, bindings)
+    }
+
+    fn contract_function_value_type(&self, value: &str) -> Option<Type> {
+        let segments = contract_callee_segments(value);
         match segments.as_slice() {
             [name] => {
                 if let FunctionLookup::Found(function) = self
                     .environment
                     .unqualified_function(name, self.function.module_name.as_deref())
                 {
-                    return function.ty();
+                    return Some(function.ty());
                 }
             }
             _ => {
@@ -297,25 +304,11 @@ impl<'a> FunctionChecker<'a> {
                     .environment
                     .function_path_for_value(&segments, self.function.module_name.as_deref())
                 {
-                    return function.ty();
+                    return Some(function.ty());
                 }
             }
         }
-        let mut parts = trimmed.split('.');
-        let Some(base) = parts.next() else {
-            return Type::Unknown;
-        };
-        let Some(binding) = bindings.iter().find(|binding| binding.name == base) else {
-            return Type::Unknown;
-        };
-        let mut current = binding.ty.clone();
-        for field in parts {
-            let Some(next) = current.record_field(field) else {
-                return Type::Unknown;
-            };
-            current = next.clone();
-        }
-        current
+        None
     }
 
     pub(super) fn contract_referenced_bindings(
@@ -463,6 +456,24 @@ fn contract_call_result_requires_boolean(
         && !contract_call_result_feeds_boolean_predicate(predicate, call.start, call.end)
         && !contract_call_result_has_field_access(predicate, call.end)
         && !contract_call_is_argument(calls, call_index)
+}
+
+fn contract_binding_field_type(value: &str, bindings: &[Binding]) -> Type {
+    let mut parts = value.split('.');
+    let Some(base) = parts.next() else {
+        return Type::Unknown;
+    };
+    let Some(binding) = bindings.iter().find(|binding| binding.name == base) else {
+        return Type::Unknown;
+    };
+    let mut current = binding.ty.clone();
+    for field in parts {
+        let Some(next) = current.record_field(field) else {
+            return Type::Unknown;
+        };
+        current = next.clone();
+    }
+    current
 }
 
 fn contract_call_arity_matches(fixed: usize, variadic: bool, actual: usize) -> bool {

@@ -249,55 +249,71 @@ fn lower_handler_clause_functions(
                 .operations
                 .iter()
                 .find(|operation| operation.name == operation_name)?;
-            let mut params = handler.params.clone();
-            params.extend(
-                clause
-                    .params
-                    .iter()
-                    .enumerate()
-                    .map(|(index, param)| veln_ast::Param {
-                        node_id: param.node_id,
-                        name: param.name.clone(),
-                        name_span: param.name_span.clone(),
-                        ty: operation.params.get(index).map(Type::render),
-                        ty_span: None,
-                        ty_paths: Vec::new(),
-                        ty_refinements: Vec::new(),
-                        is_variadic: false,
-                        span: param.span.clone(),
-                    }),
-            );
-            Some(Function {
-                node_id: clause.node_id,
-                module_name: handler.module_name.clone(),
-                kind: FunctionKind::Function,
-                visibility: Visibility::Private,
-                name: Some(synthetic_handler_clause_function_name(
-                    handler.name.as_deref().unwrap_or("missing"),
-                    operation_name,
-                )),
-                effect_binder: None,
-                params,
-                return_binding: None,
-                return_type: Some(operation.return_type.render()),
-                return_type_span: Some(operation.name_span.clone()),
-                return_type_paths: Vec::new(),
-                return_type_refinements: Vec::new(),
-                effects: None,
-                effect_spans: None,
-                callsite: None,
-                contracts: Vec::new(),
-                body: vec![BodyLine {
-                    node_id: clause.body.node_id,
-                    kind: BodyLineKind::Expr {
-                        expr: clause.body.clone(),
-                    },
-                    span: clause.body.span.clone(),
-                }],
-                span: clause.span.clone(),
-            })
+            Some(lower_handler_clause_function(handler, clause, operation))
         })
         .collect()
+}
+
+fn lower_handler_clause_function(
+    handler: &HandlerDecl,
+    clause: &veln_ast::HandlerOperationClauseDecl,
+    operation: &crate::types::signatures::EffectOperationSignature,
+) -> Function {
+    Function {
+        node_id: clause.node_id,
+        module_name: handler.module_name.clone(),
+        kind: FunctionKind::Function,
+        visibility: Visibility::Private,
+        name: Some(synthetic_handler_clause_function_name(
+            handler.name.as_deref().unwrap_or("missing"),
+            &operation.name,
+        )),
+        effect_binder: None,
+        params: lower_handler_clause_params(handler, clause, operation),
+        return_binding: None,
+        return_type: Some(operation.return_type.render()),
+        return_type_span: Some(operation.name_span.clone()),
+        return_type_paths: Vec::new(),
+        return_type_refinements: Vec::new(),
+        effects: None,
+        effect_spans: None,
+        callsite: None,
+        contracts: Vec::new(),
+        body: vec![BodyLine {
+            node_id: clause.body.node_id,
+            kind: BodyLineKind::Expr {
+                expr: clause.body.clone(),
+            },
+            span: clause.body.span.clone(),
+        }],
+        span: clause.span.clone(),
+    }
+}
+
+fn lower_handler_clause_params(
+    handler: &HandlerDecl,
+    clause: &veln_ast::HandlerOperationClauseDecl,
+    operation: &crate::types::signatures::EffectOperationSignature,
+) -> Vec<veln_ast::Param> {
+    let mut params = handler.params.clone();
+    params.extend(
+        clause
+            .params
+            .iter()
+            .enumerate()
+            .map(|(index, param)| veln_ast::Param {
+                node_id: param.node_id,
+                name: param.name.clone(),
+                name_span: param.name_span.clone(),
+                ty: operation.params.get(index).map(Type::render),
+                ty_span: None,
+                ty_paths: Vec::new(),
+                ty_refinements: Vec::new(),
+                is_variadic: false,
+                span: param.span.clone(),
+            }),
+    );
+    params
 }
 
 fn callee_symbol(callee: &Expr) -> Option<String> {
