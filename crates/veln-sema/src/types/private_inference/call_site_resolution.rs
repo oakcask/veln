@@ -188,7 +188,7 @@ pub(crate) fn collect_private_function_value_constraints(
         );
     }
     if *omitted_return && !type_has_unknown(return_type) {
-        update_private_signature_return(
+        update_private_signature_return_from_function_value(
             context.constraints.functions,
             &target_key,
             return_type.as_ref().clone(),
@@ -306,6 +306,26 @@ pub(crate) fn update_private_signature_return(
     let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
+    update_unknown_private_signature_type(&mut signature.return_type, inferred, changed);
+}
+
+fn update_private_signature_return_from_function_value(
+    functions: &mut [FunctionSignature],
+    key: &(Option<String>, String),
+    inferred: Type,
+    changed: &mut bool,
+) {
+    let Some(signature) = private_signature_mut(functions, key) else {
+        return;
+    };
+    if matches!(signature.return_type, Type::VariantRefinement { .. })
+        && matches!(inferred, Type::Named { .. })
+        && crate::type_relations::is_assignable(&inferred, &signature.return_type)
+    {
+        signature.return_type = inferred;
+        *changed = true;
+        return;
+    }
     update_unknown_private_signature_type(&mut signature.return_type, inferred, changed);
 }
 

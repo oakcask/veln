@@ -196,8 +196,9 @@ pub(crate) fn omitted_private_slots_that_can_change(
                     }
                 })
                 .collect::<Vec<_>>();
-            let omitted_return =
-                function.return_type.is_none() && type_has_unknown(&signature.return_type);
+            let omitted_return = function.return_type.is_none()
+                && (type_has_unknown(&signature.return_type)
+                    || matches!(signature.return_type, Type::VariantRefinement { .. }));
             (omitted_params.iter().any(|omitted| *omitted) || omitted_return)
                 .then_some((key, (omitted_params, omitted_return)))
         })

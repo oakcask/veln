@@ -838,6 +838,88 @@ fn nested_refinement_canonicalization_handles_increasing_depths() {
     );
 }
 
+#[test]
+fn unresolved_nested_annotations_do_not_repeat_canonicalization() {
+    fn canonicalization_work(depth: usize) -> usize {
+        let mut annotation = "Int".to_string();
+        for _ in 0..depth {
+            annotation = format!("missing::Outer<{annotation}>");
+        }
+        let source = format!("fn keep(value: {annotation}) -> ()\n  ()\nend\n");
+        crate::types::reset_type_canonicalization_visits();
+        let diagnostics = diagnostics_for(&source);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "type.variant_mismatch"),
+            "depth {depth}: {diagnostics:#?}"
+        );
+        crate::types::take_type_canonicalization_visits()
+    }
+
+    let work = [16, 32, 64].map(canonicalization_work);
+    eprintln!("invalid annotation canonicalization visits at depths 16, 32, and 64: {work:?}");
+    assert!(work[0] > 0, "the metric must observe canonicalization work");
+    assert!(
+        work[0] == work[1] && work[1] == work[2],
+        "an invalid outer annotation must stop validation before child recanonicalization: {work:?}"
+    );
+}
+
+#[test]
+fn private_constructor_results_retain_singleton_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "end\n",
+            "type GenericState<A>\n",
+            "  Ready(A)\n",
+            "end\n",
+            "fn ready()\n",
+            "  State::Ready\n",
+            "end\n",
+            "fn generic_ready()\n",
+            "  GenericState::Ready(1)\n",
+            "end\n",
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn accept_generic_ready(value: GenericState<Int>::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  accept_ready(ready())\n",
+            "  accept_generic_ready(generic_ready())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("ready")
+            .expect("private helper should be present")
+            .return_type
+            .render(),
+        "State::Ready"
+    );
+    assert_eq!(
+        environment
+            .function("generic_ready")
+            .expect("private generic helper should be present")
+            .return_type
+            .render(),
+        "GenericState<Int>::Ready"
+    );
+}
+
 fn large_variant_union_source(variant_count: usize) -> String {
     let variants = (0..=variant_count)
         .map(|index| format!("Variant{index:04}"))

@@ -502,11 +502,12 @@ pub(crate) fn infer_private_signature_name_type(
         }
     });
     if let Some(constructor) = constructor {
-        return expected
+        let args = expected
             .and_then(|expected| {
-                unification::adt_args(expected, constructor.descriptor).map(|_| expected.clone())
+                unification::adt_args(expected, constructor.descriptor).map(<[Type]>::to_vec)
             })
-            .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
+            .unwrap_or_else(|| vec![Type::Unknown; constructor.descriptor.type_parameters.len()]);
+        return adt::refined_constructed_type_from_args(constructor, &args);
     }
     match segments {
         [name] => bindings
@@ -608,13 +609,26 @@ pub(crate) fn infer_private_signature_call_type(
                 .iter()
                 .map(|arg| context.infer(arg, None))
                 .collect::<Vec<_>>();
-            if expected
-                .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
-                .is_some()
-            {
-                return expected.cloned().unwrap_or(Type::Unknown);
+            let mut inferred_type_args =
+                vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
+            for (index, actual) in actual_args.iter().enumerate() {
+                adt::merge_type_args_from_payload(
+                    &mut inferred_type_args,
+                    constructor,
+                    index,
+                    actual,
+                );
             }
-            return adt::constructed_type(constructor, &actual_args);
+            if let Some(expected_args) = expected
+                .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
+            {
+                for (inferred, expected) in inferred_type_args.iter_mut().zip(expected_args) {
+                    if *inferred == Type::Unknown {
+                        *inferred = expected.clone();
+                    }
+                }
+            }
+            return adt::refined_constructed_type_from_args(constructor, &inferred_type_args);
         }
         if let Some(name) = segments.last() {
             if let Some(return_type) = match segments.as_slice() {

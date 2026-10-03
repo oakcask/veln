@@ -15,16 +15,6 @@ use super::builtin_descriptors::build_builtin_descriptors;
 #[cfg(test)]
 use super::lookup_validation::validate_adt_lookup_descriptors;
 
-pub(crate) fn constructed_type(constructor: AdtConstructor<'_>, payloads: &[Type]) -> Type {
-    let mut args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
-    for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
-        if let Some(payload) = payloads.get(index) {
-            fill_type_parameters(&mut args, constructor.descriptor, &field.ty, payload);
-        }
-    }
-    constructed_type_from_args(constructor, &args)
-}
-
 pub(crate) fn core_constructed_type(
     constructor: AdtConstructor<'_>,
     payloads: &[CoreType],

@@ -17,6 +17,18 @@ fn accept_one(value: State::Ready) -> State::Ready
 	value
 end
 
+fn inferred_ready()
+	State::Ready
+end
+
+fn inferred_wrapped()
+	Envelope::Wrapped(1)
+end
+
+fn accept_wrapped(value: Envelope<Int>::Wrapped) -> ()
+	()
+end
+
 fn accept_two(value: State::Ready | State::Closed) -> State
 	value
 end
@@ -56,6 +68,9 @@ end
 fn main() -> State
 	let exact = Ready
 	let same: State::Ready = accept_one(exact)
+	let inferred: State::Ready = inferred_ready()
+	accept_one(inferred)
+	accept_wrapped(inferred_wrapped())
 	let widened: State = accept_two(same)
 	let some: Option<Int>::Some = keep_some(Some(1))
 	let ok: Result<Int, String>::Ok = keep_ok(Ok(1))

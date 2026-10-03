@@ -369,6 +369,18 @@ path = "diagnostics.19.details.constraint"
 equals = "call_argument"
 
 [[json_assert]]
+path = "diagnostics.19.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.19.related.1.message"
+equals = "Prelude helper parameter type inferred here."
+
+[[json_assert]]
+path = "diagnostics.19.related.1.span.start.line"
+equals = 127
+
+[[json_assert]]
 path = "diagnostics.20.id"
 equals = "type.variant_mismatch"
 

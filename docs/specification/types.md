@@ -201,7 +201,13 @@ signature. Concrete argument expressions constrain omitted parameters. A
 concrete expected result type at a helper call constrains an omitted return
 type, and body tail facts are checked against the inferred return type. Body
 facts and call-site facts must agree; a later incompatible call reports
-`type.mismatch` at the failed argument or expected-result use. Direct recursive
+`type.mismatch` at the failed argument or expected-result use. When the body
+tail is a resolved constructor, an omitted return retains the constructor
+singleton and its resolved generic arguments. It can therefore satisfy a
+refined call parameter without an annotation. A compatible function-value
+context can instead fix that omitted result to the base ADT before function
+compatibility is checked. An ordinary direct call widens the singleton at the
+call boundary without replacing the inferred helper signature. Direct recursive
 edges do not supply inference facts for the recursive helper itself, so an
 omitted recursive slot still needs a non-recursive concrete fact or an
 annotation. Public functions, tests, exported aliases, and imported public
@@ -426,9 +432,10 @@ or final result. Its JSON details contain the rendered `actual_type`, rendered
 `form: all_except_expected` and an empty `variants` array when the actual type
 is the complete base ADT. A `variant_exclusion` related note renders the same
 fact for human output, and another related note identifies the expected local
-annotation, parameter, or result declaration. A nested record, named argument,
-ADT payload, or function-position invariance failure has no truthful top-level
-variant exclusion and uses the ordinary `type.mismatch` diagnostic instead.
+annotation, parameter, result declaration, or compiler-known helper parameter
+inferred at the call site. A nested record, named argument, ADT payload, or
+function-position invariance failure has no truthful top-level variant
+exclusion and uses the ordinary `type.mismatch` diagnostic instead.
 The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures

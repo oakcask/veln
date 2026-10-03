@@ -1,0 +1,5 @@
+use helper
+
+fn invalid_module(value: Helper::Item::Ready) -> ()
+	()
+end

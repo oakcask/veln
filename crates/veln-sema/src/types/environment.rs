@@ -300,6 +300,9 @@ impl TypeEnvironment {
                     .to_string(),
             );
         }
+        if canonical == &Type::Unknown {
+            return None;
+        }
         let children: Vec<&Type> = match ty {
             Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
                 args.iter().collect()
@@ -334,23 +337,16 @@ impl TypeEnvironment {
                 .collect(),
             Type::Unknown => Vec::new(),
         };
-        children.into_iter().enumerate().find_map(|(index, child)| {
-            if let Some(canonical_child) = canonical_children.get(index) {
+        children
+            .into_iter()
+            .zip(canonical_children)
+            .find_map(|(child, canonical_child)| {
                 self.variant_refinement_annotation_error_with_canonical(
                     child,
                     canonical_child,
                     current_module,
                 )
-            } else {
-                let canonical_child =
-                    self.canonicalize_type_annotation(child.clone(), current_module);
-                self.variant_refinement_annotation_error_with_canonical(
-                    child,
-                    &canonical_child,
-                    current_module,
-                )
-            }
-        })
+            })
     }
 
     pub(crate) fn function_for(&self, source: &Function) -> Option<&FunctionSignature> {
