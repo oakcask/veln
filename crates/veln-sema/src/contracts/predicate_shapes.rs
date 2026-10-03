@@ -16,6 +16,18 @@ pub(super) fn flattened_keyword_clauses<'a>(predicate: &'a str, keyword: &str) -
     flattened
 }
 
+pub(super) fn is_opaque_call_conjunction(predicate: &str) -> bool {
+    let clauses = split_top_level_keyword(predicate, "and");
+    clauses.len() > 1
+        && clauses.into_iter().all(|clause| {
+            let clause = strip_balanced_outer_parens(clause);
+            matches!(
+                contract_calls(clause).as_slice(),
+                [call] if call.start == 0 && call.end == clause.len()
+            )
+        })
+}
+
 pub(super) fn negated_predicate_inner(predicate: &str) -> Option<&str> {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if let Some(rest) = predicate.strip_prefix("not ") {

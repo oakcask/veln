@@ -63,6 +63,19 @@ fn max_width_boolean_truth_table_proves_conjunction_of_complements() {
 }
 
 #[test]
+fn wide_opaque_call_conjunction_remains_runtime_required() {
+    let predicate = std::iter::repeat_n("accepts()", 600)
+        .collect::<Vec<_>>()
+        .join(" and ");
+
+    assert_eq!(
+        static_boolean_truth_table_value(&predicate),
+        Some(StaticBooleanValue::Unknown)
+    );
+    assert!(!contract_predicate_is_statically_true(&predicate));
+}
+
+#[test]
 fn static_contract_reasoning_evaluates_integer_bitwise_expressions() {
     for predicate in [
         "(~0 & 255) == 255",
