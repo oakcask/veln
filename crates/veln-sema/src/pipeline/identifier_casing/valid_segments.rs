@@ -149,21 +149,6 @@ fn collect_type_path_segments(
         {
             continue;
         }
-        if matches!(
-            environment
-                .adts
-                .constructor(&path.segments, current_module, &environment.uses),
-            crate::adt::registry::ConstructorLookup::Found(_)
-        ) {
-            push_constructor_path_segments(
-                &path.segments,
-                &path.segment_spans,
-                current_module,
-                environment,
-                output,
-            );
-            continue;
-        }
         for index in 0..path.segments.len() {
             if quarantined_import_lacks_leaf && index + 1 == path.segments.len() {
                 continue;
