@@ -513,8 +513,7 @@ pub(crate) fn same_constructor_descriptor(
     left: &AdtConstructor<'_>,
     right: &AdtConstructor<'_>,
 ) -> bool {
-    left.descriptor.type_name == right.descriptor.type_name
-        && left.descriptor.module_name == right.descriptor.module_name
+    left.descriptor.identity() == right.descriptor.identity()
         && left.descriptor.type_parameters.len() == right.descriptor.type_parameters.len()
 }
 

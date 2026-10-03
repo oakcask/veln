@@ -371,7 +371,5 @@ pub(super) fn import_alias_matches(
 }
 
 pub(super) fn same_descriptor(left: &AdtDescriptor, right: &AdtDescriptor) -> bool {
-    left.type_name == right.type_name
-        && left.module_name == right.module_name
-        && left.type_parameters.len() == right.type_parameters.len()
+    left.identity() == right.identity() && left.type_parameters.len() == right.type_parameters.len()
 }
