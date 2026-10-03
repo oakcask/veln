@@ -2,7 +2,7 @@ fn located(value: Int) -> {value: Int, location: SourceLocation} callsite
 	{value: value, location: callsite}
 end
 
-fn forward(value: Int) -> {value: Int, location: SourceLocation} callsite
+fn forward(value: Int) -> {value: Int, location: SourceLocation}
 	let stored: fn(Int) -> {value: Int, location: SourceLocation} = located
 	stored(value)
 end

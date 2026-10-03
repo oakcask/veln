@@ -347,6 +347,40 @@ fn bytecode_backend_runs_deep_tail_recursion_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_runs_deep_higher_order_tail_recursion_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn keep(value: Int) -> Int\n",
+        "  value\n",
+        "end\n",
+        "fn countdown(callback: fn(Int) -> Int, value: Int) -> Int\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => countdown(callback, value - 1)\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(countdown(keep, 30000)))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-higher-order-tail-recursion",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "0\n");
+}
+
+#[test]
 fn bytecode_backend_rechecks_require_contracts_inside_tail_recursion_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn countdown(value: Int) -> Int\n",
@@ -432,6 +466,12 @@ fn bytecode_backend_classifies_tail_recursion_conservatively() {
         "    _ => through_value(callback, callback(value - 1))\n",
         "  end\n",
         "end\n",
+        "fn forward_callback(callback: fn(Int) -> Int, value: Int) -> Int\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => forward_callback(callback, value - 1)\n",
+        "  end\n",
+        "end\n",
     ));
 
     let function = |name: &str| {
@@ -456,5 +496,9 @@ fn bytecode_backend_classifies_tail_recursion_conservatively() {
     assert_eq!(
         classify_tail_recursion(function("through_value")),
         TailRecursionEligibility::IndirectValueCall
+    );
+    assert_eq!(
+        classify_tail_recursion(function("forward_callback")),
+        TailRecursionEligibility::Eligible
     );
 }

@@ -14,11 +14,11 @@ The location must be captured when the library API is called. A trace can be
 finished or exported after the originating call stack no longer exists, so a
 later stack walk cannot recover the required logical call site.
 
-The declaration, static-checking, and direct-call runtime behavior are
-specified in
+The declaration, static-checking, and direct- and indirect-call runtime
+behavior are specified in
 [Call-site Declarations](../specification/call-site-declarations.md). This
-proposal tracks only the remaining source-identity, lifetime, and presentation
-work below.
+proposal tracks only the remaining S6 through S9 source-identity, lifetime,
+and presentation work below.
 
 The remaining source-identity work must make `package` and `module`
 disambiguate equal relative paths from different dependencies and must verify

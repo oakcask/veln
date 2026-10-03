@@ -568,7 +568,18 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 target: IrCallTarget::Function(name),
                 args,
             } if self.tail_loop_start.is_some() && name == &self.function.name => {
-                self.emit_tail_self_call(code, args);
+                self.emit_tail_self_call(code, args, None);
+                true
+            }
+            IrExprKind::Call {
+                target:
+                    IrCallTarget::CallbackBoundary {
+                        target: IrCallbackTarget::Function(name),
+                        callsite,
+                    },
+                args,
+            } if self.tail_loop_start.is_some() && name == &self.function.name => {
+                self.emit_tail_self_call(code, args, Some(callsite));
                 true
             }
             IrExprKind::Match { scrutinee, arms } => self.emit_tail_match(code, scrutinee, arms),
@@ -579,10 +590,19 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         }
     }
 
-    pub(super) fn emit_tail_self_call(&mut self, code: &mut MethodCode, args: &[IrExpr]) {
+    pub(super) fn emit_tail_self_call(
+        &mut self,
+        code: &mut MethodCode,
+        args: &[IrExpr],
+        callback_callsite: Option<&IrExpr>,
+    ) {
         let mut temp_slots = Vec::with_capacity(args.len());
         for arg in args {
-            self.emit_expr(code, arg);
+            if let Some(callsite) = callback_callsite {
+                self.emit_callback_arg(code, arg, callsite);
+            } else {
+                self.emit_expr(code, arg);
+            }
             let slot = self.alloc_local();
             code.astore(slot);
             temp_slots.push(slot);

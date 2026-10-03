@@ -239,15 +239,24 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
 
     fn emit_callback_args(&mut self, code: &mut MethodCode, args: &[IrExpr], callsite: &IrExpr) {
         for arg in args {
-            self.emit_expr(code, arg);
-            if matches!(arg.ty, CoreType::Function { .. }) {
-                self.emit_expr(code, callsite);
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    "bindCallsite",
-                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-                );
-            }
+            self.emit_callback_arg(code, arg, callsite);
+        }
+    }
+
+    pub(super) fn emit_callback_arg(
+        &mut self,
+        code: &mut MethodCode,
+        arg: &IrExpr,
+        callsite: &IrExpr,
+    ) {
+        self.emit_expr(code, arg);
+        if matches!(arg.ty, CoreType::Function { .. }) {
+            self.emit_expr(code, callsite);
+            code.invokestatic(
+                &self.program.options.runtime_class,
+                "bindCallsite",
+                "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            );
         }
     }
 
