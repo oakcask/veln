@@ -149,10 +149,11 @@ Call-site execution-gate diagnostics use kind `type` and
 
 The entry and contract-call records include a related
 `runtime_support` note that states the unavailable runtime boundary. These
-diagnostics stop `veln run` before backend launch. Direct calls in ordinary
-function bodies, direct forwarding through call-site-aware wrappers, and
-direct built-in references or call-site-aware direct calls in runtime
-contracts on call-site-aware functions do not produce these diagnostics. The
+diagnostics stop `veln run` before backend launch. Direct and indirect calls in
+ordinary function bodies, forwarding through call-site-aware wrappers, passing
+call-site-aware callbacks to runtime-backed consumers, and direct built-in
+references or call-site-aware direct calls in runtime contracts on
+call-site-aware functions do not produce these diagnostics. The
 ordinary-function contract diagnostic represents a deliberate boundary: its
 enclosing function has no hidden call-site context to forward.
 
