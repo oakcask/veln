@@ -32,7 +32,9 @@ end
 Pure calls returning numbers may occur inside comparisons, and pure calls
 returning records may feed field access. A numeric expression alone is not a
 predicate: `require value + 1` is a non-boolean diagnostic. Text inside a
-string literal is literal data and is never resolved as a name.
+string literal is literal data and is never resolved as a name. Parentheses
+and commas inside a string literal do not close a grouped predicate or split a
+call's argument list.
 
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
 contract predicates. `perform Effect::operation(...)` can parse as a candidate
