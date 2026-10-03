@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The standard-library test placement policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -23,6 +23,52 @@ reference for test organization, not a source for command behavior.
 - Change this harness when a manifest needs a reusable assertion shape, command
   environment, repeated invocation, or fixture setup rule.
 - JVM backend fixtures exercise the implemented bytecode path by default.
+
+## Test Placement Policy
+
+Standard-library API behavior belongs in companion `.test.veln` files under
+`crates/veln-stdlib/veln/`. Assert returned values, error variants or messages,
+boundary conditions, ordering, and preserved input state directly there.
+Using an API as fixture setup does not establish coverage of its contract.
+Run the standard-library behavior suite with `bash scripts/agent-stdlib-test`.
+
+The toolchain harness owns integration contracts. This placement rule applies
+to both `crates/veln-cli/tests/toolchain_cases/` and `examples/specification/`.
+Wrapping an API result in stdout or run JSON does not make its value a CLI
+contract. Running a program on the JVM does not by itself justify a backend
+case.
+
+| Assertion under review | Placement |
+| --- | --- |
+| String splitting, container transformations, fallible traversal, byte bounds, hex input rejection, or bounded chunk production | Standard-library companion test |
+| CLI exit status, JSON envelope or diagnostic rendering, test discovery, or command-selected inputs | Toolchain case |
+| A specific compiler or backend regression, or integration with a real host resource | Test at that integration boundary; retain stdlib tests for the API contract |
+
+For every added or expanded toolchain case that exercises a standard-library
+API, authors and reviewers must identify the integration contract and the
+assertion that would detect its failure. State that rationale in the case's
+source or manifest comment. Keep only the inputs and permutations needed for
+that contract. Put API behavior permutations in companion tests, even when a
+toolchain smoke case uses the same API.
+
+Reject a new or expanded case when its only failure condition is an incorrect
+API result and no independently identified integration contract requires the
+case. Check the corresponding stdlib assertions rather than accepting an API
+call, fixture helper, or passing toolchain case as evidence of behavior
+coverage. A CLI diagnostic case can check rendering while a companion test
+checks the underlying API rejection.
+
+When relocating existing API behavior checks, establish equivalent direct
+stdlib assertions before removing the toolchain assertions. Preserve any
+independent integration coverage and follow the semantic baseline procedure
+below for deliberate case changes. Existing cases are not precedents for new
+API-only toolchain coverage.
+
+This semantic placement rule is enforced by author and reviewer inspection.
+Harness manifest validation does not establish compliance. Reassess the rule
+if the stdlib test runner cannot express a required API observation; document
+the missing capability and the boundary covered by any necessary integration
+case instead of using an API-name blacklist.
 
 ## Case Layout
 
