@@ -8,7 +8,11 @@ pub(super) fn strip_balanced_outer_parens(text: &str) -> &str {
         }
         let mut depth = 0usize;
         let mut balanced_outer = true;
+        let mut string_scanner = StringLiteralScanner::default();
         for (index, ch) in trimmed.char_indices() {
+            if string_scanner.consume(ch) {
+                continue;
+            }
             match ch {
                 '(' => depth += 1,
                 ')' => {
@@ -25,6 +29,32 @@ pub(super) fn strip_balanced_outer_parens(text: &str) -> &str {
             return trimmed;
         }
         trimmed = trimmed[1..trimmed.len() - 1].trim();
+    }
+}
+
+#[derive(Default)]
+pub(super) struct StringLiteralScanner {
+    in_string: bool,
+    escaped: bool,
+}
+
+impl StringLiteralScanner {
+    pub(super) fn consume(&mut self, ch: char) -> bool {
+        if !self.in_string {
+            if ch == '"' {
+                self.in_string = true;
+                return true;
+            }
+            return false;
+        }
+        if self.escaped {
+            self.escaped = false;
+        } else if ch == '\\' {
+            self.escaped = true;
+        } else if ch == '"' {
+            self.in_string = false;
+        }
+        true
     }
 }
 

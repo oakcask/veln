@@ -9,6 +9,7 @@ require true == observer::fixed_boundary_location(callsite, 1, 1, 1, 1, 1, 1, 1,
 require observer::variadic_location(callsite)
 require observer::variadic_location(callsite, 17, 29)
 require observer::wide_variadic_location(callsite, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+require (observer::string_location(callsite, "\"),("))
 	callsite
 end
 

@@ -183,8 +183,21 @@ fn strip_contract_outer_parens(mut text: &str) -> &str {
         };
         let mut depth = 0usize;
         let mut closes_at_end = false;
+        let mut in_string = false;
+        let mut escaped = false;
         for (index, ch) in text.char_indices() {
+            if in_string {
+                if escaped {
+                    escaped = false;
+                } else if ch == '\\' {
+                    escaped = true;
+                } else if ch == '"' {
+                    in_string = false;
+                }
+                continue;
+            }
             match ch {
+                '"' => in_string = true,
                 '(' => depth += 1,
                 ')' => {
                     depth = depth.saturating_sub(1);

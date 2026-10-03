@@ -62,15 +62,18 @@ pub(super) fn callee_start(predicate: &str, open: usize) -> Option<usize> {
 }
 
 pub(super) fn matching_close(predicate: &str, open: usize) -> Option<usize> {
-    let bytes = predicate.as_bytes();
     let mut depth = 0usize;
-    for (index, byte) in bytes.iter().enumerate().skip(open) {
-        match byte {
-            b'(' => depth += 1,
-            b')' => {
+    let mut string_scanner = StringLiteralScanner::default();
+    for (relative_index, ch) in predicate[open..].char_indices() {
+        if string_scanner.consume(ch) {
+            continue;
+        }
+        match ch {
+            '(' => depth += 1,
+            ')' => {
                 depth = depth.saturating_sub(1);
                 if depth == 0 {
-                    return Some(index);
+                    return Some(open + relative_index);
                 }
             }
             _ => {}
@@ -83,7 +86,11 @@ pub(super) fn split_call_args(text: &str) -> Vec<String> {
     let mut args = Vec::new();
     let mut start = 0usize;
     let mut depth = 0usize;
+    let mut string_scanner = StringLiteralScanner::default();
     for (index, ch) in text.char_indices() {
+        if string_scanner.consume(ch) {
+            continue;
+        }
         match ch {
             '(' => depth += 1,
             ')' => depth = depth.saturating_sub(1),

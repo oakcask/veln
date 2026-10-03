@@ -91,6 +91,38 @@ fn callsite_aware_contract_calls_lower_when_the_enclosing_function_has_callsite_
 }
 
 #[test]
+fn grouped_callsite_contract_calls_keep_string_delimiters_inside_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located(expected: SourceLocation, observed: String) -> Bool callsite\n",
+            "  callsite.start_line == expected.start_line and observed == \"\\\"),(\"\n",
+            "end\n",
+            "pub fn guarded() -> () callsite\n",
+            "require (located(callsite, \"\\\"),(\"))\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let guarded = lowered
+        .ir
+        .as_ref()
+        .expect("typed IR")
+        .functions
+        .iter()
+        .find(|function| function.name == "guarded")
+        .expect("guarded function");
+    let call = &guarded.contracts[0].callsite_calls[0];
+    assert_eq!(call.callee, "located");
+    assert_eq!(call.fixed_arg_count, 2);
+}
+
+#[test]
 fn callsite_contract_calls_retain_alias_targets_and_variadic_abi() {
     let source = SourceFile::new(
         "main.veln",
