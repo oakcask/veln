@@ -7,70 +7,14 @@ impl<'a> FunctionChecker<'a> {
         fields: &[RecordField],
         expected: Option<&ExpectedType>,
     ) -> Type {
-        if fields.is_empty()
-            && let Some(expected) = expected
-            && expected.ty.dict_parts().is_some()
-        {
-            if type_contains_unknown(&expected.ty) {
-                self.push_ambiguous_empty_collection_type(
-                    expr.node_id,
-                    expr.span.clone(),
-                    "Dict",
-                    &expected.ty,
-                );
-            }
-            return expected.ty.clone();
+        if let Some(empty_dict_type) = self.infer_empty_record_as_dict(expr, fields, expected) {
+            return empty_dict_type;
         }
         let mut actual_fields = Vec::new();
         let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
         for field in fields {
-            if let Some((first_node_id, first_span)) = seen_fields.get(&field.name) {
-                self.diagnostics.push(duplicate_name_diagnostic(
-                    &field.name,
-                    "record_field",
-                    "record field",
-                    field.node_id.display("field"),
-                    field.span.clone(),
-                    first_node_id.clone(),
-                    first_span,
-                ));
-            } else {
-                seen_fields.insert(
-                    field.name.clone(),
-                    (field.node_id.display("field"), field.span.clone()),
-                );
-            }
-            let field_expected = expected
-                .and_then(|expected| expected.ty.record_field(&field.name))
-                .cloned()
-                .map(|ty| ExpectedType {
-                    ty,
-                    source: expected
-                        .map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
-                    origin_node_id: expected
-                        .map_or(field.node_id, |expected| expected.origin_node_id),
-                    origin_span: expected.and_then(|expected| expected.origin_span.clone()),
-                    origin_message: expected.map_or("Expected type inferred here.", |expected| {
-                        expected.origin_message
-                    }),
-                });
-            let actual = self.infer_expr(&field.expr, field_expected.as_ref());
-            let aggregate_actual = field_expected.as_ref().map_or_else(
-                || inferred_aggregate_member_type(actual.clone()),
-                |expected| {
-                    inferred_aggregate_member_type_with_expected(actual.clone(), &expected.ty)
-                },
-            );
-            if let Some(field_expected) = &field_expected {
-                self.check_assignable_nested(
-                    &field.expr,
-                    &field_expected.ty,
-                    &aggregate_actual,
-                    field_expected,
-                    "record_field",
-                );
-            }
-            actual_fields.push((field.name.clone(), aggregate_actual));
+            self.check_duplicate_record_field(field, &mut seen_fields);
+            actual_fields.push((field.name.clone(), self.infer_record_field(field, expected)));
         }
         let actual = Type::Record(actual_fields);
         if let Some(expected) = expected
@@ -80,6 +24,67 @@ impl<'a> FunctionChecker<'a> {
         } else {
             actual
         }
+    }
+
+    fn infer_empty_record_as_dict(
+        &mut self,
+        expr: &Expr,
+        fields: &[RecordField],
+        expected: Option<&ExpectedType>,
+    ) -> Option<Type> {
+        let expected =
+            expected.filter(|expected| fields.is_empty() && expected.ty.dict_parts().is_some())?;
+        if type_contains_unknown(&expected.ty) {
+            self.push_ambiguous_empty_collection_type(
+                expr.node_id,
+                expr.span.clone(),
+                "Dict",
+                &expected.ty,
+            );
+        }
+        Some(expected.ty.clone())
+    }
+
+    fn check_duplicate_record_field(
+        &mut self,
+        field: &RecordField,
+        seen_fields: &mut BTreeMap<String, (String, SourceSpan)>,
+    ) {
+        if let Some((first_node_id, first_span)) = seen_fields.get(&field.name) {
+            self.diagnostics.push(duplicate_name_diagnostic(
+                &field.name,
+                "record_field",
+                "record field",
+                field.node_id.display("field"),
+                field.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else {
+            seen_fields.insert(
+                field.name.clone(),
+                (field.node_id.display("field"), field.span.clone()),
+            );
+        }
+    }
+
+    fn infer_record_field(&mut self, field: &RecordField, expected: Option<&ExpectedType>) -> Type {
+        let field_expected = record_field_expected(field, expected);
+        let actual = self.infer_expr(&field.expr, field_expected.as_ref());
+        let aggregate_actual = field_expected.as_ref().map_or_else(
+            || inferred_aggregate_member_type(actual.clone()),
+            |expected| inferred_aggregate_member_type_with_expected(actual.clone(), &expected.ty),
+        );
+        if let Some(field_expected) = &field_expected {
+            self.check_assignable_nested(
+                &field.expr,
+                &field_expected.ty,
+                &aggregate_actual,
+                field_expected,
+                "record_field",
+            );
+        }
+        aggregate_actual
     }
 
     pub(super) fn infer_dict(
@@ -544,4 +549,22 @@ impl<'a> FunctionChecker<'a> {
             _ => None,
         }
     }
+}
+
+fn record_field_expected(
+    field: &RecordField,
+    expected: Option<&ExpectedType>,
+) -> Option<ExpectedType> {
+    expected
+        .and_then(|expected| expected.ty.record_field(&field.name))
+        .cloned()
+        .map(|ty| ExpectedType {
+            ty,
+            source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
+            origin_node_id: expected.map_or(field.node_id, |expected| expected.origin_node_id),
+            origin_span: expected.and_then(|expected| expected.origin_span.clone()),
+            origin_message: expected.map_or("Expected type inferred here.", |expected| {
+                expected.origin_message
+            }),
+        })
 }
