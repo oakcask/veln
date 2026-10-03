@@ -471,7 +471,7 @@ fn variant_unions_reject_mixed_resolved_adts() {
 }
 
 #[test]
-fn aggregate_construction_erases_base_components_and_rejects_excluded_variants() {
+fn aggregate_construction_retains_record_fields_and_rejects_excluded_variants() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -482,7 +482,11 @@ fn aggregate_construction_erases_base_components_and_rejects_excluded_variants()
             "  let inline: {state: State} = {state: Ready}\n",
             "  let exact: {state: State::Ready} = {state: Closed}\n",
             "  let retained = {state: Ready}\n",
+            "  accept_ready(retained.state)\n",
             "  let bound: {state: State} = retained\n",
+            "end\n",
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
             "end\n",
             "fn payloads() -> ()\n",
             "  let inline: Box<State> = Boxed(Ready)\n",
@@ -511,7 +515,7 @@ fn aggregate_construction_erases_base_components_and_rejects_excluded_variants()
         )
     ));
 
-    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
     assert_eq!(
         diagnostics
             .iter()
@@ -525,13 +529,13 @@ fn aggregate_construction_erases_base_components_and_rejects_excluded_variants()
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.mismatch")
             .count(),
-        5,
+        6,
         "{diagnostics:#?}"
     );
 }
 
 #[test]
-fn aggregate_inference_uses_base_types_for_mixed_variants() {
+fn non_record_aggregate_inference_uses_base_types_for_mixed_variants() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -539,11 +543,9 @@ fn aggregate_inference_uses_base_types_for_mixed_variants() {
             "  Boxed(A)\n",
             "end\n",
             "fn main() -> ()\n",
-            "  let record = {state: Ready}\n",
             "  let states = [Ready, Closed]\n",
             "  let table = {\"ready\": Ready, \"closed\": Closed}\n",
             "  let boxed = Boxed(Ready)\n",
-            "  let record_base: {state: State} = record\n",
             "  let states_base: Vec<State> = states\n",
             "  let table_base: Dict<String, State> = table\n",
             "  let boxed_base: Box<State> = boxed\n",
@@ -960,7 +962,7 @@ fn private_constructor_results_retain_singleton_refinements() {
 }
 
 #[test]
-fn private_aggregate_results_erase_member_refinements() {
+fn private_record_results_retain_fields_while_other_aggregates_erase_members() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -985,7 +987,7 @@ fn private_aggregate_results_erase_member_refinements() {
             "fn accept_states(value: Vec<State>) -> ()\n",
             "  ()\n",
             "end\n",
-            "fn accept_record(value: {state: State}) -> ()\n",
+            "fn accept_ready(value: State::Ready) -> ()\n",
             "  ()\n",
             "end\n",
             "fn accept_dict(value: Dict<String, State>) -> ()\n",
@@ -996,7 +998,7 @@ fn private_aggregate_results_erase_member_refinements() {
             "end\n",
             "fn main() -> ()\n",
             "  accept_states(states())\n",
-            "  accept_record(state_record())\n",
+            "  accept_ready(state_record().state)\n",
             "  accept_dict(state_dict())\n",
             "  accept_box(boxed_state())\n",
             "end\n",
@@ -1011,7 +1013,7 @@ fn private_aggregate_results_erase_member_refinements() {
     let environment = TypeEnvironment::from_module(&module);
     for (function, expected) in [
         ("states", "Vec<State>"),
-        ("state_record", "{state: State}"),
+        ("state_record", "{state: State::Ready}"),
         ("state_dict", "Dict<String, State>"),
         ("boxed_state", "Box<State>::Boxed"),
     ] {

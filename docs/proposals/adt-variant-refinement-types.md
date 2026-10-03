@@ -14,10 +14,10 @@ direct assignability and widening, refined calls and results, stable mismatch
 diagnostics, and runtime erasure.
 
 This proposal retains only the unfinished work: alias presentation and
-visibility, aggregate retention and joins, postfix result propagation,
-pattern-based control-flow refinement, schema boundaries, package
-documentation, command-wide enforcement, LSP, MCP, and language-reference
-publication.
+visibility, collection, dictionary, and generic-payload retention and joins,
+postfix result propagation, pattern-based control-flow refinement, schema
+boundaries, package documentation, command-wide enforcement, LSP, MCP, and
+language-reference publication.
 
 ## Outcomes And Boundaries
 
@@ -134,8 +134,9 @@ checking, and runtime erasure. The sections below define only the remaining
 semantic extensions.
 
 The examples below use this illustrative API. Its direct call and result
-typing is current behavior; only the aggregate, propagation, and control-flow
-rules described after it remain proposed.
+typing and record-literal retention are current behavior; only the remaining
+aggregate, propagation, and control-flow rules described after it remain
+proposed.
 
 ```veln
 pub type Connection
@@ -163,13 +164,17 @@ pub fn reset(
 end
 ```
 
-### Aggregate Retention, Contextual Widening, And Joins
+### Remaining Aggregate Retention, Contextual Widening, And Joins
 
-An aggregate without an expected aggregate type retains every refinement that
-its component expressions contribute. Record fields retain their initializer
-types. Collection element, dictionary key and value, and generic ADT payload
-inference retain refinements in their corresponding inferred type arguments.
-An outer constructor expression also retains its own singleton refinement.
+The current [type specification](../specification/types.md#compatibility-and-limits)
+owns record-literal retention. An unannotated record retains constructor
+singletons in its field types, field access exposes the retained type, and a
+later assignment cannot widen the refinement through the record.
+
+The remaining aggregate work makes collection elements, dictionary keys and
+values, and generic ADT payload inference retain refinements in their
+corresponding inferred type arguments. An outer constructor expression already
+retains its own singleton refinement.
 
 When several expressions contribute to one inferred aggregate position,
 refinements of the same instantiated ADT use the symmetric least upper bound.
@@ -179,17 +184,16 @@ also becomes the base ADT. Contributions that are not refinements of the same
 instantiated ADT continue to use the existing aggregate inference and mismatch
 rules.
 
-For example, these unannotated values retain nested refinements:
+For example, these unannotated values will retain nested refinements:
 
 ```veln
-let record = { state: Connected(1) }
 let states = [Connected(1), Closed("normal")]
 let boxed = Boxed(Connected(1))
 ```
 
-The record field has type `Connection::Connected`. The vector has type
+The vector will have type
 `Vec<Connection::Connected | Connection::Closed>`. If `Boxed` is the sole
-variant of `Box<A>`, the third expression has type
+variant of `Box<A>`, the second expression will have type
 `Box<Connection::Connected>::Boxed`.
 
 An explicit aggregate annotation supplies expected component types before the
@@ -206,12 +210,11 @@ to a wider aggregate remains invalid until
 [Generic And Function Variance](generic-and-function-variance.md) defines and
 implements a covariant path for that aggregate.
 
-Field access observes the retained record-field type. Constructor payload
-patterns observe the retained payload type after generic substitution. A
-collection operation whose declared result or callback parameter uses the
-element type observes the collection's retained type argument. None of these
-projections widens a refinement merely because the surrounding aggregate is
-unannotated.
+Constructor payload patterns will observe the retained payload type after
+generic substitution. A collection operation whose declared result or callback
+parameter uses the element type will observe the collection's retained type
+argument. None of these projections will widen a refinement merely because the
+surrounding aggregate is unannotated.
 
 `if` and `match` use a symmetric least upper bound that does not depend on
 branch order. The join of refinements with the same ADT identity and generic
@@ -579,7 +582,7 @@ current behavior:
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Aliases and visibility | Alias-qualified refinements preserve target identity while following the stated presentation and navigation rules. Imported, private, opaque, ambiguous, and exact-companion exposure paths follow the visibility contract. Public-signature checking traverses record fields, generic arguments, function positions, public source ADT payloads, refinement unions, and alias chains without leaking a private base or variant or looping on recursion. Direct leaks select the private written segment; alias-hidden leaks select the outermost written alias and report the structural exposure path. Aliases of one target are mutually assignable, written annotations retain their spelling, unannotated and conflicting-provenance inference uses the canonical target spelling, mismatch sides select their spelling independently, and base and variant navigation select the alias and target constructor respectively. Failed visibility retains unambiguous source navigation identities under existing recovery rules but publishes no declaration or package signature. | Table-driven semantic, display, package-signature, and shared navigation cases covering every structural position, direct and multi-alias leaks, multiple paths, recursive cycles, exact companions, deterministic diagnostic order, exact primary and related spans, retained source identities, absent public identities, and rendered types. |
-| Aggregate retention, contextual widening, and joins | Unannotated aggregate positions retain exact refinements; multiple contributions to one aggregate position use a source-order-independent variant union; field access, payload patterns, and collection element positions observe the retained type; and expected component types widen during aggregate construction without a later nested assignment. | Table-driven type-checker cases for aggregate joins, unannotated record, vector, dictionary, and generic ADT retention, explicit aggregate widening, projection, and rejected post-construction nested widening, plus executable `check` examples. |
+| Remaining aggregate retention, contextual widening, and joins | Unannotated collection, dictionary, and generic ADT payload positions retain exact refinements; multiple contributions to one aggregate position use a source-order-independent variant union; payload patterns and collection element positions observe the retained type; and expected component types widen during aggregate construction without a later nested assignment. | Table-driven type-checker cases for aggregate joins, vector, dictionary, and generic ADT retention, explicit aggregate widening, projection, and rejected post-construction nested widening, plus executable `check` examples. |
 | Result propagation | Postfix `?` on a known `Ok` produces its exact success type but still requires the ordinary propagation context and error compatibility. Postfix `?` on a known `Err` follows the ordinary error path without a refinement-specific diagnostic, and later source remains checked. | Table-driven type-checker cases for compatible and incompatible known-`Ok` propagation, refined success payloads, known-`Err` early return, and independent failures after that return, plus executable `check` examples. |
 | Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, and complete union arms are exhaustive. A valid variant outside the original domain is impossible; a valid constructor or catch-all with no remaining variants is redundant. Invalid arm heads take diagnostic precedence, contribute no coverage, and can use only unambiguous recovery for binding and body checking. Impossible and redundant arms still receive independent body checks and any expected-type check inherited from the enclosing expression, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, duplicate variants, complete prior coverage, invalid casing, hidden and private constructors, wrong-ADT constructors, qualified immutable values, recovered binding and body types, declared-result mismatches in final `match` expressions, and computed-expression boundaries, plus state-machine `check` examples. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |

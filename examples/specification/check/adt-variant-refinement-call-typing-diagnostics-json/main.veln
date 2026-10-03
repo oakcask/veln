@@ -143,3 +143,8 @@ pub type StateAlias = State
 fn rejected_alias_refinement(value: StateAlias::Ready) -> ()
 	()
 end
+
+fn reject_inferred_record_widening() -> ()
+	let record = {state: Ready}
+	let widened: {state: State} = record
+end

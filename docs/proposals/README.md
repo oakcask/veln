@@ -24,9 +24,9 @@ also states it.
   system handler, building on the implemented network address values:
   [standard-library-networking.md](standard-library-networking.md).
 - Remaining ADT variant-refinement support for aliases and visibility,
-  aggregate retention and joins, result propagation, control-flow refinement,
-  schema boundaries, package documentation, command-wide enforcement, LSP,
-  MCP, and publication:
+  collection, dictionary, and generic-payload retention and joins, result
+  propagation, control-flow refinement, schema boundaries, package
+  documentation, command-wide enforcement, LSP, MCP, and publication:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked

@@ -21,7 +21,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 23
+equals = 24
 
 [[diagnostics]]
 id = "type.variant_mismatch"
@@ -431,3 +431,26 @@ message = "invalid type annotation `StateAlias::Ready`: variant refinement annot
 file = "main.veln"
 line = 143
 column = 30
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{state: State}`, but found `{state: State::Ready}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 149
+column = 32
+
+[[json_assert]]
+path = "diagnostics.23.details.expected_type"
+equals = "{state: State}"
+
+[[json_assert]]
+path = "diagnostics.23.details.actual_type"
+equals = "{state: State::Ready}"
+
+[[json_assert]]
+path = "diagnostics.23.details.constraint"
+equals = "assignable"

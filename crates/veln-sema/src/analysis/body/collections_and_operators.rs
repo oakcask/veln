@@ -72,7 +72,7 @@ impl<'a> FunctionChecker<'a> {
         let field_expected = record_field_expected(field, expected);
         let actual = self.infer_expr(&field.expr, field_expected.as_ref());
         let aggregate_actual = field_expected.as_ref().map_or_else(
-            || inferred_aggregate_member_type(actual.clone()),
+            || actual.clone(),
             |expected| inferred_aggregate_member_type_with_expected(actual.clone(), &expected.ty),
         );
         if let Some(field_expected) = &field_expected {

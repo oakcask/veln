@@ -132,8 +132,8 @@ fn main() -> State
 	accept_one(inferred)
 	accept_one(annotated)
 	accept_wrapped(inferred_wrapped())
+	accept_one(inferred_state_record().state)
 	accept_state_list(inferred_state_list())
-	accept_state_record(inferred_state_record())
 	accept_state_dict(inferred_state_dict())
 	accept_state_envelope(inferred_state_envelope())
 	let transitioned: State = inferred_transition(true)
@@ -146,7 +146,7 @@ fn main() -> State
 	let unresolved = None
 	let resolved: Option<Int> = unresolved
 	let record = {state: Ready}
-	let record_base: {state: State} = record
+	accept_one(record.state)
 	let states = [Ready, Closed]
 	let states_base: Vec<State> = states
 	let envelope = Wrapped(Ready)
