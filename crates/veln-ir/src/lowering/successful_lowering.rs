@@ -1,6 +1,58 @@
 use super::*;
 
 #[test]
+fn lower_callback_boundary_preserves_runtime_target_and_callsite() {
+    let module = lower_source(concat!("fn main() -> ()\n", "  ()\n", "end\n",));
+    let callsite = expr_line(&main_function(&module).body[0]);
+
+    assert_callback_target_lowering(
+        callsite,
+        CoreCallbackTarget::Function("map".to_string()),
+        IrCallbackTarget::Function("map".to_string()),
+    );
+    assert_callback_target_lowering(
+        callsite,
+        CoreCallbackTarget::ConcurrencyBuiltin("task::spawn".to_string()),
+        IrCallbackTarget::ConcurrencyBuiltin("task::spawn".to_string()),
+    );
+    assert_callback_target_lowering(
+        callsite,
+        CoreCallbackTarget::StandardLibraryBuiltin("option::map".to_string()),
+        IrCallbackTarget::StandardLibraryBuiltin("option::map".to_string()),
+    );
+    assert_callback_target_lowering(
+        callsite,
+        CoreCallbackTarget::PreludeBuiltin("list::map".to_string()),
+        IrCallbackTarget::PreludeBuiltin("list::map".to_string()),
+    );
+}
+
+fn assert_callback_target_lowering(
+    callsite: &Expr,
+    core_target: CoreCallbackTarget,
+    expected_target: IrCallbackTarget,
+) {
+    let target = CoreCallTarget::CallbackBoundary {
+        target: core_target,
+        callsite: Box::new(core_expr(callsite, CoreType::unit(), CoreExprKind::Unit)),
+    };
+    let lowered =
+        lower_call_target(callsite.node_id, &target).expect("callback boundary should lower");
+    let IrCallTarget::CallbackBoundary {
+        target,
+        callsite: lowered_callsite,
+    } = lowered
+    else {
+        panic!("callback boundary should remain explicit in IR");
+    };
+
+    assert_eq!(target, expected_target);
+    assert_eq!(lowered_callsite.node_id, callsite.node_id);
+    assert_eq!(lowered_callsite.ty, CoreType::unit());
+    assert!(matches!(lowered_callsite.kind, IrExprKind::Unit));
+}
+
+#[test]
 fn lower_complete_program_preserves_function_shape_and_calls() {
     let module = fixture_ids();
     let surface = main_function(&module);
