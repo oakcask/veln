@@ -401,7 +401,10 @@ fn lower_call_target(
     if let Some(target) = lower_schema_call_target(target) {
         return Ok(target);
     }
-    lower_non_schema_call_target(node_id, target)
+    if let Some(target) = lower_named_call_target(target) {
+        return Ok(target);
+    }
+    lower_contextual_call_target(node_id, target)
 }
 
 fn lower_schema_call_target(target: &CoreCallTarget) -> Option<IrCallTarget> {
@@ -425,56 +428,60 @@ fn lower_schema_call_target(target: &CoreCallTarget) -> Option<IrCallTarget> {
     }
 }
 
-fn lower_non_schema_call_target(
+fn lower_named_call_target(target: &CoreCallTarget) -> Option<IrCallTarget> {
+    match target {
+        CoreCallTarget::Function(name) => Some(IrCallTarget::Function(name.clone())),
+        CoreCallTarget::StdioBuiltin(name) => Some(IrCallTarget::StdioBuiltin(name.clone())),
+        CoreCallTarget::ConcurrencyBuiltin(name) => {
+            Some(IrCallTarget::ConcurrencyBuiltin(name.clone()))
+        }
+        CoreCallTarget::StandardLibraryBuiltin(name) => {
+            Some(IrCallTarget::StandardLibraryBuiltin(name.clone()))
+        }
+        CoreCallTarget::PreludeBuiltin(name) => Some(IrCallTarget::PreludeBuiltin(name.clone())),
+        CoreCallTarget::Value(name) => Some(IrCallTarget::Value(name.clone())),
+        _ => None,
+    }
+}
+
+fn lower_contextual_call_target(
     node_id: NodeId,
     target: &CoreCallTarget,
 ) -> Result<IrCallTarget, IrLowerError> {
     match target {
-        CoreCallTarget::Function(name) => Ok(IrCallTarget::Function(name.clone())),
-        CoreCallTarget::StdioBuiltin(name) => Ok(IrCallTarget::StdioBuiltin(name.clone())),
-        CoreCallTarget::ConcurrencyBuiltin(name) => {
-            Ok(IrCallTarget::ConcurrencyBuiltin(name.clone()))
-        }
-        CoreCallTarget::StandardLibraryBuiltin(name) => {
-            Ok(IrCallTarget::StandardLibraryBuiltin(name.clone()))
-        }
-        CoreCallTarget::PreludeBuiltin(name) => Ok(IrCallTarget::PreludeBuiltin(name.clone())),
         CoreCallTarget::CallbackBoundary { target, callsite } => {
             Ok(IrCallTarget::CallbackBoundary {
-                target: match target {
-                    CoreCallbackTarget::Function(name) => IrCallbackTarget::Function(name.clone()),
-                    CoreCallbackTarget::ConcurrencyBuiltin(name) => {
-                        IrCallbackTarget::ConcurrencyBuiltin(name.clone())
-                    }
-                    CoreCallbackTarget::StandardLibraryBuiltin(name) => {
-                        IrCallbackTarget::StandardLibraryBuiltin(name.clone())
-                    }
-                    CoreCallbackTarget::PreludeBuiltin(name) => {
-                        IrCallbackTarget::PreludeBuiltin(name.clone())
-                    }
-                },
-                callsite: Box::new(lower_expr(callsite)?),
+                target: lower_callback_target(target),
+                callsite: lower_callsite_expr(callsite)?,
             })
         }
-        CoreCallTarget::Value(name) => Ok(IrCallTarget::Value(name.clone())),
         CoreCallTarget::CallsiteValue { name, callsite } => Ok(IrCallTarget::CallsiteValue {
             name: name.clone(),
-            callsite: Box::new(lower_expr(callsite)?),
+            callsite: lower_callsite_expr(callsite)?,
         }),
         CoreCallTarget::Unresolved(symbol) => Err(IrLowerError::UnresolvedCallTarget {
             node_id,
             symbol: symbol.clone(),
         }),
-        CoreCallTarget::SchemaDecode(_)
-        | CoreCallTarget::SchemaDecodeStep(_)
-        | CoreCallTarget::SchemaNeutralDecode(_)
-        | CoreCallTarget::SchemaNeutralEncode(_)
-        | CoreCallTarget::SchemaEncode(_)
-        | CoreCallTarget::SchemaEncodeStep(_)
-        | CoreCallTarget::SchemaValidate(_) => {
-            unreachable!("schema call targets are lowered before this fallback")
-        }
+        _ => unreachable!("schema and named call targets are lowered before this fallback"),
     }
+}
+
+fn lower_callback_target(target: &CoreCallbackTarget) -> IrCallbackTarget {
+    match target {
+        CoreCallbackTarget::Function(name) => IrCallbackTarget::Function(name.clone()),
+        CoreCallbackTarget::ConcurrencyBuiltin(name) => {
+            IrCallbackTarget::ConcurrencyBuiltin(name.clone())
+        }
+        CoreCallbackTarget::StandardLibraryBuiltin(name) => {
+            IrCallbackTarget::StandardLibraryBuiltin(name.clone())
+        }
+        CoreCallbackTarget::PreludeBuiltin(name) => IrCallbackTarget::PreludeBuiltin(name.clone()),
+    }
+}
+
+fn lower_callsite_expr(callsite: &CoreExpr) -> Result<Box<IrExpr>, IrLowerError> {
+    Ok(Box::new(lower_expr(callsite)?))
 }
 
 #[cfg(test)]
