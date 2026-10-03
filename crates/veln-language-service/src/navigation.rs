@@ -69,6 +69,9 @@ thread_local! {
     static WORKSPACE_SCHEMA_COMPOSITION_SCHEMA_VISITS: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SCHEMA_COMPOSITION_ALIAS_VISITS: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SCHEMA_COMPOSITION_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static WORKSPACE_SCHEMA_ALIAS_RESOLUTION_INDEX_VISITS: Cell<usize> = const { Cell::new(0) };
+    static WORKSPACE_SCHEMA_ALIAS_RESOLUTION_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static WORKSPACE_SCHEMA_ALIAS_RESOLUTION_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_PRELUDE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_BLOCKER_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_LEAF_LOOKUPS: Cell<usize> = const { Cell::new(0) };
@@ -378,18 +381,43 @@ fn record_workspace_schema_composition_token_visit() {
 }
 
 #[cfg(test)]
+fn record_workspace_schema_alias_resolution_candidate_visit() {
+    WORKSPACE_SCHEMA_ALIAS_RESOLUTION_CANDIDATE_VISITS
+        .set(WORKSPACE_SCHEMA_ALIAS_RESOLUTION_CANDIDATE_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_workspace_schema_alias_resolution_index_visit() {
+    WORKSPACE_SCHEMA_ALIAS_RESOLUTION_INDEX_VISITS
+        .set(WORKSPACE_SCHEMA_ALIAS_RESOLUTION_INDEX_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_workspace_schema_alias_resolution_lookup() {
+    WORKSPACE_SCHEMA_ALIAS_RESOLUTION_LOOKUPS
+        .set(WORKSPACE_SCHEMA_ALIAS_RESOLUTION_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
 pub(crate) fn reset_workspace_schema_composition_lookup_work() {
     WORKSPACE_SCHEMA_COMPOSITION_SCHEMA_VISITS.set(0);
     WORKSPACE_SCHEMA_COMPOSITION_ALIAS_VISITS.set(0);
     WORKSPACE_SCHEMA_COMPOSITION_TOKEN_VISITS.set(0);
+    WORKSPACE_SCHEMA_ALIAS_RESOLUTION_INDEX_VISITS.set(0);
+    WORKSPACE_SCHEMA_ALIAS_RESOLUTION_LOOKUPS.set(0);
+    WORKSPACE_SCHEMA_ALIAS_RESOLUTION_CANDIDATE_VISITS.set(0);
 }
 
 #[cfg(test)]
-pub(crate) fn workspace_schema_composition_lookup_work() -> (usize, usize, usize) {
+pub(crate) fn workspace_schema_composition_lookup_work()
+-> (usize, usize, usize, usize, usize, usize) {
     (
         WORKSPACE_SCHEMA_COMPOSITION_SCHEMA_VISITS.get(),
         WORKSPACE_SCHEMA_COMPOSITION_ALIAS_VISITS.get(),
         WORKSPACE_SCHEMA_COMPOSITION_TOKEN_VISITS.get(),
+        WORKSPACE_SCHEMA_ALIAS_RESOLUTION_INDEX_VISITS.get(),
+        WORKSPACE_SCHEMA_ALIAS_RESOLUTION_LOOKUPS.get(),
+        WORKSPACE_SCHEMA_ALIAS_RESOLUTION_CANDIDATE_VISITS.get(),
     )
 }
 

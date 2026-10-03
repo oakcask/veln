@@ -1893,21 +1893,54 @@ fn eligible_schema_aliases(
 ) -> Vec<NeutralSymbol> {
     let package_eligibility =
         PackageSchemaAliasEligibility::new(declarations, resolved_package_aliases);
+    let workspace_aliases = workspace_resolved_schema_alias_index(&resolved);
     aliases
         .iter()
         .filter(|alias| match alias.package_origin {
-            None => resolved.iter().any(|candidate| {
-                    candidate.alias_name == alias.name
-                        && candidate.alias_module.as_deref() == Some(alias.module.as_str())
-                        && candidate.alias_span.file == alias.declaration.span.file
-                        && alias.declaration.span.start.offset >= candidate.alias_span.start.offset
-                        && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
-                }),
+            None => {
+                #[cfg(test)]
+                record_workspace_schema_alias_resolution_lookup();
+                let identity = (
+                    alias.module.as_str(),
+                    alias.name.as_str(),
+                    &alias.declaration.span.file,
+                );
+                workspace_aliases
+                    .get(&identity)
+                    .is_some_and(|candidates| candidates.iter().any(|candidate| {
+                        #[cfg(test)]
+                        record_workspace_schema_alias_resolution_candidate_visit();
+                        alias.declaration.span.start.offset >= candidate.alias_span.start.offset
+                            && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
+                    }))
+            }
             Some(PackageOrigin::DirectDependency) => package_eligibility.contains(alias),
             Some(PackageOrigin::StandardLibrary) => package_eligibility.contains(alias),
         })
         .cloned()
         .collect()
+}
+
+fn workspace_resolved_schema_alias_index(
+    aliases: &[veln_sema::ResolvedSchemaAlias],
+) -> BTreeMap<(&str, &str, &SourcePath), Vec<&veln_sema::ResolvedSchemaAlias>> {
+    let mut index = BTreeMap::new();
+    for alias in aliases {
+        #[cfg(test)]
+        record_workspace_schema_alias_resolution_index_visit();
+        let Some(module) = alias.alias_module.as_deref() else {
+            continue;
+        };
+        index
+            .entry((
+                module,
+                alias.alias_name.as_str(),
+                &alias.alias_span.file,
+            ))
+            .or_insert_with(Vec::new)
+            .push(alias);
+    }
+    index
 }
 
 fn empty_surface_module() -> veln_ast::SurfaceModule {
