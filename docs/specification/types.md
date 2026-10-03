@@ -215,6 +215,10 @@ edges do not supply inference facts for the recursive helper itself, so an
 omitted recursive slot still needs a non-recursive concrete fact or an
 annotation. Public functions, tests, exported aliases, and imported public
 functions do not receive inferred signatures.
+When the tail is a local with an explicit refinement annotation, an omitted
+private result retains the resolved refinement. This applies to local and
+imported ADTs; the inferred result uses the resolved ADT's canonical display
+name rather than preserving a module qualifier from the local annotation.
 For an omitted private result whose final expression is `if` or `match`, equal
 constructor singletons in every typed branch retain that singleton. Different
 singletons of the same instantiated ADT infer the base ADT instead of selecting
