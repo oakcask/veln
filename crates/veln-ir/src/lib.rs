@@ -5,10 +5,10 @@ pub mod model;
 
 pub use lowering::{IrLowerError, lower_checked_core};
 pub use model::{
-    IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrContractCall, IrDeferredBlock,
+    IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrDeferredBlock,
     IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
     IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrSchemaDecodeDispatch,
     IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeSpec, IrSchemaRepeat,
     IrSchemaReservedBits, IrStmt, IrStmtKind, TypedProgram,
 };
-pub use veln_core::{ContractObligationStatus, CoreType};
+pub use veln_core::{ContractObligationStatus, CoreContractCall, CoreType};

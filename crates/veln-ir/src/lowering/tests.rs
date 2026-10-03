@@ -5,9 +5,9 @@ use veln_ast::{
     lower_surface_ast,
 };
 use veln_core::{
-    ContractObligationStatus, CoreCleanupRegion, CoreContract, CoreDictEntry, CoreFunction,
-    CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind, CoreReadiness,
-    CoreRecordField, CoreStmtKind, CoreType,
+    ContractObligationStatus, CoreCleanupRegion, CoreContract, CoreContractCall, CoreDictEntry,
+    CoreFunction, CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind,
+    CoreReadiness, CoreRecordField, CoreStmtKind, CoreType,
 };
 use veln_source::SourceFile;
 use veln_syntax::parse;

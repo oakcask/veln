@@ -220,7 +220,12 @@ fn contracts_and_builtins_fixture(surface: &Function) -> CoreFunction {
             node_id: surface.contracts[0].node_id,
             kind: ContractKind::Ensure,
             predicate: "result == ()".to_string(),
-            callsite_calls: Vec::new(),
+            callsite_calls: vec![CoreContractCall {
+                callee: "validation::accept".to_string(),
+                target: "accept".to_string(),
+                fixed_arg_count: 1,
+                variadic: true,
+            }],
             obligation_status: ContractObligationStatus::RuntimeRequired,
             span: surface.contracts[0].span.clone(),
         }],
@@ -414,6 +419,15 @@ fn assert_contract_and_effects(function: &IrFunction) {
     assert_eq!(function.effects, vec!["concurrency", "stdio"]);
     assert_eq!(function.contracts.len(), 1);
     assert_eq!(function.contracts[0].kind, ContractKind::Ensure);
+    assert_eq!(
+        function.contracts[0].callsite_calls,
+        vec![CoreContractCall {
+            callee: "validation::accept".to_string(),
+            target: "accept".to_string(),
+            fixed_arg_count: 1,
+            variadic: true,
+        }]
+    );
     assert_eq!(
         function.contracts[0].obligation_status,
         ContractObligationStatus::RuntimeRequired

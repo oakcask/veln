@@ -53,7 +53,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         &mut self,
         code: &mut MethodCode,
         text: &str,
-        callsite_calls: &HashMap<&str, &IrContractCall>,
+        callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
     ) {
         match parse_contract_value(text) {
@@ -81,7 +81,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         value: &str,
         method: &str,
-        callsite_calls: &HashMap<&str, &IrContractCall>,
+        callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
     ) {
         self.emit_contract_value(code, value, callsite_calls, operand_depth);
@@ -98,7 +98,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         left: &str,
         right: &str,
         op: BinaryOp,
-        callsite_calls: &HashMap<&str, &IrContractCall>,
+        callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
     ) {
         self.emit_contract_value(code, left, callsite_calls, operand_depth);
@@ -115,7 +115,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         callee: &str,
         args: &[&str],
-        callsite_calls: &HashMap<&str, &IrContractCall>,
+        callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
     ) {
         #[cfg(test)]
@@ -155,7 +155,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         &mut self,
         code: &mut MethodCode,
         args: &[&str],
-        callsite_calls: &HashMap<&str, &IrContractCall>,
+        callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
     ) {
         let saved_next = self.next_local;
@@ -188,7 +188,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         base: &str,
         field: &str,
-        callsite_calls: &HashMap<&str, &IrContractCall>,
+        callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
     ) {
         self.emit_contract_value(code, base, callsite_calls, operand_depth);
