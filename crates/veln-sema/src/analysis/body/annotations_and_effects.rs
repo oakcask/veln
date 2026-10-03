@@ -33,17 +33,26 @@ impl<'a> FunctionChecker<'a> {
             .and_then(|signature| signature.params.get(index).cloned())
             .or(inferred_private_param.filter(|ty| !type_contains_unknown(ty)))
             .unwrap_or_else(|| {
-                declared_type.map_or(Type::Unknown, |expected| {
+                declared_type.as_ref().map_or(Type::Unknown, |expected| {
                     if param.is_variadic {
-                        Type::named("List", vec![expected.ty])
+                        Type::named("List", vec![expected.ty.clone()])
                     } else {
-                        expected.ty
+                        expected.ty.clone()
                     }
                 })
             });
+        let type_origin = (declared_type.is_some()
+            && matches!(binding_type, Type::Function { .. }))
+        .then(|| TypeOrigin {
+            node_id: param.node_id,
+            span: param.span.clone(),
+            source: ExpectedTypeSource::DeclaredParameter,
+            message: "Parameter type declared here.",
+        });
         self.admit_value_binding(
             &param.name,
             binding_type,
+            type_origin,
             param.node_id.display("param"),
             param.name_span.clone(),
             "parameter",
@@ -308,6 +317,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         name: &str,
         ty: Type,
+        type_origin: Option<TypeOrigin>,
         node_id: String,
         span: SourceSpan,
         declaration_kind: &'static str,
@@ -323,7 +333,9 @@ impl<'a> FunctionChecker<'a> {
         if !self.declare_local_name(name, node_id, span, declaration_kind, false) {
             return;
         }
-        self.bindings.push(Binding::new(name.to_string(), ty));
+        let mut binding = Binding::new(name.to_string(), ty);
+        binding.type_origin = type_origin;
+        self.bindings.push(binding);
     }
 
     pub(in crate::analysis) fn admit_value_binding_without_duplicate_diagnostic(

@@ -92,17 +92,11 @@ pub(super) fn json_field<'a>(
 }
 
 pub(super) fn json_object(value: &JsonValue) -> Option<&[(String, JsonValue)]> {
-    match value {
-        JsonValue::Object(entries) => Some(entries),
-        _ => None,
-    }
+    value.as_object()
 }
 
 pub(super) fn json_string(entries: &[(String, JsonValue)], key: &str) -> Option<String> {
-    match json_field(entries, key)? {
-        JsonValue::String(value) => Some(value.clone()),
-        _ => None,
-    }
+    json_field(entries, key)?.as_text().map(str::to_string)
 }
 
 pub(super) fn json_number(entries: &[(String, JsonValue)], key: &str) -> Option<i64> {

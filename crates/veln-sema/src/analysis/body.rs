@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use veln_ast::{BodyLine, Param};
 
@@ -23,8 +23,10 @@ type ScopedLocalName = (String, Option<LocalNameDeclaration>);
 pub(crate) fn check_function_body(
     function: &Function,
     environment: &TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
 ) -> Vec<Diagnostic> {
-    let mut checker = FunctionChecker::for_source_declaration(function, environment);
+    let mut checker =
+        FunctionChecker::for_source_declaration(function, environment, variant_diagnostics);
     checker.check_body();
     checker.diagnostics
 }
@@ -33,7 +35,7 @@ fn json_string_field_is(value: &JsonValue, field: &str, expected: &str) -> bool 
     matches!(
         value,
         JsonValue::Object(entries) if entries.iter().any(|(name, value)| {
-            name == field && matches!(value, JsonValue::String(actual) if actual == expected)
+            name == field && value.as_text() == Some(expected)
         })
     )
 }
@@ -44,6 +46,82 @@ fn valid_value_binding_name(name: &str) -> bool {
 
 fn invalid_value_binding_name(name: &str) -> bool {
     !valid_value_binding_name(name)
+}
+
+fn type_contains_variant_refinement(ty: &Type) -> bool {
+    match ty {
+        Type::VariantRefinement { .. } => true,
+        Type::Named { args, .. } => args.iter().any(type_contains_variant_refinement),
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, ty)| type_contains_variant_refinement(ty)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(type_contains_variant_refinement)
+                || variadic
+                    .as_deref()
+                    .is_some_and(type_contains_variant_refinement)
+                || type_contains_variant_refinement(return_type)
+        }
+        Type::Unknown => false,
+    }
+}
+
+fn inferred_control_flow_result_type(ty: Type) -> Type {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Type::resolved_named(name, identity, args),
+        ty => ty,
+    }
+}
+
+fn inferred_aggregate_member_type(ty: Type) -> Type {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Type::resolved_named(name, identity, args),
+        ty => ty,
+    }
+}
+
+fn inferred_aggregate_member_type_with_expected(ty: Type, expected: &Type) -> Type {
+    if matches!(expected, Type::VariantRefinement { .. }) {
+        ty
+    } else {
+        inferred_aggregate_member_type(ty)
+    }
+}
+
+fn common_variant_base(left: &Type, right: &Type) -> Option<Type> {
+    match (left, right) {
+        (
+            Type::VariantRefinement {
+                name: left_name,
+                identity: left_identity,
+                args: left_args,
+                ..
+            },
+            Type::VariantRefinement {
+                identity: right_identity,
+                args: right_args,
+                ..
+            },
+        ) if left_identity == right_identity && left_args == right_args => Some(
+            Type::resolved_named(left_name.clone(), left_identity.clone(), left_args.clone()),
+        ),
+        _ => None,
+    }
 }
 
 pub(in crate::analysis) struct FunctionChecker<'a> {
@@ -63,6 +141,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) diagnostics: Vec<Diagnostic>,
     suppressed_diagnostic_indices: BTreeSet<usize>,
     defer_blocks: Vec<SourceSpan>,
+    variant_diagnostics: &'a mut VariantDiagnosticInterner,
 }
 
 pub(in crate::analysis) struct PatternBinding {
@@ -133,7 +212,7 @@ impl MatchDomain {
         current_module: Option<&str>,
     ) -> Option<Self> {
         match ty {
-            Type::Named { name, args } if name == "Bool" && args.is_empty() => Some(Self::Bool),
+            Type::Named { name, args, .. } if name == "Bool" && args.is_empty() => Some(Self::Bool),
             _ => environment
                 .adts
                 .descriptor_for_type_prefer_module(ty, current_module)
@@ -221,25 +300,29 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn for_source_declaration(
         function: &'a Function,
         environment: &'a TypeEnvironment,
+        variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
         Self::new(
             function,
             environment,
             function.kind == FunctionKind::Function,
+            variant_diagnostics,
         )
     }
 
     pub(super) fn for_synthetic_declaration(
         function: &'a Function,
         environment: &'a TypeEnvironment,
+        variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
-        Self::new(function, environment, false)
+        Self::new(function, environment, false, variant_diagnostics)
     }
 
     fn new(
         function: &'a Function,
         environment: &'a TypeEnvironment,
         supports_callsite_modifier: bool,
+        variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
         Self {
             function,
@@ -258,6 +341,7 @@ impl<'a> FunctionChecker<'a> {
             diagnostics: Vec::new(),
             suppressed_diagnostic_indices: BTreeSet::new(),
             defer_blocks: Vec::new(),
+            variant_diagnostics,
         }
     }
 
@@ -282,6 +366,11 @@ mod body_lines;
 mod collections_and_operators;
 mod contract_validation;
 mod diagnostics_and_repairs;
+pub(crate) use diagnostics_and_repairs::VariantDiagnosticInterner;
+#[cfg(test)]
+pub(crate) use diagnostics_and_repairs::{
+    reset_retained_variant_diagnostic_key_variants, take_retained_variant_diagnostic_key_variants,
+};
 mod expression_effects;
 mod name_and_declared_calls;
 mod patterns_and_exhaustiveness;

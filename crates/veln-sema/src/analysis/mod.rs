@@ -8,10 +8,10 @@ use veln_ast::{
     FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternField, PatternKind, RecordField,
     SatisfyClause, SurfaceModule, Visibility,
 };
-use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, DiagnosticText, JsonValue, Severity};
 use veln_source::SourceSpan;
 
-use crate::adt::descriptors::{AdtConstructor, AdtVariantKind};
+use crate::adt::descriptors::{AdtConstructor, AdtPayloadType, AdtVariantKind};
 use crate::adt::registry::ConstructorLookup;
 use crate::adt::{type_operations as adt, unification};
 use crate::contracts::{
@@ -39,10 +39,10 @@ use crate::repair_candidates::{
     candidate_evidence, candidate_known_limits, candidate_satisfy_status,
 };
 use crate::semantic_model::{
-    Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type,
+    Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type, TypeOrigin,
 };
 use crate::source_less_lookup::prelude_symbol;
-use crate::type_relations::is_assignable;
+use crate::type_relations::{is_assignable, is_assignable_nested};
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{
     CompanionAccessTarget, EffectSignature, FunctionLookup, HandlerPathResolution,
@@ -56,7 +56,11 @@ mod handlers;
 mod repair_reasoning;
 
 pub(in crate::analysis) use body::FunctionChecker;
-pub(crate) use body::check_function_body;
+pub(crate) use body::{VariantDiagnosticInterner, check_function_body};
+#[cfg(test)]
+pub(crate) use body::{
+    reset_retained_variant_diagnostic_key_variants, take_retained_variant_diagnostic_key_variants,
+};
 pub(crate) use boundary::{
     check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,

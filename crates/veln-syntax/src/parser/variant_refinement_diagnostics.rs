@@ -103,7 +103,7 @@ fn diagnose_candidate_boundary(
 ) {
     if let Some(prefix) = candidate.start_index.checked_sub(1)
         && !covered[prefix]
-        && !allowed_refinement_prefix(tokens[prefix].kind)
+        && !allowed_refinement_prefix(tokens, prefix)
     {
         errors.push((
             prefix,
@@ -157,9 +157,9 @@ fn allowed_after_closed_type_structure(kind: TokenKind) -> bool {
     )
 }
 
-fn allowed_refinement_prefix(kind: TokenKind) -> bool {
+fn allowed_refinement_prefix(tokens: &[Token], index: usize) -> bool {
     matches!(
-        kind,
+        tokens[index].kind,
         TokenKind::Less
             | TokenKind::Comma
             | TokenKind::Colon
@@ -168,7 +168,10 @@ fn allowed_refinement_prefix(kind: TokenKind) -> bool {
             | TokenKind::LParen
             | TokenKind::LBracket
             | TokenKind::LBrace
-    )
+    ) || (tokens[index].kind == TokenKind::Dot
+        && index >= 2
+        && tokens[index - 1].kind == TokenKind::Dot
+        && tokens[index - 2].kind == TokenKind::Dot)
 }
 
 fn allowed_refinement_suffix(kind: TokenKind) -> bool {

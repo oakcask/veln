@@ -12,6 +12,7 @@ pub(super) fn runtime_root_descriptors() -> Vec<AdtDescriptor> {
         type_name: "RuntimeDiagnostic".to_string(),
         name_class: SourceLessNameClass::Type,
         module_name: None,
+        nominal_identity: None,
         type_parameters: Vec::new(),
         variants: vec![AdtVariantDescriptor {
             name: "RuntimeDiagnostic".to_string(),

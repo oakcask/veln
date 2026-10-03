@@ -438,7 +438,9 @@ pub(super) fn is_allowed_test_return(ty: &Type) -> bool {
 pub(in crate::analysis) fn type_contains_unknown(ty: &Type) -> bool {
     match ty {
         Type::Unknown => true,
-        Type::Named { args, .. } => args.iter().any(type_contains_unknown),
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            args.iter().any(type_contains_unknown)
+        }
         Type::Record(fields) => fields.iter().any(|(_, ty)| type_contains_unknown(ty)),
         Type::Function {
             params,

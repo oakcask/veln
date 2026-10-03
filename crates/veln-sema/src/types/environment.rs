@@ -252,6 +252,123 @@ impl TypeEnvironment {
         )
     }
 
+    pub(crate) fn variant_refinement_annotation_error(
+        &self,
+        ty: &Type,
+        current_module: Option<&str>,
+    ) -> Option<String> {
+        let canonical = self.canonicalize_type_annotation(ty.clone(), current_module);
+        self.variant_refinement_annotation_error_with_canonical(ty, &canonical, current_module)
+    }
+
+    fn variant_refinement_annotation_error_with_canonical(
+        &self,
+        ty: &Type,
+        canonical: &Type,
+        current_module: Option<&str>,
+    ) -> Option<String> {
+        if self.variant_refinement_uses_type_alias(ty, current_module) {
+            return Some(
+                "variant refinement annotations cannot use a type alias as their base".to_string(),
+            );
+        }
+        if let Some(error) = self.variant_refinement_arity_error(ty, current_module) {
+            return Some(error);
+        }
+        if self.is_variant_refinement_candidate(ty, current_module) && canonical == &Type::Unknown {
+            return Some(
+                "variant refinement alternatives must resolve to declared variants of one ADT"
+                    .to_string(),
+            );
+        }
+        if canonical == &Type::Unknown {
+            return None;
+        }
+        type_children(ty)
+            .into_iter()
+            .zip(type_children(canonical))
+            .find_map(|(child, canonical_child)| {
+                self.variant_refinement_annotation_error_with_canonical(
+                    child,
+                    canonical_child,
+                    current_module,
+                )
+            })
+    }
+
+    fn variant_refinement_arity_error(
+        &self,
+        ty: &Type,
+        current_module: Option<&str>,
+    ) -> Option<String> {
+        let (name, args) = match ty {
+            Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } => {
+                (name, args)
+            }
+            _ => return None,
+        };
+        let base = name
+            .rsplit_once("::")
+            .map(|(base, _)| base)
+            .or_else(|| matches!(ty, Type::VariantRefinement { .. }).then_some(name.as_str()))?;
+        if self
+            .adts
+            .descriptor_for_type_path(base, args.len(), current_module, &self.uses)
+            .is_some()
+        {
+            return None;
+        }
+        let descriptor =
+            self.adts
+                .descriptor_for_type_path_any_arity(base, current_module, &self.uses)?;
+        Some(format!(
+            "`{base}` expects {} type argument(s), found {}",
+            descriptor.type_parameters.len(),
+            args.len()
+        ))
+    }
+
+    fn is_variant_refinement_candidate(&self, ty: &Type, current_module: Option<&str>) -> bool {
+        match ty {
+            Type::VariantRefinement { .. } => true,
+            Type::Named { name, args, .. } => name.rsplit_once("::").is_some_and(|(base, _)| {
+                self.adts
+                    .descriptor_for_type_path(base, args.len(), current_module, &self.uses)
+                    .is_some()
+            }),
+            _ => false,
+        }
+    }
+
+    fn variant_refinement_uses_type_alias(&self, ty: &Type, current_module: Option<&str>) -> bool {
+        match ty {
+            Type::Named { name, args, .. } => name.rsplit_once("::").is_some_and(|(base, _)| {
+                self.adts
+                    .type_path_is_alias(base, args.len(), current_module, &self.uses)
+            }),
+            Type::VariantRefinement {
+                name,
+                args,
+                unresolved_alternatives,
+                ..
+            } => {
+                self.adts
+                    .type_path_is_alias(name, args.len(), current_module, &self.uses)
+                    || unresolved_alternatives.iter().any(
+                        |(alternative_name, alternative_args, _)| {
+                            self.adts.type_path_is_alias(
+                                alternative_name,
+                                alternative_args.len(),
+                                current_module,
+                                &self.uses,
+                            )
+                        },
+                    )
+            }
+            Type::Record(_) | Type::Function { .. } | Type::Unknown => false,
+        }
+    }
+
     pub(crate) fn function_for(&self, source: &Function) -> Option<&FunctionSignature> {
         let name = source.name.as_deref()?;
         self.functions_named(name).find(|function| {
@@ -572,6 +689,24 @@ impl TypeEnvironment {
                     .is_some_and(|allowed_target| allowed_target == target_module)
             })
         })
+    }
+}
+
+fn type_children(ty: &Type) -> Vec<&Type> {
+    match ty {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args.iter().collect(),
+        Type::Record(fields) => fields.iter().map(|(_, ty)| ty).collect(),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => params
+            .iter()
+            .chain(variadic.iter().map(Box::as_ref))
+            .chain(std::iter::once(return_type.as_ref()))
+            .collect(),
+        Type::Unknown => Vec::new(),
     }
 }
 

@@ -359,6 +359,60 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
 }
 
 #[test]
+fn navigation_classifier_excludes_variant_refinement_segments() {
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use helper\n",
+            "\n",
+            "fn inspect(ordinary: helper::Item, refined: helper::Item::Ready) -> ()\n",
+            "end\n",
+        ),
+    );
+    let helper = SourceFile::new(
+        "helper.veln",
+        concat!(
+            "pub type Item\n",
+            "  pub Ready\n",
+            "  pub Item(Int)\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules_with_names([("main", main), ("helper", helper)]);
+
+    let observed = classified_project_qualified_path_segments(&module)
+        .into_iter()
+        .filter(|segment| segment.span.file.as_str() == "main.veln")
+        .map(|segment| {
+            (
+                segment.name,
+                segment.role.as_str(),
+                segment.evidence,
+                segment.segment_index,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        observed,
+        [
+            (
+                "helper".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Syntax,
+                0,
+            ),
+            (
+                "Item".to_string(),
+                "type",
+                veln_ast::QualifiedPathSegmentEvidence::Syntax,
+                1,
+            ),
+        ]
+    );
+}
+
+#[test]
 fn declaration_type_path_carriers_report_qualified_segments() {
     let source = SourceFile::new(
         "main.veln",

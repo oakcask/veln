@@ -124,10 +124,7 @@ fn object_value<'a>(entries: &'a [(String, JsonValue)], key: &str) -> Option<&'a
 }
 
 fn object_string(entries: &[(String, JsonValue)], key: &str) -> Option<String> {
-    match object_value(entries, key)? {
-        JsonValue::String(value) => Some(value.clone()),
-        _ => None,
-    }
+    object_value(entries, key)?.as_text().map(str::to_string)
 }
 
 fn object_number(entries: &[(String, JsonValue)], key: &str) -> Option<i64> {

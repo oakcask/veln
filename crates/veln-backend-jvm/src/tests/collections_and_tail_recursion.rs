@@ -87,7 +87,9 @@ fn bytecode_backend_runs_minimal_list_adt_when_java_is_available() {
         "  end\n",
         "end\n",
         "pub fn main() -> () effects [stdio]\n",
-        "  stdio::println(int_to_string(sum(Cons(1, Cons(2, Nil)))))\n",
+        "  let empty: List<Int> = Nil\n",
+        "  let last: List<Int> = Cons(2, empty)\n",
+        "  stdio::println(int_to_string(sum(Cons(1, last))))\n",
         "end\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");

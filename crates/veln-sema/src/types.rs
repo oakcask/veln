@@ -5,6 +5,11 @@ mod expression_effects;
 pub(crate) mod private_inference;
 pub(crate) mod schema_types;
 mod signature_collection;
+pub(crate) use signature_collection::canonicalize_type_effects;
+#[cfg(test)]
+pub(crate) use signature_collection::{
+    reset_type_canonicalization_visits, take_type_canonicalization_visits,
+};
 pub(crate) mod signatures;
 mod standard_environment;
 mod symbols;

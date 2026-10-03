@@ -50,7 +50,7 @@ pub(crate) fn lsp_diagnostic_json(diagnostic: &Diagnostic) -> String {
         range_json(diagnostic.span.as_ref()),
         severity_code(diagnostic.severity),
         escape_json(&diagnostic.id),
-        escape_json(&diagnostic.message),
+        escape_json(diagnostic.message.as_str()),
     )
 }
 
@@ -87,10 +87,7 @@ fn detail<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a JsonValue> {
 }
 
 fn detail_string<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
-    let JsonValue::String(value) = detail(diagnostic, key)? else {
-        return None;
-    };
-    Some(value)
+    detail(diagnostic, key)?.as_text()
 }
 
 pub(crate) fn diagnostics_by_path(

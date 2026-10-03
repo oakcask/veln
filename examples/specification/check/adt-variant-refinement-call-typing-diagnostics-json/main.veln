@@ -1,0 +1,145 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+fn needs_ready(value: State::Ready) -> State::Ready
+	value
+end
+
+fn wrong_call() -> State::Ready
+	needs_ready(Closed)
+end
+
+fn wrong_result(value: State) -> State::Ready
+	value
+end
+
+fn wrong_if() -> State::Ready
+	if true
+		Ready
+	else
+		Closed
+	end
+end
+
+fn wrong_match(value: State::Ready) -> State::Ready
+	match value
+		Ready => Ready
+		Closed => Closed
+		Failed => Ready
+	end
+end
+
+fn wrong_local() -> ()
+	let local: State::Ready = Closed
+end
+
+fn needs_some(value: Option<Int>::Some) -> Option<Int>::Some
+	value
+end
+
+fn wrong_builtin() -> Option<Int>::Some
+	let value = None
+	needs_some(value)
+end
+
+fn wrong_generic_argument(value: Option<String>) -> ()
+	needs_some(value)
+	()
+end
+
+fn prior_error() -> State::Ready
+	missing
+end
+
+fn wrong_set(value: State::Failed | State::Closed) -> ()
+	needs_ready(value)
+	()
+end
+
+type Other
+	Foreign
+end
+
+fn mixed_union(value: State::Ready | Other::Foreign) -> ()
+	()
+end
+
+type Choice<A>
+	Present(A)
+	Absent
+end
+
+fn invalid_source_arity(value: Choice::Absent) -> Choice::Absent
+	value
+end
+
+fn reject_record_widening(value: {state: State::Ready}) -> ()
+	let rejected: {state: State} = value
+end
+
+fn reject_record_narrowing(value: {state: State}) -> ()
+	let rejected: {state: State::Ready} = value
+end
+
+fn accepts_base(value: State) -> State
+	value
+end
+
+fn accepts_ready(value: State::Ready) -> State::Ready
+	value
+end
+
+fn reject_function_positions() -> ()
+	let narrowed: fn(State::Ready) -> State::Ready = accepts_base
+	let widened: fn(State) -> State = accepts_ready
+end
+
+fn needs_decode_pair(value: DecodeStep<Int>::NeedMore | DecodeStep<Int>::Decoded) -> ()
+	()
+end
+
+fn wrong_builtin_union(value: DecodeStep<Int>::Invalid | DecodeStep<Int>::NeedMore | DecodeStep<Int>::Decoded) -> ()
+	needs_decode_pair(value)
+end
+
+type Box<A>
+	Boxed(A)
+	Empty
+end
+
+fn needs_narrow_box(value: Box<{x: Int}>::Boxed) -> ()
+	()
+end
+
+fn needs_base_box(value: Box<{x: Int}>) -> ()
+	()
+end
+
+fn wrong_box_argument(value: Box<{x: Int, y: Int}>::Boxed) -> ()
+	needs_narrow_box(value)
+	needs_base_box(value)
+end
+
+fn wrong_prelude_helper_argument() -> Vec<State::Ready>
+	vec_push([Ready], Closed)
+end
+
+fn wrong_local_function_value() -> ()
+	let transition: fn(State::Ready) -> State::Ready = needs_ready
+	transition(Closed)
+	()
+end
+
+fn wrong_parameter_function_value(transition: fn(State::Ready) -> State::Ready) -> ()
+	transition(Closed)
+	()
+end
+
+pub type StateAlias = State
+
+fn rejected_alias_refinement(value: StateAlias::Ready) -> ()
+	()
+end

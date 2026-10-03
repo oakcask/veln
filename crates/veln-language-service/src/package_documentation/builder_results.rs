@@ -61,7 +61,7 @@ impl<'a> PackageDocBuilder<'a> {
         PackageDocDiagnostic {
             gate: gate.to_string(),
             code: diagnostic.id,
-            message: diagnostic.message,
+            message: diagnostic.message.to_owned_string(),
             span: diagnostic.span.as_ref().map(|span| {
                 PackageDocDiagnosticSpan::from_span(
                     &source_uri(self.identity, self.snapshot.digest(), span.file.as_str()),

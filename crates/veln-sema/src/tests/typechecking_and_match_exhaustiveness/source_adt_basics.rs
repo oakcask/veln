@@ -66,7 +66,8 @@ fn minimal_list_adt_constructor_calls_lower_with_declared_context() {
             "  Cons(head: A, tail: List<A>)\n",
             "end\n",
             "fn main() -> List<Int>\n",
-            "  List::Cons(1, List::Nil)\n",
+            "  let tail: List<Int> = List::Nil\n",
+            "  List::Cons(1, tail)\n",
             "end\n",
         ),
     );
@@ -82,7 +83,7 @@ fn minimal_list_adt_constructor_calls_lower_with_declared_context() {
         .iter()
         .find(|function| function.name == "main")
         .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+    let CoreStmtKind::Return { expr } = &main.body[1].kind else {
         panic!("tail expression should lower as return");
     };
     assert_eq!(expr.ty, CoreType::named("List", vec![CoreType::int()]));
@@ -91,7 +92,7 @@ fn minimal_list_adt_constructor_calls_lower_with_declared_context() {
     };
     assert_eq!(head.ty, CoreType::int());
     assert_eq!(tail.ty, CoreType::named("List", vec![CoreType::int()]));
-    assert!(matches!(tail.kind, CoreExprKind::ListNil));
+    assert!(matches!(&tail.kind, CoreExprKind::Local(name) if name == "tail"));
 }
 
 #[test]
@@ -246,8 +247,8 @@ fn same_module_constructor_leaf_conflicts_resolve_through_type_paths() {
             "fn right() -> Right\n",
             "  Right::Same\n",
             "end\n",
-            "fn ambiguous() -> Left\n",
-            "  Same\n",
+            "fn ambiguous() -> ()\n",
+            "  let value = Same\n",
             "end\n",
         ),
     );
@@ -282,8 +283,8 @@ fn same_module_payload_constructor_leaf_conflicts_resolve_through_type_paths() {
             "fn right() -> Right\n",
             "  Right::Build(\"ok\")\n",
             "end\n",
-            "fn ambiguous() -> Left\n",
-            "  Build(1)\n",
+            "fn ambiguous() -> ()\n",
+            "  let value = Build(1)\n",
             "end\n",
         ),
     );
@@ -302,7 +303,7 @@ fn same_module_payload_constructor_leaf_conflicts_resolve_through_type_paths() {
 }
 
 #[test]
-fn ambiguous_unqualified_imported_source_adt_constructor_is_rejected() {
+fn expected_adt_selects_unqualified_imported_source_adt_constructor() {
     let first = SourceFile::new(
         "first.veln",
         concat!("mod first\n", "pub type Left\n", "  pub Same\n", "end\n",),
@@ -339,9 +340,7 @@ fn ambiguous_unqualified_imported_source_adt_constructor_is_rejected() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "name.ambiguous" && diagnostic.message == "ambiguous value `Same`"
-    }));
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]

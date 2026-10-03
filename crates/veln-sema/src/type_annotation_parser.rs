@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::semantic_model::Type;
 
 pub(crate) fn parse_type_annotation_with_arity(
@@ -33,6 +35,23 @@ impl<'a> TypeParser<'a> {
     }
 
     fn parse_type(&mut self) -> Result<Type, String> {
+        let first = self.parse_non_union_type()?;
+        self.skip_ws();
+        if !self.eat('|') {
+            return Ok(first);
+        }
+        let mut alternatives = vec![first];
+        loop {
+            alternatives.push(self.parse_non_union_type()?);
+            self.skip_ws();
+            if !self.eat('|') {
+                break;
+            }
+        }
+        variant_union(alternatives)
+    }
+
+    fn parse_non_union_type(&mut self) -> Result<Type, String> {
         self.skip_ws();
         if self.eat('{') {
             return self.parse_record_type();
@@ -61,6 +80,21 @@ impl<'a> TypeParser<'a> {
         } else {
             Vec::new()
         };
+        self.skip_ws();
+        if self.eat_str("::") {
+            let Some(variant) = self.parse_single_ident() else {
+                return Err("expected variant name after `::`".to_string());
+            };
+            if let Some(expected) = (self.builtin_type_arity)(&name)?
+                && args.len() != expected
+            {
+                return Err(format!(
+                    "`{name}` expects {expected} type argument(s), found {}",
+                    args.len()
+                ));
+            }
+            return Ok(Type::variant_refinement(name, args, vec![variant]));
+        }
         self.validate_named_type(name, args)
     }
 
@@ -196,6 +230,15 @@ impl<'a> TypeParser<'a> {
     }
 
     fn validate_named_type(&self, name: String, args: Vec<Type>) -> Result<Type, String> {
+        if args.is_empty()
+            && let Some((base, _)) = name.rsplit_once("::")
+            && let Some(expected) = (self.builtin_type_arity)(base)?
+            && expected != 0
+        {
+            return Err(format!(
+                "`{base}` expects {expected} type argument(s), found 0"
+            ));
+        }
         let expected_arity = (self.builtin_type_arity)(&name)?;
         if let Some(expected) = expected_arity
             && args.len() != expected
@@ -235,6 +278,19 @@ impl<'a> TypeParser<'a> {
             if self.cursor == segment_start {
                 self.cursor = start;
                 return None;
+            }
+        }
+        (self.cursor > start).then(|| self.text[start..self.cursor].to_string())
+    }
+
+    fn parse_single_ident(&mut self) -> Option<String> {
+        self.skip_ws();
+        let start = self.cursor;
+        while let Some(ch) = self.current() {
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                self.cursor += ch.len_utf8();
+            } else {
+                break;
             }
         }
         (self.cursor > start).then(|| self.text[start..self.cursor].to_string())
@@ -304,8 +360,60 @@ impl<'a> TypeParser<'a> {
 
 fn normalize_variadic_type(ty: Type) -> Type {
     match ty {
-        Type::Named { name, args } if name == "unknown" && args.is_empty() => Type::Unknown,
+        Type::Named { name, args, .. } if name == "unknown" && args.is_empty() => Type::Unknown,
         ty => ty,
+    }
+}
+
+fn variant_union(alternatives: Vec<Type>) -> Result<Type, String> {
+    let mut base_name = None::<String>;
+    let mut base_args = None::<Vec<Type>>;
+    let mut variants = Vec::new();
+    let mut seen_variants = HashSet::new();
+    let mut unresolved_alternatives = Vec::new();
+    for alternative in alternatives {
+        let (name, args, mut alternative_variants) = unresolved_refinement_parts(alternative)?;
+        let matches_primary = base_name.is_none()
+            || (base_name.as_ref() == Some(&name) && base_args.as_ref() == Some(&args));
+        if !matches_primary {
+            for variant in &alternative_variants {
+                unresolved_alternatives.push((name.clone(), args.clone(), variant.clone()));
+            }
+        }
+        base_name.get_or_insert_with(|| name.clone());
+        base_args.get_or_insert_with(|| args.clone());
+        if matches_primary {
+            for variant in alternative_variants.drain(..) {
+                crate::type_relations::record_variant_set_lookup();
+                if seen_variants.insert(variant.clone()) {
+                    variants.push(variant);
+                }
+            }
+        }
+    }
+    Ok(Type::unresolved_variant_union(
+        base_name.unwrap_or_default(),
+        base_args.unwrap_or_default(),
+        variants,
+        unresolved_alternatives,
+    ))
+}
+
+fn unresolved_refinement_parts(ty: Type) -> Result<(String, Vec<Type>, Vec<String>), String> {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            args,
+            variants,
+            ..
+        } => Ok((name, args, variants)),
+        Type::Named { name, args, .. } => {
+            let Some((base, variant)) = name.rsplit_once("::") else {
+                return Err("variant union alternatives must name ADT variants".to_string());
+            };
+            Ok((base.to_string(), args, vec![variant.to_string()]))
+        }
+        _ => Err("variant union alternatives must name ADT variants".to_string()),
     }
 }
 

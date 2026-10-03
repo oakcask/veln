@@ -36,7 +36,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let available: ByteCount = byte_count(2)?
 	let expected: ByteCount = byte_count(3)?
 	let diagnostic_offset: ByteOffset = byte_offset(2)?
-	let fixture = { name: "short-u24", bytes: bytes, expected_hex: "0001", expected_consumed: Some(consumed), byte_offset: diagnostic_offset, expected_count: expected, available_count: available, readiness: "need_bytes", field_path: "[]" }
+	let fixture: {name: String, bytes: ByteChunk, expected_hex: String, expected_consumed: Option<ByteCount>, byte_offset: ByteOffset, expected_count: ByteCount, available_count: ByteCount, readiness: String, field_path: String} = { name: "short-u24", bytes: bytes, expected_hex: "0001", expected_consumed: Some(consumed), byte_offset: diagnostic_offset, expected_count: expected, available_count: available, readiness: "need_bytes", field_path: "[]" }
 	emit_truncated_fixture(fixture)
 	let view: ByteView = byte_view(bytes, offset, available)?
 	let ignored: Int = byte_read_u24_be(view)?

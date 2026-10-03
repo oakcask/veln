@@ -6,12 +6,12 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
-    check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
-    check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
-    check_duplicate_use_aliases, check_function_body, check_handler_declarations,
-    check_module_boundary, check_public_aliases, check_public_function_boundary,
-    check_reserved_prelude_aliases, check_schema_field_primitives, check_schema_type_references,
-    check_test_declaration_boundary,
+    VariantDiagnosticInterner, check_declared_effect_labels, check_duplicate_constructor_names,
+    check_duplicate_effect_names, check_duplicate_function_names, check_duplicate_schema_names,
+    check_duplicate_type_names, check_duplicate_use_aliases, check_function_body,
+    check_handler_declarations, check_module_boundary, check_public_aliases,
+    check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
+    check_schema_type_references, check_test_declaration_boundary,
 };
 use crate::lowering::{
     lower_executable_surface_module_to_core, lower_project_surface_module_to_core,
@@ -150,6 +150,7 @@ fn analyze_surface_module_with_environment(
         return vec![failure.diagnostic()];
     }
     let mut diagnostics = Vec::new();
+    let mut variant_diagnostics = VariantDiagnosticInterner::default();
 
     diagnostics.extend(check_module_declarations(module, environment));
 
@@ -162,7 +163,11 @@ fn analyze_surface_module_with_environment(
         {
             continue;
         }
-        diagnostics.extend(check_function_declaration_and_body(function, environment));
+        diagnostics.extend(check_function_declaration_and_body(
+            function,
+            environment,
+            &mut variant_diagnostics,
+        ));
     }
 
     diagnostics
@@ -194,6 +199,7 @@ fn check_module_declarations(
 fn check_function_declaration_and_body(
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
@@ -204,7 +210,11 @@ fn check_function_declaration_and_body(
     if function.kind == FunctionKind::Test {
         diagnostics.extend(check_test_declaration_boundary(function));
     }
-    diagnostics.extend(check_function_body(function, environment));
+    diagnostics.extend(check_function_body(
+        function,
+        environment,
+        variant_diagnostics,
+    ));
 
     diagnostics
 }

@@ -113,13 +113,16 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             "  Decoded(7, count)\n",
             "end\n",
             "fn waiting(count: ByteCount) -> DecodeStep<Int>\n",
-            "  prelude::DecodeStep::NeedMore(prelude::DecodeReadiness::NeedBytes(count))\n",
+            "  let readiness: DecodeReadiness = prelude::DecodeReadiness::NeedBytes(count)\n",
+            "  prelude::DecodeStep::NeedMore(readiness)\n",
             "end\n",
             "fn waiting_for_end() -> DecodeStep<Int>\n",
-            "  DecodeStep::NeedMore(NeedEnd)\n",
+            "  let readiness: DecodeReadiness = NeedEnd\n",
+            "  DecodeStep::NeedMore(readiness)\n",
             "end\n",
             "fn invalid(offset: ByteOffset) -> DecodeStep<Int>\n",
-            "  prelude::Invalid(DecodeError(\"codec.invalid\", offset, \"demo.field\"))\n",
+            "  let error: DecodeError = DecodeError(\"codec.invalid\", offset, \"demo.field\")\n",
+            "  prelude::Invalid(error)\n",
             "end\n",
             "fn encoded(chunks: List<ByteChunk>) -> EncodeStep<String>\n",
             "  Encoded(chunks)\n",
@@ -128,7 +131,8 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             "  prelude::EncodeStep::Partial(chunks, count, \"waiting\")\n",
             "end\n",
             "fn invalid_encode() -> EncodeStep<String>\n",
-            "  EncodeStep::Invalid(EncodeError(\"codec.out_of_range\", \"demo.length\", \"too large\"))\n",
+            "  let error: EncodeError = EncodeError(\"codec.out_of_range\", \"demo.length\", \"too large\")\n",
+            "  EncodeStep::Invalid(error)\n",
             "end\n",
             "fn label(input: StreamInput) -> String\n",
             "  match input\n",
@@ -175,7 +179,12 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             .iter()
             .find(|function| function.name == function_name)
             .unwrap_or_else(|| panic!("{function_name} should be lowered"));
-        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+        let CoreStmtKind::Return { expr } = &function
+            .body
+            .last()
+            .expect("function should have a body")
+            .kind
+        else {
             panic!("{function_name} should return a constructor");
         };
         assert_eq!(expr.ty, CoreType::named("StreamInput", Vec::new()));
@@ -206,7 +215,12 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             .iter()
             .find(|function| function.name == function_name)
             .unwrap_or_else(|| panic!("{function_name} should be lowered"));
-        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+        let CoreStmtKind::Return { expr } = &function
+            .body
+            .last()
+            .expect("function should have a body")
+            .kind
+        else {
             panic!("{function_name} should return a constructor");
         };
         assert_eq!(
@@ -220,7 +234,12 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             .iter()
             .find(|function| function.name == function_name)
             .unwrap_or_else(|| panic!("{function_name} should be lowered"));
-        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+        let CoreStmtKind::Return { expr } = &function
+            .body
+            .last()
+            .expect("function should have a body")
+            .kind
+        else {
             panic!("{function_name} should return a constructor");
         };
         assert_eq!(

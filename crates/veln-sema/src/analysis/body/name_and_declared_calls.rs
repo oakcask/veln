@@ -8,6 +8,26 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if segments.len() == 1
+            && let Some(constructor) = expected
+                .and_then(|expected| {
+                    self.environment.adts.descriptor_for_type_prefer_module(
+                        &expected.ty,
+                        self.function.module_name.as_deref(),
+                    )
+                })
+                .and_then(|descriptor| {
+                    self.environment.adts.constructor_for_descriptor(
+                        segments,
+                        descriptor,
+                        self.function.module_name.as_deref(),
+                        &self.environment.uses,
+                    )
+                })
+                .filter(|constructor| constructor.variant.payload_fields.is_empty())
+        {
+            return self.infer_nullary_constructor_name(segments, expr, expected, constructor);
+        }
         match self.environment.adts.nullary_constructor(
             segments,
             self.function.module_name.as_deref(),
@@ -17,6 +37,30 @@ impl<'a> FunctionChecker<'a> {
                 self.infer_nullary_constructor_name(segments, expr, expected, constructor)
             }
             ConstructorLookup::Ambiguous => {
+                if let Some(constructor) = expected
+                    .and_then(|expected| {
+                        self.environment.adts.descriptor_for_type_prefer_module(
+                            &expected.ty,
+                            self.function.module_name.as_deref(),
+                        )
+                    })
+                    .and_then(|descriptor| {
+                        self.environment.adts.constructor_for_descriptor(
+                            segments,
+                            descriptor,
+                            self.function.module_name.as_deref(),
+                            &self.environment.uses,
+                        )
+                    })
+                    .filter(|constructor| constructor.variant.payload_fields.is_empty())
+                {
+                    return self.infer_nullary_constructor_name(
+                        segments,
+                        expr,
+                        expected,
+                        constructor,
+                    );
+                }
                 self.push_ambiguous_name(
                     expr.node_id,
                     expr.span.clone(),
@@ -36,22 +80,27 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         constructor: AdtConstructor<'_>,
     ) -> Type {
-        let inferred = expected
+        let matching_expected = expected
+            .filter(|expected| adt::type_matches_descriptor(&expected.ty, constructor.descriptor));
+        let inferred_args = matching_expected
             .and_then(|expected| {
-                unification::adt_args(&expected.ty, constructor.descriptor)
-                    .map(|_| expected.ty.clone())
+                unification::adt_args(&expected.ty, constructor.descriptor).map(<[Type]>::to_vec)
             })
-            .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
-        if type_contains_unknown(&inferred)
-            && ((expected.is_none() && constructor.variant.kind != AdtVariantKind::ListNil)
-                || (expected.is_some() && constructor.variant.kind == AdtVariantKind::ListNil))
-        {
-            self.push_ambiguous_constructor_type(
-                expr.node_id,
-                expr.span.clone(),
-                &segments.join("::"),
-                &inferred,
-            );
+            .unwrap_or_else(|| vec![Type::Unknown; constructor.descriptor.type_parameters.len()]);
+        let inferred = adt::refined_constructed_type_from_args(constructor, &inferred_args);
+        if type_contains_unknown(&inferred) {
+            let inferred_base = adt::constructed_type_from_args(constructor, &inferred_args);
+            if (expected.is_none() && constructor.variant.kind != AdtVariantKind::ListNil)
+                || (expected.is_some() && constructor.variant.kind == AdtVariantKind::ListNil)
+            {
+                self.push_ambiguous_constructor_type(
+                    expr.node_id,
+                    expr.span.clone(),
+                    &segments.join("::"),
+                    &inferred_base,
+                );
+            }
+            return inferred;
         }
         inferred
     }
@@ -164,6 +213,12 @@ impl<'a> FunctionChecker<'a> {
             && let Some(expected) = expected
             && !type_contains_unknown(&expected.ty)
         {
+            if matches!(current, Type::VariantRefinement { .. }) {
+                let mut constrained = current.clone();
+                adt::merge_type_holes(&mut constrained, &expected.ty);
+                self.bindings[index].ty = constrained.clone();
+                return Some(constrained);
+            }
             self.bindings[index].ty = expected.ty.clone();
             return Some(expected.ty.clone());
         }
@@ -213,6 +268,7 @@ impl<'a> FunctionChecker<'a> {
             .rposition(|binding| binding.name == *name)?;
         self.record_defer_capture(binding_index, name);
         let binding = &self.bindings[binding_index];
+        let type_origin = binding.type_origin.clone();
         let Type::Function {
             params,
             variadic,
@@ -228,8 +284,13 @@ impl<'a> FunctionChecker<'a> {
             symbol: name.clone(),
             effects,
         };
-        let instantiated_effects =
-            self.check_call_arguments(args, &params, variadic.as_deref(), &origin);
+        let instantiated_effects = self.check_call_arguments_with_origin(
+            args,
+            &params,
+            variadic.as_deref(),
+            &origin,
+            type_origin.as_ref(),
+        );
         self.record_call_effects(expr, &origin, &instantiated_effects);
         Some(*return_type)
     }
@@ -242,6 +303,26 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
         if let ExprKind::NamePath { segments, .. } = &callee.kind {
+            if segments.len() == 1
+                && let Some(constructor) = expected
+                    .and_then(|expected| {
+                        self.environment.adts.descriptor_for_type_prefer_module(
+                            &expected.ty,
+                            self.function.module_name.as_deref(),
+                        )
+                    })
+                    .and_then(|descriptor| {
+                        self.environment.adts.constructor_for_descriptor(
+                            segments,
+                            descriptor,
+                            self.function.module_name.as_deref(),
+                            &self.environment.uses,
+                        )
+                    })
+                    .filter(|constructor| !constructor.variant.payload_fields.is_empty())
+            {
+                return Some(self.infer_adt_constructor(expr, args, expected, constructor));
+            }
             match self.environment.adts.constructor(
                 segments,
                 self.function.module_name.as_deref(),
@@ -390,6 +471,17 @@ impl<'a> FunctionChecker<'a> {
         variadic: Option<&Type>,
         origin: &CallOrigin,
     ) -> Vec<(String, Vec<String>)> {
+        self.check_call_arguments_with_origin(args, params, variadic, origin, None)
+    }
+
+    fn check_call_arguments_with_origin(
+        &mut self,
+        args: &[Expr],
+        params: &[Type],
+        variadic: Option<&Type>,
+        origin: &CallOrigin,
+        type_origin: Option<&TypeOrigin>,
+    ) -> Vec<(String, Vec<String>)> {
         let mut row_substitutions = Vec::<(String, Vec<String>)>::new();
         for (index, arg) in args.iter().enumerate() {
             let param_type = params.get(index).or(variadic);
@@ -397,13 +489,22 @@ impl<'a> FunctionChecker<'a> {
                 self.infer_expr(arg, None);
                 continue;
             };
-            let expected = ExpectedType {
-                ty: param_type.clone(),
-                source: ExpectedTypeSource::DeclaredParameter,
-                origin_node_id: origin.node_id,
-                origin_span: Some(origin.span.clone()),
-                origin_message: "Callee parameter type declared here.",
-            };
+            let expected = type_origin.map_or_else(
+                || ExpectedType {
+                    ty: param_type.clone(),
+                    source: ExpectedTypeSource::DeclaredParameter,
+                    origin_node_id: origin.node_id,
+                    origin_span: Some(origin.span.clone()),
+                    origin_message: "Callee parameter type declared here.",
+                },
+                |type_origin| ExpectedType {
+                    ty: param_type.clone(),
+                    source: type_origin.source,
+                    origin_node_id: type_origin.node_id,
+                    origin_span: Some(type_origin.span.clone()),
+                    origin_message: type_origin.message,
+                },
+            );
             let actual = self.infer_expr(arg, Some(&expected));
             collect_effect_row_substitution(param_type, &actual, &mut row_substitutions);
             self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");

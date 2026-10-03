@@ -404,7 +404,7 @@ fn collect_unknown_type_effects(
                 diagnostics,
             );
         }
-        Type::Named { args, .. } => {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
             for arg in args {
                 collect_unknown_type_effects(
                     arg,

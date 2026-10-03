@@ -550,10 +550,7 @@ pub(super) fn json_string_field<'a>(value: &'a JsonValue, key: &str) -> Option<&
 }
 
 pub(super) fn json_array_field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a [JsonValue]> {
-    match json_object_field(value, key)? {
-        JsonValue::Array(values) => Some(values),
-        _ => None,
-    }
+    json_object_field(value, key)?.as_array()
 }
 
 pub(super) fn json_object_field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a JsonValue> {
@@ -566,10 +563,7 @@ pub(super) fn json_object_field<'a>(value: &'a JsonValue, key: &str) -> Option<&
 }
 
 pub(super) fn json_string(value: &JsonValue) -> Option<&str> {
-    match value {
-        JsonValue::String(value) => Some(value),
-        _ => None,
-    }
+    value.as_text()
 }
 
 pub(super) fn metrics_io_diagnostic(message: String) -> Diagnostic {
@@ -577,7 +571,7 @@ pub(super) fn metrics_io_diagnostic(message: String) -> Diagnostic {
         id: "metrics.discovery".to_string(),
         severity: Severity::Error,
         kind: veln_diagnostics::DiagnosticKind::Module,
-        message,
+        message: message.into(),
         span: None,
         details: JsonValue::object([("phase", JsonValue::string("metrics"))]),
         related: Vec::new(),
@@ -594,7 +588,7 @@ pub(super) fn metrics_policy_diagnostic(
         id: id.to_string(),
         severity: Severity::Error,
         kind: veln_diagnostics::DiagnosticKind::Module,
-        message,
+        message: message.into(),
         span,
         details,
         related: Vec::new(),

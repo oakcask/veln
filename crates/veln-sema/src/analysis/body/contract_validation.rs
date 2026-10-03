@@ -386,15 +386,29 @@ impl<'a> FunctionChecker<'a> {
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
         match parse_type_annotation(annotation) {
-            Ok(ty) => Some(ExpectedType {
-                ty: self
+            Ok(ty) => {
+                if let Some(error) = self
                     .environment
-                    .canonicalize_type_annotation(ty, self.function.module_name.as_deref()),
-                source,
-                origin_node_id,
-                origin_span: Some(origin_span.clone()),
-                origin_message,
-            }),
+                    .variant_refinement_annotation_error(&ty, self.function.module_name.as_deref())
+                {
+                    self.push_invalid_type_annotation(
+                        annotation,
+                        &error,
+                        origin_node_id,
+                        origin_span.clone(),
+                    );
+                    return None;
+                }
+                Some(ExpectedType {
+                    ty: self
+                        .environment
+                        .canonicalize_type_annotation(ty, self.function.module_name.as_deref()),
+                    source,
+                    origin_node_id,
+                    origin_span: Some(origin_span.clone()),
+                    origin_message,
+                })
+            }
             Err(error) => {
                 self.push_invalid_type_annotation(
                     annotation,

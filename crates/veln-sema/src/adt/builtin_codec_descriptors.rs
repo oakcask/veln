@@ -13,6 +13,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "DecodeError".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
@@ -70,6 +71,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "DecodeReadiness".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
@@ -100,6 +102,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "DecodeStep".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: vec!["T".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
@@ -150,6 +153,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "SchemaDispatchPayload".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: vec!["T".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
@@ -189,6 +193,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "EncodeError".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: Vec::new(),
             variants: vec![AdtVariantDescriptor {
                 name: "EncodeError".to_string(),

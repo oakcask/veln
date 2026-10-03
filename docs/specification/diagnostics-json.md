@@ -74,6 +74,24 @@ recovery retains the surrounding declaration and lossless source tree. This
 diagnostic does not assert that a structurally valid base or final name resolves
 semantically.
 
+A value whose complete ADT variant set is not assignable at a direct local,
+argument, branch, arm, or result boundary reports `type.variant_mismatch` at
+that value expression. The primary message states the actual and expected
+types. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
+declaration-ordered `expected_variants`, `excluded_variants`, and `constraint`.
+`excluded_variants` is an object with `form` and `variants`. The `listed` form
+contains the declaration-ordered excluded finite set. The
+`all_except_expected` form uses an empty `variants` array and states that every
+base-ADT variant outside `expected_variants` is excluded, without copying the
+complete ADT declaration into each diagnostic. A `variant_exclusion` related
+note renders that fact for human output. One `expected_type_origin` related
+note identifies the declaration or local annotation that supplied the
+expectation. When a compiler-known helper infers a parameter expectation from
+the call, the note instead identifies that helper at the call site. A nested
+generic invariance failure with no truthful finite variant exclusion reports
+ordinary `type.mismatch`. If an earlier error leaves the value untyped,
+`type.variant_mismatch` is omitted.
+
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
 `observed_initial`. Qualified written paths add zero-based `segment_index`.

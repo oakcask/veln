@@ -23,8 +23,17 @@ pub(crate) struct EffectUse {
 pub(crate) struct Binding {
     pub(crate) name: String,
     pub(crate) ty: Type,
+    pub(crate) type_origin: Option<TypeOrigin>,
     pub(crate) private_function_value: Option<FunctionKey>,
     pub(crate) is_diagnosed_unknown: bool,
+}
+
+#[derive(Clone)]
+pub(crate) struct TypeOrigin {
+    pub(crate) node_id: NodeId,
+    pub(crate) span: SourceSpan,
+    pub(crate) source: ExpectedTypeSource,
+    pub(crate) message: &'static str,
 }
 
 #[cfg(test)]
@@ -40,6 +49,7 @@ impl Clone for Binding {
         Self {
             name: self.name.clone(),
             ty: self.ty.clone(),
+            type_origin: self.type_origin.clone(),
             private_function_value: self.private_function_value.clone(),
             is_diagnosed_unknown: self.is_diagnosed_unknown,
         }
@@ -72,6 +82,7 @@ impl Binding {
         Self {
             name,
             ty,
+            type_origin: None,
             private_function_value: None,
             is_diagnosed_unknown: false,
         }
@@ -81,6 +92,7 @@ impl Binding {
         Self {
             name: "callsite".to_string(),
             ty: Type::source_location(),
+            type_origin: None,
             private_function_value: None,
             is_diagnosed_unknown: false,
         }
@@ -90,6 +102,7 @@ impl Binding {
         Self {
             name,
             ty,
+            type_origin: None,
             private_function_value: Some(target),
             is_diagnosed_unknown: false,
         }
@@ -99,6 +112,7 @@ impl Binding {
         Self {
             name,
             ty,
+            type_origin: None,
             private_function_value: None,
             is_diagnosed_unknown: true,
         }
@@ -143,12 +157,20 @@ impl ExpectedTypeSource {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Type {
     Unknown,
     Named {
         name: String,
+        identity: String,
         args: Vec<Type>,
+    },
+    VariantRefinement {
+        name: String,
+        identity: String,
+        args: Vec<Type>,
+        variants: Vec<String>,
+        unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
     },
     Record(Vec<(String, Type)>),
     Function {
@@ -161,9 +183,68 @@ pub(crate) enum Type {
 
 impl Type {
     pub(crate) fn named(name: impl Into<String>, args: Vec<Type>) -> Self {
+        let name = name.into();
+        Self::Named {
+            identity: name.clone(),
+            name,
+            args,
+        }
+    }
+
+    pub(crate) fn resolved_named(
+        name: impl Into<String>,
+        identity: impl Into<String>,
+        args: Vec<Type>,
+    ) -> Self {
         Self::Named {
             name: name.into(),
+            identity: identity.into(),
             args,
+        }
+    }
+
+    pub(crate) fn variant_refinement(
+        name: impl Into<String>,
+        args: Vec<Type>,
+        variants: Vec<String>,
+    ) -> Self {
+        let name = name.into();
+        Self::VariantRefinement {
+            identity: name.clone(),
+            name,
+            args,
+            variants,
+            unresolved_alternatives: Vec::new(),
+        }
+    }
+
+    pub(crate) fn resolved_variant_refinement(
+        name: impl Into<String>,
+        identity: impl Into<String>,
+        args: Vec<Type>,
+        variants: Vec<String>,
+    ) -> Self {
+        Self::VariantRefinement {
+            name: name.into(),
+            identity: identity.into(),
+            args,
+            variants,
+            unresolved_alternatives: Vec::new(),
+        }
+    }
+
+    pub(crate) fn unresolved_variant_union(
+        name: String,
+        args: Vec<Type>,
+        variants: Vec<String>,
+        unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
+    ) -> Self {
+        Self::VariantRefinement {
+            identity: name.clone(),
+            name,
+            args,
+            variants,
+            unresolved_alternatives,
         }
     }
 
@@ -247,11 +328,29 @@ impl Type {
     pub(crate) fn render(&self) -> String {
         match self {
             Self::Unknown => "unknown".to_string(),
-            Self::Named { name, args } if name == "Unit" && args.is_empty() => "()".to_string(),
-            Self::Named { name, args } if args.is_empty() => name.clone(),
-            Self::Named { name, args } => {
+            Self::Named { name, args, .. } if name == "Unit" && args.is_empty() => "()".to_string(),
+            Self::Named { name, args, .. } if args.is_empty() => name.clone(),
+            Self::Named { name, args, .. } => {
                 let args = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
                 format!("{name}<{args}>")
+            }
+            Self::VariantRefinement {
+                name,
+                args,
+                variants,
+                ..
+            } => {
+                let base = if args.is_empty() {
+                    name.clone()
+                } else {
+                    let args = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
+                    format!("{name}<{args}>")
+                };
+                variants
+                    .iter()
+                    .map(|variant| format!("{base}::{variant}"))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
             }
             Self::Record(fields) => {
                 let fields = fields
@@ -284,14 +383,14 @@ impl Type {
 
     pub(crate) fn vec_part(&self) -> Option<&Type> {
         match self {
-            Self::Named { name, args } if name == "Vec" && args.len() == 1 => Some(&args[0]),
+            Self::Named { name, args, .. } if name == "Vec" && args.len() == 1 => Some(&args[0]),
             _ => None,
         }
     }
 
     pub(crate) fn dict_parts(&self) -> Option<(&Type, &Type)> {
         match self {
-            Self::Named { name, args } if name == "Dict" && args.len() == 2 => {
+            Self::Named { name, args, .. } if name == "Dict" && args.len() == 2 => {
                 Some((&args[0], &args[1]))
             }
             _ => None,

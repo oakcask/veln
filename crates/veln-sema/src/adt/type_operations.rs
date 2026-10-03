@@ -6,26 +6,14 @@ use veln_core::CoreType;
 
 use crate::semantic_model::Type;
 
-use super::descriptors::AdtConstructor;
+use super::descriptors::{AdtConstructor, AdtDescriptor};
 #[cfg(test)]
 use crate::source_less_names::InvalidStandardSymbolCase;
 
 #[cfg(test)]
 use super::builtin_descriptors::build_builtin_descriptors;
 #[cfg(test)]
-use super::descriptors::AdtDescriptor;
-#[cfg(test)]
 use super::lookup_validation::validate_adt_lookup_descriptors;
-
-pub(crate) fn constructed_type(constructor: AdtConstructor<'_>, payloads: &[Type]) -> Type {
-    let mut args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
-    for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
-        if let Some(payload) = payloads.get(index) {
-            fill_type_parameters(&mut args, constructor.descriptor, &field.ty, payload);
-        }
-    }
-    constructed_type_from_args(constructor, &args)
-}
 
 pub(crate) fn core_constructed_type(
     constructor: AdtConstructor<'_>,
@@ -41,7 +29,46 @@ pub(crate) fn core_constructed_type(
 }
 
 pub(crate) fn constructed_type_from_args(constructor: AdtConstructor<'_>, args: &[Type]) -> Type {
-    Type::named(&constructor.descriptor.type_name, args.to_vec())
+    Type::resolved_named(
+        &constructor.descriptor.type_name,
+        constructor.descriptor.identity(),
+        args.to_vec(),
+    )
+}
+
+pub(crate) fn refined_constructed_type_from_args(
+    constructor: AdtConstructor<'_>,
+    args: &[Type],
+) -> Type {
+    Type::resolved_variant_refinement(
+        &constructor.descriptor.type_name,
+        constructor.descriptor.identity(),
+        args.to_vec(),
+        vec![constructor.variant.name.clone()],
+    )
+}
+
+pub(crate) fn type_matches_descriptor(ty: &Type, descriptor: &AdtDescriptor) -> bool {
+    let (name, identity, args) = match ty {
+        Type::Named {
+            name,
+            identity,
+            args,
+        }
+        | Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => (name, identity, args),
+        _ => return false,
+    };
+    args.len() == descriptor.type_parameters.len()
+        && if identity == name {
+            name == &descriptor.type_name
+        } else {
+            identity == &descriptor.identity()
+        }
 }
 
 pub(crate) fn core_constructed_type_from_args(
@@ -78,6 +105,10 @@ pub(crate) fn merge_type_args_from_payload(
     if let Some(field) = constructor.variant.payload_fields.get(payload_index) {
         fill_type_parameters(args, constructor.descriptor, &field.ty, actual);
     }
+}
+
+pub(crate) fn merge_type_holes(current: &mut Type, expected: &Type) {
+    super::unification::merge_type_slot(current, expected);
 }
 
 pub(crate) fn merge_core_type_args_from_payload(

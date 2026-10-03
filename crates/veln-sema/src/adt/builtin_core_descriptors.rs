@@ -14,6 +14,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "Option".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: vec!["T".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
@@ -44,6 +45,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "Result".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: vec!["T".to_string(), "E".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
@@ -80,6 +82,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "List".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: vec!["A".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
@@ -116,6 +119,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "StreamInput".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
@@ -146,6 +150,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "StreamAdapterAction".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
@@ -184,6 +189,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "AcceptOutcome".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
@@ -230,6 +236,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "StreamReadOutcome".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
@@ -276,6 +283,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             type_name: "StreamWriteOutcome".to_string(),
             name_class: SourceLessNameClass::Type,
             module_name: None,
+            nominal_identity: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {

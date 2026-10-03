@@ -7,93 +7,54 @@ update-when: ADT variant-refinement typing, diagnostics, schema or runtime behav
 
 ## Summary
 
-Complete the semantic and tooling support for a refinement type that admits one
-variant or a finite union of variants of an algebraic data type (ADT). A
-function will then be able to require or promise a value that is known to have
-one of the admitted variants:
+Complete the remaining semantic and tooling support for implemented ADT variant
+refinement types. The current [type specification](../specification/types.md)
+owns singleton and finite-set resolution, constructor singleton inference,
+direct assignability and widening, refined calls and results, stable mismatch
+diagnostics, and runtime erasure.
 
-```veln
-pub type Connection
-	pub Disconnected
-	pub Connected(socket: Int)
-	pub Closed(reason: String)
-end
-
-pub fn connect(state: Connection::Disconnected) -> Connection::Connected
-	Connected(1)
-end
-
-pub fn close(state: Connection::Connected) -> Connection::Closed
-	Closed("normal")
-end
-
-pub fn reset(
-	state: Connection::Connected | Connection::Closed,
-) -> Connection::Disconnected
-	Disconnected
-end
-```
-
-`Connection::Connected` is the type of the complete `Connected` ADT value. It
-is not the type of the variant payload. The type
-`Connection::Connected | Connection::Closed` admits exactly those two
-variants. Each admitted variant is assignable to the union, and the union is
-assignable to `Connection`. An arbitrary `Connection` is not assignable to
-either refinement.
-
-This feature is deliberately narrower than general dependent types. It makes
-finite state transitions visible to the type checker without adding
-value-indexed types, theorem proving, or proof terms. Ordinary types, unit
-tests, and property-based tests remain responsible for data-dependent behavior
-and properties that cannot be established from a finite variant identity.
+This proposal retains only the unfinished work: alias presentation and
+visibility, aggregate retention and joins, postfix result propagation,
+pattern-based control-flow refinement, schema boundaries, package
+documentation, command-wide enforcement, LSP, MCP, and language-reference
+publication.
 
 ## Outcomes And Boundaries
 
-The proposal has three intended outcomes:
+The remaining proposal has three intended outcomes:
 
-- A public API can state which ADT state or finite set of states a transition
-  accepts and produces.
 - Pattern matching can convert an ordinary ADT value into the required
   variant refinement without a cast or runtime assertion.
 - Compiler, package-documentation, LSP, and MCP views agree on the
   spelling and identity of a refined variant.
+- `run`, `test`, and `doc` enforce refinements at their existing analysis and
+  recovery boundaries in human and machine-readable modes.
 
 The feature is useful for protocol phases, compiler passes, security-sensitive
 state gates, and other finite state machines. It does not prove that every
 state is reachable, that an event eventually occurs, that payload predicates
 hold, or that an external system follows the same transition graph.
 
-The introductory API has this statically observable transition model:
-
-| Current static type | Event | Guard | Next static type | Output | Failure |
-| --- | --- | --- | --- | --- | --- |
-| `Connection::Disconnected` | Call `connect`. | The argument retains the `Disconnected` refinement. | `Connection::Connected` | One ordinary `Connection` ADT value. | None. |
-| `Connection::Connected` | Call `close`. | The argument retains the `Connected` refinement. | `Connection::Closed` | One ordinary `Connection` ADT value. | None. |
-| `Connection::Connected` or `Connection::Closed` | Call `reset`. | The argument's variant set is a subset of the parameter's union. | `Connection::Disconnected` | One ordinary `Connection` ADT value. | None. |
-| `Connection::Disconnected` | Call `reset`. | The argument's variant is excluded from the parameter's union. | No transition. | No call result. | Compile-time `type.variant_mismatch`. |
-| `Connection::Connected` or `Connection::Closed` | Call `connect`. | The required `Disconnected` refinement is absent. | No transition. | No call result. | Compile-time `type.variant_mismatch`. |
-| `Connection` | Call `connect`, `close`, or `reset` directly. | A match has not established the required refinement. | No transition. | No call result. | Compile-time `type.variant_mismatch`. |
-
-This table describes static call admission. It does not add a runtime state
-store, consume a value linearly, or prevent another function from constructing
-an otherwise visible variant.
+The implemented call admission model does not add a runtime state store,
+consume a value linearly, or prevent another function from constructing an
+otherwise visible variant.
 
 ## Scope Boundary
 
-The implemented structural foundation is outside this proposal. The current
+The implemented structural and call-typing foundation is outside this
+proposal. The current
 [source](../specification/source-surface.md#variant-refinement-shaped-type-text),
 [formatting](../specification/command-fmt.md#formatting-rules), and
+[type](../specification/types.md#compatibility-and-limits) and
 [diagnostic](../specification/diagnostics-json.md#diagnostic-families)
-specifications own that contract and its limits. This proposal owns only the
-unimplemented semantic and tooling behavior below.
+specifications own those contracts and their limits. This proposal owns only
+the unimplemented semantic and tooling behavior below.
 
-## Resolution And Visibility
+## Alias Presentation And Visibility
 
-The base prefix uses the existing type namespace, import, alias, generic-arity,
-and ambiguity rules. The final segment uses the constructor identity owned by
-the resolved ADT. A type alias whose target resolves to an ADT can qualify a
-variant refinement. The refinement then has the target constructor identity.
-Aliases are transparent for refinement identity and assignability. If
+The remaining alias work makes a type alias whose target resolves to an ADT
+qualify a variant refinement while retaining the target constructor identity.
+Aliases will be transparent for refinement identity and assignability. If
 `AliasOne` and `AliasTwo` both
 resolve to `Target`, then `AliasOne::V`, `AliasTwo::V`, and `Target::V` have
 the same refinement identity and are mutually assignable.
@@ -164,90 +125,45 @@ unambiguous analysis result. The failure does not create a public declaration
 identity, and a failed stable capture or analysis preserves the prior saved
 snapshot under the existing language-service rules.
 
-Every alternative of a variant union must independently satisfy these
-resolution and visibility rules. Union order and duplicate alternatives do
-not affect type identity. The semantic variant set removes duplicates. When
-an inferred type needs a stable display order, it uses the owning ADT's
-declaration order. A written public signature retains its source spelling.
-
-Built-in finite ADTs participate through their compiler-owned descriptors.
-This includes `Option<T>`, `Result<T, E>`, and `List<T>`. Source ADTs and
-descriptor-backed standard-library ADTs participate when their variants are
-source-visible. An opaque type without a public finite variant descriptor
-cannot be refined.
-
 ## Static Semantics
 
-For an ADT `A<T...>` and its variant `V`, the type `A<T...>::V` is the
-singleton refinement whose variant set is `{V}`. A variant union denotes the
-union of its alternatives' variant sets. A refinement is assignable to
-another refinement exactly when both have the same ADT identity and generic
-arguments and the actual variant set is a subset of the expected variant set.
-Every refinement is a subtype of `A<T...>` and retains the same generic
-arguments and runtime value. Different singleton variants of the same ADT are
-not subtypes of each other.
+The current [type specification](../specification/types.md#compatibility-and-limits)
+owns refinement identity, finite-set subset assignment, direct widening,
+function-value invariance, constructor singleton inference, call and result
+checking, and runtime erasure. The sections below define only the remaining
+semantic extensions.
 
-Refinement widening applies only when the actual and expected types being
-compared are themselves the refinement and its base ADT. It does not recurse
-through a named type argument, record field, ADT payload, or function parameter
-or result. A nested refinement position must therefore be identical on both
-sides of assignment. For example, `A::V` is assignable to `A`, but
-`List<A::V>` is not assignable to `List<A>`, and neither
-`fn(A) -> R` nor `fn(A::V) -> R` is assignable to the other solely because of
-that refinement relationship.
-
-This direct-boundary rule keeps generic and function variance outside this
-feature. [Generic And Function Variance](generic-and-function-variance.md)
-owns any future recursive widening through aggregates or callable positions.
-
-A union that contains every declared variant of the instantiated ADT is
-semantically equivalent to the base ADT. An inferred complete union is
-displayed as the base ADT. A written complete union remains written as a union
-in package signatures. There is no empty variant union.
-
-### Construction, Context, And Joins
-
-An expected base ADT, singleton refinement, or variant union selects the
-owning ADT for an unqualified constructor expression. Constructor lookup uses
-the written constructor name within that ADT. Same-spelled visible
-constructors from other ADTs do not make the expression ambiguous. If the
-expected type supplies generic arguments, constructor inference uses them,
-including when a nullary constructor has no payload from which to infer those
-arguments:
+The examples below use this illustrative API. Its direct call and result
+typing is current behavior; only the aggregate, propagation, and control-flow
+rules described after it remain proposed.
 
 ```veln
-let absent: Option<Int>::None = None
-let terminal: Connection::Connected | Connection::Closed = Closed("normal")
+pub type Connection
+	pub Disconnected
+	pub Connected(socket: Int)
+	pub Closed(reason: String)
+end
+
+pub type Box<A>
+	pub Boxed(value: A)
+end
+
+pub fn connect(state: Connection::Disconnected) -> Connection::Connected
+	Connected(1)
+end
+
+pub fn close(state: Connection::Connected) -> Connection::Closed
+	Closed("normal")
+end
+
+pub fn reset(
+	state: Connection::Connected | Connection::Closed,
+) -> Connection::Disconnected
+	Disconnected
+end
 ```
 
-An expected singleton does not reinterpret a different written constructor.
-If `W` is a constructor of `A`, an expression that writes `W` resolves to
-`A::W` even when its expected type is `A::V`. Assignability then rejects the
-expression with `type.variant_mismatch`. If the expected ADT has no constructor
-with the written name, a same-spelled constructor from another ADT is not
-selected as a fallback.
-
-These contextual rules apply in every expression position that supplies an
-expected type, including annotated bindings, arguments, returns, record
-fields, and ADT payloads. Without an expected ADT, constructor resolution uses
-the existing visibility and ambiguity rules.
-
-After resolution, a constructor expression has its singleton variant
-refinement. An expected base ADT accepts that expression by widening it. A
-local binding without an annotation retains the refinement. An explicit
-base-ADT annotation widens the initializer:
-
-```veln
-let exact = Connected(socket)
-let widened: Connection = exact
-```
-
-Expected payload types and generic inference continue to flow through the
-constructor as they do for ordinary ADTs. A generic variant annotation must
-supply enough type arguments for the existing type-annotation rules. It does
-not introduce a new inference hole in public signatures.
-
-### Aggregate Retention And Contextual Widening
+### Aggregate Retention, Contextual Widening, And Joins
 
 An aggregate without an expected aggregate type retains every refinement that
 its component expressions contribute. Record fields retain their initializer
@@ -307,40 +223,9 @@ existing type compatibility rules.
 
 This least-upper-bound rule operates on already resolved branch types. It does
 not by itself resolve an ambiguous constructor or infer missing generic
-arguments. Only an expected type at the constructor expression supplies the
-context described above.
-
-### Calls, Returns, And Function Values
-
-The following assignability table is normative for the planned feature:
-
-| Actual value or callable | Expected type | Result |
-| --- | --- | --- |
-| `A<T>::V` | `A<T>::V` | Accept. |
-| `A<T>::V` | `A<T>::V \| A<T>::W` | Accept because `{V}` is a subset of `{V, W}`. |
-| `A<T>::V \| A<T>::W` | `A<T>::V \| A<T>::W \| A<T>::X` | Accept because the actual variant set is a subset of the expected set. |
-| `A<T>::V \| A<T>::W` | `A<T>::V` | Reject because the actual value can have variant `W`. |
-| `A<T>::V` | `A<T>` | Accept by widening without a runtime conversion. |
-| `A<T>::V \| A<T>::W` | `A<T>` | Accept by widening without a runtime conversion. |
-| `A<T>` | `A<T>::V` | Reject because the variant is not known. |
-| `A<T>` | `A<T>::V \| A<T>::W` | Reject because the variant is not restricted to the expected set. |
-| `A<T>::W` | `A<T>::V` where `W` and `V` differ | Reject. |
-| `fn(A<T>::V) -> R` | `fn(A<T>::V) -> R` | Accept when the remaining function shape and effects satisfy the existing rules. |
-| `fn(A<T>) -> R` | `fn(A<T>::V) -> R` | Reject because refinement widening does not recurse into a function parameter. |
-| `fn(P) -> A<T>::V` | `fn(P) -> A<T>` | Reject because refinement widening does not recurse into a function result. |
-
-A call to a refined parameter requires the argument's static variant set to be
-a subset of the parameter's set. A refined function result checks the final
-expression of every successfully typed function body against the declared
-variant set. When that final expression is an `if` or `match`, every branch or
-arm expression must satisfy the same expected result type. Control-flow
-reachability, including a constant condition or an arm excluded by a refined
-match domain, does not waive this check. An excluded arm remains invalid under
-the pattern-refinement rules. If an earlier error prevents a final, branch, or
-arm expression from receiving a type, the checker does not emit a derivative
-`type.variant_mismatch` for that expression. Contracts and runtime assertions
-do not convert a base ADT into a refinement. Effects remain orthogonal to
-variant assignability.
+arguments. Only the current
+[constructor-context rules](../specification/types.md#inference-rules) allow an
+expected type at the constructor expression to supply that context.
 
 ### Refined Result Propagation
 
@@ -494,7 +379,6 @@ repair guidance belong in `related` notes rather than the primary message.
 | `type.variant_refinement_unknown` | The final segment does not name a variant owned by the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
 | `type.variant_refinement_private` | A refinement exposes a private base type or selects an inaccessible variant. | `written_type`, `base_type`, `variant`, `boundary`, `exposure_path` | The alias declarations on the exposure path, the final private declaration, and the public-signature boundary. |
 | `type.variant_union_base` | A union alternative resolves to a different ADT identity or generic arguments. | `expected_base_type`, `actual_base_type` | The first alternative that established the required union base. |
-| `type.variant_mismatch` | A value's possible variant set is not a subset of the required set. | `actual_type`, `expected_type`, `expected_variants` in ADT declaration order | The refined parameter, return, field, or local annotation. |
 | `type.match_impossible_variant` | A match arm names a variant excluded by the refined scrutinee. | `scrutinee_type`, `arm_variant` | The refinement source and selected ADT declaration. |
 | `type.match_redundant_arm` | A valid arm has no variant left after preceding valid coverage. | `scrutinee_type`, `arm_pattern`, nullable `arm_variant`, `reason` as `duplicate_variant`, `preceding_catch_all`, or `complete_prior_coverage` | The preceding arm or arms that consumed the applicable variants. |
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
@@ -539,7 +423,6 @@ navigation even though the annotation remains invalid.
 | An invalid-cased segment has no unique recovery and is independently missing, ambiguous, private, or wrong-kind. | `name.invalid_case` when the segment role is known, plus the applicable existing lookup or visibility diagnostic. | Downstream failures that require a selected identity. | Only identities selected independently of the failed segment. |
 | The base or selected constructor is inaccessible. | `type.variant_refinement_private` for each exposure path defined above, plus independent casing or arity failures. | Publication and assignability diagnostics that require a valid public type. | Every uniquely resolved alias, base, and constructor declaration for source navigation. |
 | Two successfully instantiated alternatives have different base identities or generic arguments. | `type.variant_union_base`. | Assignability diagnostics that require the rejected union type. | All successfully resolved alternative identities; no union type identity. |
-| A well-formed refinement is not assignable at its use site. | `type.variant_mismatch`. | No earlier diagnostic; this check runs only after the refinement type is complete. | The complete actual and expected type, base, and constructor identities. |
 
 Within one annotation, the checker visits union alternatives in written order.
 It checks each alternative in this order: casing, base resolution, generic
@@ -610,39 +493,16 @@ identifies the failed refined position, and the reason renders the actual
 variant and expected variant set. This is a recoverable decode failure, not a
 trap or process failure.
 
-## Runtime And Compatibility
-
-Singleton refinements and variant unions are erased after static checking.
-They do not add tags, checks, casts, allocation, or a distinct JVM
-representation. A refined value uses the existing ADT representation and
-pattern-match behavior. Decode-boundary validation is the only check introduced
-by a refinement: it inspects the existing ADT tag before an external value is
-first exposed with a refined static type. Ordinary construction, assignment,
-calls, returns, matching, equality, and encoding add no refinement check.
-
-Existing source remains valid because the proposal adds a type form and a
-subtype-to-base widening rule. Existing unannotated constructor bindings can
-gain a more precise internal type, but observable acceptance must remain
-compatible unless code attempts an operation that the existing base ADT also
-rejects. Canonical package signatures and diagnostics may expose the more
-precise type only where source or inference retains it under the rules above.
-
-Serialization, schema encode/decode, equality, and exhaustiveness use the
-underlying ADT representation. Decode helpers that return a base ADT do not
-claim a refined result unless their declared signature does so and their
-boundary establishes the refinement under the schema rules above.
-
 ## Command Behavior
 
-Every command that invokes shared semantic analysis observes the same variant
-resolution, refinement, assignability, and diagnostics. `check` reports the
-result without execution. `run` and `test` do not execute a selected program
-whose analysis contains a refinement error. `doc` preserves written public
-refinements in canonical declaration signatures. JSON modes use the same
-diagnostic codes, details, spans, and related notes as their human modes.
+`run` and `test` will use the shared semantic analysis and will not execute a
+selected program whose analysis contains a refinement error. `doc` will use the
+same analysis and preserve written public refinements in canonical declaration
+signatures. Their machine-readable modes will use the same diagnostic codes,
+details, spans, and related notes as their human modes.
 
-No command may treat a recovered or unresolved refinement as a successful
-static transition.
+These commands will not treat a recovered or unresolved refinement as a
+successful static transition.
 
 ## Language-Service Contract
 
@@ -708,31 +568,30 @@ coordinate and JSON adapters must not implement separate refinement lookup.
 ## Acceptance Model
 
 The current [source](../specification/source-surface.md#variant-refinement-shaped-type-text),
-[formatting](../specification/command-fmt.md#formatting-rules), and
+[formatting](../specification/command-fmt.md#formatting-rules),
+[type](../specification/types.md#compatibility-and-limits), and
 [diagnostic](../specification/diagnostics-json.md#diagnostic-families)
-specifications own the completed structural foundation, which is outside the
-remaining acceptance targets. The following evidence is required before
-semantic or tooling variant-refinement support is described as current
-behavior:
+specifications own the completed structural and call-typing foundation, which
+is outside the remaining acceptance targets. The following evidence is
+required before the remaining semantic or tooling support is described as
+current behavior:
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
-| Resolution, aliases, and visibility | Source, built-in, generic, qualified, imported, private, opaque, ambiguous, and exact-companion bases follow the stated identity and visibility rules. Public-signature checking traverses record fields, generic arguments, function positions, public source ADT payloads, refinement unions, and alias chains without leaking a private base or variant or looping on recursion. Direct leaks select the private written segment; alias-hidden leaks select the outermost written alias and report the structural exposure path. Aliases of one target are mutually assignable, written annotations retain their spelling, unannotated and conflicting-provenance inference uses the canonical target spelling, mismatch sides select their spelling independently, and base and variant navigation select the alias and target constructor respectively. Failed visibility retains unambiguous source navigation identities under existing recovery rules but publishes no declaration or package signature. | Table-driven semantic, display, package-signature, and shared navigation cases covering every structural position, direct and multi-alias leaks, multiple paths, recursive cycles, exact companions, deterministic diagnostic order, exact primary and related spans, retained source identities, absent public identities, and rendered types. |
-| Construction, joins, aggregate retention, and widening | Expected base, singleton, union, and aggregate types select the owning ADT and supply generic arguments for unqualified constructors; nullary generic constructors use that context; a written different variant remains different; same-spelled constructors from other ADTs do not create ambiguity or provide a fallback; constructors and unannotated aggregate positions retain exact refinements; multiple contributions to one aggregate position use a source-order-independent variant union; field access, payload patterns, and collection element positions observe the retained type; and expected component types widen during aggregate construction without a later nested assignment. | Table-driven type-checker cases for each contextual constructor outcome, direct and aggregate join, unannotated record, vector, dictionary, and generic ADT retention, explicit aggregate widening, projection, and rejected post-construction nested widening, plus executable `check` examples and backend execution and representation cases. |
-| Calls, results, function values, and result propagation | Every singleton, union, and base assignability-table row succeeds or fails as specified. Nested refinement differences in named types, records, ADT payloads, and fixed, variadic, or nested function types remain incompatible. Existing function shapes and effects remain compatible only when their refinement-bearing positions are identical. Every successfully typed final function expression satisfies the declared result refinement. When the final expression is an `if` or `match`, every branch or arm expression satisfies that refinement even under a constant condition or other statically dead control flow. An expression that has no type because of an earlier error produces no derivative variant mismatch. Postfix `?` on a known `Ok` produces its exact success type but still requires the ordinary propagation context and error compatibility. Postfix `?` on a known `Err` follows the ordinary error path without a refinement-specific diagnostic, and later source remains checked. | Table-driven type-checker cases, including nested aggregate and callable boundaries, final `if` and `match` expressions, constant-condition cases, prior-error cases, compatible and incompatible known-`Ok` propagation, refined success payloads, known-`Err` early return, and independent failures after that return, plus executable `check` examples. |
+| Aliases and visibility | Alias-qualified refinements preserve target identity while following the stated presentation and navigation rules. Imported, private, opaque, ambiguous, and exact-companion exposure paths follow the visibility contract. Public-signature checking traverses record fields, generic arguments, function positions, public source ADT payloads, refinement unions, and alias chains without leaking a private base or variant or looping on recursion. Direct leaks select the private written segment; alias-hidden leaks select the outermost written alias and report the structural exposure path. Aliases of one target are mutually assignable, written annotations retain their spelling, unannotated and conflicting-provenance inference uses the canonical target spelling, mismatch sides select their spelling independently, and base and variant navigation select the alias and target constructor respectively. Failed visibility retains unambiguous source navigation identities under existing recovery rules but publishes no declaration or package signature. | Table-driven semantic, display, package-signature, and shared navigation cases covering every structural position, direct and multi-alias leaks, multiple paths, recursive cycles, exact companions, deterministic diagnostic order, exact primary and related spans, retained source identities, absent public identities, and rendered types. |
+| Aggregate retention, contextual widening, and joins | Unannotated aggregate positions retain exact refinements; multiple contributions to one aggregate position use a source-order-independent variant union; field access, payload patterns, and collection element positions observe the retained type; and expected component types widen during aggregate construction without a later nested assignment. | Table-driven type-checker cases for aggregate joins, unannotated record, vector, dictionary, and generic ADT retention, explicit aggregate widening, projection, and rejected post-construction nested widening, plus executable `check` examples. |
+| Result propagation | Postfix `?` on a known `Ok` produces its exact success type but still requires the ordinary propagation context and error compatibility. Postfix `?` on a known `Err` follows the ordinary error path without a refinement-specific diagnostic, and later source remains checked. | Table-driven type-checker cases for compatible and incompatible known-`Ok` propagation, refined success payloads, known-`Err` early return, and independent failures after that return, plus executable `check` examples. |
 | Control-flow refinement | Constructor arms refine stable values and transparent aliases, catch-all arms receive the remaining variant set, union scrutinees restrict the finite match domain, and complete union arms are exhaustive. A valid variant outside the original domain is impossible; a valid constructor or catch-all with no remaining variants is redundant. Invalid arm heads take diagnostic precedence, contribute no coverage, and can use only unambiguous recovery for binding and body checking. Impossible and redundant arms still receive independent body checks and any expected-type check inherited from the enclosing expression, and reevaluated computed expressions gain no refinement. | Match and exhaustiveness cases covering bindings, parentheses, record-field paths, transitive aliases, binding and non-binding catch-alls, duplicate variants, complete prior coverage, invalid casing, hidden and private constructors, wrong-ADT constructors, qualified immutable values, recovered binding and body types, declared-result mismatches in final `match` expressions, and computed-expression boundaries, plus state-machine `check` examples. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
-| Diagnostics | Every semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Base-refinement reasons use only the closed values in the diagnostic contract. Independent casing, resolution, arity, base-eligibility, variant, visibility, union-base, and assignability failures compose as specified; derivative failures are suppressed; and each failure retains exactly the specified navigation identities. Impossible and redundant-arm cases use separate codes, while intrinsic casing, resolution, visibility, ADT, generic, arity, and pattern failures suppress derivative arm-classification diagnostics. | Human and JSON command fixtures covering every diagnostic row, base-reason value, refinement-overlap row, identity-retention outcome, and arm-precedence overlap. |
-| Commands | Check, run, test, doc, and their machine-readable modes share semantic analysis and preserve their execution or recovery boundaries. | Command harness cases with accepted, rejected, and recovered sources. |
-| Runtime erasure | Singleton-refined, union-refined, and widened values preserve constructor tag, payload, matching, equality, schema, and backend behavior without checks outside the external decode trust boundary. Decode validation inspects the existing tag and does not change the representation or encoded bytes. | JVM execution, encode/decode, representation, unchanged-byte, and no-check-outside-decode regression cases. |
+| Diagnostics | Each remaining semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Base-refinement reasons use only the closed values in the diagnostic contract. Remaining resolution, base-eligibility, variant, visibility, and union-base failures compose with current casing, arity, and assignability diagnostics; derivative failures are suppressed; and each new failure retains exactly the specified navigation identities. Impossible and redundant-arm cases use separate codes, while intrinsic casing, resolution, visibility, ADT, generic, arity, and pattern failures suppress derivative arm-classification diagnostics. | Human and JSON command fixtures covering the remaining diagnostic rows, base-reason values, their overlaps with current diagnostics, identity-retention outcomes, and arm-precedence overlaps. |
+| Commands | `run` and `test` share semantic analysis and preserve their no-execution boundary on refinement errors; `doc` shares semantic analysis, preserves written public refinements in canonical declaration signatures, and preserves its recovery boundary. Their machine-readable modes use the same diagnostic contract as their human modes. | Command harness cases for `run`, `test`, and `doc` with accepted, rejected, and recovered sources. |
 | LSP | Tokens, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
 | MCP | Check, navigation, pagination, rename, package signatures, reference publication, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 | Cross-transport identity | LSP and MCP select the same declaration and reference set from the same saved source before coordinate projection. | Shared language-service cases consumed by both adapter suites. |
 
-The state-machine examples must include a permitted transition, a rejected
-transition from the wrong variant, widening at an API boundary, match-based
-recovery of a refined value, a generic state ADT, a private-variant boundary,
-and an unchanged saved result after a failed language-service request.
+The remaining state-machine examples must include match-based recovery of a
+refined value, a private-variant boundary, and an unchanged saved result after
+a failed language-service request.
 
 ## Non-Goals
 

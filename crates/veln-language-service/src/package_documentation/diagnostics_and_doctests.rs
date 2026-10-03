@@ -36,7 +36,7 @@ pub(super) fn module_diagnostic(
     package_doc_diagnostic(
         gate,
         diagnostic.id,
-        diagnostic.message,
+        diagnostic.message.to_owned_string(),
         diagnostic.span.as_ref(),
         identity,
         snapshot_digest,

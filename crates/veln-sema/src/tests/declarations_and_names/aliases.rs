@@ -287,6 +287,56 @@ fn public_type_alias_resolves_nested_import_path_target() {
 }
 
 #[test]
+fn public_type_alias_preserves_target_nominal_identity_across_module_calls() {
+    let api_source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "use http2::core::detail\n",
+            "pub type DocumentAlias = http2::core::detail::Document\n",
+            "pub fn forward() -> DocumentAlias\n",
+            "  http2::core::detail::make()\n",
+            "end\n",
+        ),
+    );
+    let detail_source = SourceFile::new(
+        "detail.veln",
+        concat!(
+            "pub type Document\n",
+            "  pub Text(String)\n",
+            "end\n",
+            "pub fn make() -> Document\n",
+            "  Text(\"ok\")\n",
+            "end\n",
+        ),
+    );
+    let api = lower_surface_ast_with_module_identity(
+        &parse(&api_source).tree,
+        "std::http2::core".to_string(),
+        api_source.span(TextRange::new(0, 0)),
+    );
+    let detail = lower_surface_ast_with_module_identity(
+        &parse(&detail_source).tree,
+        "std::http2::core::detail".to_string(),
+        detail_source.span(TextRange::new(0, 0)),
+    );
+    let module = SurfaceModule {
+        module: api.module,
+        uses: [api.uses, detail.uses].concat(),
+        aliases: [api.aliases, detail.aliases].concat(),
+        effects: [api.effects, detail.effects].concat(),
+        handlers: [api.handlers, detail.handlers].concat(),
+        types: [api.types, detail.types].concat(),
+        schemas: [api.schemas, detail.schemas].concat(),
+        functions: [api.functions, detail.functions].concat(),
+        invalid_names: [api.invalid_names, detail.invalid_names].concat(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn public_alias_target_leaf_casing_reports_before_independent_target_failures() {
     let source = SourceFile::new(
         "api.veln",

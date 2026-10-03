@@ -30,3 +30,5 @@ mod schema_decode_field_classification;
 mod standard_library_effects;
 mod standard_reuse;
 mod typechecking_and_match_exhaustiveness;
+mod variant_refinement_call_typing;
+mod variant_refinement_function_value_provenance;

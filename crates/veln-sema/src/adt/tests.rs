@@ -8,7 +8,9 @@ use crate::standard_symbols::{
 
 use super::descriptors::{AdtDescriptor, AdtVariantDescriptor, AdtVariantKind};
 use super::lookup_validation::validate_adt_lookup_descriptors;
-use super::registry::{AdtRegistry, ConstructorLookup, constructor_lookup_counters};
+use super::registry::{
+    AdtRegistry, ConstructorLookup, constructor_lookup_counters, descriptor_lookup_counters,
+};
 use super::runtime_base_variants::runtime_base_variants;
 use super::runtime_connection_variants::runtime_connection_variants;
 use super::runtime_hpack_variants::runtime_hpack_variants;
@@ -179,6 +181,7 @@ fn validated_registry_indexes_descriptor_and_constructor_owners() {
         type_name: "Owned".to_string(),
         name_class: SourceLessNameClass::Type,
         module_name: Some("example".to_string()),
+        nominal_identity: None,
         type_parameters: Vec::new(),
         variants: vec![AdtVariantDescriptor {
             name: "OwnedValue".to_string(),
@@ -412,5 +415,33 @@ fn constructor_lookup_skips_unrelated_adt_variants() {
     assert_eq!(
         expanded, base,
         "unrelated ADTs must not add constructor resolution scans"
+    );
+}
+
+#[test]
+fn descriptor_lookup_work_grows_with_lookups_not_unrelated_descriptors() {
+    fn candidate_scans(size: usize) -> usize {
+        let mut descriptors = raw_builtin_descriptors_for_test();
+        let template = descriptors[0].clone();
+        for index in 0..size {
+            let mut descriptor = template.clone();
+            descriptor.type_name = format!("Unrelated{index}");
+            descriptors.push(descriptor);
+        }
+        let registry = AdtRegistry::from_parts(descriptors, std::collections::BTreeMap::new());
+        let target = Type::named("Option", vec![Type::Unknown]);
+        descriptor_lookup_counters::reset();
+        for _ in 0..size {
+            assert!(registry.descriptor_for_type(&target).is_some());
+        }
+        descriptor_lookup_counters::candidate_scans()
+    }
+
+    let smaller = candidate_scans(64);
+    let larger = candidate_scans(128);
+    assert_eq!(
+        larger,
+        smaller * 2,
+        "descriptor lookup work must grow linearly across adjacent input sizes"
     );
 }

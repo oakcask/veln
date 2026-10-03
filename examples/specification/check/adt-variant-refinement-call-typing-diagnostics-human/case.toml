@@ -1,0 +1,33 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "main.veln:11:2: error[type.variant_mismatch]: value of type `State` is not assignable to variant type `State::Ready`",
+  "Excluded variants: every `State` variant except Ready.",
+  "note: main.veln:10:1: Return type declared here.",
+  "main.veln:15:14: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "Excluded variants: Closed.",
+  "note: main.veln:6:1: Callee parameter type declared here.",
+  "main.veln:19:28: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:19:2: Type annotation declared here.",
+  "main.veln:26:3: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:22:1: Return type declared here.",
+  "main.veln:33:13: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:30:1: Return type declared here.",
+  "error[type.invalid_annotation]: invalid type annotation `Choice::Absent`: `Choice` expects 1 type argument(s), found 0",
+  "error[type.mismatch]: expected `{state: State}`, but found `{state: State::Ready}`",
+  "error[type.mismatch]: expected `{state: State::Ready}`, but found `{state: State}`",
+  "error[type.mismatch]: expected `fn(State::Ready) -> State::Ready`, but found `fn(State) -> State`",
+  "error[type.mismatch]: expected `fn(State) -> State`, but found `fn(State::Ready) -> State::Ready`",
+  "main.veln:68:20: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:68:2: Prelude helper parameter type inferred here.",
+  "main.veln:73:13: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:72:2: Type annotation declared here.",
+  "main.veln:78:13: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: main.veln:77:35: Parameter type declared here.",
+]
+
+[stderr]
+format = "empty"

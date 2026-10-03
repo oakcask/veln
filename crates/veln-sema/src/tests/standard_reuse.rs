@@ -494,7 +494,8 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
             "pub fn main(input: ByteView, base: ByteOffset, payload: prelude::SharedPayload) -> DecodeStep<{value: Int}>\n",
             "  let observed = handle compute() with prelude::ask(1)\n",
             "  let boxed = payload\n",
-            "  NeedMore(NeedEnd)\n",
+            "  let readiness: DecodeReadiness = NeedEnd\n",
+            "  NeedMore(readiness)\n",
             "end\n",
         ),
     )

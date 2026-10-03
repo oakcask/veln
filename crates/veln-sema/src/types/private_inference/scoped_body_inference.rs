@@ -23,11 +23,30 @@ pub(crate) fn tail_expr_can_use_expected(
         ExprKind::List(_) => expected.vec_part().is_some(),
         ExprKind::Dict(_) => expected.dict_parts().is_some(),
         ExprKind::Record(fields) => record_tail_can_use_expected(fields, expected),
-        ExprKind::NamePath { segments, .. } => matches!(
-            adts.nullary_constructor(segments, current_module, uses),
-            ConstructorLookup::Found(constructor)
-                if unification::adt_args(expected, constructor.descriptor).is_some()
-        ),
+        ExprKind::NamePath { segments, .. } => {
+            if segments.len() == 1
+                && adts
+                    .descriptor_for_type_prefer_module(expected, current_module)
+                    .and_then(|descriptor| {
+                        adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+                    })
+                    .is_some_and(|constructor| constructor.variant.payload_fields.is_empty())
+            {
+                return true;
+            }
+            match adts.nullary_constructor(segments, current_module, uses) {
+                ConstructorLookup::Found(constructor) => {
+                    unification::adt_args(expected, constructor.descriptor).is_some()
+                }
+                ConstructorLookup::Ambiguous => adts
+                    .descriptor_for_type_prefer_module(expected, current_module)
+                    .and_then(|descriptor| {
+                        adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+                    })
+                    .is_some_and(|constructor| constructor.variant.payload_fields.is_empty()),
+                ConstructorLookup::Missing => false,
+            }
+        }
         ExprKind::Call { callee, .. } => {
             constructor_tail_can_use_expected(callee, expected, current_module, uses, adts)
         }
@@ -71,6 +90,16 @@ fn constructor_tail_can_use_expected(
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return false;
     };
+    if segments.len() == 1
+        && adts
+            .descriptor_for_type_prefer_module(expected, current_module)
+            .and_then(|descriptor| {
+                adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+            })
+            .is_some_and(|constructor| !constructor.variant.payload_fields.is_empty())
+    {
+        return true;
+    }
     matches!(
         adts.constructor(segments, current_module, uses),
         ConstructorLookup::Found(constructor)
@@ -118,9 +147,14 @@ pub(super) fn infer_private_body_type(
                 expr,
                 ..
             } => {
-                let annotation_type = annotation
-                    .as_deref()
-                    .map(|annotation| parse_type_or_unknown(Some(annotation)));
+                let annotation_type = annotation.as_deref().map(|annotation| {
+                    canonicalize_private_annotation_type(
+                        parse_type_or_unknown(Some(annotation)),
+                        uses,
+                        current_module,
+                        adts,
+                    )
+                });
                 let ty = annotation_type.unwrap_or_else(|| {
                     infer_private_signature_expr_type(
                         expr,
@@ -164,6 +198,23 @@ pub(super) fn infer_private_body_type(
         }
     }
     tail
+}
+
+fn canonicalize_private_annotation_type(
+    ty: Type,
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+    adts: &AdtRegistry,
+) -> Type {
+    crate::types::canonicalize_type_effects(
+        ty,
+        uses,
+        &[],
+        current_module,
+        &[],
+        adts,
+        &BTreeMap::new(),
+    )
 }
 
 pub(crate) fn private_function_body_bindings(

@@ -14,12 +14,12 @@ every nested type relationship has the same direction. The compiler infers
 variance from type-parameter occurrences. Veln does not add declaration-site
 variance modifiers such as `in`, `out`, `+`, or `-`.
 
-This proposal is separate from
-[ADT Variant Refinement Types](adt-variant-refinement-types.md). That proposal
-permits refinements in nested annotations but widens a refinement to its base
-ADT only at a direct value boundary. This proposal owns any future rule that
-allows `Container<A::V>` to widen to `Container<A>` or relates function types
-whose parameter or result refinements differ.
+This proposal is separate from the current
+[ADT variant-refinement contract](../specification/types.md#compatibility-and-limits).
+That contract permits refinements in nested annotations but widens a
+refinement to its base ADT only at a direct value boundary. This proposal owns
+any future rule that allows `Container<A::V>` to widen to `Container<A>` or
+relates function types whose parameter or result refinements differ.
 
 ## Motivation And Safety Boundary
 
@@ -133,9 +133,8 @@ one unambiguous result in the decision tables. Implementation requires:
   analysis or execute a program.
 
 After those cases pass, update the assignment-compatibility section of the
-current type specification. If ADT variant refinements are current by then,
-add nested refinement cases to their smallest current specification and
-executable evidence as well.
+current type specification. Update the current ADT variant-refinement
+specification and executable evidence with nested refinement cases as well.
 
 ## Non-Goals
 
@@ -152,6 +151,5 @@ The source-ADT inference model is selected. This proposal remains blocked while
 the compiler-owned type classifications and complete function composition
 table are undecided. ADT variant refinement can proceed with direct-boundary
 widening and does not depend on this proposal. Once this proposal is complete
-and implemented, the refinement proposal or current refinement specification
-can adopt recursive widening through the positions that the variance contract
-proves safe.
+and implemented, the current refinement specification can adopt recursive
+widening through the positions that the variance contract proves safe.

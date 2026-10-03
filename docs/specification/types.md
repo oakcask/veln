@@ -41,6 +41,9 @@ Implemented type annotations:
   with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
+- a source-defined or compiler-known finite ADT singleton such as
+  `State::Ready` or `Option<Int>::Some`, and a same-ADT finite set such as
+  `State::Ready | State::Closed`
 
 Angle brackets are the source spelling for type constructor arguments. Legacy
 parenthesized type constructor arguments in type positions are invalid type
@@ -52,6 +55,9 @@ qualified and unqualified constructor names, postfix `?` result propagation for
 `Result`, and finite-domain exhaustiveness. Source ADTs may be generic and
 recursive through variant payloads. Constructor payload types instantiate the
 declared type parameters from surrounding context and payload expressions.
+Refinement annotations in source-declared payloads resolve against the owning
+module like function annotations. An exact singleton payload is accepted, but
+the direct-widening rule does not recurse into a payload type.
 Nullary generic constructors require surrounding type context; when no
 assignment, return, call, match, or other expected type determines the omitted
 parameter, inference reports an ambiguous constructor type.
@@ -198,11 +204,25 @@ signature. Concrete argument expressions constrain omitted parameters. A
 concrete expected result type at a helper call constrains an omitted return
 type, and body tail facts are checked against the inferred return type. Body
 facts and call-site facts must agree; a later incompatible call reports
-`type.mismatch` at the failed argument or expected-result use. Direct recursive
+`type.mismatch` at the failed argument or expected-result use. When the body
+tail is a resolved constructor, an omitted return retains the constructor
+singleton and its resolved generic arguments. It can therefore satisfy a
+refined call parameter without an annotation. A compatible function-value
+context can instead fix that omitted result to the base ADT before function
+compatibility is checked. An ordinary direct call widens the singleton at the
+call boundary without replacing the inferred helper signature. Direct recursive
 edges do not supply inference facts for the recursive helper itself, so an
 omitted recursive slot still needs a non-recursive concrete fact or an
 annotation. Public functions, tests, exported aliases, and imported public
 functions do not receive inferred signatures.
+When the tail is a local with an explicit refinement annotation, an omitted
+private result retains the resolved refinement. This applies to local and
+imported ADTs; the inferred result uses the resolved ADT's canonical display
+name rather than preserving a module qualifier from the local annotation.
+For an omitted private result whose final expression is `if` or `match`, equal
+constructor singletons in every typed branch retain that singleton. Different
+singletons of the same instantiated ADT infer the base ADT instead of selecting
+the first branch's refinement.
 
 Empty `Vec<T>` literals, `Nil` for `List<T>`, and empty dictionary literals
 accept concrete expected collection types from local annotations, return
@@ -234,8 +254,11 @@ current inferred type, and constructor type-context constraint. Bare,
 type-qualified,
 import-alias-qualified, and import-alias-and-type-qualified constructor forms
 use the same visibility and descriptor resolution rules as constructor calls
-with expected type context. Nullary generic constructors still require
-surrounding type context.
+with expected type context. When visible ADTs share an unqualified constructor
+leaf, an expected ADT selects the variant owned by that ADT for both nullary
+and payload-carrying constructors. Without that expectation the ordinary
+ambiguity rule applies. Nullary generic constructors still require surrounding
+type context.
 
 Compiler-known collection and option/result helpers propagate concrete callback context.
 The input container determines callback item types; an explicit `_with` context is the
@@ -352,14 +375,94 @@ the arms that prove partial coverage.
 
 ## Compatibility and limits
 
-The parser structurally recognizes `Type::Variant` and unions such as
-`Type::First | Type::Second` in type positions, as specified by the
-[source surface](source-surface.md#variant-refinement-shaped-type-text). The
-type checker does not yet interpret that structure as a variant refinement: it
-does not resolve the final segment as an ADT variant, establish union identity,
-or provide refinement assignability or control-flow narrowing. Parseability and
-AST preservation therefore do not make these forms implemented semantic type
-annotations.
+The type checker resolves a structurally valid `A<T>::V` annotation to the
+singleton variant type for `V` of the finite ADT `A<T>`. A union of alternatives
+for the same ADT identity and generic arguments denotes their finite variant
+set. The alternatives are resolved before their base identities are compared,
+so qualified and unqualified spellings of the same ADT can form one union.
+Duplicate alternatives are removed and display follows ADT declaration order.
+`Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
+representation. A type alias cannot qualify a variant refinement in this
+slice; an alias-qualified singleton or union alternative is an invalid type
+annotation. A union containing every declared variant is equivalent to the base
+ADT. An unknown variant, invalid base arity, or union of different resolved ADTs
+is an invalid type annotation; it does not become an assignable `unknown`
+contract.
+
+A resolved constructor expression has its singleton variant type. The expected
+base ADT can supply generic arguments to the constructor, and the singleton can
+widen directly to that base without a runtime conversion. An unannotated local
+binding retains the singleton, including while a later expected type fills an
+unknown generic argument. The later constraint does not replace the
+constructor's variant identity. Core lowering erases the refinement to the
+base ADT, so constructor tags, payloads, and runtime representation are
+unchanged.
+
+An unannotated aggregate does not retain nested constructor refinements in
+this slice. A constructor used as a record field, collection element,
+dictionary key or value, or inferred generic ADT payload contributes its base
+ADT type to that aggregate position. Private omitted-return inference applies
+the same member erasure, so its inferred signature agrees with the body type.
+The outer constructor expression still has its singleton type. Explicitly
+refined nested types remain invariant, and an expected aggregate type does not
+add contextual widening at its component positions.
+
+At a direct assignment, argument, or result boundary, variant assignability is
+defined as follows:
+
+| Actual | Expected | Outcome |
+| --- | --- | --- |
+| `A<T>::V` | `A<T>::V` | Accepted. |
+| `A<T>::V` | `A<T>::V \| A<T>::W` | Accepted. |
+| `A<T>::V \| A<T>::W` | a same-base superset | Accepted. |
+| a variant set | a same-base strict subset | Rejected. |
+| a singleton or variant set | `A<T>` | Accepted by direct widening. |
+| `A<T>` | a singleton or variant set | Rejected. |
+| `A<T>::W` | a different singleton `A<T>::V` | Rejected. |
+
+The base ADT identity is nominal and includes the resolved owning module. A
+refinement of one ADT cannot widen to a same-spelled base ADT from another
+module.
+
+The type checker applies the same rules to refined call parameters and declared
+function results. A final `if` or `match` checks every successfully typed branch
+or arm against the declared result, including a branch excluded by a constant
+condition. An earlier error that leaves an expression untyped does not add a
+derivative refinement mismatch.
+
+Refinement widening is direct only. It does not recurse through named type
+arguments, records, ADT payload types, or function parameter, variadic, or
+result positions. A refinement-bearing nested position must be identical on
+both sides. Function values therefore remain compatible only when every
+refinement-bearing position matches, in addition to the existing function
+shape and effect rules.
+
+An incompatible complete refinement comparison reports
+`type.variant_mismatch` at the assigned expression, call argument, branch, arm,
+or final result. Its JSON details contain the rendered `actual_type`, rendered
+`expected_type`, declaration-ordered `expected_variants`, and an
+`excluded_variants` fact. That fact has `form: listed` and a declaration-ordered
+`variants` array when the actual type is a finite refinement. It has
+`form: all_except_expected` and an empty `variants` array when the actual type
+is the complete base ADT. A `variant_exclusion` related note renders the same
+fact for human output, and another related note identifies the expected local
+annotation, parameter, result declaration, or compiler-known helper parameter
+inferred at the call site. A nested record, named argument, ADT payload, or
+function-position invariance failure has no truthful top-level variant
+exclusion and uses the ordinary `type.mismatch` diagnostic instead.
+The checked examples cover
+accepted source and compiler-known cases in
+`examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures
+in `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-json/`,
+and human diagnostics in
+`examples/specification/check/adt-variant-refinement-call-typing-diagnostics-human/`.
+
+Alias spelling and provenance, public/private exposure paths, refinement
+retention and joins inside inferred aggregates, contextual aggregate
+construction, postfix `?`, pattern-based control-flow refinement, schema
+boundaries, package-documentation signatures, command-wide coverage, LSP, MCP,
+and language-reference publication remain proposal work. This slice also does
+not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual

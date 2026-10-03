@@ -1,0 +1,433 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"type.variant_mismatch\"",
+  "\"kind\":\"variant_exclusion\"",
+  "\"kind\":\"expected_type_origin\"",
+  "\"id\":\"type.mismatch\"",
+  "invalid type annotation `Choice::Absent`: `Choice` expects 1 type argument(s), found 0",
+  "variant refinement annotations cannot use a type alias as their base",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 23
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 12
+column = 14
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 16
+column = 2
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 23
+column = 3
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 30
+column = 13
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 36
+column = 28
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `Option<Int>::None` is not assignable to variant type `Option<Int>::Some`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 45
+column = 13
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Option<Int>::Some`, but found `Option<String>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 49
+column = 13
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `missing`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 54
+column = 2
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Closed | State::Failed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 58
+column = 14
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `State::Ready | Other::Foreign`: variant refinement alternatives must resolve to declared variants of one ADT"
+
+[diagnostics.span]
+file = "main.veln"
+line = 66
+column = 16
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.0.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.0.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.1.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.variants"
+length = 0
+
+[[json_assert]]
+path = "diagnostics.1.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.1.related.1.message"
+equals = "Return type declared here."
+
+[[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.2.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.2.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.2.details.constraint"
+equals = "if_branch"
+
+[[json_assert]]
+path = "diagnostics.2.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.2.related.1.message"
+equals = "Return type declared here."
+
+[[json_assert]]
+path = "diagnostics.2.related.1.span.start.line"
+equals = 19
+
+[[json_assert]]
+path = "diagnostics.3.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.3.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.3.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.3.details.constraint"
+equals = "match_arm"
+
+[[json_assert]]
+path = "diagnostics.3.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.3.related.1.message"
+equals = "Return type declared here."
+
+[[json_assert]]
+path = "diagnostics.3.related.1.span.start.line"
+equals = 27
+
+[[json_assert]]
+path = "diagnostics.4.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.4.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.4.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.4.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.4.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.4.details.constraint"
+equals = "assignable"
+
+[[json_assert]]
+path = "diagnostics.4.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.4.related.1.message"
+equals = "Type annotation declared here."
+
+[[json_assert]]
+path = "diagnostics.4.related.1.span.start.line"
+equals = 36
+
+[[json_assert]]
+path = "diagnostics.5.details.actual_type"
+equals = "Option<Int>::None"
+
+[[json_assert]]
+path = "diagnostics.5.details.expected_type"
+equals = "Option<Int>::Some"
+
+[[json_assert]]
+path = "diagnostics.5.details.excluded_variants.variants.0"
+equals = "None"
+
+[[json_assert]]
+path = "diagnostics.8.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.8.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.8.details.excluded_variants.variants.1"
+equals = "Failed"
+
+[[json_assert]]
+path = "diagnostics.16.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.16.details.actual_type"
+equals = "DecodeStep<Int>"
+
+[[json_assert]]
+path = "diagnostics.16.details.expected_type"
+equals = "DecodeStep<Int>::Decoded | DecodeStep<Int>::NeedMore"
+
+[[json_assert]]
+path = "diagnostics.16.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.17.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.18.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.19.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.19.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.19.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.19.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.19.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.19.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.19.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.19.related.1.message"
+equals = "Prelude helper parameter type inferred here."
+
+[[json_assert]]
+path = "diagnostics.19.related.1.span.start.line"
+equals = 127
+
+[[json_assert]]
+path = "diagnostics.20.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.20.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.20.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.20.related.1.message"
+equals = "Type annotation declared here."
+
+[[json_assert]]
+path = "diagnostics.20.related.1.span.start.line"
+equals = 131
+
+[[json_assert]]
+path = "diagnostics.21.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.21.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.21.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.21.related.1.message"
+equals = "Parameter type declared here."
+
+[[json_assert]]
+path = "diagnostics.21.related.1.span.start.line"
+equals = 136
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `StateAlias::Ready`: variant refinement annotations cannot use a type alias as their base"
+
+[diagnostics.span]
+file = "main.veln"
+line = 143
+column = 30

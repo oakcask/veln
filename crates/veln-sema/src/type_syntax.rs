@@ -31,13 +31,19 @@ pub(crate) fn parse_type_or_unknown(text: Option<&str>) -> Type {
 pub(crate) fn parse_type_annotation(text: &str) -> Result<Type, String> {
     parse_type_annotation_with_arity(text, &|name| {
         with_builtin_type_syntax_registry(|registry| registry.arity(name))
-            .map_err(|failure| failure.diagnostic().message)
+            .map_err(|failure| failure.diagnostic().message.to_owned_string())
     })
 }
 
 fn collect_type_reference_paths(ty: &Type, paths: &mut Vec<Vec<String>>) {
     match ty {
-        Type::Named { name, args } => {
+        Type::Named { name, args, .. } => {
+            paths.push(name.split("::").map(str::to_string).collect());
+            for arg in args {
+                collect_type_reference_paths(arg, paths);
+            }
+        }
+        Type::VariantRefinement { name, args, .. } => {
             paths.push(name.split("::").map(str::to_string).collect());
             for arg in args {
                 collect_type_reference_paths(arg, paths);

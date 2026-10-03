@@ -66,7 +66,7 @@ macro_rules! common_signature_type_methods {
 
         fn named_args(&self, expected_name: &str) -> Option<&[Self]> {
             match self {
-                Self::Named { name, args } if name == expected_name => Some(args),
+                Self::Named { name, args, .. } if name == expected_name => Some(args),
                 _ => None,
             }
         }

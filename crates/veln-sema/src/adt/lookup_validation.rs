@@ -152,6 +152,7 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
         type_name: name.clone(),
         name_class: SourceLessNameClass::Type,
         module_name: decl.module_name.clone(),
+        nominal_identity: None,
         type_parameters: decl.params.clone(),
         variants,
         diagnostic_name: name.to_lowercase(),
@@ -181,7 +182,7 @@ pub(super) fn adt_builtin_type_arity(name: &str) -> Result<Option<usize>, String
         BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
     )
     .map(|registry| registry.arity(name))
-    .map_err(|failure| failure.diagnostic().message)
+    .map_err(|failure| failure.diagnostic().message.to_owned_string())
 }
 
 pub(super) fn is_self_type(ty: &Type, decl: &TypeDecl) -> bool {
@@ -191,6 +192,7 @@ pub(super) fn is_self_type(ty: &Type, decl: &TypeDecl) -> bool {
     let Type::Named {
         name: ty_name,
         args,
+        ..
     } = ty
     else {
         return false;
@@ -198,24 +200,51 @@ pub(super) fn is_self_type(ty: &Type, decl: &TypeDecl) -> bool {
     ty_name == name
         && args.len() == decl.params.len()
         && args.iter().zip(&decl.params).all(|(arg, param)| {
-            matches!(arg, Type::Named { name, args } if name == param && args.is_empty())
+            matches!(arg, Type::Named { name, args, .. } if name == param && args.is_empty())
         })
 }
 
 pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Type {
     match ty {
-        Type::Named { name, args } if args.is_empty() => params
-            .iter()
-            .position(|param| param == &name)
-            .map_or(Type::Named { name, args }, |index| {
-                Type::named(format!("$param{index}"), Vec::new())
-            }),
-        Type::Named { name, args } => Type::Named {
+        Type::Named {
             name,
+            identity,
+            args,
+        } if args.is_empty() => params.iter().position(|param| param == &name).map_or(
+            Type::Named {
+                name,
+                identity,
+                args,
+            },
+            |index| Type::named(format!("$param{index}"), Vec::new()),
+        ),
+        Type::Named {
+            name,
+            identity,
+            args,
+        } => Type::Named {
+            name,
+            identity,
             args: args
                 .into_iter()
                 .map(|arg| type_parameters_to_placeholders(arg, params))
                 .collect(),
+        },
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+            unresolved_alternatives,
+        } => Type::VariantRefinement {
+            name,
+            identity,
+            args: args
+                .into_iter()
+                .map(|arg| type_parameters_to_placeholders(arg, params))
+                .collect(),
+            variants,
+            unresolved_alternatives,
         },
         Type::Record(fields) => Type::Record(
             fields
@@ -342,7 +371,5 @@ pub(super) fn import_alias_matches(
 }
 
 pub(super) fn same_descriptor(left: &AdtDescriptor, right: &AdtDescriptor) -> bool {
-    left.type_name == right.type_name
-        && left.module_name == right.module_name
-        && left.type_parameters.len() == right.type_parameters.len()
+    left.identity() == right.identity() && left.type_parameters.len() == right.type_parameters.len()
 }

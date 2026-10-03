@@ -19,11 +19,24 @@ pub(crate) struct AdtDescriptor {
     pub(crate) type_name: String,
     pub(crate) name_class: SourceLessNameClass,
     pub(crate) module_name: Option<String>,
+    pub(crate) nominal_identity: Option<String>,
     pub(crate) type_parameters: Vec<String>,
     pub(crate) variants: Vec<AdtVariantDescriptor>,
     pub(crate) diagnostic_name: String,
     pub(crate) propagation: Option<ResultPropagationDescriptor>,
     pub(crate) visibility: Visibility,
+}
+
+impl AdtDescriptor {
+    pub(crate) fn identity(&self) -> String {
+        if let Some(identity) = &self.nominal_identity {
+            return identity.clone();
+        }
+        match self.module_name.as_deref() {
+            None | Some("std::prelude") => self.type_name.clone(),
+            Some(module) => format!("{module}::{}", self.type_name),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

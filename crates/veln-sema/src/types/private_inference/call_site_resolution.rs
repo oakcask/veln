@@ -24,30 +24,9 @@ pub(crate) fn private_call_site_non_target_params(
     expected: Option<&Type>,
     context: &mut PrivateCallSiteExprContext<'_, '_>,
 ) -> Vec<Type> {
-    if let ConstructorLookup::Found(constructor) = context.constraints.adts.constructor(
-        segments,
-        context.current_module,
-        context.constraints.uses,
-    ) {
-        return expected
-            .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
-            .map(|_| {
-                constructor
-                    .variant
-                    .payload_fields
-                    .iter()
-                    .enumerate()
-                    .map(|(index, _)| {
-                        expected
-                            .and_then(|expected| adt::payload_type(expected, constructor, index))
-                            .filter(|ty| !type_has_unknown(ty))
-                            .unwrap_or(Type::Unknown)
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
+    if let Some(constructor) = private_non_target_constructor(segments, expected, context) {
+        return private_constructor_non_target_params(constructor, expected);
     }
-
     if let Some(signature) = private_call_site_declared_signature(
         segments,
         context.current_module,
@@ -60,7 +39,72 @@ pub(crate) fn private_call_site_non_target_params(
     }) {
         return signature.params.clone();
     }
+    private_prelude_non_target_params(segments, args, expected, context).unwrap_or_default()
+}
 
+fn private_non_target_constructor<'a>(
+    segments: &[String],
+    expected: Option<&Type>,
+    context: &PrivateCallSiteExprContext<'a, '_>,
+) -> Option<AdtConstructor<'a>> {
+    let expected_constructor = (segments.len() == 1)
+        .then_some(expected)
+        .flatten()
+        .and_then(|expected| {
+            context
+                .constraints
+                .adts
+                .descriptor_for_type_prefer_module(expected, context.current_module)
+        })
+        .and_then(|descriptor| {
+            context.constraints.adts.constructor_for_descriptor(
+                segments,
+                descriptor,
+                context.current_module,
+                context.constraints.uses,
+            )
+        })
+        .filter(|constructor| !constructor.variant.payload_fields.is_empty());
+    let ordinary_constructor = match context.constraints.adts.constructor(
+        segments,
+        context.current_module,
+        context.constraints.uses,
+    ) {
+        ConstructorLookup::Found(constructor) => Some(constructor),
+        ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
+    };
+    expected_constructor.or(ordinary_constructor)
+}
+
+fn private_constructor_non_target_params(
+    constructor: AdtConstructor<'_>,
+    expected: Option<&Type>,
+) -> Vec<Type> {
+    expected
+        .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
+        .map(|_| {
+            constructor
+                .variant
+                .payload_fields
+                .iter()
+                .enumerate()
+                .map(|(index, _)| {
+                    expected
+                        .and_then(|expected| adt::payload_type(expected, constructor, index))
+                        .filter(|ty| !type_has_unknown(ty))
+                        .unwrap_or(Type::Unknown)
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn private_prelude_non_target_params(
+    segments: &[String],
+    args: &[Expr],
+    expected: Option<&Type>,
+    context: &mut PrivateCallSiteExprContext<'_, '_>,
+) -> Option<Vec<Type>> {
     private_prelude_constraint_name(
         segments,
         context.current_module,
@@ -97,7 +141,6 @@ pub(crate) fn private_call_site_non_target_params(
         }
         Some(params)
     })
-    .unwrap_or_default()
 }
 
 pub(crate) fn private_prelude_input_arg<'a>(
@@ -166,7 +209,7 @@ pub(crate) fn collect_private_function_value_constraints(
         );
     }
     if *omitted_return && !type_has_unknown(return_type) {
-        update_private_signature_return(
+        update_private_signature_return_from_function_value(
             context.constraints.functions,
             &target_key,
             return_type.as_ref().clone(),
@@ -284,6 +327,26 @@ pub(crate) fn update_private_signature_return(
     let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
+    update_unknown_private_signature_type(&mut signature.return_type, inferred, changed);
+}
+
+fn update_private_signature_return_from_function_value(
+    functions: &mut [FunctionSignature],
+    key: &(Option<String>, String),
+    inferred: Type,
+    changed: &mut bool,
+) {
+    let Some(signature) = private_signature_mut(functions, key) else {
+        return;
+    };
+    if matches!(signature.return_type, Type::VariantRefinement { .. })
+        && matches!(inferred, Type::Named { .. })
+        && crate::type_relations::is_assignable(&inferred, &signature.return_type)
+    {
+        signature.return_type = inferred;
+        *changed = true;
+        return;
+    }
     update_unknown_private_signature_type(&mut signature.return_type, inferred, changed);
 }
 

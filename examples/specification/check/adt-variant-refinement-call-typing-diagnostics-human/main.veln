@@ -1,0 +1,80 @@
+type State
+	Ready
+	Closed
+end
+
+fn needs_ready(value: State::Ready) -> State::Ready
+	value
+end
+
+fn wrong_result(value: State) -> State::Ready
+	value
+end
+
+fn main() -> State::Ready
+	needs_ready(Closed)
+end
+
+fn wrong_local() -> ()
+	let local: State::Ready = Closed
+end
+
+fn wrong_if() -> State::Ready
+	if true
+		Ready
+	else
+		Closed
+	end
+end
+
+fn wrong_match(value: State::Ready) -> State::Ready
+	match value
+		Ready => Ready
+		Closed => Closed
+	end
+end
+
+type Choice<A>
+	Present(A)
+	Absent
+end
+
+fn invalid_source_arity(value: Choice::Absent) -> Choice::Absent
+	value
+end
+
+fn reject_record_widening(value: {state: State::Ready}) -> ()
+	let rejected: {state: State} = value
+end
+
+fn reject_record_narrowing(value: {state: State}) -> ()
+	let rejected: {state: State::Ready} = value
+end
+
+fn accepts_base(value: State) -> State
+	value
+end
+
+fn accepts_ready(value: State::Ready) -> State::Ready
+	value
+end
+
+fn reject_function_positions() -> ()
+	let narrowed: fn(State::Ready) -> State::Ready = accepts_base
+	let widened: fn(State) -> State = accepts_ready
+end
+
+fn wrong_prelude_helper_argument() -> Vec<State::Ready>
+	vec_push([Ready], Closed)
+end
+
+fn wrong_local_function_value() -> ()
+	let transition: fn(State::Ready) -> State::Ready = needs_ready
+	transition(Closed)
+	()
+end
+
+fn wrong_parameter_function_value(transition: fn(State::Ready) -> State::Ready) -> ()
+	transition(Closed)
+	()
+end

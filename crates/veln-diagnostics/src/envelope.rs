@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use veln_source::SourceSpan;
 
-use crate::{CheckStatus, DiagnosticKind, JsonValue, Severity, source_span_to_json};
+use crate::{
+    CheckStatus, DiagnosticKind, DiagnosticText, JsonValue, Severity, source_span_to_json,
+};
 
 pub const SCHEMA_VERSION: u32 = 1;
 
@@ -11,7 +13,7 @@ pub struct Diagnostic {
     pub id: String,
     pub severity: Severity,
     pub kind: DiagnosticKind,
-    pub message: String,
+    pub message: DiagnosticText,
     pub span: Option<SourceSpan>,
     pub details: JsonValue,
     pub related: Vec<JsonValue>,
@@ -23,6 +25,17 @@ impl Diagnostic {
         severity: Severity,
         kind: DiagnosticKind,
         message: impl Into<String>,
+        span: Option<SourceSpan>,
+        details: JsonValue,
+    ) -> Self {
+        Self::new_text(id, severity, kind, message.into(), span, details)
+    }
+
+    pub fn new_text(
+        id: impl Into<String>,
+        severity: Severity,
+        kind: DiagnosticKind,
+        message: impl Into<DiagnosticText>,
         span: Option<SourceSpan>,
         details: JsonValue,
     ) -> Self {
@@ -108,7 +121,7 @@ pub fn diagnostic_to_json(diagnostic: &Diagnostic) -> JsonValue {
         ("id", JsonValue::string(diagnostic.id.clone())),
         ("severity", JsonValue::string(diagnostic.severity.as_str())),
         ("kind", JsonValue::string(diagnostic.kind.as_str())),
-        ("message", JsonValue::string(diagnostic.message.clone())),
+        ("message", JsonValue::text(diagnostic.message.clone())),
         ("span", span_to_json(diagnostic.span.as_ref())),
         ("details", diagnostic.details.clone()),
         ("related", JsonValue::Array(diagnostic.related.clone())),
