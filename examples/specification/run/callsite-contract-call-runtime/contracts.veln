@@ -1,0 +1,24 @@
+use observer
+
+pub fn guarded() -> SourceLocation callsite
+require observer::observe(callsite)
+require observer::observe(callsite) and true
+require false or observer::observe(callsite)
+require not observer::observe(callsite) or observer::observe_alias(callsite)
+require true == observer::fixed_boundary_location(callsite, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+require observer::variadic_location(callsite)
+require observer::variadic_location(callsite, 17, 29)
+require observer::wide_variadic_location(callsite, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+require (observer::string_location(callsite, "\"),("))
+	callsite
+end
+
+pub fn invariant_guarded() -> SourceLocation callsite
+invariant observer::observe(callsite)
+	callsite
+end
+
+pub fn ensured() -> SourceLocation callsite
+ensure observer::observe(callsite)
+	callsite
+end

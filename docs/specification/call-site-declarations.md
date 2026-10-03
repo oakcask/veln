@@ -72,7 +72,13 @@ count Unicode scalar values.
 Runtime-required `require`, `invariant`, and `ensure` predicates in a
 call-site-aware function read the same supplied `SourceLocation` as the
 function body. Their coordinates therefore identify the call expression
-selected by the direct-call and wrapper propagation rules above.
+selected by the direct-call and wrapper propagation rules above. When such a
+predicate directly calls another call-site-aware function, the predicate
+callee receives that same value as hidden context. The source-level call keeps
+its declared arity. Calling through a public function alias reaches the
+aliased declaration with the same hidden context. Fixed and variadic source
+arguments bind as they do for an ordinary direct call; the hidden context does
+not enter the variadic argument sequence.
 
 Direct-call construction copies the call expression's existing source
 identifier into `file`. An ordinary package-selected source therefore uses its
@@ -106,8 +112,11 @@ Veln call expression from which to obtain a location. Generated-source origin
 mapping, canonical virtual-source naming, dependency source-identity
 collisions, relocation guarantees, deferred-observation lifetime guarantees,
 and call-site-specific LSP and MCP presentation are also not implemented.
-Runtime-required contract predicates that call a call-site-aware function
-remain blocked.
+Runtime-required contract predicates in ordinary functions do not construct
+call-site context. Execution rejects a direct call from such a predicate to a
+call-site-aware function because the enclosing function has no hidden context
+to forward. This is a deliberate boundary rather than pending direct-call
+propagation.
 
 An unmodified function can use an ordinary binding named `callsite`, including
 in its contracts, and execution treats that binding like any other local value.
@@ -132,9 +141,11 @@ Functions without the modifier retain their ordinary call ABI.
 - Run-entry boundary evidence:
   the `callsite-entry-runtime-boundary` run specification case.
 - Runtime contract built-in reference evidence:
-  the `callsite-contract-runtime` and `callsite-contract-failure` run
+  the `callsite-contract-runtime` run specification case.
+- Runtime contract call propagation and failure evidence:
+  the `callsite-contract-call-runtime` and `callsite-contract-failure` run
   specification cases.
-- Remaining runtime-contract call boundary evidence:
-  the `callsite-contract-runtime-boundary` run specification case.
+- Ordinary-function runtime contract boundary evidence:
+  [`callsite-contract-runtime-boundary`](../../examples/specification/run/callsite-contract-runtime-boundary/).
 - Ordinary-identifier execution evidence:
   `examples/specification/run/callsite-ordinary-identifier/case.toml`.

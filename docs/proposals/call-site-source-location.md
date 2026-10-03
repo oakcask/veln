@@ -17,8 +17,8 @@ later stack walk cannot recover the required logical call site.
 The declaration, static-checking, and direct-call runtime behavior are
 specified in
 [Call-site Declarations](../specification/call-site-declarations.md). This
-proposal tracks only the remaining indirect-call, runtime-contract,
-source-identity, lifetime, and presentation work below.
+proposal tracks only the remaining indirect-call, source-identity, lifetime,
+and presentation work below.
 
 The remaining source-identity work must make `package` and `module`
 disambiguate equal relative paths from different dependencies and must verify
@@ -30,10 +30,6 @@ Indirect calls must match the direct-call propagation defined by the current
 specification. Devirtualization and inlining must not change the observed
 location. The implicit context must not become an explicit override at a call
 expression.
-
-A runtime-required predicate that directly calls a call-site-aware function
-must propagate the same location that the enclosing function body would
-supply.
 
 Completion and signature help must present the `callsite` modifier. Completion
 inside the function body must include the built-in local variable.
@@ -59,17 +55,19 @@ file value.
 | S7 | Equivalent packages under two absolute roots contain dependencies with the same package-relative source path. | Exposed `file` values are package-relative or canonical virtual paths, all fields contain neither root and remain identical after relocation, and `package` plus `module` disambiguate the dependency sources. | Relocation and dependency-collision test. |
 | S8 | LSP and MCP present the declaration. | Each service identifies the modifier and built-in local variable, and signature help presents the modifier. | LSP and MCP cases. |
 | S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
-| S12 | A runtime-required predicate directly calls a call-site-aware function. | The predicate callee observes the location supplied by the enclosing function's direct caller. | Run contract case. |
 
 ## Verification and Promotion
 
-Remaining implementation must extend function-value and runtime-contract call
-lowering, ABI metadata, generated-source mapping, lifetime coverage, LSP, and
-MCP.
+Remaining implementation must extend function-value lowering, ABI metadata,
+generated-source mapping, lifetime coverage, LSP, and MCP.
 
 ## Non-goals
 
 - This proposal does not expose a runtime stack trace.
+- This proposal does not make a runtime-required predicate in an ordinary
+  function construct call-site context for a call-site-aware callee. Only an
+  enclosing call-site-aware function has hidden context that its predicate can
+  forward.
 - Source locations are not stable identifiers across source edits.
 - The proposal does not add general optional or default parameters.
 - The proposal does not add syntax that overrides implicit call-site context at

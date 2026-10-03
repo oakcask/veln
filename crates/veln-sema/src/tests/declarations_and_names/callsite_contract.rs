@@ -52,7 +52,176 @@ fn callsite_contract_references_lower_for_execution() {
 }
 
 #[test]
-fn callsite_aware_contract_calls_are_blocked_during_execution_lowering() {
+fn callsite_aware_contract_calls_lower_when_the_enclosing_function_has_callsite_context() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located() -> Bool callsite\n",
+            "  callsite.start_line > 0\n",
+            "end\n",
+            "pub fn guarded() -> () callsite\n",
+            "require located()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(matches!(
+        lowered.core.as_ref().expect("checked core").readiness,
+        CoreReadiness::Complete
+    ));
+    let guarded = lowered
+        .ir
+        .as_ref()
+        .expect("typed IR")
+        .functions
+        .iter()
+        .find(|function| function.name == "guarded")
+        .expect("guarded function");
+    assert_eq!(guarded.contracts[0].callsite_calls.len(), 1);
+    let call = &guarded.contracts[0].callsite_calls[0];
+    assert_eq!(call.callee, "located");
+    assert_eq!(call.target, "located");
+    assert_eq!(call.fixed_arg_count, 0);
+    assert!(!call.variadic);
+}
+
+#[test]
+fn grouped_callsite_contract_calls_keep_string_delimiters_inside_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located(expected: SourceLocation, observed: String) -> Bool callsite\n",
+            "  callsite.start_line == expected.start_line and observed == \"\\\"),(\"\n",
+            "end\n",
+            "pub fn guarded() -> () callsite\n",
+            "require (located(callsite, \"\\\"),(\"))\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let guarded = lowered
+        .ir
+        .as_ref()
+        .expect("typed IR")
+        .functions
+        .iter()
+        .find(|function| function.name == "guarded")
+        .expect("guarded function");
+    let call = &guarded.contracts[0].callsite_calls[0];
+    assert_eq!(call.callee, "located");
+    assert_eq!(call.fixed_arg_count, 2);
+}
+
+#[test]
+fn callsite_contract_calls_retain_alias_targets_and_variadic_abi() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located(expected: SourceLocation, values: ...Int) -> Bool callsite\n",
+            "  callsite.start_line == expected.start_line\n",
+            "end\n",
+            "pub fn observe = located\n",
+            "pub fn guarded() -> () callsite\n",
+            "require observe(callsite, 17, 29)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let guarded = lowered
+        .ir
+        .as_ref()
+        .expect("typed IR")
+        .functions
+        .iter()
+        .find(|function| function.name == "guarded")
+        .expect("guarded function");
+    let call = &guarded.contracts[0].callsite_calls[0];
+    assert_eq!(call.callee, "observe");
+    assert_eq!(call.target, "located");
+    assert_eq!(call.fixed_arg_count, 1);
+    assert!(call.variadic);
+}
+
+#[test]
+fn callsite_contract_calls_type_check_each_variadic_argument() {
+    let diagnostics = diagnostics(concat!(
+        "fn located(expected: SourceLocation, values: ...Int) -> Bool callsite\n",
+        "  callsite.start_line == expected.start_line\n",
+        "end\n",
+        "pub fn guarded() -> () callsite\n",
+        "require located(callsite, 17, \"wrong\")\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.unsupported_construct"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"call_argument_type\"")
+    }));
+}
+
+#[test]
+fn callsite_contract_calls_require_all_fixed_arguments_before_the_variadic_tail() {
+    let diagnostics = diagnostics(concat!(
+        "fn located(expected: SourceLocation, values: ...Int) -> Bool callsite\n",
+        "  callsite.start_line == expected.start_line\n",
+        "end\n",
+        "pub fn guarded() -> () callsite\n",
+        "require located()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.unsupported_construct"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"call_arity\"")
+    }));
+}
+
+#[test]
+fn ordinary_variadic_contract_calls_remain_rejected_until_the_abi_is_supported() {
+    let diagnostics = diagnostics(concat!(
+        "fn accepts(values: ...Int) -> Bool\n",
+        "  true\n",
+        "end\n",
+        "pub fn guarded() -> ()\n",
+        "require accepts(17, 29)\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.unsupported_construct"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"call_arity\"")
+    }));
+}
+
+#[test]
+fn ordinary_function_contract_calls_that_need_callsite_context_remain_blocked() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -71,7 +240,7 @@ fn callsite_aware_contract_calls_are_blocked_during_execution_lowering() {
     let lowered = lower_project_reachable_surface_module(&lower_surface_ast(&parsed.tree));
     let blockers = match &lowered.core.as_ref().expect("checked core").readiness {
         CoreReadiness::Blocked(blockers) => blockers,
-        CoreReadiness::Complete => panic!("call-site-aware contract calls must block execution"),
+        CoreReadiness::Complete => panic!("ordinary contracts cannot construct call-site context"),
     };
     assert!(blockers.iter().any(|blocker| matches!(
         blocker,
@@ -89,7 +258,7 @@ fn callsite_aware_contract_calls_are_blocked_during_execution_lowering() {
     assert!(diagnostic.related.iter().any(|related| {
         related
             .to_json()
-            .contains("do not yet supply the hidden call-site location")
+            .contains("Only a call-site-aware enclosing function has hidden context")
     }));
     assert!(lowered.ir.is_none());
 }

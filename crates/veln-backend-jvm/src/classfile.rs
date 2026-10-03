@@ -1,13 +1,13 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
-    ContractObligationStatus, IrCallTarget, IrContract, IrDeferredBlock, IrDictEntry, IrExpr,
-    IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField,
-    IrPatternKind, IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt,
-    IrStmtKind, TypedProgram,
+    ContractObligationStatus, IrCallTarget, IrContract, IrContractCall, IrDeferredBlock,
+    IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm, IrPattern,
+    IrPatternField, IrPatternKind, IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec,
+    IrStmt, IrStmtKind, TypedProgram,
 };
 use veln_literals::parse_integer_literal;
 
@@ -80,6 +80,25 @@ pub(crate) fn function_code_footprint(program: &TypedProgram, function_name: &st
     let mut function_emitter = FunctionBytecodeEmitter::new(&emitter, function);
     function_emitter.emit(&mut code);
     code.code.len() + code.exceptions.len() * 8
+}
+
+#[cfg(test)]
+pub(crate) fn contract_call_metadata_work(program: &TypedProgram, function_name: &str) -> usize {
+    let options = SanitizedOptions {
+        program_class: "VelnProgram".to_string(),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    let emitter = ClassfileEmitter::new(program, options);
+    let function = program
+        .functions
+        .iter()
+        .find(|function| function.name == function_name)
+        .expect("function for contract call metadata work");
+    let class = ClassBuilder::new(&emitter.options.program_class);
+    let mut code = MethodCode::new(Rc::clone(&class.constant_pool));
+    let mut function_emitter = FunctionBytecodeEmitter::new(&emitter, function);
+    function_emitter.emit(&mut code);
+    code.contract_call_metadata_work
 }
 
 pub(crate) struct ClassfileEmitter<'a> {
@@ -236,6 +255,24 @@ impl<'a> ClassfileEmitter<'a> {
         code.branch_to(0xa2, loop_done);
 
         let dispatched = code.new_label();
+        self.emit_test_entry_dispatch(&mut code, entry_functions, dispatched);
+
+        code.bind(dispatched);
+        code.iinc(3, 1);
+        code.branch_to(0xa7, loop_start);
+        code.bind(loop_done);
+        let try_end = code.mark();
+        code.op(0xb1);
+
+        self.finish_entry_class(class, code, try_start, try_end)
+    }
+
+    fn emit_test_entry_dispatch(
+        &self,
+        code: &mut MethodCode,
+        entry_functions: &[String],
+        dispatched: usize,
+    ) {
         for entry_function in entry_functions {
             code.aload(0);
             code.iload(3);
@@ -249,7 +286,7 @@ impl<'a> ClassfileEmitter<'a> {
                 &object_method_descriptor(0),
             );
             code.astore(1);
-            self.emit_entry_result(&mut code);
+            self.emit_entry_result(code);
             code.branch_to(0xa7, dispatched);
             code.bind(next);
         }
@@ -259,15 +296,6 @@ impl<'a> ClassfileEmitter<'a> {
         code.push_i32(1);
         code.invokestatic("java/lang/System", "exit", "(I)V");
         code.op(0xb1);
-
-        code.bind(dispatched);
-        code.iinc(3, 1);
-        code.branch_to(0xa7, loop_start);
-        code.bind(loop_done);
-        let try_end = code.mark();
-        code.op(0xb1);
-
-        self.finish_entry_class(class, code, try_start, try_end)
     }
 
     fn finish_entry_class(

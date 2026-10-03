@@ -30,9 +30,6 @@ pub(super) enum ContractScalar<'a> {
 
 pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
     let text = strip_contract_outer_parens(text.trim());
-    if let Some(rest) = text.strip_prefix("not ") {
-        return ContractValue::Not(rest);
-    }
     for (operator, op) in contract_binary_operators() {
         if let Some((left, right)) = split_contract_binary(text, operator) {
             return ContractValue::Binary {
@@ -41,6 +38,9 @@ pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
                 op: *op,
             };
         }
+    }
+    if let Some(rest) = text.strip_prefix("not ") {
+        return ContractValue::Not(rest);
     }
     if let Some(rest) = text.strip_prefix('~') {
         return ContractValue::BitwiseNot(rest);
@@ -64,6 +64,8 @@ pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
 
 fn contract_binary_operators() -> &'static [(&'static str, BinaryOp)] {
     &[
+        ("or", BinaryOp::Or),
+        ("and", BinaryOp::And),
         ("|", BinaryOp::BitwiseOr),
         ("^", BinaryOp::BitwiseXor),
         ("&", BinaryOp::BitwiseAnd),
@@ -154,6 +156,10 @@ fn contract_operator_at(text: &[u8], index: usize, operator: &[u8]) -> bool {
         .copied();
     let next = text.get(index + operator.len()).copied();
     match operator {
+        b"and" | b"or" => {
+            !previous.is_some_and(is_contract_identifier_byte)
+                && !next.is_some_and(is_contract_identifier_byte)
+        }
         b">" => previous != Some(b'>') && !matches!(next, Some(b'>' | b'=')),
         b">>" | b">>>" => previous != Some(b'>') && next != Some(b'>'),
         b"<" => previous != Some(b'<') && !matches!(next, Some(b'<' | b'=')),
@@ -161,6 +167,10 @@ fn contract_operator_at(text: &[u8], index: usize, operator: &[u8]) -> bool {
         b"|" => next != Some(b'>'),
         _ => true,
     }
+}
+
+fn is_contract_identifier_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_'
 }
 
 fn strip_contract_outer_parens(mut text: &str) -> &str {
@@ -173,8 +183,21 @@ fn strip_contract_outer_parens(mut text: &str) -> &str {
         };
         let mut depth = 0usize;
         let mut closes_at_end = false;
+        let mut in_string = false;
+        let mut escaped = false;
         for (index, ch) in text.char_indices() {
+            if in_string {
+                if escaped {
+                    escaped = false;
+                } else if ch == '\\' {
+                    escaped = true;
+                } else if ch == '"' {
+                    in_string = false;
+                }
+                continue;
+            }
             match ch {
+                '"' => in_string = true,
                 '(' => depth += 1,
                 ')' => {
                     depth = depth.saturating_sub(1);

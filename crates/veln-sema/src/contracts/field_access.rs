@@ -8,7 +8,11 @@ pub(super) fn strip_balanced_outer_parens(text: &str) -> &str {
         }
         let mut depth = 0usize;
         let mut balanced_outer = true;
+        let mut string_scanner = StringLiteralScanner::default();
         for (index, ch) in trimmed.char_indices() {
+            if string_scanner.consume(ch) {
+                continue;
+            }
             match ch {
                 '(' => depth += 1,
                 ')' => {
@@ -25,6 +29,32 @@ pub(super) fn strip_balanced_outer_parens(text: &str) -> &str {
             return trimmed;
         }
         trimmed = trimmed[1..trimmed.len() - 1].trim();
+    }
+}
+
+#[derive(Default)]
+pub(super) struct StringLiteralScanner {
+    in_string: bool,
+    escaped: bool,
+}
+
+impl StringLiteralScanner {
+    pub(super) fn consume(&mut self, ch: char) -> bool {
+        if !self.in_string {
+            if ch == '"' {
+                self.in_string = true;
+                return true;
+            }
+            return false;
+        }
+        if self.escaped {
+            self.escaped = false;
+        } else if ch == '\\' {
+            self.escaped = true;
+        } else if ch == '"' {
+            self.in_string = false;
+        }
+        true
     }
 }
 
@@ -45,23 +75,11 @@ pub(super) fn split_field_access(predicate: &str) -> Option<FieldAccessRef<'_>> 
     let mut index = 0usize;
     while index < predicate.len() {
         let ch = predicate[index..].chars().next()?;
-        if scanner.consume_quoted(ch) {
+        if scanner.consume_non_field(ch) {
             index += ch.len_utf8();
             continue;
         }
         match ch {
-            '"' => {
-                scanner.start_string();
-                index += ch.len_utf8();
-            }
-            '(' => {
-                scanner.open_group();
-                index += ch.len_utf8();
-            }
-            ')' => {
-                scanner.close_group();
-                index += ch.len_utf8();
-            }
             '.' if scanner.at_top_level() => {
                 let (field, field_end) = parse_field_access_segment(predicate, index)?;
                 first_dot.get_or_insert(index);
@@ -91,6 +109,19 @@ pub(super) struct FieldAccessScanner {
 }
 
 impl FieldAccessScanner {
+    fn consume_non_field(&mut self, ch: char) -> bool {
+        if self.consume_quoted(ch) {
+            return true;
+        }
+        match ch {
+            '"' => self.start_string(),
+            '(' => self.open_group(),
+            ')' => self.close_group(),
+            _ => return false,
+        }
+        true
+    }
+
     fn consume_quoted(&mut self, ch: char) -> bool {
         if !self.in_string {
             return false;
@@ -144,7 +175,6 @@ pub(super) fn parse_field_access_segment(
 }
 
 pub(super) fn field_accesses(predicate: &str) -> Vec<FieldAccess> {
-    let bytes = predicate.as_bytes();
     let mut accesses = Vec::new();
     for call in contract_calls(predicate) {
         if let Some(fields) = field_suffix(&predicate[call.end..]) {
@@ -154,63 +184,69 @@ pub(super) fn field_accesses(predicate: &str) -> Vec<FieldAccess> {
             });
         }
     }
+    collect_binding_field_accesses(predicate, &mut accesses);
+    accesses
+}
+
+fn collect_binding_field_accesses(predicate: &str, accesses: &mut Vec<FieldAccess>) {
+    let bytes = predicate.as_bytes();
     let mut index = 0usize;
     while index < bytes.len() {
         if bytes[index] == b'"' {
             index = string_literal_end(predicate, index).unwrap_or(predicate.len());
             continue;
         }
-        let ch = bytes[index] as char;
-        if !(ch.is_ascii_alphabetic() || ch == '_') {
+        let start = index;
+        let Some(end) = field_identifier_end(bytes, start) else {
             index += 1;
             continue;
-        }
-        let start = index;
-        index += 1;
-        while index < bytes.len() {
-            let ch = bytes[index] as char;
-            if ch.is_ascii_alphanumeric() || ch == '_' {
-                index += 1;
-            } else {
-                break;
-            }
-        }
-        if start >= 1 && &predicate[start - 1..start] == "." {
-            continue;
-        }
-        if start >= 2 && &predicate[start - 2..start] == "::" {
-            continue;
-        }
-        if index + 2 <= bytes.len() && &predicate[index..index + 2] == "::" {
+        };
+        index = end;
+        if field_access_base_is_qualified(predicate, start, index) {
             continue;
         }
         let base = predicate[start..index].to_string();
-        let mut fields = Vec::new();
-        while index < bytes.len() && &predicate[index..index + 1] == "." {
-            let field_start = index + 1;
-            if field_start >= bytes.len() {
-                break;
-            }
-            let first = bytes[field_start] as char;
-            if !(first.is_ascii_alphabetic() || first == '_') {
-                break;
-            }
-            index = field_start + 1;
-            while index < bytes.len() {
-                let ch = bytes[index] as char;
-                if ch.is_ascii_alphanumeric() || ch == '_' {
-                    index += 1;
-                } else {
-                    break;
-                }
-            }
-            fields.push(predicate[field_start..index].to_string());
-        }
+        let fields = binding_field_segments(predicate, &mut index);
         if !fields.is_empty() {
             accesses.push(FieldAccess { base, fields });
         }
     }
-    accesses
+}
+
+fn field_identifier_end(bytes: &[u8], start: usize) -> Option<usize> {
+    let first = *bytes.get(start)? as char;
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return None;
+    }
+    let mut end = start + 1;
+    while end < bytes.len() {
+        let ch = bytes[end] as char;
+        if !(ch.is_ascii_alphanumeric() || ch == '_') {
+            break;
+        }
+        end += 1;
+    }
+    Some(end)
+}
+
+fn field_access_base_is_qualified(predicate: &str, start: usize, end: usize) -> bool {
+    (start >= 1 && &predicate[start - 1..start] == ".")
+        || (start >= 2 && &predicate[start - 2..start] == "::")
+        || (end + 2 <= predicate.len() && &predicate[end..end + 2] == "::")
+}
+
+fn binding_field_segments(predicate: &str, index: &mut usize) -> Vec<String> {
+    let bytes = predicate.as_bytes();
+    let mut fields = Vec::new();
+    while *index < bytes.len() && &predicate[*index..*index + 1] == "." {
+        let field_start = *index + 1;
+        let Some(field_end) = field_identifier_end(bytes, field_start) else {
+            break;
+        };
+        *index = field_end;
+        fields.push(predicate[field_start..field_end].to_string());
+    }
+    fields
 }
 
 pub(super) fn field_suffix(text: &str) -> Option<Vec<String>> {

@@ -1,4 +1,8 @@
-pub fn rejected(expected_line: Int) -> SourceLocation callsite
-ensure callsite.start_line == expected_line
+fn rejects() -> Bool callsite
+	callsite.start_line == 0
+end
+
+pub fn rejected() -> SourceLocation callsite
+require rejects()
 	callsite
 end

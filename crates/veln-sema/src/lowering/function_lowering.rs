@@ -51,21 +51,7 @@ impl<'a> CoreLowerer<'a> {
             .iter()
             .enumerate()
             .map(|(index, param)| {
-                let mut ty = signature
-                    .and_then(|function| function.params.get(index))
-                    .map(core_type)
-                    .unwrap_or_else(|| {
-                        param.ty.as_deref().map_or(CoreType::Unknown, |annotation| {
-                            self.core_type_annotation(annotation)
-                        })
-                    });
-                if param.is_variadic {
-                    ty = signature
-                        .and_then(|function| function.variadic.as_ref())
-                        .map(core_type)
-                        .map(|ty| CoreType::named("List", vec![ty]))
-                        .unwrap_or_else(|| CoreType::named("List", vec![ty]));
-                }
+                let ty = self.lower_param_type(param, index, signature);
                 self.bindings.push(CoreBinding {
                     name: param.name.clone(),
                     ty: ty.clone(),
@@ -94,6 +80,31 @@ impl<'a> CoreLowerer<'a> {
         params
     }
 
+    fn lower_param_type(
+        &self,
+        param: &veln_ast::Param,
+        index: usize,
+        signature: Option<&crate::types::signatures::FunctionSignature>,
+    ) -> CoreType {
+        let ty = signature
+            .and_then(|function| function.params.get(index))
+            .map(core_type)
+            .unwrap_or_else(|| {
+                param.ty.as_deref().map_or(CoreType::Unknown, |annotation| {
+                    self.core_type_annotation(annotation)
+                })
+            });
+        if param.is_variadic {
+            signature
+                .and_then(|function| function.variadic.as_ref())
+                .map(core_type)
+                .map(|ty| CoreType::named("List", vec![ty]))
+                .unwrap_or_else(|| CoreType::named("List", vec![ty]))
+        } else {
+            ty
+        }
+    }
+
     pub(super) fn lower_return_type(&self) -> CoreType {
         self.environment
             .function_for(self.function)
@@ -118,23 +129,25 @@ impl<'a> CoreLowerer<'a> {
                 } else {
                     ContractObligationStatus::RuntimeRequired
                 };
-                if self.block_unsupported_callsite_runtime
-                    && obligation_status == ContractObligationStatus::RuntimeRequired
-                {
-                    let unsupported_calls = contract
-                        .call_callee_spans
-                        .iter()
-                        .filter(|(callee, _)| self.contract_call_requires_callsite(callee))
-                        .cloned()
-                        .collect::<Vec<_>>();
-                    for (callee, span) in unsupported_calls {
-                        self.unsupported_callsite_contract_call(contract.node_id, &span, &callee);
-                    }
-                }
+                let callsite_calls = contract
+                    .call_callee_spans
+                    .iter()
+                    .filter_map(|(callee, span)| {
+                        let call = self.contract_callsite_abi(callee)?;
+                        if self.block_unsupported_callsite_runtime
+                            && self.function.callsite.is_none()
+                            && obligation_status == ContractObligationStatus::RuntimeRequired
+                        {
+                            self.unsupported_callsite_contract_call(contract.node_id, span, callee);
+                        }
+                        Some(call)
+                    })
+                    .collect::<Vec<_>>();
                 CoreContract {
                     node_id: contract.node_id,
                     kind: contract.kind,
                     predicate: contract.text.clone(),
+                    callsite_calls,
                     obligation_status,
                     span: contract.span.clone(),
                 }
@@ -142,7 +155,7 @@ impl<'a> CoreLowerer<'a> {
             .collect()
     }
 
-    fn contract_call_requires_callsite(&self, callee: &str) -> bool {
+    fn contract_callsite_abi(&self, callee: &str) -> Option<CoreContractCall> {
         let segments = callee
             .split("::")
             .filter(|segment| !segment.is_empty())
@@ -157,7 +170,13 @@ impl<'a> CoreLowerer<'a> {
                 .environment
                 .function_path(&segments, self.function.module_name.as_deref()),
         };
-        signature.is_some_and(|signature| signature.callsite)
+        let signature = signature.filter(|signature| signature.callsite)?;
+        Some(CoreContractCall {
+            callee: callee.to_string(),
+            target: signature.target_name.clone(),
+            fixed_arg_count: signature.params.len(),
+            variadic: signature.variadic.is_some(),
+        })
     }
 
     pub(super) fn lowered_function_name(&self) -> String {
@@ -228,7 +247,7 @@ impl<'a> CoreLowerer<'a> {
             Severity::Error,
             DiagnosticKind::Type,
             format!(
-                "call-site-aware function `{callee}` cannot be called from an executable contract"
+                "contract in an ordinary function has no call-site context to pass to `{callee}`"
             ),
             Some(span.clone()),
             JsonValue::object([
@@ -243,7 +262,7 @@ impl<'a> CoreLowerer<'a> {
             (
                 "message",
                 JsonValue::string(
-                    "Runtime contract calls do not yet supply the hidden call-site location.",
+                    "Only a call-site-aware enclosing function has hidden context that its contract can forward.",
                 ),
             ),
         ]));

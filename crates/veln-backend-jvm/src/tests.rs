@@ -7,7 +7,10 @@ use std::thread;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::classfile::{TailRecursionEligibility, classify_tail_recursion, split_contract_binary};
+use crate::classfile::{
+    TailRecursionEligibility, classify_tail_recursion, contract_call_metadata_work,
+    split_contract_binary,
+};
 use crate::java::{
     java_type_identifier, sanitize_identifier_text, unique_java_identifier,
     veln_string_literal_value,

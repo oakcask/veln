@@ -6,4 +6,7 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[core.callsite_contract_call_unsupported]: call-site-aware function `located` cannot be called from an executable contract", "Runtime contract calls do not yet supply the hidden call-site location."]
+contains = [
+  "error[core.callsite_contract_call_unsupported]: contract in an ordinary function has no call-site context to pass to `located`",
+  "note: Only a call-site-aware enclosing function has hidden context that its contract can forward.",
+]

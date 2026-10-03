@@ -32,7 +32,9 @@ end
 Pure calls returning numbers may occur inside comparisons, and pure calls
 returning records may feed field access. A numeric expression alone is not a
 predicate: `require value + 1` is a non-boolean diagnostic. Text inside a
-string literal is literal data and is never resolved as a name.
+string literal is literal data and is never resolved as a name. Parentheses
+and commas inside a string literal do not close a grouped predicate or split a
+call's argument list.
 
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
 contract predicates. `perform Effect::operation(...)` can parse as a candidate
@@ -52,26 +54,30 @@ the function is entered. `ensure` runs before normal return and before a `?`
 error return. `invariant` runs at entry and before normal or `?` return.
 
 Runtime-required obligations in a call-site-aware function can read the same
-hidden `callsite` value as the function body. A runtime-required contract that
-calls a call-site-aware function remains blocked; a statically proven
-obligation emits no runtime call. Direct calls in ordinary function bodies
-remain executable.
-The focused boundary is specified by
-[Call-site Declarations](call-site-declarations.md#limits-and-diagnostics).
+hidden `callsite` value as the function body. A direct call from such an
+obligation to another call-site-aware function forwards that value without an
+explicit source argument. The forwarding behavior is specified by
+[Call-site Declarations](call-site-declarations.md#declaration-behavior).
+A call-site-aware callee can use fixed and variadic source parameters. The
+call must supply every fixed argument, and each variadic tail argument must
+match the declared element type. A variadic contract call to an ordinary
+function remains rejected until its runtime ABI is supported. A contract on
+an ordinary function does not construct call-site context and cannot call a
+call-site-aware function because it has no hidden context to forward. This
+deliberate call-site boundary is specified under
+[Limits and diagnostics](call-site-declarations.md#limits-and-diagnostics).
+A statically proven obligation emits no runtime call. Direct calls in ordinary
+function bodies remain executable.
+
+Runtime-required predicates evaluate `not` before `and`, and `and` before
+`or`, as in ordinary source expressions. Parentheses can override that
+precedence.
 
 | Clause | Entry failure blames | Return failure blames |
 | --- | --- | --- |
 | `require` | caller | — |
 | `ensure` | — | implementation |
 | `invariant` | caller | implementation |
-
-The JVM backend does not correctly evaluate every predicate accepted by the
-checker. In particular, a runtime-required `and` or `or` expression is not
-lowered as a boolean operator. For example, `require value >= 0 and ready`
-can fail with a JVM type-cast error even when both conditions hold. Separate
-`require` clauses, as above, check both conditions correctly. Statically proven
-boolean combinations do not encounter this limitation because they emit no
-runtime check.
 
 ## Static classification
 

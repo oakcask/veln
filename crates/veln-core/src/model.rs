@@ -83,8 +83,17 @@ pub struct CoreContract {
     pub node_id: NodeId,
     pub kind: ContractKind,
     pub predicate: String,
+    pub callsite_calls: Vec<CoreContractCall>,
     pub obligation_status: ContractObligationStatus,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreContractCall {
+    pub callee: String,
+    pub target: String,
+    pub fixed_arg_count: usize,
+    pub variadic: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -1,5 +1,7 @@
 use super::*;
 
+type ContractCallSignature = (Vec<Type>, Option<Type>, Type, Vec<String>, bool);
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn validate_contract_predicate(
         &self,
@@ -74,7 +76,8 @@ impl<'a> FunctionChecker<'a> {
         call_index: usize,
         call: &ContractCall,
     ) -> Option<ContractValidation> {
-        let Some((params, return_type, effects)) = self.contract_call_signature(&call.callee)
+        let Some((params, variadic, return_type, effects, callsite)) =
+            self.contract_call_signature(&call.callee)
         else {
             return Some(ContractValidation::UnresolvedName {
                 name: call.callee.clone(),
@@ -85,22 +88,26 @@ impl<'a> FunctionChecker<'a> {
                 reason: "effectful_operation",
             });
         }
-        if return_type != Type::bool()
-            && !contract_call_result_is_compared(predicate, call.start, call.end)
-            && !contract_call_result_feeds_boolean_predicate(predicate, call.start, call.end)
-            && !contract_call_result_has_field_access(predicate, call.end)
-            && !contract_call_is_argument(calls, call_index)
-        {
-            return Some(ContractValidation::NonBoolean {
-                actual_type: return_type.render(),
-            });
-        }
-        if call.args.len() != params.len() {
+        if variadic.is_some() && !callsite {
             return Some(ContractValidation::UnsupportedConstruct {
                 reason: "call_arity",
             });
         }
-        for (arg, expected) in call.args.iter().zip(&params) {
+        if contract_call_result_requires_boolean(predicate, calls, call_index, call, &return_type) {
+            return Some(ContractValidation::NonBoolean {
+                actual_type: return_type.render(),
+            });
+        }
+        if !contract_call_arity_matches(params.len(), variadic.is_some(), call.args.len()) {
+            return Some(ContractValidation::UnsupportedConstruct {
+                reason: "call_arity",
+            });
+        }
+        for (index, arg) in call.args.iter().enumerate() {
+            let expected = params
+                .get(index)
+                .or(variadic.as_ref())
+                .expect("validated contract call arity provides an argument type");
             if let Some(validation) = self.validate_contract_call_argument(arg, expected, bindings)
             {
                 return Some(validation);
@@ -170,7 +177,7 @@ impl<'a> FunctionChecker<'a> {
             .find(|call| call.start == 0 && call.end == predicate.len())?;
         let return_type = self
             .contract_call_signature(&call.callee)
-            .map(|(_, return_type, _)| return_type)
+            .map(|(_, _, return_type, _, _)| return_type)
             .unwrap_or(Type::Unknown);
         Some(if return_type == Type::bool() {
             ContractValidation::Valid
@@ -188,7 +195,7 @@ impl<'a> FunctionChecker<'a> {
     ) -> Option<ContractValidation> {
         missing_contract_field(predicate, bindings, &|callee| {
             self.contract_call_signature(callee)
-                .map(|(_, return_type, _)| return_type)
+                .map(|(_, _, return_type, _, _)| return_type)
         })
         .map(|(base_type, field)| ContractValidation::MissingField { base_type, field })
     }
@@ -200,23 +207,20 @@ impl<'a> FunctionChecker<'a> {
     ) -> ContractValidation {
         if predicate_is_boolean_with_calls(predicate, bindings, &|callee| {
             self.contract_call_signature(callee)
-                .map(|(_, return_type, _)| return_type)
+                .map(|(_, _, return_type, _, _)| return_type)
         }) {
             ContractValidation::Valid
         } else {
             ContractValidation::NonBoolean {
                 actual_type: predicate_rendered_type_with_calls(predicate, bindings, &|callee| {
                     self.contract_call_signature(callee)
-                        .map(|(_, return_type, _)| return_type)
+                        .map(|(_, _, return_type, _, _)| return_type)
                 }),
             }
         }
     }
 
-    pub(super) fn contract_call_signature(
-        &self,
-        callee: &str,
-    ) -> Option<(Vec<Type>, Type, Vec<String>)> {
+    pub(super) fn contract_call_signature(&self, callee: &str) -> Option<ContractCallSignature> {
         let segments = contract_callee_segments(callee);
         let signature = match segments.as_slice() {
             [name] => self
@@ -232,21 +236,23 @@ impl<'a> FunctionChecker<'a> {
                 if signature.module_name.as_deref() == Some("std::prelude")
                     && let Some((params, return_type)) = prelude_signature(&signature.name, None)
                 {
-                    return (params, return_type, signature.effects.clone());
+                    return (params, None, return_type, signature.effects.clone(), false);
                 }
                 (
                     signature.params.clone(),
+                    signature.variadic.clone(),
                     signature.return_type.clone(),
                     signature.effects.clone(),
+                    signature.callsite,
                 )
             })
             .or_else(|| match segments.as_slice() {
                 [name] if !self.bare_prelude_import_is_ambiguous(name) => {
                     prelude_signature(name, None)
-                        .map(|(params, return_type)| (params, return_type, Vec::new()))
+                        .map(|(params, return_type)| (params, None, return_type, Vec::new(), false))
                 }
                 _ => qualified_prelude_signature(&segments, None)
-                    .map(|(_, params, return_type)| (params, return_type, Vec::new())),
+                    .map(|(_, params, return_type)| (params, None, return_type, Vec::new(), false)),
             })
     }
 
@@ -267,23 +273,30 @@ impl<'a> FunctionChecker<'a> {
         {
             return self
                 .contract_call_signature(&call.callee)
-                .map(|(_, return_type, _)| return_type)
+                .map(|(_, _, return_type, _, _)| return_type)
                 .unwrap_or(Type::Unknown);
         }
         if let Some(ty) = predicate_type_with_calls(trimmed, bindings, &|callee| {
             self.contract_call_signature(callee)
-                .map(|(_, return_type, _)| return_type)
+                .map(|(_, _, return_type, _, _)| return_type)
         }) {
             return ty;
         }
-        let segments = contract_callee_segments(trimmed);
+        if let Some(ty) = self.contract_function_value_type(trimmed) {
+            return ty;
+        }
+        contract_binding_field_type(trimmed, bindings)
+    }
+
+    fn contract_function_value_type(&self, value: &str) -> Option<Type> {
+        let segments = contract_callee_segments(value);
         match segments.as_slice() {
             [name] => {
                 if let FunctionLookup::Found(function) = self
                     .environment
                     .unqualified_function(name, self.function.module_name.as_deref())
                 {
-                    return function.ty();
+                    return Some(function.ty());
                 }
             }
             _ => {
@@ -291,25 +304,11 @@ impl<'a> FunctionChecker<'a> {
                     .environment
                     .function_path_for_value(&segments, self.function.module_name.as_deref())
                 {
-                    return function.ty();
+                    return Some(function.ty());
                 }
             }
         }
-        let mut parts = trimmed.split('.');
-        let Some(base) = parts.next() else {
-            return Type::Unknown;
-        };
-        let Some(binding) = bindings.iter().find(|binding| binding.name == base) else {
-            return Type::Unknown;
-        };
-        let mut current = binding.ty.clone();
-        for field in parts {
-            let Some(next) = current.record_field(field) else {
-                return Type::Unknown;
-            };
-            current = next.clone();
-        }
-        current
+        None
     }
 
     pub(super) fn contract_referenced_bindings(
@@ -442,5 +441,45 @@ impl<'a> FunctionChecker<'a> {
                         origin_message: "Private return type inferred here.",
                     })
             })
+    }
+}
+
+fn contract_call_result_requires_boolean(
+    predicate: &str,
+    calls: &[ContractCall],
+    call_index: usize,
+    call: &ContractCall,
+    return_type: &Type,
+) -> bool {
+    return_type != &Type::bool()
+        && !contract_call_result_is_compared(predicate, call.start, call.end)
+        && !contract_call_result_feeds_boolean_predicate(predicate, call.start, call.end)
+        && !contract_call_result_has_field_access(predicate, call.end)
+        && !contract_call_is_argument(calls, call_index)
+}
+
+fn contract_binding_field_type(value: &str, bindings: &[Binding]) -> Type {
+    let mut parts = value.split('.');
+    let Some(base) = parts.next() else {
+        return Type::Unknown;
+    };
+    let Some(binding) = bindings.iter().find(|binding| binding.name == base) else {
+        return Type::Unknown;
+    };
+    let mut current = binding.ty.clone();
+    for field in parts {
+        let Some(next) = current.record_field(field) else {
+            return Type::Unknown;
+        };
+        current = next.clone();
+    }
+    current
+}
+
+fn contract_call_arity_matches(fixed: usize, variadic: bool, actual: usize) -> bool {
+    if variadic {
+        actual >= fixed
+    } else {
+        actual == fixed
     }
 }
