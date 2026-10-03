@@ -26,7 +26,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         {
             code.contract_call_metadata_work += contract.callsite_calls.len();
         }
-        self.emit_contract_value(code, &contract.predicate, &callsite_calls);
+        self.emit_contract_value(code, &contract.predicate, &callsite_calls, 0);
         let clause = match contract.kind {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
@@ -54,24 +54,25 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         text: &str,
         callsite_calls: &HashMap<&str, &IrContractCall>,
+        operand_depth: usize,
     ) {
         match parse_contract_value(text) {
             ContractValue::Not(value) => {
-                self.emit_contract_unary(code, value, "not", callsite_calls)
+                self.emit_contract_unary(code, value, "not", callsite_calls, operand_depth)
             }
             ContractValue::Binary { left, right, op } => {
-                self.emit_contract_binary(code, left, right, op, callsite_calls)
+                self.emit_contract_binary(code, left, right, op, callsite_calls, operand_depth)
             }
             ContractValue::BitwiseNot(value) => {
-                self.emit_contract_unary(code, value, "bitwiseNot", callsite_calls)
+                self.emit_contract_unary(code, value, "bitwiseNot", callsite_calls, operand_depth)
             }
             ContractValue::Call { callee, args } => {
-                self.emit_contract_call(code, callee, &args, callsite_calls)
+                self.emit_contract_call(code, callee, &args, callsite_calls, operand_depth)
             }
             ContractValue::Field { base, field } => {
-                self.emit_contract_field(code, base, field, callsite_calls)
+                self.emit_contract_field(code, base, field, callsite_calls, operand_depth)
             }
-            ContractValue::Scalar(value) => self.emit_contract_scalar(code, value),
+            ContractValue::Scalar(value) => self.emit_contract_scalar(code, value, operand_depth),
         }
     }
 
@@ -81,8 +82,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         value: &str,
         method: &str,
         callsite_calls: &HashMap<&str, &IrContractCall>,
+        operand_depth: usize,
     ) {
-        self.emit_contract_value(code, value, callsite_calls);
+        self.emit_contract_value(code, value, callsite_calls, operand_depth);
         code.invokestatic(
             &self.program.options.runtime_class,
             method,
@@ -97,9 +99,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         right: &str,
         op: BinaryOp,
         callsite_calls: &HashMap<&str, &IrContractCall>,
+        operand_depth: usize,
     ) {
-        self.emit_contract_value(code, left, callsite_calls);
-        self.emit_contract_value(code, right, callsite_calls);
+        self.emit_contract_value(code, left, callsite_calls, operand_depth);
+        self.emit_contract_value(code, right, callsite_calls, operand_depth + 1);
         code.invokestatic(
             &self.program.options.runtime_class,
             binary_method(op),
@@ -113,6 +116,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         callee: &str,
         args: &[&str],
         callsite_calls: &HashMap<&str, &IrContractCall>,
+        operand_depth: usize,
     ) {
         #[cfg(test)]
         {
@@ -123,15 +127,17 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let abi_arg_count = fixed_arg_count
             + usize::from(callsite_call.is_some_and(|call| call.variadic))
             + usize::from(callsite_call.is_some());
-        code.max_stack = code.max_stack.max(
-            u16::try_from(abi_arg_count)
-                .expect("contract-call JVM operand stack requirement exceeds classfile limit"),
-        );
-        for arg in &args[..fixed_arg_count] {
-            self.emit_contract_value(code, arg, callsite_calls);
+        record_contract_stack(code, operand_depth + abi_arg_count.max(1));
+        for (index, arg) in args[..fixed_arg_count].iter().enumerate() {
+            self.emit_contract_value(code, arg, callsite_calls, operand_depth + index);
         }
         if callsite_call.is_some_and(|call| call.variadic) {
-            self.emit_contract_variadic_tail(code, &args[fixed_arg_count..], callsite_calls);
+            self.emit_contract_variadic_tail(
+                code,
+                &args[fixed_arg_count..],
+                callsite_calls,
+                operand_depth + fixed_arg_count,
+            );
         }
         if callsite_call.is_some() {
             code.aload(self.local_slot("callsite"));
@@ -150,13 +156,16 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         args: &[&str],
         callsite_calls: &HashMap<&str, &IrContractCall>,
+        operand_depth: usize,
     ) {
         let saved_next = self.next_local;
         let tail_slot = self.alloc_local();
+        record_contract_stack(code, operand_depth + 1);
         self.emit_list_nil(code);
         code.astore(tail_slot);
         for arg in args {
-            self.emit_contract_value(code, arg, callsite_calls);
+            self.emit_contract_value(code, arg, callsite_calls, operand_depth);
+            record_contract_stack(code, operand_depth + 2);
             code.aload(tail_slot);
             code.invokestatic(
                 &self.program.options.runtime_class,
@@ -180,8 +189,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         base: &str,
         field: &str,
         callsite_calls: &HashMap<&str, &IrContractCall>,
+        operand_depth: usize,
     ) {
-        self.emit_contract_value(code, base, callsite_calls);
+        self.emit_contract_value(code, base, callsite_calls, operand_depth);
+        record_contract_stack(code, operand_depth + 2);
         code.ldc_string(field);
         code.invokestatic(
             &self.program.options.runtime_class,
@@ -190,7 +201,17 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         );
     }
 
-    fn emit_contract_scalar(&mut self, code: &mut MethodCode, value: ContractScalar<'_>) {
+    fn emit_contract_scalar(
+        &mut self,
+        code: &mut MethodCode,
+        value: ContractScalar<'_>,
+        operand_depth: usize,
+    ) {
+        let value_slots = match &value {
+            ContractScalar::Integer(_) | ContractScalar::Float(_) => 2,
+            _ => 1,
+        };
+        record_contract_stack(code, operand_depth + value_slots);
         match value {
             ContractScalar::Bool(value) => code.getstatic(
                 "java/lang/Boolean",
@@ -269,4 +290,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
     }
+}
+
+fn record_contract_stack(code: &mut MethodCode, operand_depth: usize) {
+    code.max_stack = code.max_stack.max(
+        u16::try_from(operand_depth)
+            .expect("contract expression JVM operand stack requirement exceeds classfile limit"),
+    );
 }
