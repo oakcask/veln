@@ -35,8 +35,14 @@
 
             crate::navigation::reset_workspace_schema_composition_lookup_work();
             let _ = snapshot.navigation_index();
-            let (schema_visits, alias_visits, token_visits) =
-                crate::navigation::workspace_schema_composition_lookup_work();
+            let (
+                schema_visits,
+                alias_visits,
+                token_visits,
+                alias_index_visits,
+                alias_lookups,
+                alias_candidate_visits,
+            ) = crate::navigation::workspace_schema_composition_lookup_work();
             assert!(
                 schema_visits <= count + 1,
                 "workspace schema targets must use indexed lookup: {schema_visits}"
@@ -44,6 +50,18 @@
             assert!(
                 alias_visits <= count,
                 "workspace schema aliases must use indexed lookup: {alias_visits}"
+            );
+            assert_eq!(
+                alias_index_visits, count,
+                "workspace schema alias index construction must visit each resolved alias once"
+            );
+            assert_eq!(
+                alias_lookups, count,
+                "workspace schema alias resolution must perform one lookup per alias"
+            );
+            assert_eq!(
+                alias_candidate_visits, count,
+                "workspace schema alias resolution must inspect one indexed candidate per alias"
             );
             assert_eq!(token_visits % count, 0);
             let visits_per_reference = token_visits / count;
