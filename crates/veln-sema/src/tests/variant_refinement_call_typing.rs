@@ -668,6 +668,25 @@ fn final_if_checks_every_branch_and_untyped_expressions_do_not_cascade() {
 }
 
 #[test]
+fn untyped_final_if_branch_does_not_report_a_variant_mismatch() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn branch() -> State::Ready\n",
+            "  if true\n",
+            "    missing\n",
+            "  else\n",
+            "    Ready\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.unresolved", "{diagnostics:#?}");
+}
+
+#[test]
 fn final_match_checks_every_typed_arm_even_for_a_refined_scrutinee() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -690,4 +709,23 @@ fn final_match_checks_every_typed_arm_even_for_a_refined_scrutinee() {
         1,
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn untyped_final_match_arm_does_not_report_a_variant_mismatch() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn branch(value: State) -> State::Ready\n",
+            "  match value\n",
+            "    Ready => missing\n",
+            "    Closed => Ready\n",
+            "    Failed => Ready\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.unresolved", "{diagnostics:#?}");
 }

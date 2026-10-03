@@ -246,7 +246,7 @@ fn omitted_local_list_nil_reports_unconstrained_unknown() {
         diagnostics[0]
             .details
             .to_json()
-            .contains("\"inferred_type\":\"List<unknown>\"")
+            .contains("\"inferred_type\":\"List<unknown>::Nil\"")
     );
     assert_eq!(diagnostics[0].related.len(), 1);
 }

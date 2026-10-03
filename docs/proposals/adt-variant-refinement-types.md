@@ -21,7 +21,7 @@ publication.
 
 ## Outcomes And Boundaries
 
-The remaining proposal has two intended outcomes:
+The remaining proposal has three intended outcomes:
 
 - Pattern matching can convert an ordinary ADT value into the required
   variant refinement without a cast or runtime assertion.
