@@ -311,6 +311,13 @@ impl<'a> CoreLowerer<'a> {
             },
             |signature| (signature.target, signature.return_type),
         );
+        let target = match target {
+            CoreCallTarget::Value(name) => CoreCallTarget::CallsiteValue {
+                name,
+                callsite: Box::new(self.lower_direct_callsite(callsite_expr)),
+            },
+            target => target,
+        };
 
         self.core_expr(
             expr,

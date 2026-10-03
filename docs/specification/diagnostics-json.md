@@ -145,7 +145,6 @@ Call-site execution-gate diagnostics use kind `type` and
 | Identifier | Stable details | Failed fact |
 | --- | --- | --- |
 | `core.callsite_entry_unsupported` | `entry`, `boundary: "run_entry"` | The selected run entry declares the `callsite` modifier, but no Veln call expression can supply its hidden location. |
-| `core.indirect_callsite_call` | `node_id`, `reason: "indirect_callsite_call"` | Execution uses a call-site-aware function as a function value before indirect propagation is supported. |
 | `core.callsite_contract_call_unsupported` | `node_id`, `reason: "callsite_contract_call_unsupported"`, `callee` | A runtime contract on an ordinary function calls a call-site-aware function without enclosing hidden context to forward. |
 
 The entry and contract-call records include a related

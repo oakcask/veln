@@ -1,0 +1,15 @@
+fn located() -> SourceLocation callsite
+	callsite
+end
+
+fn invoke(callback: fn() -> SourceLocation) -> SourceLocation
+	callback()
+end
+
+pub fn main() -> () effects [stdio]
+	let stored: fn() -> SourceLocation = located
+	let observed = invoke(stored)
+	stdio::println(observed.file)
+	stdio::println(int_to_string(observed.start_line))
+	stdio::println(int_to_string(observed.start_column))
+end

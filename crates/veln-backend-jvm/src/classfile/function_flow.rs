@@ -652,7 +652,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrExprKind::IntLiteral(value) => self.emit_int_literal(code, value),
             IrExprKind::FloatLiteral(value) => self.emit_float_literal(code, value),
             IrExprKind::Unit => self.emit_unit(code),
-            IrExprKind::FunctionValue(name) => self.emit_function_value(code, name),
+            IrExprKind::FunctionValue { name, callsite } => {
+                self.emit_function_value(code, name, *callsite)
+            }
             IrExprKind::ResultOk(value) => self.emit_result_constructor(code, "ok", value),
             IrExprKind::ResultErr(value) => self.emit_result_constructor(code, "err", value),
             IrExprKind::OptionSome(value) => self.emit_option_some(code, value),
@@ -724,7 +726,21 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         );
     }
 
-    pub(super) fn emit_function_value(&mut self, code: &mut MethodCode, name: &str) {
+    pub(super) fn emit_function_value(
+        &mut self,
+        code: &mut MethodCode,
+        name: &str,
+        callsite: bool,
+    ) {
+        debug_assert_eq!(
+            self.program
+                .program
+                .functions
+                .iter()
+                .find(|function| function.name == name)
+                .map(|function| function.callsite),
+            Some(callsite)
+        );
         let class_name = format!(
             "{}${}",
             self.program.options.program_class,

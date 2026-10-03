@@ -53,6 +53,7 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
         return_binding: function.return_binding.clone(),
         return_type: function.return_type.clone(),
         effects: function.effects.clone(),
+        callsite: function.callsite,
         contracts: function
             .contracts
             .iter()
@@ -175,7 +176,10 @@ fn lower_scalar_expr(expr: &CoreExpr) -> Option<IrExprKind> {
         CoreExprKind::IntLiteral(value) => Some(IrExprKind::IntLiteral(value.clone())),
         CoreExprKind::FloatLiteral(value) => Some(IrExprKind::FloatLiteral(value.clone())),
         CoreExprKind::Unit => Some(IrExprKind::Unit),
-        CoreExprKind::FunctionValue(name) => Some(IrExprKind::FunctionValue(name.clone())),
+        CoreExprKind::FunctionValue { name, callsite } => Some(IrExprKind::FunctionValue {
+            name: name.clone(),
+            callsite: *callsite,
+        }),
         CoreExprKind::OptionNone => Some(IrExprKind::OptionNone),
         CoreExprKind::ListNil => Some(IrExprKind::ListNil),
         _ => None,
@@ -444,6 +448,10 @@ fn lower_non_schema_call_target(
         }
         CoreCallTarget::PreludeBuiltin(name) => Ok(IrCallTarget::PreludeBuiltin(name.clone())),
         CoreCallTarget::Value(name) => Ok(IrCallTarget::Value(name.clone())),
+        CoreCallTarget::CallsiteValue { name, callsite } => Ok(IrCallTarget::CallsiteValue {
+            name: name.clone(),
+            callsite: Box::new(lower_expr(callsite)?),
+        }),
         CoreCallTarget::Unresolved(symbol) => Err(IrLowerError::UnresolvedCallTarget {
             node_id,
             symbol: symbol.clone(),

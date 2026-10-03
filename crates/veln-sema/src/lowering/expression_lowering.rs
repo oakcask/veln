@@ -410,22 +410,14 @@ impl<'a> CoreLowerer<'a> {
             .environment
             .unqualified_function(name, self.function.module_name.as_deref())
         {
-            FunctionLookup::Found(function) => {
-                if self.block_unsupported_callsite_runtime && function.callsite {
-                    self.unsupported_expression(
-                        expr,
-                        "indirect_callsite_call",
-                        "call-site-aware functions cannot be used as function values during execution"
-                            .to_string(),
-                        None,
-                    );
-                }
-                self.core_expr(
-                    expr,
-                    core_type(&function.ty()),
-                    CoreExprKind::FunctionValue(function.target_name.clone()),
-                )
-            }
+            FunctionLookup::Found(function) => self.core_expr(
+                expr,
+                core_type(&function.ty()),
+                CoreExprKind::FunctionValue {
+                    name: function.target_name.clone(),
+                    callsite: function.callsite,
+                },
+            ),
             FunctionLookup::Ambiguous | FunctionLookup::Missing => self.core_expr(
                 expr,
                 CoreType::Unknown,
@@ -459,19 +451,13 @@ impl<'a> CoreLowerer<'a> {
             .environment
             .function_path_for_value(segments, self.function.module_name.as_deref())
         {
-            if self.block_unsupported_callsite_runtime && function.callsite {
-                self.unsupported_expression(
-                    expr,
-                    "indirect_callsite_call",
-                    "call-site-aware functions cannot be used as function values during execution"
-                        .to_string(),
-                    None,
-                );
-            }
             self.core_expr(
                 expr,
                 core_type(&function.ty()),
-                CoreExprKind::FunctionValue(function.target_name.clone()),
+                CoreExprKind::FunctionValue {
+                    name: function.target_name.clone(),
+                    callsite: function.callsite,
+                },
             )
         } else {
             self.core_expr(

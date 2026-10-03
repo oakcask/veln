@@ -37,6 +37,7 @@ pub struct CoreFunction {
     pub return_binding: Option<String>,
     pub return_type: CoreType,
     pub effects: Vec<String>,
+    pub callsite: bool,
     pub contracts: Vec<CoreContract>,
     pub body: CoreCleanupRegion,
     pub span: SourceSpan,
@@ -157,7 +158,10 @@ pub enum CoreExprKind {
     IntLiteral(String),
     FloatLiteral(String),
     Unit,
-    FunctionValue(String),
+    FunctionValue {
+        name: String,
+        callsite: bool,
+    },
     ResultOk(Box<CoreExpr>),
     ResultErr(Box<CoreExpr>),
     OptionSome(Box<CoreExpr>),
@@ -218,7 +222,7 @@ pub struct CoreHandlerProvider {
     pub function: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CoreCallTarget {
     Function(String),
     SchemaDecode(String),
@@ -233,6 +237,10 @@ pub enum CoreCallTarget {
     StandardLibraryBuiltin(String),
     PreludeBuiltin(String),
     Value(String),
+    CallsiteValue {
+        name: String,
+        callsite: Box<CoreExpr>,
+    },
     Unresolved(String),
 }
 

@@ -93,6 +93,7 @@ pub struct IrFunction {
     pub return_binding: Option<String>,
     pub return_type: CoreType,
     pub effects: Vec<String>,
+    pub callsite: bool,
     pub contracts: Vec<IrContract>,
     pub body: IrCleanupRegion,
 }
@@ -206,7 +207,10 @@ pub enum IrExprKind {
     IntLiteral(String),
     FloatLiteral(String),
     Unit,
-    FunctionValue(String),
+    FunctionValue {
+        name: String,
+        callsite: bool,
+    },
     ResultOk(Box<IrExpr>),
     ResultErr(Box<IrExpr>),
     OptionSome(Box<IrExpr>),
@@ -267,7 +271,7 @@ pub struct IrHandlerProvider {
     pub function: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum IrCallTarget {
     Function(String),
     SchemaDecode(String),
@@ -282,6 +286,7 @@ pub enum IrCallTarget {
     StandardLibraryBuiltin(String),
     PreludeBuiltin(String),
     Value(String),
+    CallsiteValue { name: String, callsite: Box<IrExpr> },
 }
 
 #[derive(Clone, Debug, PartialEq)]

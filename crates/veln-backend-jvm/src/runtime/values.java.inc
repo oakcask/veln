@@ -334,6 +334,10 @@
         Object call(Object... args);
     }
 
+    public interface CallsiteFn {
+        Object call(Object[] args, Object callsite);
+    }
+
     private static final InheritableThreadLocal<java.util.List<HandlerFrame>> HANDLERS =
         new InheritableThreadLocal<java.util.List<HandlerFrame>>() {
             @Override

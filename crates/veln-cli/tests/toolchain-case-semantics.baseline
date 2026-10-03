@@ -37095,6 +37095,17 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"34bf736f61da16b41c9e7a9e735ee4fdd1682761d5a6821d342b209dcf594b7e"
+case	"examples/specification/run/callsite-indirect-runtime"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"e29097e7055a50770a321f3ff6d963d7275f5eeb733e3999cf9e038ac96ea5e2"
 case	"examples/specification/run/callsite-ordinary-identifier"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -37106,17 +37117,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"e29097e7055a50770a321f3ff6d963d7275f5eeb733e3999cf9e038ac96ea5e2"
-case	"examples/specification/run/callsite-runtime-boundary"
-field	expectations.exit	1
-field	expectations.stderr.contains[0]	"error[core.indirect_callsite_call]: call-site-aware functions cannot be used as function values during execution"
-field	expectations.stderr.format	"text"
-field	expectations.stdout.format	"empty"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"main"
-field	invocation.command[2]	"main.veln"
-field	invocation.repeat	1
-field	source_errors	"forbidden"
-case_digest	"0953db1f4ca13ed25196b7b56d93904243d8511aaa6f4b0e0169768b9891d868"
 case	"examples/specification/run/callsite-unicode-coordinates"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -62945,4 +62945,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"a69b6b930f5f6f329341cd680c7c379386f2f469ccd21d9bfcae28881661558f"
+aggregate_digest	"c63972f30d6acddeb96332cd4bcc75675282b846e4530528abe757a2e94b0278"
