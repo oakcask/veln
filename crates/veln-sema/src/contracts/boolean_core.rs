@@ -102,12 +102,10 @@ pub(super) fn static_boolean_top_level_shortcut(predicate: &str) -> Option<Stati
     }
     if top_level_or_count < 512
         && let Some(value) = static_boolean_truth_table_value(predicate)
+        && (matches!(value, StaticBooleanValue::True | StaticBooleanValue::False)
+            || is_opaque_call_conjunction(predicate))
     {
-        if matches!(value, StaticBooleanValue::True | StaticBooleanValue::False)
-            || is_opaque_call_conjunction(predicate)
-        {
-            return Some(value);
-        }
+        return Some(value);
     }
     None
 }
