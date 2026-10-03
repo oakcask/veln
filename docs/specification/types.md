@@ -398,14 +398,28 @@ constructor's variant identity. Core lowering erases the refinement to the
 base ADT, so constructor tags, payloads, and runtime representation are
 unchanged.
 
-An unannotated aggregate does not retain nested constructor refinements in
-this slice. A constructor used as a record field, collection element,
-dictionary key or value, or inferred generic ADT payload contributes its base
-ADT type to that aggregate position. Private omitted-return inference applies
-the same member erasure, so its inferred signature agrees with the body type.
-The outer constructor expression still has its singleton type. Explicitly
-refined nested types remain invariant, and an expected aggregate type does not
-add contextual widening at its component positions.
+An unannotated record literal retains the inferred type of each field
+initializer. A constructor initializer therefore gives its field the
+constructor singleton type. Field access exposes that retained type, including
+when the field is passed to a parameter that requires the same singleton. An
+omitted private helper result inferred from such a record retains the same
+field type.
+
+An expected record type supplies the expected type of each matching field
+during construction. A constructor singleton can widen at that direct field
+boundary, so `{state: Ready}` can construct an expected `{state: State}`.
+Without that expected record type, the inferred value is
+`{state: State::Ready}`. A later assignment of that value to
+`{state: State}` is rejected because direct refinement widening does not
+recurse through records.
+
+Other unannotated aggregates do not retain nested constructor refinements in
+this slice. A constructor used as a collection element, dictionary key or
+value, or inferred generic ADT payload contributes its base ADT type to that
+aggregate position. Private omitted-return inference applies the same member
+erasure for those aggregates, so its inferred signature agrees with the body
+type. The outer constructor expression still has its singleton type.
+Explicitly refined nested types remain invariant.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
@@ -458,11 +472,11 @@ and human diagnostics in
 `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-human/`.
 
 Alias spelling and provenance, public/private exposure paths, refinement
-retention and joins inside inferred aggregates, contextual aggregate
-construction, postfix `?`, pattern-based control-flow refinement, schema
-boundaries, package-documentation signatures, command-wide coverage, LSP, MCP,
-and language-reference publication remain proposal work. This slice also does
-not add recursive generic or function variance.
+retention and joins for collections, dictionaries, and inferred generic ADT
+payloads, postfix `?`, pattern-based control-flow refinement, schema boundaries,
+package-documentation signatures, command-wide coverage, LSP, MCP, and
+language-reference publication remain proposal work. This slice also does not
+add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual

@@ -209,13 +209,11 @@ pub(crate) fn infer_private_record_type(
                 let field_expected =
                     expected.and_then(|expected| expected.record_field(&field.name));
                 let actual = context.infer(&field.expr, field_expected);
-                (
-                    field.name.clone(),
-                    inferred_private_aggregate_member_type(
-                        actual,
-                        field_expected.unwrap_or(&Type::Unknown),
-                    ),
-                )
+                let actual = match field_expected {
+                    Some(expected) => inferred_private_aggregate_member_type(actual, expected),
+                    None => actual,
+                };
+                (field.name.clone(), actual)
             })
             .collect(),
     )

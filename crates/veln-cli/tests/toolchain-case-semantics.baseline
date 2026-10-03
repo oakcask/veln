@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"4836e937c594240322d097e5b995c2e637d233f9"
+source_git_tree	"6cd4b165fb8cdeaf80e20721002e2869212f231a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1757
@@ -999,6 +999,13 @@ field	expectations.diagnostics[10].severity	"error"
 field	expectations.diagnostics[10].span.column	30
 field	expectations.diagnostics[10].span.file	"main.veln"
 field	expectations.diagnostics[10].span.line	143
+field	expectations.diagnostics[11].id	"type.mismatch"
+field	expectations.diagnostics[11].kind	"type"
+field	expectations.diagnostics[11].message	"expected `{state: State}`, but found `{state: State::Ready}`"
+field	expectations.diagnostics[11].severity	"error"
+field	expectations.diagnostics[11].span.column	32
+field	expectations.diagnostics[11].span.file	"main.veln"
+field	expectations.diagnostics[11].span.line	149
 field	expectations.diagnostics[1].id	"type.variant_mismatch"
 field	expectations.diagnostics[1].kind	"type"
 field	expectations.diagnostics[1].message	"value of type `State` is not assignable to variant type `State::Ready`"
@@ -1096,7 +1103,7 @@ field	expectations.json_assertions[18].path	"diagnostics.2.details.expected_vari
 field	expectations.json_assertions[19].equals	"listed"
 field	expectations.json_assertions[19].operation	"equals"
 field	expectations.json_assertions[19].path	"diagnostics.2.details.excluded_variants.form"
-field	expectations.json_assertions[1].equals	23
+field	expectations.json_assertions[1].equals	24
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"summary.diagnostic_count"
 field	expectations.json_assertions[20].equals	"Closed"
@@ -1276,6 +1283,15 @@ field	expectations.json_assertions[72].path	"diagnostics.21.related.1.message"
 field	expectations.json_assertions[73].equals	136
 field	expectations.json_assertions[73].operation	"equals"
 field	expectations.json_assertions[73].path	"diagnostics.21.related.1.span.start.line"
+field	expectations.json_assertions[74].equals	"{state: State}"
+field	expectations.json_assertions[74].operation	"equals"
+field	expectations.json_assertions[74].path	"diagnostics.23.details.expected_type"
+field	expectations.json_assertions[75].equals	"{state: State::Ready}"
+field	expectations.json_assertions[75].operation	"equals"
+field	expectations.json_assertions[75].path	"diagnostics.23.details.actual_type"
+field	expectations.json_assertions[76].equals	"assignable"
+field	expectations.json_assertions[76].operation	"equals"
+field	expectations.json_assertions[76].path	"diagnostics.23.details.constraint"
 field	expectations.json_assertions[7].equals	"call_argument"
 field	expectations.json_assertions[7].operation	"equals"
 field	expectations.json_assertions[7].path	"diagnostics.0.details.constraint"
@@ -1298,7 +1314,7 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"70c869705ba878ba2df7a77c3844d8be3b4957e2fc6617bc35338a8cb6ed79b1"
+case_digest	"d43ec75f0b4e91dfd8d71dae3b0aeff06c791b9b9f16214d573e80c7fc41b0bd"
 case	"examples/specification/check/anonymous-outer-package-boundary"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -63341,4 +63357,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"4580f7e7ec3c6110143f5861e09b50427101d8bbd064197a38ccfb03d887c2bf"
+aggregate_digest	"9052fa18d092249e24196ad0f39b3fe97dc3c953a1d5b1635f52cf2b4e552625"
