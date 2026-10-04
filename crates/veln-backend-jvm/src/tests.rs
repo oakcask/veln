@@ -41,6 +41,10 @@ use harness_constants::*;
 
 fn lower_to_ir(text: &str) -> TypedProgram {
     let source = SourceFile::new("main.veln", text);
+    lower_source_to_ir(&source)
+}
+
+fn lower_source_to_ir(source: &SourceFile) -> TypedProgram {
     let parsed = parse(&source);
     assert!(
         parsed.diagnostics.is_empty(),

@@ -35,6 +35,29 @@ fn visible_doctest_spans_preserve_original_coordinates_and_hidden_marker_boundar
             ("main.veln", (5, 5, 65), (5, 14, 74)),
         ]
     );
+
+    let generated = &doctests.sources[0];
+    let start = generated
+        .text()
+        .rfind("café")
+        .expect("generated expression");
+    let resolved = generated
+        .span(TextRange::new(start, start + "café".len()))
+        .resolved_origin()
+        .expect("doctest boundaries should map to the documented source");
+    assert_eq!(resolved.file.as_str(), "main.veln");
+    assert_eq!(
+        (
+            resolved.start.line,
+            resolved.start.column,
+            resolved.start.offset
+        ),
+        (3, 5, 38)
+    );
+    assert_eq!(
+        (resolved.end.line, resolved.end.column, resolved.end.offset),
+        (3, 9, 43)
+    );
 }
 
 #[test]

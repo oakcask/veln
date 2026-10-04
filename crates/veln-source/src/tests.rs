@@ -147,6 +147,71 @@ fn builds_spans_with_offsets_clamped_to_end_of_file() {
 }
 
 #[test]
+fn resolves_generated_spans_only_when_both_boundaries_are_mapped() {
+    let original_start = LineCol {
+        line: 41,
+        column: 7,
+        offset: 1_001,
+    };
+    let original_end = LineCol {
+        line: 43,
+        column: 19,
+        offset: 1_099,
+    };
+    let source = SourceFile::generated_with_mappings(
+        "virtual/generated.veln",
+        "alpha\nbeta\n",
+        SourcePath::new("templates/original.veln"),
+        [(2, original_start), (8, original_end)],
+    );
+
+    let generated = source.span(TextRange::new(2, 8));
+    let resolved = generated
+        .resolved_origin()
+        .expect("both mapped boundaries should resolve");
+
+    assert_eq!(resolved.file.as_str(), "templates/original.veln");
+    assert_eq!(resolved.start, original_start);
+    assert_eq!(resolved.end, original_end);
+    assert!(resolved.generated_origin.is_none());
+}
+
+#[test]
+fn generated_span_origin_lookup_is_all_or_nothing() {
+    let original = LineCol {
+        line: 41,
+        column: 7,
+        offset: 1_001,
+    };
+    let cases = [
+        SourceFile::new("virtual/ordinary.veln", "alpha\nbeta\n"),
+        SourceFile::generated(
+            "virtual/path-only.veln",
+            "alpha\nbeta\n",
+            Some(SourcePath::new("templates/original.veln")),
+        ),
+        SourceFile::generated_with_mappings(
+            "virtual/missing-end.veln",
+            "alpha\nbeta\n",
+            SourcePath::new("templates/original.veln"),
+            [(2, original)],
+        ),
+        SourceFile::generated_with_mappings(
+            "virtual/missing-start.veln",
+            "alpha\nbeta\n",
+            SourcePath::new("templates/original.veln"),
+            [(8, original)],
+        ),
+    ];
+
+    for source in cases {
+        let generated = source.span(TextRange::new(2, 8));
+        assert!(generated.resolved_origin().is_none());
+        assert_eq!(generated.resolved_or_generated(), generated);
+    }
+}
+
+#[test]
 fn text_ranges_create_points_and_cover_ranges() {
     let point = TextRange::at(4);
 

@@ -432,6 +432,7 @@ fn lsp_diagnostic_wire_fields_are_stable() {
                 column: 5,
                 offset: 6,
             },
+            generated_origin: None,
         }),
         JsonValue::Null,
     );

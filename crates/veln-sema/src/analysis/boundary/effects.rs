@@ -483,6 +483,7 @@ fn type_effect_span(
             column: annotation_span.start.column + prefix_columns + effect_columns,
             offset: annotation_span.start.offset + offset + effect.len(),
         },
+        generated_origin: None,
     })
 }
 

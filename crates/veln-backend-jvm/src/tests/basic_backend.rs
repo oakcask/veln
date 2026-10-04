@@ -190,6 +190,178 @@ fn bytecode_backend_prefers_indirect_call_context_over_bound_callback_context() 
 }
 
 #[test]
+fn bytecode_backend_resolves_generated_callsite_origins_all_or_nothing() {
+    let text = concat!(
+        "fn capture() -> SourceLocation callsite\n",
+        "  callsite\n",
+        "end\n",
+        "fn print_location(location: SourceLocation) -> () effects [stdio]\n",
+        "  stdio::println(location.file)\n",
+        "  stdio::println(int_to_string(location.start_line))\n",
+        "  stdio::println(int_to_string(location.start_column))\n",
+        "  stdio::println(int_to_string(location.start_offset))\n",
+        "  stdio::println(int_to_string(location.end_line))\n",
+        "  stdio::println(int_to_string(location.end_column))\n",
+        "  stdio::println(int_to_string(location.end_offset))\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let direct = capture()\n",
+        "  let stored: fn() -> SourceLocation = capture\n",
+        "  let indirect = stored()\n",
+        "  print_location(direct)\n",
+        "  print_location(indirect)\n",
+        "end\n",
+    );
+    let direct_start = text
+        .find("capture()\n  let stored")
+        .expect("direct call start");
+    let direct_end = direct_start + "capture()".len();
+    let indirect_start = text
+        .find("stored()\n  print_location")
+        .expect("indirect call start");
+    let indirect_end = indirect_start + "stored()".len();
+    let original_direct = veln_source::SourceSpan {
+        file: "templates/original.veln".into(),
+        start: veln_source::LineCol {
+            line: 41,
+            column: 7,
+            offset: 1_001,
+        },
+        end: veln_source::LineCol {
+            line: 43,
+            column: 19,
+            offset: 1_099,
+        },
+        generated_origin: None,
+    };
+    let original_indirect = veln_source::SourceSpan {
+        file: "templates/original.veln".into(),
+        start: veln_source::LineCol {
+            line: 47,
+            column: 11,
+            offset: 1_201,
+        },
+        end: veln_source::LineCol {
+            line: 49,
+            column: 23,
+            offset: 1_299,
+        },
+        generated_origin: None,
+    };
+    let mapped_boundaries = [
+        (direct_start, original_direct.start),
+        (direct_end, original_direct.end),
+        (indirect_start, original_indirect.start),
+        (indirect_end, original_indirect.end),
+    ];
+    let cases = [
+        (
+            "mapped",
+            SourceFile::generated_with_mappings(
+                "virtual/mapped.veln",
+                text,
+                "templates/original.veln".into(),
+                mapped_boundaries,
+            ),
+            [original_direct.clone(), original_indirect.clone()],
+        ),
+        (
+            "path-only",
+            SourceFile::generated(
+                "virtual/path-only.veln",
+                text,
+                Some("templates/original.veln".into()),
+            ),
+            generated_call_spans(
+                "virtual/path-only.veln",
+                text,
+                [(direct_start, direct_end), (indirect_start, indirect_end)],
+            ),
+        ),
+        (
+            "partial",
+            SourceFile::generated_with_mappings(
+                "virtual/partial.veln",
+                text,
+                "templates/original.veln".into(),
+                [
+                    (direct_start, original_direct.start),
+                    (indirect_end, original_indirect.end),
+                ],
+            ),
+            generated_call_spans(
+                "virtual/partial.veln",
+                text,
+                [(direct_start, direct_end), (indirect_start, indirect_end)],
+            ),
+        ),
+        (
+            "unmapped",
+            SourceFile::generated(
+                "virtual/unmapped.veln",
+                text,
+                None::<veln_source::SourcePath>,
+            ),
+            generated_call_spans(
+                "virtual/unmapped.veln",
+                text,
+                [(direct_start, direct_end), (indirect_start, indirect_end)],
+            ),
+        ),
+    ];
+
+    for (name, source, expected_spans) in cases {
+        let ir = lower_source_to_ir(&source);
+        let program = generate_classfiles_with_entry(&ir, "main");
+        let Some(output) = run_jvm_program_when_java_is_available(
+            &format!("callsite-origin-{name}"),
+            &program,
+            &[],
+        ) else {
+            return;
+        };
+        assert!(
+            output.status.success(),
+            "{name}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            expected_location_output(&expected_spans),
+            "{name}"
+        );
+    }
+}
+
+fn generated_call_spans(
+    path: &str,
+    text: &str,
+    ranges: [(usize, usize); 2],
+) -> [veln_source::SourceSpan; 2] {
+    let source = SourceFile::new(path, text);
+    ranges.map(|(start, end)| source.span(TextRange::new(start, end)))
+}
+
+fn expected_location_output(spans: &[veln_source::SourceSpan; 2]) -> String {
+    let mut output = String::new();
+    for span in spans {
+        for value in [
+            span.file.as_str().to_string(),
+            span.start.line.to_string(),
+            span.start.column.to_string(),
+            span.start.offset.to_string(),
+            span.end.line.to_string(),
+            span.end.column.to_string(),
+            span.end.offset.to_string(),
+        ] {
+            output.push_str(&value);
+            output.push('\n');
+        }
+    }
+    output
+}
+
+#[test]
 fn bytecode_backend_schema_encode_step_calls_match_runtime_metadata_contract() {
     for budgeted in [false, true] {
         let mut ir = lower_to_ir(concat!(

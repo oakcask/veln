@@ -116,10 +116,38 @@ impl<'a> Reader<'a> {
     }
 
     fn span(&mut self) -> Result<SourceSpan, String> {
+        let file = SourcePath::new(self.string()?);
+        let start = self.line_col()?;
+        let end = self.line_col()?;
+        let generated_origin = if self.bool()? {
+            let original_path = if self.bool()? {
+                Some(SourcePath::new(self.string()?))
+            } else {
+                None
+            };
+            let original_start = if self.bool()? {
+                Some(self.line_col()?)
+            } else {
+                None
+            };
+            let original_end = if self.bool()? {
+                Some(self.line_col()?)
+            } else {
+                None
+            };
+            Some(std::sync::Arc::new(GeneratedSpanOrigin::new(
+                original_path,
+                original_start,
+                original_end,
+            )))
+        } else {
+            None
+        };
         Ok(SourceSpan {
-            file: SourcePath::new(self.string()?),
-            start: self.line_col()?,
-            end: self.line_col()?,
+            file,
+            start,
+            end,
+            generated_origin,
         })
     }
 

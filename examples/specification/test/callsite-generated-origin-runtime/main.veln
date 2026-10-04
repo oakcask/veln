@@ -1,0 +1,23 @@
+# callsite mapping
+## ```veln
+## let location = capture()
+## stdio::println(location.file)
+## stdio::println(int_to_string(location.start_line))
+## stdio::println(int_to_string(location.start_column))
+## stdio::println(int_to_string(location.start_offset))
+## stdio::println(int_to_string(location.end_line))
+## stdio::println(int_to_string(location.end_column))
+## stdio::println(int_to_string(location.end_offset))
+## ```
+## ```veln-output stream=stdout
+## main.veln
+## 3
+## 19
+## 48
+## 3
+## 28
+## 57
+## ```
+pub fn capture() -> SourceLocation callsite
+	callsite
+end

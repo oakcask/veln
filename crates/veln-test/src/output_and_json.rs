@@ -1,12 +1,7 @@
 use super::*;
 
 pub(super) fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -> String {
-    let return_type = doctest.error_type.as_ref().map_or_else(
-        || "()".to_string(),
-        |error_type| format!("Result<(), {error_type}>"),
-    );
-    let item_kind = if doctest.should_fail { "fn" } else { "test" };
-    let mut text = format!("{item_kind} {name}() -> {return_type} effects [stdio]\n");
+    let mut text = generated_doctest_header(name, doctest);
     for line in &doctest.code {
         if line.is_empty() {
             text.push('\n');
@@ -22,6 +17,39 @@ pub(super) fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -
         text.push_str("  ()\nend\n");
     }
     text
+}
+
+fn generated_doctest_header(name: &str, doctest: &ExtractedDoctest) -> String {
+    let return_type = doctest.error_type.as_ref().map_or_else(
+        || "()".to_string(),
+        |error_type| format!("Result<(), {error_type}>"),
+    );
+    let item_kind = if doctest.should_fail { "fn" } else { "test" };
+    format!("{item_kind} {name}() -> {return_type} effects [stdio]\n")
+}
+
+pub(super) fn generated_doctest_boundary_mappings(
+    name: &str,
+    doctest: &ExtractedDoctest,
+) -> Vec<(usize, LineCol)> {
+    let mut generated_line_start = generated_doctest_header(name, doctest).len();
+    let mut mappings = Vec::new();
+    for (line, original) in doctest.code.iter().zip(&doctest.source_locations) {
+        let generated_code_start = generated_line_start + usize::from(!line.is_empty()) * 2;
+        for (relative_offset, _) in line.char_indices() {
+            mappings.push((
+                generated_code_start + relative_offset,
+                LineCol {
+                    line: original.start.line,
+                    column: original.start.column + line[..relative_offset].chars().count(),
+                    offset: original.start.offset + relative_offset,
+                },
+            ));
+        }
+        mappings.push((generated_code_start + line.len(), original.end));
+        generated_line_start += usize::from(!line.is_empty()) * 2 + line.len() + 1;
+    }
+    mappings
 }
 
 pub(super) fn reconstructed_stream(events: &[JsonValue], stream: &str) -> String {

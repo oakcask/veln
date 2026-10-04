@@ -1,4 +1,5 @@
-use crate::SourcePath;
+use crate::{GeneratedSpanOrigin, SourcePath};
+use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TextRange {
@@ -38,4 +39,21 @@ pub struct SourceSpan {
     pub file: SourcePath,
     pub start: LineCol,
     pub end: LineCol,
+    pub generated_origin: Option<Arc<GeneratedSpanOrigin>>,
+}
+
+impl SourceSpan {
+    pub fn resolved_origin(&self) -> Option<Self> {
+        let origin = self.generated_origin.as_ref()?;
+        Some(Self {
+            file: origin.original_path()?.clone(),
+            start: origin.original_start()?,
+            end: origin.original_end()?,
+            generated_origin: None,
+        })
+    }
+
+    pub fn resolved_or_generated(&self) -> Self {
+        self.resolved_origin().unwrap_or_else(|| self.clone())
+    }
 }

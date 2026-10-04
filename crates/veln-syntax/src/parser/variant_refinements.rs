@@ -346,6 +346,7 @@ fn materialize_refinement_group(
             .expect("refinement union has alternatives")
             .span
             .end,
+        generated_origin: None,
     };
     VariantRefinementType {
         alternatives,

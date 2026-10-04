@@ -98,6 +98,7 @@ fn span(file: &str, line: usize, start_column: usize, end_column: usize) -> Sour
             column: end_column,
             offset: 0,
         },
+        generated_origin: None,
     }
 }
 

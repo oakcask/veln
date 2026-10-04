@@ -383,6 +383,7 @@ impl OutputDifference {
 #[derive(Default)]
 pub(super) struct ExtractedDoctest {
     pub(super) code: Vec<String>,
+    pub(super) source_locations: Vec<SourceSpan>,
     pub(super) visible_code: Vec<String>,
     pub(super) visible_source_locations: Vec<SourceSpan>,
     pub(super) error_type: Option<String>,
@@ -395,6 +396,7 @@ pub(super) struct ExtractedDoctest {
 pub(super) enum Fence {
     Veln {
         lines: Vec<String>,
+        source_locations: Vec<SourceSpan>,
         visible_lines: Vec<String>,
         visible_source_locations: Vec<SourceSpan>,
         error_type: Option<String>,

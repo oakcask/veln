@@ -7,6 +7,6 @@ mod span;
 #[cfg(test)]
 mod tests;
 
-pub use file::SourceFile;
+pub use file::{GeneratedSourceOrigin, GeneratedSpanOrigin, SourceFile};
 pub use path::SourcePath;
 pub use span::{LineCol, SourceSpan, TextRange};
