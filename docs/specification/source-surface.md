@@ -306,6 +306,12 @@ A handler declaration requires `for` between its parameter list and its one
 nominal effect target. The former `handles` spelling is an ordinary identifier,
 so it may be used wherever the corresponding identifier casing rules permit.
 Using it as the handler separator is rejected with `for` as the expected token.
+When `for` is missing, a following member path remains the recovered effect
+target. This includes the bare target `handles` and a qualified target that
+starts with `handles::`. If `handles` is instead followed by another identifier
+that can start the target, recovery rejects the first `handles` as the former
+separator and retains the following member path as the target. Both forms keep
+the optional retained-effect list and the boundary of the next declaration.
 
 <!-- source-surface-grammar:start -->
 ```text
