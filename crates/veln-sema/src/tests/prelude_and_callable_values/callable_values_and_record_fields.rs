@@ -89,85 +89,64 @@ fn lowers_qualified_standard_prelude_calls() {
     ));
 }
 
-#[test]
-fn stream_input_constructors_resolve_through_standard_prelude_paths() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "fn bare(chunk: ByteChunk) -> StreamInput\n",
-            "  Chunk(chunk)\n",
-            "end\n",
-            "fn type_qualified(chunk: ByteChunk) -> StreamInput\n",
-            "  StreamInput::Chunk(chunk)\n",
-            "end\n",
-            "fn prelude_qualified(chunk: ByteChunk) -> StreamInput\n",
-            "  prelude::Chunk(chunk)\n",
-            "end\n",
-            "fn prelude_type_qualified(chunk: ByteChunk) -> StreamInput\n",
-            "  prelude::StreamInput::Chunk(chunk)\n",
-            "end\n",
-            "fn done() -> StreamInput\n",
-            "  prelude::End\n",
-            "end\n",
-            "fn decoded(count: ByteCount) -> DecodeStep<Int>\n",
-            "  Decoded(7, count)\n",
-            "end\n",
-            "fn waiting(count: ByteCount) -> DecodeStep<Int>\n",
-            "  let readiness: DecodeReadiness = prelude::DecodeReadiness::NeedBytes(count)\n",
-            "  prelude::DecodeStep::NeedMore(readiness)\n",
-            "end\n",
-            "fn waiting_for_end() -> DecodeStep<Int>\n",
-            "  let readiness: DecodeReadiness = NeedEnd\n",
-            "  DecodeStep::NeedMore(readiness)\n",
-            "end\n",
-            "fn invalid(offset: ByteOffset) -> DecodeStep<Int>\n",
-            "  let error: DecodeError = DecodeError(\"codec.invalid\", offset, \"demo.field\")\n",
-            "  prelude::Invalid(error)\n",
-            "end\n",
-            "fn encoded(chunks: List<ByteChunk>) -> EncodeStep<String>\n",
-            "  Encoded(chunks)\n",
-            "end\n",
-            "fn partial(chunks: List<ByteChunk>, count: ByteCount) -> EncodeStep<String>\n",
-            "  prelude::EncodeStep::Partial(chunks, count, \"waiting\")\n",
-            "end\n",
-            "fn invalid_encode() -> EncodeStep<String>\n",
-            "  let error: EncodeError = EncodeError(\"codec.out_of_range\", \"demo.length\", \"too large\")\n",
-            "  EncodeStep::Invalid(error)\n",
-            "end\n",
-            "fn label(input: StreamInput) -> String\n",
-            "  match input\n",
-            "    prelude::StreamInput::Chunk(bytes) => int_to_string(byte_count_to_int(byte_chunk_count(bytes)))\n",
-            "    prelude::End => \"end\"\n",
-            "  end\n",
-            "end\n",
-            "fn decode_label(step: DecodeStep<Int>) -> String\n",
-            "  match step\n",
-            "    prelude::DecodeStep::Decoded(value, consumed) => int_to_string(value + byte_count_to_int(consumed))\n",
-            "    NeedMore(prelude::DecodeReadiness::NeedBytes(count)) => int_to_string(byte_count_to_int(count))\n",
-            "    NeedMore(prelude::NeedEnd) => \"end\"\n",
-            "    prelude::DecodeStep::Invalid(DecodeError(id, _, _)) => id\n",
-            "    prelude::DecodeStep::Invalid(DecodeErrorWithReason(id, _, _, _)) => id\n",
-            "  end\n",
-            "end\n",
-            "fn encode_label(step: EncodeStep<String>) -> String\n",
-            "  match step\n",
-            "    prelude::EncodeStep::Encoded(chunks) => int_to_string(list_fold(chunks, 0, count_chunk))\n",
-            "    Partial(_, _, state) => state\n",
-            "    prelude::EncodeStep::Invalid(EncodeError(id, _, _)) => id\n",
-            "  end\n",
-            "end\n",
-            "fn count_chunk(total: Int, chunk: ByteChunk) -> Int\n",
-            "  total + byte_count_to_int(byte_chunk_count(chunk))\n",
-            "end\n",
-        ),
-    );
+fn lower_checked_prelude_fixture(source: &str) -> veln_core::CheckedProgram {
+    let source = SourceFile::new("main.veln", source);
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
-
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
+    lowered.core.expect("checked core should be built")
+}
+
+fn assert_return_types(
+    core: &veln_core::CheckedProgram,
+    function_names: &[&str],
+    expected: &CoreType,
+) {
+    for function_name in function_names {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == *function_name)
+            .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+        let CoreStmtKind::Return { expr } = &function
+            .body
+            .last()
+            .expect("function should have a body")
+            .kind
+        else {
+            panic!("{function_name} should return a constructor");
+        };
+        assert_eq!(&expr.ty, expected);
+    }
+}
+
+#[test]
+fn stream_input_constructors_resolve_through_standard_prelude_paths() {
+    let core = lower_checked_prelude_fixture(concat!(
+        "fn bare(chunk: ByteChunk) -> StreamInput\n",
+        "  Chunk(chunk)\n",
+        "end\n",
+        "fn type_qualified(chunk: ByteChunk) -> StreamInput\n",
+        "  StreamInput::Chunk(chunk)\n",
+        "end\n",
+        "fn prelude_qualified(chunk: ByteChunk) -> StreamInput\n",
+        "  prelude::Chunk(chunk)\n",
+        "end\n",
+        "fn prelude_type_qualified(chunk: ByteChunk) -> StreamInput\n",
+        "  prelude::StreamInput::Chunk(chunk)\n",
+        "end\n",
+        "fn done() -> StreamInput\n",
+        "  prelude::End\n",
+        "end\n",
+        "fn label(input: StreamInput) -> String\n",
+        "  match input\n",
+        "    prelude::StreamInput::Chunk(bytes) => int_to_string(byte_count_to_int(byte_chunk_count(bytes)))\n",
+        "    prelude::End => \"end\"\n",
+        "  end\n",
+        "end\n",
+    ));
     for function_name in [
         "bare",
         "type_qualified",
@@ -209,44 +188,6 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             if name == &vec!["StreamInput".to_string(), "End".to_string()]
                 && payloads.is_empty())
     );
-    for function_name in ["decoded", "waiting", "waiting_for_end", "invalid"] {
-        let function = core
-            .functions
-            .iter()
-            .find(|function| function.name == function_name)
-            .unwrap_or_else(|| panic!("{function_name} should be lowered"));
-        let CoreStmtKind::Return { expr } = &function
-            .body
-            .last()
-            .expect("function should have a body")
-            .kind
-        else {
-            panic!("{function_name} should return a constructor");
-        };
-        assert_eq!(
-            expr.ty,
-            CoreType::named("DecodeStep", vec![CoreType::int()])
-        );
-    }
-    for function_name in ["encoded", "partial", "invalid_encode"] {
-        let function = core
-            .functions
-            .iter()
-            .find(|function| function.name == function_name)
-            .unwrap_or_else(|| panic!("{function_name} should be lowered"));
-        let CoreStmtKind::Return { expr } = &function
-            .body
-            .last()
-            .expect("function should have a body")
-            .kind
-        else {
-            panic!("{function_name} should return a constructor");
-        };
-        assert_eq!(
-            expr.ty,
-            CoreType::named("EncodeStep", vec![CoreType::string()])
-        );
-    }
     let label = core
         .functions
         .iter()
@@ -267,6 +208,74 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
         matches!(&arms[1].pattern.kind, CorePatternKind::Constructor { name, args }
             if name == &vec!["StreamInput".to_string(), "End".to_string()]
                 && args.is_empty())
+    );
+}
+
+#[test]
+fn decode_step_constructors_resolve_through_standard_prelude_paths() {
+    let core = lower_checked_prelude_fixture(concat!(
+        "fn decoded(count: ByteCount) -> DecodeStep<Int>\n",
+        "  Decoded(7, count)\n",
+        "end\n",
+        "fn waiting(count: ByteCount) -> DecodeStep<Int>\n",
+        "  let readiness: DecodeReadiness = prelude::DecodeReadiness::NeedBytes(count)\n",
+        "  prelude::DecodeStep::NeedMore(readiness)\n",
+        "end\n",
+        "fn waiting_for_end() -> DecodeStep<Int>\n",
+        "  let readiness: DecodeReadiness = NeedEnd\n",
+        "  DecodeStep::NeedMore(readiness)\n",
+        "end\n",
+        "fn invalid(offset: ByteOffset) -> DecodeStep<Int>\n",
+        "  let error: DecodeError = DecodeError(\"codec.invalid\", offset, \"demo.field\")\n",
+        "  prelude::Invalid(error)\n",
+        "end\n",
+        "fn decode_label(step: DecodeStep<Int>) -> String\n",
+        "  match step\n",
+        "    prelude::DecodeStep::Decoded(value, consumed) => int_to_string(value + byte_count_to_int(consumed))\n",
+        "    NeedMore(prelude::DecodeReadiness::NeedBytes(count)) => int_to_string(byte_count_to_int(count))\n",
+        "    NeedMore(prelude::NeedEnd) => \"end\"\n",
+        "    prelude::DecodeStep::Invalid(DecodeError(id, _, _)) => id\n",
+        "    prelude::DecodeStep::Invalid(DecodeErrorWithReason(id, _, _, _)) => id\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert_return_types(
+        &core,
+        &["decoded", "waiting", "waiting_for_end", "invalid"],
+        &CoreType::named("DecodeStep", vec![CoreType::int()]),
+    );
+}
+
+#[test]
+fn encode_step_constructors_resolve_through_standard_prelude_paths() {
+    let core = lower_checked_prelude_fixture(concat!(
+        "fn encoded(chunks: List<ByteChunk>) -> EncodeStep<String>\n",
+        "  Encoded(chunks)\n",
+        "end\n",
+        "fn partial(chunks: List<ByteChunk>, count: ByteCount) -> EncodeStep<String>\n",
+        "  prelude::EncodeStep::Partial(chunks, count, \"waiting\")\n",
+        "end\n",
+        "fn invalid_encode() -> EncodeStep<String>\n",
+        "  let error: EncodeError = EncodeError(\"codec.out_of_range\", \"demo.length\", \"too large\")\n",
+        "  EncodeStep::Invalid(error)\n",
+        "end\n",
+        "fn encode_label(step: EncodeStep<String>) -> String\n",
+        "  match step\n",
+        "    prelude::EncodeStep::Encoded(chunks) => int_to_string(list_fold(chunks, 0, count_chunk))\n",
+        "    Partial(_, _, state) => state\n",
+        "    prelude::EncodeStep::Invalid(EncodeError(id, _, _)) => id\n",
+        "  end\n",
+        "end\n",
+        "fn count_chunk(total: Int, chunk: ByteChunk) -> Int\n",
+        "  total + byte_count_to_int(byte_chunk_count(chunk))\n",
+        "end\n",
+    ));
+
+    assert_return_types(
+        &core,
+        &["encoded", "partial", "invalid_encode"],
+        &CoreType::named("EncodeStep", vec![CoreType::string()]),
     );
 }
 
