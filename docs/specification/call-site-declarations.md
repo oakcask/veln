@@ -60,6 +60,10 @@ built-in body reference as a read-only variable. The built-in keeps that class
 when a same-named function exists and when invalid source follows it with `(`.
 A qualified leaf such as `other::callsite` remains an ordinary function token;
 the built-in classification does not apply through a qualifier.
+In an ordinary function, a parameter, result, local, or pattern binding named
+`callsite` keeps its binding token class even when a source function has the
+same name. Only a call target that resolves to that function receives the
+function token class.
 Completion offers the `callsite` modifier in an eligible source-function header
 that does not already have it. For a header with a trailing comment, the
 position immediately before the `#` marker remains eligible. A position inside
@@ -77,6 +81,10 @@ uses only source parameters. A position inside the declaration's own header
 does not produce signature help. An unfinished call in an earlier declaration
 does not leak signature help into a later declaration header. Grouping
 parentheses within a call argument do not hide the enclosing call's signature.
+Signature help resolves bare ordinary source-function calls and qualified
+source-function calls, including a qualified function whose name is `handle`.
+The bare `handle (expression) with handler()` operator is not a function call
+and does not produce signature help at its grouping parenthesis.
 Inside a call-site-aware function body, the built-in `callsite` local is not
 callable. A `callsite(` expression therefore does not fall back to a same-named
 workspace or package function and does not produce signature help.

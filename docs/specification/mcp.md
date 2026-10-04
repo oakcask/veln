@@ -484,7 +484,10 @@ a parameter or change active-parameter counting. Public workspace function
 aliases resolve to the target declaration before rendering the signature. A
 position inside a function declaration header returns `signature: null`.
 Grouping parentheses inside a call argument do not hide the enclosing call's
-signature.
+signature. Bare ordinary calls and qualified source-function calls resolve to
+their declarations, including a qualified function named `handle`. The bare
+`handle (expression) with handler()` operator is not a source-function call and
+returns `signature: null` at its grouping parenthesis.
 
 Both tools use the saved-source capture and positive one-based Unicode-scalar
 coordinate contract. Invalid paths return `invalid_path`, and invalid
@@ -798,12 +801,14 @@ boundary, call-site-aware signature help without hidden-parameter arity,
 completion from the same saved source after those failures. It also covers the
 eligible position before a trailing header comment and the in-comment and
 end-of-line boundaries. Its signature-help checks cover the declaration-header
-boundary and an enclosing call whose argument uses grouping parentheses. A
-signature-help failure between references pages demonstrates that presentation
-failure preserves a live references cursor. The same transcript uses a source
-over the implementation's structural-work budget to check empty completion,
-`null` saved-navigation signature help, unchanged workspace selection, and a
-subsequent successful completion from another saved source.
+boundary, bare ordinary and qualified `handle` function calls, the bare
+`handle` operator boundary, and an enclosing call whose argument uses grouping
+parentheses. A signature-help failure between references pages demonstrates
+that presentation failure preserves a live references cursor. The same
+transcript uses a source over the implementation's structural-work budget to
+check empty completion, `null` saved-navigation signature help, unchanged
+workspace selection, and a subsequent successful completion from another
+saved source.
 The checked
 `examples/specification/mcp/references-recovery-navigation/` transcript covers
 recovery selection from a declaration and reference, declaration exclusion and

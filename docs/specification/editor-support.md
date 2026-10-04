@@ -84,8 +84,9 @@ The only Veln-specific semantic token modifiers are `test`, `result`, and
 
 In an ordinary function, a binding named `callsite` uses the same parameter,
 result, local, or pattern token class and modifiers as any other binding. It is
-not presented as the built-in local unless the enclosing source function has
-the declaration modifier.
+not presented as the built-in local or as a same-named function unless the
+occurrence is a function call target. The built-in local applies only when the
+enclosing source function has the declaration modifier.
 
 ## LSP Encoding
 
@@ -129,6 +130,10 @@ parameter index, the complete function signature as the signature label, and
 one parameter entry per declared parameter. Each parameter entry labels the
 parameter with its name and type. A valid retained-source position that does
 not resolve to a supported source function call returns `null`.
+Bare ordinary calls and qualified source-function calls are supported. A
+qualified function named `handle` resolves as a call target, while the bare
+`handle (expression) with handler()` operator returns `null` at its grouping
+parenthesis.
 
 Completion and signature-help requests use the retained project snapshot and
 the same position shape, UTF-16 conversion, invalid-position response, and
@@ -713,10 +718,12 @@ The checked
 transcript pins completion items, empty completion results, signature-help
 results, `null` signature-help results, the public semantic-token legend, and
 complete encoded token data for a `callsite` declaration modifier, built-in
-body reference, and ordinary same-spelled parameter declaration and reference.
-Its completion and signature-help requests also cover non-BMP UTF-16
-positions, invalid-position failures, and repeated successful results for the
-same retained source after those failures.
+body reference, and ordinary same-spelled parameter, result, local, and pattern
+bindings in the presence of a same-named function. Its completion and
+signature-help requests also cover non-BMP UTF-16 positions, invalid-position
+failures, bare ordinary and qualified `handle` function calls, the bare
+`handle` operator boundary, and repeated successful results for the same
+retained source after those failures.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect and
 effect-operation references.
