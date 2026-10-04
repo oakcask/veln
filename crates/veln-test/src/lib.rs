@@ -83,11 +83,13 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
         diagnostics.extend(extracted.diagnostics);
         for doctest in extracted.doctests {
             let name = format!("doctest_{next_index}");
-            let generated_path = SourcePath::virtual_source(
+            let Ok(generated_path) = SourcePath::virtual_source(
                 source.path(),
                 format!("doctest-{next_index}_test.veln"),
-            )
-            .expect("project source paths must produce canonical doctest identities");
+            ) else {
+                diagnostics.push(invalid_doctest_origin_diagnostic(source));
+                break;
+            };
             let generated = generated_doctest_source(&name, &doctest);
             let copied_regions = generated_doctest_copied_regions(&name, &doctest);
             if let Some(fail_span) = doctest.fail_span {
@@ -123,6 +125,36 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
         expected_failures,
         diagnostics,
     }
+}
+
+fn invalid_doctest_origin_diagnostic(source: &SourceFile) -> Diagnostic {
+    let path = source.path().as_str();
+    let segment = path
+        .strip_suffix(".veln")
+        .unwrap_or(path)
+        .split('/')
+        .find(|segment| {
+            segment.is_empty()
+                || *segment == "."
+                || *segment == ".."
+                || !segment
+                    .chars()
+                    .all(|character| character.is_ascii_alphanumeric() || character == '_')
+        })
+        .unwrap_or(path);
+    Diagnostic::new(
+        "module.invalid_source_path",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("source path segment cannot be used as a module identifier: `{segment}`"),
+        Some(source.span(TextRange::at(0))),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("module_identity")),
+            ("source_path", JsonValue::string(path)),
+            ("segment", JsonValue::string(segment)),
+        ]),
+    )
 }
 
 pub fn visible_doctests(source: &SourceFile) -> VisibleDoctests {

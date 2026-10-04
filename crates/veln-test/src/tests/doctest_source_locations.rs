@@ -21,6 +21,46 @@ fn equivalent_source_roots_produce_the_same_virtual_doctest_identity() {
     fs::remove_dir_all(second_root).unwrap();
 }
 
+#[test]
+fn rejected_virtual_doctest_origins_produce_diagnostics_without_partial_sources() {
+    let sources = [
+        SourceFile::new("guide:part.veln", "## ```veln\n## 1\n## ```\n"),
+        SourceFile::new("guide#part.veln", "## ```veln\n## 2\n## ```\n"),
+        SourceFile::new("valid.veln", "## ```veln\n## 3\n## ```\n"),
+    ];
+
+    let doctests = doctest_sources(&sources);
+
+    assert_eq!(doctests.sources.len(), 1);
+    assert_eq!(
+        doctests.sources[0].path().as_str(),
+        "valid.veln#doctest-1_test.veln"
+    );
+    assert_eq!(doctests.visible_source_locations.len(), 1);
+    assert_eq!(doctests.expectations.len(), 1);
+    assert!(doctests.expected_failures.is_empty());
+    assert_eq!(doctests.diagnostics.len(), 2);
+    assert_eq!(
+        doctests
+            .diagnostics
+            .iter()
+            .map(|diagnostic| (
+                diagnostic.id.as_str(),
+                diagnostic
+                    .span
+                    .as_ref()
+                    .expect("source-path diagnostic span")
+                    .file
+                    .as_str(),
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("module.invalid_source_path", "guide:part.veln"),
+            ("module.invalid_source_path", "guide#part.veln"),
+        ]
+    );
+}
+
 fn virtual_doctest_identity(
     root: &std::path::Path,
     relative: &std::path::Path,

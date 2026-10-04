@@ -187,10 +187,21 @@ fn analyze_project_with_surface_and_standard_provider(
         DoctestMode::Exclude => None,
     };
     let mut source_diagnostics = Vec::new();
+    let mut invalid_doctest_origins = BTreeSet::new();
     let mut doctest_expectations = BTreeMap::new();
     let mut expected_doctest_failures = BTreeMap::new();
 
     if let Some(doctests) = doctests {
+        invalid_doctest_origins.extend(doctests.diagnostics.iter().filter_map(|diagnostic| {
+            if diagnostic.id == "module.invalid_source_path" {
+                diagnostic
+                    .span
+                    .as_ref()
+                    .map(|span| span.file.as_str().to_string())
+            } else {
+                None
+            }
+        }));
         source_diagnostics.extend(doctests.diagnostics);
         project.files.extend(doctests.sources);
         doctest_expectations = doctests.expectations;
@@ -198,7 +209,13 @@ fn analyze_project_with_surface_and_standard_provider(
     }
 
     let (loaded, parse_diagnostics) = load_surface(&project);
-    source_diagnostics.extend(parse_diagnostics);
+    source_diagnostics.extend(parse_diagnostics.into_iter().filter(|diagnostic| {
+        diagnostic.id != "module.invalid_source_path"
+            || diagnostic
+                .span
+                .as_ref()
+                .is_none_or(|span| !invalid_doctest_origins.contains(span.file.as_str()))
+    }));
     record_timing(&mut timings, "surface_parse_lower", surface_start.elapsed());
 
     let standard = match standard_for_module(&loaded.selected_standard_module_names) {

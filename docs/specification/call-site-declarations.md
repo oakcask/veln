@@ -170,13 +170,19 @@ generation stages.
 
 A library-generated virtual source derives its exposed path from a canonical
 package-relative source path and a stable generator identity. The resulting
-path has the form `<source>#<identity>`. The identity is one non-empty path
-segment. Leading `./` segments are removed before construction. Construction
-rejects an absolute source path, remaining `.` or `..` segments, empty
-segments, an already-virtual source path, and an identity that contains a path
-separator, `#`, or `:`. Equivalent logical sources and generator identities
-therefore expose the same virtual `file` value when their source trees have
-different absolute roots.
+path has the form `<source>#<identity>`. The origin must satisfy the ordinary
+source-to-module path rules and must not already contain the virtual-source
+delimiter `#`. Leading `./` segments are removed before construction. An
+absolute origin, a remaining `.` or `..` segment, and an empty segment are not
+canonical origins. A discovered source with an invalid origin reports
+`module.invalid_source_path`; doctest generation creates no virtual source or
+partial source metadata for that origin and continues to analyze other input.
+
+The generator identity is validated independently from the origin. It is one
+non-empty path segment and cannot be `.` or `..`. An identity that contains a
+path separator, `#`, or `:` is rejected. Equivalent logical sources and
+generator identities therefore expose the same virtual `file` value when
+their source trees have different absolute roots.
 
 For a workspace source, `package` is empty and `module` is the caller's
 logical module path. For a dependency source, `package` is the dependency's
@@ -246,6 +252,9 @@ Functions without the modifier retain their ordinary call ABI.
   `crates/veln-source/src/tests.rs`,
   `crates/veln-test/src/tests/doctest_source_locations.rs`, and
   `crates/veln-analysis/src/tests/source_location_identity.rs`.
+- Invalid discovered doctest-origin evidence:
+  `crates/veln-test/src/tests/doctest_source_locations.rs` and the CLI
+  integration tests in `crates/veln-cli/tests/check_json/`.
 - Deferred-observation lifetime evidence:
   [`callsite-deferred-observation`](../../examples/specification/run/callsite-deferred-observation/).
 - Indirect-call propagation evidence:

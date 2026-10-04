@@ -55,6 +55,7 @@ fn rejects_root_dependent_or_ambiguous_virtual_source_inputs() {
         "../main.veln",
         "src/../main.veln",
         "src//main.veln",
+        "main:part.veln",
         "main.veln#existing-generated-source",
         "",
     ] {
@@ -63,7 +64,14 @@ fn rejects_root_dependent_or_ambiguous_virtual_source_inputs() {
             "accepted noncanonical source path {source:?}"
         );
     }
-    for identity in ["", ".", "..", "nested/source.veln", "other#source.veln"] {
+    for identity in [
+        "",
+        ".",
+        "..",
+        "nested/source.veln",
+        "other#source.veln",
+        "named:source.veln",
+    ] {
         assert!(
             SourcePath::virtual_source(&SourcePath::new("main.veln"), identity).is_err(),
             "accepted noncanonical virtual identity {identity:?}"
