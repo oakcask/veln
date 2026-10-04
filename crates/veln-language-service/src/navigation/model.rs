@@ -1023,8 +1023,8 @@ pub(crate) struct SymbolIndex {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
-    function_indices_by_identity:
-        HashMap<(Option<String>, Option<PackageOrigin>, String, String), Vec<usize>>,
+    function_indices_by_identity: HashMap<FunctionIdentity, Vec<usize>>,
+    file_indices_by_identity: HashMap<IndexedFileIdentity, usize>,
     package_function_targets: Vec<PackageFunctionTarget>,
     package_type_targets: Vec<PackageTypeTarget>,
     package_constructor_targets: Vec<PackageConstructorTarget>,
@@ -1045,6 +1045,9 @@ pub(crate) struct SymbolIndex {
     schema_operation_lookup_index: SchemaOperationLookupIndex,
     function_rename_index: OnceLock<FunctionRenameIndex>,
 }
+
+type FunctionIdentity = (Option<String>, Option<PackageOrigin>, String, String);
+type IndexedFileIdentity = (Option<String>, Option<PackageOrigin>, String);
 
 #[derive(Debug)]
 struct FunctionRenameIndex {

@@ -136,6 +136,7 @@ impl SymbolIndex {
         );
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
+        let file_indices_by_identity = file_indices_by_identity(&files);
         Self {
             schemas: declarations.schemas,
             schema_aliases,
@@ -145,6 +146,7 @@ impl SymbolIndex {
             operations: declarations.operations,
             functions: declarations.functions,
             function_indices_by_identity,
+            file_indices_by_identity,
             package_function_targets: declarations.package_function_targets,
             package_type_targets: declarations.package_type_targets,
             package_constructor_targets: declarations.package_constructor_targets,
@@ -834,6 +836,33 @@ fn index_workspace_input(
     }
 }
 
+fn file_indices_by_identity(
+    files: &[IndexedFile],
+) -> HashMap<IndexedFileIdentity, usize> {
+    let mut indices = HashMap::new();
+    for (index, file) in files.iter().enumerate() {
+        let (package, origin) = match &file.origin {
+            IndexedOrigin::Workspace => (None, None),
+            IndexedOrigin::Package {
+                identity,
+                standard_library,
+                ..
+            } => (
+                Some(identity.clone()),
+                Some(if *standard_library {
+                    PackageOrigin::StandardLibrary
+                } else {
+                    PackageOrigin::DirectDependency
+                }),
+            ),
+        };
+        indices
+            .entry((package, origin, file.source.path().as_str().to_string()))
+            .or_insert(index);
+    }
+    indices
+}
+
 fn index_schema_navigation(
     files: &[IndexedFile],
     workspace_module: &veln_ast::SurfaceModule,
@@ -942,7 +971,7 @@ fn symbol_indices_by_name<T: NamedTypeSymbol>(symbols: &[T]) -> BTreeMap<String,
 
 fn function_indices_by_identity(
     functions: &[FunctionSymbol],
-) -> HashMap<(Option<String>, Option<PackageOrigin>, String, String), Vec<usize>> {
+) -> HashMap<FunctionIdentity, Vec<usize>> {
     let mut by_identity = HashMap::<_, Vec<usize>>::new();
     for (index, function) in functions.iter().enumerate() {
         by_identity

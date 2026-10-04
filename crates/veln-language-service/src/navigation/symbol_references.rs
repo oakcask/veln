@@ -552,29 +552,16 @@ impl SymbolIndex {
         let Some(target_module) = symbol.alias_target_module.as_deref() else {
             return Some(symbol.module.clone());
         };
-        let declaring_file = self.files.iter().find(|file| {
-            file.source.path() == &symbol.declaration.span.file
-                && match (&file.origin, symbol.package.as_deref(), symbol.package_origin) {
-                    (IndexedOrigin::Workspace, None, None) => true,
-                    (
-                        IndexedOrigin::Package {
-                            identity,
-                            standard_library,
-                            ..
-                        },
-                        Some(package),
-                        Some(origin),
-                    ) => {
-                        identity == package
-                            && if *standard_library {
-                                origin == PackageOrigin::StandardLibrary
-                            } else {
-                                origin == PackageOrigin::DirectDependency
-                            }
-                    }
-                    _ => false,
-                }
-        });
+        record_function_alias_declaring_file_lookup();
+        let key = (
+            symbol.package.clone(),
+            symbol.package_origin,
+            symbol.declaration.span.file.as_str().to_string(),
+        );
+        let declaring_file = self
+            .file_indices_by_identity
+            .get(&key)
+            .and_then(|index| self.files.get(*index));
         match declaring_file {
             None => None,
             Some(file) => {

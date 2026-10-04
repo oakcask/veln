@@ -130,6 +130,25 @@ thread_local! {
     static HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static FUNCTION_SCOPE_LOOKUP_COMPARISONS: Cell<usize> = const { Cell::new(0) };
     static FUNCTION_ALIAS_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_function_alias_declaring_file_lookup() {
+    FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS.set(FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_function_alias_declaring_file_lookup() {}
+
+#[cfg(test)]
+pub(crate) fn reset_function_alias_declaring_file_lookups() {
+    FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn function_alias_declaring_file_lookups() -> usize {
+    FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS.get()
 }
 
 #[cfg(test)]

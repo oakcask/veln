@@ -210,6 +210,24 @@ impl EffectiveProjectSnapshot {
     pub fn workspace_source(&self, path: &SourcePath) -> Option<&SourceFile> {
         self.sources.iter().find(|source| source.path() == path)
     }
+
+    fn source_texts_for_signature_index(&self) -> impl Iterator<Item = &str> {
+        self.sources
+            .iter()
+            .map(SourceFile::text)
+            .chain(
+                self.direct_dependencies
+                    .iter()
+                    .flat_map(|dependency| dependency.snapshot.sources())
+                    .filter_map(|source| std::str::from_utf8(source.bytes()).ok()),
+            )
+            .chain(
+                self.standard_library
+                    .iter()
+                    .flat_map(|dependency| dependency.snapshot.sources())
+                    .filter_map(|source| std::str::from_utf8(source.bytes()).ok()),
+            )
+    }
 }
 
 #[derive(Clone, Debug)]

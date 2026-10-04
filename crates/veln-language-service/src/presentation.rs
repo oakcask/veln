@@ -43,6 +43,7 @@ thread_local! {
     static SIGNATURE_INDEX_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_HEADER_PARSES: Cell<usize> = const { Cell::new(0) };
+    static SIGNATURE_NAME_LOOKUPS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -50,6 +51,7 @@ fn reset_signature_help_work() {
     SIGNATURE_INDEX_TOKEN_VISITS.set(0);
     SIGNATURE_CANDIDATE_VISITS.set(0);
     SIGNATURE_HEADER_PARSES.set(0);
+    SIGNATURE_NAME_LOOKUPS.set(0);
 }
 
 #[cfg(test)]
@@ -84,6 +86,19 @@ fn record_signature_header_parse() {
 
 #[cfg(not(test))]
 fn record_signature_header_parse() {}
+
+#[cfg(test)]
+fn record_signature_name_lookup() {
+    SIGNATURE_NAME_LOOKUPS.set(SIGNATURE_NAME_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_signature_name_lookup() {}
+
+#[cfg(test)]
+fn signature_name_lookups() -> usize {
+    SIGNATURE_NAME_LOOKUPS.get()
+}
 
 pub fn completion_at(
     snapshot: &EffectiveProjectSnapshot,
@@ -210,6 +225,7 @@ pub fn signature_help_at(
     record_signature_index_token_visits(tokens.tokens.len());
     let shadow_index = SignatureShadowIndex::new(&tokens.tokens);
     let local_signatures = local_signature_declarations(source, &significant);
+    let function_names = signature_function_names(snapshot);
     let mut open = Vec::new();
     for (significant_index, (_, token)) in significant.iter().enumerate() {
         if token.range.start >= offset {
@@ -251,6 +267,10 @@ pub fn signature_help_at(
             let active_parameter = active_parameter(&significant, open_index, offset);
             return Some(signature_help(&function, active_parameter));
         }
+        record_signature_name_lookup();
+        if !function_names.contains(&callee.text) {
+            continue;
+        }
         let Some((selection, definition)) = function_signature_definition_at(
             snapshot,
             &SourcePosition {
@@ -287,6 +307,35 @@ pub fn signature_help_at(
         return Some(signature_help(&function, active_parameter));
     }
     None
+}
+
+fn signature_function_names(snapshot: &EffectiveProjectSnapshot) -> HashSet<String> {
+    snapshot
+        .source_texts_for_signature_index()
+        .flat_map(|text| {
+            let tokens = lex(&SourceFile::new("signature-index.veln", text)).tokens;
+            let significant = tokens
+                .iter()
+                .filter(|token| {
+                    !matches!(
+                        token.kind,
+                        TokenKind::Whitespace
+                            | TokenKind::Newline
+                            | TokenKind::Comment
+                            | TokenKind::Eof
+                    )
+                })
+                .collect::<Vec<_>>();
+            significant
+                .windows(2)
+                .filter(|pair| {
+                    matches!(pair[0].kind, TokenKind::Fn | TokenKind::Test)
+                        && pair[1].kind == TokenKind::Ident
+                })
+                .map(|pair| pair[1].text.clone())
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }
 
 fn local_signature_declarations(
@@ -983,6 +1032,64 @@ mod tests {
         assert_eq!(larger.2, 1);
     }
 
+    fn undefined_callee_work(depth: usize) -> ((usize, usize, usize), usize, std::time::Duration) {
+        let mut source = String::from(concat!(
+            "fn located(value: Int) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn caller() -> SourceLocation\n",
+            "  located("
+        ));
+        for index in 0..depth {
+            source.push_str(&format!("missing_{index}("));
+        }
+        let column = source.lines().last().expect("call line").chars().count() + 1;
+        let snapshot = snapshot(&source);
+        reset_signature_help_work();
+        let started = std::time::Instant::now();
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 5,
+                column,
+            },
+        )
+        .expect("outer local signature help");
+
+        assert_eq!(
+            help.label,
+            "fn located(value: Int) -> SourceLocation callsite"
+        );
+        assert!(!snapshot.navigation_index_is_prepared());
+        (
+            signature_help_work(),
+            signature_name_lookups(),
+            started.elapsed(),
+        )
+    }
+
+    #[test]
+    fn undefined_callees_use_a_parse_free_linear_name_index() {
+        let smaller = undefined_callee_work(5_000);
+        let larger = undefined_callee_work(10_000);
+        eprintln!(
+            "undefined callee signature help: 5000={:?}, 10000={:?}",
+            smaller.2, larger.2
+        );
+
+        assert!(
+            larger.0.0 <= smaller.0.0 * 2,
+            "signature index token visits grew too quickly: {smaller:?} -> {larger:?}"
+        );
+        assert_eq!(larger.0.1, smaller.0.1 * 2 - 1);
+        assert_eq!(smaller.0.2, 1);
+        assert_eq!(larger.0.2, 1);
+        assert_eq!(smaller.1, 5_000);
+        assert_eq!(larger.1, 10_000);
+    }
+
     fn alias_target_lookups(alias_count: usize) -> usize {
         let mut source = String::from(
             "pub fn located(message: String) -> SourceLocation callsite\n  callsite\nend\n",
@@ -1013,5 +1120,76 @@ mod tests {
     fn function_alias_resolution_uses_one_index_lookup_per_hop() {
         assert_eq!(alias_target_lookups(128), 128);
         assert_eq!(alias_target_lookups(256), 256);
+    }
+
+    fn qualified_alias_chain_work(alias_count: usize, filler_count: usize) -> (usize, usize) {
+        let mut sources = vec![SourceFile::new(
+            "target.veln",
+            concat!(
+                "pub fn located(message: String) -> SourceLocation callsite\n",
+                "  callsite\n",
+                "end\n",
+            ),
+        )];
+        for index in 0..alias_count {
+            let target_module = if index == 0 {
+                "target".to_string()
+            } else {
+                format!("alias_{}", index - 1)
+            };
+            let target_name = if index == 0 {
+                "located".to_string()
+            } else {
+                format!("alias_{}", index - 1)
+            };
+            sources.push(SourceFile::new(
+                format!("alias_{index}.veln"),
+                format!(
+                    "use {target_module}\npub fn alias_{index} = {target_module}::{target_name}\n"
+                ),
+            ));
+        }
+        for index in 0..filler_count {
+            sources.push(SourceFile::new(
+                format!("filler_{index}.veln"),
+                format!("pub fn filler_{index}() -> Int\n  {index}\nend\n"),
+            ));
+        }
+        let final_alias = format!("alias_{}", alias_count - 1);
+        let main = format!(
+            "use {final_alias}\nfn caller() -> SourceLocation\n  {final_alias}::{final_alias}(\"hello\")\nend\n"
+        );
+        let column = main.lines().nth(2).expect("call line").chars().count();
+        sources.push(SourceFile::new("main.veln", main));
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+        crate::navigation::reset_function_alias_target_lookups();
+        crate::navigation::reset_function_alias_declaring_file_lookups();
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 3,
+                column,
+            },
+        )
+        .expect("qualified alias signature help");
+
+        assert_eq!(
+            help.label,
+            "fn located(message: String) -> SourceLocation callsite"
+        );
+        (
+            crate::navigation::function_alias_target_lookups(),
+            crate::navigation::function_alias_declaring_file_lookups(),
+        )
+    }
+
+    #[test]
+    fn qualified_alias_resolution_indexes_each_declaring_file() {
+        assert_eq!(qualified_alias_chain_work(64, 64), (64, 64));
+        assert_eq!(qualified_alias_chain_work(128, 64), (128, 128));
+        assert_eq!(qualified_alias_chain_work(64, 128), (64, 64));
+        assert_eq!(qualified_alias_chain_work(128, 128), (128, 128));
     }
 }
