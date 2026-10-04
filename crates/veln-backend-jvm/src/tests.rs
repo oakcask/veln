@@ -45,7 +45,7 @@ fn lower_to_ir(text: &str) -> TypedProgram {
 }
 
 fn lower_source_to_ir(source: &SourceFile) -> TypedProgram {
-    let parsed = parse(&source);
+    let parsed = parse(source);
     assert!(
         parsed.diagnostics.is_empty(),
         "parse diagnostics: {:#?}",
