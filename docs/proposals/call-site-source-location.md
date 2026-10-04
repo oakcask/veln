@@ -31,7 +31,7 @@ Moving a package to another machine must not change an exposed file value.
 
 | Case | Source form | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| S7 | Equivalent packages under two absolute roots contain dependencies with the same package-relative source path. | Exposed `file` values are package-relative or canonical virtual paths, all fields contain neither root and remain identical after relocation, and `package` plus `module` disambiguate the dependency sources. | Relocation and dependency-collision test. |
+| S7 | Equivalent packages under two absolute roots contain dependencies with the same package-relative source path and generated sources with the same logical virtual-source identity. | Exposed `file` values are package-relative or canonical virtual paths, all fields contain neither root and remain identical after relocation, and `package` plus `module` disambiguate the dependency sources. | Relocation, dependency-collision, and virtual-source naming tests. |
 | S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
 
 ## Verification and Promotion
