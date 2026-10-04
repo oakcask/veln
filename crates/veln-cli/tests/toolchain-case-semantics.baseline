@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"8c20cc9e8f8f68068576ea08255896c0658232ba"
+source_git_tree	"029528587e6b5f5377b7ea28e6ed1d4137e85a04"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1759
@@ -13422,10 +13422,34 @@ field	expectations.lsp_assertions[16].equals	null
 field	expectations.lsp_assertions[16].id	19
 field	expectations.lsp_assertions[16].operation	"equals"
 field	expectations.lsp_assertions[16].path	"/result"
+field	expectations.lsp_assertions[17].equals	[0,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,5,2,2,1,0,3,7,0,1,0,2,7,0,0,3,6,6,1,0,6,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,8,6,0,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,0,3,7,0]
+field	expectations.lsp_assertions[17].id	20
+field	expectations.lsp_assertions[17].operation	"equals"
+field	expectations.lsp_assertions[17].path	"/result/data"
+field	expectations.lsp_assertions[18].equals	null
+field	expectations.lsp_assertions[18].id	21
+field	expectations.lsp_assertions[18].operation	"equals"
+field	expectations.lsp_assertions[18].path	"/result"
+field	expectations.lsp_assertions[19].equals	[]
+field	expectations.lsp_assertions[19].id	22
+field	expectations.lsp_assertions[19].operation	"equals"
+field	expectations.lsp_assertions[19].path	"/result"
 field	expectations.lsp_assertions[1].equals	["declaration","readonly","defaultLibrary","test","result","hole"]
 field	expectations.lsp_assertions[1].id	1
 field	expectations.lsp_assertions[1].operation	"equals"
 field	expectations.lsp_assertions[1].path	"/result/capabilities/semanticTokensProvider/legend/tokenModifiers"
+field	expectations.lsp_assertions[20].equals	[]
+field	expectations.lsp_assertions[20].id	23
+field	expectations.lsp_assertions[20].operation	"equals"
+field	expectations.lsp_assertions[20].path	"/result"
+field	expectations.lsp_assertions[21].equals	{"label":"fn effectful(value: Int) -> SourceLocation effects [stdio] callsite","parameters":[{"label":"value: Int"}]}
+field	expectations.lsp_assertions[21].id	24
+field	expectations.lsp_assertions[21].operation	"equals"
+field	expectations.lsp_assertions[21].path	"/result/signatures/0"
+field	expectations.lsp_assertions[22].equals	[0,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,5,2,2,1,0,3,7,0,2,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,1,1,8,3,2,1,1,8,3,2,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,0,3,7,0]
+field	expectations.lsp_assertions[22].id	25
+field	expectations.lsp_assertions[22].operation	"equals"
+field	expectations.lsp_assertions[22].path	"/result/data"
 field	expectations.lsp_assertions[2].equals	[0,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,7,2,3,0,7,1,11,0,0,2,6,1,0,0,6,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,2,1,8,3,2,1,0,3,7,0,2,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,1,10,0,1,0,3,7,0,2,0,2,7,0,0,3,6,6,1,0,6,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,1,1,7,6,0,0,7,1,11,0,0,1,7,9,0,0,7,1,11,0,1,0,3,7,0,2,0,2,7,0,0,3,5,6,1,0,5,1,11,0,0,1,8,2,3,0,8,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,8,2,2,1,0,3,7,0]
 field	expectations.lsp_assertions[2].id	6
 field	expectations.lsp_assertions[2].operation	"equals"
@@ -13468,10 +13492,10 @@ field	expectations.stdout.contains[5]	"fn located(message: String) -> SourceLoca
 field	expectations.stdout.contains[6]	"\"parameters\":[{\"label\":\"message: String\"}]"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4093,"sha256":"ac543bd0a7f962da0ce53a25ebe6c5cb08481ffaa775c3554d3b61034970af3f"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":5418,"sha256":"9127c4760f4df8385ec07979338c67ea1f5c8c9ad1e22d7f71ab3fc58348625c"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"5dcfdc73bc9513d40b0cd337c92084c213cc7c058d6bb9e91394d39904a1b1b3"
+case_digest	"1df2f8ffc3405a546e25338f9966ef877ec0df7cbdef1eb6866a7400e56f6c82"
 case	"examples/specification/lsp/cleanup-region-navigation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	{"end":{"character":14,"line":7},"start":{"character":6,"line":7}}
@@ -18152,6 +18176,22 @@ field	expectations.mcp_assertions[30].equals	null
 field	expectations.mcp_assertions[30].id	23
 field	expectations.mcp_assertions[30].operation	"equals"
 field	expectations.mcp_assertions[30].path	"/result/structuredContent/signature"
+field	expectations.mcp_assertions[31].equals	null
+field	expectations.mcp_assertions[31].id	24
+field	expectations.mcp_assertions[31].operation	"equals"
+field	expectations.mcp_assertions[31].path	"/result/structuredContent/signature"
+field	expectations.mcp_assertions[32].equals	[]
+field	expectations.mcp_assertions[32].id	25
+field	expectations.mcp_assertions[32].operation	"equals"
+field	expectations.mcp_assertions[32].path	"/result/structuredContent/items"
+field	expectations.mcp_assertions[33].equals	[]
+field	expectations.mcp_assertions[33].id	26
+field	expectations.mcp_assertions[33].operation	"equals"
+field	expectations.mcp_assertions[33].path	"/result/structuredContent/items"
+field	expectations.mcp_assertions[34].equals	{"activeParameter":0,"label":"fn effectful(value: Int) -> SourceLocation effects [stdio] callsite","parameters":["value: Int"]}
+field	expectations.mcp_assertions[34].id	27
+field	expectations.mcp_assertions[34].operation	"equals"
+field	expectations.mcp_assertions[34].path	"/result/structuredContent/signature"
 field	expectations.mcp_assertions[3].equals	"builtin_local"
 field	expectations.mcp_assertions[3].id	3
 field	expectations.mcp_assertions[3].operation	"equals"
@@ -18183,13 +18223,13 @@ field	expectations.mcp_assertions[9].path	"/result/structuredContent/signature/a
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3161,"sha256":"732efc5ace69215dc66b90a70722d39ee2d418a13f01b5bce28b99c400aaca67"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3749,"sha256":"738647f5ed55ccd4679a89c3143f830906d9cb9a8d773b9ae40aef23429d0a17"}
 field	source_errors	"expected"
-case_digest	"1351f4ebfea709dbc00ea29f9de0c04c972b37157d4349d66e8e58d3b2500931"
+case_digest	"de1ccf3ef630f84abd6f933c0c6209fb73383a3883508d7cbe932c4b2b106470"
 case	"examples/specification/mcp/check-project-diagnostics"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
-field	expectations.mcp_assertions[0].length	9
+field	expectations.mcp_assertions[0].length	11
 field	expectations.mcp_assertions[0].operation	"length"
 field	expectations.mcp_assertions[0].path	"/result/tools"
 field	expectations.mcp_assertions[1].equals_json_file	{"analysis":{"generation":0,"mode":"project","project":".","project_wide":true},"diagnostics":[{"details":{"expected":["0 or 1"],"node_id":null,"parser_context":"integer_literal","phase":"parse","recovery":{"anchor":null,"dropped_token_count":1,"strategy":"skip_token"},"unexpected":{"kind":"malformed integer","text":"0b102"}},"id":"parse.integer_literal","kind":"parse","message":"`2` is not a valid binary integer digit","related":[{"message":"Accepted integer form: 0 or 1."}],"severity":"error","span":{"end":{"column":8,"line":2,"offset":24},"file":"main.veln","start":{"column":7,"line":2,"offset":23}}}],"schema_version":1,"summary":{"by_kind":{"parse":1},"by_severity":{"error":1},"diagnostic_count":1}}
@@ -18210,7 +18250,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":318,"sha256":"893d220f3ec22d12285e3a02a2278d6676701c615560c184d09770f0921613ae"}
 field	source_errors	"forbidden"
-case_digest	"3d76666b3e6cfbac66a03eaf8a6fb61f98f191f1a4f8e611cb01f18f2647ff3f"
+case_digest	"9e953feee00dd1f501eab187c7cc74ab78b263f326295fe423f49a9c06221090"
 case	"examples/specification/mcp/cleanup-region-navigation"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	{"end":{"column":15,"line":8},"start":{"column":7,"line":8}}
@@ -18978,45 +19018,45 @@ field	expectations.mcp_assertions[1].id	2
 field	expectations.mcp_assertions[1].operation	"equals"
 field	expectations.mcp_assertions[1].path	"/result/resources/0/uri"
 field	expectations.mcp_assertions[20].id	8
-field	expectations.mcp_assertions[20].length	9
+field	expectations.mcp_assertions[20].length	11
 field	expectations.mcp_assertions[20].operation	"length"
 field	expectations.mcp_assertions[20].path	"/result/tools"
 field	expectations.mcp_assertions[21].equals	"rename"
 field	expectations.mcp_assertions[21].id	8
 field	expectations.mcp_assertions[21].operation	"equals"
-field	expectations.mcp_assertions[21].path	"/result/tools/5/name"
+field	expectations.mcp_assertions[21].path	"/result/tools/7/name"
 field	expectations.mcp_assertions[22].equals	false
 field	expectations.mcp_assertions[22].id	8
 field	expectations.mcp_assertions[22].operation	"equals"
-field	expectations.mcp_assertions[22].path	"/result/tools/5/inputSchema/additionalProperties"
+field	expectations.mcp_assertions[22].path	"/result/tools/7/inputSchema/additionalProperties"
 field	expectations.mcp_assertions[23].equals	["source","line","column","new_name"]
 field	expectations.mcp_assertions[23].id	8
 field	expectations.mcp_assertions[23].operation	"equals"
-field	expectations.mcp_assertions[23].path	"/result/tools/5/inputSchema/required"
+field	expectations.mcp_assertions[23].path	"/result/tools/7/inputSchema/required"
 field	expectations.mcp_assertions[24].equals	256
 field	expectations.mcp_assertions[24].id	8
 field	expectations.mcp_assertions[24].operation	"equals"
-field	expectations.mcp_assertions[24].path	"/result/tools/5/inputSchema/properties/new_name/maxLength"
+field	expectations.mcp_assertions[24].path	"/result/tools/7/inputSchema/properties/new_name/maxLength"
 field	expectations.mcp_assertions[25].equals	false
 field	expectations.mcp_assertions[25].id	8
 field	expectations.mcp_assertions[25].operation	"equals"
-field	expectations.mcp_assertions[25].path	"/result/tools/5/outputSchema/oneOf/0/additionalProperties"
+field	expectations.mcp_assertions[25].path	"/result/tools/7/outputSchema/oneOf/0/additionalProperties"
 field	expectations.mcp_assertions[26].equals	false
 field	expectations.mcp_assertions[26].id	8
 field	expectations.mcp_assertions[26].operation	"equals"
-field	expectations.mcp_assertions[26].path	"/result/tools/5/outputSchema/$defs/edit/additionalProperties"
+field	expectations.mcp_assertions[26].path	"/result/tools/7/outputSchema/$defs/edit/additionalProperties"
 field	expectations.mcp_assertions[27].equals	"list_language_topics"
 field	expectations.mcp_assertions[27].id	8
 field	expectations.mcp_assertions[27].operation	"equals"
-field	expectations.mcp_assertions[27].path	"/result/tools/6/name"
+field	expectations.mcp_assertions[27].path	"/result/tools/8/name"
 field	expectations.mcp_assertions[28].equals	false
 field	expectations.mcp_assertions[28].id	8
 field	expectations.mcp_assertions[28].operation	"equals"
-field	expectations.mcp_assertions[28].path	"/result/tools/6/inputSchema/additionalProperties"
+field	expectations.mcp_assertions[28].path	"/result/tools/8/inputSchema/additionalProperties"
 field	expectations.mcp_assertions[29].equals	["uri","title","summary"]
 field	expectations.mcp_assertions[29].id	8
 field	expectations.mcp_assertions[29].operation	"equals"
-field	expectations.mcp_assertions[29].path	"/result/tools/6/outputSchema/properties/topics/items/required"
+field	expectations.mcp_assertions[29].path	"/result/tools/8/outputSchema/properties/topics/items/required"
 field	expectations.mcp_assertions[2].equals	"language-index"
 field	expectations.mcp_assertions[2].id	2
 field	expectations.mcp_assertions[2].operation	"equals"
@@ -19024,23 +19064,23 @@ field	expectations.mcp_assertions[2].path	"/result/resources/0/name"
 field	expectations.mcp_assertions[30].equals	"search_docs"
 field	expectations.mcp_assertions[30].id	8
 field	expectations.mcp_assertions[30].operation	"equals"
-field	expectations.mcp_assertions[30].path	"/result/tools/7/name"
+field	expectations.mcp_assertions[30].path	"/result/tools/9/name"
 field	expectations.mcp_assertions[31].equals	256
 field	expectations.mcp_assertions[31].id	8
 field	expectations.mcp_assertions[31].operation	"equals"
-field	expectations.mcp_assertions[31].path	"/result/tools/7/inputSchema/properties/query/maxLength"
+field	expectations.mcp_assertions[31].path	"/result/tools/9/inputSchema/properties/query/maxLength"
 field	expectations.mcp_assertions[32].equals	50
 field	expectations.mcp_assertions[32].id	8
 field	expectations.mcp_assertions[32].operation	"equals"
-field	expectations.mcp_assertions[32].path	"/result/tools/7/inputSchema/properties/limit/maximum"
+field	expectations.mcp_assertions[32].path	"/result/tools/9/inputSchema/properties/limit/maximum"
 field	expectations.mcp_assertions[33].equals	"read_doc"
 field	expectations.mcp_assertions[33].id	8
 field	expectations.mcp_assertions[33].operation	"equals"
-field	expectations.mcp_assertions[33].path	"/result/tools/8/name"
+field	expectations.mcp_assertions[33].path	"/result/tools/10/name"
 field	expectations.mcp_assertions[34].equals	"resource_not_found"
 field	expectations.mcp_assertions[34].id	8
 field	expectations.mcp_assertions[34].operation	"equals"
-field	expectations.mcp_assertions[34].path	"/result/tools/8/outputSchema/$defs/failure/properties/code/const"
+field	expectations.mcp_assertions[34].path	"/result/tools/10/outputSchema/$defs/failure/properties/code/const"
 field	expectations.mcp_assertions[35].equals	false
 field	expectations.mcp_assertions[35].id	9
 field	expectations.mcp_assertions[35].operation	"equals"
@@ -19332,7 +19372,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"e85aa888145c8b3f1fb077096b665c1bc9d3c276f096c5c687fa2c0810f8a4e3"}
 field	source_errors	"forbidden"
-case_digest	"40e20e318c8730edbc6af7458f5f5a1a7ad99404fb244db01a0d41e379a4425c"
+case_digest	"ddb784e9af9243e4f6f69a29e5d4e46acd2c44163745648b28bce864ab7b7ae9"
 case	"examples/specification/mcp/references-dependency-function"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -23665,7 +23705,7 @@ field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	"rename"
 field	expectations.mcp_assertions[0].id	2
 field	expectations.mcp_assertions[0].operation	"equals"
-field	expectations.mcp_assertions[0].path	"/result/tools/5/name"
+field	expectations.mcp_assertions[0].path	"/result/tools/7/name"
 field	expectations.mcp_assertions[10].id	3
 field	expectations.mcp_assertions[10].operation	"workspace_file_uri"
 field	expectations.mcp_assertions[10].path	"/result/structuredContent/edits/2/uri"
@@ -23708,7 +23748,7 @@ field	expectations.mcp_assertions[19].path	"/error/code"
 field	expectations.mcp_assertions[1].equals_json_file	{"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"column":{"minimum":1,"type":"integer"},"line":{"minimum":1,"type":"integer"},"new_name":{"maxLength":256,"minLength":1,"type":"string"},"source":{"type":"string"}},"required":["source","line","column","new_name"],"type":"object"}
 field	expectations.mcp_assertions[1].id	2
 field	expectations.mcp_assertions[1].operation	"equals_json_file"
-field	expectations.mcp_assertions[1].path	"/result/tools/5/inputSchema"
+field	expectations.mcp_assertions[1].path	"/result/tools/7/inputSchema"
 field	expectations.mcp_assertions[20].equals	{"end":{"column":10,"line":1},"start":{"column":4,"line":1}}
 field	expectations.mcp_assertions[20].id	7
 field	expectations.mcp_assertions[20].operation	"equals"
@@ -23752,7 +23792,7 @@ field	expectations.mcp_assertions[29].path	"/result/structuredContent/details/af
 field	expectations.mcp_assertions[2].equals_json_file	{"$defs":{"conflict_details":{"additionalProperties":false,"properties":{"affected_scope":{"oneOf":[{"$ref":"#/$defs/module_scope"},{"$ref":"#/$defs/lexical_scope"}]},"conflicting_declaration":{"$ref":"#/$defs/location"},"requested_name":{"type":"string"},"symbol_class":{"enum":["type","constructor","function","value_binding"]}},"required":["symbol_class","requested_name","conflicting_declaration","affected_scope"],"type":"object"},"edit":{"additionalProperties":false,"properties":{"new_text":{"type":"string"},"range":{"$ref":"#/$defs/range"},"uri":{"type":"string"}},"required":["uri","range","new_text"],"type":"object"},"empty_details":{"additionalProperties":false,"properties":{},"type":"object"},"invalid_case_details":{"additionalProperties":false,"properties":{"requested_name":{"type":"string"},"required_initial":{"enum":["ascii_uppercase","ascii_lowercase"]},"symbol_class":{"enum":["type","constructor","function","value_binding"]}},"required":["symbol_class","requested_name","required_initial"],"type":"object"},"invalid_name_details":{"additionalProperties":false,"properties":{"requested_name":{"type":"string"}},"required":["requested_name"],"type":"object"},"lexical_scope":{"additionalProperties":false,"properties":{"end_offset":{"minimum":0,"type":"integer"},"file":{"type":"string"},"kind":{"const":"lexical"},"start_offset":{"minimum":0,"type":"integer"}},"required":["kind","file","start_offset","end_offset"],"type":"object"},"location":{"additionalProperties":false,"properties":{"range":{"$ref":"#/$defs/range"},"uri":{"type":"string"}},"required":["uri","range"],"type":"object"},"module_scope":{"additionalProperties":false,"properties":{"kind":{"const":"module"},"name":{"type":"string"}},"required":["kind","name"],"type":"object"},"position":{"additionalProperties":false,"properties":{"column":{"minimum":1,"type":"integer"},"line":{"minimum":1,"type":"integer"}},"required":["line","column"],"type":"object"},"position_details":{"additionalProperties":false,"properties":{"column":{"type":"integer"},"line":{"type":"integer"},"source":{"type":"string"}},"required":["source","line","column"],"type":"object"},"range":{"additionalProperties":false,"properties":{"end":{"$ref":"#/$defs/position"},"start":{"$ref":"#/$defs/position"}},"required":["start","end"],"type":"object"}},"$schema":"https://json-schema.org/draft/2020-12/schema","oneOf":[{"additionalProperties":false,"properties":{"edits":{"items":{"$ref":"#/$defs/edit"},"type":"array"}},"required":["edits"],"type":"object"},{"additionalProperties":false,"properties":{"code":{"const":"rename.invalid_name"},"details":{"$ref":"#/$defs/invalid_name_details"},"message":{"type":"string"}},"required":["code","message","details"],"type":"object"},{"additionalProperties":false,"properties":{"code":{"const":"rename.invalid_case"},"details":{"$ref":"#/$defs/invalid_case_details"},"message":{"type":"string"}},"required":["code","message","details"],"type":"object"},{"additionalProperties":false,"properties":{"code":{"const":"rename.conflict"},"details":{"$ref":"#/$defs/conflict_details"},"message":{"type":"string"}},"required":["code","message","details"],"type":"object"},{"additionalProperties":false,"properties":{"code":{"const":"invalid_position"},"details":{"$ref":"#/$defs/position_details"},"message":{"type":"string"}},"required":["code","message","details"],"type":"object"},{"additionalProperties":false,"properties":{"code":{"enum":["invalid_path","snapshot_changed"]},"details":{"$ref":"#/$defs/empty_details"},"message":{"type":"string"}},"required":["code","message","details"],"type":"object"}],"type":"object"}
 field	expectations.mcp_assertions[2].id	2
 field	expectations.mcp_assertions[2].operation	"equals_json_file"
-field	expectations.mcp_assertions[2].path	"/result/tools/5/outputSchema"
+field	expectations.mcp_assertions[2].path	"/result/tools/7/outputSchema"
 field	expectations.mcp_assertions[30].equals	"rename.conflict"
 field	expectations.mcp_assertions[30].id	12
 field	expectations.mcp_assertions[30].operation	"equals"
@@ -23854,7 +23894,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3399,"sha256":"3c7dff5221ecb73507e9b8daab61a7b5b9f874f02a6d385bc76c75d1753c617e"}
 field	source_errors	"forbidden"
-case_digest	"a436a03159ab50c78ade29d1c3e8359f260b7f4ac628d1cd06870bb624def5f1"
+case_digest	"f370aa555dc60e7a67002c06de11cb4b869742555924659c60301c431fdbd78c"
 case	"examples/specification/mcp/rename-supported-symbol-classes"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -24452,7 +24492,7 @@ field	expectations.mcp_assertions[0].id	0
 field	expectations.mcp_assertions[0].operation	"equals"
 field	expectations.mcp_assertions[0].path	"/error"
 field	expectations.mcp_assertions[1].id	2
-field	expectations.mcp_assertions[1].length	9
+field	expectations.mcp_assertions[1].length	11
 field	expectations.mcp_assertions[1].operation	"length"
 field	expectations.mcp_assertions[1].path	"/result/tools"
 field	expectations.mcp_assertions[2].equals	{"generation":0,"roots":["alpha","beta/deep"]}
@@ -24492,7 +24532,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1271,"sha256":"d4b5ae6c6ec29e1f1135dc327f430eeed0cd256ea337fd77a8670777be975ce6"}
 field	source_errors	"forbidden"
-case_digest	"bd29b5e45e3c8060d523cd8697b33f8518468fe3b9b47419ddb62b203d4527ee"
+case_digest	"df7f086cf3a5d9647a575b77a19eeb10c1984abcb20c27b96445da7be8b1866e"
 case	"examples/specification/metrics/abc-constructs"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	7
@@ -63573,4 +63613,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ad2bfff91254de15de27bf6ef44f4231703ee9ac5df35e28352fae4f4a6745fb"
+aggregate_digest	"b36efb0303b0fac3d88ac65610071b223c82899fb8afb3eb8b5558f3ef643e9e"
