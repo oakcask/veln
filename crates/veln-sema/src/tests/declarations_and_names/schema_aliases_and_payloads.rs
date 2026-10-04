@@ -1,5 +1,63 @@
 use super::*;
 
+fn lower_app_with_wire_payloads(app_source: &SourceFile) -> SurfaceModule {
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "schema PrivatePayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+            "\n",
+            "pub type WireShape\n",
+            "  WireShape(Int)\n",
+            "end\n",
+            "\n",
+            "pub schema PublicPayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+            "\n",
+            "pub schema TextPayload\n",
+            "  code: Int\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let mut schemas = app.schemas;
+    schemas.extend(wire.schemas);
+
+    SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: [app.types, wire.types].concat(),
+        schemas,
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    }
+}
+
+fn assert_schema_diagnostics(diagnostics: &[Diagnostic], id: &str, expected: &[(&str, &str)]) {
+    for (reason, message) in expected {
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == id
+                    && diagnostic.message == *message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{diagnostics:#?}"
+        );
+    }
+}
+
 #[test]
 fn public_schema_aliases_reject_unresolved_private_and_wrong_kind_targets() {
     let facade_source = SourceFile::new(
@@ -193,97 +251,52 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
             "end\n",
         ),
     );
-    let wire_source = SourceFile::new(
-        "wire.veln",
-        concat!(
-            "mod wire\n",
-            "schema PrivatePayload\n",
-            "  format binary\n",
-            "  code: UInt8\n",
-            "end\n",
-            "\n",
-            "pub type WireShape\n",
-            "  WireShape(Int)\n",
-            "end\n",
-            "\n",
-            "pub schema PublicPayload\n",
-            "  format binary\n",
-            "  code: UInt8\n",
-            "end\n",
-            "\n",
-            "pub schema TextPayload\n",
-            "  code: Int\n",
-            "end\n",
-        ),
-    );
-    let app = lower_surface_ast(&parse(&app_source).tree);
-    let wire = lower_surface_ast(&parse(&wire_source).tree);
-    let mut schemas = app.schemas;
-    schemas.extend(wire.schemas);
-    let module = SurfaceModule {
-        module: app.module,
-        uses: app.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        types: [app.types, wire.types].concat(),
-        schemas,
-        functions: Vec::new(),
-        invalid_names: Vec::new(),
-    };
+    let module = lower_app_with_wire_payloads(&app_source);
 
     let diagnostics = analyze_surface_module(&module);
 
-    for (reason, message) in [
-        (
-            "unknown_payload_schema",
-            "dispatch payload schema `MissingPayload` is not declared",
-        ),
-        (
-            "non_schema_payload",
-            "dispatch payload `Shape` resolves to a type, not a schema",
-        ),
-        (
-            "private_imported_payload_schema",
-            "imported dispatch payload schema `wire::PrivatePayload` is private",
-        ),
-        (
-            "unknown_payload_schema",
-            "dispatch payload schema `wire::MissingPayload` is not declared",
-        ),
-        (
-            "non_schema_payload",
-            "dispatch payload `wire::WireShape` resolves to a type, not a schema",
-        ),
-        (
-            "non_binary_payload_schema",
-            "dispatch payload schema `wire::TextPayload` must use `format binary`",
-        ),
-        (
-            "recursive_payload_missing_length_bound",
-            "dispatch payload schema `SelfPacket` requires parent dispatch field `payload` to include a length field",
-        ),
-        (
-            "forward_payload_schema",
-            "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`",
-        ),
-        (
-            "incompatible_payload_type",
-            "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`",
-        ),
-    ] {
-        assert!(
-            diagnostics.iter().any(|diagnostic| {
-                diagnostic.id == "schema.dispatch_payload"
-                    && diagnostic.message == message
-                    && diagnostic
-                        .details
-                        .to_json()
-                        .contains(&format!("\"reason\":\"{reason}\""))
-            }),
-            "{diagnostics:#?}"
-        );
-    }
+    assert_schema_diagnostics(
+        &diagnostics,
+        "schema.dispatch_payload",
+        &[
+            (
+                "unknown_payload_schema",
+                "dispatch payload schema `MissingPayload` is not declared",
+            ),
+            (
+                "non_schema_payload",
+                "dispatch payload `Shape` resolves to a type, not a schema",
+            ),
+            (
+                "private_imported_payload_schema",
+                "imported dispatch payload schema `wire::PrivatePayload` is private",
+            ),
+            (
+                "unknown_payload_schema",
+                "dispatch payload schema `wire::MissingPayload` is not declared",
+            ),
+            (
+                "non_schema_payload",
+                "dispatch payload `wire::WireShape` resolves to a type, not a schema",
+            ),
+            (
+                "non_binary_payload_schema",
+                "dispatch payload schema `wire::TextPayload` must use `format binary`",
+            ),
+            (
+                "recursive_payload_missing_length_bound",
+                "dispatch payload schema `SelfPacket` requires parent dispatch field `payload` to include a length field",
+            ),
+            (
+                "forward_payload_schema",
+                "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`",
+            ),
+            (
+                "incompatible_payload_type",
+                "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`",
+            ),
+        ],
+    );
     assert!(
         diagnostics.iter().all(|diagnostic| {
             diagnostic.id != "schema.dispatch_payload"
@@ -473,120 +486,67 @@ fn repeat_payload_schema_references_report_resolution_diagnostics() {
             "end\n",
         ),
     );
-    let wire_source = SourceFile::new(
-        "wire.veln",
-        concat!(
-            "mod wire\n",
-            "schema PrivatePayload\n",
-            "  format binary\n",
-            "  code: UInt8\n",
-            "end\n",
-            "\n",
-            "pub type WireShape\n",
-            "  WireShape(Int)\n",
-            "end\n",
-            "\n",
-            "pub schema PublicPayload\n",
-            "  format binary\n",
-            "  code: UInt8\n",
-            "end\n",
-            "\n",
-            "pub schema TextPayload\n",
-            "  code: Int\n",
-            "end\n",
-        ),
-    );
-    let app = lower_surface_ast(&parse(&app_source).tree);
-    let wire = lower_surface_ast(&parse(&wire_source).tree);
-    let mut schemas = app.schemas;
-    schemas.extend(wire.schemas);
-    let module = SurfaceModule {
-        module: app.module,
-        uses: app.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        types: [app.types, wire.types].concat(),
-        schemas,
-        functions: Vec::new(),
-        invalid_names: Vec::new(),
-    };
+    let module = lower_app_with_wire_payloads(&app_source);
 
     let diagnostics = analyze_surface_module(&module);
 
-    for (reason, message) in [
-        (
-            "unknown_field_reference",
-            "repeat count field `count` must be an earlier decoded `Int` field",
-        ),
-        (
-            "forward_field_reference",
-            "repeat count field `count` must be an earlier decoded `Int` field",
-        ),
-        (
-            "incompatible_field_reference",
-            "repeat count field `flags` decodes as `ByteView`, not `Int`",
-        ),
-    ] {
-        assert!(
-            diagnostics.iter().any(|diagnostic| {
-                diagnostic.id == "schema.repeat_reference"
-                    && diagnostic.message == message
-                    && diagnostic
-                        .details
-                        .to_json()
-                        .contains(&format!("\"reason\":\"{reason}\""))
-            }),
-            "{diagnostics:#?}"
-        );
-    }
+    assert_schema_diagnostics(
+        &diagnostics,
+        "schema.repeat_reference",
+        &[
+            (
+                "unknown_field_reference",
+                "repeat count field `count` must be an earlier decoded `Int` field",
+            ),
+            (
+                "forward_field_reference",
+                "repeat count field `count` must be an earlier decoded `Int` field",
+            ),
+            (
+                "incompatible_field_reference",
+                "repeat count field `flags` decodes as `ByteView`, not `Int`",
+            ),
+        ],
+    );
 
-    for (reason, message) in [
-        (
-            "unknown_payload_schema",
-            "repeat payload schema `MissingPayload` is not declared",
-        ),
-        (
-            "non_schema_payload",
-            "repeat payload `Shape` resolves to a type, not a schema",
-        ),
-        (
-            "private_imported_payload_schema",
-            "imported repeat payload schema `wire::PrivatePayload` is private",
-        ),
-        (
-            "unknown_payload_schema",
-            "repeat payload schema `wire::MissingPayload` is not declared",
-        ),
-        (
-            "non_schema_payload",
-            "repeat payload `wire::WireShape` resolves to a type, not a schema",
-        ),
-        (
-            "non_binary_payload_schema",
-            "repeat payload schema `wire::TextPayload` must use `format binary`",
-        ),
-        (
-            "self_payload_schema",
-            "repeat payload schema `SelfPacket` cannot reference itself",
-        ),
-        (
-            "forward_payload_schema",
-            "repeat payload schema `LaterPayload` must be declared before schema `ForwardPacket`",
-        ),
-    ] {
-        assert!(
-            diagnostics.iter().any(|diagnostic| {
-                diagnostic.id == "schema.repeat_payload"
-                    && diagnostic.message == message
-                    && diagnostic
-                        .details
-                        .to_json()
-                        .contains(&format!("\"reason\":\"{reason}\""))
-            }),
-            "{diagnostics:#?}"
-        );
-    }
+    assert_schema_diagnostics(
+        &diagnostics,
+        "schema.repeat_payload",
+        &[
+            (
+                "unknown_payload_schema",
+                "repeat payload schema `MissingPayload` is not declared",
+            ),
+            (
+                "non_schema_payload",
+                "repeat payload `Shape` resolves to a type, not a schema",
+            ),
+            (
+                "private_imported_payload_schema",
+                "imported repeat payload schema `wire::PrivatePayload` is private",
+            ),
+            (
+                "unknown_payload_schema",
+                "repeat payload schema `wire::MissingPayload` is not declared",
+            ),
+            (
+                "non_schema_payload",
+                "repeat payload `wire::WireShape` resolves to a type, not a schema",
+            ),
+            (
+                "non_binary_payload_schema",
+                "repeat payload schema `wire::TextPayload` must use `format binary`",
+            ),
+            (
+                "self_payload_schema",
+                "repeat payload schema `SelfPacket` cannot reference itself",
+            ),
+            (
+                "forward_payload_schema",
+                "repeat payload schema `LaterPayload` must be declared before schema `ForwardPacket`",
+            ),
+        ],
+    );
     assert!(
         diagnostics.iter().all(|diagnostic| {
             diagnostic.id != "schema.repeat_payload"
