@@ -1,6 +1,17 @@
 use super::*;
 
 #[test]
+fn surface_wire_rejects_the_previous_layout_header() {
+    let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
+    assert_eq!(&encoded[..9], b"VLNAST10\n");
+    encoded.splice(..9, b"VLNAST9\n".iter().copied());
+
+    let error =
+        decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
+    assert_eq!(error, "invalid surface module wire header");
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_expression_families() {
     let sources = [
         concat!(
@@ -85,6 +96,45 @@ fn surface_wire_round_trip_preserves_callsite_modifier_span() {
         .as_ref()
         .expect("callsite modifier span");
     assert_eq!((callsite.start.line, callsite.start.column), (1, 32));
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+#[test]
+fn surface_wire_round_trip_preserves_dependency_package_identity() {
+    let source = SourceFile::new(
+        "shared.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "handler ask() handles Ask\n",
+            "  value() => 1\n",
+            "end\n",
+            "fn located() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty());
+    let module = lower_surface_ast_with_package_module_identity(
+        &parsed.tree,
+        "example/dependency".to_string(),
+        "shared".to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    );
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    assert_eq!(
+        decoded.functions[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.handlers[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
     assert_eq!(encode_surface_module(&decoded), encoded);
 }
 

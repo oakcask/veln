@@ -47,12 +47,17 @@ fn surface_wire_discards_legacy_codec_declarations_without_shifting_following_fi
 }
 
 fn legacy_codec_slot_offset(encoded: &[u8]) -> usize {
-    const HEADER_AND_EMPTY_PREFIX_FIELDS: usize = 8 + 1 + 6 * 4;
+    let header_len = encoded
+        .iter()
+        .position(|byte| *byte == b'\n')
+        .expect("wire header should end with a newline")
+        + 1;
+    let header_and_empty_prefix_fields = header_len + 1 + 6 * 4;
     assert_eq!(
-        &encoded[HEADER_AND_EMPTY_PREFIX_FIELDS..HEADER_AND_EMPTY_PREFIX_FIELDS + 4],
+        &encoded[header_and_empty_prefix_fields..header_and_empty_prefix_fields + 4],
         0_u32.to_le_bytes()
     );
-    HEADER_AND_EMPTY_PREFIX_FIELDS
+    header_and_empty_prefix_fields
 }
 
 fn legacy_codec_declaration_slot() -> Vec<u8> {

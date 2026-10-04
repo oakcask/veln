@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Relocation-safe source identity, deferred-observation lifetime coverage, or call-site lowering changes.
+update-when: Canonical virtual-source naming, deferred-observation lifetime coverage, or call-site lowering changes.
 ---
 
 # Call-site Source Location
@@ -17,26 +17,20 @@ later stack walk cannot recover the required logical call site.
 The declaration, static-checking, and direct- and indirect-call runtime
 behavior are specified in
 [Call-site Declarations](../specification/call-site-declarations.md). This
-proposal tracks only the remaining S7 and S9 source-identity and lifetime work
-below.
-
-The remaining source-identity work must make `package` and `module`
-disambiguate equal relative paths from different dependencies and must verify
-that relocation preserves those identities.
-
-The remaining source-identity work also defines canonical virtual-source names.
-Moving a package to another machine must not change an exposed file value.
+proposal tracks only the remaining S7 canonical virtual-source naming and S9
+lifetime work below. Generated locations need canonical virtual names that do
+not expose or depend on a machine-specific source root.
 
 ## Acceptance Model
 
 | Case | Source form | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| S7 | Equivalent packages under two absolute roots contain dependencies with the same package-relative source path and generated sources with the same logical virtual-source identity. | Exposed `file` values are package-relative or canonical virtual paths, all fields contain neither root and remain identical after relocation, and `package` plus `module` disambiguate the dependency sources. | Relocation, dependency-collision, and virtual-source naming tests. |
+| S7 | Generated sources have the same logical virtual-source identity. | Exposed `file` values use the same canonical virtual path and contain no machine-specific source root. | Virtual-source naming tests. |
 | S9 | A trace retains a `callsite` value after its originating function returns. | Later observation reports the captured location without walking the current stack. | Deferred-observation run case. |
 
 ## Verification and Promotion
 
-Remaining implementation must establish relocation-safe source identity and
+Remaining implementation must establish canonical virtual-source naming and
 deferred-observation lifetime coverage.
 
 ## Non-goals

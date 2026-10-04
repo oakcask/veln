@@ -19,7 +19,7 @@ also states it.
 - Handler target syntax using the existing `for` keyword, removing `handles`
   from the keyword set while preserving handler semantics:
   [handler-for-syntax.md](handler-for-syntax.md).
-- Relocation-safe source identity and deferred observation for library-defined
+- Canonical virtual-source naming and deferred observation for library-defined
   instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
 - Remaining standard-library TCP stream operations, typed host failures,
@@ -36,8 +36,8 @@ also states it.
 
 - Standard-library structured logs, events, metrics, traces, explicit context
   propagation, and substitutable exporters are blocked until call-site
-  locations have relocation-safe source identities and a verified
-  deferred-observation lifetime:
+  locations have canonical virtual-source names and a verified deferred-
+  observation lifetime:
   [observability.md](observability.md).
 - Generic named-type and function variance remains separate from ADT variant
   refinement and is blocked until its constructor classifications and complete

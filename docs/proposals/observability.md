@@ -19,9 +19,10 @@ This proposal depends on:
   so exported records can be correlated across processes; and
 - implemented [direct, indirect, and runtime-callback call-site
   propagation](../specification/call-site-declarations.md), so library wrappers
-  preserve the user's call expression, plus the remaining [source-identity and
-  deferred-lifetime work](call-site-source-location.md), so retained locations
-  remain meaningful across package relocation and later observation.
+  preserve the user's call expression and dependency locations remain stable
+  across package relocation, plus the remaining [virtual-source naming and
+  deferred-lifetime work](call-site-source-location.md), so generated and
+  retained locations remain meaningful during later observation.
 
 The existing monotonic clock remains the source for elapsed duration.
 

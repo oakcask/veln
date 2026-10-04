@@ -6,6 +6,7 @@ use std::sync::OnceLock;
 use veln_ast::{
     PublicAliasKind, SurfaceModule, UseDecl, UseOrigin, Visibility, decode_surface_module,
     lower_surface_ast, lower_surface_ast_with_module_identity,
+    lower_surface_ast_with_package_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::{

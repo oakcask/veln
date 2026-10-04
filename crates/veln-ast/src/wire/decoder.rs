@@ -334,6 +334,7 @@ impl<'a> Reader<'a> {
         Ok(HandlerDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             params: self.vec(Self::param)?,
@@ -495,6 +496,7 @@ impl<'a> Reader<'a> {
         Ok(Function {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             kind: self.function_kind()?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,

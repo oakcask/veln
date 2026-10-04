@@ -5,7 +5,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use veln_ast::{
-    decode_surface_module, encode_surface_module, lower_surface_ast_with_module_identity,
+    decode_surface_module, encode_surface_module, lower_surface_ast_with_package_module_identity,
 };
 use veln_source::{SourceFile, TextRange};
 use veln_syntax::parse;
@@ -189,14 +189,13 @@ fn lowered_standard_module(path: &str, text: &str) -> veln_ast::SurfaceModule {
         "standard library source should parse cleanly: {path}: {:?}",
         parsed.diagnostics
     );
-    let module_name = format!(
-        "std::{}",
-        path.strip_suffix(".veln")
-            .expect("standard library source should use .veln suffix")
-            .replace('/', "::")
-    );
-    let mut lowered = lower_surface_ast_with_module_identity(
+    let module_name = path
+        .strip_suffix(".veln")
+        .expect("standard library source should use .veln suffix")
+        .replace('/', "::");
+    let mut lowered = lower_surface_ast_with_package_module_identity(
         &parsed.tree,
+        "std".to_string(),
         module_name,
         source.span(TextRange::new(0, 0)),
     );
