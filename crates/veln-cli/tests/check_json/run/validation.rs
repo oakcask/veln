@@ -112,6 +112,28 @@ fn run_rejects_invalid_bool_entry_argument_before_jdk_execution() {
 }
 
 #[test]
+fn run_rejects_invalid_variadic_entry_argument_before_jdk_execution() {
+    let project = TestProject::new("run-entry-invalid-variadic-arg");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main(label: String, values: ...Int) -> Int\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln", "--", "ready", "not-int"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(
+        stderr(&output),
+        "veln: invalid Int argument for parameter `values`: `not-int`\n"
+    );
+}
+
+#[test]
 fn run_json_reports_runtime_contract_failures_when_jdk_is_available() {
     if !jdk_is_available() {
         return;
