@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"3565a2649ec000e06b6e471b6ae26dd93b3be6a1"
+source_git_tree	"6e5370e6537f90988f77d0ec3feb14f3dde6c99e"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1764
+case_count	1765
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5393,6 +5393,17 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"15d41c1d00ba95afe844c6b0eadd32ff350236dd76510ab310ab3c41ec48f3e1"
+case	"examples/specification/check/handler-for-separator-diagnostics"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"main.veln:5:15: error[parse.expected_token]: expected for"
+field	expectations.stdout.contains[1]	"main.veln:9:19: error[parse.expected_token]: expected for"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"f192324f403b4d70d113bf123de8b11878dd4e09d7276dcff8fce87377467981"
 case	"examples/specification/check/handler-for-separator-diagnostics-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -63786,4 +63797,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ffc414802734d8dbd8cfc160d49b92cba829fb92c6ceec8a7f611bd46ff76106"
+aggregate_digest	"14690ca25bc3da658103358a5c39d8e429be9b8d7c05059bd067eb8f0ce01bfd"
