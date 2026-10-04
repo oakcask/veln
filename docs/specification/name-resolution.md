@@ -369,6 +369,11 @@ derived-module identity and does not suppress a single-segment unresolved
 local import. A source path segment that starts with an ASCII lowercase letter
 but contains another invalid module-identifier character reports
 `module.invalid_source_path` instead of `name.invalid_case`.
+Before executable doctest extraction, the documented source path must also be
+a canonical package-relative virtual-source origin. An invalid origin reports
+`module.invalid_source_path` once against the documented source and creates no
+source-visible doctest module identity. Other selected sources continue
+through module derivation and semantic analysis.
 Manifest export path checks use the same accepted module derivation boundary.
 A selected source that is also named by `lib.exports` is classified once for
 source-path casing diagnostics. A regular selected source uses

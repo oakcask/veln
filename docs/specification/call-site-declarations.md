@@ -170,13 +170,12 @@ generation stages.
 
 A library-generated virtual source derives its exposed path from a canonical
 package-relative source path and a stable generator identity. The resulting
-path has the form `<source>#<identity>`. The origin must satisfy the ordinary
-source-to-module path rules and must not already contain the virtual-source
-delimiter `#`. Leading `./` segments are removed before construction. An
-absolute origin, a remaining `.` or `..` segment, and an empty segment are not
-canonical origins. A discovered source with an invalid origin reports
-`module.invalid_source_path`; doctest generation creates no virtual source or
-partial source metadata for that origin and continues to analyze other input.
+path has the form `<source>#<identity>`. Leading `./` segments are removed
+before construction. The origin must be a nonempty package-relative path. It
+cannot contain `:`, `#`, an empty segment, or a remaining `.` or `..` segment.
+A discovered source with an invalid origin reports `module.invalid_source_path`;
+no virtual doctest source is exposed for that origin, and analysis continues
+for other input.
 
 The generator identity is validated independently from the origin. It is one
 non-empty path segment and cannot be `.` or `..`. An identity that contains a

@@ -89,6 +89,12 @@ Static diagnostics block the suite before Java execution. Selected cases become
 blocked with reason `static_gate` in JSON. Reachable `begin` and `defer` forms
 produce typed IR and execute; their cleanup behavior is specified by the
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries).
+A documentation source that cannot form a canonical virtual doctest path
+reports `module.invalid_source_path` and exposes no doctest case or output
+expectation for that source. Discovery and analysis continue for other selected
+sources before the static gate blocks their cases. The virtual-source boundary
+is specified by
+[Call-site Declarations](call-site-declarations.md#declaration-behavior).
 Runtime contract failures use contract failure details; returned `Err(value)`
 uses result failure details.
 A runtime expectation passes only when the actual structured failure matches.

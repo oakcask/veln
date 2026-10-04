@@ -17,9 +17,10 @@ The following behavior is fixed for the implemented slice:
 - The standard edit loop is `veln fmt`, `veln check --json`,
   `veln run [--json] <entry> [-- arg ...]`, `veln test [--json]`, and
   `veln doc`.
-- `veln check` and `veln test` extract executable doctest fences from
-  documentation line comments; `veln test` can compare adjacent expected
-  stdout and stderr fences.
+- `veln check` and `veln test` extract executable doctest fences from sources
+  with canonical virtual-source origins; a rejected origin reports
+  `module.invalid_source_path` without stopping analysis of other selected
+  input. `veln test` can compare adjacent expected stdout and stderr fences.
 - Source paths in diagnostics and JSON are project-relative paths using `/`
   separators.
 - A call-site location from a dependency source exposes the dependency's
