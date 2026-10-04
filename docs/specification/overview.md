@@ -22,6 +22,11 @@ The following behavior is fixed for the implemented slice:
   stdout and stderr fences.
 - Source paths in diagnostics and JSON are project-relative paths using `/`
   separators.
+- A call-site location from a dependency source exposes the dependency's
+  public package identity, its package-local logical module path, and its
+  package-relative source path. Equivalent dependency trees expose identical
+  locations after the project is moved. See
+  [call-site-declarations.md](call-site-declarations.md#declaration-behavior).
 - A call-site location from generated doctest source uses the original
   documentation path and coordinates only when both span boundaries map to
   that source. Otherwise, it keeps the complete generated span. See
