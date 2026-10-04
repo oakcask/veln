@@ -318,8 +318,8 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "effect Ask\n",
-            "  value() -> Int\n",
+            "handler ok() for handles::Ask\n",
+            "  value() => 0\n",
             "end\n\n",
             "handler old() handles Ask\n",
             "  value() => 1\n",
@@ -327,8 +327,14 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
             "handler missing() Ask\n",
             "  value() => 2\n",
             "end\n\n",
+            "handler missing_path() handles::Ask\n",
+            "  value() => 3\n",
+            "end\n\n",
+            "handler old_qualified() handles handles::Ask\n",
+            "  value() => 4\n",
+            "end\n\n",
             "fn following() -> Int\n",
-            "  3\n",
+            "  5\n",
             "end\n",
         ),
     );
@@ -344,7 +350,8 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
         })
         .collect::<Vec<_>>();
 
-    assert_eq!(separator_diagnostics.len(), 2, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics.len(), 4, "{:#?}", output.diagnostics);
+    assert_eq!(separator_diagnostics.len(), 4, "{:#?}", output.diagnostics);
     assert_eq!(separator_diagnostics[0].unexpected.text, "handles");
     assert_eq!(
         separator_diagnostics[0].span.as_ref().unwrap().start.line,
@@ -371,11 +378,65 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
         separator_diagnostics[1].recovery.strategy,
         RecoveryStrategy::InsertToken
     );
-    for item in &output.tree.items[1..=2] {
+    assert_eq!(separator_diagnostics[2].unexpected.text, "handles");
+    assert_eq!(
+        separator_diagnostics[2].span.as_ref().unwrap().start.line,
+        13
+    );
+    assert_eq!(
+        separator_diagnostics[2].span.as_ref().unwrap().start.column,
+        24
+    );
+    assert_eq!(
+        separator_diagnostics[2].recovery.strategy,
+        RecoveryStrategy::InsertToken
+    );
+    assert_eq!(separator_diagnostics[3].unexpected.text, "handles");
+    assert_eq!(
+        separator_diagnostics[3].span.as_ref().unwrap().start.line,
+        17
+    );
+    assert_eq!(
+        separator_diagnostics[3].span.as_ref().unwrap().start.column,
+        25
+    );
+    assert_eq!(
+        separator_diagnostics[3].recovery.strategy,
+        RecoveryStrategy::SkipToken
+    );
+    let expected_diagnostic_ends = [(5, 22), (9, 22), (13, 31), (17, 32)];
+    for (diagnostic, (line, column)) in separator_diagnostics.iter().zip(expected_diagnostic_ends) {
+        assert_eq!(diagnostic.span.as_ref().unwrap().end.line, line);
+        assert_eq!(diagnostic.span.as_ref().unwrap().end.column, column);
+    }
+
+    let expected_effects = [
+        vec!["handles".to_string(), "Ask".to_string()],
+        vec!["Ask".to_string()],
+        vec!["Ask".to_string()],
+        vec!["handles".to_string(), "Ask".to_string()],
+        vec!["handles".to_string(), "Ask".to_string()],
+    ];
+    let expected_spans = [
+        (1, 18, 30),
+        (5, 23, 26),
+        (9, 19, 22),
+        (13, 24, 36),
+        (17, 33, 45),
+    ];
+    for (item, (expected_effect, (line, start_column, end_column))) in output.tree.items[..5]
+        .iter()
+        .zip(expected_effects.iter().zip(expected_spans))
+    {
         let SyntaxItem::Handler(handler) = item else {
             panic!("expected recovered handler declaration");
         };
-        assert_eq!(handler.effect, vec!["Ask".to_string()]);
+        assert_eq!(&handler.effect, expected_effect);
+        assert_eq!(handler.effect_span.start.line, line);
+        assert_eq!(handler.effect_span.start.column, start_column);
+        assert_eq!(handler.effect_span.end.line, line);
+        assert_eq!(handler.effect_span.end.column, end_column);
+        assert!(!handler.effect_recovered);
     }
     assert!(matches!(
         output.tree.items.last(),

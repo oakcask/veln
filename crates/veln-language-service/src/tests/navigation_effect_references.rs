@@ -139,6 +139,32 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn workspace_effect_references_keep_qualified_handler_target_after_missing_separator() {
+        let sources = vec![
+            source(
+                "handles.veln",
+                "pub effect Ask\n  value() -> Int\nend\n",
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use handles\n\n",
+                    "handler missing() handles::Ask\n",
+                    "  value() => 1\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let declaration = query(sources.clone(), "handles.veln", 1, 12).unwrap();
+        assert_eq!(locations(&declaration.references), [("main.veln", 3, 28)]);
+
+        let target = query(sources, "main.veln", 3, 28).unwrap();
+        assert_location(&target.definition, "handles.veln", 1, 12);
+        assert_eq!(locations(&target.references), [("main.veln", 3, 28)]);
+    }
+
+    #[test]
     fn imported_workspace_effect_imports_apply_across_sources_in_one_module() {
         let declarations = source(
             "library/fx.veln",
@@ -1142,6 +1168,37 @@ mod navigation_effect_references_tests {
                 token_count,
             );
             assert_eq!(token_visits, token_count);
+        }
+    }
+
+    #[test]
+    fn recovered_qualified_handler_target_indexing_scales_across_adjacent_sizes() {
+        for count in [250, 500, 1_000] {
+            let mut handlers = String::from("use handles\n\n");
+            for index in 0..count {
+                handlers.push_str(&format!(
+                    "handler missing_{index}() handles::Ask\n  value() => {index}\nend\n\n"
+                ));
+            }
+            let snapshot = EffectiveProjectSnapshot::new(vec![
+                source(
+                    "handles.veln",
+                    "pub effect Ask\n  value() -> Int\nend\n",
+                ),
+                source("main.veln", &handlers),
+            ]);
+
+            let index_started = std::time::Instant::now();
+            let _ = snapshot.navigation_index();
+            let index_elapsed = index_started.elapsed();
+            let query_started = std::time::Instant::now();
+            let result = query_snapshot(&snapshot, "handles.veln", 1, 12).unwrap();
+            let query_elapsed = query_started.elapsed();
+            eprintln!(
+                "recovered qualified handler targets: count={count} references={} index_elapsed={index_elapsed:?} query_elapsed={query_elapsed:?}",
+                result.references.len(),
+            );
+            assert_eq!(result.references.len(), count);
         }
     }
 

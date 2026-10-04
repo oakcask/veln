@@ -4,7 +4,7 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = ["main.veln:5:15: error[parse.expected_token]: expected for", "main.veln:9:19: error[parse.expected_token]: expected for"]
+contains = ["main.veln:5:15: error[parse.expected_token]: expected for", "main.veln:9:19: error[parse.expected_token]: expected for", "main.veln:13:24: error[parse.expected_token]: expected for", "main.veln:17:25: error[parse.expected_token]: expected for"]
 
 [stderr]
 format = "empty"

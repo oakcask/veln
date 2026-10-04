@@ -15,11 +15,27 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 4
+
+[[json_assert]]
+path = "diagnostics"
+length = 4
 
 [[json_assert]]
 path = "diagnostics.0.details.expected.0"
 equals = "for"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "parse.expected_token"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "expected for"
+
+[[json_assert]]
+path = "diagnostics.0.details.unexpected.text"
+equals = "handles"
 
 [[json_assert]]
 path = "diagnostics.0.details.recovery.strategy"
@@ -32,3 +48,75 @@ equals = "for"
 [[json_assert]]
 path = "diagnostics.1.details.recovery.strategy"
 equals = "insert_token"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "parse.expected_token"
+
+[[json_assert]]
+path = "diagnostics.2.message"
+equals = "expected for"
+
+[[json_assert]]
+path = "diagnostics.2.details.unexpected.text"
+equals = "handles"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected.0"
+equals = "for"
+
+[[json_assert]]
+path = "diagnostics.2.details.recovery.strategy"
+equals = "insert_token"
+
+[[json_assert]]
+path = "diagnostics.2.span.start.line"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.2.span.start.column"
+equals = 24
+
+[[json_assert]]
+path = "diagnostics.2.span.end.line"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.2.span.end.column"
+equals = 31
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "parse.expected_token"
+
+[[json_assert]]
+path = "diagnostics.3.message"
+equals = "expected for"
+
+[[json_assert]]
+path = "diagnostics.3.details.unexpected.text"
+equals = "handles"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected.0"
+equals = "for"
+
+[[json_assert]]
+path = "diagnostics.3.details.recovery.strategy"
+equals = "skip_token"
+
+[[json_assert]]
+path = "diagnostics.3.span.start.line"
+equals = 17
+
+[[json_assert]]
+path = "diagnostics.3.span.start.column"
+equals = 25
+
+[[json_assert]]
+path = "diagnostics.3.span.end.line"
+equals = 17
+
+[[json_assert]]
+path = "diagnostics.3.span.end.column"
+equals = 32
