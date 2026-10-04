@@ -196,6 +196,66 @@ impl TokenKind {
     }
 }
 
+/// Maximum structural expression work accepted before an editor-facing
+/// operation declines to invoke the recursive parser on mutable source.
+pub const PRESENTATION_PARSE_STRUCTURE_LIMIT: usize = 256;
+
+/// Returns whether mutable source is bounded enough for presentation paths to
+/// invoke the recursive parser without trusting that delimiters are complete.
+pub fn presentation_parse_structure_is_bounded(tokens: &[Token]) -> bool {
+    let mut structure = 0usize;
+    let mut delimiter_depth = 0usize;
+    let mut block_depth = 0usize;
+    for token in tokens {
+        match token.kind {
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+                delimiter_depth += 1;
+                structure += 1;
+            }
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                delimiter_depth = delimiter_depth.saturating_sub(1);
+            }
+            TokenKind::If | TokenKind::Match | TokenKind::Begin => {
+                block_depth += 1;
+                structure += 1;
+            }
+            TokenKind::End => block_depth = block_depth.saturating_sub(1),
+            TokenKind::Not
+            | TokenKind::Minus
+            | TokenKind::Tilde
+            | TokenKind::Handle
+            | TokenKind::Decode
+            | TokenKind::Encode
+            | TokenKind::Dot
+            | TokenKind::Question
+            | TokenKind::PipeGreater
+            | TokenKind::Or
+            | TokenKind::And
+            | TokenKind::Pipe
+            | TokenKind::Caret
+            | TokenKind::Ampersand
+            | TokenKind::EqualEqual
+            | TokenKind::BangEqual
+            | TokenKind::Less
+            | TokenKind::LessEqual
+            | TokenKind::Greater
+            | TokenKind::GreaterEqual
+            | TokenKind::ShiftLeft
+            | TokenKind::ShiftRight
+            | TokenKind::ShiftRightLogical
+            | TokenKind::Plus
+            | TokenKind::Star
+            | TokenKind::Slash => structure += 1,
+            TokenKind::Newline if delimiter_depth == 0 && block_depth == 0 => structure = 0,
+            _ => {}
+        }
+        if structure > PRESENTATION_PARSE_STRUCTURE_LIMIT {
+            return false;
+        }
+    }
+    true
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PublicToken {
     pub kind: TokenKind,

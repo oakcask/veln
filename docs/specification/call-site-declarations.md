@@ -56,15 +56,17 @@ function effects clause and formats the built-in reference like any other
 local reference.
 
 LSP semantic tokens identify the declaration modifier as a keyword and the
-built-in body reference as a read-only variable. Completion offers the
-`callsite` modifier in an eligible source-function header that does not already
-have it. For a header with a trailing comment, the position immediately before
-the `#` marker remains eligible. A position inside the comment, including the
-end of the line, does not offer the modifier.
+built-in body reference as a read-only variable. The built-in keeps that class
+when a same-named function exists and when invalid source follows it with `(`.
+Completion offers the `callsite` modifier in an eligible source-function header
+that does not already have it. For a header with a trailing comment, the
+position immediately before the `#` marker remains eligible. A position inside
+the comment, including the end of the line, does not offer the modifier.
 Completion offers the built-in `callsite` local only in the body of a
 call-site-aware source function; ordinary function bodies and other declaration
-forms do not receive that candidate. MCP exposes the same candidates through
-its `completion` tool for saved workspace sources.
+forms do not receive that candidate. In particular, runtime-contract clauses
+and test bodies do not receive it. MCP exposes the same candidates through its
+`completion` tool for saved workspace sources.
 
 LSP signature help and the MCP `signature_help` tool render the complete source
 declaration, including a trailing `callsite` modifier after any effects clause.
@@ -79,6 +81,12 @@ workspace or package function and does not produce signature help.
 Every finite acyclic chain of public workspace function aliases resolves to its
 target declaration before rendering; an alias cycle does not produce signature
 help.
+
+Presentation requests bound recursive parsing and navigation fallback for
+unfinished source. When an expression exceeds that bound, completion and
+navigation-backed signature candidates are absent, and semantic tokens retain
+the parse-free classifications that can be produced without entering the
+recursive parser. The LSP and MCP processes continue serving later requests.
 
 For a direct call from an ordinary function, the supplied value covers the
 complete call expression from its callee through its closing parenthesis. For

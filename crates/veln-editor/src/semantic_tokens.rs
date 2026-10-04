@@ -1,7 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use veln_source::{SourceFile, SourceSpan};
-use veln_syntax::{SyntaxItem, Token, TokenKind, lex, parse};
+use veln_syntax::{
+    SyntaxItem, Token, TokenKind, lex, parse, presentation_parse_structure_is_bounded,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticToken {
@@ -123,6 +125,11 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
     let lexed = lex(source);
     let tokens = lexed.tokens;
     let function_names = collect_function_names(&tokens);
+    let mut classifier = Classifier::new(source, &tokens, function_names);
+    let mut semantic_tokens = classifier.collect();
+    if !presentation_parse_structure_is_bounded(&tokens) {
+        return semantic_tokens;
+    }
     let parsed = parse(source);
     let mut modifier_offsets = BTreeSet::new();
     let mut callsite_scopes = Vec::new();
@@ -148,8 +155,6 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
             .or_insert(modifier.start.offset);
     }
     callsite_scopes.sort_unstable();
-    let mut classifier = Classifier::new(source, &tokens, function_names);
-    let mut semantic_tokens = classifier.collect();
     let mut callsite_scope_cursor = CallsiteScopeCursor::new(&callsite_scopes);
     for token in &mut semantic_tokens {
         if &source.text()[token.span.start.offset..token.span.end.offset] != "callsite" {
@@ -166,7 +171,12 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
         }
         let is_in_callsite_scope =
             callsite_scope_cursor.contains(token.span.start.offset, token.span.end.offset);
-        if token.kind.token_type == SemanticTokenType::Variable && is_in_callsite_scope {
+        let is_body_reference =
+            matches!(
+                token.kind.token_type,
+                SemanticTokenType::Variable | SemanticTokenType::Function
+            ) && token.modifiers.bits() & SemanticTokenModifier::Declaration.bit() == 0;
+        if is_body_reference && is_in_callsite_scope {
             token.kind.token_type = SemanticTokenType::Variable;
             token.modifiers = SemanticTokenModifiers::empty().with(SemanticTokenModifier::Readonly);
         }

@@ -22,3 +22,6 @@
 {"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"signature_help","arguments":{"source":"signatures.veln","line":19,"column":12}}}
 {"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"signature_help","arguments":{"source":"signatures.veln","line":24,"column":21}}}
 {"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"signature_help","arguments":{"source":"signatures.veln","line":28,"column":14}}}
+{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"completion","arguments":{"source":"negative_contexts.veln","line":10,"column":9}}}
+{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"completion","arguments":{"source":"negative_contexts.veln","line":15,"column":2}}}
+{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"signature_help","arguments":{"source":"signatures.veln","line":34,"column":14}}}

@@ -11,7 +11,7 @@ format = "empty"
 [[mcp_assert]]
 id = 2
 path = "/result/tools"
-length = 9
+length = 11
 
 [[mcp_assert]]
 id = 3

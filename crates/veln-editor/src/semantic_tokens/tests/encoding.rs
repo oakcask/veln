@@ -113,6 +113,17 @@ fn callsite_semantic_token_collection_handles_adjacent_input_sizes() {
 }
 
 #[test]
+fn semantic_token_collection_bounds_unfinished_call_nesting_before_parse() {
+    let mut text = String::from("fn located() -> SourceLocation callsite\n  ");
+    text.push_str(&"callsite(".repeat(10_000));
+    let source = SourceFile::new("main.veln", text);
+
+    let tokens = collect_semantic_tokens(&source);
+
+    assert!(!tokens.is_empty());
+}
+
+#[test]
 fn callsite_scope_cursor_work_is_linear_across_adjacent_sizes() {
     let visits = [1_000, 2_000].map(|scope_count| {
         let scopes = (0..scope_count)

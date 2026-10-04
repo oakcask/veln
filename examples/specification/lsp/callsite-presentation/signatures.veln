@@ -27,3 +27,9 @@ end
 fn shadowed() -> Int callsite
   callsite(1)
 end
+fn effectful(value: Int) -> SourceLocation effects [stdio] callsite
+  callsite
+end
+fn effectful_caller() -> SourceLocation
+  effectful(1)
+end

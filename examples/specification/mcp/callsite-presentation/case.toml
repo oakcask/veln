@@ -165,3 +165,18 @@ equals = null
 id = 24
 path = "/result/structuredContent/signature"
 equals = null
+
+[[mcp_assert]]
+id = 25
+path = "/result/structuredContent/items"
+equals = []
+
+[[mcp_assert]]
+id = 26
+path = "/result/structuredContent/items"
+equals = []
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/signature"
+equals = {"label":"fn effectful(value: Int) -> SourceLocation effects [stdio] callsite","parameters":["value: Int"],"activeParameter":0}

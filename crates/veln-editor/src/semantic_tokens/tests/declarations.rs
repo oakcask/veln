@@ -476,6 +476,37 @@ fn collector_classifies_callsite_function_declarations_and_references() {
 }
 
 #[test]
+fn collector_keeps_callsite_builtin_readonly_across_function_collisions_and_call_syntax() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn callsite(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn located() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "  callsite(1)\n",
+            "end\n",
+        ),
+    );
+    let tokens = collect_text(&source);
+    let callsites = tokens
+        .iter()
+        .filter(|(text, _, _)| text == "callsite")
+        .collect::<Vec<_>>();
+    let readonly = SemanticTokenModifiers::empty()
+        .with(SemanticTokenModifier::Readonly)
+        .bits();
+
+    assert_eq!(callsites[0].1, SemanticTokenType::Function);
+    assert_eq!(callsites[1].1, SemanticTokenType::Keyword);
+    assert_eq!(callsites[2].1, SemanticTokenType::Variable);
+    assert_eq!(callsites[2].2, readonly);
+    assert_eq!(callsites[3].1, SemanticTokenType::Variable);
+    assert_eq!(callsites[3].2, readonly);
+}
+
+#[test]
 fn collector_classifies_multiline_handler_operation_clause_bodies() {
     let source = SourceFile::new(
         "main.veln",

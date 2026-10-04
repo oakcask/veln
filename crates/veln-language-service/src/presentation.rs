@@ -7,7 +7,7 @@ use std::cell::Cell;
 use veln_source::SourceFile;
 use veln_syntax::{
     FunctionDecl, FunctionKind, SyntaxItem, Token, TokenKind, canonical_type_text,
-    declaration_function_signature, lex, parse,
+    declaration_function_signature, lex, parse, presentation_parse_structure_is_bounded,
 };
 
 use crate::navigation::{SignatureShadowIndex, function_signature_definition_at};
@@ -39,12 +39,15 @@ enum LocalSignatureDeclaration {
     Alias(String),
 }
 
+const MAX_SIGNATURE_NAVIGATION_LOOKUPS: usize = 64;
+
 #[cfg(test)]
 thread_local! {
     static SIGNATURE_INDEX_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_HEADER_PARSES: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_NAME_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static SIGNATURE_NAVIGATION_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_INDEX_OWNED_TEXT_BYTES: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -54,6 +57,7 @@ fn reset_signature_help_work() {
     SIGNATURE_CANDIDATE_VISITS.set(0);
     SIGNATURE_HEADER_PARSES.set(0);
     SIGNATURE_NAME_LOOKUPS.set(0);
+    SIGNATURE_NAVIGATION_LOOKUPS.set(0);
     SIGNATURE_INDEX_OWNED_TEXT_BYTES.set(0);
 }
 
@@ -104,6 +108,19 @@ fn signature_name_lookups() -> usize {
 }
 
 #[cfg(test)]
+fn record_signature_navigation_lookup() {
+    SIGNATURE_NAVIGATION_LOOKUPS.set(SIGNATURE_NAVIGATION_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_signature_navigation_lookup() {}
+
+#[cfg(test)]
+fn signature_navigation_lookups() -> usize {
+    SIGNATURE_NAVIGATION_LOOKUPS.get()
+}
+
+#[cfg(test)]
 fn record_signature_index_owned_text_bytes(
     declarations: &HashMap<String, Vec<LocalSignatureDeclaration>>,
 ) {
@@ -141,6 +158,10 @@ pub fn completion_at(
     let Some(offset) = source_offset(source, position.line, position.column) else {
         return Vec::new();
     };
+    let tokens = lex(source).tokens;
+    if !presentation_parse_structure_is_bounded(&tokens) {
+        return Vec::new();
+    }
     let parsed = parse(source);
     let Some(function) = parsed.tree.items.iter().find_map(|item| match item {
         SyntaxItem::Function(function)
@@ -155,7 +176,6 @@ pub fn completion_at(
     if function.kind != FunctionKind::Function {
         return Vec::new();
     }
-    let tokens = lex(source).tokens;
     let header_end = source.text()[function.span.start.offset..]
         .find('\n')
         .map(|relative| function.span.start.offset + relative)
@@ -242,6 +262,7 @@ pub fn signature_help_at(
     let source = snapshot.workspace_source(&position.source)?;
     let offset = source_offset(source, position.line, position.column)?;
     let tokens = lex(source);
+    let navigation_parse_allowed = presentation_parse_structure_is_bounded(&tokens.tokens);
     let significant = tokens
         .tokens
         .iter()
@@ -259,6 +280,7 @@ pub fn signature_help_at(
     let local_signatures = local_signature_declarations(source, &significant);
     let function_names = signature_function_names(snapshot);
     let mut recovered_function_is_callsite_aware = None;
+    let mut navigation_lookups = 0usize;
     let mut open = Vec::new();
     for (significant_index, (_, token)) in significant.iter().enumerate() {
         if token.range.start >= offset {
@@ -318,6 +340,11 @@ pub fn signature_help_at(
         if !function_names.contains(&callee.text) {
             continue;
         }
+        if !navigation_parse_allowed || navigation_lookups >= MAX_SIGNATURE_NAVIGATION_LOOKUPS {
+            continue;
+        }
+        navigation_lookups += 1;
+        record_signature_navigation_lookup();
         let Some((selection, definition)) = function_signature_definition_at(
             snapshot,
             &SourcePosition {
@@ -492,6 +519,9 @@ fn local_signature_function(
                 let header = source.text().get(range.clone())?;
                 let declaration =
                     SourceFile::new("signature-help.veln", format!("{header}\n  0\nend\n"));
+                if !presentation_parse_structure_is_bounded(&lex(&declaration).tokens) {
+                    return None;
+                }
                 let parsed = parse(&declaration);
                 return parsed.tree.items.into_iter().find_map(|item| {
                     let SyntaxItem::Function(function) = item else {
@@ -542,6 +572,9 @@ fn parse_function_signature_at(source: &SourceFile, name_offset: usize) -> Optio
         .unwrap_or(source.len());
     let header = source.text().get(tokens[start].range.start..end)?;
     let declaration = SourceFile::new("signature-help.veln", format!("{header}\n  0\nend\n"));
+    if !presentation_parse_structure_is_bounded(&lex(&declaration).tokens) {
+        return None;
+    }
     parse(&declaration).tree.items.into_iter().find_map(|item| {
         let SyntaxItem::Function(function) = item else {
             return None;
@@ -677,6 +710,25 @@ mod tests {
                     source: SourcePath::new("main.veln"),
                     line: 6,
                     column: 3
+                }
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn completion_bounds_unfinished_call_nesting_before_parse() {
+        let mut source = String::from("fn located() -> SourceLocation callsite\n  ");
+        source.push_str(&"callsite(".repeat(10_000));
+        let snapshot = snapshot(&source);
+
+        assert!(
+            completion_at(
+                &snapshot,
+                &SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 2,
+                    column: 3,
                 }
             )
             .is_empty()
@@ -1315,6 +1367,59 @@ mod tests {
         assert_eq!(larger.0.2, 1);
         assert_eq!(smaller.1, 5_000);
         assert_eq!(larger.1, 10_000);
+    }
+
+    fn inaccessible_callee_navigation_lookups(depth: usize) -> (usize, usize) {
+        let mut hidden = String::from("mod hidden\n");
+        for index in 0..depth {
+            hidden.push_str(&format!(
+                "fn hidden_{index}(value: Int) -> Int\n  value\nend\n"
+            ));
+        }
+        let mut main = String::from(concat!(
+            "mod app\n",
+            "fn located(value: Int) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn caller() -> SourceLocation\n",
+            "  located("
+        ));
+        for index in 0..depth {
+            main.push_str(&format!("hidden_{index}("));
+        }
+        let column = main.lines().last().expect("call line").chars().count() + 1;
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            SourceFile::new("main.veln", main),
+            SourceFile::new("hidden.veln", hidden),
+        ]);
+        reset_signature_help_work();
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 6,
+                column,
+            },
+        )
+        .expect("outer local signature help");
+
+        assert_eq!(
+            help.label,
+            "fn located(value: Int) -> SourceLocation callsite"
+        );
+        (signature_name_lookups(), signature_navigation_lookups())
+    }
+
+    #[test]
+    fn inaccessible_global_signature_candidates_have_bounded_navigation_work() {
+        let smaller = inaccessible_callee_navigation_lookups(80);
+        let larger = inaccessible_callee_navigation_lookups(160);
+
+        assert_eq!(smaller.0, 80);
+        assert_eq!(larger.0, 160);
+        assert_eq!(smaller.1, MAX_SIGNATURE_NAVIGATION_LOOKUPS);
+        assert_eq!(larger.1, MAX_SIGNATURE_NAVIGATION_LOOKUPS);
     }
 
     fn alias_target_lookups(alias_count: usize) -> usize {
