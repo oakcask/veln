@@ -1,0 +1,102 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 9
+
+[[diagnostics]]
+id = "defer.propagation"
+severity = "error"
+kind = "type"
+message = "deferred block cannot use `?`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 4
+
+[[diagnostics]]
+id = "defer.propagation"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 12
+
+[[diagnostics]]
+id = "defer.propagation"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 20
+
+[[diagnostics]]
+id = "defer.propagation"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 28
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 35
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 40
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 45
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 50
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 56
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "result_propagation"

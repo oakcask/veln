@@ -1,0 +1,40 @@
+# JVM integration: refined Ok continues, refined Err returns early, and base and complete-union values keep runtime branching.
+fn refined_ok() -> Result<Int, String> effects [stdio]
+	let operand: Result<Int, String>::Ok = Ok(41)
+	let value: Int = operand?
+	stdio::println("ok continued")
+	Ok(value + 1)
+end
+
+fn refined_err() -> Result<Int, String> effects [stdio]
+	let operand: Result<Int, String>::Err = Err("err")
+	let value: Int = operand?
+	stdio::println("unreachable")
+	Ok(value)
+end
+
+fn complete_union(value: Result<Int, String>::Ok | Result<Int, String>::Err) -> Result<Int, String>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn base(value: Result<Int, String>) -> Result<Int, String>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn render(value: Result<Int, String>) -> String
+	match value
+		Ok(item) => int_to_string(item)
+		Err(text) => text
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(render(refined_ok()))
+	stdio::println(render(refined_err()))
+	stdio::println(render(complete_union(Ok(7))))
+	stdio::println(render(complete_union(Err("err"))))
+	stdio::println(render(base(Ok(9))))
+	stdio::println(render(base(Err("err"))))
+end

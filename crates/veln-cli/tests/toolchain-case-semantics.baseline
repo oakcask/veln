@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"d7b9a3b6cce42bd1d95985a931f26af436649b9f"
+source_git_tree	"c2985960b52da6fd950751f2d708432640a7e5ce"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1765
+case_count	1769
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -936,6 +936,99 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"ba08075dea9dfed3413e3ed564142a04ebdcff3c5473e6f3cbbd536eb64361f6"
+case	"examples/specification/check/adt-variant-refined-result-propagation"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"ok"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	0
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"15d41c1d00ba95afe844c6b0eadd32ff350236dd76510ab310ab3c41ec48f3e1"
+case	"examples/specification/check/adt-variant-refined-result-propagation-diagnostics-human"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"deferred block cannot use `?`"
+field	expectations.stdout.contains[1]	"expected `Result<Int, Int>`, but found `Result<Int, String>::Ok`"
+field	expectations.stdout.contains[2]	"expected `Bool`, but found `Int`"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"d172dd70b3f14d16425f03890322aed8555a728f1c618f12c0a2aee9a1a55299"
+case	"examples/specification/check/adt-variant-refined-result-propagation-diagnostics-json"
+field	expectations.diagnostics[0].id	"defer.propagation"
+field	expectations.diagnostics[0].kind	"type"
+field	expectations.diagnostics[0].message	"deferred block cannot use `?`"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.file	"main.veln"
+field	expectations.diagnostics[0].span.line	4
+field	expectations.diagnostics[1].id	"defer.propagation"
+field	expectations.diagnostics[1].kind	"type"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.file	"main.veln"
+field	expectations.diagnostics[1].span.line	12
+field	expectations.diagnostics[2].id	"defer.propagation"
+field	expectations.diagnostics[2].kind	"type"
+field	expectations.diagnostics[2].severity	"error"
+field	expectations.diagnostics[2].span.file	"main.veln"
+field	expectations.diagnostics[2].span.line	20
+field	expectations.diagnostics[3].id	"defer.propagation"
+field	expectations.diagnostics[3].kind	"type"
+field	expectations.diagnostics[3].severity	"error"
+field	expectations.diagnostics[3].span.file	"main.veln"
+field	expectations.diagnostics[3].span.line	28
+field	expectations.diagnostics[4].id	"type.mismatch"
+field	expectations.diagnostics[4].kind	"type"
+field	expectations.diagnostics[4].severity	"error"
+field	expectations.diagnostics[4].span.file	"main.veln"
+field	expectations.diagnostics[4].span.line	35
+field	expectations.diagnostics[5].id	"type.mismatch"
+field	expectations.diagnostics[5].kind	"type"
+field	expectations.diagnostics[5].severity	"error"
+field	expectations.diagnostics[5].span.file	"main.veln"
+field	expectations.diagnostics[5].span.line	40
+field	expectations.diagnostics[6].id	"type.mismatch"
+field	expectations.diagnostics[6].kind	"type"
+field	expectations.diagnostics[6].severity	"error"
+field	expectations.diagnostics[6].span.file	"main.veln"
+field	expectations.diagnostics[6].span.line	45
+field	expectations.diagnostics[7].id	"type.mismatch"
+field	expectations.diagnostics[7].kind	"type"
+field	expectations.diagnostics[7].severity	"error"
+field	expectations.diagnostics[7].span.file	"main.veln"
+field	expectations.diagnostics[7].span.line	50
+field	expectations.diagnostics[8].id	"type.mismatch"
+field	expectations.diagnostics[8].kind	"type"
+field	expectations.diagnostics[8].severity	"error"
+field	expectations.diagnostics[8].span.file	"main.veln"
+field	expectations.diagnostics[8].span.line	56
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	9
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.json_assertions[2].equals	"result_propagation"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.details.reason"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"3804d9c2ca9c413df0a454c14ecf7ad9e94baca962a7e81ddec1d445b324ce00"
 case	"examples/specification/check/adt-variant-refinement-call-typing"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -26612,6 +26705,17 @@ field	invocation.command[2]	"--apply"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"12bbc2e1beac2c1cfa6a5a2d19fe958b75a6221d407514b6e83ac8bf655da449"
+case	"examples/specification/run/adt-variant-refined-result-propagation"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"e29097e7055a50770a321f3ff6d963d7275f5eeb733e3999cf9e038ac96ea5e2"
 case	"examples/specification/run/binary-buffer-boundary"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -63950,4 +64054,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ae90c80ecc3565e9b1ce571c4d32e17a556634dd60356b2f2f3019e2d519deca"
+aggregate_digest	"d511701c81b5502718e6cb34f920353bdc3a76726314a16a0d7f0d76665c8031"

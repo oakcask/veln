@@ -1,0 +1,58 @@
+# Compiler diagnostics: refined operands retain ordinary propagation checks and checking continues after known Err.
+fn invalid_context(value: Result<Int, String>::Ok) -> Int
+	defer
+		let ignored = value?
+		()
+	end
+	0
+end
+
+fn invalid_err_context(value: Result<Int, String>::Err) -> Int
+	defer
+		let ignored = value?
+		()
+	end
+	0
+end
+
+fn invalid_union_context(value: Result<Int, String>::Ok | Result<Int, String>::Err) -> Int
+	defer
+		let ignored = value?
+		()
+	end
+	0
+end
+
+fn invalid_base_context(value: Result<Int, String>) -> Int
+	defer
+		let ignored = value?
+		()
+	end
+	0
+end
+
+fn incompatible_ok_error(value: Result<Int, String>::Ok) -> Result<Int, Int>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn incompatible_err_error(value: Result<Int, String>::Err) -> Result<Int, Int>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn incompatible_union_error(value: Result<Int, String>::Ok | Result<Int, String>::Err) -> Result<Int, Int>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn incompatible_base_error(value: Result<Int, String>) -> Result<Int, Int>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn checked_after_err(value: Result<Int, String>::Err) -> Result<Int, String>
+	let item: Int = value?
+	let invalid: Bool = 1
+	Ok(item)
+end
