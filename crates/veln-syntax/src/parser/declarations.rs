@@ -441,7 +441,9 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::RParen, "handler_parameters", vec![")"]);
         if self.at(TokenKind::For) {
             self.bump();
-        } else if self.at_ident_text("handles") && !self.peek_at(TokenKind::DoubleColon) {
+        } else if self.at_ident_text("handles")
+            && self.peek_kind(1).is_some_and(is_contextual_identifier)
+        {
             self.error_current(
                 "parse.expected_token",
                 "expected for",

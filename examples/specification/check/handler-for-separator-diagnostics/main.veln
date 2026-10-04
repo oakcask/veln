@@ -2,6 +2,10 @@ effect Ask
 	value() -> Int
 end
 
+effect handles
+	value() -> Int
+end
+
 handler old() handles Ask
 	value() => 1
 end
@@ -18,6 +22,18 @@ handler old_qualified() handles handles::Ask
 	value() => 4
 end
 
+handler missing_bare() handles
+	value() => 5
+end
+
+handler missing_bare_effects() handles effects [stdio]
+	value() => 6
+end
+
+handler old_bare() handles handles
+	value() => 7
+end
+
 fn following() -> Int
-	5
+	8
 end

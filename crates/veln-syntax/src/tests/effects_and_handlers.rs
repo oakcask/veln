@@ -333,8 +333,17 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
             "handler old_qualified() handles handles::Ask\n",
             "  value() => 4\n",
             "end\n\n",
+            "handler missing_bare() handles\n",
+            "  value() => 5\n",
+            "end\n\n",
+            "handler missing_bare_effects() handles effects [stdio]\n",
+            "  value() => 6\n",
+            "end\n\n",
+            "handler old_bare() handles handles\n",
+            "  value() => 7\n",
+            "end\n\n",
             "fn following() -> Int\n",
-            "  5\n",
+            "  8\n",
             "end\n",
         ),
     );
@@ -350,8 +359,8 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
         })
         .collect::<Vec<_>>();
 
-    assert_eq!(output.diagnostics.len(), 4, "{:#?}", output.diagnostics);
-    assert_eq!(separator_diagnostics.len(), 4, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics.len(), 7, "{:#?}", output.diagnostics);
+    assert_eq!(separator_diagnostics.len(), 7, "{:#?}", output.diagnostics);
     assert_handler_separator_diagnostic(
         separator_diagnostics[0],
         "handles",
@@ -376,6 +385,24 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
         (17, 25, 32),
         RecoveryStrategy::SkipToken,
     );
+    assert_handler_separator_diagnostic(
+        separator_diagnostics[4],
+        "handles",
+        (21, 24, 31),
+        RecoveryStrategy::InsertToken,
+    );
+    assert_handler_separator_diagnostic(
+        separator_diagnostics[5],
+        "handles",
+        (25, 32, 39),
+        RecoveryStrategy::InsertToken,
+    );
+    assert_handler_separator_diagnostic(
+        separator_diagnostics[6],
+        "handles",
+        (29, 20, 27),
+        RecoveryStrategy::SkipToken,
+    );
 
     let expected_effects = [
         vec!["handles".to_string(), "Ask".to_string()],
@@ -383,6 +410,9 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
         vec!["Ask".to_string()],
         vec!["handles".to_string(), "Ask".to_string()],
         vec!["handles".to_string(), "Ask".to_string()],
+        vec!["handles".to_string()],
+        vec!["handles".to_string()],
+        vec!["handles".to_string()],
     ];
     let expected_spans = [
         (1, 18, 30),
@@ -390,13 +420,60 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
         (9, 19, 22),
         (13, 24, 36),
         (17, 33, 45),
+        (21, 24, 31),
+        (25, 32, 39),
+        (29, 28, 35),
     ];
-    for (item, (expected_effect, (line, start_column, end_column))) in output.tree.items[..5]
+    for (item, (expected_effect, (line, start_column, end_column))) in output.tree.items[..8]
         .iter()
         .zip(expected_effects.iter().zip(expected_spans))
     {
         assert_handler_target(item, expected_effect, (line, start_column, end_column));
     }
+    let SyntaxItem::Handler(handler_with_effects) = &output.tree.items[6] else {
+        panic!("expected recovered handler declaration with retained effects");
+    };
+    assert_eq!(
+        handler_with_effects.effects,
+        Some(vec!["stdio".to_string()])
+    );
+    assert!(!handler_with_effects.effects_recovered);
+    assert!(matches!(
+        output.tree.items.last(),
+        Some(SyntaxItem::Function(function)) if function.name.as_deref() == Some("following")
+    ));
+}
+
+#[test]
+fn missing_separator_before_bare_handles_retains_target_and_following_item() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect handles\n",
+            "  value() -> Int\n",
+            "end\n\n",
+            "handler h() handles\n",
+            "  value() => 1\n",
+            "end\n\n",
+            "fn following() -> Int\n",
+            "  2\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics[0].id, "parse.expected_token");
+    assert_eq!(output.diagnostics[0].parser_context, "handler_declaration");
+    assert_eq!(output.diagnostics[0].expected, vec!["for"]);
+    assert_handler_separator_diagnostic(
+        &output.diagnostics[0],
+        "handles",
+        (5, 13, 20),
+        RecoveryStrategy::InsertToken,
+    );
+    assert_handler_target(&output.tree.items[1], &["handles".to_string()], (5, 13, 20));
     assert!(matches!(
         output.tree.items.last(),
         Some(SyntaxItem::Function(function)) if function.name.as_deref() == Some("following")
