@@ -1,15 +1,16 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#usage; behavior=#address-values-and-host-port-text; limits=#limits-and-errors
+specification-coverage: usage=#usage; behavior=#network-operation-boundary; limits=#limits-and-errors
 update-when: The exported std net value types, host-port helper behavior, network effect boundary, or executable network examples change.
 ---
 
 # Standard-library Networking
 
-The exported `std::net` module provides portable network names, unresolved and
-resolved address values, network error values, and pure host-port text helpers.
-It does not yet provide DNS, sockets, network effects, or a system handler.
+The exported `std::net` module provides portable network values, pure host-port
+text helpers, and the substitutable `net::IO` contract used by stream-network
+code. Applications and tests select a handler explicitly; the module does not
+install network authority.
 
 ## Usage
 
@@ -28,16 +29,19 @@ The module exports these algebraic values:
 | `Endpoint` | `Endpoint(network: Network, address: String)` |
 | `NetErrorKind` | `InvalidAddress`, `UnsupportedNetwork`, `NameNotFound`, `PermissionDenied`, `AddressInUse`, `ConnectionRefused`, `ConnectionReset`, `TimedOut`, `Cancelled`, `Closed`, `Busy`, `InvalidResource`, and `Other` variants |
 | `NetError` | `NetError(operation: String, network: Option<Network>, address: Option<String>, kind: NetErrorKind, message: String)` |
+| `Listener` | Alias for the opaque `NetListener` resource |
+| `Stream` | Alias for the opaque `NetStream` resource |
+| `ByteCount` | Alias for `prelude::ByteCount` |
+| `ReadOutcome` | `ReadChunk(bytes: ByteChunk)` and `ReadEnd` variants |
+| `WriteOutcome` | `Written(count: ByteCount)` and `WriteFailed(committed: ByteCount, error: NetError)` variants |
 
 The constructors and fields can be matched as ordinary public algebraic data
 values. Constructing an `Address` or `Endpoint` does not resolve a name, open a
 socket, or validate the contained port or address text.
 
-Code compares a `NetError` kind rather than its explanatory message. This
-value-only surface currently produces `InvalidAddress` from the host-port
-helpers. The other exported kinds reserve the portable values used by the
-planned effectful networking surface; no current `std::net` operation produces
-them.
+Code compares a `NetError` kind rather than its explanatory message. The pure
+host-port helpers produce `InvalidAddress`. An `IO` handler can return the
+other kinds as ordinary failures.
 
 ## Address Values And Host-port Text
 
@@ -64,6 +68,42 @@ The executable network address example under `examples/specification/run/`
 checks value construction, representative round trips, port boundaries, and
 the rejection rules.
 
+## Network Operation Boundary
+
+`net::IO` declares the complete source-level handler contract:
+
+```veln
+pub effect IO
+	resolve(address: Address) -> Result<List<Endpoint>, NetError>
+	listen(address: Address) -> Result<Listener, NetError>
+	connect(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError>
+	accept(listener: Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError>
+	listener_address(listener: Listener) -> Result<Endpoint, NetError>
+	close_listener(listener: Listener) -> Result<(), NetError>
+	read(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError>
+	write(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteOutcome
+	local_address(stream: Stream) -> Result<Endpoint, NetError>
+	peer_address(stream: Stream) -> Result<Endpoint, NetError>
+	shutdown_read(stream: Stream) -> Result<(), NetError>
+	shutdown_write(stream: Stream) -> Result<(), NetError>
+	close_stream(stream: Stream) -> Result<(), NetError>
+end
+```
+
+The module exports one direct forwarding function for each operation. It also
+exports `connect_with`, `accept_with`, `read_with`, and `write_with` for the
+operations that accept deadline and cancellation options. Each function
+performs exactly one matching `net::IO` operation and returns its result
+unchanged. The short `connect`, `accept`, `read`, and `write` functions supply
+`None` for both options. Each `*_with` function passes both supplied options
+unchanged.
+
+A public caller declares `effects [net::IO]`, handles that effect explicitly,
+or receives a static missing-effect diagnostic. A runnable entry that retains
+`net::IO` is rejected; the runner does not install a handler implicitly. A
+source-defined scoped handler can return ordinary failures and can observe
+arguments that do not require constructing an opaque resource.
+
 ## Limits And Errors
 
 Both helpers return `Err(NetError(... InvalidAddress ...))` when a port is less
@@ -75,13 +115,21 @@ must be bracketed because its unbracketed colons do not identify one port
 unambiguously.
 
 The helpers do not validate DNS spelling or the internal syntax of an IP
-literal. The module does not yet export `net::IO`, `net::system()`, resolution,
-listeners, streams, deadlines, cancellation, or transport adapters. The
-remaining work stays in the standard-library networking proposal.
+literal. `Listener` and `Stream` are opaque; source code cannot construct a
+successful resource reference for a fake handler.
+
+The module does not yet export `net::system()` or `write_all`. It does not yet
+translate host failures, implement runtime resource lifecycle rules, or adapt
+a stream to `transport::DuplexStream`. Those behaviors remain in the
+standard-library networking proposal. Until a handler is supplied by the
+application or test boundary, the direct facade describes authority and
+composition but cannot perform host networking.
 
 ## References
 
 The exported implementation and companion tests are in
 `crates/veln-stdlib/veln/net.veln` and
-`crates/veln-stdlib/veln/net.test.veln`. The checked command-level example is
-under `examples/specification/run/standard-library-network-address-values/`.
+`crates/veln-stdlib/veln/net.test.veln`. Checked command-level examples under
+`examples/specification/check/` and `examples/specification/run/` cover the
+explicit standard-module identity, nominal effect requirement, and unhandled
+runner boundary.

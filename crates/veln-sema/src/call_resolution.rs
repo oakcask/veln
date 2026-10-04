@@ -104,6 +104,16 @@ fn type_name_path_call_signature(
     segments: &[String],
     context: TypeNamePathCallContext<'_>,
 ) -> Option<TypeCallSignature> {
+    if segments.len() > 1
+        && let Some(signature) = function_type_call_signature(
+            segments,
+            context.expected,
+            context.environment,
+            context.current_module,
+        )
+    {
+        return Some(signature);
+    }
     if let Some(signature) =
         type_effect_call_signature(callee, segments, context.expected, context.handle_type)
     {
@@ -239,6 +249,12 @@ fn core_name_path_call_signature(
     environment: &TypeEnvironment,
     current_module: Option<&str>,
 ) -> Option<CoreCallSignature> {
+    if segments.len() > 1
+        && let Some(signature) =
+            core_function_call_signature(segments, expected, environment, current_module)
+    {
+        return Some(signature);
+    }
     if stdio_signature(segments, callee).is_some() {
         return Some(CoreCallSignature {
             target: CoreCallTarget::StdioBuiltin(segments.join("::")),

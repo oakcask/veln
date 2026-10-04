@@ -1,0 +1,7 @@
+use net from "std"
+
+# Compiler integration contract: the source facade contributes its nominal IO
+# effect instead of the legacy coarse host net effect.
+pub fn resolve_without_io(address: net::Address) -> Result<List<net::Endpoint>, net::NetError>
+	net::resolve(address)
+end

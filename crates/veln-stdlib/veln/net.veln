@@ -1,7 +1,6 @@
 use prelude
 
-## A portable stream-network selection. Socket operations are not part of this
-## value-only module slice.
+## A portable stream-network selection.
 pub type Network
 	pub Tcp
 	pub Tcp4
@@ -19,8 +18,8 @@ pub type Endpoint
 	pub Endpoint(network: Network, address: String)
 end
 
-## Portable network failure classifications. This value-only slice produces
-## InvalidAddress; later network operations will use the remaining variants.
+## Portable network failure classifications. Pure address helpers produce
+## InvalidAddress. Network handlers can return the remaining variants.
 pub type NetErrorKind
 	pub InvalidAddress
 	pub UnsupportedNetwork
@@ -41,6 +40,131 @@ end
 ## explanatory text and is not a stable comparison key.
 pub type NetError
 	pub NetError(operation: String, network: Option<Network>, address: Option<String>, kind: NetErrorKind, message: String)
+end
+
+## An opaque listening resource owned by the IO handler that created it.
+pub type Listener = NetListener
+
+## An opaque connected stream owned by the IO handler that created it.
+pub type Stream = NetStream
+
+## A non-negative byte count shared with the standard prelude.
+pub type ByteCount = prelude::ByteCount
+
+## A stream read returns one non-empty chunk or clean end-of-stream.
+pub type ReadOutcome
+	pub ReadChunk(bytes: ByteChunk)
+	pub ReadEnd
+end
+
+## A stream write reports either its committed count or a committed prefix and
+## an ordinary network failure.
+pub type WriteOutcome
+	pub Written(count: ByteCount)
+	pub WriteFailed(committed: ByteCount, error: NetError)
+end
+
+## The substitutable network-operation boundary. This module does not install
+## a handler implicitly.
+pub effect IO
+	resolve(address: Address) -> Result<List<Endpoint>, NetError>
+	listen(address: Address) -> Result<Listener, NetError>
+	connect(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError>
+	accept(listener: Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError>
+	listener_address(listener: Listener) -> Result<Endpoint, NetError>
+	close_listener(listener: Listener) -> Result<(), NetError>
+	read(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError>
+	write(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteOutcome
+	local_address(stream: Stream) -> Result<Endpoint, NetError>
+	peer_address(stream: Stream) -> Result<Endpoint, NetError>
+	shutdown_read(stream: Stream) -> Result<(), NetError>
+	shutdown_write(stream: Stream) -> Result<(), NetError>
+	close_stream(stream: Stream) -> Result<(), NetError>
+end
+
+## Resolve an address through the active IO handler.
+pub fn resolve(address: Address) -> Result<List<Endpoint>, NetError> effects [IO]
+	perform IO::resolve(address)
+end
+
+## Open a listener through the active IO handler.
+pub fn listen(address: Address) -> Result<Listener, NetError> effects [IO]
+	perform IO::listen(address)
+end
+
+## Connect without a deadline or cancellation token.
+pub fn connect(address: Address) -> Result<Stream, NetError> effects [IO]
+	perform IO::connect(address, None, None)
+end
+
+## Connect with caller-supplied deadline and cancellation options.
+pub fn connect_with(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [IO]
+	perform IO::connect(address, deadline, token)
+end
+
+## Accept without a deadline or cancellation token.
+pub fn accept(listener: Listener) -> Result<Stream, NetError> effects [IO]
+	perform IO::accept(listener, None, None)
+end
+
+## Accept with caller-supplied deadline and cancellation options.
+pub fn accept_with(listener: Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [IO]
+	perform IO::accept(listener, deadline, token)
+end
+
+## Return the listener endpoint through the active IO handler.
+pub fn listener_address(listener: Listener) -> Result<Endpoint, NetError> effects [IO]
+	perform IO::listener_address(listener)
+end
+
+## Close a listener through the active IO handler.
+pub fn close_listener(listener: Listener) -> Result<(), NetError> effects [IO]
+	perform IO::close_listener(listener)
+end
+
+## Read without a deadline or cancellation token.
+pub fn read(stream: Stream) -> Result<ReadOutcome, NetError> effects [IO]
+	perform IO::read(stream, None, None)
+end
+
+## Read with caller-supplied deadline and cancellation options.
+pub fn read_with(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError> effects [IO]
+	perform IO::read(stream, deadline, token)
+end
+
+## Write without a deadline or cancellation token.
+pub fn write(stream: Stream, bytes: ByteChunk) -> WriteOutcome effects [IO]
+	perform IO::write(stream, bytes, None, None)
+end
+
+## Write with caller-supplied deadline and cancellation options.
+pub fn write_with(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteOutcome effects [IO]
+	perform IO::write(stream, bytes, deadline, token)
+end
+
+## Return the local stream endpoint through the active IO handler.
+pub fn local_address(stream: Stream) -> Result<Endpoint, NetError> effects [IO]
+	perform IO::local_address(stream)
+end
+
+## Return the peer stream endpoint through the active IO handler.
+pub fn peer_address(stream: Stream) -> Result<Endpoint, NetError> effects [IO]
+	perform IO::peer_address(stream)
+end
+
+## Shut down the stream read half through the active IO handler.
+pub fn shutdown_read(stream: Stream) -> Result<(), NetError> effects [IO]
+	perform IO::shutdown_read(stream)
+end
+
+## Shut down the stream write half through the active IO handler.
+pub fn shutdown_write(stream: Stream) -> Result<(), NetError> effects [IO]
+	perform IO::shutdown_write(stream)
+end
+
+## Close a stream through the active IO handler.
+pub fn close_stream(stream: Stream) -> Result<(), NetError> effects [IO]
+	perform IO::close_stream(stream)
 end
 
 ## Format a host and port without resolving the host. Hosts containing a colon

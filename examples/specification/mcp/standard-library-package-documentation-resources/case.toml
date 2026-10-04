@@ -13,6 +13,12 @@ contains = [
   "# Alias Byte",
   "# Type Network",
   "# Function join_host_port",
+  "# Effect IO",
+  "[alias Listener]",
+  "[alias Stream]",
+  "[alias ByteCount]",
+  "[type ReadOutcome]",
+  "[type WriteOutcome]",
   "byte_chunk_len",
   "byte_view_len",
   "\"code\":\"resource_not_found\"",
@@ -84,12 +90,12 @@ contains = "- Package identity: std"
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+contains = "veln-doc:///package/std/snapshot/2ea5f061d928b71a02c1d29ed27edaa4305f222008dba4c34eb072cfe54a0141/documentation/bf0cd35b4347bbdcd16bc0655e74101aa5f48ea1b3cb0c652934e457878c1dee/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+contains = "veln-doc:///package/std/snapshot/2ea5f061d928b71a02c1d29ed27edaa4305f222008dba4c34eb072cfe54a0141/documentation/bf0cd35b4347bbdcd16bc0655e74101aa5f48ea1b3cb0c652934e457878c1dee/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 
 [[mcp_assert]]
 id = 5
@@ -99,17 +105,17 @@ contains = "- Source path: prelude.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+contains = "veln-doc:///package/std/snapshot/2ea5f061d928b71a02c1d29ed27edaa4305f222008dba4c34eb072cfe54a0141/documentation/bf0cd35b4347bbdcd16bc0655e74101aa5f48ea1b3cb0c652934e457878c1dee/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+contains = "veln-doc:///package/std/snapshot/2ea5f061d928b71a02c1d29ed27edaa4305f222008dba4c34eb072cfe54a0141/documentation/bf0cd35b4347bbdcd16bc0655e74101aa5f48ea1b3cb0c652934e457878c1dee/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+contains = "veln-doc:///package/std/snapshot/2ea5f061d928b71a02c1d29ed27edaa4305f222008dba4c34eb072cfe54a0141/documentation/bf0cd35b4347bbdcd16bc0655e74101aa5f48ea1b3cb0c652934e457878c1dee/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 
 [[mcp_assert]]
 id = 6
@@ -220,3 +226,23 @@ contains = "NetError { operation: String, network: Option<Network>, address: Opt
 id = 15
 path = "/result/contents/0/text"
 contains = "fn split_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>"
+
+[[mcp_assert]]
+id = 8
+path = "/result/contents/0/text"
+contains = "fn connect_with(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [IO]"
+
+[[mcp_assert]]
+id = 16
+path = "/result/contents/0/text"
+contains = "# Effect IO"
+
+[[mcp_assert]]
+id = 16
+path = "/result/contents/0/text"
+contains = "resolve(address: Address) -> Result<List<Endpoint>, NetError>"
+
+[[mcp_assert]]
+id = 16
+path = "/result/contents/0/text"
+contains = "close_stream(stream: Stream) -> Result<(), NetError>"

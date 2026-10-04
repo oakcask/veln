@@ -1,0 +1,10 @@
+command = ["lsp"]
+stdin_file = "case-text/root-stdin-1.raw"
+exit = 0
+
+[stdout]
+contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/2ea5f061d928b71a02c1d29ed27edaa4305f222008dba4c34eb072cfe54a0141/net.veln\"", "\"range\":{\"start\":{\"line\":95,\"character\":7},\"end\":{\"line\":95,\"character\":14}"]
+not_contains = ["crates/veln-stdlib", "target/debug"]
+
+[stderr]
+format = "empty"

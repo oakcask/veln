@@ -28,6 +28,9 @@ pub(super) fn public_documentation_lines(tree: &veln_syntax::SyntaxTree) -> Vec<
                 SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
                     vec![schema.span.start.line]
                 }
+                SyntaxItem::Effect(effect) if effect.visibility == Visibility::Public => {
+                    vec![effect.span.start.line]
+                }
                 SyntaxItem::Function(function)
                     if function.kind == FunctionKind::Function
                         && function.visibility == Visibility::Public =>
@@ -86,6 +89,38 @@ pub(super) fn name_span_in(
 
 pub(super) fn schema_signature(schema: &SchemaDecl) -> String {
     format!("schema {}", schema.name.as_deref().unwrap_or("<anonymous>"))
+}
+
+pub(super) fn effect_signature(effect: &EffectDecl) -> String {
+    let operations = effect
+        .operations
+        .iter()
+        .map(|operation| {
+            let params = operation
+                .params
+                .iter()
+                .map(|param| match &param.ty {
+                    Some(ty) => format!("{}: {}", param.name, veln_syntax::canonical_type_text(ty)),
+                    None => param.name.clone(),
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let return_type = operation
+                .return_type
+                .as_deref()
+                .map(veln_syntax::canonical_type_text)
+                .unwrap_or_else(|| "()".to_string());
+            format!(
+                "{}({params}) -> {return_type}",
+                operation.name.as_deref().unwrap_or("<anonymous>")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    format!(
+        "effect {} {{ {operations} }}",
+        effect.name.as_deref().unwrap_or("<anonymous>")
+    )
 }
 
 pub(super) fn alias_signature(alias: &PublicAliasDecl) -> String {

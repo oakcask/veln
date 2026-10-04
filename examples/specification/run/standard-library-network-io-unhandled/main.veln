@@ -1,0 +1,7 @@
+use net from "std"
+
+# Runner integration contract: importing std::net does not implicitly install
+# authority for its nominal IO effect.
+pub fn main() -> Result<List<net::Endpoint>, net::NetError> effects [net::IO]
+	net::resolve(net::Address(net::Tcp4, "example.test", 443))
+end

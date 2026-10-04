@@ -753,34 +753,49 @@ fn type_alias_descriptors(
     descriptors: &[AdtDescriptor],
 ) -> Vec<AdtDescriptor> {
     let uses = normal_use_decls(module);
-    module
+    let mut pending = module
         .aliases
         .iter()
         .filter(|alias| alias.kind == PublicAliasKind::Type)
-        .filter_map(|alias| {
-            let name = alias.name.clone()?;
+        .collect::<Vec<_>>();
+    let mut targets = descriptors.to_vec();
+    let mut resolved = Vec::new();
+    loop {
+        let before = pending.len();
+        pending.retain(|alias| {
+            let Some(name) = alias.name.clone() else {
+                return false;
+            };
             if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
-                return None;
+                return false;
             }
             if public_alias_has_invalid_target_leaf(module, alias, Some(veln_ast::NameClass::Type))
             {
-                return None;
+                return false;
             }
-            let target = descriptor_for_alias_target(
+            let Some(target) = descriptor_for_alias_target(
                 &alias.target,
                 &uses,
-                descriptors,
+                &targets,
                 alias.module_name.as_deref(),
-            )?;
+            ) else {
+                return true;
+            };
             let mut descriptor = target.clone();
             descriptor.nominal_identity =
                 (alias.module_name.as_deref() != Some("std::prelude")).then(|| target.identity());
             descriptor.type_name = name;
             descriptor.module_name = alias.module_name.clone();
             descriptor.visibility = Visibility::Public;
-            Some(descriptor)
-        })
-        .collect()
+            targets.push(descriptor.clone());
+            resolved.push(descriptor);
+            false
+        });
+        if pending.is_empty() || pending.len() == before {
+            break;
+        }
+    }
+    resolved
 }
 
 fn descriptor_for_alias_target<'a>(
@@ -800,6 +815,14 @@ fn descriptor_for_alias_target<'a>(
                 descriptors.iter().find(|descriptor| {
                     descriptor.type_name == *name
                         && descriptor.module_name.as_deref() == Some("std::prelude")
+                        && descriptor.visibility == Visibility::Public
+                })
+            })
+            .or_else(|| {
+                descriptors.iter().find(|descriptor| {
+                    descriptor.type_name == *name
+                        && descriptor.module_name.is_none()
+                        && matches!(descriptor.type_name.as_str(), "NetListener" | "NetStream")
                         && descriptor.visibility == Visibility::Public
                 })
             }),

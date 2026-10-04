@@ -9,10 +9,9 @@ update-when: The planned standard-library network API, network effect boundary, 
 
 The standard package now exports the value-only `net` foundation described by
 the current [standard-library networking specification](../specification/standard-library-networking.md).
-The remaining work will add portable stream-oriented operations. Library code
-will use `net::listen`, `net::accept`, `net::connect`, name resolution, stream
-I/O, and resource cleanup through one public algebraic effect. An application
-will select the host implementation by handling that effect with
+The public `net::IO` effect and direct stream-operation facade are now current
+behavior. The remaining work will add the portable system implementation. An
+application will select that host implementation by handling `net::IO` with
 `net::system()`.
 
 This keeps two concerns separate:
@@ -22,17 +21,17 @@ This keeps two concerns separate:
 - The existing host `net` and `time` effects remain the trusted runtime
   boundary used by the system handler.
 
-The remaining delivery covers TCP stream clients and servers, resolution,
-deadlines, cancellation, and cleanup. It does not attempt full API parity with
-another language's network library.
+The remaining delivery covers host-backed TCP streams, resolution, deadlines,
+cancellation, cleanup, `write_all`, and the duplex transport adapter. It does
+not attempt full API parity with another language's network library.
 
 ## Motivation
 
-Veln already has host-backed socket operations and opaque listener and stream
-values. Those operations are compiler-known symbols instead of an exported
-standard-package module. Code can call them, but the public API shape, ordinary
-failure values, resource state, and substitution boundary are not owned by a
-standard-library source module.
+Veln started with host-backed socket operations and opaque listener and stream
+values exposed only as compiler-known symbols. The exported standard-package
+module now owns the public operation contract and substitution boundary. The
+remaining work moves host implementation, failure translation, and resource
+state behind that boundary.
 
 Go's `net` package supplies a useful division of responsibility: dialing,
 listening, accepting, address inspection, name resolution, and connection I/O
@@ -54,8 +53,8 @@ deterministic interception point.
   and TCP over IPv6.
 - Return typed ordinary failures instead of turning expected operating-system
   outcomes into runtime diagnostics.
-- Make DNS resolution and socket resource operations replaceable by an effect
-  handler.
+- Supply the explicit system handler for the replaceable DNS and socket
+  operations.
 - Preserve precise end-of-stream, deadline, cancellation, partial-write, and
   close outcomes.
 - Keep protocol code independent of host socket handles through
@@ -79,118 +78,17 @@ These require separate proposals because they introduce different resource,
 message-boundary, portability, or security contracts. In particular, a future
 packet API must not encode datagrams as streams.
 
-## Remaining public module
+## Remaining operation semantics
 
-A package already imports the value-only foundation explicitly:
-
-```veln
-use net from "std"
-```
-
-The current module exports `Network`, `Address`, `Endpoint`, `NetErrorKind`,
-`NetError`, `join_host_port`, and `split_host_port`. The rest of this section
-is the proposed source contract for the effectful API rather than aliases for
-compiler-known public symbols.
-
-### Resources and counts
+The public resource aliases, outcome values, complete `net::IO` effect, and
+direct forwarding facade are current behavior in the
+[standard-library networking specification](../specification/standard-library-networking.md).
+The remaining work defines the system handler and the semantics that its host
+boundary must enforce. It also adds `write_all`:
 
 ```veln
-pub type Listener = NetListener
-pub type Stream = NetStream
-pub type ByteCount = prelude::ByteCount
-```
-
-`Listener` and `Stream` are public names for runtime-backed opaque resource
-references. Their representation is not source-constructible, serializable,
-or a cross-process identity. A reference belongs to the `net::IO` handler that
-created it. Passing it to a different handler returns `InvalidResource`.
-
-`ByteCount` is non-negative. The existing byte-chunk conversion helpers are
-used to compare a count with a `ByteChunk` length.
-
-### Errors and read outcomes
-
-`NetErrorKind` and `NetError` are already public values. The remaining work
-will assign their portable classifications to host-backed operations and add
-the following operation outcomes:
-
-```veln
-pub type ReadOutcome
-	ReadChunk(bytes: ByteChunk)
-	ReadEnd
-end
-
-pub type WriteOutcome
-	Written(count: ByteCount)
-	WriteFailed(committed: ByteCount, error: NetError)
-end
-```
-
-`operation` is the stable `net` operation name, such as `listen`, `accept`, or
-`read`. `kind` is the portable classification. `message` is explanatory host
-text and is not a stable comparison key. The system handler must not expose a
-platform error number as the only classification.
-
-Expected host failures use `NetError`. A runtime diagnostic is reserved for a
-broken runtime invariant, such as internal resource-table corruption.
-
-`WriteOutcome` preserves a committed prefix when the host reports bytes and a
-failure from the same write. `committed` is in the inclusive range from zero
-through the input length. A caller must not retry that prefix.
-
-For an operation whose declared result is `Result`, `Busy` and
-`InvalidResource` are returned through `Err`. For `write`, those failures are
-`WriteFailed(0, error)`.
-
-### The `net::IO` effect
-
-```veln
-pub effect IO
-	resolve(address: Address) -> Result<List<Endpoint>, NetError>
-	listen(address: Address) -> Result<Listener, NetError>
-	connect(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError>
-	accept(listener: Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError>
-	listener_address(listener: Listener) -> Result<Endpoint, NetError>
-	close_listener(listener: Listener) -> Result<(), NetError>
-	read(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError>
-	write(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteOutcome
-	local_address(stream: Stream) -> Result<Endpoint, NetError>
-	peer_address(stream: Stream) -> Result<Endpoint, NetError>
-	shutdown_read(stream: Stream) -> Result<(), NetError>
-	shutdown_write(stream: Stream) -> Result<(), NetError>
-	close_stream(stream: Stream) -> Result<(), NetError>
-end
-```
-
-The effect operations are the complete handler contract. Application code uses
-the following functions:
-
-```veln
-pub fn resolve(address: Address) -> Result<List<Endpoint>, NetError> effects [net::IO]
-pub fn listen(address: Address) -> Result<Listener, NetError> effects [net::IO]
-pub fn connect(address: Address) -> Result<Stream, NetError> effects [net::IO]
-pub fn connect_with(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [net::IO]
-pub fn accept(listener: Listener) -> Result<Stream, NetError> effects [net::IO]
-pub fn accept_with(listener: Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [net::IO]
-pub fn listener_address(listener: Listener) -> Result<Endpoint, NetError> effects [net::IO]
-pub fn close_listener(listener: Listener) -> Result<(), NetError> effects [net::IO]
-pub fn read(stream: Stream) -> Result<ReadOutcome, NetError> effects [net::IO]
-pub fn read_with(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError> effects [net::IO]
-pub fn write(stream: Stream, bytes: ByteChunk) -> WriteOutcome effects [net::IO]
-pub fn write_with(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteOutcome effects [net::IO]
-pub fn local_address(stream: Stream) -> Result<Endpoint, NetError> effects [net::IO]
-pub fn peer_address(stream: Stream) -> Result<Endpoint, NetError> effects [net::IO]
-pub fn shutdown_read(stream: Stream) -> Result<(), NetError> effects [net::IO]
-pub fn shutdown_write(stream: Stream) -> Result<(), NetError> effects [net::IO]
-pub fn close_stream(stream: Stream) -> Result<(), NetError> effects [net::IO]
 pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [net::IO]
 ```
-
-The short `connect`, `accept`, `read`, and `write` functions perform their
-effect operation with absent deadline and cancellation values. Their `*_with`
-counterparts pass both options unchanged. Direct `perform` expressions remain
-valid for handler and effect-polymorphism tests.
-
 An absent deadline means that elapsed time does not end the operation. An
 absent cancellation token means that cancellation does not end the operation.
 If both are present and observable before success, the first condition observed
@@ -377,9 +275,8 @@ The remaining implementation must move the effectful public contract into
 
 1. Add private host intrinsics under a namespace that source imports cannot
    resolve.
-2. Extend the exported `net.veln` with its `net::IO` wrappers and
-   `net::system()`.
-3. Update standard-library code to import `net` and handle or propagate
+2. Extend the exported `net.veln` with `net::system()` and `write_all`.
+3. Update remaining standard-library code to import `net` and handle or propagate
    `net::IO` at its intended boundary.
 4. Keep the existing compiler-known `net::...` spellings only as a temporary
    compatibility lowering when no imported module owns `net`.
@@ -401,10 +298,7 @@ already exist or pass.
 
 | Concern | Input or event | Required observation | Intended evidence |
 | --- | --- | --- | --- |
-| Export | `use net from "std"` with the proposed effectful declarations present | `net::listen`, `net::IO`, `Listener`, `Stream`, `ReadOutcome`, and `WriteOutcome` resolve to `std::net` | package and check cases under `examples/specification/` |
-| Effects | A public function calls `net::listen` without `net::IO` | Static diagnostic names `net::IO` and the call site | check cases |
 | System handling | A `net::IO` block is handled with `net::system()` | The remaining effects are host `net` and `time` | check cases and semantic tests |
-| No implicit authority | An entry point leaves `net::IO` unhandled | Static failure; the runner does not install a handler | check and run cases |
 | Resolution | A name maps to repeated endpoints | Order is preserved and exact duplicates are removed | runtime conformance test |
 | Listen and accept | The system handler listens on loopback port zero and a client connects | Reported listener address has an assigned port and accept returns a fresh stream | loopback run case |
 | Connect failure | No server listens at a selected loopback address | `ConnectionRefused` or a documented portable fallback classification | loopback run case |
@@ -419,8 +313,7 @@ already exist or pass.
 | Handler ownership | A resource from one handler is passed to another | `InvalidResource`; both handlers' states remain unchanged | runtime conformance test |
 | Scope cleanup | A handled block exits with owned resources open | Host resources close and a peer observes closure | loopback run case |
 | Escaped resource | A resource is returned from its owning handled scope | Scope cleanup closes it and another handler rejects it | runtime conformance test |
-| Editor identity | Definition or hover targets an imported network symbol | Location and package identity are `std::net` | LSP and MCP cases |
-| Package docs | Standard package documentation is generated after the effectful API is added | The effect, resource and outcome declarations, stream operations, system handler, and effectful examples are present | package-documentation gate |
+| Package docs | Standard package documentation is generated after the system handler is added | The system handler and its effectful examples join the current effect, resource, outcome, and stream-operation declarations | package-documentation gate |
 
 Loopback cases must bind only loopback addresses and must use bounded deadlines.
 They must not require external DNS or internet access. Cases that validate
@@ -428,12 +321,11 @@ resolver ordering use the deterministic handler.
 
 ## Specification promotion
 
-The value-only foundation and its executable evidence are current behavior.
-For the remaining work, add executable evidence before describing the API as
-current behavior. Then add the smallest focused current specification pages
-for:
+The public contract, direct facade, and their executable evidence are current
+behavior. For the remaining work, add executable evidence before describing
+the implementation as current behavior. Extend the smallest focused current
+specification pages for:
 
-- the effectful `std::net` API and host-error contract;
 - the `net::IO` and `net::system()` effect boundary;
 - listener and stream lifecycle transitions;
 - the `transport::DuplexStream` adapter boundary.

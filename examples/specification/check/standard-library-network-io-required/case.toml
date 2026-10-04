@@ -1,0 +1,19 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `std::net::IO`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 1
