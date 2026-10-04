@@ -420,7 +420,15 @@ impl<'a> CoreLowerer<'a> {
                 "module",
                 self.function.module_name.clone().unwrap_or_default(),
             ),
-            string_field("file", expr.span.file.as_str().to_string()),
+            string_field(
+                "file",
+                self.function
+                    .generated_origin_path
+                    .as_ref()
+                    .unwrap_or(&expr.span.file)
+                    .as_str()
+                    .to_string(),
+            ),
             int_field("start_line", expr.span.start.line),
             int_field("start_column", expr.span.start.column),
             int_field("start_offset", expr.span.start.offset),

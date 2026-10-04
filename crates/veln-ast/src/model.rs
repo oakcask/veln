@@ -1,4 +1,4 @@
-use veln_source::SourceSpan;
+use veln_source::{SourcePath, SourceSpan};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeId(u32);
@@ -110,6 +110,7 @@ pub enum QualifiedPathSegmentEvidence {
 pub struct HandlerDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub generated_origin_path: Option<SourcePath>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub params: Vec<Param>,
@@ -291,6 +292,7 @@ pub struct SchemaValidationClause {
 pub struct Function {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub generated_origin_path: Option<SourcePath>,
     pub kind: FunctionKind,
     pub visibility: Visibility,
     pub name: Option<String>,

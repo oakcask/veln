@@ -19,7 +19,7 @@ also states it.
 - Handler target syntax using the existing `for` keyword, removing `handles`
   from the keyword set while preserving handler semantics:
   [handler-for-syntax.md](handler-for-syntax.md).
-- Generated-source identity and deferred observation for library-defined
+- Relocation-safe source identity and deferred observation for library-defined
   instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
 - Remaining standard-library TCP stream operations, typed host failures,

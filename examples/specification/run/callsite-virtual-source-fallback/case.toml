@@ -1,0 +1,14 @@
+# Integration contract: a CLI-selected virtual-looking source keeps its source
+# identifier and call-expression coordinates when no generated origin is supplied.
+command = ["run", "main", "virtual/generated.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+equals_file = "case-text/stdout.txt"
+
+[stderr]
+format = "empty"

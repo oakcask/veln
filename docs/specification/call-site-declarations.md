@@ -150,11 +150,17 @@ not enter the variadic argument sequence.
 
 Direct-call construction copies the call expression's existing source
 identifier into `file`. An ordinary package-selected source therefore uses its
-package-relative path. The current `package` field is empty. The `module` field
-is the caller's resolved module name, or empty when the caller has no resolved
-module name. Generated-source origin mapping, canonical virtual-source naming,
-dependency disambiguation, and relocation guarantees are not part of the
-current value construction.
+package-relative path. When a generated source has an origin path, `file` uses
+that origin path and every line, column, and offset keeps the call expression's
+mapped coordinate value. A generated or virtual source without an origin path
+keeps its own source identifier and coordinates. The current generated-origin
+metadata is an identity coordinate map: it can replace the source path but
+does not describe a non-identity coordinate transform.
+
+The current `package` field is empty. The `module` field is the caller's
+resolved module name, or empty when the caller has no resolved module name.
+Canonical virtual-source naming, dependency disambiguation, and relocation
+guarantees are not part of the current value construction.
 
 ## Limits and diagnostics
 
@@ -174,10 +180,9 @@ second modifier is rejected at the duplicate token and offers removal as a
 repair.
 
 A `veln run` entry cannot carry the modifier because it has no Veln call
-expression from which to obtain a location. Generated-source origin mapping,
-canonical virtual-source naming, dependency source-identity collisions,
-relocation guarantees, and deferred-observation lifetime guarantees are not
-implemented.
+expression from which to obtain a location. Canonical virtual-source naming,
+dependency source-identity collisions, relocation guarantees, and
+deferred-observation lifetime guarantees are not implemented.
 Runtime-required contract predicates in ordinary functions do not construct
 call-site context. Execution rejects a direct call from such a predicate to a
 call-site-aware function because the enclosing function has no hidden context
@@ -202,6 +207,11 @@ Functions without the modifier retain their ordinary call ABI.
   the `callsite-direct-runtime` run specification case.
 - Unicode coordinate evidence:
   the `callsite-unicode-coordinates` run specification case.
+- Generated-source mapped and unmapped runtime evidence:
+  the `generated_callsite_locations_use_mapped_origins_and_preserve_unmapped_sources`
+  JVM backend test.
+- Virtual-looking source fallback evidence:
+  [`callsite-virtual-source-fallback`](../../examples/specification/run/callsite-virtual-source-fallback/).
 - Indirect-call propagation evidence:
   [`callsite-indirect-runtime`](../../examples/specification/run/callsite-indirect-runtime/).
 - Runtime-backed collection and task callback evidence:

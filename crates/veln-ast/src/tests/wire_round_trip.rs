@@ -89,6 +89,37 @@ fn surface_wire_round_trip_preserves_callsite_modifier_span() {
 }
 
 #[test]
+fn surface_wire_round_trip_preserves_generated_origins_for_executable_bodies() {
+    let mut module = lower_source(concat!(
+        "effect Ask\n",
+        "  value() -> Int\n",
+        "end\n",
+        "handler ask() handles Ask\n",
+        "  value() => 1\n",
+        "end\n",
+        "fn located() -> SourceLocation callsite\n",
+        "  callsite\n",
+        "end\n",
+    ));
+    let origin = veln_source::SourcePath::new("user/main.veln");
+    module.handlers[0].generated_origin_path = Some(origin.clone());
+    module.functions[0].generated_origin_path = Some(origin.clone());
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    assert_eq!(
+        decoded.handlers[0].generated_origin_path.as_ref(),
+        Some(&origin)
+    );
+    assert_eq!(
+        decoded.functions[0].generated_origin_path.as_ref(),
+        Some(&origin)
+    );
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_contract_callsite_reference_span() {
     let module = lower_source("fn guarded() -> ()\nrequire callsite\n  ()\nend\n");
     let encoded = encode_surface_module(&module);

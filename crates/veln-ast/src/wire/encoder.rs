@@ -205,6 +205,9 @@ impl Writer {
     fn handler_decl(&mut self, value: &HandlerDecl) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.generated_origin_path, |writer, value| {
+            writer.string(value.as_str());
+        });
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));
         self.vec(&value.params, Self::param);
@@ -298,6 +301,9 @@ impl Writer {
     fn function(&mut self, value: &Function) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.generated_origin_path, |writer, value| {
+            writer.string(value.as_str());
+        });
         self.function_kind(value.kind);
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));

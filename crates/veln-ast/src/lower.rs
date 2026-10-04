@@ -324,6 +324,7 @@ impl AstBuilder {
         HandlerDecl {
             node_id: self.alloc(),
             module_name,
+            generated_origin_path: None,
             visibility: match handler.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,
@@ -429,6 +430,7 @@ impl AstBuilder {
         Function {
             node_id: self.alloc(),
             module_name,
+            generated_origin_path: None,
             kind: match function.kind {
                 veln_syntax::FunctionKind::Function => FunctionKind::Function,
                 veln_syntax::FunctionKind::Test => FunctionKind::Test,

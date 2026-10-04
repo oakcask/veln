@@ -1,0 +1,14 @@
+fn located() -> SourceLocation callsite
+	callsite
+end
+
+pub fn main() -> () effects [stdio]
+	let observed = located()
+	stdio::println(observed.file)
+	stdio::println(int_to_string(observed.start_line))
+	stdio::println(int_to_string(observed.start_column))
+	stdio::println(int_to_string(observed.start_offset))
+	stdio::println(int_to_string(observed.end_line))
+	stdio::println(int_to_string(observed.end_column))
+	stdio::println(int_to_string(observed.end_offset))
+end

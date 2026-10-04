@@ -184,7 +184,7 @@ pub(super) fn lower_source_tree(
     derived_module: Option<String>,
     package: Option<&str>,
 ) -> SurfaceModule {
-    match derived_module {
+    let mut module = match derived_module {
         Some(module_name) => {
             let internal_module_name = internal_module_name(package, &module_name);
             lower_surface_ast_with_module_identity(
@@ -194,7 +194,15 @@ pub(super) fn lower_source_tree(
             )
         }
         None => lower_surface_ast(tree),
+    };
+    let generated_origin_path = source.generated_origin_path().flatten().cloned();
+    for function in &mut module.functions {
+        function.generated_origin_path = generated_origin_path.clone();
     }
+    for handler in &mut module.handlers {
+        handler.generated_origin_path = generated_origin_path.clone();
+    }
+    module
 }
 
 fn rewrite_import_targets(uses: &mut [UseDecl], package: Option<&str>) {

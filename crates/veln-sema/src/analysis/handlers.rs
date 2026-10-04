@@ -508,6 +508,7 @@ fn synthetic_clause_function(
     Function {
         node_id: clause.node_id,
         module_name: handler.module_name.clone(),
+        generated_origin_path: handler.generated_origin_path.clone(),
         kind: FunctionKind::Function,
         visibility: Visibility::Private,
         name: Some(synthetic_clause_function_name(handler, clause)),

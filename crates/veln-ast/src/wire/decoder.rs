@@ -306,6 +306,9 @@ impl<'a> Reader<'a> {
         Ok(HandlerDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            generated_origin_path: self
+                .option(Self::string)?
+                .map(veln_source::SourcePath::from),
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             params: self.vec(Self::param)?,
@@ -467,6 +470,9 @@ impl<'a> Reader<'a> {
         Ok(Function {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            generated_origin_path: self
+                .option(Self::string)?
+                .map(veln_source::SourcePath::from),
             kind: self.function_kind()?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,

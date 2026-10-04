@@ -156,6 +156,97 @@ fn bytecode_backend_passes_indirect_call_location_to_callsite_function_values() 
 }
 
 #[test]
+fn generated_callsite_locations_use_mapped_origins_and_preserve_unmapped_sources() {
+    fn run_case(name: &str, generated_path: &str, origin_path: Option<&str>, expected_file: &str) {
+        let text = concat!(
+            "fn located() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "pub fn main() -> () effects [stdio]\n",
+            "  let observed = located()\n",
+            "  stdio::println(observed.file)\n",
+            "  stdio::println(int_to_string(observed.start_line))\n",
+            "  stdio::println(int_to_string(observed.start_column))\n",
+            "  stdio::println(int_to_string(observed.start_offset))\n",
+            "  stdio::println(int_to_string(observed.end_line))\n",
+            "  stdio::println(int_to_string(observed.end_column))\n",
+            "  stdio::println(int_to_string(observed.end_offset))\n",
+            "end\n",
+        );
+        let source = SourceFile::generated(
+            generated_path,
+            text,
+            origin_path.map(veln_source::SourcePath::new),
+        );
+        let call_start = text.rfind("located()").expect("call expression");
+        let call_span = source.span(veln_source::TextRange::new(
+            call_start,
+            call_start + "located()".len(),
+        ));
+        let analysis = veln_analysis::analyze_project(
+            veln_project::Project {
+                root: ".".into(),
+                files: vec![source],
+                manifest: None,
+            },
+            veln_analysis::DoctestMode::Exclude,
+        );
+        assert!(
+            analysis.checked_diagnostics().is_empty(),
+            "{:#?}",
+            analysis.checked_diagnostics()
+        );
+        let reachable = analysis.lower_reachable_entry("main", veln_ast::FunctionKind::Function);
+        assert!(
+            reachable.lowered.diagnostics.is_empty(),
+            "{:#?}",
+            reachable.lowered.diagnostics
+        );
+        let program = generate_classfiles_with_entry(
+            reachable
+                .lowered
+                .ir
+                .as_ref()
+                .expect("generated source should lower to IR"),
+            "main",
+        );
+        let Some(output) = run_jvm_program_when_java_is_available(name, &program, &[]) else {
+            return;
+        };
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            format!(
+                "{expected_file}\n{}\n{}\n{}\n{}\n{}\n{}\n",
+                call_span.start.line,
+                call_span.start.column,
+                call_span.start.offset,
+                call_span.end.line,
+                call_span.end.column,
+                call_span.end.offset,
+            )
+        );
+    }
+
+    run_case(
+        "bytecode-callsite-generated-mapped",
+        "target/generated.veln",
+        Some("user/main.veln"),
+        "user/main.veln",
+    );
+    run_case(
+        "bytecode-callsite-generated-unmapped",
+        "virtual/generated.veln",
+        None,
+        "virtual/generated.veln",
+    );
+}
+
+#[test]
 fn bytecode_backend_prefers_indirect_call_context_over_bound_callback_context() {
     let ir = lower_to_ir(concat!(
         "fn located() -> SourceLocation callsite\n",
