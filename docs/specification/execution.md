@@ -29,6 +29,11 @@ consumers bind the caller's context to a call-site-aware callback, including a
 callback that runs in an asynchronous task. A runtime contract on a
 call-site-aware function forwards its existing value when it directly calls
 another call-site-aware function.
+Library-generated spans use a canonical virtual path derived from the
+package-relative source path and generator identity. The exposed path is
+unchanged when the source tree moves between absolute roots. A captured
+`SourceLocation` is an ordinary value: returning or storing it preserves the
+same location for later observation after the originating function returns.
 Call-site-aware run entries and the same contract call from an ordinary
 function are execution gates. The ordinary-function contract deliberately does
 not construct hidden call-site context. Direct built-in references in runtime

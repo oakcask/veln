@@ -31,6 +31,11 @@ The following behavior is fixed for the implemented slice:
   documentation path and coordinates only when both span boundaries map to
   that source. Otherwise, it keeps the complete generated span. See
   [call-site-declarations.md](call-site-declarations.md#declaration-behavior).
+- A library-generated call-site location uses a canonical virtual path derived
+  from its package-relative source and generator identity. The value remains
+  unchanged when retained past the originating function return or when the
+  source tree moves between absolute roots. See
+  [call-site-declarations.md](call-site-declarations.md#declaration-behavior).
 - Diagnostics use the stable top-level check JSON envelope described in
   [diagnostics-json.md](diagnostics-json.md).
 - Human diagnostics keep the primary message focused on the failed fact at the
