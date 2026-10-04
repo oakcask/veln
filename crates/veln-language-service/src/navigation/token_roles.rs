@@ -16,7 +16,7 @@ fn is_local_binding_name(tokens: &[Token], index: usize) -> bool {
 
 fn is_let_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
     let token = &tokens[index];
-    if token.kind != TokenKind::Ident {
+    if !token.kind.is_binding_identifier() {
         return false;
     }
     let Some(let_index) = tokens[..index]
@@ -37,7 +37,7 @@ fn is_let_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
 
 fn is_match_arm_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
     let token = &tokens[index];
-    token.kind == TokenKind::Ident
+    token.kind.is_binding_identifier()
         && tokens[index + 1..]
             .iter()
             .take_while(|next| next.kind != TokenKind::Newline && next.kind != TokenKind::Eof)
@@ -46,7 +46,7 @@ fn is_match_arm_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
 }
 
 fn is_satisfy_candidate_binding_name(tokens: &[Token], index: usize) -> bool {
-    tokens[index].kind == TokenKind::Ident
+    tokens[index].kind.is_binding_identifier()
         && previous_non_layout_token(tokens, index)
             .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "satisfy")
         && next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::FatArrow)
@@ -93,7 +93,7 @@ fn is_bare_function_reference_token(
     index: usize,
     name: &str,
 ) -> bool {
-    tokens[index].kind == TokenKind::Ident
+    tokens[index].kind.is_bare_expression_identifier()
         && tokens[index].text == name
         && previous_non_layout_token(tokens, index)
             .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)

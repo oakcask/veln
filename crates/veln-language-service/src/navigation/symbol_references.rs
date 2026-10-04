@@ -532,30 +532,36 @@ impl SymbolIndex {
         })
     }
 
+    fn function_alias_target_symbol(&self, symbol: &FunctionSymbol) -> Option<FunctionSymbol> {
+        let target_name = symbol.alias_target_name.as_deref()?;
+        let target_module = self.function_alias_target_module(symbol)?;
+        record_function_alias_target_lookup();
+        let identity = (
+            symbol.package.clone(),
+            symbol.package_origin,
+            target_module,
+            target_name.to_string(),
+        );
+        let [index] = self.function_indices_by_identity.get(&identity)?.as_slice() else {
+            return None;
+        };
+        self.functions.get(*index).cloned()
+    }
+
     fn function_alias_target_module(&self, symbol: &FunctionSymbol) -> Option<String> {
         let Some(target_module) = symbol.alias_target_module.as_deref() else {
             return Some(symbol.module.clone());
         };
-        let declaring_file = self.files.iter().find(|file| {
-            file.source.path() == &symbol.declaration.span.file
-                && matches!(
-                    (&file.origin, symbol.package.as_deref(), symbol.package_origin),
-                    (
-                        IndexedOrigin::Package {
-                            identity,
-                            standard_library,
-                            ..
-                        },
-                        Some(package),
-                        Some(origin),
-                    ) if identity == package
-                        && if *standard_library {
-                            origin == PackageOrigin::StandardLibrary
-                        } else {
-                            origin == PackageOrigin::DirectDependency
-                        }
-                )
-        });
+        record_function_alias_declaring_file_lookup();
+        let key = (
+            symbol.package.clone(),
+            symbol.package_origin,
+            symbol.declaration.span.file.as_str().to_string(),
+        );
+        let declaring_file = self
+            .file_indices_by_identity
+            .get(&key)
+            .and_then(|index| self.files.get(*index));
         match declaring_file {
             None => None,
             Some(file) => {

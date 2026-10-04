@@ -16,6 +16,7 @@ use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{format_tree, parse};
 
 use crate::{legend, semantic_tokens_full};
+use veln_language_service::{CompletionCandidate, CompletionCandidateKind, SignatureHelp};
 
 mod diagnostic;
 
@@ -31,9 +32,42 @@ pub(crate) fn document_uri_and_text(message: &str) -> Option<(String, String)> {
 pub(crate) fn initialize_result() -> String {
     let legend = legend();
     format!(
-        "{{\"capabilities\":{{\"textDocumentSync\":1,\"definitionProvider\":true,\"referencesProvider\":true,\"documentFormattingProvider\":true,\"renameProvider\":{{\"prepareProvider\":true}},\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
+        "{{\"capabilities\":{{\"textDocumentSync\":1,\"definitionProvider\":true,\"referencesProvider\":true,\"completionProvider\":{{\"triggerCharacters\":[]}},\"signatureHelpProvider\":{{\"triggerCharacters\":[\"(\",\",\"]}},\"documentFormattingProvider\":true,\"renameProvider\":{{\"prepareProvider\":true}},\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
         json_string_list(&legend.token_types),
         json_string_list(&legend.token_modifiers),
+    )
+}
+
+pub(crate) fn completion_result(candidates: &[CompletionCandidate]) -> String {
+    let items = candidates
+        .iter()
+        .map(|candidate| {
+            let kind = match candidate.kind {
+                CompletionCandidateKind::DeclarationModifier => 14,
+                CompletionCandidateKind::BuiltinLocal => 6,
+            };
+            format!(
+                "{{\"label\":\"{}\",\"kind\":{kind},\"detail\":\"{}\"}}",
+                escape_json(candidate.label),
+                escape_json(candidate.detail),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{items}]")
+}
+
+pub(crate) fn signature_help_result(help: &SignatureHelp) -> String {
+    let parameters = help
+        .parameters
+        .iter()
+        .map(|parameter| format!("{{\"label\":\"{}\"}}", escape_json(parameter)))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"signatures\":[{{\"label\":\"{}\",\"parameters\":[{parameters}]}}],\"activeSignature\":0,\"activeParameter\":{}}}",
+        escape_json(&help.label),
+        help.active_parameter,
     )
 }
 

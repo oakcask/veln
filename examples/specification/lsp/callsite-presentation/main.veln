@@ -1,0 +1,16 @@
+fn located(message: String) -> SourceLocation callsite
+
+	callsite
+end
+
+fn ordinary() -> Int
+	1
+end
+
+fn caller() -> SourceLocation
+	located("hello")
+end
+
+fn named(callsite: Int) -> Int
+	callsite
+end

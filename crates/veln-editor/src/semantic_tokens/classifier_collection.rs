@@ -248,7 +248,7 @@ impl<'a> Classifier<'a> {
     ) {
         while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
             let token = &self.tokens[self.cursor];
-            if token.kind == TokenKind::Ident
+            if token.kind.is_binding_identifier()
                 && (!require_type_separator
                     || self.next_significant_kind() == Some(TokenKind::Colon))
             {
@@ -362,7 +362,11 @@ impl<'a> Classifier<'a> {
             self.cursor += 1;
             self.skip_trivia();
         }
-        if self.at(TokenKind::Ident) {
+        if self
+            .tokens
+            .get(self.cursor)
+            .is_some_and(|token| token.kind.is_contextual_identifier())
+        {
             let token = &self.tokens[self.cursor];
             let modifiers = if kind == TokenKind::Test {
                 vec![
@@ -393,7 +397,10 @@ impl<'a> Classifier<'a> {
                 semantic_tokens.push(self.simple(token, SemanticTokenType::Operator));
                 self.cursor += 1;
                 self.skip_trivia();
-                if self.at(TokenKind::Ident)
+                if self
+                    .tokens
+                    .get(self.cursor)
+                    .is_some_and(|token| token.kind.is_binding_identifier())
                     && self.next_significant_kind() == Some(TokenKind::Colon)
                 {
                     let binding = &self.tokens[self.cursor];
@@ -453,7 +460,7 @@ impl<'a> Classifier<'a> {
         while !self.at(TokenKind::Equal) && !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof)
         {
             let token = &self.tokens[self.cursor];
-            if token.kind == TokenKind::Ident {
+            if token.kind.is_binding_identifier() {
                 if depth > 0 && self.next_significant_kind() == Some(TokenKind::Colon) {
                     semantic_tokens.push(self.simple(token, SemanticTokenType::Property));
                 } else if is_type_name(&token.text) {

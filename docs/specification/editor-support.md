@@ -1,8 +1,8 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#lsp-encoding; behavior=#semantic-token-records; limits=#boundaries
-update-when: The `veln lsp` semantic-token, publish-diagnostic, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy contract changes.
+specification-coverage: usage=#lsp-encoding; behavior=#lsp-completion-and-signature-help; limits=#boundaries
+update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy contract changes.
 ---
 
 # Editor Support
@@ -18,6 +18,7 @@ used by editor integrations.
 - LSP `textDocument/semanticTokens/full` integer data comes from `veln-lsp`.
 - LSP `textDocument/publishDiagnostics` messages come from `veln-lsp`.
 - Definition and reference identity comes from `veln-language-service`.
+- Completion and signature help come from `veln-language-service`.
 - LSP `textDocument/definition`, `textDocument/references`,
   `textDocument/prepareRename`, and `textDocument/rename` convert shared
   navigation results to LSP responses in `veln-lsp`.
@@ -53,6 +54,8 @@ The implemented semantic token types are standard LSP token types:
 | use alias segment | `namespace` | `declaration` |
 | function declaration name | `function` | `declaration` |
 | function call or known function reference | `function` | none |
+| `callsite` declaration modifier | `keyword` | none |
+| built-in `callsite` body reference | `variable` | `readonly` |
 | test declaration name | `function` | `declaration`, `test` |
 | schema declaration name | `type` | `declaration` |
 | parameter declaration | `parameter` | `declaration`, `readonly` |
@@ -79,18 +82,25 @@ the VSCode grammar.
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
 
+In an ordinary function, a binding named `callsite` uses the same parameter,
+result, local, or pattern token class and modifiers as any other binding. It is
+not presented as the built-in local or as a same-named function unless the
+occurrence is a function call target. The built-in local applies only when the
+enclosing source function has the declaration modifier.
+
 ## LSP Encoding
 
 `veln-lsp` exposes the semantic-token legend, full-token response data, and a
 stdio JSON-RPC server. The server advertises `textDocumentSync`,
 `definitionProvider`, `referencesProvider`, `documentFormattingProvider`,
-`renameProvider.prepareProvider`, and `semanticTokensProvider` with
-full-document semantic token support. It handles `initialize`, `initialized`,
+`completionProvider`, `signatureHelpProvider`, `renameProvider.prepareProvider`,
+and `semanticTokensProvider` with full-document semantic token support. It
+handles `initialize`, `initialized`,
 `shutdown`, `exit`, `textDocument/didOpen`, `textDocument/didChange`,
 `textDocument/didClose`, `textDocument/semanticTokens/full`,
 `textDocument/definition`, `textDocument/references`,
-`textDocument/formatting`, `textDocument/prepareRename`, and
-`textDocument/rename`.
+`textDocument/completion`, `textDocument/signatureHelp`,
+`textDocument/formatting`, `textDocument/prepareRename`, and `textDocument/rename`.
 
 The full response uses LSP relative integer encoding in groups of five:
 
@@ -102,6 +112,32 @@ The full response uses LSP relative integer encoding in groups of five:
 
 Tokens are sorted before encoding. Overlapping ranges are skipped so the encoded
 stream remains valid for LSP clients.
+Start characters and token lengths count UTF-16 code units, including when a
+non-BMP scalar precedes a token on the same line.
+
+## LSP Completion And Signature Help
+
+`textDocument/completion` returns a completion-item array. Each call-site
+declaration-modifier item has `label` set to `callsite`, completion-item `kind`
+14, and `detail` set to `call-site declaration modifier`. Each built-in
+call-site local item has the same label, completion-item `kind` 6, and `detail`
+set to `built-in SourceLocation local`. A valid retained-source position with
+no completion candidate returns an empty array.
+
+`textDocument/signatureHelp` returns one signature for the resolved source
+function call. The result has `activeSignature` 0, the zero-based active
+parameter index, the complete function signature as the signature label, and
+one parameter entry per declared parameter. Each parameter entry labels the
+parameter with its name and type. A valid retained-source position that does
+not resolve to a supported source function call returns `null`.
+Bare ordinary calls and qualified source-function calls are supported. A
+qualified function named `handle` resolves as a call target, while the bare
+`handle (expression) with handler()` operator returns `null` at its grouping
+parenthesis.
+
+Completion and signature-help requests use the retained project snapshot and
+the same position shape, UTF-16 conversion, invalid-position response, and
+failure-state preservation specified for navigation below.
 
 ## LSP Diagnostics
 
@@ -204,9 +240,10 @@ ranges.
 Definition and references use the shared selected symbol and reference set.
 Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
-Navigation requests convert zero-based UTF-16 LSP characters to the shared
-one-based Unicode-scalar positions. Navigation responses convert shared ranges
-back to zero-based UTF-16 LSP ranges using the retained source snapshot.
+Completion, signature-help, and navigation requests convert zero-based UTF-16
+LSP characters to shared one-based Unicode-scalar positions. Navigation
+responses convert shared ranges back to zero-based UTF-16 LSP ranges using the
+retained source snapshot.
 The character position at the end of a line is valid and preserves half-open
 selection behavior. After `params.textDocument.uri` selects a retained source,
 the request must contain exactly one direct `params.position` object. That
@@ -215,16 +252,17 @@ object must directly contain both `line` and `character`; a missing or duplicate
 another object is invalid. A coordinate that is negative, non-integral, too
 large for the server's coordinate type, beyond the retained line, or outside
 the retained source returns the JSON-RPC Invalid Params error. It does not
-become a successful `null` definition or empty reference result, a successful
-`null` prepare-rename result, or an empty rename edit. For rename, this position
-error also takes precedence when `newName` is missing or is not an identifier. A
-valid retained-source position with a missing or invalid direct
+become a successful empty completion result, `null` signature-help or
+definition result, empty reference result, `null` prepare-rename result, or
+empty rename edit. For rename, this position error also takes precedence when
+`newName` is missing or is not an identifier. A valid retained-source position
+with a missing or invalid direct
 `params.newName` returns an empty edit without selecting a symbol or collecting
 references. A valid position that selects no supported symbol still succeeds
 with `null`, an empty list, or an empty rename edit as appropriate for the
 request.
-An invalid request does not change the retained snapshot or a later result for
-the same valid saved selection.
+An invalid completion, signature-help, or navigation request does not change
+the retained snapshot or a later result for the same valid saved selection.
 
 Shared navigation treats `begin` and `defer` bodies as lexical scope
 boundaries. Definition, references, prepare-rename, and rename link a local
@@ -643,8 +681,8 @@ Implemented support includes:
 
 - TextMate fallback highlighting and editor-neutral semantic token records.
 - Full-document semantic token legend and relative integer encoding.
-- Stdio lifecycle, diagnostics, definition, references, formatting,
-  prepare-rename, and rename responses described above.
+- Stdio lifecycle, diagnostics, completion, signature-help, definition,
+  references, formatting, prepare-rename, and rename responses described above.
 - Workspace and document-scoped diagnostics, unsaved overlays, source-casing
   diagnostics, and selected-project isolation.
 - Navigation for workspace declarations, exact companions, handler bindings,
@@ -655,8 +693,12 @@ Implemented support includes:
 - VSCode activation, semantic tokens, Problems-pane diagnostics, and the
   `veln-pkg:` content provider.
 
-The server does not implement range or delta semantic-token requests,
-completion, or hover. General dependency search, definition, and rename remain
+The server does not implement range or delta semantic-token requests or hover.
+Completion is limited to the call-site declaration contexts specified in
+[Call-site Declarations](call-site-declarations.md#declaration-behavior).
+Signature help is limited to source function calls that resolve through the
+saved workspace and retained package snapshot. General dependency search,
+definition, and rename remain
 limited to the supported public and snapshot-bound declaration classes above.
 Unsupported symbols, invalid source modules, wrong package snapshots, comments,
 strings, field labels, and out-of-scope bindings return no selected symbol,
@@ -669,8 +711,19 @@ return a multi-file workspace edit.
 
 The authoritative implementations are `crates/veln-editor`, `crates/veln-lsp`,
 and `crates/veln-language-service`. Their unit and protocol checks verify
-the token legend, LSP encoding, workspace diagnostics, navigation, formatting,
-rename, and virtual-document boundaries.
+the token legend, LSP encoding, completion, signature help, workspace
+diagnostics, navigation, formatting, rename, and virtual-document boundaries.
+The checked
+[`callsite-presentation`](../../examples/specification/lsp/callsite-presentation/)
+transcript pins completion items, empty completion results, signature-help
+results, `null` signature-help results, the public semantic-token legend, and
+complete encoded token data for a `callsite` declaration modifier, built-in
+body reference, and ordinary same-spelled parameter, result, local, and pattern
+bindings in the presence of a same-named function. Its completion and
+signature-help requests also cover non-BMP UTF-16 positions, invalid-position
+failures, bare ordinary and qualified `handle` function calls, the bare
+`handle` operator boundary, and repeated successful results for the same
+retained source after those failures.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect and
 effect-operation references.

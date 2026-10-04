@@ -1,7 +1,9 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use veln_source::{SourceFile, SourceSpan};
-use veln_syntax::{Token, TokenKind, lex};
+use veln_syntax::{
+    SyntaxItem, Token, TokenKind, lex, parse, presentation_parse_structure_is_bounded,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticToken {
@@ -124,10 +126,161 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
     let tokens = lexed.tokens;
     let function_names = collect_function_names(&tokens);
     let mut classifier = Classifier::new(source, &tokens, function_names);
-    classifier.collect()
+    let mut semantic_tokens = classifier.collect();
+    if !presentation_parse_structure_is_bounded(&tokens) {
+        return semantic_tokens;
+    }
+
+    let callsite_context = collect_callsite_context(source, &tokens);
+    callsite_context.apply(source, &mut semantic_tokens);
+    semantic_tokens
 }
 
-pub fn encode_lsp_semantic_tokens(tokens: &[SemanticToken]) -> Vec<LspSemanticToken> {
+struct CallsiteContext {
+    modifier_offsets: BTreeSet<usize>,
+    qualified_offsets: BTreeSet<usize>,
+    scopes: Vec<(usize, usize)>,
+    modifier_line_starts: BTreeMap<usize, usize>,
+}
+
+impl CallsiteContext {
+    fn apply(&self, source: &SourceFile, semantic_tokens: &mut [SemanticToken]) {
+        let mut scope_cursor = CallsiteScopeCursor::new(&self.scopes);
+        for token in semantic_tokens {
+            self.apply_to_token(source, token, &mut scope_cursor);
+        }
+    }
+
+    fn apply_to_token(
+        &self,
+        source: &SourceFile,
+        token: &mut SemanticToken,
+        scope_cursor: &mut CallsiteScopeCursor<'_>,
+    ) {
+        if &source.text()[token.span.start.offset..token.span.end.offset] != "callsite" {
+            return;
+        }
+        if self.is_modifier(token) {
+            token.kind.token_type = SemanticTokenType::Keyword;
+            token.modifiers = SemanticTokenModifiers::empty();
+            return;
+        }
+
+        let is_in_scope = scope_cursor.contains(token.span.start.offset, token.span.end.offset);
+        let is_body_reference =
+            matches!(
+                token.kind.token_type,
+                SemanticTokenType::Variable | SemanticTokenType::Function
+            ) && token.modifiers.bits() & SemanticTokenModifier::Declaration.bit() == 0
+                && !self.qualified_offsets.contains(&token.span.start.offset);
+        if is_body_reference && is_in_scope {
+            token.kind.token_type = SemanticTokenType::Variable;
+            token.modifiers = SemanticTokenModifiers::empty().with(SemanticTokenModifier::Readonly);
+        }
+    }
+
+    fn is_modifier(&self, token: &SemanticToken) -> bool {
+        self.modifier_offsets.contains(&token.span.start.offset)
+            || self
+                .modifier_line_starts
+                .get(&token.span.start.line)
+                .is_some_and(|start| *start <= token.span.start.offset)
+    }
+}
+
+fn collect_callsite_context(source: &SourceFile, tokens: &[Token]) -> CallsiteContext {
+    let qualified_offsets = tokens
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.text == "callsite")
+        .filter_map(|(index, token)| {
+            previous_significant_index(tokens, index)
+                .is_some_and(|previous| tokens[previous].kind == TokenKind::DoubleColon)
+                .then_some(token.range.start)
+        })
+        .collect();
+    let mut modifier_offsets = BTreeSet::new();
+    let mut scopes = Vec::new();
+    let mut modifier_line_starts = BTreeMap::new();
+    let parsed = parse(source);
+    for item in &parsed.tree.items {
+        let SyntaxItem::Function(function) = item else {
+            continue;
+        };
+        let Some(modifier) = function.callsite.as_ref() else {
+            continue;
+        };
+        modifier_offsets.insert(modifier.start.offset);
+        scopes.push((
+            function
+                .contracts
+                .last()
+                .map_or(modifier.end.offset, |contract| contract.span.end.offset),
+            function.span.end.offset,
+        ));
+        modifier_line_starts
+            .entry(modifier.start.line)
+            .and_modify(|start: &mut usize| *start = (*start).min(modifier.start.offset))
+            .or_insert(modifier.start.offset);
+    }
+    scopes.sort_unstable();
+    CallsiteContext {
+        modifier_offsets,
+        qualified_offsets,
+        scopes,
+        modifier_line_starts,
+    }
+}
+
+struct CallsiteScopeCursor<'a> {
+    scopes: &'a [(usize, usize)],
+    index: usize,
+    #[cfg(test)]
+    visits: usize,
+}
+
+impl<'a> CallsiteScopeCursor<'a> {
+    fn new(scopes: &'a [(usize, usize)]) -> Self {
+        Self {
+            scopes,
+            index: 0,
+            #[cfg(test)]
+            visits: 0,
+        }
+    }
+
+    fn contains(&mut self, token_start: usize, token_end: usize) -> bool {
+        loop {
+            #[cfg(test)]
+            {
+                self.visits += 1;
+            }
+            let Some((_, scope_end)) = self.scopes.get(self.index) else {
+                return false;
+            };
+            if *scope_end >= token_end {
+                break;
+            }
+            self.index += 1;
+        }
+        #[cfg(test)]
+        {
+            self.visits += 1;
+        }
+        let (scope_start, scope_end) = self.scopes[self.index];
+        scope_start <= token_start && token_end <= scope_end
+    }
+
+    #[cfg(test)]
+    fn visits(&self) -> usize {
+        self.visits
+    }
+}
+
+pub fn encode_lsp_semantic_tokens(
+    source: &SourceFile,
+    tokens: &[SemanticToken],
+) -> Vec<LspSemanticToken> {
     let mut sorted = tokens.to_vec();
     sorted.sort_by_key(|token| (token.span.start.offset, token.span.end.offset));
 
@@ -135,15 +288,32 @@ pub fn encode_lsp_semantic_tokens(tokens: &[SemanticToken]) -> Vec<LspSemanticTo
     let mut previous_line = 0usize;
     let mut previous_start = 0usize;
     let mut previous_end = 0usize;
+    let mut source_cursor = 0usize;
+    let mut utf16_column = 0usize;
 
     for token in sorted {
         if token.span.start.offset < previous_end {
             continue;
         }
         let line = token.span.start.line.saturating_sub(1);
-        let start = token.span.start.column.saturating_sub(1);
-        let end = token.span.end.column.saturating_sub(1);
-        if line + 1 != token.span.end.line || end <= start {
+        if line + 1 != token.span.end.line {
+            continue;
+        }
+        advance_utf16_column(
+            source.text(),
+            &mut source_cursor,
+            &mut utf16_column,
+            token.span.start.offset,
+        );
+        let start = utf16_column;
+        advance_utf16_column(
+            source.text(),
+            &mut source_cursor,
+            &mut utf16_column,
+            token.span.end.offset,
+        );
+        let end = utf16_column;
+        if end <= start {
             continue;
         }
 
@@ -169,6 +339,17 @@ pub fn encode_lsp_semantic_tokens(tokens: &[SemanticToken]) -> Vec<LspSemanticTo
     encoded
 }
 
+fn advance_utf16_column(text: &str, cursor: &mut usize, column: &mut usize, target: usize) {
+    for ch in text[*cursor..target].chars() {
+        if ch == '\n' {
+            *column = 0;
+        } else {
+            *column += ch.len_utf16();
+        }
+    }
+    *cursor = target;
+}
+
 struct Classifier<'a> {
     source: &'a SourceFile,
     tokens: &'a [Token],
@@ -190,7 +371,7 @@ fn collect_function_names(tokens: &[Token]) -> BTreeSet<String> {
                 .iter()
                 .skip(index + 1)
                 .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
-                .filter(|token| token.kind == TokenKind::Ident)
+                .filter(|token| token.kind.is_contextual_identifier())
         {
             names.insert(name.text.clone());
         }

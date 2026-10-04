@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "enum": ["invalid_path", "invalid_position", "snapshot_changed"] },
+        "message": { "type": "string" },
+        "details": { "type": "object" }
+      },
+      "required": ["code", "message", "details"]
+    }
+  },
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "label": { "const": "callsite" },
+              "kind": { "enum": ["modifier", "builtin_local"] },
+              "detail": { "type": "string" }
+            },
+            "required": ["label", "kind", "detail"]
+          }
+        }
+      },
+      "required": ["items"]
+    },
+    { "$ref": "#/$defs/failure" }
+  ]
+}

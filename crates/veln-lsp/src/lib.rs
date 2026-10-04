@@ -17,8 +17,8 @@ use veln_diagnostics::Diagnostic;
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_language_service::{
     DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, NavigationSource,
-    SourcePosition, SymbolDeclarationKind, SymbolKind, definition_at, navigate,
-    navigate_for_rename, validate_rename_in_snapshot,
+    SourcePosition, SymbolDeclarationKind, SymbolKind, completion_at, definition_at, navigate,
+    navigate_for_rename, signature_help_at, validate_rename_in_snapshot,
 };
 use veln_project::{
     PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
@@ -50,7 +50,7 @@ pub fn legend() -> SemanticTokensLegend {
 
 pub fn semantic_tokens_full(source: &SourceFile) -> SemanticTokensFull {
     let tokens = veln_editor::collect_semantic_tokens(source);
-    let data = encode_lsp_semantic_tokens(&tokens)
+    let data = encode_lsp_semantic_tokens(source, &tokens)
         .into_iter()
         .flat_map(|token| {
             [
@@ -147,6 +147,8 @@ impl Server {
             }
             "textDocument/didClose" => self.handle_document_close(message),
             "textDocument/semanticTokens/full" => self.handle_semantic_tokens(message, id),
+            "textDocument/completion" => self.handle_completion(message, id),
+            "textDocument/signatureHelp" => self.handle_signature_help(message, id),
             "textDocument/definition" => self.handle_definition(message, id),
             "veln/virtualDocument" => self.handle_virtual_document(message, id),
             "textDocument/references" => self.handle_references(message, id),
@@ -216,6 +218,37 @@ impl Server {
         id.map(|id| {
             let uri = extract_string_field(message, "uri").unwrap_or_default();
             response(&id, &semantic_tokens_result(&uri, self.document_text(&uri)))
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_completion(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| match self.navigation_position_at_request(message) {
+            Ok(Some((_, snapshot, position))) => {
+                let candidates = completion_at(&snapshot, &position);
+                response(&id, &completion_result(&candidates))
+            }
+            Ok(None) => response(&id, "[]"),
+            Err(NavigationRequestFailure::InvalidPosition) => {
+                invalid_navigation_position_response(&id)
+            }
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_signature_help(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| match self.navigation_position_at_request(message) {
+            Ok(Some((_, snapshot, position))) => response(
+                &id,
+                &signature_help_at(&snapshot, position)
+                    .map_or_else(|| "null".to_string(), |help| signature_help_result(&help)),
+            ),
+            Ok(None) => response(&id, "null"),
+            Err(NavigationRequestFailure::InvalidPosition) => {
+                invalid_navigation_position_response(&id)
+            }
         })
         .into_iter()
         .collect()

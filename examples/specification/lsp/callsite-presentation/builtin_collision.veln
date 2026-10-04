@@ -1,0 +1,9 @@
+fn callsite(value: Int) -> Int
+	value
+end
+
+fn located() -> SourceLocation callsite
+	callsite
+	callsite(1)
+	other::callsite(1)
+end

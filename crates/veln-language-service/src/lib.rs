@@ -2,6 +2,7 @@
 
 mod navigation;
 mod package_documentation;
+mod presentation;
 mod uri_encoding;
 mod virtual_source;
 
@@ -21,6 +22,9 @@ pub use package_documentation::{
     PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule, PackageDocReference,
     PackageDocResult, PackageDocResultKind, PackageDocSearchCandidate, PackageDocTypeConstructor,
     RenderedPackageDocResource, render_package_documentation,
+};
+pub use presentation::{
+    CompletionCandidate, CompletionCandidateKind, SignatureHelp, completion_at, signature_help_at,
 };
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
 
@@ -205,6 +209,24 @@ impl EffectiveProjectSnapshot {
 
     pub fn workspace_source(&self, path: &SourcePath) -> Option<&SourceFile> {
         self.sources.iter().find(|source| source.path() == path)
+    }
+
+    fn source_texts_for_signature_index(&self) -> impl Iterator<Item = &str> {
+        self.sources
+            .iter()
+            .map(SourceFile::text)
+            .chain(
+                self.direct_dependencies
+                    .iter()
+                    .flat_map(|dependency| dependency.snapshot.sources())
+                    .filter_map(|source| std::str::from_utf8(source.bytes()).ok()),
+            )
+            .chain(
+                self.standard_library
+                    .iter()
+                    .flat_map(|dependency| dependency.snapshot.sources())
+                    .filter_map(|source| std::str::from_utf8(source.bytes()).ok()),
+            )
     }
 }
 

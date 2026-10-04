@@ -1,0 +1,11 @@
+fn located(message: String) -> SourceLocation callsite
+  callsite
+end
+
+fn completion_utf16() -> SourceLocation callsite
+  {emoji: "😀", location: callsite}.location
+end
+
+fn signature_utf16() -> SourceLocation
+  {emoji: "😀", location: located("hello")}.location
+end

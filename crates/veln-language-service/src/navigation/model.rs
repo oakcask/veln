@@ -155,7 +155,7 @@ pub enum SymbolDeclarationKind {
     Recovery,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PackageOrigin {
     DirectDependency,
     StandardLibrary,
@@ -244,6 +244,39 @@ pub fn navigate(
         return navigate_in_index(snapshot.schema_navigation_index(), &position);
     }
     navigate_in_index(snapshot.navigation_index(), &position)
+}
+
+pub(crate) fn function_signature_definition_at(
+    snapshot: &EffectiveProjectSnapshot,
+    position: &SourcePosition,
+) -> Option<(SourceSpan, NavigationLocation)> {
+    let request = snapshot
+        .navigation_index()
+        .symbol_at_position(position.source.as_str(), position)?;
+    let selection = request.selection;
+    let Symbol::Function(mut symbol) = request.symbol else {
+        return None;
+    };
+    let mut visited = BTreeSet::new();
+    loop {
+        if symbol.declaration_kind != SymbolDeclarationKind::PublicAlias {
+            return Some((selection, symbol.declaration));
+        }
+        let declaration_source = match &symbol.declaration.source {
+            NavigationSource::Workspace => String::new(),
+            NavigationSource::Package { uri } => uri.clone(),
+        };
+        let identity = (
+            declaration_source,
+            symbol.declaration.span.file.as_str().to_string(),
+            symbol.declaration.span.start.offset,
+            symbol.declaration.span.end.offset,
+        );
+        if !visited.insert(identity) {
+            return None;
+        }
+        symbol = request.index.function_alias_target_symbol(&symbol)?;
+    }
 }
 
 pub fn navigate_for_rename(
@@ -990,6 +1023,8 @@ pub(crate) struct SymbolIndex {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
+    function_indices_by_identity: HashMap<FunctionIdentity, Vec<usize>>,
+    file_indices_by_identity: HashMap<IndexedFileIdentity, usize>,
     package_function_targets: Vec<PackageFunctionTarget>,
     package_type_targets: Vec<PackageTypeTarget>,
     package_constructor_targets: Vec<PackageConstructorTarget>,
@@ -1010,6 +1045,9 @@ pub(crate) struct SymbolIndex {
     schema_operation_lookup_index: SchemaOperationLookupIndex,
     function_rename_index: OnceLock<FunctionRenameIndex>,
 }
+
+type FunctionIdentity = (Option<String>, Option<PackageOrigin>, String, String);
+type IndexedFileIdentity = (Option<String>, Option<PackageOrigin>, String);
 
 #[derive(Debug)]
 struct FunctionRenameIndex {

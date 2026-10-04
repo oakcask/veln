@@ -69,6 +69,8 @@ fn assert_implemented_tool_names(response: &Value) {
             "refresh_workspace",
             "check_project",
             "definition",
+            "completion",
+            "signature_help",
             "references",
             "rename",
             "list_language_topics",

@@ -1,0 +1,16 @@
+effect Read
+	read() -> Int
+end
+
+handler answer() handles Read
+	read() => 1
+end
+
+fn guarded() -> SourceLocation callsite
+require callsite.start_line > 0
+	callsite
+end
+
+test checked() -> Int
+	1
+end

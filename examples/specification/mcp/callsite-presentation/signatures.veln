@@ -1,0 +1,35 @@
+fn located(value: Int) -> SourceLocation callsite
+  callsite
+end
+fn grouped() -> SourceLocation
+  located((1 + 2))
+end
+fn callsite(value: Int) -> Int callsite
+  value
+end
+fn handler(value: Int) -> Int callsite
+  value
+end
+fn handles(value: Int) -> Int callsite
+  value
+end
+fn contextual() -> Int
+  callsite(1)
+  handler(1)
+  handles(1)
+end
+fn unfinished() -> SourceLocation
+  located(
+end
+fn recovered(value: Int) -> Int
+  value
+end
+fn shadowed() -> Int callsite
+  callsite(1)
+end
+fn effectful(value: Int) -> SourceLocation effects [stdio] callsite
+  callsite
+end
+fn effectful_caller() -> SourceLocation
+  effectful(1)
+end

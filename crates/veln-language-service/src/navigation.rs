@@ -37,6 +37,229 @@ include!("navigation/local_binding_scopes.rs");
 include!("navigation/token_roles.rs");
 include!("navigation/source_paths.rs");
 
+pub(crate) struct SignatureShadowIndex {
+    scopes: Vec<FunctionScope>,
+    recovery_start: usize,
+    #[cfg(test)]
+    inspected_tokens: usize,
+}
+
+impl SignatureShadowIndex {
+    pub(crate) fn new(tokens: &[Token], cursor_offset: usize) -> Self {
+        let boundaries = signature_recovery_declaration_indices(tokens);
+        let boundary =
+            boundaries.partition_point(|index| tokens[*index].range.start <= cursor_offset);
+        let Some(start_index) = boundary.checked_sub(1).map(|index| boundaries[index]) else {
+            return Self {
+                scopes: Vec::new(),
+                recovery_start: 0,
+                #[cfg(test)]
+                inspected_tokens: tokens.len(),
+            };
+        };
+        let end_index = boundaries.get(boundary).copied().unwrap_or(tokens.len());
+        let window = &tokens[start_index..end_index];
+        let (mut scopes, defer_block_openers) = signature_shadow_scopes(window);
+        let window_end = tokens.get(end_index).map_or_else(
+            || tokens.last().map_or(0, |token| token.range.end),
+            |token| token.range.start,
+        );
+        widen_recovered_signature_scope(&mut scopes, window, window_end, &defer_block_openers);
+        Self {
+            scopes,
+            recovery_start: tokens[start_index].range.start,
+            #[cfg(test)]
+            inspected_tokens: tokens.len() + window.len(),
+        }
+    }
+
+    pub(crate) fn recovery_start(&self) -> usize {
+        self.recovery_start
+    }
+
+    pub(crate) fn shadows(&self, tokens: &[Token], token_index: usize, name: &str) -> bool {
+        local_binding_shadows_call_target_in_scopes(&self.scopes, tokens, token_index, name)
+    }
+
+    pub(crate) fn allows_local_signature(&self, tokens: &[Token], token_index: usize) -> bool {
+        let offset = tokens[token_index].range.start;
+        token_scope(&self.scopes, offset).is_some_and(|scope| !scope.is_handler_clause)
+    }
+
+    #[cfg(test)]
+    fn work_and_retention(&self) -> (usize, usize, usize) {
+        (
+            self.inspected_tokens,
+            self.scopes.len(),
+            self.scopes
+                .iter()
+                .map(|scope| scope.local_bindings.len())
+                .sum(),
+        )
+    }
+}
+
+fn signature_shadow_scopes(tokens: &[Token]) -> (Vec<FunctionScope>, Vec<bool>) {
+    let defer_block_openers = defer_block_openers(tokens);
+    let mut scopes = tokens
+        .first()
+        .filter(|token| matches!(token.kind, TokenKind::Fn | TokenKind::Test))
+        .and_then(|_| function_scope(tokens, 0, &defer_block_openers))
+        .into_iter()
+        .collect::<Vec<_>>();
+    scopes.extend(handler_operation_clause_scopes(
+        tokens,
+        &defer_block_openers,
+    ));
+    (scopes, defer_block_openers)
+}
+
+fn widen_recovered_signature_scope(
+    scopes: &mut [FunctionScope],
+    tokens: &[Token],
+    window_end: usize,
+    defer_block_openers: &[bool],
+) {
+    for scope in scopes
+        .iter_mut()
+        .filter(|scope| !scope.is_handler_clause && scope.end == scope.body_start)
+    {
+        scope.end = window_end;
+        scope.local_bindings = local_bindings_with_defer_openers(
+            tokens,
+            scope.body_start,
+            scope.end,
+            defer_block_openers,
+        );
+        scope.local_bindings_by_name = local_binding_index_by_name(&scope.local_bindings);
+    }
+}
+
+fn signature_recovery_declaration_indices(tokens: &[Token]) -> Vec<usize> {
+    let mut boundaries = Vec::new();
+    let mut first_on_line = None;
+    for (index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::Newline => {
+                first_on_line = None;
+                continue;
+            }
+            TokenKind::Whitespace if first_on_line.is_none() => continue,
+            TokenKind::Comment | TokenKind::Eof => continue,
+            _ => {}
+        }
+        match first_on_line {
+            None if token.kind == TokenKind::Pub => first_on_line = Some(TokenKind::Pub),
+            None if signature_recovery_declaration_at(tokens, index) => {
+                boundaries.push(index);
+                first_on_line = Some(token.kind);
+            }
+            Some(TokenKind::Pub) if signature_recovery_declaration_at(tokens, index) => {
+                boundaries.push(index);
+                first_on_line = Some(token.kind);
+            }
+            None | Some(TokenKind::Pub) => first_on_line = Some(token.kind),
+            Some(_) => {}
+        }
+    }
+    boundaries
+}
+
+fn signature_recovery_declaration_at(tokens: &[Token], index: usize) -> bool {
+    let kind = tokens[index].kind;
+    if !matches!(
+        kind,
+        TokenKind::Fn
+            | TokenKind::Test
+            | TokenKind::Type
+            | TokenKind::Schema
+            | TokenKind::Effect
+            | TokenKind::Handler
+            | TokenKind::Codec
+    ) {
+        return false;
+    }
+    next_non_layout_token(tokens, index).is_some_and(|token| token.kind.is_contextual_identifier())
+}
+
+#[cfg(test)]
+mod signature_shadow_tests {
+    use super::*;
+
+    fn incomplete_scope_work(function_count: usize) -> (usize, usize, usize) {
+        let mut text = String::new();
+        for index in 0..function_count {
+            text.push_str(&format!(
+                "fn unfinished_{index}() -> Int\n  let value_{index} = {index}\n"
+            ));
+        }
+        let source = SourceFile::new("many-incomplete.veln", text);
+        let tokens = lex(&source).tokens;
+        SignatureShadowIndex::new(&tokens, source.len()).work_and_retention()
+    }
+
+    #[test]
+    fn incomplete_function_shadow_index_has_linear_work_and_bounded_retention() {
+        let smaller = incomplete_scope_work(1_000);
+        let larger = incomplete_scope_work(2_000);
+        eprintln!("incomplete signature scopes: 1000={smaller:?}, 2000={larger:?}");
+
+        assert!(
+            larger.0 <= smaller.0 * 2 + 16,
+            "shadow-index work grew too quickly: {smaller:?} -> {larger:?}"
+        );
+        assert_eq!(smaller.1, 1);
+        assert_eq!(larger.1, 1);
+        assert_eq!(smaller.2, 1);
+        assert_eq!(larger.2, 1);
+    }
+
+    fn malformed_header_with_locals_work(
+        declaration_count: usize,
+        local_count: usize,
+    ) -> (usize, usize, usize, usize) {
+        let mut text = String::new();
+        for index in 0..declaration_count {
+            text.push_str(&format!("fn unfinished_{index} "));
+        }
+        text.push('\n');
+        for index in 0..local_count {
+            text.push_str(&format!("  let value_{index} = {index}\n"));
+        }
+        let source = SourceFile::new("malformed-header.veln", text);
+        let tokens = lex(&source).tokens;
+        reset_local_binding_scope_token_visits();
+        let (inspected, scopes, bindings) =
+            SignatureShadowIndex::new(&tokens, source.len()).work_and_retention();
+        (
+            inspected,
+            scopes,
+            bindings,
+            local_binding_scope_token_visits(),
+        )
+    }
+
+    #[test]
+    fn malformed_header_shadow_index_has_linear_work_and_bounded_retention() {
+        let smaller = malformed_header_with_locals_work(100, 100);
+        let larger = malformed_header_with_locals_work(200, 200);
+        eprintln!("malformed signature scopes: 100={smaller:?}, 200={larger:?}");
+
+        assert!(
+            larger.0 <= smaller.0 * 2 + 32,
+            "shadow-index work grew too quickly: {smaller:?} -> {larger:?}"
+        );
+        assert!(
+            larger.3 <= smaller.3 * 2 + 32,
+            "local-binding work grew too quickly: {smaller:?} -> {larger:?}"
+        );
+        assert_eq!(smaller.1, 1);
+        assert_eq!(larger.1, 1);
+        assert_eq!(smaller.2, 100);
+        assert_eq!(larger.2, 200);
+    }
+}
+
 #[cfg(test)]
 #[path = "navigation/classification_tests.rs"]
 mod classification_tests;
@@ -94,6 +317,44 @@ thread_local! {
     static HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static FUNCTION_SCOPE_LOOKUP_COMPARISONS: Cell<usize> = const { Cell::new(0) };
+    static FUNCTION_ALIAS_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_function_alias_declaring_file_lookup() {
+    FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS.set(FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_function_alias_declaring_file_lookup() {}
+
+#[cfg(test)]
+pub(crate) fn reset_function_alias_declaring_file_lookups() {
+    FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn function_alias_declaring_file_lookups() -> usize {
+    FUNCTION_ALIAS_DECLARING_FILE_LOOKUPS.get()
+}
+
+#[cfg(test)]
+fn record_function_alias_target_lookup() {
+    FUNCTION_ALIAS_TARGET_LOOKUPS.set(FUNCTION_ALIAS_TARGET_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_function_alias_target_lookup() {}
+
+#[cfg(test)]
+pub(crate) fn reset_function_alias_target_lookups() {
+    FUNCTION_ALIAS_TARGET_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn function_alias_target_lookups() -> usize {
+    FUNCTION_ALIAS_TARGET_LOOKUPS.get()
 }
 
 #[cfg(test)]

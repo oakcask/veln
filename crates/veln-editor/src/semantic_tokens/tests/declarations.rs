@@ -135,6 +135,162 @@ fn collector_classifies_variadic_parameter_names_like_parameters() {
         SemanticTokenModifiers::empty().bits()
     )));
 }
+
+#[test]
+fn collector_classifies_ordinary_callsite_bindings_and_references() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn local() -> Int\n",
+            "  let callsite = 1\n",
+            "  callsite\n",
+            "end\n",
+            "fn pattern(value: {field: Int}) -> Int\n",
+            "  let {field: callsite} = value\n",
+            "  callsite\n",
+            "end\n",
+            "fn result_name() -> callsite: Int\n",
+            "ensure callsite > 0\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+
+    let tokens = collect_text(&source);
+    let declaration_readonly = SemanticTokenModifiers::empty()
+        .with(SemanticTokenModifier::Declaration)
+        .with(SemanticTokenModifier::Readonly)
+        .bits();
+    let readonly = SemanticTokenModifiers::empty()
+        .with(SemanticTokenModifier::Readonly)
+        .bits();
+    let result = SemanticTokenModifiers::empty()
+        .with(SemanticTokenModifier::Declaration)
+        .with(SemanticTokenModifier::Readonly)
+        .with(SemanticTokenModifier::Result)
+        .bits();
+
+    assert!(tokens.contains(&(
+        "callsite".to_string(),
+        SemanticTokenType::Variable,
+        declaration_readonly,
+    )));
+    assert_eq!(
+        tokens
+            .iter()
+            .filter(|token| {
+                token
+                    == &&(
+                        "callsite".to_string(),
+                        SemanticTokenType::Variable,
+                        declaration_readonly,
+                    )
+            })
+            .count(),
+        2
+    );
+    assert!(tokens.contains(&(
+        "callsite".to_string(),
+        SemanticTokenType::Variable,
+        readonly,
+    )));
+    assert!(tokens.contains(&("callsite".to_string(), SemanticTokenType::Variable, result,)));
+    assert!(tokens.contains(&(
+        "field".to_string(),
+        SemanticTokenType::Property,
+        SemanticTokenModifiers::empty().bits(),
+    )));
+}
+
+#[test]
+fn collector_prefers_ordinary_callsite_bindings_over_a_same_named_function() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn callsite(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn parameter(callsite: Int) -> Int\n",
+            "  callsite\n",
+            "end\n",
+            "fn local() -> Int\n",
+            "  let callsite = 1\n",
+            "  callsite\n",
+            "end\n",
+            "fn pattern(value: {field: Int}) -> Int\n",
+            "  let {field: callsite} = value\n",
+            "  callsite\n",
+            "end\n",
+            "fn result_name() -> callsite: Int\n",
+            "ensure callsite > 0\n",
+            "  1\n",
+            "end\n",
+            "fn caller() -> Int\n",
+            "  callsite(1)\n",
+            "end\n",
+        ),
+    );
+
+    let callsites = collect_text(&source)
+        .into_iter()
+        .filter(|(text, _, _)| text == "callsite")
+        .collect::<Vec<_>>();
+    let declaration = SemanticTokenModifier::Declaration.bit();
+    let readonly = SemanticTokenModifier::Readonly.bit();
+    let result = declaration | readonly | SemanticTokenModifier::Result.bit();
+
+    assert_eq!(
+        callsites,
+        [
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Function,
+                declaration
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Parameter,
+                declaration | readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Parameter,
+                readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                declaration | readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                declaration | readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                readonly,
+            ),
+            ("callsite".to_string(), SemanticTokenType::Variable, result),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Function,
+                SemanticTokenModifiers::empty().bits(),
+            ),
+        ]
+    );
+}
 #[test]
 fn collector_classifies_schema_declarations_and_format_clauses() {
     let source = SourceFile::new(
@@ -329,6 +485,118 @@ fn collector_classifies_handler_declarations() {
                 .bits()
         ))
     );
+}
+
+#[test]
+fn collector_distinguishes_callsite_modifier_builtin_and_ordinary_identifier() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn located() -> SourceLocation callsite\n",
+            "require callsite.start_line > 0\n",
+            "  callsite.callsite\n",
+            "end\n",
+            "fn ordinary(callsite: Int) -> Int\n",
+            "  callsite\n",
+            "end\n",
+            "fn duplicate() -> SourceLocation callsite callsite\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+    let tokens = collect_text(&source);
+    let callsites = tokens
+        .iter()
+        .filter(|(text, _, _)| text == "callsite")
+        .collect::<Vec<_>>();
+    assert_eq!(callsites[0].1, SemanticTokenType::Keyword);
+    assert_eq!(callsites[1].1, SemanticTokenType::Variable);
+    assert_eq!(callsites[1].2, SemanticTokenModifiers::empty().bits());
+    assert_eq!(callsites[2].1, SemanticTokenType::Variable);
+    assert_eq!(
+        callsites[2].2,
+        SemanticTokenModifiers::empty()
+            .with(SemanticTokenModifier::Readonly)
+            .bits()
+    );
+    assert_eq!(callsites[3].1, SemanticTokenType::Property);
+    assert_eq!(callsites[4].1, SemanticTokenType::Parameter);
+    assert_eq!(callsites[5].1, SemanticTokenType::Parameter);
+    assert_eq!(callsites[6].1, SemanticTokenType::Keyword);
+    assert_eq!(callsites[7].1, SemanticTokenType::Keyword);
+    assert_eq!(callsites[8].1, SemanticTokenType::Variable);
+}
+
+#[test]
+fn collector_classifies_callsite_function_declarations_and_references() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn callsite(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn caller() -> Int\n",
+            "  callsite(1)\n",
+            "end\n",
+        ),
+    );
+    let tokens = collect_text(&source);
+    let callsites = tokens
+        .iter()
+        .filter(|(text, _, _)| text == "callsite")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        callsites,
+        [
+            &(
+                "callsite".to_string(),
+                SemanticTokenType::Function,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .bits(),
+            ),
+            &(
+                "callsite".to_string(),
+                SemanticTokenType::Function,
+                SemanticTokenModifiers::empty().bits(),
+            ),
+        ]
+    );
+}
+
+#[test]
+fn collector_keeps_callsite_builtin_readonly_across_function_collisions_and_call_syntax() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn callsite(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn located() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "  callsite(1)\n",
+            "  other::callsite(1)\n",
+            "end\n",
+        ),
+    );
+    let tokens = collect_text(&source);
+    let callsites = tokens
+        .iter()
+        .filter(|(text, _, _)| text == "callsite")
+        .collect::<Vec<_>>();
+    let readonly = SemanticTokenModifiers::empty()
+        .with(SemanticTokenModifier::Readonly)
+        .bits();
+
+    assert_eq!(callsites[0].1, SemanticTokenType::Function);
+    assert_eq!(callsites[1].1, SemanticTokenType::Keyword);
+    assert_eq!(callsites[2].1, SemanticTokenType::Variable);
+    assert_eq!(callsites[2].2, readonly);
+    assert_eq!(callsites[3].1, SemanticTokenType::Variable);
+    assert_eq!(callsites[3].2, readonly);
+    assert_eq!(callsites[4].1, SemanticTokenType::Function);
+    assert_eq!(callsites[4].2, SemanticTokenModifiers::empty().bits());
 }
 
 #[test]

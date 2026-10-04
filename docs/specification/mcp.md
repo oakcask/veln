@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#workspace-selection; behavior=#rename; limits=#selection-state
+specification-coverage: usage=#workspace-selection; behavior=#saved-workspace-navigation; limits=#selection-state
 update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, saved navigation tools, MCP resources, tool schemas, or executable MCP cases change.
 ---
 
@@ -15,8 +15,8 @@ The current MCP surface contains language-reference, standard-library source,
 standard-library package-documentation, admitted direct-dependency source,
 and admitted direct-dependency package-documentation resources plus the
 `workspace_projects`, `refresh_workspace`, `check_project`, `definition`,
-`references`, `rename`, `list_language_topics`, `search_docs`, and `read_doc`
-tools.
+`completion`, `signature_help`, `references`, `rename`,
+`list_language_topics`, `search_docs`, and `read_doc` tools.
 Initialization advertises
 `resources` with
 `listChanged: false` and `subscribe: false`, and `tools` with
@@ -26,12 +26,13 @@ The checked declarations under
 schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
-invalid-params error. The `definition` input requires one source plus positive
-JSON integer line and column coordinates. An initial `references` input uses
-the same coordinate contract; a continuation uses only its cursor. The
-`rename` input requires the same source and coordinate fields plus a `new_name`
-string of 1 through 256 Unicode scalars. Names outside that size range are
-protocol-invalid and do not invoke rename.
+invalid-params error. The `definition`, `completion`, and `signature_help`
+inputs require one source plus positive JSON integer line and column
+coordinates. An initial `references` input uses the same coordinate contract;
+a continuation uses only its cursor. The `rename` input requires the same
+source and coordinate fields plus a `new_name` string of 1 through 256 Unicode
+scalars. Names outside that size range are protocol-invalid and do not invoke
+rename.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -384,8 +385,9 @@ partial diagnostics, summary, or analysis metadata.
 
 ## Saved Workspace Navigation
 
-`definition` and `references` read a saved workspace-relative regular
-`.veln` source at positive JSON integer `line` and `column` coordinates.
+`definition`, `completion`, `signature_help`, and `references` read a saved
+workspace-relative regular `.veln` source at positive JSON integer `line` and
+`column` coordinates.
 Decimal or exponent JSON spellings that denote an integer address the same
 position as the plain integer. A selected manifest project's captured owned
 source uses project scope; another accepted source uses anonymous single-file
@@ -459,6 +461,60 @@ declarations, mismatched imports, unsupported symbols, and package module
 segments return an empty definition. A public constructor selected through a
 visible type alias returns the constructor declaration, not the alias
 declaration. Definition exposes a recovery record's retained source range.
+
+### Source presentation
+
+`completion` returns context-sensitive source candidates in an `items` array.
+For call-site declarations it returns a `callsite` item with kind `modifier`
+only at the terminal modifier position of an eligible source-function header
+that does not already contain the modifier. In a call-site-aware source
+function body, including an empty body insertion line, it instead returns a
+`callsite` item with kind `builtin_local` and identifies its `SourceLocation`
+type in `detail`. It returns no built-in candidate in a contract, ordinary
+function, test, handler clause, declaration header, or top-level context.
+For a header with a trailing comment, the position immediately before the `#`
+marker is the terminal modifier position. Positions inside the comment,
+including the end of the comment line, return no modifier candidate.
+
+`signature_help` returns either `signature: null` or one signature object. The
+object contains the canonical source declaration `label`, source-parameter
+labels, and zero-based `activeParameter`. A call-site-aware declaration's label
+ends with `callsite` after any effects clause. The hidden context does not add
+a parameter or change active-parameter counting. Public workspace function
+aliases resolve to the target declaration before rendering the signature. A
+position inside a function declaration header returns `signature: null`.
+Grouping parentheses inside a call argument do not hide the enclosing call's
+signature. Bare ordinary calls and qualified source-function calls resolve to
+their declarations, including a qualified function named `handle`. The bare
+`handle (expression) with handler()` operator is not a source-function call and
+returns `signature: null` at its grouping parenthesis.
+
+Both tools use the saved-source capture and positive one-based Unicode-scalar
+coordinate contract. Invalid paths return `invalid_path`, and invalid
+coordinates return `invalid_position`. A failed completion or signature-help
+request does not prevent a later request for the same saved source from
+succeeding and does not consume an existing references cursor. These tools do
+not create a references cursor. Stable-capture exhaustion returns
+`snapshot_changed`.
+
+The implementation applies an internal structural-work budget before it uses
+the recursive parser for mutable-source presentation. That budget is a safety
+mechanism, not an MCP compatibility value, and clients must not rely on an
+exact nesting or operator-count cutoff. When a source exceeds the current
+budget, parse-derived completion items may be omitted and signature help that
+requires saved-navigation resolution may be `null`. Those outcomes are
+successful tool results. They do not end the MCP session or change workspace
+selection. A later workspace request and a presentation request for another
+saved source continue to use the same server state.
+
+Completion and signature help can read captured direct-dependency bytes for
+navigation, but neither tool admits dependency resources. They do not change
+retained resource capacity, and full retained capacity cannot make either tool
+return `resource_capacity`. Success, empty results, and failures preserve the
+published resources, workspace roots and generation, published diagnostics,
+prior results, and reference cursors. A separately requested successful
+workspace refresh still follows the [selection-state contract](#selection-state)
+and invalidates cursors.
 
 ### Rename
 
@@ -729,12 +785,30 @@ return `resource_capacity` without partial locations, scope, or new resources.
 
 Closed input and result schemas are in `crates/veln-mcp/schemas/mcp/v1/`.
 Navigation serialization is implemented by `crates/veln-mcp/src/definition.rs`
-and `crates/veln-mcp/src/references.rs`; rename conversion is implemented by
+and `crates/veln-mcp/src/references.rs`; source presentation is implemented by
+[`presentation.rs`](../../crates/veln-mcp/src/presentation.rs); rename
+conversion is implemented by
 `crates/veln-mcp/src/rename.rs`; cursor retention is implemented by
 `crates/veln-mcp/src/reference_pagination.rs`. Protocol regression tests are in
 `crates/veln-mcp/src/server/tests/`. Checked rename transcripts cover saved
 workspace results, supported symbol classes, recovery identities, unsupported
 boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`.
+The checked
+[`callsite-presentation`](../../examples/specification/mcp/callsite-presentation/)
+transcript covers modifier and empty-body built-in completion, an ordinary-body
+boundary, call-site-aware signature help without hidden-parameter arity,
+`invalid_path` and `invalid_position` completion failures, and successful
+completion from the same saved source after those failures. It also covers the
+eligible position before a trailing header comment and the in-comment and
+end-of-line boundaries. Its signature-help checks cover the declaration-header
+boundary, bare ordinary and qualified `handle` function calls, the bare
+`handle` operator boundary, and an enclosing call whose argument uses grouping
+parentheses. A signature-help failure between references pages demonstrates
+that presentation failure preserves a live references cursor. The same
+transcript uses a source over the implementation's structural-work budget to
+check empty completion, `null` saved-navigation signature help, unchanged
+workspace selection, and a subsequent successful completion from another
+saved source.
 The checked
 `examples/specification/mcp/references-recovery-navigation/` transcript covers
 recovery selection from a declaration and reference, declaration exclusion and

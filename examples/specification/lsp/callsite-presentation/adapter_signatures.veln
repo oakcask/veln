@@ -1,0 +1,20 @@
+use qualified
+
+fn ordinary(first: Int, second: String) -> Int
+  first
+end
+fn ordinary_caller() -> Int
+  ordinary(1, "two")
+end
+fn qualified_handle_caller() -> Int
+  qualified::handle(1)
+end
+effect Read
+  read() -> Int
+end
+handler answer() handles Read
+  read() => 1
+end
+fn bare_handle_operator() -> Int
+  handle (ordinary(1)) with answer()
+end

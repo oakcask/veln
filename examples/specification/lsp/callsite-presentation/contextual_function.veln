@@ -1,0 +1,6 @@
+fn callsite(value: Int) -> Int
+  value
+end
+fn caller() -> Int
+  callsite(1)
+end

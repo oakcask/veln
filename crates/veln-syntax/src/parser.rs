@@ -142,14 +142,7 @@ fn record_function_type_scope_work(count: usize) {
 fn record_function_type_scope_work(_count: usize) {}
 
 fn is_contextual_identifier(kind: TokenKind) -> bool {
-    matches!(
-        kind,
-        TokenKind::Ident
-            | TokenKind::Callsite
-            | TokenKind::Handle
-            | TokenKind::Handler
-            | TokenKind::Handles
-    )
+    kind.is_contextual_identifier()
 }
 
 fn binary_operator(kind: TokenKind, allow_pipeline: bool) -> Option<(BinaryOp, u8, u8)> {
