@@ -95,6 +95,11 @@ Executable doctests extracted from documentation comments use
 `case.kind: "doctest"`. Their generated test names are `doctest_N` within one
 command result. Their source file in diagnostics is a generated
 `#doctest-N_test.veln` path derived from the documented source path.
+The generated wrapper preserves origin mappings for doctest body boundaries
+used by call-site-aware execution. The resulting `SourceLocation` mapping and
+all-or-nothing fallback are specified by
+[Call-site Declarations](call-site-declarations.md#declaration-behavior); the
+generated diagnostic source path described here is unchanged.
 
 JDK setup failures are reported on the affected case with
 `status: "error"`, `reason: "runner_error"`, and
@@ -245,7 +250,14 @@ from other selected test files.
 
 ## References
 
-The command implementation and scheduler are in `crates/veln-cli/src/commands/test.rs` and `crates/veln-cli/src/commands/test_scheduler.rs`. CLI assertions under `crates/veln-cli/tests/check_json/test_command.rs` verify the serialized contract.
+The command implementation and scheduler are in
+`crates/veln-cli/src/commands/test.rs` and
+`crates/veln-cli/src/commands/test_scheduler.rs`. CLI assertions under
+`crates/veln-cli/tests/check_json/test_command.rs` verify the serialized
+contract. The
+[`callsite-generated-origin-runtime`](../../examples/specification/test/callsite-generated-origin-runtime/)
+executable specification case verifies doctest origin mapping through this JSON
+command boundary.
 
 ## Usage and limits
 
