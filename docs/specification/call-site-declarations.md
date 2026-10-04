@@ -210,7 +210,7 @@ Functions without the modifier retain their ordinary call ABI.
 - Ordinary-identifier execution evidence:
   `examples/specification/run/callsite-ordinary-identifier/case.toml`.
 - LSP presentation contract:
-  [Editor Support](editor-support.md#token-classes).
+  [Editor Support](editor-support.md#lsp-completion-and-signature-help).
 - Checked LSP presentation evidence:
   [`callsite-presentation`](../../examples/specification/lsp/callsite-presentation/).
 - MCP presentation contract:
