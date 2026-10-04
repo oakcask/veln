@@ -63,6 +63,11 @@ path = "/result/activeParameter"
 equals = 0
 
 [[lsp_assert]]
+id = 11
+path = "/result/activeSignature"
+equals = 0
+
+[[lsp_assert]]
 id = 12
 path = "/result"
 equals = []
@@ -130,4 +135,44 @@ equals = {"label":"fn effectful(value: Int) -> SourceLocation effects [stdio] ca
 [[lsp_assert]]
 id = 25
 path = "/result/data"
-equals = [0,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,5,2,2,1,0,3,7,0,2,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,1,1,8,3,2,1,1,8,3,2,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,0,3,7,0]
+equals = [0,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,5,2,2,1,0,3,7,0,2,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,1,1,8,3,2,1,1,8,3,2,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,1,5,3,0,0,5,2,11,0,0,2,8,6,0,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,0,3,7,0]
+
+[[lsp_assert]]
+id = 80
+path = "/result"
+equals = [{"label":"callsite","kind":6,"detail":"built-in SourceLocation local"}]
+
+[[lsp_assert]]
+id = 81
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 82
+path = "/result"
+equals = [{"label":"callsite","kind":6,"detail":"built-in SourceLocation local"}]
+
+[[lsp_assert]]
+id = 83
+path = "/result/signatures/0"
+equals = {"label":"fn located(message: String) -> SourceLocation callsite","parameters":[{"label":"message: String"}]}
+
+[[lsp_assert]]
+id = 83
+path = "/result/activeSignature"
+equals = 0
+
+[[lsp_assert]]
+id = 83
+path = "/result/activeParameter"
+equals = 0
+
+[[lsp_assert]]
+id = 84
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 85
+path = "/result"
+equals = {"signatures":[{"label":"fn located(message: String) -> SourceLocation callsite","parameters":[{"label":"message: String"}]}],"activeSignature":0,"activeParameter":0}

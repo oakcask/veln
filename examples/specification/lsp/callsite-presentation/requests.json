@@ -24,6 +24,12 @@
   {"jsonrpc":"2.0","id":23,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"negative_contexts.veln"}},"position":{"line":14,"character":1}}},
   {"jsonrpc":"2.0","id":24,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"signatures.veln"}},"position":{"line":33,"character":13}}},
   {"jsonrpc":"2.0","id":25,"method":"textDocument/semanticTokens/full","params":{"textDocument":{"uri":{"$workspace_file_uri":"builtin_collision.veln"}}}},
+  {"jsonrpc":"2.0","id":80,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_positions.veln"}},"position":{"line":5,"character":44}}},
+  {"jsonrpc":"2.0","id":81,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_positions.veln"}},"position":{"line":5,"character":45}}},
+  {"jsonrpc":"2.0","id":82,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_positions.veln"}},"position":{"line":5,"character":44}}},
+  {"jsonrpc":"2.0","id":83,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_positions.veln"}},"position":{"line":9,"character":41}}},
+  {"jsonrpc":"2.0","id":84,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_positions.veln"}},"position":{"line":9,"character":53}}},
+  {"jsonrpc":"2.0","id":85,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_positions.veln"}},"position":{"line":9,"character":41}}},
   {"jsonrpc":"2.0","id":26,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

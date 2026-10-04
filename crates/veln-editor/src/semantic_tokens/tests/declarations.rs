@@ -486,6 +486,7 @@ fn collector_keeps_callsite_builtin_readonly_across_function_collisions_and_call
             "fn located() -> SourceLocation callsite\n",
             "  callsite\n",
             "  callsite(1)\n",
+            "  other::callsite(1)\n",
             "end\n",
         ),
     );
@@ -504,6 +505,8 @@ fn collector_keeps_callsite_builtin_readonly_across_function_collisions_and_call
     assert_eq!(callsites[2].2, readonly);
     assert_eq!(callsites[3].1, SemanticTokenType::Variable);
     assert_eq!(callsites[3].2, readonly);
+    assert_eq!(callsites[4].1, SemanticTokenType::Function);
+    assert_eq!(callsites[4].2, SemanticTokenModifiers::empty().bits());
 }
 
 #[test]

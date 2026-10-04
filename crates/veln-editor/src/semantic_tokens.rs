@@ -132,6 +132,16 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
     }
     let parsed = parse(source);
     let mut modifier_offsets = BTreeSet::new();
+    let qualified_callsite_offsets = tokens
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| token.text == "callsite")
+        .filter_map(|(index, token)| {
+            previous_significant_index(&tokens, index)
+                .is_some_and(|previous| tokens[previous].kind == TokenKind::DoubleColon)
+                .then_some(token.range.start)
+        })
+        .collect::<BTreeSet<_>>();
     let mut callsite_scopes = Vec::new();
     let mut callsite_modifier_line_starts = BTreeMap::new();
     for item in &parsed.tree.items {
@@ -175,7 +185,8 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
             matches!(
                 token.kind.token_type,
                 SemanticTokenType::Variable | SemanticTokenType::Function
-            ) && token.modifiers.bits() & SemanticTokenModifier::Declaration.bit() == 0;
+            ) && token.modifiers.bits() & SemanticTokenModifier::Declaration.bit() == 0
+                && !qualified_callsite_offsets.contains(&token.span.start.offset);
         if is_body_reference && is_in_callsite_scope {
             token.kind.token_type = SemanticTokenType::Variable;
             token.modifiers = SemanticTokenModifiers::empty().with(SemanticTokenModifier::Readonly);

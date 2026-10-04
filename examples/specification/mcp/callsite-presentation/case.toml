@@ -180,3 +180,23 @@ equals = []
 id = 27
 path = "/result/structuredContent/signature"
 equals = {"label":"fn effectful(value: Int) -> SourceLocation effects [stdio] callsite","parameters":["value: Int"],"activeParameter":0}
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/items"
+equals = []
+
+[[mcp_assert]]
+id = 29
+path = "/result/structuredContent/signature"
+equals = null
+
+[[mcp_assert]]
+id = 30
+path = "/result/structuredContent"
+equals = {"generation":0,"roots":["."]}
+
+[[mcp_assert]]
+id = 31
+path = "/result/structuredContent/items"
+equals = [{"label":"callsite","kind":"builtin_local","detail":"built-in SourceLocation local"}]

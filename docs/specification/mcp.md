@@ -494,6 +494,16 @@ succeeding and does not consume an existing references cursor. These tools do
 not create a references cursor. Stable-capture exhaustion returns
 `snapshot_changed`.
 
+The implementation applies an internal structural-work budget before it uses
+the recursive parser for mutable-source presentation. That budget is a safety
+mechanism, not an MCP compatibility value, and clients must not rely on an
+exact nesting or operator-count cutoff. When a source exceeds the current
+budget, parse-derived completion items may be omitted and signature help that
+requires saved-navigation resolution may be `null`. Those outcomes are
+successful tool results. They do not end the MCP session or change workspace
+selection. A later workspace request and a presentation request for another
+saved source continue to use the same server state.
+
 Completion and signature help can read captured direct-dependency bytes for
 navigation, but neither tool admits dependency resources. They do not change
 retained resource capacity, and full retained capacity cannot make either tool
@@ -790,7 +800,10 @@ eligible position before a trailing header comment and the in-comment and
 end-of-line boundaries. Its signature-help checks cover the declaration-header
 boundary and an enclosing call whose argument uses grouping parentheses. A
 signature-help failure between references pages demonstrates that presentation
-failure preserves a live references cursor.
+failure preserves a live references cursor. The same transcript uses a source
+over the implementation's structural-work budget to check empty completion,
+`null` saved-navigation signature help, unchanged workspace selection, and a
+subsequent successful completion from another saved source.
 The checked
 `examples/specification/mcp/references-recovery-navigation/` transcript covers
 recovery selection from a declaration and reference, declaration exclusion and

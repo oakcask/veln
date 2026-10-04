@@ -55,9 +55,11 @@ ordinary identifier. The formatter preserves the modifier after the optional
 function effects clause and formats the built-in reference like any other
 local reference.
 
-LSP semantic tokens identify the declaration modifier as a keyword and the
+LSP semantic tokens identify the declaration modifier as a keyword and a bare
 built-in body reference as a read-only variable. The built-in keeps that class
 when a same-named function exists and when invalid source follows it with `(`.
+A qualified leaf such as `other::callsite` remains an ordinary function token;
+the built-in classification does not apply through a qualifier.
 Completion offers the `callsite` modifier in an eligible source-function header
 that does not already have it. For a header with a trailing comment, the
 position immediately before the `#` marker remains eligible. A position inside
@@ -82,11 +84,15 @@ Every finite acyclic chain of public workspace function aliases resolves to its
 target declaration before rendering; an alias cycle does not produce signature
 help.
 
-Presentation requests bound recursive parsing and navigation fallback for
-unfinished source. When an expression exceeds that bound, completion and
-navigation-backed signature candidates are absent, and semantic tokens retain
-the parse-free classifications that can be produced without entering the
-recursive parser. The LSP and MCP processes continue serving later requests.
+Presentation implementations apply an internal structural-work budget before
+using the recursive parser on unfinished mutable source. The budget is a
+safety mechanism, not a language, LSP, or MCP compatibility value, so clients
+must not rely on an exact nesting or operator-count cutoff. Parse-derived
+presentation can be omitted after the current budget is exceeded; parse-free
+semantic-token classifications can still be returned. The
+[MCP presentation contract](mcp.md#source-presentation) specifies and checks
+the MCP result and preserved-session behavior. This page does not define a
+cross-adapter availability guarantee for over-budget source.
 
 For a direct call from an ordinary function, the supplied value covers the
 complete call expression from its callee through its closing parenthesis. For
