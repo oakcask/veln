@@ -36,12 +36,12 @@ pub(super) fn generated_doctest_boundary_mappings(
     let mut mappings = Vec::new();
     for (line, original) in doctest.code.iter().zip(&doctest.source_locations) {
         let generated_code_start = generated_line_start + usize::from(!line.is_empty()) * 2;
-        for (relative_offset, _) in line.char_indices() {
+        for (scalar_offset, (relative_offset, _)) in line.char_indices().enumerate() {
             mappings.push((
                 generated_code_start + relative_offset,
                 LineCol {
                     line: original.start.line,
-                    column: original.start.column + line[..relative_offset].chars().count(),
+                    column: original.start.column + scalar_offset,
                     offset: original.start.offset + relative_offset,
                 },
             ));

@@ -211,8 +211,12 @@ Functions without the modifier retain their ordinary call ABI.
   the `callsite-direct-runtime` run specification case.
 - Unicode coordinate evidence:
   the `callsite-unicode-coordinates` run specification case.
-- Generated-source origin and fallback evidence:
+- Mapped doctest-origin evidence:
   [`callsite-generated-origin-runtime`](../../examples/specification/test/callsite-generated-origin-runtime/).
+- Generated-source fallback evidence:
+  `crates/veln-backend-jvm/src/tests/basic_backend.rs` covers mapped and
+  fallback direct and indirect calls, while `crates/veln-source/src/tests.rs`
+  covers all-or-nothing boundary lookup.
 - Indirect-call propagation evidence:
   [`callsite-indirect-runtime`](../../examples/specification/run/callsite-indirect-runtime/).
 - Runtime-backed collection and task callback evidence:
