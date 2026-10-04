@@ -1,0 +1,26 @@
+fn capture(label: String) -> {label: String, location: SourceLocation} callsite
+	{label: label, location: callsite}
+end
+
+fn originate() -> {label: String, location: SourceLocation}
+	capture("retained")
+end
+
+fn observe(event: {label: String, location: SourceLocation}) -> () effects [stdio] callsite
+	stdio::println(event.label)
+	stdio::println(event.location.package)
+	stdio::println(event.location.module)
+	stdio::println(event.location.file)
+	stdio::println(int_to_string(event.location.start_line))
+	stdio::println(int_to_string(event.location.start_column))
+	stdio::println(int_to_string(event.location.start_offset))
+	stdio::println(int_to_string(event.location.end_line))
+	stdio::println(int_to_string(event.location.end_column))
+	stdio::println(int_to_string(event.location.end_offset))
+	stdio::println(int_to_string(callsite.start_line))
+end
+
+pub fn main() -> () effects [stdio]
+	let retained = originate()
+	observe(retained)
+end

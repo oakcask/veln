@@ -1,5 +1,67 @@
 use super::*;
-use veln_core::{CoreExprKind, CoreStmtKind};
+use veln_core::{CoreExprKind, CoreFunction, CoreStmtKind};
+
+#[test]
+fn generated_source_locations_are_identical_after_source_tree_relocation() {
+    let first = TempProject::new("generated-source-location-first");
+    let second = TempProject::new("generated-source-location-second");
+    first.write("library.veln", "# logical library source\n");
+    second.write("library.veln", "# logical library source\n");
+
+    let first_location = generated_location(&first);
+    let second_location = generated_location(&second);
+
+    assert_eq!(first_location, second_location);
+    assert_eq!(
+        first_location[2],
+        ("file", "library.veln#instrumentation-1.veln".to_string())
+    );
+    let rendered = format!("{first_location:?}{second_location:?}");
+    assert!(!rendered.contains(&first.root().to_string_lossy().to_string()));
+    assert!(!rendered.contains(&second.root().to_string_lossy().to_string()));
+}
+
+fn generated_location(project: &TempProject) -> Vec<(&'static str, String)> {
+    let original = SourceFile::read(project.root(), &project.root().join("library.veln"))
+        .expect("logical library source should load relative to its root");
+    let virtual_path = SourcePath::virtual_source(original.path(), "instrumentation-1.veln")
+        .expect("library source should produce a canonical virtual identity");
+    let generated = SourceFile::generated(
+        virtual_path,
+        concat!(
+            "fn capture() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> SourceLocation\n",
+            "  capture()\n",
+            "end\n",
+        ),
+        Some(original.path().clone()),
+    );
+    let analysis = analyze_project(
+        Project {
+            root: project.root().to_path_buf(),
+            files: vec![generated],
+            manifest: None,
+        },
+        DoctestMode::Exclude,
+    );
+    let diagnostics = analysis.checked_diagnostics();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let reachable = analysis.lower_reachable_entry("main", FunctionKind::Function);
+    assert!(reachable.lowered.diagnostics.is_empty());
+    let function = reachable
+        .lowered
+        .core
+        .as_ref()
+        .expect("generated source should lower to core")
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("generated entry should be reachable");
+    source_location_fields(function)
+}
 
 #[test]
 fn source_locations_are_identical_after_project_relocation() {
@@ -119,37 +181,41 @@ fn dependency_locations(project: &TempProject) -> Vec<Vec<(&'static str, String)
                 .iter()
                 .find(|function| function.name == name)
                 .expect("dependency location function should be reachable");
-            let statement = function
-                .body
-                .statements
-                .first()
-                .expect("location function should contain its capture call");
-            let expr = match &statement.kind {
-                CoreStmtKind::Expr { expr } | CoreStmtKind::Return { expr } => expr,
-                kind => panic!("location function should contain its capture expression: {kind:?}"),
+            source_location_fields(function)
+        })
+        .collect()
+}
+
+fn source_location_fields(function: &CoreFunction) -> Vec<(&'static str, String)> {
+    let statement = function
+        .body
+        .statements
+        .first()
+        .expect("location function should contain its capture call");
+    let expr = match &statement.kind {
+        CoreStmtKind::Expr { expr } | CoreStmtKind::Return { expr } => expr,
+        kind => panic!("location function should contain its capture expression: {kind:?}"),
+    };
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("location function should lower its capture call");
+    };
+    let CoreExprKind::Record(fields) = &args
+        .last()
+        .expect("capture call should receive hidden source location")
+        .kind
+    else {
+        panic!("hidden source location should lower as a record");
+    };
+    fields
+        .iter()
+        .map(|field| {
+            let value = match &field.expr.kind {
+                CoreExprKind::StringLiteral(value) | CoreExprKind::IntLiteral(value) => {
+                    value.clone()
+                }
+                kind => panic!("unexpected SourceLocation field value: {kind:?}"),
             };
-            let CoreExprKind::Call { args, .. } = &expr.kind else {
-                panic!("location function should lower its capture call");
-            };
-            let CoreExprKind::Record(fields) = &args
-                .last()
-                .expect("capture call should receive hidden source location")
-                .kind
-            else {
-                panic!("hidden source location should lower as a record");
-            };
-            fields
-                .iter()
-                .map(|field| {
-                    let value = match &field.expr.kind {
-                        CoreExprKind::StringLiteral(value) | CoreExprKind::IntLiteral(value) => {
-                            value.clone()
-                        }
-                        kind => panic!("unexpected SourceLocation field value: {kind:?}"),
-                    };
-                    (source_location_field_name(&field.name), value)
-                })
-                .collect()
+            (source_location_field_name(&field.name), value)
         })
         .collect()
 }

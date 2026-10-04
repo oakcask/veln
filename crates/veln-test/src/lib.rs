@@ -83,15 +83,20 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
         diagnostics.extend(extracted.diagnostics);
         for doctest in extracted.doctests {
             let name = format!("doctest_{next_index}");
-            let generated_path =
-                format!("{}#doctest-{next_index}_test.veln", source.path().as_str());
+            let generated_path = SourcePath::virtual_source(
+                source.path(),
+                format!("doctest-{next_index}_test.veln"),
+            )
+            .expect("project source paths must produce canonical doctest identities");
             let generated = generated_doctest_source(&name, &doctest);
             let copied_regions = generated_doctest_copied_regions(&name, &doctest);
             if let Some(fail_span) = doctest.fail_span {
-                expected_failures.insert(generated_path.clone(), fail_span);
+                expected_failures.insert(generated_path.as_str().to_string(), fail_span);
             }
-            visible_source_locations
-                .insert(generated_path.clone(), doctest.visible_source_locations);
+            visible_source_locations.insert(
+                generated_path.as_str().to_string(),
+                doctest.visible_source_locations,
+            );
             generated_sources.push(SourceFile::generated_with_copied_regions(
                 generated_path,
                 generated,

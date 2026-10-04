@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"bb3d6810f050148a88dec22ed502b75a3c525744"
+source_git_tree	"031ed94ec8d173f15bd5c818a68acde710b7d718"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1761
+case_count	1762
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37804,6 +37804,17 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"51b0d62ecae5ed1bc7d278a8bb0c1e18d70ccfa4489a7f3dc5c91b3c39223efb"
+case	"examples/specification/run/callsite-deferred-observation"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"e29097e7055a50770a321f3ff6d963d7275f5eeb733e3999cf9e038ac96ea5e2"
 case	"examples/specification/run/callsite-dependency-source-identity"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -63727,4 +63738,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"964e2732f1d24a163d1931a825cef4a763b79fdc6a64ed7803f8d5f5a3319a19"
+aggregate_digest	"f248600d76b040857b48cfc09237973620b705216f920581f6257239d8c9fad8"
