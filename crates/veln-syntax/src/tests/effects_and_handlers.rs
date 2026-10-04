@@ -352,63 +352,30 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
 
     assert_eq!(output.diagnostics.len(), 4, "{:#?}", output.diagnostics);
     assert_eq!(separator_diagnostics.len(), 4, "{:#?}", output.diagnostics);
-    assert_eq!(separator_diagnostics[0].unexpected.text, "handles");
-    assert_eq!(
-        separator_diagnostics[0].span.as_ref().unwrap().start.line,
-        5
+    assert_handler_separator_diagnostic(
+        separator_diagnostics[0],
+        "handles",
+        (5, 15, 22),
+        RecoveryStrategy::SkipToken,
     );
-    assert_eq!(
-        separator_diagnostics[0].span.as_ref().unwrap().start.column,
-        15
+    assert_handler_separator_diagnostic(
+        separator_diagnostics[1],
+        "Ask",
+        (9, 19, 22),
+        RecoveryStrategy::InsertToken,
     );
-    assert_eq!(
-        separator_diagnostics[0].recovery.strategy,
-        RecoveryStrategy::SkipToken
+    assert_handler_separator_diagnostic(
+        separator_diagnostics[2],
+        "handles",
+        (13, 24, 31),
+        RecoveryStrategy::InsertToken,
     );
-    assert_eq!(separator_diagnostics[1].unexpected.text, "Ask");
-    assert_eq!(
-        separator_diagnostics[1].span.as_ref().unwrap().start.line,
-        9
+    assert_handler_separator_diagnostic(
+        separator_diagnostics[3],
+        "handles",
+        (17, 25, 32),
+        RecoveryStrategy::SkipToken,
     );
-    assert_eq!(
-        separator_diagnostics[1].span.as_ref().unwrap().start.column,
-        19
-    );
-    assert_eq!(
-        separator_diagnostics[1].recovery.strategy,
-        RecoveryStrategy::InsertToken
-    );
-    assert_eq!(separator_diagnostics[2].unexpected.text, "handles");
-    assert_eq!(
-        separator_diagnostics[2].span.as_ref().unwrap().start.line,
-        13
-    );
-    assert_eq!(
-        separator_diagnostics[2].span.as_ref().unwrap().start.column,
-        24
-    );
-    assert_eq!(
-        separator_diagnostics[2].recovery.strategy,
-        RecoveryStrategy::InsertToken
-    );
-    assert_eq!(separator_diagnostics[3].unexpected.text, "handles");
-    assert_eq!(
-        separator_diagnostics[3].span.as_ref().unwrap().start.line,
-        17
-    );
-    assert_eq!(
-        separator_diagnostics[3].span.as_ref().unwrap().start.column,
-        25
-    );
-    assert_eq!(
-        separator_diagnostics[3].recovery.strategy,
-        RecoveryStrategy::SkipToken
-    );
-    let expected_diagnostic_ends = [(5, 22), (9, 22), (13, 31), (17, 32)];
-    for (diagnostic, (line, column)) in separator_diagnostics.iter().zip(expected_diagnostic_ends) {
-        assert_eq!(diagnostic.span.as_ref().unwrap().end.line, line);
-        assert_eq!(diagnostic.span.as_ref().unwrap().end.column, column);
-    }
 
     let expected_effects = [
         vec!["handles".to_string(), "Ask".to_string()],
@@ -428,20 +395,43 @@ fn rejects_old_and_missing_handler_separators_without_losing_following_items() {
         .iter()
         .zip(expected_effects.iter().zip(expected_spans))
     {
-        let SyntaxItem::Handler(handler) = item else {
-            panic!("expected recovered handler declaration");
-        };
-        assert_eq!(&handler.effect, expected_effect);
-        assert_eq!(handler.effect_span.start.line, line);
-        assert_eq!(handler.effect_span.start.column, start_column);
-        assert_eq!(handler.effect_span.end.line, line);
-        assert_eq!(handler.effect_span.end.column, end_column);
-        assert!(!handler.effect_recovered);
+        assert_handler_target(item, expected_effect, (line, start_column, end_column));
     }
     assert!(matches!(
         output.tree.items.last(),
         Some(SyntaxItem::Function(function)) if function.name.as_deref() == Some("following")
     ));
+}
+
+fn assert_handler_separator_diagnostic(
+    diagnostic: &ParseDiagnostic,
+    unexpected: &str,
+    (line, start_column, end_column): (usize, usize, usize),
+    strategy: RecoveryStrategy,
+) {
+    let span = diagnostic.span.as_ref().unwrap();
+    assert_eq!(diagnostic.unexpected.text, unexpected);
+    assert_eq!(span.start.line, line);
+    assert_eq!(span.start.column, start_column);
+    assert_eq!(span.end.line, line);
+    assert_eq!(span.end.column, end_column);
+    assert_eq!(diagnostic.recovery.strategy, strategy);
+}
+
+fn assert_handler_target(
+    item: &SyntaxItem,
+    expected_effect: &[String],
+    (line, start_column, end_column): (usize, usize, usize),
+) {
+    let SyntaxItem::Handler(handler) = item else {
+        panic!("expected recovered handler declaration");
+    };
+    assert_eq!(handler.effect, expected_effect);
+    assert_eq!(handler.effect_span.start.line, line);
+    assert_eq!(handler.effect_span.start.column, start_column);
+    assert_eq!(handler.effect_span.end.line, line);
+    assert_eq!(handler.effect_span.end.column, end_column);
+    assert!(!handler.effect_recovered);
 }
 
 #[test]
