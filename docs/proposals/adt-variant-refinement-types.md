@@ -15,9 +15,9 @@ diagnostics, and runtime erasure.
 
 This proposal retains only the unfinished work: alias presentation and
 visibility, collection, dictionary, and generic-payload retention and joins,
-postfix result propagation, pattern-based control-flow refinement, schema
-boundaries, package documentation, command-wide enforcement, LSP, MCP, and
-language-reference publication.
+pattern-based control-flow refinement, schema boundaries, package
+documentation, command-wide enforcement, LSP, MCP, and language-reference
+publication.
 
 ## Outcomes And Boundaries
 
@@ -229,31 +229,6 @@ not by itself resolve an ambiguous constructor or infer missing generic
 arguments. Only the current
 [constructor-context rules](../specification/types.md#inference-rules) allow an
 expected type at the constructor expression to supply that context.
-
-### Refined Result Propagation
-
-Postfix `?` preserves the existing `Result` propagation contract when its
-operand has a singleton refinement. The refinement determines which runtime
-branch the operator takes. It does not relax the operator's typing rules.
-
-| Operand static type | Observable result |
-| --- | --- |
-| `Result<T, E>::Ok` | Apply the ordinary `?` context and error-compatibility checks, produce `T`, and continue evaluation. |
-| `Result<T, E>::Err` | Apply the same ordinary checks and return the error through the existing propagation path. Normal evaluation after the operator does not occur. |
-| `Result<T, E>::Ok \| Result<T, E>::Err` or `Result<T, E>` | Use the existing runtime branch and propagation behavior. |
-
-A statically known `Ok` operand must still occur in a context where ordinary
-postfix `?` is permitted. Its error type must satisfy the same compatibility
-rules as an unrefined `Result<T, E>`. The checker does not discard those
-requirements merely because the error branch is impossible. The produced type
-is exactly `T`; if `T` is itself a refinement, the operator preserves it.
-
-A statically known `Err` operand is a guaranteed early return. This fact does
-not produce an error or warning as part of variant refinement. The operator's
-success type remains `T` for checking its surrounding expression, and source
-after the guaranteed return still receives ordinary name, type, effect, and
-declared-result checking. Existing unreachable-code diagnostics, if any, remain
-independent of refinement propagation.
 
 ### Pattern Refinement
 

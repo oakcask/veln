@@ -373,6 +373,26 @@ unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
 the arms that prove partial coverage.
 
+### Result propagation
+
+Postfix `?` unwraps the success type `T` from an operand whose type is
+`Result<T, E>`. It uses the existing propagation context rules, including the
+prohibition inside a deferred block described above. When the enclosing
+function or test returns `Result<_, F>`, `E` must satisfy the existing
+propagation error-compatibility rule for `F`. An incompatible error type
+reports the ordinary `type.mismatch` diagnostic at the operand.
+
+The operator accepts the base `Result<T, E>`, either singleton refinement
+`Result<T, E>::Ok` or `Result<T, E>::Err`, and the complete refinement union.
+Every form uses the same context and error-compatibility checks. The expression
+type is exactly `T`, including when `T` is itself a variant refinement.
+
+At runtime, a success value produces its payload and evaluation continues. An
+error value returns through the enclosing function's existing propagation
+path. A singleton `Ok` or `Err` type determines that branch statically but does
+not change the checks or runtime representation. Source following a statically
+known `Err` is still checked normally.
+
 ## Compatibility and limits
 
 The type checker resolves a structurally valid `A<T>::V` annotation to the
@@ -473,7 +493,7 @@ and human diagnostics in
 
 Alias spelling and provenance, public/private exposure paths, refinement
 retention and joins for collections, dictionaries, and inferred generic ADT
-payloads, postfix `?`, pattern-based control-flow refinement, schema boundaries,
+payloads, pattern-based control-flow refinement, schema boundaries,
 package-documentation signatures, command-wide coverage, LSP, MCP, and
 language-reference publication remain proposal work. This slice also does not
 add recursive generic or function variance.

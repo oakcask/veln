@@ -1,0 +1,13 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "deferred block cannot use `?`",
+  "expected `Result<Int, Int>`, but found `Result<Int, String>::Ok`",
+  "expected `Bool`, but found `Int`",
+]
+
+[stderr]
+format = "empty"

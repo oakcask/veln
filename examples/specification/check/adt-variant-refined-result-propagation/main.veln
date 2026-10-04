@@ -1,0 +1,34 @@
+# Compiler integration: postfix propagation accepts every Result refinement form and preserves its success type.
+type State
+	Ready
+	Closed
+end
+
+fn accept_ok(value: Result<Int, String>::Ok) -> Result<Int, String>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn accept_err(value: Result<Int, String>::Err) -> Result<Int, String>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn accept_union(value: Result<Int, String>::Ok | Result<Int, String>::Err) -> Result<Int, String>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn accept_base(value: Result<Int, String>) -> Result<Int, String>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn require_ready(value: State::Ready) -> State::Ready
+	value
+end
+
+fn preserve_nested(value: Result<State::Ready, String>::Ok) -> Result<State::Ready, String>
+	let item = value?
+	Ok(require_ready(item))
+end

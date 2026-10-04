@@ -1,0 +1,19 @@
+# Human compiler diagnostics mirror the refined propagation context, error compatibility, and continued checking failures.
+fn invalid_context(value: Result<Int, String>::Ok) -> Int
+	defer
+		let ignored = value?
+		()
+	end
+	0
+end
+
+fn incompatible_error(value: Result<Int, String>::Ok) -> Result<Int, Int>
+	let item: Int = value?
+	Ok(item)
+end
+
+fn checked_after_err(value: Result<Int, String>::Err) -> Result<Int, String>
+	let item: Int = value?
+	let invalid: Bool = 1
+	Ok(item)
+end
