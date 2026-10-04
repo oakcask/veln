@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage; behavior=#declaration-behavior; limits=#limits-and-diagnostics
-update-when: The SourceLocation value, callsite declaration, direct or indirect call propagation, or related static and execution limits change.
+update-when: The SourceLocation value, callsite declaration, direct or indirect call propagation, related static and execution limits, or call-site semantic-token, completion, or signature-help contracts exposed through LSP or MCP change.
 ---
 
 # Call-site Declarations

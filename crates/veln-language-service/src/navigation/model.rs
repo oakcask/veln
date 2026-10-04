@@ -155,7 +155,7 @@ pub enum SymbolDeclarationKind {
     Recovery,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PackageOrigin {
     DirectDependency,
     StandardLibrary,
@@ -1023,6 +1023,8 @@ pub(crate) struct SymbolIndex {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
+    function_indices_by_identity:
+        HashMap<(Option<String>, Option<PackageOrigin>, String, String), Vec<usize>>,
     package_function_targets: Vec<PackageFunctionTarget>,
     package_type_targets: Vec<PackageTypeTarget>,
     package_constructor_targets: Vec<PackageConstructorTarget>,

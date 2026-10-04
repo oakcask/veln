@@ -1,10 +1,15 @@
+use std::collections::{HashMap, HashSet};
+
+#[cfg(test)]
+use std::cell::Cell;
+
 use veln_source::SourceFile;
 use veln_syntax::{
     FunctionDecl, FunctionKind, SyntaxItem, Token, TokenKind, canonical_type_text,
     declaration_function_signature, lex, parse,
 };
 
-use crate::navigation::function_signature_definition_at;
+use crate::navigation::{SignatureShadowIndex, function_signature_definition_at};
 use crate::{EffectiveProjectSnapshot, NavigationSource, SourcePosition};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,6 +31,59 @@ pub struct SignatureHelp {
     pub parameters: Vec<String>,
     pub active_parameter: usize,
 }
+
+#[derive(Clone, Debug)]
+enum LocalSignatureDeclaration {
+    Function(String),
+    Alias(String),
+}
+
+#[cfg(test)]
+thread_local! {
+    static SIGNATURE_INDEX_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static SIGNATURE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
+    static SIGNATURE_HEADER_PARSES: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn reset_signature_help_work() {
+    SIGNATURE_INDEX_TOKEN_VISITS.set(0);
+    SIGNATURE_CANDIDATE_VISITS.set(0);
+    SIGNATURE_HEADER_PARSES.set(0);
+}
+
+#[cfg(test)]
+fn signature_help_work() -> (usize, usize, usize) {
+    (
+        SIGNATURE_INDEX_TOKEN_VISITS.get(),
+        SIGNATURE_CANDIDATE_VISITS.get(),
+        SIGNATURE_HEADER_PARSES.get(),
+    )
+}
+
+#[cfg(test)]
+fn record_signature_index_token_visits(count: usize) {
+    SIGNATURE_INDEX_TOKEN_VISITS.set(SIGNATURE_INDEX_TOKEN_VISITS.get() + count);
+}
+
+#[cfg(not(test))]
+fn record_signature_index_token_visits(_: usize) {}
+
+#[cfg(test)]
+fn record_signature_candidate_visit() {
+    SIGNATURE_CANDIDATE_VISITS.set(SIGNATURE_CANDIDATE_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_signature_candidate_visit() {}
+
+#[cfg(test)]
+fn record_signature_header_parse() {
+    SIGNATURE_HEADER_PARSES.set(SIGNATURE_HEADER_PARSES.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_signature_header_parse() {}
 
 pub fn completion_at(
     snapshot: &EffectiveProjectSnapshot,
@@ -149,6 +207,9 @@ pub fn signature_help_at(
             )
         })
         .collect::<Vec<_>>();
+    record_signature_index_token_visits(tokens.tokens.len());
+    let shadow_index = SignatureShadowIndex::new(&tokens.tokens);
+    let local_signatures = local_signature_declarations(source, &significant);
     let mut open = Vec::new();
     for (significant_index, (_, token)) in significant.iter().enumerate() {
         if token.range.start >= offset {
@@ -163,14 +224,32 @@ pub fn signature_help_at(
         }
     }
     for open_index in open.into_iter().rev() {
+        record_signature_candidate_visit();
         let Some(callee_index) = open_index.checked_sub(1) else {
             continue;
         };
-        let Some((_, callee)) = significant.get(callee_index).copied() else {
+        let Some((callee_token_index, callee)) = significant.get(callee_index).copied() else {
             continue;
         };
         if !matches!(callee.kind, TokenKind::Ident | TokenKind::Callsite) {
             continue;
+        }
+        if declaration_name_token(&significant, callee_index) {
+            continue;
+        }
+        if shadow_index.shadows(&tokens.tokens, callee_token_index, &callee.text) {
+            continue;
+        }
+        let local_signature_allowed = shadow_index
+            .allows_local_signature(&tokens.tokens, callee_token_index)
+            && callee_index
+                .checked_sub(1)
+                .is_none_or(|previous| significant[previous].1.kind != TokenKind::DoubleColon);
+        if local_signature_allowed
+            && let Some(function) = local_signature_function(&local_signatures, &callee.text)
+        {
+            let active_parameter = active_parameter(&significant, open_index, offset);
+            return Some(signature_help(&function, active_parameter));
         }
         let Some((selection, definition)) = function_signature_definition_at(
             snapshot,
@@ -199,24 +278,150 @@ pub fn signature_help_at(
         }) else {
             continue;
         };
-        let parsed = parse(&declaration_source);
-        let Some(function) = parsed.tree.items.iter().find_map(|item| match item {
-            SyntaxItem::Function(function)
-                if function
-                    .name_span
-                    .as_ref()
-                    .is_some_and(|span| span.start.offset == definition.span.start.offset) =>
-            {
-                Some(function.as_ref())
-            }
-            _ => None,
-        }) else {
+        let Some(function) =
+            parse_function_signature_at(&declaration_source, definition.span.start.offset)
+        else {
             continue;
         };
         let active_parameter = active_parameter(&significant, open_index, offset);
-        return Some(signature_help(function, active_parameter));
+        return Some(signature_help(&function, active_parameter));
     }
     None
+}
+
+fn local_signature_declarations(
+    source: &SourceFile,
+    significant: &[(usize, &Token)],
+) -> HashMap<String, Vec<LocalSignatureDeclaration>> {
+    let mut declarations = HashMap::<String, Vec<LocalSignatureDeclaration>>::new();
+    for (index, (_, token)) in significant.iter().enumerate() {
+        record_signature_index_token_visits(1);
+        if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
+            continue;
+        }
+        let Some((_, name)) = significant.get(index + 1).copied() else {
+            continue;
+        };
+        if name.kind != TokenKind::Ident {
+            continue;
+        }
+        let declaration = if significant
+            .get(index + 2)
+            .is_some_and(|(_, token)| token.kind == TokenKind::Equal)
+        {
+            let Some((_, target)) = significant.get(index + 3).copied() else {
+                continue;
+            };
+            if target.kind != TokenKind::Ident
+                || significant
+                    .get(index + 4)
+                    .is_some_and(|(_, token)| token.kind == TokenKind::DoubleColon)
+            {
+                continue;
+            }
+            LocalSignatureDeclaration::Alias(target.text.clone())
+        } else {
+            let Some(header_end) = source.text()[token.range.start..]
+                .find('\n')
+                .map(|relative| token.range.start + relative)
+                .or(Some(source.len()))
+            else {
+                continue;
+            };
+            let Some(header) = source.text().get(token.range.start..header_end) else {
+                continue;
+            };
+            LocalSignatureDeclaration::Function(header.to_string())
+        };
+        declarations
+            .entry(name.text.clone())
+            .or_default()
+            .push(declaration);
+    }
+    declarations
+}
+
+fn local_signature_function(
+    declarations: &HashMap<String, Vec<LocalSignatureDeclaration>>,
+    name: &str,
+) -> Option<FunctionDecl> {
+    let mut name = name;
+    let mut visited = HashSet::new();
+    loop {
+        if !visited.insert(name.to_string()) {
+            return None;
+        }
+        let [declaration] = declarations.get(name)?.as_slice() else {
+            return None;
+        };
+        match declaration {
+            LocalSignatureDeclaration::Alias(target) => name = target,
+            LocalSignatureDeclaration::Function(header) => {
+                record_signature_header_parse();
+                let declaration =
+                    SourceFile::new("signature-help.veln", format!("{header}\n  0\nend\n"));
+                let parsed = parse(&declaration);
+                return parsed.tree.items.into_iter().find_map(|item| {
+                    let SyntaxItem::Function(function) = item else {
+                        return None;
+                    };
+                    Some(*function)
+                });
+            }
+        }
+    }
+}
+
+fn parse_function_signature_at(source: &SourceFile, name_offset: usize) -> Option<FunctionDecl> {
+    record_signature_header_parse();
+    let tokens = lex(source).tokens;
+    let name_index = tokens
+        .iter()
+        .position(|token| token.range.start == name_offset && token.kind == TokenKind::Ident)?;
+    let start = tokens[..name_index]
+        .iter()
+        .rposition(|token| matches!(token.kind, TokenKind::Fn | TokenKind::Test))?;
+    let mut parens = 0usize;
+    let mut brackets = 0usize;
+    let mut braces = 0usize;
+    let mut saw_parameters = false;
+    let end = tokens[start..]
+        .iter()
+        .find_map(|token| {
+            match token.kind {
+                TokenKind::LParen => {
+                    saw_parameters = true;
+                    parens += 1;
+                }
+                TokenKind::RParen => parens = parens.saturating_sub(1),
+                TokenKind::LBracket => brackets += 1,
+                TokenKind::RBracket => brackets = brackets.saturating_sub(1),
+                TokenKind::LBrace => braces += 1,
+                TokenKind::RBrace => braces = braces.saturating_sub(1),
+                _ => {}
+            }
+            (token.kind == TokenKind::Newline
+                && saw_parameters
+                && parens == 0
+                && brackets == 0
+                && braces == 0)
+                .then_some(token.range.start)
+        })
+        .unwrap_or(source.len());
+    let header = source.text().get(tokens[start].range.start..end)?;
+    let declaration = SourceFile::new("signature-help.veln", format!("{header}\n  0\nend\n"));
+    parse(&declaration).tree.items.into_iter().find_map(|item| {
+        let SyntaxItem::Function(function) = item else {
+            return None;
+        };
+        Some(*function)
+    })
+}
+
+fn declaration_name_token(significant: &[(usize, &Token)], callee_index: usize) -> bool {
+    callee_index
+        .checked_sub(1)
+        .is_some_and(|index| matches!(significant[index].1.kind, TokenKind::Fn | TokenKind::Test))
 }
 
 fn signature_help(function: &FunctionDecl, active_parameter: usize) -> SignatureHelp {
@@ -593,6 +798,30 @@ mod tests {
     }
 
     #[test]
+    fn signature_help_does_not_bypass_parameter_shadowing() {
+        let snapshot = snapshot(concat!(
+            "fn located(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn caller(located: fn(Int) -> Int) -> Int\n",
+            "  located(1)\n",
+            "end\n",
+        ));
+
+        assert!(
+            signature_help_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 5,
+                    column: 12,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
     fn signature_help_resolves_workspace_function_aliases() {
         let snapshot = snapshot(concat!(
             "pub fn located(message: String) -> SourceLocation callsite\n",
@@ -707,5 +936,82 @@ mod tests {
     fn rejected_nested_signature_candidates_do_not_collect_references() {
         assert_eq!(rejected_nested_candidate_reference_collections(100), 0);
         assert_eq!(rejected_nested_candidate_reference_collections(200), 0);
+    }
+
+    fn unmatched_parenthesis_work(depth: usize) -> (usize, usize, usize) {
+        let mut source = String::from(concat!(
+            "fn located(value: Int) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn caller() -> SourceLocation\n",
+            "  let value: Int = 1\n",
+            "  located("
+        ));
+        source.push_str(&"value(".repeat(depth));
+        let column = source.lines().last().expect("call line").chars().count() + 1;
+        let snapshot = snapshot(&source);
+        reset_signature_help_work();
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 6,
+                column,
+            },
+        )
+        .expect("outer signature help");
+
+        assert_eq!(
+            help.label,
+            "fn located(value: Int) -> SourceLocation callsite"
+        );
+        signature_help_work()
+    }
+
+    #[test]
+    fn signature_help_handles_deep_unmatched_parentheses_with_linear_work() {
+        let smaller = unmatched_parenthesis_work(5_000);
+        let larger = unmatched_parenthesis_work(10_000);
+
+        assert!(
+            larger.0 <= smaller.0 * 2,
+            "signature index token visits grew too quickly: {smaller:?} -> {larger:?}"
+        );
+        assert_eq!(larger.1, smaller.1 * 2 - 1);
+        assert_eq!(smaller.2, 1);
+        assert_eq!(larger.2, 1);
+    }
+
+    fn alias_target_lookups(alias_count: usize) -> usize {
+        let mut source = String::from(
+            "pub fn located(message: String) -> SourceLocation callsite\n  callsite\nend\n",
+        );
+        source.push_str("pub fn alias_0 = located\n");
+        for index in 1..alias_count {
+            source.push_str(&format!("pub fn alias_{index} = alias_{}\n", index - 1));
+        }
+        source.push_str(&format!(
+            "fn caller() -> SourceLocation\n  alias_{}(\"hello\")\nend\n",
+            alias_count - 1
+        ));
+        let snapshot = snapshot(&source);
+        crate::navigation::reset_function_alias_target_lookups();
+        function_signature_definition_at(
+            &snapshot,
+            &SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: alias_count + 5,
+                column: 3,
+            },
+        )
+        .expect("resolved alias target");
+        crate::navigation::function_alias_target_lookups()
+    }
+
+    #[test]
+    fn function_alias_resolution_uses_one_index_lookup_per_hop() {
+        assert_eq!(alias_target_lookups(128), 128);
+        assert_eq!(alias_target_lookups(256), 256);
     }
 }

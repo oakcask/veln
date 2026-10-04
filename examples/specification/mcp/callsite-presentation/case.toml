@@ -129,3 +129,13 @@ equals = false
 id = 17
 path = "/result/structuredContent/references"
 length = 1
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/items"
+equals = []
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/items"
+equals = []

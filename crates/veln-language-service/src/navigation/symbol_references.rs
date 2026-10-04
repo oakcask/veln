@@ -535,14 +535,17 @@ impl SymbolIndex {
     fn function_alias_target_symbol(&self, symbol: &FunctionSymbol) -> Option<FunctionSymbol> {
         let target_name = symbol.alias_target_name.as_deref()?;
         let target_module = self.function_alias_target_module(symbol)?;
-        let mut candidates = self.functions.iter().filter(|candidate| {
-            candidate.name == target_name
-                && candidate.module == target_module
-                && candidate.package == symbol.package
-                && candidate.package_origin == symbol.package_origin
-        });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
+        record_function_alias_target_lookup();
+        let identity = (
+            symbol.package.clone(),
+            symbol.package_origin,
+            target_module,
+            target_name.to_string(),
+        );
+        let [index] = self.function_indices_by_identity.get(&identity)?.as_slice() else {
+            return None;
+        };
+        self.functions.get(*index).cloned()
     }
 
     fn function_alias_target_module(&self, symbol: &FunctionSymbol) -> Option<String> {

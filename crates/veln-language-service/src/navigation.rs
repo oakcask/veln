@@ -37,6 +37,41 @@ include!("navigation/local_binding_scopes.rs");
 include!("navigation/token_roles.rs");
 include!("navigation/source_paths.rs");
 
+pub(crate) struct SignatureShadowIndex {
+    scopes: Vec<FunctionScope>,
+}
+
+impl SignatureShadowIndex {
+    pub(crate) fn new(tokens: &[Token]) -> Self {
+        let mut scopes = function_scopes(tokens);
+        let file_end = tokens.last().map_or(0, |token| token.range.end);
+        let defer_block_openers = defer_block_openers(tokens);
+        for scope in scopes
+            .iter_mut()
+            .filter(|scope| !scope.is_handler_clause && scope.end == scope.body_start)
+        {
+            scope.end = file_end;
+            scope.local_bindings = local_bindings_with_defer_openers(
+                tokens,
+                scope.body_start,
+                scope.end,
+                &defer_block_openers,
+            );
+            scope.local_bindings_by_name = local_binding_index_by_name(&scope.local_bindings);
+        }
+        Self { scopes }
+    }
+
+    pub(crate) fn shadows(&self, tokens: &[Token], token_index: usize, name: &str) -> bool {
+        local_binding_shadows_call_target_in_scopes(&self.scopes, tokens, token_index, name)
+    }
+
+    pub(crate) fn allows_local_signature(&self, tokens: &[Token], token_index: usize) -> bool {
+        let offset = tokens[token_index].range.start;
+        token_scope(&self.scopes, offset).is_some_and(|scope| !scope.is_handler_clause)
+    }
+}
+
 #[cfg(test)]
 #[path = "navigation/classification_tests.rs"]
 mod classification_tests;
@@ -94,6 +129,25 @@ thread_local! {
     static HANDLER_CLAUSE_BODY_RANGE_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static HANDLER_CLAUSE_BODY_MEMBERSHIP_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static FUNCTION_SCOPE_LOOKUP_COMPARISONS: Cell<usize> = const { Cell::new(0) };
+    static FUNCTION_ALIAS_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_function_alias_target_lookup() {
+    FUNCTION_ALIAS_TARGET_LOOKUPS.set(FUNCTION_ALIAS_TARGET_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_function_alias_target_lookup() {}
+
+#[cfg(test)]
+pub(crate) fn reset_function_alias_target_lookups() {
+    FUNCTION_ALIAS_TARGET_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn function_alias_target_lookups() -> usize {
+    FUNCTION_ALIAS_TARGET_LOOKUPS.get()
 }
 
 #[cfg(test)]

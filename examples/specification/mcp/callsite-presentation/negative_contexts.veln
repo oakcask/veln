@@ -1,0 +1,7 @@
+effect Read
+	read() -> Int
+end
+
+handler answer() handles Read
+	read() => 1
+end

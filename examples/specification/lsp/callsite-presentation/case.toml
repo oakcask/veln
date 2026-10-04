@@ -60,3 +60,13 @@ equals = {"label":"fn located(value: Int) -> SourceLocation callsite","parameter
 id = 11
 path = "/result/activeParameter"
 equals = 0
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 13
+path = "/result"
+equals = []

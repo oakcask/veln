@@ -117,6 +117,7 @@ impl SymbolIndex {
             operation_lookup: schema_operation_lookup_index,
         } = index_schema_navigation(&files, &workspace_module, &mut declarations);
         let type_indices_by_name = symbol_indices_by_name(&declarations.types);
+        let function_indices_by_identity = function_indices_by_identity(&declarations.functions);
         let type_alias_indices_by_name = symbol_indices_by_name(&declarations.type_aliases);
         let package_type_alias_indices_by_name =
             package_symbol_indices_by_name(&declarations.type_aliases);
@@ -143,6 +144,7 @@ impl SymbolIndex {
             handlers: declarations.handlers,
             operations: declarations.operations,
             functions: declarations.functions,
+            function_indices_by_identity,
             package_function_targets: declarations.package_function_targets,
             package_type_targets: declarations.package_type_targets,
             package_constructor_targets: declarations.package_constructor_targets,
@@ -936,6 +938,24 @@ fn symbol_indices_by_name<T: NamedTypeSymbol>(symbols: &[T]) -> BTreeMap<String,
             .push(index);
     }
     by_name
+}
+
+fn function_indices_by_identity(
+    functions: &[FunctionSymbol],
+) -> HashMap<(Option<String>, Option<PackageOrigin>, String, String), Vec<usize>> {
+    let mut by_identity = HashMap::<_, Vec<usize>>::new();
+    for (index, function) in functions.iter().enumerate() {
+        by_identity
+            .entry((
+                function.package.clone(),
+                function.package_origin,
+                function.module.clone(),
+                function.name.clone(),
+            ))
+            .or_default()
+            .push(index);
+    }
+    by_identity
 }
 
 fn package_symbol_indices_by_name<T: NamedTypeSymbol>(

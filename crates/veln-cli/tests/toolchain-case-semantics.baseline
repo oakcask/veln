@@ -13394,6 +13394,10 @@ field	expectations.lsp_assertions[0].equals	["namespace","type","parameter","var
 field	expectations.lsp_assertions[0].id	1
 field	expectations.lsp_assertions[0].operation	"equals"
 field	expectations.lsp_assertions[0].path	"/result/capabilities/semanticTokensProvider/legend/tokenTypes"
+field	expectations.lsp_assertions[10].equals	[]
+field	expectations.lsp_assertions[10].id	13
+field	expectations.lsp_assertions[10].operation	"equals"
+field	expectations.lsp_assertions[10].path	"/result"
 field	expectations.lsp_assertions[1].equals	["declaration","readonly","defaultLibrary","test","result","hole"]
 field	expectations.lsp_assertions[1].id	1
 field	expectations.lsp_assertions[1].operation	"equals"
@@ -13426,6 +13430,10 @@ field	expectations.lsp_assertions[8].equals	0
 field	expectations.lsp_assertions[8].id	11
 field	expectations.lsp_assertions[8].operation	"equals"
 field	expectations.lsp_assertions[8].path	"/result/activeParameter"
+field	expectations.lsp_assertions[9].equals	[]
+field	expectations.lsp_assertions[9].id	12
+field	expectations.lsp_assertions[9].operation	"equals"
+field	expectations.lsp_assertions[9].path	"/result"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"completionProvider\""
 field	expectations.stdout.contains[1]	"\"signatureHelpProvider\""
@@ -13436,10 +13444,10 @@ field	expectations.stdout.contains[5]	"fn located(message: String) -> SourceLoca
 field	expectations.stdout.contains[6]	"\"parameters\":[{\"label\":\"message: String\"}]"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2346,"sha256":"4da1f3186b6faebb46a25d638d4949e30d06535867bf7978f603bd6a32b9ee8f"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2811,"sha256":"b875815af46158aceb8fbea01c187d72293235492232b7ef92129eef87b477d0"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"b9f8e24f5fc1c0e35f007025ae2ff2adc5e18dc1eaaa9aba7dc00585cec021b4"
+case_digest	"77436afc1f69c21f4189f640ff7fadf622073b9caf080d0158f092f390472109"
 case	"examples/specification/lsp/cleanup-region-navigation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	{"end":{"character":14,"line":7},"start":{"character":6,"line":7}}
@@ -18092,6 +18100,14 @@ field	expectations.mcp_assertions[24].id	17
 field	expectations.mcp_assertions[24].length	1
 field	expectations.mcp_assertions[24].operation	"length"
 field	expectations.mcp_assertions[24].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[25].equals	[]
+field	expectations.mcp_assertions[25].id	18
+field	expectations.mcp_assertions[25].operation	"equals"
+field	expectations.mcp_assertions[25].path	"/result/structuredContent/items"
+field	expectations.mcp_assertions[26].equals	[]
+field	expectations.mcp_assertions[26].id	19
+field	expectations.mcp_assertions[26].operation	"equals"
+field	expectations.mcp_assertions[26].path	"/result/structuredContent/items"
 field	expectations.mcp_assertions[2].equals	"callsite"
 field	expectations.mcp_assertions[2].id	3
 field	expectations.mcp_assertions[2].operation	"equals"
@@ -18127,9 +18143,9 @@ field	expectations.mcp_assertions[9].path	"/result/structuredContent/signature/a
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2282,"sha256":"315640ac251e94a502f08a2b43b9c021fdfbbe7049ddc901d09564157f121671"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2577,"sha256":"80466c8ae34135d67a2fda8d7cc7777f5accba2a27da1549bc4d29c2b557a749"}
 field	source_errors	"forbidden"
-case_digest	"87775efc1e0ce03820e1635f02da63888804e5727a7d34399d859c0a3d2f3cc3"
+case_digest	"dd2f3106d838c3a046d82bbe93eb6902322933e6c383ddbb98271829ff04d911"
 case	"examples/specification/mcp/check-project-diagnostics"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -63517,4 +63533,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"e7f6579cf2917182285dc877c5036a6e581dab6f72b43d549ae8875c825b2f59"
+aggregate_digest	"35483f65cd20c2e94a9ade563fba5747f317c3662f1d68492c42a977c4e1ad7c"
