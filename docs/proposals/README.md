@@ -16,6 +16,9 @@ also states it.
 
 ## Ready
 
+- Handler target syntax using the existing `for` keyword, removing `handles`
+  from the keyword set while preserving handler semantics:
+  [handler-for-syntax.md](handler-for-syntax.md).
 - Generated-source identity, deferred observation, and LSP/MCP presentation
   for library-defined instrumentation:
   [call-site-source-location.md](call-site-source-location.md).
