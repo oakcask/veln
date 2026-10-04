@@ -125,17 +125,15 @@ fn surface_wire_round_trip_preserves_generated_origin_boundaries() {
     let BodyLineKind::Expr { expr } = &decoded.functions[1].body[0].kind else {
         panic!("expected call expression body");
     };
-    let origin = expr
-        .span
-        .generated_origin
-        .as_ref()
-        .expect("generated origin metadata");
+    assert!(expr.span.generated_origin.is_some());
     assert_eq!(
-        origin.original_path().map(veln_source::SourcePath::as_str),
+        expr.span
+            .original_path()
+            .map(veln_source::SourcePath::as_str),
         Some("templates/original.veln")
     );
-    assert_eq!(origin.original_start(), Some(original_start));
-    assert_eq!(origin.original_end(), Some(original_end));
+    assert_eq!(expr.span.original_start(), Some(original_start));
+    assert_eq!(expr.span.original_end(), Some(original_end));
     let resolved = expr.span.resolved_origin().expect("complete mapped span");
     assert_eq!(resolved.file.as_str(), "templates/original.veln");
     assert_eq!(resolved.start, original_start);

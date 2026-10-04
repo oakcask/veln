@@ -21,9 +21,26 @@ fn generated_doctest_boundaries_use_scalar_columns_and_byte_offsets() {
         ..ExtractedDoctest::default()
     };
 
-    let mapped = generated_doctest_boundary_mappings("unicode", &doctest)
-        .into_iter()
-        .map(|(_, original)| original)
+    let generated_text = generated_doctest_source("unicode", &doctest);
+    let regions = generated_doctest_copied_regions("unicode", &doctest);
+    let generated_start = regions[0].0.start;
+    let generated = SourceFile::generated_with_copied_regions(
+        "main.veln#doctest-1_test.veln",
+        generated_text,
+        SourcePath::new("main.veln"),
+        regions,
+    );
+    let mapped = "aé界z"
+        .char_indices()
+        .map(|(offset, _)| offset)
+        .chain(std::iter::once("aé界z".len()))
+        .map(|offset| {
+            generated
+                .span(TextRange::at(generated_start + offset))
+                .resolved_origin()
+                .expect("copied scalar boundary should resolve")
+                .start
+        })
         .collect::<Vec<_>>();
 
     assert_eq!(
@@ -55,6 +72,58 @@ fn generated_doctest_boundaries_use_scalar_columns_and_byte_offsets() {
                 offset: 999,
             },
         ]
+    );
+}
+
+#[test]
+fn large_doctest_construction_retains_one_region_per_copied_line() {
+    for size in [256 * 1024, 512 * 1024] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("## ```veln\n## # {}\n## ```\n", "a".repeat(size)),
+        );
+
+        let doctests = doctest_sources(&[source]);
+        let generated = &doctests.sources[0];
+        let origin = generated
+            .generated_origin()
+            .expect("doctest source should retain its origin");
+        assert_eq!(origin.explicit_boundary_count(), 0);
+        assert_eq!(origin.copied_region_count(), 1);
+
+        let parsed = veln_syntax::parse(generated);
+        assert!(parsed.diagnostics.is_empty());
+        let lowered = veln_ast::lower_surface_ast(&parsed.tree);
+        assert_eq!(lowered.functions.len(), 1);
+    }
+}
+
+#[test]
+#[ignore = "manual guarded resource-growth probe"]
+fn generated_ascii_doctest_pipeline_probe() {
+    let size = std::env::var("VELN_DOCTEST_ASCII_BYTES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(1024 * 1024);
+    let source = SourceFile::new(
+        "main.veln",
+        format!("## ```veln\n## # {}\n## ```\n", "a".repeat(size)),
+    );
+
+    let doctests = doctest_sources(&[source]);
+    let generated = &doctests.sources[0];
+    let origin = generated
+        .generated_origin()
+        .expect("doctest source should retain its origin");
+    assert_eq!(origin.explicit_boundary_count(), 0);
+    assert_eq!(origin.copied_region_count(), 1);
+    let parsed = veln_syntax::parse(generated);
+    assert!(parsed.diagnostics.is_empty());
+    let lowered = veln_ast::lower_surface_ast(&parsed.tree);
+    assert_eq!(lowered.functions.len(), 1);
+    eprintln!(
+        "generated ASCII doctest pipeline completed: bytes={size}, regions={}",
+        origin.copied_region_count()
     );
 }
 

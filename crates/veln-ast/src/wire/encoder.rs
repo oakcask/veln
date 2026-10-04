@@ -70,24 +70,24 @@ impl Writer {
         self.string(value.file.as_str());
         self.line_col(&value.start);
         self.line_col(&value.end);
-        let Some(origin) = &value.generated_origin else {
+        if value.generated_origin.is_none() {
             self.bool(false);
             return;
-        };
+        }
         self.bool(true);
-        if let Some(path) = origin.original_path() {
+        if let Some(path) = value.original_path() {
             self.bool(true);
             self.string(path.as_str());
         } else {
             self.bool(false);
         }
-        if let Some(start) = origin.original_start() {
+        if let Some(start) = value.original_start() {
             self.bool(true);
             self.line_col(&start);
         } else {
             self.bool(false);
         }
-        if let Some(end) = origin.original_end() {
+        if let Some(end) = value.original_end() {
             self.bool(true);
             self.line_col(&end);
         } else {

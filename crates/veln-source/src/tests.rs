@@ -212,6 +212,110 @@ fn generated_span_origin_lookup_is_all_or_nothing() {
 }
 
 #[test]
+fn generated_spans_share_their_source_origin_without_per_span_allocations() {
+    let source = SourceFile::generated_with_mappings(
+        "virtual/generated.veln",
+        "alpha beta",
+        SourcePath::new("templates/original.veln"),
+        [
+            (
+                0,
+                LineCol {
+                    line: 4,
+                    column: 2,
+                    offset: 20,
+                },
+            ),
+            (
+                5,
+                LineCol {
+                    line: 4,
+                    column: 7,
+                    offset: 25,
+                },
+            ),
+        ],
+    );
+
+    let first = source.span(TextRange::new(0, 5));
+    let first_origin = first
+        .generated_origin
+        .as_ref()
+        .expect("shared source origin");
+    for _ in 0..4_096 {
+        let next = source.span(TextRange::new(0, 5));
+        let next_origin = next
+            .generated_origin
+            .as_ref()
+            .expect("shared source origin");
+        assert!(std::sync::Arc::ptr_eq(first_origin, next_origin));
+    }
+}
+
+#[test]
+fn copied_empty_line_boundary_preserves_its_explicit_original_end() {
+    let original_end = LineCol {
+        line: 19,
+        column: 23,
+        offset: 811,
+    };
+    let source = SourceFile::generated_with_copied_regions(
+        "virtual/generated.veln",
+        "\n",
+        SourcePath::new("docs/original.veln"),
+        [(
+            TextRange::at(0),
+            LineCol {
+                line: 7,
+                column: 5,
+                offset: 101,
+            },
+            original_end,
+        )],
+    );
+
+    let resolved = source
+        .span(TextRange::at(0))
+        .resolved_origin()
+        .expect("empty copied line boundary should resolve");
+    assert_eq!(resolved.start, original_end);
+    assert_eq!(resolved.end, original_end);
+}
+
+#[test]
+fn copied_region_lookup_does_not_map_wrapper_boundaries() {
+    let original_start = LineCol {
+        line: 11,
+        column: 4,
+        offset: 301,
+    };
+    let original_end = LineCol {
+        line: 13,
+        column: 8,
+        offset: 399,
+    };
+    let source = SourceFile::generated_with_copied_regions(
+        "virtual/generated.veln",
+        "  alpha  ",
+        SourcePath::new("docs/original.veln"),
+        [(TextRange::new(2, 7), original_start, original_end)],
+    );
+
+    let resolved = source
+        .span(TextRange::new(2, 7))
+        .resolved_origin()
+        .expect("both copied boundaries should resolve");
+    assert_eq!(resolved.start, original_start);
+    assert_eq!(resolved.end, original_end);
+
+    for range in [TextRange::new(0, 7), TextRange::new(2, 9)] {
+        let generated = source.span(range);
+        assert!(generated.resolved_origin().is_none());
+        assert_eq!(generated.resolved_or_generated(), generated);
+    }
+}
+
+#[test]
 fn text_ranges_create_points_and_cover_ranges() {
     let point = TextRange::at(4);
 

@@ -28,28 +28,22 @@ fn generated_doctest_header(name: &str, doctest: &ExtractedDoctest) -> String {
     format!("{item_kind} {name}() -> {return_type} effects [stdio]\n")
 }
 
-pub(super) fn generated_doctest_boundary_mappings(
+pub(super) fn generated_doctest_copied_regions(
     name: &str,
     doctest: &ExtractedDoctest,
-) -> Vec<(usize, LineCol)> {
+) -> Vec<(TextRange, LineCol, LineCol)> {
     let mut generated_line_start = generated_doctest_header(name, doctest).len();
-    let mut mappings = Vec::new();
+    let mut regions = Vec::with_capacity(doctest.code.len());
     for (line, original) in doctest.code.iter().zip(&doctest.source_locations) {
         let generated_code_start = generated_line_start + usize::from(!line.is_empty()) * 2;
-        for (scalar_offset, (relative_offset, _)) in line.char_indices().enumerate() {
-            mappings.push((
-                generated_code_start + relative_offset,
-                LineCol {
-                    line: original.start.line,
-                    column: original.start.column + scalar_offset,
-                    offset: original.start.offset + relative_offset,
-                },
-            ));
-        }
-        mappings.push((generated_code_start + line.len(), original.end));
+        regions.push((
+            TextRange::new(generated_code_start, generated_code_start + line.len()),
+            original.start,
+            original.end,
+        ));
         generated_line_start += usize::from(!line.is_empty()) * 2 + line.len() + 1;
     }
-    mappings
+    regions
 }
 
 pub(super) fn reconstructed_stream(events: &[JsonValue], stream: &str) -> String {

@@ -86,17 +86,17 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
             let generated_path =
                 format!("{}#doctest-{next_index}_test.veln", source.path().as_str());
             let generated = generated_doctest_source(&name, &doctest);
-            let boundary_mappings = generated_doctest_boundary_mappings(&name, &doctest);
+            let copied_regions = generated_doctest_copied_regions(&name, &doctest);
             if let Some(fail_span) = doctest.fail_span {
                 expected_failures.insert(generated_path.clone(), fail_span);
             }
             visible_source_locations
                 .insert(generated_path.clone(), doctest.visible_source_locations);
-            generated_sources.push(SourceFile::generated_with_mappings(
+            generated_sources.push(SourceFile::generated_with_copied_regions(
                 generated_path,
                 generated,
                 source.path().clone(),
-                boundary_mappings,
+                copied_regions,
             ));
             if !doctest.should_fail {
                 expectations.insert(
