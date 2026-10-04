@@ -1,6 +1,81 @@
 use super::*;
 
 #[test]
+fn equivalent_source_roots_produce_the_same_virtual_doctest_identity() {
+    let first_root = test_root("virtual-doctest-first");
+    let second_root = test_root("virtual-doctest-second");
+    let relative = std::path::Path::new("docs/guide.veln");
+    let text = "## ```veln\n## 1\n## ```\n";
+    let observed = [
+        virtual_doctest_identity(&first_root, relative, text),
+        virtual_doctest_identity(&second_root, relative, text),
+    ];
+
+    assert_eq!(observed[0], observed[1]);
+    assert_eq!(observed[0].0, "docs/guide.veln#doctest-1_test.veln");
+    let rendered = format!("{observed:?}");
+    assert!(!rendered.contains(&first_root.to_string_lossy().to_string()));
+    assert!(!rendered.contains(&second_root.to_string_lossy().to_string()));
+
+    fs::remove_dir_all(first_root).unwrap();
+    fs::remove_dir_all(second_root).unwrap();
+}
+
+#[test]
+fn rejected_virtual_doctest_origins_produce_diagnostics_without_partial_sources() {
+    let sources = [
+        SourceFile::new("guide:part.veln", "## ```veln\n## 1\n## ```\n"),
+        SourceFile::new("guide#part.veln", "## ```veln\n## 2\n## ```\n"),
+        SourceFile::new("valid.veln", "## ```veln\n## 3\n## ```\n"),
+    ];
+
+    let doctests = doctest_sources(&sources);
+
+    assert_eq!(doctests.sources.len(), 1);
+    assert_eq!(
+        doctests.sources[0].path().as_str(),
+        "valid.veln#doctest-1_test.veln"
+    );
+    assert_eq!(doctests.visible_source_locations.len(), 1);
+    assert_eq!(doctests.expectations.len(), 1);
+    assert!(doctests.expected_failures.is_empty());
+    assert_eq!(doctests.diagnostics.len(), 2);
+    assert_eq!(
+        doctests
+            .diagnostics
+            .iter()
+            .map(|diagnostic| (
+                diagnostic.id.as_str(),
+                diagnostic
+                    .span
+                    .as_ref()
+                    .expect("source-path diagnostic span")
+                    .file
+                    .as_str(),
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("module.invalid_source_path", "guide:part.veln"),
+            ("module.invalid_source_path", "guide#part.veln"),
+        ]
+    );
+}
+
+fn virtual_doctest_identity(
+    root: &std::path::Path,
+    relative: &std::path::Path,
+    text: &str,
+) -> (String, veln_source::SourcePath) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(root.join(relative), text).unwrap();
+    let source = SourceFile::read(root, &root.join(relative)).unwrap();
+    let doctests = doctest_sources(&[source]);
+    let generated = &doctests.sources[0];
+    let fallback = generated.span(TextRange::at(0)).resolved_or_generated();
+    (generated.path().as_str().to_string(), fallback.file)
+}
+
+#[test]
 fn generated_doctest_boundaries_use_scalar_columns_and_byte_offsets() {
     let doctest = ExtractedDoctest {
         code: vec!["aé界z".to_string()],

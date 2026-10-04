@@ -36,6 +36,50 @@ fn normalizes_only_leading_current_directory_segments() {
 }
 
 #[test]
+fn constructs_canonical_virtual_source_paths() {
+    let source = SourcePath::new("docs\\guide.veln");
+
+    let virtual_source = SourcePath::virtual_source(&source, "doctest-1_test.veln").unwrap();
+
+    assert_eq!(
+        virtual_source.as_str(),
+        "docs/guide.veln#doctest-1_test.veln"
+    );
+}
+
+#[test]
+fn rejects_root_dependent_or_ambiguous_virtual_source_inputs() {
+    for source in [
+        "/first/root/main.veln",
+        "C:\\first\\root\\main.veln",
+        "../main.veln",
+        "src/../main.veln",
+        "src//main.veln",
+        "main:part.veln",
+        "main.veln#existing-generated-source",
+        "",
+    ] {
+        assert!(
+            SourcePath::virtual_source(&SourcePath::new(source), "generated.veln").is_err(),
+            "accepted noncanonical source path {source:?}"
+        );
+    }
+    for identity in [
+        "",
+        ".",
+        "..",
+        "nested/source.veln",
+        "other#source.veln",
+        "named:source.veln",
+    ] {
+        assert!(
+            SourcePath::virtual_source(&SourcePath::new("main.veln"), identity).is_err(),
+            "accepted noncanonical virtual identity {identity:?}"
+        );
+    }
+}
+
+#[test]
 fn maps_offsets_to_one_based_lines_and_columns() {
     let source = SourceFile::new("src/main.veln", "a\nbc\n");
 

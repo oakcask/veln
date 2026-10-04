@@ -1,5 +1,50 @@
 use super::support::*;
 
+#[cfg(unix)]
+#[test]
+fn check_json_reports_rejected_discovered_doctest_origins_without_panicking() {
+    let project = TestProject::new("check-json-invalid-doctest-origins");
+    project.write("guide:part.veln", "## ```veln\n## 1\n## ```\n");
+    project.write("guide#part.veln", "## ```veln\n## 2\n## ```\n");
+    project.write(
+        "valid.veln",
+        "fn continued_analysis() -> Int\n  \"wrong\"\nend\n",
+    );
+
+    let output = project.check_json(&[]);
+    let stdout = stdout(&output);
+    let stderr = stderr(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stderr, "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"error\"",
+            "\"id\":\"module.invalid_source_path\"",
+            "\"file\":\"guide#part.veln\"",
+            "\"file\":\"guide:part.veln\"",
+            "\"id\":\"type.mismatch\"",
+            "\"file\":\"valid.veln\"",
+        ],
+    );
+    assert_eq!(
+        stdout
+            .matches("\"id\":\"module.invalid_source_path\"")
+            .count(),
+        2
+    );
+    assert!(
+        stdout.contains("\"summary\":{\"diagnostic_count\":3"),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("panicked"), "{stdout}");
+    assert!(
+        !stdout.contains("project source paths must produce"),
+        "{stdout}"
+    );
+}
+
 #[test]
 fn check_json_typechecks_executable_doctest_fences() {
     let project = TestProject::new("check-json-doctest");

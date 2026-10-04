@@ -100,6 +100,11 @@ used by call-site-aware execution. The resulting `SourceLocation` mapping and
 all-or-nothing fallback are specified by
 [Call-site Declarations](call-site-declarations.md#declaration-behavior); the
 generated diagnostic source path described here is unchanged.
+If the documented source path cannot form a canonical virtual doctest path,
+the run-level `diagnostics` array reports `module.invalid_source_path` against
+that original source, and no doctest case for it appears in `cases`. Cases from
+other selected sources are still discovered. The error then blocks every
+discovered case with `reason: "static_gate"`.
 
 JDK setup failures are reported on the affected case with
 `status: "error"`, `reason: "runner_error"`, and

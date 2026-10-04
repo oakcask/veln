@@ -182,23 +182,18 @@ fn analyze_project_with_surface_and_standard_provider(
     ) -> Result<ReusableStandardInput, Box<Diagnostic>>,
 ) -> ProjectAnalysis {
     let surface_start = std::time::Instant::now();
-    let doctests = match doctest_mode {
-        DoctestMode::Include => Some(doctest_sources(&project.files)),
-        DoctestMode::Exclude => None,
-    };
-    let mut source_diagnostics = Vec::new();
-    let mut doctest_expectations = BTreeMap::new();
-    let mut expected_doctest_failures = BTreeMap::new();
-
-    if let Some(doctests) = doctests {
-        source_diagnostics.extend(doctests.diagnostics);
-        project.files.extend(doctests.sources);
-        doctest_expectations = doctests.expectations;
-        expected_doctest_failures = doctests.expected_failures;
-    }
+    let PreparedDoctestAnalysis {
+        mut source_diagnostics,
+        doctest_expectations,
+        expected_doctest_failures,
+        invalid_origins,
+    } = prepare_doctest_analysis(&mut project, doctest_mode);
 
     let (loaded, parse_diagnostics) = load_surface(&project);
-    source_diagnostics.extend(parse_diagnostics);
+    source_diagnostics.extend(unique_parse_diagnostics(
+        parse_diagnostics,
+        &invalid_origins,
+    ));
     record_timing(&mut timings, "surface_parse_lower", surface_start.elapsed());
 
     let standard = match standard_for_module(&loaded.selected_standard_module_names) {
@@ -246,6 +241,64 @@ fn analyze_project_with_surface_and_standard_provider(
         expected_doctest_failures,
         reachability_cache: ReachabilityCache::default(),
     }
+}
+
+struct PreparedDoctestAnalysis {
+    source_diagnostics: Vec<Diagnostic>,
+    doctest_expectations: BTreeMap<String, DoctestExpectation>,
+    expected_doctest_failures: BTreeMap<String, SourceSpan>,
+    invalid_origins: BTreeSet<String>,
+}
+
+fn prepare_doctest_analysis(
+    project: &mut Project,
+    doctest_mode: DoctestMode,
+) -> PreparedDoctestAnalysis {
+    let Some(doctests) = (match doctest_mode {
+        DoctestMode::Include => Some(doctest_sources(&project.files)),
+        DoctestMode::Exclude => None,
+    }) else {
+        return PreparedDoctestAnalysis {
+            source_diagnostics: Vec::new(),
+            doctest_expectations: BTreeMap::new(),
+            expected_doctest_failures: BTreeMap::new(),
+            invalid_origins: BTreeSet::new(),
+        };
+    };
+    let invalid_origins = doctests
+        .diagnostics
+        .iter()
+        .filter_map(|diagnostic| {
+            if diagnostic.id == "module.invalid_source_path" {
+                diagnostic
+                    .span
+                    .as_ref()
+                    .map(|span| span.file.as_str().to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+    project.files.extend(doctests.sources);
+    PreparedDoctestAnalysis {
+        source_diagnostics: doctests.diagnostics,
+        doctest_expectations: doctests.expectations,
+        expected_doctest_failures: doctests.expected_failures,
+        invalid_origins,
+    }
+}
+
+fn unique_parse_diagnostics(
+    diagnostics: Vec<Diagnostic>,
+    invalid_doctest_origins: &BTreeSet<String>,
+) -> impl Iterator<Item = Diagnostic> + '_ {
+    diagnostics.into_iter().filter(|diagnostic| {
+        diagnostic.id != "module.invalid_source_path"
+            || diagnostic
+                .span
+                .as_ref()
+                .is_none_or(|span| !invalid_doctest_origins.contains(span.file.as_str()))
+    })
 }
 
 fn record_timing(

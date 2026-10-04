@@ -132,10 +132,13 @@ call rules apply at that invocation. Callbacks without the modifier keep the
 ordinary runtime callback ABI.
 
 The built-in value behaves as an ordinary `SourceLocation` after it enters the
-callee. The function can return it or pass it to an explicit
-`SourceLocation` parameter. Its lines and columns are one-based. Its offsets
-are zero-based UTF-8 byte offsets. End positions are exclusive, and columns
-count Unicode scalar values.
+callee. The function can return it, nest it in another value, store it, or pass
+it to an explicit `SourceLocation` parameter. The captured value remains
+unchanged and observable after the originating function returns. Later
+observation reads the retained value; it does not walk the current stack or
+replace the value with the observation site. Its lines and columns are
+one-based. Its offsets are zero-based UTF-8 byte offsets. End positions are
+exclusive, and columns count Unicode scalar values.
 
 Runtime-required `require`, `invariant`, and `ensure` predicates in a
 call-site-aware function read the same supplied `SourceLocation` as the
@@ -165,6 +168,21 @@ entries, infer mappings from equal offsets, transform the contents of a copied
 region, combine multiple original sources, or compose mappings from multiple
 generation stages.
 
+A library-generated virtual source derives its exposed path from a canonical
+package-relative source path and a stable generator identity. The resulting
+path has the form `<source>#<identity>`. Leading `./` segments are removed
+before construction. The origin must be a nonempty package-relative path. It
+cannot contain `:`, `#`, an empty segment, or a remaining `.` or `..` segment.
+A discovered source with an invalid origin reports `module.invalid_source_path`;
+no virtual doctest source is exposed for that origin, and analysis continues
+for other input.
+
+The generator identity is validated independently from the origin. It is one
+non-empty path segment and cannot be `.` or `..`. An identity that contains a
+path separator, `#`, or `:` is rejected. Equivalent logical sources and
+generator identities therefore expose the same virtual `file` value when
+their source trees have different absolute roots.
+
 For a workspace source, `package` is empty and `module` is the caller's
 logical module path. For a dependency source, `package` is the dependency's
 public package identity and `module` is its logical package-local module path;
@@ -173,8 +191,8 @@ field is package-relative. Two dependencies can therefore expose equal
 `module` and `file` values for the same logical module and relative path while
 remaining distinct through `package`. Loading equivalent project and
 dependency trees from different absolute roots produces identical values for
-all `SourceLocation` fields. Canonical virtual-source naming is not part of
-the current value construction.
+all `SourceLocation` fields. The same relocation rule applies to the canonical
+virtual paths of library-generated sources.
 
 ## Limits and diagnostics
 
@@ -194,8 +212,7 @@ second modifier is rejected at the duplicate token and offers removal as a
 repair.
 
 A `veln run` entry cannot carry the modifier because it has no Veln call
-expression from which to obtain a location. Canonical virtual-source naming
-and deferred-observation lifetime guarantees are not implemented.
+expression from which to obtain a location.
 Runtime-required contract predicates in ordinary functions do not construct
 call-site context. Execution rejects a direct call from such a predicate to a
 call-site-aware function because the enclosing function has no hidden context
@@ -230,6 +247,15 @@ Functions without the modifier retain their ordinary call ABI.
   all-or-nothing boundary lookup, and
   `crates/veln-ast/src/tests/wire_round_trip.rs` preserves incomplete metadata
   without changing the fallback.
+- Canonical virtual-source relocation evidence:
+  `crates/veln-source/src/tests.rs`,
+  `crates/veln-test/src/tests/doctest_source_locations.rs`, and
+  `crates/veln-analysis/src/tests/source_location_identity.rs`.
+- Invalid discovered doctest-origin evidence:
+  `crates/veln-test/src/tests/doctest_source_locations.rs` and the CLI
+  integration tests in `crates/veln-cli/tests/check_json/`.
+- Deferred-observation lifetime evidence:
+  [`callsite-deferred-observation`](../../examples/specification/run/callsite-deferred-observation/).
 - Indirect-call propagation evidence:
   [`callsite-indirect-runtime`](../../examples/specification/run/callsite-indirect-runtime/).
 - Runtime-backed collection and task callback evidence:

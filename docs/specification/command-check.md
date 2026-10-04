@@ -51,6 +51,12 @@ qualified calls from parse-clean files participate in the same analysis path as
 `run` and `test`. Lowering reports checked-core blockers such as missing
 expressions and call or constructor arity mismatches. Parse-clean, semantically
 valid `begin` and `defer` forms pass checked-core readiness.
+A selected documentation source that cannot form a canonical virtual doctest
+path reports `module.invalid_source_path` against the original source. Analysis
+continues for other selected sources, and JSON output includes the rejected
+origin once alongside their diagnostics. The virtual-source boundary is
+specified by
+[Call-site Declarations](call-site-declarations.md#declaration-behavior).
 
 ## Limits and errors
 

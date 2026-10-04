@@ -26,6 +26,13 @@ semantic diagnostics, checked-core readiness, and selected-entry typed-IR
 readiness. Selection, output, execution, and write policy remain command
 specific.
 
+When doctest creation is requested, a documented source path that is not a
+canonical package-relative virtual-source origin produces
+`module.invalid_source_path` against the original source. The shared pipeline
+continues discovery and analysis for other selected sources. The origin and
+generator-identity boundary is specified by
+[Call-site Declarations](call-site-declarations.md#declaration-behavior).
+
 ## References
 
 The shared selector is implemented in `crates/veln-cli/src/commands/mod.rs`.

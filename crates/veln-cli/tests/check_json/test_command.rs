@@ -1,5 +1,56 @@
 use super::support::*;
 
+#[cfg(unix)]
+#[test]
+fn test_json_reports_rejected_discovered_doctest_origins_without_panicking() {
+    let project = TestProject::new("test-json-invalid-doctest-origins");
+    project.write("guide:part.veln", "## ```veln\n## 1\n## ```\n");
+    project.write("guide#part.veln", "## ```veln\n## 2\n## ```\n");
+    project.write(
+        "valid_test.veln",
+        concat!(
+            "test retained_case() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "test continued_analysis() -> Int\n",
+            "  \"wrong\"\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json"]);
+    let stdout = stdout(&output);
+    let stderr = stderr(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stderr, "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"blocked\"",
+            "\"id\":\"module.invalid_source_path\"",
+            "\"file\":\"guide#part.veln\"",
+            "\"file\":\"guide:part.veln\"",
+            "\"id\":\"type.mismatch\"",
+            "\"file\":\"valid_test.veln\"",
+            "\"name\":\"retained_case\"",
+            "\"name\":\"continued_analysis\"",
+            "\"reason\":\"static_gate\"",
+        ],
+    );
+    assert_eq!(
+        stdout
+            .matches("\"id\":\"module.invalid_source_path\"")
+            .count(),
+        2
+    );
+    assert!(!stdout.contains("panicked"), "{stdout}");
+    assert!(
+        !stdout.contains("project source paths must produce"),
+        "{stdout}"
+    );
+}
+
 #[test]
 fn test_json_reports_no_discovered_test_declarations() {
     let project = TestProject::new("test-no-declarations");

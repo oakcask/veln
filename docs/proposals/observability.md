@@ -20,9 +20,9 @@ This proposal depends on:
 - implemented [direct, indirect, and runtime-callback call-site
   propagation](../specification/call-site-declarations.md), so library wrappers
   preserve the user's call expression and dependency locations remain stable
-  across package relocation, plus the remaining [virtual-source naming and
-  deferred-lifetime work](call-site-source-location.md), so generated and
-  retained locations remain meaningful during later observation.
+  across package relocation. The same implemented contract gives generated
+  sources canonical virtual names and keeps retained locations meaningful
+  during later observation.
 
 The existing monotonic clock remains the source for elapsed duration.
 

@@ -103,6 +103,14 @@ Source-derived module paths use `origin: "source_path"`,
 `doctest`, or `generated`. Selected regular and companion sources may report
 casing diagnostics alongside parse errors. A lowercase initial followed by an
 invalid module-identifier character uses `module.invalid_source_path`.
+When a selected documentation source cannot form a canonical virtual doctest
+path, the same diagnostic reports the original documentation source. That
+origin produces no generated doctest diagnostic path. Analysis continues for
+the other selected sources, and `veln check --json` reports each rejected
+origin once alongside their diagnostics. The record has kind `module`, the
+original source span, and details containing
+`phase: "module"`, `field: "module_identity"`, `source_path`, and the rejected
+`segment`.
 Recovery diagnostics do not create cascaded unresolved-name records.
 
 Companion diagnostics expose `details.companion_path` and
