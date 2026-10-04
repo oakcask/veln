@@ -6,12 +6,16 @@ use std::cell::Cell;
 
 use veln_source::SourceFile;
 use veln_syntax::{
-    FunctionDecl, FunctionKind, SyntaxItem, Token, TokenKind, canonical_type_text,
+    FunctionDecl, SyntaxItem, Token, TokenKind, canonical_type_text,
     declaration_function_signature, lex, parse, presentation_parse_structure_is_bounded,
 };
 
 use crate::navigation::{SignatureShadowIndex, function_signature_definition_at};
 use crate::{EffectiveProjectSnapshot, NavigationSource, SourcePosition};
+
+mod completion;
+
+pub use completion::completion_at;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CompletionCandidateKind {
@@ -148,113 +152,6 @@ fn signature_index_owned_text_bytes() -> usize {
     SIGNATURE_INDEX_OWNED_TEXT_BYTES.get()
 }
 
-pub fn completion_at(
-    snapshot: &EffectiveProjectSnapshot,
-    position: &SourcePosition,
-) -> Vec<CompletionCandidate> {
-    let Some(source) = snapshot.workspace_source(&position.source) else {
-        return Vec::new();
-    };
-    let Some(offset) = source_offset(source, position.line, position.column) else {
-        return Vec::new();
-    };
-    let tokens = lex(source).tokens;
-    if !presentation_parse_structure_is_bounded(&tokens) {
-        return Vec::new();
-    }
-    let parsed = parse(source);
-    let Some(function) = parsed.tree.items.iter().find_map(|item| match item {
-        SyntaxItem::Function(function)
-            if function.span.start.offset <= offset && offset <= function.span.end.offset =>
-        {
-            Some(function.as_ref())
-        }
-        _ => None,
-    }) else {
-        return Vec::new();
-    };
-    if function.kind != FunctionKind::Function {
-        return Vec::new();
-    }
-    let header_end = source.text()[function.span.start.offset..]
-        .find('\n')
-        .map(|relative| function.span.start.offset + relative)
-        .unwrap_or(source.len());
-    if offset > header_end {
-        let body_start_line = function
-            .contracts
-            .last()
-            .map_or(function.span.start.line + 1, |contract| {
-                contract.span.end.line
-            });
-        return (function.callsite.is_some()
-            && body_start_line <= position.line
-            && position.line < function.span.end.line)
-            .then_some(CompletionCandidate {
-                label: "callsite",
-                detail: "built-in SourceLocation local",
-                kind: CompletionCandidateKind::BuiltinLocal,
-            })
-            .into_iter()
-            .collect();
-    }
-    if function.callsite.is_none()
-        && terminal_modifier_slot_is_clear(&tokens, offset, header_end)
-        && function_parameters_are_closed(&tokens, function.span.start.offset, offset)
-    {
-        return vec![CompletionCandidate {
-            label: "callsite",
-            detail: "call-site declaration modifier",
-            kind: CompletionCandidateKind::DeclarationModifier,
-        }];
-    }
-    Vec::new()
-}
-
-fn terminal_modifier_slot_is_clear(tokens: &[Token], offset: usize, header_end: usize) -> bool {
-    let trailing_comment_start = tokens
-        .iter()
-        .find(|token| {
-            token.kind == TokenKind::Comment
-                && token.range.start < header_end
-                && offset <= token.range.end
-        })
-        .map(|token| token.range.start);
-    if trailing_comment_start.is_some_and(|comment_start| comment_start < offset) {
-        return false;
-    }
-    let suffix_end = trailing_comment_start.unwrap_or(header_end);
-    for token in tokens
-        .iter()
-        .filter(|token| token.range.end > offset && token.range.start < suffix_end)
-    {
-        match token.kind {
-            TokenKind::Whitespace => {}
-            _ => return false,
-        }
-    }
-    true
-}
-
-fn function_parameters_are_closed(tokens: &[Token], start: usize, offset: usize) -> bool {
-    let mut saw_parameters = false;
-    let mut depth = 0usize;
-    for token in tokens {
-        if token.range.start < start || token.range.start >= offset {
-            continue;
-        }
-        match token.kind {
-            TokenKind::LParen => {
-                saw_parameters = true;
-                depth += 1;
-            }
-            TokenKind::RParen if saw_parameters => depth = depth.saturating_sub(1),
-            _ => {}
-        }
-    }
-    saw_parameters && depth == 0
-}
-
 pub fn signature_help_at(
     snapshot: &EffectiveProjectSnapshot,
     position: SourcePosition,
@@ -279,10 +176,39 @@ pub fn signature_help_at(
     let recovery_start = shadow_index.recovery_start();
     let local_signatures = local_signature_declarations(source, &significant);
     let function_names = signature_function_names(snapshot);
-    let mut recovered_function_is_callsite_aware = None;
-    let mut navigation_lookups = 0usize;
+    let mut search = SignatureHelpSearch {
+        snapshot,
+        position: &position,
+        source,
+        offset,
+        tokens: &tokens.tokens,
+        significant: &significant,
+        shadow_index,
+        local_signatures,
+        function_names,
+        navigation_parse_allowed,
+        recovered_function_is_callsite_aware: None,
+        navigation_lookups: 0,
+    };
+    for open_index in open_call_indices(&significant, recovery_start, offset)
+        .into_iter()
+        .rev()
+    {
+        record_signature_candidate_visit();
+        if let Some(help) = search.resolve(open_index) {
+            return Some(help);
+        }
+    }
+    None
+}
+
+fn open_call_indices(
+    significant: &[(usize, &Token)],
+    recovery_start: usize,
+    offset: usize,
+) -> Vec<usize> {
     let mut open = Vec::new();
-    for (significant_index, (_, token)) in significant.iter().enumerate() {
+    for (index, (_, token)) in significant.iter().enumerate() {
         if token.range.start >= offset {
             break;
         }
@@ -290,97 +216,157 @@ pub fn signature_help_at(
             continue;
         }
         match token.kind {
-            TokenKind::LParen => open.push(significant_index),
+            TokenKind::LParen => open.push(index),
             TokenKind::RParen => {
                 open.pop();
             }
             _ => {}
         }
     }
-    for open_index in open.into_iter().rev() {
-        record_signature_candidate_visit();
-        let Some(callee_index) = open_index.checked_sub(1) else {
-            continue;
-        };
-        let Some((callee_token_index, callee)) = significant.get(callee_index).copied() else {
-            continue;
-        };
-        if !callee.kind.is_bare_expression_identifier() {
-            continue;
-        }
-        if declaration_name_token(&significant, callee_index) {
-            continue;
-        }
-        let is_bare = callee_index
-            .checked_sub(1)
-            .is_none_or(|previous| significant[previous].1.kind != TokenKind::DoubleColon);
-        let is_in_function_body =
-            shadow_index.allows_local_signature(&tokens.tokens, callee_token_index);
-        if callee.text == "callsite"
-            && is_bare
-            && is_in_function_body
-            && *recovered_function_is_callsite_aware.get_or_insert_with(|| {
-                recovered_function_has_callsite_modifier(source, &tokens.tokens, recovery_start)
-            })
+    open
+}
+
+struct SignatureCallCandidate {
+    token_index: usize,
+    name: String,
+    offset: usize,
+    is_bare: bool,
+    is_in_function_body: bool,
+}
+
+struct SignatureHelpSearch<'a, 'tokens> {
+    snapshot: &'a EffectiveProjectSnapshot,
+    position: &'a SourcePosition,
+    source: &'a SourceFile,
+    offset: usize,
+    tokens: &'tokens [Token],
+    significant: &'tokens [(usize, &'tokens Token)],
+    shadow_index: SignatureShadowIndex,
+    local_signatures: HashMap<String, Vec<LocalSignatureDeclaration>>,
+    function_names: HashSet<String>,
+    navigation_parse_allowed: bool,
+    recovered_function_is_callsite_aware: Option<bool>,
+    navigation_lookups: usize,
+}
+
+impl SignatureHelpSearch<'_, '_> {
+    fn resolve(&mut self, open_index: usize) -> Option<SignatureHelp> {
+        let candidate = self.candidate(open_index)?;
+        if self.is_builtin_callsite(&candidate)
+            || self
+                .shadow_index
+                .shadows(self.tokens, candidate.token_index, &candidate.name)
         {
-            continue;
+            return None;
         }
-        if shadow_index.shadows(&tokens.tokens, callee_token_index, &callee.text) {
-            continue;
+        if let Some(help) = self.local_help(&candidate, open_index) {
+            return Some(help);
         }
-        let local_signature_allowed = is_in_function_body && is_bare;
-        if local_signature_allowed
-            && let Some(function) =
-                local_signature_function(source, &local_signatures, &callee.text)
+        self.navigation_help(&candidate, open_index)
+    }
+
+    fn candidate(&self, open_index: usize) -> Option<SignatureCallCandidate> {
+        let significant_index = open_index.checked_sub(1)?;
+        let (token_index, callee) = self.significant.get(significant_index).copied()?;
+        if !callee.kind.is_bare_expression_identifier()
+            || declaration_name_token(self.significant, significant_index)
         {
-            let active_parameter = active_parameter(&significant, open_index, offset);
-            return Some(signature_help(&function, active_parameter));
+            return None;
         }
+        Some(SignatureCallCandidate {
+            token_index,
+            name: callee.text.clone(),
+            offset: callee.range.start,
+            is_bare: significant_index
+                .checked_sub(1)
+                .is_none_or(|previous| self.significant[previous].1.kind != TokenKind::DoubleColon),
+            is_in_function_body: self
+                .shadow_index
+                .allows_local_signature(self.tokens, token_index),
+        })
+    }
+
+    fn is_builtin_callsite(&mut self, candidate: &SignatureCallCandidate) -> bool {
+        candidate.name == "callsite"
+            && candidate.is_bare
+            && candidate.is_in_function_body
+            && *self
+                .recovered_function_is_callsite_aware
+                .get_or_insert_with(|| {
+                    recovered_function_has_callsite_modifier(
+                        self.source,
+                        self.tokens,
+                        self.shadow_index.recovery_start(),
+                    )
+                })
+    }
+
+    fn local_help(
+        &self,
+        candidate: &SignatureCallCandidate,
+        open_index: usize,
+    ) -> Option<SignatureHelp> {
+        if !candidate.is_in_function_body || !candidate.is_bare {
+            return None;
+        }
+        let function =
+            local_signature_function(self.source, &self.local_signatures, &candidate.name)?;
+        Some(signature_help(
+            &function,
+            active_parameter(self.significant, open_index, self.offset),
+        ))
+    }
+
+    fn navigation_help(
+        &mut self,
+        candidate: &SignatureCallCandidate,
+        open_index: usize,
+    ) -> Option<SignatureHelp> {
         record_signature_name_lookup();
-        if !function_names.contains(&callee.text) {
-            continue;
+        if !self.function_names.contains(&candidate.name)
+            || !self.navigation_parse_allowed
+            || self.navigation_lookups >= MAX_SIGNATURE_NAVIGATION_LOOKUPS
+        {
+            return None;
         }
-        if !navigation_parse_allowed || navigation_lookups >= MAX_SIGNATURE_NAVIGATION_LOOKUPS {
-            continue;
-        }
-        navigation_lookups += 1;
+        self.navigation_lookups += 1;
         record_signature_navigation_lookup();
-        let Some((selection, definition)) = function_signature_definition_at(
-            snapshot,
+        let function = self.navigation_function(candidate)?;
+        Some(signature_help(
+            &function,
+            active_parameter(self.significant, open_index, self.offset),
+        ))
+    }
+
+    fn navigation_function(&self, candidate: &SignatureCallCandidate) -> Option<FunctionDecl> {
+        let line_col = self.source.line_col(candidate.offset);
+        let (selection, definition) = function_signature_definition_at(
+            self.snapshot,
             &SourcePosition {
-                source: position.source.clone(),
-                line: source.line_col(callee.range.start).line,
-                column: source.line_col(callee.range.start).column,
+                source: self.position.source.clone(),
+                line: line_col.line,
+                column: line_col.column,
             },
-        ) else {
-            continue;
-        };
+        )?;
         if matches!(&definition.source, NavigationSource::Workspace)
-            && definition.span.file == position.source
+            && definition.span.file == self.position.source
             && selection.start.offset == definition.span.start.offset
         {
-            continue;
+            return None;
         }
-        let Some(declaration_source) = (match &definition.source {
-            NavigationSource::Workspace => {
-                snapshot.workspace_source(&definition.span.file).cloned()
-            }
-            NavigationSource::Package { uri } => snapshot
+        let declaration_source = match &definition.source {
+            NavigationSource::Workspace => self
+                .snapshot
+                .workspace_source(&definition.span.file)
+                .cloned(),
+            NavigationSource::Package { uri } => self
+                .snapshot
                 .resolve_virtual_source(uri)
                 .and_then(|bytes| std::str::from_utf8(bytes).ok())
                 .map(|text| SourceFile::new(definition.span.file.clone(), text)),
-        }) else {
-            continue;
-        };
-        let Some(function) =
-            parse_function_signature_at(&declaration_source, definition.span.start.offset)
-        else {
-            continue;
-        };
-        let active_parameter = active_parameter(&significant, open_index, offset);
-        return Some(signature_help(&function, active_parameter));
+        }?;
+        parse_function_signature_at(&declaration_source, definition.span.start.offset)
     }
-    None
 }
 
 fn recovered_function_has_callsite_modifier(
@@ -441,7 +427,26 @@ fn local_signature_declarations(
     significant: &[(usize, &Token)],
 ) -> HashMap<String, Vec<LocalSignatureDeclaration>> {
     let mut declarations = HashMap::<String, Vec<LocalSignatureDeclaration>>::new();
-    let candidates = significant
+    let candidates = local_signature_candidates(significant);
+    let mut line_end = 0usize;
+    for candidate_index in 0..candidates.len() {
+        let Some((name, declaration)) = local_signature_declaration(
+            source,
+            significant,
+            &candidates,
+            candidate_index,
+            &mut line_end,
+        ) else {
+            continue;
+        };
+        declarations.entry(name).or_default().push(declaration);
+    }
+    record_signature_index_owned_text_bytes(&declarations);
+    declarations
+}
+
+fn local_signature_candidates(significant: &[(usize, &Token)]) -> Vec<usize> {
+    significant
         .iter()
         .enumerate()
         .filter_map(|(index, (_, token))| {
@@ -453,49 +458,70 @@ fn local_signature_declarations(
                 .is_some_and(|(_, name)| name.kind.is_contextual_identifier())
                 .then_some(index)
         })
-        .collect::<Vec<_>>();
-    let mut line_end = 0usize;
-    for (candidate_index, index) in candidates.iter().copied().enumerate() {
-        record_signature_index_token_visits(1);
-        let (_, token) = significant[index];
-        let Some((_, name)) = significant.get(index + 1).copied() else {
-            continue;
-        };
-        let declaration = if significant
-            .get(index + 2)
-            .is_some_and(|(_, token)| token.kind == TokenKind::Equal)
-        {
-            let Some((_, target)) = significant.get(index + 3).copied() else {
-                continue;
-            };
-            if !target.kind.is_contextual_identifier()
-                || significant
-                    .get(index + 4)
-                    .is_some_and(|(_, token)| token.kind == TokenKind::DoubleColon)
-            {
-                continue;
-            }
-            LocalSignatureDeclaration::Alias(target.text.clone())
-        } else {
-            if token.range.start >= line_end {
-                line_end = source.text()[token.range.start..]
-                    .find('\n')
-                    .map_or(source.len(), |relative| token.range.start + relative);
-            }
-            let next_declaration_start = candidates
-                .get(candidate_index + 1)
-                .map_or(line_end, |next| significant[*next].1.range.start);
-            LocalSignatureDeclaration::Function(
-                token.range.start..line_end.min(next_declaration_start),
-            )
-        };
-        declarations
-            .entry(name.text.clone())
-            .or_default()
-            .push(declaration);
+        .collect()
+}
+
+fn local_signature_declaration(
+    source: &SourceFile,
+    significant: &[(usize, &Token)],
+    candidates: &[usize],
+    candidate_index: usize,
+    line_end: &mut usize,
+) -> Option<(String, LocalSignatureDeclaration)> {
+    record_signature_index_token_visits(1);
+    let index = candidates[candidate_index];
+    let (_, token) = significant[index];
+    let (_, name) = significant.get(index + 1).copied()?;
+    let declaration = if significant
+        .get(index + 2)
+        .is_some_and(|(_, token)| token.kind == TokenKind::Equal)
+    {
+        local_signature_alias(significant, index)?
+    } else {
+        local_signature_range(
+            source,
+            significant,
+            candidates,
+            candidate_index,
+            line_end,
+            token,
+        )
+    };
+    Some((name.text.clone(), declaration))
+}
+
+fn local_signature_alias(
+    significant: &[(usize, &Token)],
+    index: usize,
+) -> Option<LocalSignatureDeclaration> {
+    let (_, target) = significant.get(index + 3).copied()?;
+    if !target.kind.is_contextual_identifier()
+        || significant
+            .get(index + 4)
+            .is_some_and(|(_, token)| token.kind == TokenKind::DoubleColon)
+    {
+        return None;
     }
-    record_signature_index_owned_text_bytes(&declarations);
-    declarations
+    Some(LocalSignatureDeclaration::Alias(target.text.clone()))
+}
+
+fn local_signature_range(
+    source: &SourceFile,
+    significant: &[(usize, &Token)],
+    candidates: &[usize],
+    candidate_index: usize,
+    line_end: &mut usize,
+    token: &Token,
+) -> LocalSignatureDeclaration {
+    if token.range.start >= *line_end {
+        *line_end = source.text()[token.range.start..]
+            .find('\n')
+            .map_or(source.len(), |relative| token.range.start + relative);
+    }
+    let next_declaration_start = candidates
+        .get(candidate_index + 1)
+        .map_or(*line_end, |next| significant[*next].1.range.start);
+    LocalSignatureDeclaration::Function(token.range.start..(*line_end).min(next_declaration_start))
 }
 
 fn local_signature_function(
@@ -517,18 +543,7 @@ fn local_signature_function(
             LocalSignatureDeclaration::Function(range) => {
                 record_signature_header_parse();
                 let header = source.text().get(range.clone())?;
-                let declaration =
-                    SourceFile::new("signature-help.veln", format!("{header}\n  0\nend\n"));
-                if !presentation_parse_structure_is_bounded(&lex(&declaration).tokens) {
-                    return None;
-                }
-                let parsed = parse(&declaration);
-                return parsed.tree.items.into_iter().find_map(|item| {
-                    let SyntaxItem::Function(function) = item else {
-                        return None;
-                    };
-                    Some(*function)
-                });
+                return parse_function_header(header);
             }
         }
     }
@@ -543,34 +558,57 @@ fn parse_function_signature_at(source: &SourceFile, name_offset: usize) -> Optio
     let start = tokens[..name_index]
         .iter()
         .rposition(|token| matches!(token.kind, TokenKind::Fn | TokenKind::Test))?;
-    let mut parens = 0usize;
-    let mut brackets = 0usize;
-    let mut braces = 0usize;
-    let mut saw_parameters = false;
-    let end = tokens[start..]
+    let end = function_signature_end(&tokens[start..], source.len());
+    let header = source.text().get(tokens[start].range.start..end)?;
+    parse_function_header(header)
+}
+
+#[derive(Default)]
+struct SignatureHeaderDepth {
+    parens: usize,
+    brackets: usize,
+    braces: usize,
+    saw_parameters: bool,
+}
+
+impl SignatureHeaderDepth {
+    fn observe(&mut self, kind: TokenKind) {
+        match kind {
+            TokenKind::LParen => {
+                self.saw_parameters = true;
+                self.parens += 1;
+            }
+            TokenKind::RParen => self.parens = self.parens.saturating_sub(1),
+            TokenKind::LBracket => self.brackets += 1,
+            TokenKind::RBracket => self.brackets = self.brackets.saturating_sub(1),
+            TokenKind::LBrace => self.braces += 1,
+            TokenKind::RBrace => self.braces = self.braces.saturating_sub(1),
+            _ => {}
+        }
+    }
+
+    fn ends_at(&self, token: &Token) -> Option<usize> {
+        (token.kind == TokenKind::Newline
+            && self.saw_parameters
+            && self.parens == 0
+            && self.brackets == 0
+            && self.braces == 0)
+            .then_some(token.range.start)
+    }
+}
+
+fn function_signature_end(tokens: &[Token], source_len: usize) -> usize {
+    let mut depth = SignatureHeaderDepth::default();
+    tokens
         .iter()
         .find_map(|token| {
-            match token.kind {
-                TokenKind::LParen => {
-                    saw_parameters = true;
-                    parens += 1;
-                }
-                TokenKind::RParen => parens = parens.saturating_sub(1),
-                TokenKind::LBracket => brackets += 1,
-                TokenKind::RBracket => brackets = brackets.saturating_sub(1),
-                TokenKind::LBrace => braces += 1,
-                TokenKind::RBrace => braces = braces.saturating_sub(1),
-                _ => {}
-            }
-            (token.kind == TokenKind::Newline
-                && saw_parameters
-                && parens == 0
-                && brackets == 0
-                && braces == 0)
-                .then_some(token.range.start)
+            depth.observe(token.kind);
+            depth.ends_at(token)
         })
-        .unwrap_or(source.len());
-    let header = source.text().get(tokens[start].range.start..end)?;
+        .unwrap_or(source_len)
+}
+
+fn parse_function_header(header: &str) -> Option<FunctionDecl> {
     let declaration = SourceFile::new("signature-help.veln", format!("{header}\n  0\nend\n"));
     if !presentation_parse_structure_is_bounded(&lex(&declaration).tokens) {
         return None;
@@ -652,876 +690,5 @@ fn source_offset(source: &SourceFile, line: usize, column: usize) -> Option<usiz
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use veln_source::SourcePath;
-
-    fn snapshot(text: &str) -> EffectiveProjectSnapshot {
-        EffectiveProjectSnapshot::new(vec![SourceFile::new("main.veln", text)])
-    }
-
-    #[test]
-    fn completion_distinguishes_modifier_builtin_and_ordinary_contexts() {
-        let snapshot = snapshot(concat!(
-            "fn located() -> SourceLocation callsite\n",
-            "require callsite.start_line > 0\n",
-            "  callsite\n",
-            "end\n",
-            "fn ordinary() -> Int\n",
-            "  1\n",
-            "end\n",
-        ));
-        let modifier = completion_at(
-            &snapshot,
-            &SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 5,
-                column: 21,
-            },
-        );
-        assert_eq!(
-            modifier[0].kind,
-            CompletionCandidateKind::DeclarationModifier
-        );
-        let builtin = completion_at(
-            &snapshot,
-            &SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 3,
-                column: 3,
-            },
-        );
-        assert_eq!(builtin[0].kind, CompletionCandidateKind::BuiltinLocal);
-        assert!(
-            completion_at(
-                &snapshot,
-                &SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 2,
-                    column: 9
-                }
-            )
-            .is_empty()
-        );
-        assert!(
-            completion_at(
-                &snapshot,
-                &SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 6,
-                    column: 3
-                }
-            )
-            .is_empty()
-        );
-    }
-
-    #[test]
-    fn completion_bounds_unfinished_call_nesting_before_parse() {
-        let mut source = String::from("fn located() -> SourceLocation callsite\n  ");
-        source.push_str(&"callsite(".repeat(10_000));
-        let snapshot = snapshot(&source);
-
-        assert!(
-            completion_at(
-                &snapshot,
-                &SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 2,
-                    column: 3,
-                }
-            )
-            .is_empty()
-        );
-    }
-
-    #[test]
-    fn completion_covers_empty_bodies_and_only_the_terminal_modifier_slot() {
-        let snapshot = snapshot(concat!(
-            "fn empty() -> SourceLocation callsite\n",
-            "\n",
-            "end\n",
-            "fn higher(callback: fn() -> Int) -> Int\n",
-            "  1\n",
-            "end\n",
-            "test example() -> Int\n",
-            "  1\n",
-            "end\n",
-        ));
-        let empty_body = completion_at(
-            &snapshot,
-            &SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 2,
-                column: 1,
-            },
-        );
-        assert_eq!(empty_body[0].kind, CompletionCandidateKind::BuiltinLocal);
-        assert!(
-            completion_at(
-                &snapshot,
-                &SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 4,
-                    column: 25,
-                }
-            )
-            .is_empty()
-        );
-        let terminal = completion_at(
-            &snapshot,
-            &SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 4,
-                column: 40,
-            },
-        );
-        assert_eq!(
-            terminal[0].kind,
-            CompletionCandidateKind::DeclarationModifier
-        );
-        assert!(
-            completion_at(
-                &snapshot,
-                &SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 8,
-                    column: 3,
-                }
-            )
-            .is_empty()
-        );
-    }
-
-    #[test]
-    fn modifier_completion_stops_at_a_trailing_comment() {
-        let snapshot = snapshot(concat!(
-            "fn noted() -> Int # keep this note\n",
-            "  1\n",
-            "end\n",
-        ));
-
-        for column in [18, 19] {
-            let candidates = completion_at(
-                &snapshot,
-                &SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 1,
-                    column,
-                },
-            );
-            assert_eq!(
-                candidates.first().map(|candidate| candidate.kind),
-                Some(CompletionCandidateKind::DeclarationModifier),
-                "column {column}"
-            );
-        }
-        for column in [20, 35] {
-            assert!(
-                completion_at(
-                    &snapshot,
-                    &SourcePosition {
-                        source: SourcePath::new("main.veln"),
-                        line: 1,
-                        column,
-                    },
-                )
-                .is_empty(),
-                "column {column}"
-            );
-        }
-    }
-
-    #[test]
-    fn signature_help_keeps_callsite_outside_the_parameter_list() {
-        let snapshot = snapshot(concat!(
-            "fn located(message: String) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-            "fn caller() -> SourceLocation\n",
-            "  located(\"hello\")\n",
-            "end\n",
-        ));
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 5,
-                column: 18,
-            },
-        )
-        .expect("signature help");
-        assert_eq!(
-            help.label,
-            "fn located(message: String) -> SourceLocation callsite"
-        );
-        assert_eq!(help.parameters, ["message: String"]);
-        assert_eq!(help.active_parameter, 0);
-    }
-
-    #[test]
-    fn signature_help_resolves_contextual_function_names_across_sources() {
-        let declarations = ["callsite", "handler", "handles"]
-            .into_iter()
-            .map(|name| format!("pub fn {name}(value: Int) -> Int callsite\n  value\nend\n"))
-            .collect::<String>();
-        let caller = concat!(
-            "use declarations\n",
-            "fn caller() -> Int\n",
-            "  declarations::callsite(1)\n",
-            "  declarations::handler(1)\n",
-            "  declarations::handles(1)\n",
-            "end\n",
-        );
-        let snapshot = EffectiveProjectSnapshot::new(vec![
-            SourceFile::new("declarations.veln", declarations),
-            SourceFile::new("main.veln", caller),
-        ]);
-
-        for (line, name) in [(3, "callsite"), (4, "handler"), (5, "handles")] {
-            let source_line = caller.lines().nth(line - 1).expect("call line");
-            let column = source_line.find(')').expect("closing parenthesis") + 1;
-            let help = signature_help_at(
-                &snapshot,
-                SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line,
-                    column,
-                },
-            )
-            .expect("contextual-name signature help");
-            assert_eq!(help.label, format!("fn {name}(value: Int) -> Int callsite"));
-        }
-    }
-
-    #[test]
-    fn signature_help_is_absent_in_a_function_declaration_header() {
-        let snapshot = snapshot(concat!(
-            "fn located(message: String) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-        ));
-
-        assert!(
-            signature_help_at(
-                &snapshot,
-                SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 1,
-                    column: 20,
-                },
-            )
-            .is_none()
-        );
-    }
-
-    #[test]
-    fn signature_help_is_absent_in_a_test_declaration_header() {
-        let snapshot = snapshot(concat!(
-            "test example(value: Int) -> Int\n",
-            "  value\n",
-            "end\n",
-        ));
-
-        assert!(
-            signature_help_at(
-                &snapshot,
-                SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 1,
-                    column: 22,
-                },
-            )
-            .is_none()
-        );
-    }
-
-    #[test]
-    fn signature_help_drops_an_unclosed_call_before_a_later_declaration_header() {
-        let snapshot = snapshot(concat!(
-            "fn located(message: String) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-            "fn unfinished() -> SourceLocation\n",
-            "  located(\n",
-            "end\n",
-            "fn recovered(value: Int) -> Int\n",
-            "  value\n",
-            "end\n",
-        ));
-
-        assert!(
-            signature_help_at(
-                &snapshot,
-                SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 7,
-                    column: 20,
-                },
-            )
-            .is_none()
-        );
-    }
-
-    #[test]
-    fn signature_help_skips_grouping_inside_a_call_argument() {
-        let snapshot = snapshot(concat!(
-            "fn located(value: Int) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-            "fn caller() -> SourceLocation\n",
-            "  located((1 + 2))\n",
-            "end\n",
-        ));
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 5,
-                column: 15,
-            },
-        )
-        .expect("outer call signature help");
-        assert_eq!(
-            help.label,
-            "fn located(value: Int) -> SourceLocation callsite"
-        );
-    }
-
-    #[test]
-    fn signature_help_prefers_the_innermost_nested_call() {
-        let snapshot = snapshot(concat!(
-            "fn outer(value: Int) -> Int\n",
-            "  value\n",
-            "end\n",
-            "fn inner(message: String) -> Int callsite\n",
-            "  1\n",
-            "end\n",
-            "fn caller() -> Int\n",
-            "  outer(inner(\"hello\"))\n",
-            "end\n",
-        ));
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 8,
-                column: 21,
-            },
-        )
-        .expect("inner call signature help");
-        assert_eq!(help.label, "fn inner(message: String) -> Int callsite");
-        assert_eq!(help.parameters, ["message: String"]);
-    }
-
-    #[test]
-    fn signature_help_skips_a_non_function_identifier_before_grouping() {
-        let snapshot = snapshot(concat!(
-            "fn located(value: Int) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-            "fn caller() -> SourceLocation\n",
-            "  let value: Int = 1\n",
-            "  located(value(1))\n",
-            "end\n",
-        ));
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 6,
-                column: 18,
-            },
-        )
-        .expect("outer call signature help");
-        assert_eq!(
-            help.label,
-            "fn located(value: Int) -> SourceLocation callsite"
-        );
-    }
-
-    #[test]
-    fn signature_help_does_not_bypass_parameter_shadowing() {
-        let snapshot = snapshot(concat!(
-            "fn located(value: Int) -> Int\n",
-            "  value\n",
-            "end\n",
-            "fn caller(located: fn(Int) -> Int) -> Int\n",
-            "  located(1)\n",
-            "end\n",
-        ));
-
-        assert!(
-            signature_help_at(
-                &snapshot,
-                SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 5,
-                    column: 12,
-                },
-            )
-            .is_none()
-        );
-    }
-
-    #[test]
-    fn signature_help_does_not_bypass_the_callsite_builtin() {
-        let snapshot = snapshot(concat!(
-            "fn callsite(value: Int) -> Int\n",
-            "  value\n",
-            "end\n",
-            "fn caller() -> Int callsite\n",
-            "  callsite(1)\n",
-            "end\n",
-        ));
-
-        assert!(
-            signature_help_at(
-                &snapshot,
-                SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 5,
-                    column: 14,
-                },
-            )
-            .is_none()
-        );
-    }
-
-    #[test]
-    fn signature_help_resolves_workspace_function_aliases() {
-        let snapshot = snapshot(concat!(
-            "pub fn located(message: String) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-            "pub fn renamed = located\n",
-            "fn caller() -> SourceLocation\n",
-            "  renamed(\"hello\")\n",
-            "end\n",
-        ));
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 6,
-                column: 18,
-            },
-        )
-        .expect("alias signature help");
-        assert_eq!(
-            help.label,
-            "fn located(message: String) -> SourceLocation callsite"
-        );
-        assert_eq!(help.parameters, ["message: String"]);
-    }
-
-    #[test]
-    fn signature_help_resolves_alias_chains_beyond_the_former_depth_limit() {
-        let mut source = String::from(
-            "pub fn located(message: String) -> SourceLocation callsite\n  callsite\nend\n",
-        );
-        source.push_str("pub fn alias_0 = located\n");
-        for index in 1..70 {
-            source.push_str(&format!("pub fn alias_{index} = alias_{}\n", index - 1));
-        }
-        source.push_str("fn caller() -> SourceLocation\n  alias_69(\"hello\")\nend\n");
-        let snapshot = snapshot(&source);
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 75,
-                column: 19,
-            },
-        )
-        .expect("deep alias signature help");
-
-        assert_eq!(
-            help.label,
-            "fn located(message: String) -> SourceLocation callsite"
-        );
-    }
-
-    #[test]
-    fn signature_help_rejects_a_public_alias_cycle() {
-        let snapshot = snapshot(concat!(
-            "pub fn first = second\n",
-            "pub fn second = first\n",
-            "fn caller() -> Int\n",
-            "  first()\n",
-            "end\n",
-        ));
-
-        assert!(
-            signature_help_at(
-                &snapshot,
-                SourcePosition {
-                    source: SourcePath::new("main.veln"),
-                    line: 4,
-                    column: 9,
-                },
-            )
-            .is_none()
-        );
-    }
-
-    fn rejected_nested_candidate_reference_collections(depth: usize) -> usize {
-        let mut source = String::from(concat!(
-            "fn located(value: Int) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-            "fn caller() -> SourceLocation\n",
-            "  let value: Int = 1\n",
-            "  located("
-        ));
-        source.push_str(&"value(".repeat(depth));
-        source.push('1');
-        let column = source.lines().last().expect("call line").chars().count() + 1;
-        source.push_str(&")".repeat(depth));
-        source.push_str(")\nend\n");
-        let snapshot = snapshot(&source);
-        crate::navigation::reset_function_scope_collections();
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 6,
-                column,
-            },
-        )
-        .expect("outer signature help");
-        assert_eq!(
-            help.label,
-            "fn located(value: Int) -> SourceLocation callsite"
-        );
-        crate::navigation::function_scope_collections()
-    }
-
-    #[test]
-    fn rejected_nested_signature_candidates_do_not_collect_references() {
-        assert_eq!(rejected_nested_candidate_reference_collections(100), 0);
-        assert_eq!(rejected_nested_candidate_reference_collections(200), 0);
-    }
-
-    fn unmatched_parenthesis_work(depth: usize) -> (usize, usize, usize) {
-        let mut source = String::from(concat!(
-            "fn located(value: Int) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-            "fn caller() -> SourceLocation\n",
-            "  let value: Int = 1\n",
-            "  located("
-        ));
-        source.push_str(&"value(".repeat(depth));
-        let column = source.lines().last().expect("call line").chars().count() + 1;
-        let snapshot = snapshot(&source);
-        reset_signature_help_work();
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 6,
-                column,
-            },
-        )
-        .expect("outer signature help");
-
-        assert_eq!(
-            help.label,
-            "fn located(value: Int) -> SourceLocation callsite"
-        );
-        signature_help_work()
-    }
-
-    #[test]
-    fn signature_help_handles_deep_unmatched_parentheses_with_linear_work() {
-        let smaller = unmatched_parenthesis_work(5_000);
-        let larger = unmatched_parenthesis_work(10_000);
-
-        assert!(
-            larger.0 <= smaller.0 * 2,
-            "signature index token visits grew too quickly: {smaller:?} -> {larger:?}"
-        );
-        assert_eq!(larger.1, smaller.1 * 2 - 1);
-        assert_eq!(smaller.2, 1);
-        assert_eq!(larger.2, 1);
-    }
-
-    fn incomplete_same_line_declaration_work(
-        declaration_count: usize,
-    ) -> (usize, usize, usize, std::time::Duration) {
-        let mut source = String::from(concat!(
-            "fn located(value: Int) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-        ));
-        for index in 0..declaration_count {
-            source.push_str(&format!("fn incomplete_{index:04} "));
-        }
-        source.push_str("fn caller() -> SourceLocation located(");
-        let column = source.lines().last().expect("call line").chars().count() + 1;
-        let snapshot = snapshot(&source);
-        reset_signature_help_work();
-        let started = std::time::Instant::now();
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 4,
-                column,
-            },
-        )
-        .expect("selected signature help");
-
-        assert_eq!(
-            help.label,
-            "fn located(value: Int) -> SourceLocation callsite"
-        );
-        let work = signature_help_work();
-        (
-            work.0,
-            signature_index_owned_text_bytes(),
-            work.2,
-            started.elapsed(),
-        )
-    }
-
-    #[test]
-    fn incomplete_same_line_declaration_index_has_linear_work_and_retention() {
-        let smaller = incomplete_same_line_declaration_work(1_000);
-        let larger = incomplete_same_line_declaration_work(2_000);
-        eprintln!("incomplete same-line signatures: 1000={smaller:?}, 2000={larger:?}");
-
-        assert!(
-            larger.0 <= smaller.0 * 2 + 16,
-            "signature index work grew too quickly: {smaller:?} -> {larger:?}"
-        );
-        assert!(
-            larger.1 <= smaller.1 * 2 + 128,
-            "signature index retention grew too quickly: {smaller:?} -> {larger:?}"
-        );
-        assert_eq!(smaller.2, 1);
-        assert_eq!(larger.2, 1);
-    }
-
-    fn undefined_callee_work(depth: usize) -> ((usize, usize, usize), usize, std::time::Duration) {
-        let mut source = String::from(concat!(
-            "fn located(value: Int) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-            "fn caller() -> SourceLocation\n",
-            "  located("
-        ));
-        for index in 0..depth {
-            source.push_str(&format!("missing_{index}("));
-        }
-        let column = source.lines().last().expect("call line").chars().count() + 1;
-        let snapshot = snapshot(&source);
-        reset_signature_help_work();
-        let started = std::time::Instant::now();
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 5,
-                column,
-            },
-        )
-        .expect("outer local signature help");
-
-        assert_eq!(
-            help.label,
-            "fn located(value: Int) -> SourceLocation callsite"
-        );
-        assert!(!snapshot.navigation_index_is_prepared());
-        (
-            signature_help_work(),
-            signature_name_lookups(),
-            started.elapsed(),
-        )
-    }
-
-    #[test]
-    fn undefined_callees_use_a_parse_free_linear_name_index() {
-        let smaller = undefined_callee_work(5_000);
-        let larger = undefined_callee_work(10_000);
-        eprintln!(
-            "undefined callee signature help: 5000={:?}, 10000={:?}",
-            smaller.2, larger.2
-        );
-
-        assert!(
-            larger.0.0 <= smaller.0.0 * 2,
-            "signature index token visits grew too quickly: {smaller:?} -> {larger:?}"
-        );
-        assert_eq!(larger.0.1, smaller.0.1 * 2 - 1);
-        assert_eq!(smaller.0.2, 1);
-        assert_eq!(larger.0.2, 1);
-        assert_eq!(smaller.1, 5_000);
-        assert_eq!(larger.1, 10_000);
-    }
-
-    fn inaccessible_callee_navigation_lookups(depth: usize) -> (usize, usize) {
-        let mut hidden = String::from("mod hidden\n");
-        for index in 0..depth {
-            hidden.push_str(&format!(
-                "fn hidden_{index}(value: Int) -> Int\n  value\nend\n"
-            ));
-        }
-        let mut main = String::from(concat!(
-            "mod app\n",
-            "fn located(value: Int) -> SourceLocation callsite\n",
-            "  callsite\n",
-            "end\n",
-            "fn caller() -> SourceLocation\n",
-            "  located("
-        ));
-        for index in 0..depth {
-            main.push_str(&format!("hidden_{index}("));
-        }
-        let column = main.lines().last().expect("call line").chars().count() + 1;
-        let snapshot = EffectiveProjectSnapshot::new(vec![
-            SourceFile::new("main.veln", main),
-            SourceFile::new("hidden.veln", hidden),
-        ]);
-        reset_signature_help_work();
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 6,
-                column,
-            },
-        )
-        .expect("outer local signature help");
-
-        assert_eq!(
-            help.label,
-            "fn located(value: Int) -> SourceLocation callsite"
-        );
-        (signature_name_lookups(), signature_navigation_lookups())
-    }
-
-    #[test]
-    fn inaccessible_global_signature_candidates_have_bounded_navigation_work() {
-        let smaller = inaccessible_callee_navigation_lookups(80);
-        let larger = inaccessible_callee_navigation_lookups(160);
-
-        assert_eq!(smaller.0, 80);
-        assert_eq!(larger.0, 160);
-        assert_eq!(smaller.1, MAX_SIGNATURE_NAVIGATION_LOOKUPS);
-        assert_eq!(larger.1, MAX_SIGNATURE_NAVIGATION_LOOKUPS);
-    }
-
-    fn alias_target_lookups(alias_count: usize) -> usize {
-        let mut source = String::from(
-            "pub fn located(message: String) -> SourceLocation callsite\n  callsite\nend\n",
-        );
-        source.push_str("pub fn alias_0 = located\n");
-        for index in 1..alias_count {
-            source.push_str(&format!("pub fn alias_{index} = alias_{}\n", index - 1));
-        }
-        source.push_str(&format!(
-            "fn caller() -> SourceLocation\n  alias_{}(\"hello\")\nend\n",
-            alias_count - 1
-        ));
-        let snapshot = snapshot(&source);
-        crate::navigation::reset_function_alias_target_lookups();
-        function_signature_definition_at(
-            &snapshot,
-            &SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: alias_count + 5,
-                column: 3,
-            },
-        )
-        .expect("resolved alias target");
-        crate::navigation::function_alias_target_lookups()
-    }
-
-    #[test]
-    fn function_alias_resolution_uses_one_index_lookup_per_hop() {
-        assert_eq!(alias_target_lookups(128), 128);
-        assert_eq!(alias_target_lookups(256), 256);
-    }
-
-    fn qualified_alias_chain_work(alias_count: usize, filler_count: usize) -> (usize, usize) {
-        let mut sources = vec![SourceFile::new(
-            "target.veln",
-            concat!(
-                "pub fn located(message: String) -> SourceLocation callsite\n",
-                "  callsite\n",
-                "end\n",
-            ),
-        )];
-        for index in 0..alias_count {
-            let target_module = if index == 0 {
-                "target".to_string()
-            } else {
-                format!("alias_{}", index - 1)
-            };
-            let target_name = if index == 0 {
-                "located".to_string()
-            } else {
-                format!("alias_{}", index - 1)
-            };
-            sources.push(SourceFile::new(
-                format!("alias_{index}.veln"),
-                format!(
-                    "use {target_module}\npub fn alias_{index} = {target_module}::{target_name}\n"
-                ),
-            ));
-        }
-        for index in 0..filler_count {
-            sources.push(SourceFile::new(
-                format!("filler_{index}.veln"),
-                format!("pub fn filler_{index}() -> Int\n  {index}\nend\n"),
-            ));
-        }
-        let final_alias = format!("alias_{}", alias_count - 1);
-        let main = format!(
-            "use {final_alias}\nfn caller() -> SourceLocation\n  {final_alias}::{final_alias}(\"hello\")\nend\n"
-        );
-        let column = main.lines().nth(2).expect("call line").chars().count();
-        sources.push(SourceFile::new("main.veln", main));
-        let snapshot = EffectiveProjectSnapshot::new(sources);
-        crate::navigation::reset_function_alias_target_lookups();
-        crate::navigation::reset_function_alias_declaring_file_lookups();
-
-        let help = signature_help_at(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 3,
-                column,
-            },
-        )
-        .expect("qualified alias signature help");
-
-        assert_eq!(
-            help.label,
-            "fn located(message: String) -> SourceLocation callsite"
-        );
-        (
-            crate::navigation::function_alias_target_lookups(),
-            crate::navigation::function_alias_declaring_file_lookups(),
-        )
-    }
-
-    #[test]
-    fn qualified_alias_resolution_indexes_each_declaring_file() {
-        assert_eq!(qualified_alias_chain_work(64, 64), (64, 64));
-        assert_eq!(qualified_alias_chain_work(128, 64), (128, 128));
-        assert_eq!(qualified_alias_chain_work(64, 128), (64, 64));
-        assert_eq!(qualified_alias_chain_work(128, 128), (128, 128));
-    }
-}
+#[path = "presentation/tests.rs"]
+mod tests;

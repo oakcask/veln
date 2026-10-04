@@ -59,34 +59,12 @@ impl SignatureShadowIndex {
         };
         let end_index = boundaries.get(boundary).copied().unwrap_or(tokens.len());
         let window = &tokens[start_index..end_index];
-        let defer_block_openers = defer_block_openers(window);
-        let mut scopes = window
-            .first()
-            .filter(|token| matches!(token.kind, TokenKind::Fn | TokenKind::Test))
-            .and_then(|_| function_scope(window, 0, &defer_block_openers))
-            .into_iter()
-            .collect::<Vec<_>>();
-        scopes.extend(handler_operation_clause_scopes(
-            window,
-            &defer_block_openers,
-        ));
+        let (mut scopes, defer_block_openers) = signature_shadow_scopes(window);
         let window_end = tokens.get(end_index).map_or_else(
             || tokens.last().map_or(0, |token| token.range.end),
             |token| token.range.start,
         );
-        for scope in scopes
-            .iter_mut()
-            .filter(|scope| !scope.is_handler_clause && scope.end == scope.body_start)
-        {
-            scope.end = window_end;
-            scope.local_bindings = local_bindings_with_defer_openers(
-                window,
-                scope.body_start,
-                scope.end,
-                &defer_block_openers,
-            );
-            scope.local_bindings_by_name = local_binding_index_by_name(&scope.local_bindings);
-        }
+        widen_recovered_signature_scope(&mut scopes, window, window_end, &defer_block_openers);
         Self {
             scopes,
             recovery_start: tokens[start_index].range.start,
@@ -118,6 +96,42 @@ impl SignatureShadowIndex {
                 .map(|scope| scope.local_bindings.len())
                 .sum(),
         )
+    }
+}
+
+fn signature_shadow_scopes(tokens: &[Token]) -> (Vec<FunctionScope>, Vec<bool>) {
+    let defer_block_openers = defer_block_openers(tokens);
+    let mut scopes = tokens
+        .first()
+        .filter(|token| matches!(token.kind, TokenKind::Fn | TokenKind::Test))
+        .and_then(|_| function_scope(tokens, 0, &defer_block_openers))
+        .into_iter()
+        .collect::<Vec<_>>();
+    scopes.extend(handler_operation_clause_scopes(
+        tokens,
+        &defer_block_openers,
+    ));
+    (scopes, defer_block_openers)
+}
+
+fn widen_recovered_signature_scope(
+    scopes: &mut [FunctionScope],
+    tokens: &[Token],
+    window_end: usize,
+    defer_block_openers: &[bool],
+) {
+    for scope in scopes
+        .iter_mut()
+        .filter(|scope| !scope.is_handler_clause && scope.end == scope.body_start)
+    {
+        scope.end = window_end;
+        scope.local_bindings = local_bindings_with_defer_openers(
+            tokens,
+            scope.body_start,
+            scope.end,
+            defer_block_openers,
+        );
+        scope.local_bindings_by_name = local_binding_index_by_name(&scope.local_bindings);
     }
 }
 
