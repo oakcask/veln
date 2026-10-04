@@ -393,6 +393,15 @@ path. A singleton `Ok` or `Err` type determines that branch statically but does
 not change the checks or runtime representation. Source following a statically
 known `Err` is still checked normally.
 
+Checked source and diagnostic evidence is in
+[`adt-variant-refined-result-propagation`](../../examples/specification/check/adt-variant-refined-result-propagation/),
+its
+[`human`](../../examples/specification/check/adt-variant-refined-result-propagation-diagnostics-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refined-result-propagation-diagnostics-json/)
+diagnostic cases, and the
+[`JVM execution case`](../../examples/specification/run/adt-variant-refined-result-propagation/).
+
 ## Compatibility and limits
 
 The type checker resolves a structurally valid `A<T>::V` annotation to the
