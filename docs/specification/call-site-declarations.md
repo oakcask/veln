@@ -70,10 +70,12 @@ LSP signature help and the MCP `signature_help` tool render the complete source
 declaration, including a trailing `callsite` modifier after any effects clause.
 The modifier remains outside the parameter list, and active-parameter counting
 uses only source parameters. A position inside the declaration's own header
-does not produce signature help. Grouping parentheses within a call argument do
-not hide the enclosing call's signature. Every finite acyclic chain of public
-workspace function aliases resolves to its target declaration before rendering;
-an alias cycle does not produce signature help.
+does not produce signature help. An unfinished call in an earlier declaration
+does not leak signature help into a later declaration header. Grouping
+parentheses within a call argument do not hide the enclosing call's signature.
+Every finite acyclic chain of public workspace function aliases resolves to its
+target declaration before rendering; an alias cycle does not produce signature
+help.
 
 For a direct call from an ordinary function, the supplied value covers the
 complete call expression from its callee through its closing parenthesis. For

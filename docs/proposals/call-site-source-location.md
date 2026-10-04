@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Call-site-aware functions, source-location values, generated-source mapping, or call-site lowering is implemented or redesigned.
+update-when: Generated-source mapping, relocation-safe source identity, deferred-observation lifetime coverage, or call-site lowering changes.
 ---
 
 # Call-site Source Location

@@ -39,6 +39,7 @@ include!("navigation/source_paths.rs");
 
 pub(crate) struct SignatureShadowIndex {
     scopes: Vec<FunctionScope>,
+    recovery_start: usize,
     #[cfg(test)]
     inspected_tokens: usize,
 }
@@ -51,6 +52,7 @@ impl SignatureShadowIndex {
         let Some(start_index) = boundary.checked_sub(1).map(|index| boundaries[index]) else {
             return Self {
                 scopes: Vec::new(),
+                recovery_start: 0,
                 #[cfg(test)]
                 inspected_tokens: tokens.len(),
             };
@@ -78,9 +80,14 @@ impl SignatureShadowIndex {
         }
         Self {
             scopes,
+            recovery_start: tokens[start_index].range.start,
             #[cfg(test)]
             inspected_tokens: tokens.len() + window.len(),
         }
+    }
+
+    pub(crate) fn recovery_start(&self) -> usize {
+        self.recovery_start
     }
 
     pub(crate) fn shadows(&self, tokens: &[Token], token_index: usize, name: &str) -> bool {

@@ -1,5 +1,6 @@
 command = ["mcp"]
 stdin_file = "case-text/root-stdin-1.jsonl"
+source_errors = "expected"
 exit = 0
 
 [stderr]
@@ -154,3 +155,8 @@ equals = "fn handler(value: Int) -> Int callsite"
 id = 22
 path = "/result/structuredContent/signature/label"
 equals = "fn handles(value: Int) -> Int callsite"
+
+[[mcp_assert]]
+id = 23
+path = "/result/structuredContent/signature"
+equals = null

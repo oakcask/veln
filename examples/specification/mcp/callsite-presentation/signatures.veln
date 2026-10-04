@@ -18,3 +18,9 @@ fn contextual() -> Int
   handler(1)
   handles(1)
 end
+fn unfinished() -> SourceLocation
+  located(
+end
+fn recovered(value: Int) -> Int
+  value
+end

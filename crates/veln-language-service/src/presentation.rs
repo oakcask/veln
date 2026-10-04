@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::ops::Range;
 
 #[cfg(test)]
 use std::cell::Cell;
@@ -34,7 +35,7 @@ pub struct SignatureHelp {
 
 #[derive(Clone, Debug)]
 enum LocalSignatureDeclaration {
-    Function(String),
+    Function(Range<usize>),
     Alias(String),
 }
 
@@ -44,6 +45,7 @@ thread_local! {
     static SIGNATURE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_HEADER_PARSES: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_NAME_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static SIGNATURE_INDEX_OWNED_TEXT_BYTES: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -52,6 +54,7 @@ fn reset_signature_help_work() {
     SIGNATURE_CANDIDATE_VISITS.set(0);
     SIGNATURE_HEADER_PARSES.set(0);
     SIGNATURE_NAME_LOOKUPS.set(0);
+    SIGNATURE_INDEX_OWNED_TEXT_BYTES.set(0);
 }
 
 #[cfg(test)]
@@ -98,6 +101,34 @@ fn record_signature_name_lookup() {}
 #[cfg(test)]
 fn signature_name_lookups() -> usize {
     SIGNATURE_NAME_LOOKUPS.get()
+}
+
+#[cfg(test)]
+fn record_signature_index_owned_text_bytes(
+    declarations: &HashMap<String, Vec<LocalSignatureDeclaration>>,
+) {
+    let bytes = declarations
+        .iter()
+        .map(|(name, declarations)| {
+            name.len()
+                + declarations
+                    .iter()
+                    .map(|declaration| match declaration {
+                        LocalSignatureDeclaration::Function(_) => 0,
+                        LocalSignatureDeclaration::Alias(target) => target.len(),
+                    })
+                    .sum::<usize>()
+        })
+        .sum();
+    SIGNATURE_INDEX_OWNED_TEXT_BYTES.set(bytes);
+}
+
+#[cfg(not(test))]
+fn record_signature_index_owned_text_bytes(_: &HashMap<String, Vec<LocalSignatureDeclaration>>) {}
+
+#[cfg(test)]
+fn signature_index_owned_text_bytes() -> usize {
+    SIGNATURE_INDEX_OWNED_TEXT_BYTES.get()
 }
 
 pub fn completion_at(
@@ -224,12 +255,16 @@ pub fn signature_help_at(
         .collect::<Vec<_>>();
     record_signature_index_token_visits(tokens.tokens.len());
     let shadow_index = SignatureShadowIndex::new(&tokens.tokens, offset);
+    let recovery_start = shadow_index.recovery_start();
     let local_signatures = local_signature_declarations(source, &significant);
     let function_names = signature_function_names(snapshot);
     let mut open = Vec::new();
     for (significant_index, (_, token)) in significant.iter().enumerate() {
         if token.range.start >= offset {
             break;
+        }
+        if token.range.start < recovery_start {
+            continue;
         }
         match token.kind {
             TokenKind::LParen => open.push(significant_index),
@@ -262,7 +297,8 @@ pub fn signature_help_at(
                 .checked_sub(1)
                 .is_none_or(|previous| significant[previous].1.kind != TokenKind::DoubleColon);
         if local_signature_allowed
-            && let Some(function) = local_signature_function(&local_signatures, &callee.text)
+            && let Some(function) =
+                local_signature_function(source, &local_signatures, &callee.text)
         {
             let active_parameter = active_parameter(&significant, open_index, offset);
             return Some(signature_help(&function, active_parameter));
@@ -343,17 +379,26 @@ fn local_signature_declarations(
     significant: &[(usize, &Token)],
 ) -> HashMap<String, Vec<LocalSignatureDeclaration>> {
     let mut declarations = HashMap::<String, Vec<LocalSignatureDeclaration>>::new();
-    for (index, (_, token)) in significant.iter().enumerate() {
+    let candidates = significant
+        .iter()
+        .enumerate()
+        .filter_map(|(index, (_, token))| {
+            if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
+                return None;
+            }
+            significant
+                .get(index + 1)
+                .is_some_and(|(_, name)| name.kind.is_contextual_identifier())
+                .then_some(index)
+        })
+        .collect::<Vec<_>>();
+    let mut line_end = 0usize;
+    for (candidate_index, index) in candidates.iter().copied().enumerate() {
         record_signature_index_token_visits(1);
-        if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
-            continue;
-        }
+        let (_, token) = significant[index];
         let Some((_, name)) = significant.get(index + 1).copied() else {
             continue;
         };
-        if !name.kind.is_contextual_identifier() {
-            continue;
-        }
         let declaration = if significant
             .get(index + 2)
             .is_some_and(|(_, token)| token.kind == TokenKind::Equal)
@@ -370,27 +415,29 @@ fn local_signature_declarations(
             }
             LocalSignatureDeclaration::Alias(target.text.clone())
         } else {
-            let Some(header_end) = source.text()[token.range.start..]
-                .find('\n')
-                .map(|relative| token.range.start + relative)
-                .or(Some(source.len()))
-            else {
-                continue;
-            };
-            let Some(header) = source.text().get(token.range.start..header_end) else {
-                continue;
-            };
-            LocalSignatureDeclaration::Function(header.to_string())
+            if token.range.start >= line_end {
+                line_end = source.text()[token.range.start..]
+                    .find('\n')
+                    .map_or(source.len(), |relative| token.range.start + relative);
+            }
+            let next_declaration_start = candidates
+                .get(candidate_index + 1)
+                .map_or(line_end, |next| significant[*next].1.range.start);
+            LocalSignatureDeclaration::Function(
+                token.range.start..line_end.min(next_declaration_start),
+            )
         };
         declarations
             .entry(name.text.clone())
             .or_default()
             .push(declaration);
     }
+    record_signature_index_owned_text_bytes(&declarations);
     declarations
 }
 
 fn local_signature_function(
+    source: &SourceFile,
     declarations: &HashMap<String, Vec<LocalSignatureDeclaration>>,
     name: &str,
 ) -> Option<FunctionDecl> {
@@ -405,8 +452,9 @@ fn local_signature_function(
         };
         match declaration {
             LocalSignatureDeclaration::Alias(target) => name = target,
-            LocalSignatureDeclaration::Function(header) => {
+            LocalSignatureDeclaration::Function(range) => {
                 record_signature_header_parse();
+                let header = source.text().get(range.clone())?;
                 let declaration =
                     SourceFile::new("signature-help.veln", format!("{header}\n  0\nend\n"));
                 let parsed = parse(&declaration);
@@ -802,6 +850,33 @@ mod tests {
     }
 
     #[test]
+    fn signature_help_drops_an_unclosed_call_before_a_later_declaration_header() {
+        let snapshot = snapshot(concat!(
+            "fn located(message: String) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn unfinished() -> SourceLocation\n",
+            "  located(\n",
+            "end\n",
+            "fn recovered(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+        ));
+
+        assert!(
+            signature_help_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 7,
+                    column: 20,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
     fn signature_help_skips_grouping_inside_a_call_argument() {
         let snapshot = snapshot(concat!(
             "fn located(value: Int) -> SourceLocation callsite\n",
@@ -1063,6 +1138,64 @@ mod tests {
             "signature index token visits grew too quickly: {smaller:?} -> {larger:?}"
         );
         assert_eq!(larger.1, smaller.1 * 2 - 1);
+        assert_eq!(smaller.2, 1);
+        assert_eq!(larger.2, 1);
+    }
+
+    fn incomplete_same_line_declaration_work(
+        declaration_count: usize,
+    ) -> (usize, usize, usize, std::time::Duration) {
+        let mut source = String::from(concat!(
+            "fn located(value: Int) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+        ));
+        for index in 0..declaration_count {
+            source.push_str(&format!("fn incomplete_{index:04} "));
+        }
+        source.push_str("fn caller() -> SourceLocation located(");
+        let column = source.lines().last().expect("call line").chars().count() + 1;
+        let snapshot = snapshot(&source);
+        reset_signature_help_work();
+        let started = std::time::Instant::now();
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column,
+            },
+        )
+        .expect("selected signature help");
+
+        assert_eq!(
+            help.label,
+            "fn located(value: Int) -> SourceLocation callsite"
+        );
+        let work = signature_help_work();
+        (
+            work.0,
+            signature_index_owned_text_bytes(),
+            work.2,
+            started.elapsed(),
+        )
+    }
+
+    #[test]
+    fn incomplete_same_line_declaration_index_has_linear_work_and_retention() {
+        let smaller = incomplete_same_line_declaration_work(1_000);
+        let larger = incomplete_same_line_declaration_work(2_000);
+        eprintln!("incomplete same-line signatures: 1000={smaller:?}, 2000={larger:?}");
+
+        assert!(
+            larger.0 <= smaller.0 * 2 + 16,
+            "signature index work grew too quickly: {smaller:?} -> {larger:?}"
+        );
+        assert!(
+            larger.1 <= smaller.1 * 2 + 128,
+            "signature index retention grew too quickly: {smaller:?} -> {larger:?}"
+        );
         assert_eq!(smaller.2, 1);
         assert_eq!(larger.2, 1);
     }
