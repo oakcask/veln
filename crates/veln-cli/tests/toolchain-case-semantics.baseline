@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"029528587e6b5f5377b7ea28e6ed1d4137e85a04"
+source_git_tree	"9a67d307126c4c628563fe7f46a78749cd17fa9c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1759
@@ -13395,43 +13395,43 @@ field	expectations.lsp_assertions[0].id	1
 field	expectations.lsp_assertions[0].operation	"equals"
 field	expectations.lsp_assertions[0].path	"/result/capabilities/semanticTokensProvider/legend/tokenTypes"
 field	expectations.lsp_assertions[10].equals	[]
-field	expectations.lsp_assertions[10].id	13
+field	expectations.lsp_assertions[10].id	12
 field	expectations.lsp_assertions[10].operation	"equals"
 field	expectations.lsp_assertions[10].path	"/result"
-field	expectations.lsp_assertions[11].equals	"fn callsite(value: Int) -> Int callsite"
-field	expectations.lsp_assertions[11].id	14
+field	expectations.lsp_assertions[11].equals	[]
+field	expectations.lsp_assertions[11].id	13
 field	expectations.lsp_assertions[11].operation	"equals"
-field	expectations.lsp_assertions[11].path	"/result/signatures/0/label"
-field	expectations.lsp_assertions[12].equals	"fn handler(value: Int) -> Int callsite"
-field	expectations.lsp_assertions[12].id	15
+field	expectations.lsp_assertions[11].path	"/result"
+field	expectations.lsp_assertions[12].equals	"fn callsite(value: Int) -> Int callsite"
+field	expectations.lsp_assertions[12].id	14
 field	expectations.lsp_assertions[12].operation	"equals"
 field	expectations.lsp_assertions[12].path	"/result/signatures/0/label"
-field	expectations.lsp_assertions[13].equals	"fn handles(value: Int) -> Int callsite"
-field	expectations.lsp_assertions[13].id	16
+field	expectations.lsp_assertions[13].equals	"fn handler(value: Int) -> Int callsite"
+field	expectations.lsp_assertions[13].id	15
 field	expectations.lsp_assertions[13].operation	"equals"
 field	expectations.lsp_assertions[13].path	"/result/signatures/0/label"
-field	expectations.lsp_assertions[14].equals	[0,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,1,2,1,11,0,0,1,5,4,0,0,5,1,11,0,0,2,4,9,0,0,4,1,11,0,0,2,8,4,0,0,8,1,11,0,0,2,8,3,2,0,8,1,11,0,0,1,1,11,0,0,1,8,4,0,1,0,3,7,0]
-field	expectations.lsp_assertions[14].id	17
+field	expectations.lsp_assertions[14].equals	"fn handles(value: Int) -> Int callsite"
+field	expectations.lsp_assertions[14].id	16
 field	expectations.lsp_assertions[14].operation	"equals"
-field	expectations.lsp_assertions[14].path	"/result/data"
-field	expectations.lsp_assertions[15].equals	[0,0,2,7,0,0,3,5,6,1,0,5,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,3,7,0,0,4,8,3,3,0,9,1,11,0,0,2,1,10,0,1,2,8,3,2,1,0,3,7,0,1,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,3,7,0,0,4,1,11,0,0,1,5,4,0,0,5,1,11,0,0,2,8,3,3,0,8,1,11,0,0,2,1,11,0,0,2,5,2,2,1,2,8,3,2,1,0,3,7,0,1,0,2,7,0,0,3,11,6,1,0,11,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,8,3,19,0,8,1,11,0,0,2,3,1,0,1,0,6,7,0,0,7,8,3,2,0,9,1,11,0,0,2,1,10,0,1,2,1,10,0,1,0,3,7,0]
-field	expectations.lsp_assertions[15].id	18
+field	expectations.lsp_assertions[14].path	"/result/signatures/0/label"
+field	expectations.lsp_assertions[15].equals	[0,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,1,2,1,11,0,0,1,5,4,0,0,5,1,11,0,0,2,4,9,0,0,4,1,11,0,0,2,8,4,0,0,8,1,11,0,0,2,8,3,2,0,8,1,11,0,0,1,1,11,0,0,1,8,4,0,1,0,3,7,0]
+field	expectations.lsp_assertions[15].id	17
 field	expectations.lsp_assertions[15].operation	"equals"
 field	expectations.lsp_assertions[15].path	"/result/data"
-field	expectations.lsp_assertions[16].equals	null
-field	expectations.lsp_assertions[16].id	19
+field	expectations.lsp_assertions[16].equals	[0,0,2,7,0,0,3,5,6,1,0,5,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,3,7,0,0,4,8,3,3,0,9,1,11,0,0,2,1,10,0,1,2,8,3,2,1,0,3,7,0,1,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,3,7,0,0,4,1,11,0,0,1,5,4,0,0,5,1,11,0,0,2,8,3,3,0,8,1,11,0,0,2,1,11,0,0,2,5,2,2,1,2,8,3,2,1,0,3,7,0,1,0,2,7,0,0,3,11,6,1,0,11,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,8,3,19,0,8,1,11,0,0,2,3,1,0,1,0,6,7,0,0,7,8,3,2,0,9,1,11,0,0,2,1,10,0,1,2,1,10,0,1,0,3,7,0]
+field	expectations.lsp_assertions[16].id	18
 field	expectations.lsp_assertions[16].operation	"equals"
-field	expectations.lsp_assertions[16].path	"/result"
-field	expectations.lsp_assertions[17].equals	[0,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,5,2,2,1,0,3,7,0,1,0,2,7,0,0,3,6,6,1,0,6,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,8,6,0,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,0,3,7,0]
-field	expectations.lsp_assertions[17].id	20
+field	expectations.lsp_assertions[16].path	"/result/data"
+field	expectations.lsp_assertions[17].equals	null
+field	expectations.lsp_assertions[17].id	19
 field	expectations.lsp_assertions[17].operation	"equals"
-field	expectations.lsp_assertions[17].path	"/result/data"
-field	expectations.lsp_assertions[18].equals	null
-field	expectations.lsp_assertions[18].id	21
+field	expectations.lsp_assertions[17].path	"/result"
+field	expectations.lsp_assertions[18].equals	[0,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,5,2,2,1,0,3,7,0,1,0,2,7,0,0,3,6,6,1,0,6,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,8,6,0,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,0,3,7,0]
+field	expectations.lsp_assertions[18].id	20
 field	expectations.lsp_assertions[18].operation	"equals"
-field	expectations.lsp_assertions[18].path	"/result"
-field	expectations.lsp_assertions[19].equals	[]
-field	expectations.lsp_assertions[19].id	22
+field	expectations.lsp_assertions[18].path	"/result/data"
+field	expectations.lsp_assertions[19].equals	null
+field	expectations.lsp_assertions[19].id	21
 field	expectations.lsp_assertions[19].operation	"equals"
 field	expectations.lsp_assertions[19].path	"/result"
 field	expectations.lsp_assertions[1].equals	["declaration","readonly","defaultLibrary","test","result","hole"]
@@ -13439,21 +13439,57 @@ field	expectations.lsp_assertions[1].id	1
 field	expectations.lsp_assertions[1].operation	"equals"
 field	expectations.lsp_assertions[1].path	"/result/capabilities/semanticTokensProvider/legend/tokenModifiers"
 field	expectations.lsp_assertions[20].equals	[]
-field	expectations.lsp_assertions[20].id	23
+field	expectations.lsp_assertions[20].id	22
 field	expectations.lsp_assertions[20].operation	"equals"
 field	expectations.lsp_assertions[20].path	"/result"
-field	expectations.lsp_assertions[21].equals	{"label":"fn effectful(value: Int) -> SourceLocation effects [stdio] callsite","parameters":[{"label":"value: Int"}]}
-field	expectations.lsp_assertions[21].id	24
+field	expectations.lsp_assertions[21].equals	[]
+field	expectations.lsp_assertions[21].id	23
 field	expectations.lsp_assertions[21].operation	"equals"
-field	expectations.lsp_assertions[21].path	"/result/signatures/0"
-field	expectations.lsp_assertions[22].equals	[0,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,5,2,2,1,0,3,7,0,2,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,1,1,8,3,2,1,1,8,3,2,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,0,3,7,0]
-field	expectations.lsp_assertions[22].id	25
+field	expectations.lsp_assertions[21].path	"/result"
+field	expectations.lsp_assertions[22].equals	{"label":"fn effectful(value: Int) -> SourceLocation effects [stdio] callsite","parameters":[{"label":"value: Int"}]}
+field	expectations.lsp_assertions[22].id	24
 field	expectations.lsp_assertions[22].operation	"equals"
-field	expectations.lsp_assertions[22].path	"/result/data"
+field	expectations.lsp_assertions[22].path	"/result/signatures/0"
+field	expectations.lsp_assertions[23].equals	[0,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,5,2,2,1,0,3,7,0,2,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,1,1,8,3,2,1,1,8,3,2,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,1,5,3,0,0,5,2,11,0,0,2,8,6,0,0,8,1,11,0,0,1,1,10,0,0,1,1,11,0,1,0,3,7,0]
+field	expectations.lsp_assertions[23].id	25
+field	expectations.lsp_assertions[23].operation	"equals"
+field	expectations.lsp_assertions[23].path	"/result/data"
+field	expectations.lsp_assertions[24].equals	[{"detail":"built-in SourceLocation local","kind":6,"label":"callsite"}]
+field	expectations.lsp_assertions[24].id	80
+field	expectations.lsp_assertions[24].operation	"equals"
+field	expectations.lsp_assertions[24].path	"/result"
+field	expectations.lsp_assertions[25].equals	-32602
+field	expectations.lsp_assertions[25].id	81
+field	expectations.lsp_assertions[25].operation	"equals"
+field	expectations.lsp_assertions[25].path	"/error/code"
+field	expectations.lsp_assertions[26].equals	[{"detail":"built-in SourceLocation local","kind":6,"label":"callsite"}]
+field	expectations.lsp_assertions[26].id	82
+field	expectations.lsp_assertions[26].operation	"equals"
+field	expectations.lsp_assertions[26].path	"/result"
+field	expectations.lsp_assertions[27].equals	{"label":"fn located(message: String) -> SourceLocation callsite","parameters":[{"label":"message: String"}]}
+field	expectations.lsp_assertions[27].id	83
+field	expectations.lsp_assertions[27].operation	"equals"
+field	expectations.lsp_assertions[27].path	"/result/signatures/0"
+field	expectations.lsp_assertions[28].equals	0
+field	expectations.lsp_assertions[28].id	83
+field	expectations.lsp_assertions[28].operation	"equals"
+field	expectations.lsp_assertions[28].path	"/result/activeSignature"
+field	expectations.lsp_assertions[29].equals	0
+field	expectations.lsp_assertions[29].id	83
+field	expectations.lsp_assertions[29].operation	"equals"
+field	expectations.lsp_assertions[29].path	"/result/activeParameter"
 field	expectations.lsp_assertions[2].equals	[0,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,7,2,3,0,7,1,11,0,0,2,6,1,0,0,6,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,2,1,8,3,2,1,0,3,7,0,2,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,1,10,0,1,0,3,7,0,2,0,2,7,0,0,3,6,6,1,0,6,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,1,1,7,6,0,0,7,1,11,0,0,1,7,9,0,0,7,1,11,0,1,0,3,7,0,2,0,2,7,0,0,3,5,6,1,0,5,1,11,0,0,1,8,2,3,0,8,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,8,2,2,1,0,3,7,0]
 field	expectations.lsp_assertions[2].id	6
 field	expectations.lsp_assertions[2].operation	"equals"
 field	expectations.lsp_assertions[2].path	"/result/data"
+field	expectations.lsp_assertions[30].equals	-32602
+field	expectations.lsp_assertions[30].id	84
+field	expectations.lsp_assertions[30].operation	"equals"
+field	expectations.lsp_assertions[30].path	"/error/code"
+field	expectations.lsp_assertions[31].equals	{"activeParameter":0,"activeSignature":0,"signatures":[{"label":"fn located(message: String) -> SourceLocation callsite","parameters":[{"label":"message: String"}]}]}
+field	expectations.lsp_assertions[31].id	85
+field	expectations.lsp_assertions[31].operation	"equals"
+field	expectations.lsp_assertions[31].path	"/result"
 field	expectations.lsp_assertions[3].equals	[{"detail":"call-site declaration modifier","kind":14,"label":"callsite"}]
 field	expectations.lsp_assertions[3].id	7
 field	expectations.lsp_assertions[3].operation	"equals"
@@ -13478,10 +13514,10 @@ field	expectations.lsp_assertions[8].equals	0
 field	expectations.lsp_assertions[8].id	11
 field	expectations.lsp_assertions[8].operation	"equals"
 field	expectations.lsp_assertions[8].path	"/result/activeParameter"
-field	expectations.lsp_assertions[9].equals	[]
-field	expectations.lsp_assertions[9].id	12
+field	expectations.lsp_assertions[9].equals	0
+field	expectations.lsp_assertions[9].id	11
 field	expectations.lsp_assertions[9].operation	"equals"
-field	expectations.lsp_assertions[9].path	"/result"
+field	expectations.lsp_assertions[9].path	"/result/activeSignature"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"completionProvider\""
 field	expectations.stdout.contains[1]	"\"signatureHelpProvider\""
@@ -13492,10 +13528,10 @@ field	expectations.stdout.contains[5]	"fn located(message: String) -> SourceLoca
 field	expectations.stdout.contains[6]	"\"parameters\":[{\"label\":\"message: String\"}]"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":5418,"sha256":"9127c4760f4df8385ec07979338c67ea1f5c8c9ad1e22d7f71ab3fc58348625c"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":6825,"sha256":"a06c3bf1ec229a6db0b7075287a58c3de425df8ffa89760385a0bcaa87013c64"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"1df2f8ffc3405a546e25338f9966ef877ec0df7cbdef1eb6866a7400e56f6c82"
+case_digest	"1a4d5e0ce7af3564871f7e602db68099b949f12a561be1dde785424659bf2dc7"
 case	"examples/specification/lsp/cleanup-region-navigation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	{"end":{"character":14,"line":7},"start":{"character":6,"line":7}}
@@ -18192,6 +18228,22 @@ field	expectations.mcp_assertions[34].equals	{"activeParameter":0,"label":"fn ef
 field	expectations.mcp_assertions[34].id	27
 field	expectations.mcp_assertions[34].operation	"equals"
 field	expectations.mcp_assertions[34].path	"/result/structuredContent/signature"
+field	expectations.mcp_assertions[35].equals	[]
+field	expectations.mcp_assertions[35].id	28
+field	expectations.mcp_assertions[35].operation	"equals"
+field	expectations.mcp_assertions[35].path	"/result/structuredContent/items"
+field	expectations.mcp_assertions[36].equals	null
+field	expectations.mcp_assertions[36].id	29
+field	expectations.mcp_assertions[36].operation	"equals"
+field	expectations.mcp_assertions[36].path	"/result/structuredContent/signature"
+field	expectations.mcp_assertions[37].equals	{"generation":0,"roots":["."]}
+field	expectations.mcp_assertions[37].id	30
+field	expectations.mcp_assertions[37].operation	"equals"
+field	expectations.mcp_assertions[37].path	"/result/structuredContent"
+field	expectations.mcp_assertions[38].equals	[{"detail":"built-in SourceLocation local","kind":"builtin_local","label":"callsite"}]
+field	expectations.mcp_assertions[38].id	31
+field	expectations.mcp_assertions[38].operation	"equals"
+field	expectations.mcp_assertions[38].path	"/result/structuredContent/items"
 field	expectations.mcp_assertions[3].equals	"builtin_local"
 field	expectations.mcp_assertions[3].id	3
 field	expectations.mcp_assertions[3].operation	"equals"
@@ -18223,9 +18275,9 @@ field	expectations.mcp_assertions[9].path	"/result/structuredContent/signature/a
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3749,"sha256":"738647f5ed55ccd4679a89c3143f830906d9cb9a8d773b9ae40aef23429d0a17"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4275,"sha256":"9d9526f324bd4bc6873ea7d33730a33632f1ad01f931c249cfa14211484263b6"}
 field	source_errors	"expected"
-case_digest	"de1ccf3ef630f84abd6f933c0c6209fb73383a3883508d7cbe932c4b2b106470"
+case_digest	"f4e21afa17f85a91f37d76db179549564e3dc675e99dd8ee4f11f8183498055e"
 case	"examples/specification/mcp/check-project-diagnostics"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -63613,4 +63665,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b36efb0303b0fac3d88ac65610071b223c82899fb8afb3eb8b5558f3ef643e9e"
+aggregate_digest	"0e5f8245333bd20cb7aed31d1ee140a671147827d223454b20ad006855dd6942"
