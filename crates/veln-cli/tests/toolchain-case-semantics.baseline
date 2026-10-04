@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"10ae5f9bfee7085eedfba3818684b721b2dac24c"
+source_git_tree	"84e0b606140cea3343aa7ee1baeb72d44cd01cad"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1759
@@ -13398,6 +13398,26 @@ field	expectations.lsp_assertions[10].equals	[]
 field	expectations.lsp_assertions[10].id	13
 field	expectations.lsp_assertions[10].operation	"equals"
 field	expectations.lsp_assertions[10].path	"/result"
+field	expectations.lsp_assertions[11].equals	"fn callsite(value: Int) -> Int callsite"
+field	expectations.lsp_assertions[11].id	14
+field	expectations.lsp_assertions[11].operation	"equals"
+field	expectations.lsp_assertions[11].path	"/result/signatures/0/label"
+field	expectations.lsp_assertions[12].equals	"fn handler(value: Int) -> Int callsite"
+field	expectations.lsp_assertions[12].id	15
+field	expectations.lsp_assertions[12].operation	"equals"
+field	expectations.lsp_assertions[12].path	"/result/signatures/0/label"
+field	expectations.lsp_assertions[13].equals	"fn handles(value: Int) -> Int callsite"
+field	expectations.lsp_assertions[13].id	16
+field	expectations.lsp_assertions[13].operation	"equals"
+field	expectations.lsp_assertions[13].path	"/result/signatures/0/label"
+field	expectations.lsp_assertions[14].equals	[0,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,1,2,1,11,0,0,1,5,4,0,0,5,1,11,0,0,2,4,9,0,0,4,1,11,0,0,2,8,4,0,0,8,1,11,0,0,2,8,3,2,0,8,1,11,0,0,1,1,11,0,0,1,8,4,0,1,0,3,7,0]
+field	expectations.lsp_assertions[14].id	17
+field	expectations.lsp_assertions[14].operation	"equals"
+field	expectations.lsp_assertions[14].path	"/result/data"
+field	expectations.lsp_assertions[15].equals	[0,0,2,7,0,0,3,5,6,1,0,5,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,3,7,0,0,4,8,3,3,0,9,1,11,0,0,2,1,10,0,1,2,8,3,2,1,0,3,7,0,1,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,1,11,0,0,1,5,2,3,0,5,1,11,0,0,2,3,1,0,0,3,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,2,3,7,0,0,4,1,11,0,0,1,5,4,0,0,5,1,11,0,0,2,8,3,3,0,8,1,11,0,0,2,1,11,0,0,2,5,2,2,1,2,8,3,2,1,0,3,7,0,1,0,2,7,0,0,3,11,6,1,0,11,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,8,3,19,0,8,1,11,0,0,2,3,1,0,1,0,6,7,0,0,7,8,3,2,0,9,1,11,0,0,2,1,10,0,1,2,1,10,0,1,0,3,7,0]
+field	expectations.lsp_assertions[15].id	18
+field	expectations.lsp_assertions[15].operation	"equals"
+field	expectations.lsp_assertions[15].path	"/result/data"
 field	expectations.lsp_assertions[1].equals	["declaration","readonly","defaultLibrary","test","result","hole"]
 field	expectations.lsp_assertions[1].id	1
 field	expectations.lsp_assertions[1].operation	"equals"
@@ -13444,10 +13464,10 @@ field	expectations.stdout.contains[5]	"fn located(message: String) -> SourceLoca
 field	expectations.stdout.contains[6]	"\"parameters\":[{\"label\":\"message: String\"}]"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2811,"sha256":"b875815af46158aceb8fbea01c187d72293235492232b7ef92129eef87b477d0"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3870,"sha256":"ceb9128819fe5017c3e0791c5e572d83fa6501f1b35f73133a7b24250829e6be"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"77436afc1f69c21f4189f640ff7fadf622073b9caf080d0158f092f390472109"
+case_digest	"2ef9d850bc157abc2910d07cf474d3ac4d60daec87f77bd7c95dfe27e20cdb40"
 case	"examples/specification/lsp/cleanup-region-navigation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	{"end":{"character":14,"line":7},"start":{"character":6,"line":7}}
@@ -18108,6 +18128,18 @@ field	expectations.mcp_assertions[26].equals	[]
 field	expectations.mcp_assertions[26].id	19
 field	expectations.mcp_assertions[26].operation	"equals"
 field	expectations.mcp_assertions[26].path	"/result/structuredContent/items"
+field	expectations.mcp_assertions[27].equals	"fn callsite(value: Int) -> Int callsite"
+field	expectations.mcp_assertions[27].id	20
+field	expectations.mcp_assertions[27].operation	"equals"
+field	expectations.mcp_assertions[27].path	"/result/structuredContent/signature/label"
+field	expectations.mcp_assertions[28].equals	"fn handler(value: Int) -> Int callsite"
+field	expectations.mcp_assertions[28].id	21
+field	expectations.mcp_assertions[28].operation	"equals"
+field	expectations.mcp_assertions[28].path	"/result/structuredContent/signature/label"
+field	expectations.mcp_assertions[29].equals	"fn handles(value: Int) -> Int callsite"
+field	expectations.mcp_assertions[29].id	22
+field	expectations.mcp_assertions[29].operation	"equals"
+field	expectations.mcp_assertions[29].path	"/result/structuredContent/signature/label"
 field	expectations.mcp_assertions[2].equals	"callsite"
 field	expectations.mcp_assertions[2].id	3
 field	expectations.mcp_assertions[2].operation	"equals"
@@ -18143,9 +18175,9 @@ field	expectations.mcp_assertions[9].path	"/result/structuredContent/signature/a
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2577,"sha256":"80466c8ae34135d67a2fda8d7cc7777f5accba2a27da1549bc4d29c2b557a749"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3015,"sha256":"acdb97b669ef8a5ff3345dc1aa0a75e17b82f0a1bb8e4db9a19238786aea9890"}
 field	source_errors	"forbidden"
-case_digest	"dd2f3106d838c3a046d82bbe93eb6902322933e6c383ddbb98271829ff04d911"
+case_digest	"7f15d756480b55a8a4a33eb816bcfbc4dfb37ff0a2ea9ca44fbd114d311dcca9"
 case	"examples/specification/mcp/check-project-diagnostics"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -63533,4 +63565,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"35483f65cd20c2e94a9ade563fba5747f317c3662f1d68492c42a977c4e1ad7c"
+aggregate_digest	"c4803079a4281033957ee21c69631f543ac30e262b554f10593839b755c82b4a"
