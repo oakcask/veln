@@ -6,6 +6,15 @@ on:
       - main
     paths:
       - .github/workflows/test--vscode-extension.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - crates/**
+      - tools/veln-repo-editor-assets/**
+      - tools/veln-repo-language-reference/**
+      - tools/veln-repo-mcp-standard-library-docs/**
+      - tools/veln-repo-toolchain-case/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -14,6 +23,15 @@ on:
   pull_request:
     paths:
       - .github/workflows/test--vscode-extension.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - crates/**
+      - tools/veln-repo-editor-assets/**
+      - tools/veln-repo-language-reference/**
+      - tools/veln-repo-mcp-standard-library-docs/**
+      - tools/veln-repo-toolchain-case/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -40,7 +58,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+      - name: Prepare Cargo dependencies
+        uses: ./.github/actions/cargo-dependencies
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
+      - name: Test editor asset projection
+        run: cargo test --locked -p veln-repo-editor-assets
       - name: Test VSCode extension
         run: pnpm --filter veln-language test

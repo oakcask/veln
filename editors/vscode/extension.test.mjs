@@ -1,40 +1,70 @@
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
-import vm from "node:vm";
+import { loadExtension, loadLanguageServer, initializeServer, FakeDiagnosticCollection, FakeOutputChannel, fakeDocument, frame, parseRpcMessage, serverCapabilities } from "./test-support.mjs";
 
-test("TextMate grammar recognizes complete binary and hexadecimal integers", () => {
-  const grammarPath = fileURLToPath(
-    new URL("./syntaxes/veln.tmLanguage.json", import.meta.url),
-  );
-  const grammar = JSON.parse(fs.readFileSync(grammarPath, "utf8"));
-  const integerPattern = grammar.repository.numbers.patterns.find(
-    (pattern) => pattern.name === "constant.numeric.integer.veln",
-  );
-
-  assert.equal(
-    integerPattern.match,
-    "\\b(?:0b[01]+|0x[0-9A-Fa-f]+|[0-9]+)\\b",
-  );
+test("registers semantic tokens using the connected server legend order", async () => {
+  const { exports, spawnedProcesses, vscode } = loadExtension();
+  const activation = exports.activate({ subscriptions: [] });
+  assert.equal(vscode._registrations.semanticTokens.length, 0);
+  const legend = { tokenTypes: ["number", "function", "keyword"], tokenModifiers: ["test", "declaration", "readonly"] };
+  spawnedProcesses[0].stdout.emit("data", frame({ jsonrpc: "2.0", id: 1, result: {
+    capabilities: { semanticTokensProvider: { full: true, legend } },
+  } }));
+  await activation;
+  const registration = vscode._registrations.semanticTokens[0];
+  assert.deepEqual(JSON.parse(JSON.stringify(registration.legend)), legend);
+  assert.equal(vscode._registrations.definitions.length, 0);
+  const promise = registration.provider.provideDocumentSemanticTokens(fakeDocument({ uri: "file://main.veln", version: 1, text: "42" }));
+  const request = parseRpcMessage(spawnedProcesses[0].stdin.messages.at(-1));
+  const data = [0, 0, 2, 0, 4];
+  spawnedProcesses[0].stdout.emit("data", frame({ jsonrpc: "2.0", id: request.id, result: { data } }));
+  assert.deepEqual(Array.from((await promise).data), data);
 });
 
-test("TextMate grammar recognizes bitwise and shift operators", () => {
-  const grammarPath = fileURLToPath(
-    new URL("./syntaxes/veln.tmLanguage.json", import.meta.url),
-  );
-  const grammar = JSON.parse(fs.readFileSync(grammarPath, "utf8"));
-  const operatorPattern = grammar.repository.operators.patterns.find(
-    (pattern) => pattern.name === "keyword.operator.veln",
-  );
-  const operator = new RegExp(`^(?:${operatorPattern.match})$`);
-
-  for (const token of ["~", "&", "|", "^", "<<", ">>", ">>>"]) {
-    assert.match(token, operator);
+test("omits unsupported or malformed semantic providers", async () => {
+  for (const capabilities of [{}, { semanticTokensProvider: { range: true } }, { semanticTokensProvider: { full: true, legend: { tokenTypes: [] } } }]) {
+    const { exports, spawnedProcesses, vscode } = loadExtension();
+    const activation = exports.activate({ subscriptions: [] });
+    spawnedProcesses[0].stdout.emit("data", frame({ jsonrpc: "2.0", id: 1, result: { capabilities } }));
+    await activation;
+    assert.equal(vscode._registrations.semanticTokens.length, 0);
+    assert.equal(vscode._registrations.definitions.length, 0);
+    assert.equal(vscode._registrations.virtualDocuments.length, 1);
   }
+});
+
+test("defers document synchronization until initialized", async () => {
+  const { exports, spawnedProcesses } = loadExtension();
+  const server = new exports._test.VelnLanguageServer("veln", ["lsp"], "project", new FakeOutputChannel(), "off", () => {}, () => {});
+  const sync = server.syncDocument(fakeDocument({ uri: "file://main.veln", version: 1, text: "fn\n" }));
+  assert.deepEqual(spawnedProcesses[0].stdin.messages.map(parseRpcMessage).map((message) => message.method), ["initialize"]);
+  await initializeServer(server, spawnedProcesses[0]);
+  await sync;
+  assert.deepEqual(spawnedProcesses[0].stdin.messages.map(parseRpcMessage).map((message) => message.method), ["initialize", "initialized", "textDocument/didOpen"]);
+});
+
+test("reports initialization failure without registering providers", async () => {
+  const { exports, spawnedProcesses, vscode } = loadExtension();
+  const activation = exports.activate({ subscriptions: [] });
+  spawnedProcesses[0].stdout.emit("data", frame({ jsonrpc: "2.0", id: 1, error: { code: -32603, message: "initialization rejected" } }));
+  await activation;
+  assert.equal(vscode._registrations.semanticTokens.length, 0);
+  assert.equal(vscode._registrations.definitions.length, 0);
+  assert.match(vscode._registrations.outputs[0].lines.at(-1), /Failed to initialize.*initialization rejected/);
+});
+
+test("disposal during initialization prevents late provider registration", async () => {
+  const { exports, spawnedProcesses, vscode } = loadExtension();
+  const context = { subscriptions: [] };
+  const activation = exports.activate(context);
+  context.subscriptions.at(-1).dispose();
+  spawnedProcesses[0].stdout.emit("data", frame({ jsonrpc: "2.0", id: 1, result: { capabilities: serverCapabilities } }));
+  await activation;
+  assert.equal(vscode._registrations.semanticTokens.length, 0);
+  assert.equal(vscode._registrations.virtualDocuments.length, 0);
 });
 
 test("maps published LSP diagnostics into a VSCode diagnostic collection", () => {
@@ -120,8 +150,8 @@ test("maps all LSP diagnostic severities", () => {
   );
 });
 
-test("syncs open documents with didOpen and later didChange", () => {
-  const { server, spawnedProcesses } = loadLanguageServer();
+test("syncs open documents with didOpen and later didChange", async () => {
+  const { server, spawnedProcesses } = await loadLanguageServer();
   const document = fakeDocument({
     uri: "file://main.veln",
     version: 1,
@@ -133,16 +163,16 @@ test("syncs open documents with didOpen and later didChange", () => {
   server.syncDocument({ ...document, version: 2, getText: () => "fn\n" });
 
   const messages = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
-  assert.equal(messages.length, 3);
+  assert.equal(messages.length, 4);
   assert.equal(messages[0].method, "initialize");
-  assert.equal(messages[1].method, "textDocument/didOpen");
-  assert.equal(messages[1].params.textDocument.text, document.getText());
-  assert.equal(messages[2].method, "textDocument/didChange");
-  assert.deepEqual(messages[2].params.contentChanges, [{ text: "fn\n" }]);
+  assert.equal(messages[2].method, "textDocument/didOpen");
+  assert.equal(messages[2].params.textDocument.text, document.getText());
+  assert.equal(messages[3].method, "textDocument/didChange");
+  assert.deepEqual(messages[3].params.contentChanges, [{ text: "fn\n" }]);
 });
 
 test("follows a dependency definition through the virtual document request", async () => {
-  const { exports, server, spawnedProcesses } = loadLanguageServer();
+  const { exports, server, spawnedProcesses } = await loadLanguageServer();
   const document = fakeDocument({
     uri: "file://project/main.veln",
     version: 1,
@@ -195,7 +225,9 @@ test("follows a dependency definition through the virtual document request", asy
 test("registers the veln-pkg content provider with canonical URI lookup", async () => {
   const { exports, spawnedProcesses, vscode } = loadExtension();
   const context = { subscriptions: [] };
-  exports.activate(context);
+  const activation = exports.activate(context);
+  spawnedProcesses[0].stdout.emit("data", frame({ jsonrpc: "2.0", id: 1, result: { capabilities: serverCapabilities } }));
+  await activation;
 
   assert.equal(vscode._registrations.virtualDocuments.length, 1);
   const registration = vscode._registrations.virtualDocuments[0];
@@ -368,7 +400,7 @@ test("uses first manifestless source subtree as an anonymous language root", (t)
   assert.deepEqual(exports._test.velnWorkspaceFolderPaths(), [path.join(beta, "src")]);
 });
 
-test("closes synced documents and publishes server diagnostics callbacks", () => {
+test("closes synced documents and publishes server diagnostics callbacks", async () => {
   const diagnostics = [];
   let cleared = false;
   const { exports, spawnedProcesses } = loadExtension();
@@ -389,6 +421,7 @@ test("closes synced documents and publishes server diagnostics callbacks", () =>
     text: "fn\n",
   });
 
+  await initializeServer(server, spawnedProcesses[0]);
   server.syncDocument(document);
   server.closeDocument(document);
   server.closeDocument(document);
@@ -410,7 +443,7 @@ test("closes synced documents and publishes server diagnostics callbacks", () =>
   assert.equal(cleared, false);
 });
 
-test("traces compact protocol messages and redacts verbose document text", () => {
+test("traces compact protocol messages and redacts verbose document text", async () => {
   const { exports, spawnedProcesses } = loadExtension();
   const output = new FakeOutputChannel();
   const server = new exports._test.VelnLanguageServer(
@@ -428,15 +461,8 @@ test("traces compact protocol messages and redacts verbose document text", () =>
     text: "fn main() -> Int\n  1\nend\n",
   });
 
+  await initializeServer(server, spawnedProcesses[0]);
   server.syncDocument(document);
-  spawnedProcesses[0].stdout.emit(
-    "data",
-    frame({
-      jsonrpc: "2.0",
-      id: 1,
-      result: {},
-    }),
-  );
 
   assert.match(output.lines[0], /^\[lsp\] starting server command=/);
   assert(output.lines.includes("[lsp:client] initialize id=1"));
@@ -508,242 +534,3 @@ test("clears diagnostics when the server exits", () => {
 
   assert.equal(cleared, true);
 });
-
-function loadLanguageServer() {
-  const fixture = loadExtension();
-  const server = new fixture.exports._test.VelnLanguageServer(
-    "veln",
-    ["lsp"],
-    "project",
-    new FakeOutputChannel(),
-    "off",
-    () => {},
-    () => {},
-  );
-  return { ...fixture, server };
-}
-
-function loadExtension(options = {}) {
-  const vscode = fakeVscode(options);
-  const spawnedProcesses = [];
-  const module = { exports: {} };
-  const sandbox = {
-    Buffer,
-    console,
-    exports: module.exports,
-    module,
-    require(specifier) {
-      if (specifier === "vscode") {
-        return vscode;
-      }
-      if (specifier === "child_process") {
-        return {
-          spawn(command, args, options) {
-            const process = new FakeChildProcess(command, args, options);
-            spawnedProcesses.push(process);
-            return process;
-          },
-        };
-      }
-      if (specifier === "fs") {
-        return fs;
-      }
-      if (specifier === "path") {
-        return path;
-      }
-      throw new Error(`unexpected require: ${specifier}`);
-    },
-  };
-  const dirname = path.dirname(fileURLToPath(import.meta.url));
-  vm.runInNewContext(fs.readFileSync(path.join(dirname, "extension.js"), "utf8"), sandbox, {
-    filename: "extension.js",
-  });
-  return { exports: module.exports, spawnedProcesses, vscode };
-}
-
-function fakeVscode(options = {}) {
-  const registrations = {
-    definitions: [],
-    virtualDocuments: [],
-  };
-  class Position {
-    constructor(line, character) {
-      this.line = line;
-      this.character = character;
-    }
-  }
-
-  class Range {
-    constructor(start, end) {
-      this.start = start;
-      this.end = end;
-    }
-  }
-
-  class Diagnostic {
-    constructor(range, message, severity) {
-      this.range = range;
-      this.message = message;
-      this.severity = severity;
-    }
-  }
-
-  class Location {
-    constructor(uri, range) {
-      this.uri = uri;
-      this.range = range;
-    }
-  }
-
-  class SemanticTokensLegend {}
-
-  class SemanticTokens {
-    constructor(data) {
-      this.data = data;
-    }
-  }
-
-  const disposable = () => ({ dispose() {} });
-
-  return {
-    _registrations: registrations,
-    Diagnostic,
-    Location,
-    DiagnosticSeverity: {
-      Error: 0,
-      Warning: 1,
-      Information: 2,
-      Hint: 3,
-    },
-    Position,
-    Range,
-    SemanticTokens,
-    SemanticTokensLegend,
-    Uri: {
-      file(value) {
-        const normalized = value.replaceAll("\\", "/");
-        const uri = normalized.startsWith("/")
-          ? `file://${normalized}`
-          : `file://${normalized}`;
-        return { value: uri, fsPath: value, toString: () => uri };
-      },
-      parse(value) {
-        if (value.startsWith("veln-pkg:///")) {
-          const displayed = value.replaceAll("%2F", "/");
-          return { value, toString: () => displayed };
-        }
-        return { value, toString: () => value };
-      },
-    },
-    workspace: {
-      workspaceFolders: (options.workspaceFolders ?? []).map((folder) => ({
-        uri: { fsPath: folder },
-      })),
-      textDocuments: [],
-      getConfiguration() {
-        return { get(_name, fallback) { return fallback; } };
-      },
-      onDidOpenTextDocument: disposable,
-      onDidChangeTextDocument: disposable,
-      onDidCloseTextDocument: disposable,
-      registerTextDocumentContentProvider(scheme, provider) {
-        registrations.virtualDocuments.push({ scheme, provider });
-        return disposable();
-      },
-    },
-    languages: {
-      createDiagnosticCollection() {
-        return {
-          clear() {},
-          delete() {},
-          dispose() {},
-          set() {},
-        };
-      },
-      registerDefinitionProvider(selector, provider) {
-        registrations.definitions.push({ selector, provider });
-        return disposable();
-      },
-      registerDocumentSemanticTokensProvider() {
-        return disposable();
-      },
-    },
-    window: {
-      createOutputChannel() {
-        return new FakeOutputChannel();
-      },
-    },
-  };
-}
-
-class FakeDiagnosticCollection {
-  constructor() {
-    this.entries = [];
-  }
-
-  set(uri, diagnostics) {
-    this.entries.push({ uri, diagnostics });
-  }
-}
-
-class FakeOutputChannel {
-  constructor() {
-    this.lines = [];
-  }
-
-  append(message) {
-    this.lines.push(message);
-  }
-
-  appendLine(message) {
-    this.lines.push(message);
-  }
-}
-
-class FakeChildProcess extends EventEmitter {
-  constructor(command, args, options) {
-    super();
-    this.command = command;
-    this.args = args;
-    this.options = options;
-    this.stdin = new FakeStdin();
-    this.stdout = new EventEmitter();
-    this.stderr = new EventEmitter();
-  }
-}
-
-class FakeStdin {
-  constructor() {
-    this.messages = [];
-    this.writable = true;
-  }
-
-  write(message) {
-    this.messages.push(message);
-  }
-}
-
-function fakeDocument({ uri, version, text }) {
-  return {
-    languageId: "veln",
-    uri: {
-      toString() {
-        return uri;
-      },
-    },
-    version,
-    getText() {
-      return text;
-    },
-  };
-}
-
-function frame(message) {
-  const body = JSON.stringify(message);
-  return Buffer.from(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
-}
-
-function parseRpcMessage(message) {
-  const bodyStart = message.indexOf("\r\n\r\n") + 4;
-  return JSON.parse(message.slice(bodyStart));
-}

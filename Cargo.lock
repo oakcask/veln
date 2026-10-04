@@ -508,6 +508,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "veln-repo-editor-assets"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "veln-editor",
+ "veln-source",
+ "veln-syntax",
+]
+
+[[package]]
 name = "veln-repo-language-reference"
 version = "0.1.0"
 dependencies = [

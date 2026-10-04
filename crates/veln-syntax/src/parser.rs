@@ -310,8 +310,8 @@ pub fn parse(source: &SourceFile) -> ParseOutput {
 
 pub fn bare_expression_bool_literal(segments: &[String]) -> Option<bool> {
     match segments {
-        [segment] if segment == "true" => Some(true),
-        [segment] if segment == "false" => Some(false),
+        [segment] if segment == crate::TRUE_LITERAL => Some(true),
+        [segment] if segment == crate::FALSE_LITERAL => Some(false),
         _ => None,
     }
 }
@@ -446,7 +446,7 @@ pub(crate) fn line_starts_match_arm(tokens: &[Token], cursor: usize) -> bool {
             TokenKind::FatArrow if delimiter_depth == 0 => return !saw_satisfy_suffix,
             TokenKind::Ident
                 if delimiter_depth == 0
-                    && token.text == "satisfy"
+                    && token.text == crate::SATISFY_MARKER
                     && token.range != first.range =>
             {
                 saw_satisfy_suffix = true;

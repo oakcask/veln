@@ -155,9 +155,9 @@ impl<'a> ExprParser<'a> {
         end: TextRange,
         segments: &mut Vec<String>,
     ) -> Option<Pattern> {
-        let kind = if segments.as_slice() == ["true"] {
+        let kind = if segments.as_slice() == [crate::TRUE_LITERAL] {
             PatternKind::BoolLiteral(true)
-        } else if segments.as_slice() == ["false"] {
+        } else if segments.as_slice() == [crate::FALSE_LITERAL] {
             PatternKind::BoolLiteral(false)
         } else if !is_constructor_pattern_name(segments) {
             PatternKind::Binding(segments.remove(0))

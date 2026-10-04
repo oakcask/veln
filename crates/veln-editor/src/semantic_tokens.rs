@@ -32,6 +32,23 @@ pub enum SemanticTokenType {
 }
 
 impl SemanticTokenType {
+    pub fn is_custom(self) -> bool {
+        !matches!(
+            self,
+            Self::Namespace
+                | Self::Type
+                | Self::Parameter
+                | Self::Variable
+                | Self::Property
+                | Self::EnumMember
+                | Self::Function
+                | Self::Keyword
+                | Self::Comment
+                | Self::String
+                | Self::Number
+                | Self::Operator
+        )
+    }
     pub fn as_lsp_str(self) -> &'static str {
         match self {
             Self::Namespace => "namespace",
@@ -81,6 +98,12 @@ pub enum SemanticTokenModifier {
 }
 
 impl SemanticTokenModifier {
+    pub fn is_custom(self) -> bool {
+        !matches!(
+            self,
+            Self::Declaration | Self::Readonly | Self::DefaultLibrary
+        )
+    }
     pub fn as_lsp_str(self) -> &'static str {
         match self {
             Self::Declaration => "declaration",
@@ -117,6 +140,24 @@ pub fn semantic_token_legend() -> (Vec<&'static str>, Vec<&'static str>) {
             .map(|modifier| modifier.as_lsp_str())
             .collect(),
     )
+}
+
+pub fn custom_semantic_token_modifiers() -> Vec<&'static str> {
+    TOKEN_MODIFIERS
+        .iter()
+        .copied()
+        .filter(|modifier| modifier.is_custom())
+        .map(SemanticTokenModifier::as_lsp_str)
+        .collect()
+}
+
+pub fn custom_semantic_token_types() -> Vec<&'static str> {
+    TOKEN_TYPES
+        .iter()
+        .copied()
+        .filter(|kind| kind.is_custom())
+        .map(SemanticTokenType::as_lsp_str)
+        .collect()
 }
 
 pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
@@ -303,7 +344,8 @@ fn is_satisfy_arrow(tokens: &[Token], index: usize) -> bool {
     let Some(satisfy_index) = previous_significant_index(tokens, candidate_index) else {
         return false;
     };
-    tokens[satisfy_index].kind == TokenKind::Ident && tokens[satisfy_index].text == "satisfy"
+    tokens[satisfy_index].kind == TokenKind::Ident
+        && tokens[satisfy_index].text == veln_syntax::SATISFY_MARKER
 }
 
 fn previous_significant_index(tokens: &[Token], index: usize) -> Option<usize> {
