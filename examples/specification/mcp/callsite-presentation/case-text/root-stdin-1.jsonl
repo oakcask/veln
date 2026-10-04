@@ -29,3 +29,6 @@
 {"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"signature_help","arguments":{"source":"over_budget.veln","line":2,"column":1040}}}
 {"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"workspace_projects","arguments":{}}}
 {"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"completion","arguments":{"source":"main.veln","line":2,"column":1}}}
+{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"signature_help","arguments":{"source":"adapter_signatures.veln","line":7,"column":20}}}
+{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"signature_help","arguments":{"source":"adapter_signatures.veln","line":10,"column":22}}}
+{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"signature_help","arguments":{"source":"adapter_signatures.veln","line":19,"column":11}}}

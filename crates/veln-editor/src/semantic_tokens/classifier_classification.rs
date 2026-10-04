@@ -116,17 +116,6 @@ impl<'a> Classifier<'a> {
         if is_type_name(&token.text) {
             return self.simple(token, SemanticTokenType::Type);
         }
-        if self.next_significant_kind() == Some(TokenKind::LParen)
-            || self.function_names.contains(&token.text)
-            || is_prelude_function(&token.text)
-        {
-            let modifiers = if is_prelude_function(&token.text) {
-                SemanticTokenModifiers::empty().with(SemanticTokenModifier::DefaultLibrary)
-            } else {
-                SemanticTokenModifiers::empty()
-            };
-            return self.token(token, SemanticTokenType::Function, modifiers);
-        }
         if self.params.contains(&token.text) {
             return self.modified(
                 token,
@@ -140,6 +129,17 @@ impl<'a> Classifier<'a> {
                 SemanticTokenType::Variable,
                 &[SemanticTokenModifier::Readonly],
             );
+        }
+        if self.next_significant_kind() == Some(TokenKind::LParen)
+            || self.function_names.contains(&token.text)
+            || is_prelude_function(&token.text)
+        {
+            let modifiers = if is_prelude_function(&token.text) {
+                SemanticTokenModifiers::empty().with(SemanticTokenModifier::DefaultLibrary)
+            } else {
+                SemanticTokenModifiers::empty()
+            };
+            return self.token(token, SemanticTokenType::Function, modifiers);
         }
         self.simple(token, SemanticTokenType::Variable)
     }

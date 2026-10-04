@@ -30,6 +30,9 @@
   {"jsonrpc":"2.0","id":83,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_positions.veln"}},"position":{"line":9,"character":41}}},
   {"jsonrpc":"2.0","id":84,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_positions.veln"}},"position":{"line":9,"character":53}}},
   {"jsonrpc":"2.0","id":85,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_positions.veln"}},"position":{"line":9,"character":41}}},
+  {"jsonrpc":"2.0","id":86,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_signatures.veln"}},"position":{"line":6,"character":19}}},
+  {"jsonrpc":"2.0","id":87,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_signatures.veln"}},"position":{"line":9,"character":21}}},
+  {"jsonrpc":"2.0","id":88,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"adapter_signatures.veln"}},"position":{"line":18,"character":10}}},
   {"jsonrpc":"2.0","id":26,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

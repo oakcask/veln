@@ -206,7 +206,7 @@ fn signature_help_keeps_callsite_outside_the_parameter_list() {
 
 #[test]
 fn signature_help_resolves_contextual_function_names_across_sources() {
-    let declarations = ["callsite", "handler", "handles"]
+    let declarations = ["callsite", "handle", "handler", "handles"]
         .into_iter()
         .map(|name| format!("pub fn {name}(value: Int) -> Int callsite\n  value\nend\n"))
         .collect::<String>();
@@ -214,6 +214,7 @@ fn signature_help_resolves_contextual_function_names_across_sources() {
         "use declarations\n",
         "fn caller() -> Int\n",
         "  declarations::callsite(1)\n",
+        "  declarations::handle(1)\n",
         "  declarations::handler(1)\n",
         "  declarations::handles(1)\n",
         "end\n",
@@ -223,7 +224,12 @@ fn signature_help_resolves_contextual_function_names_across_sources() {
         SourceFile::new("main.veln", caller),
     ]);
 
-    for (line, name) in [(3, "callsite"), (4, "handler"), (5, "handles")] {
+    for (line, name) in [
+        (3, "callsite"),
+        (4, "handle"),
+        (5, "handler"),
+        (6, "handles"),
+    ] {
         let source_line = caller.lines().nth(line - 1).expect("call line");
         let column = source_line.find(')').expect("closing parenthesis") + 1;
         let help = signature_help_at(
@@ -237,6 +243,33 @@ fn signature_help_resolves_contextual_function_names_across_sources() {
         .expect("contextual-name signature help");
         assert_eq!(help.label, format!("fn {name}(value: Int) -> Int callsite"));
     }
+}
+
+#[test]
+fn signature_help_does_not_treat_bare_handle_as_a_call_candidate() {
+    let snapshot = snapshot(concat!(
+        "effect Read\n",
+        "  read() -> Int\n",
+        "end\n",
+        "handler answer() handles Read\n",
+        "  read() => 1\n",
+        "end\n",
+        "fn caller() -> Int\n",
+        "  handle (1) with answer()\n",
+        "end\n",
+    ));
+
+    assert!(
+        signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 8,
+                column: 10,
+            },
+        )
+        .is_none()
+    );
 }
 
 #[test]

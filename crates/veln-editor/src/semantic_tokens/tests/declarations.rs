@@ -201,6 +201,96 @@ fn collector_classifies_ordinary_callsite_bindings_and_references() {
         SemanticTokenModifiers::empty().bits(),
     )));
 }
+
+#[test]
+fn collector_prefers_ordinary_callsite_bindings_over_a_same_named_function() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn callsite(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn parameter(callsite: Int) -> Int\n",
+            "  callsite\n",
+            "end\n",
+            "fn local() -> Int\n",
+            "  let callsite = 1\n",
+            "  callsite\n",
+            "end\n",
+            "fn pattern(value: {field: Int}) -> Int\n",
+            "  let {field: callsite} = value\n",
+            "  callsite\n",
+            "end\n",
+            "fn result_name() -> callsite: Int\n",
+            "ensure callsite > 0\n",
+            "  1\n",
+            "end\n",
+            "fn caller() -> Int\n",
+            "  callsite(1)\n",
+            "end\n",
+        ),
+    );
+
+    let callsites = collect_text(&source)
+        .into_iter()
+        .filter(|(text, _, _)| text == "callsite")
+        .collect::<Vec<_>>();
+    let declaration = SemanticTokenModifier::Declaration.bit();
+    let readonly = SemanticTokenModifier::Readonly.bit();
+    let result = declaration | readonly | SemanticTokenModifier::Result.bit();
+
+    assert_eq!(
+        callsites,
+        [
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Function,
+                declaration
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Parameter,
+                declaration | readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Parameter,
+                readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                declaration | readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                declaration | readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                readonly,
+            ),
+            ("callsite".to_string(), SemanticTokenType::Variable, result),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Variable,
+                readonly,
+            ),
+            (
+                "callsite".to_string(),
+                SemanticTokenType::Function,
+                SemanticTokenModifiers::empty().bits(),
+            ),
+        ]
+    );
+}
 #[test]
 fn collector_classifies_schema_declarations_and_format_clauses() {
     let source = SourceFile::new(

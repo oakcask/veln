@@ -200,3 +200,18 @@ equals = {"generation":0,"roots":["."]}
 id = 31
 path = "/result/structuredContent/items"
 equals = [{"label":"callsite","kind":"builtin_local","detail":"built-in SourceLocation local"}]
+
+[[mcp_assert]]
+id = 32
+path = "/result/structuredContent/signature"
+equals = {"label":"fn ordinary(first: Int, second: String) -> Int","parameters":["first: Int","second: String"],"activeParameter":1}
+
+[[mcp_assert]]
+id = 33
+path = "/result/structuredContent/signature"
+equals = {"label":"fn handle(value: Int) -> Int callsite","parameters":["value: Int"],"activeParameter":0}
+
+[[mcp_assert]]
+id = 34
+path = "/result/structuredContent/signature"
+equals = null

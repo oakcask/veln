@@ -268,7 +268,11 @@ impl SignatureHelpSearch<'_, '_> {
     fn candidate(&self, open_index: usize) -> Option<SignatureCallCandidate> {
         let significant_index = open_index.checked_sub(1)?;
         let (token_index, callee) = self.significant.get(significant_index).copied()?;
-        if !callee.kind.is_bare_expression_identifier()
+        let is_qualified = significant_index
+            .checked_sub(1)
+            .is_some_and(|previous| self.significant[previous].1.kind == TokenKind::DoubleColon);
+        if !(callee.kind.is_bare_expression_identifier()
+            || callee.kind == TokenKind::Handle && is_qualified)
             || declaration_name_token(self.significant, significant_index)
         {
             return None;
@@ -277,9 +281,7 @@ impl SignatureHelpSearch<'_, '_> {
             token_index,
             name: callee.text.clone(),
             offset: callee.range.start,
-            is_bare: significant_index
-                .checked_sub(1)
-                .is_none_or(|previous| self.significant[previous].1.kind != TokenKind::DoubleColon),
+            is_bare: !is_qualified,
             is_in_function_body: self
                 .shadow_index
                 .allows_local_signature(self.tokens, token_index),
