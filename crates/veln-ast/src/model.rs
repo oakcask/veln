@@ -110,6 +110,7 @@ pub enum QualifiedPathSegmentEvidence {
 pub struct HandlerDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub params: Vec<Param>,
@@ -291,6 +292,7 @@ pub struct SchemaValidationClause {
 pub struct Function {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub kind: FunctionKind,
     pub visibility: Visibility,
     pub name: Option<String>,

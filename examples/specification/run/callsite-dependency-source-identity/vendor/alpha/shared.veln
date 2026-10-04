@@ -1,0 +1,7 @@
+fn capture_alpha() -> SourceLocation callsite
+	callsite
+end
+
+pub fn alpha_location() -> SourceLocation
+	capture_alpha()
+end

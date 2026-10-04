@@ -17,6 +17,7 @@ use super::*;
 mod diagnostic_conversion;
 mod project_cache;
 mod reachability;
+mod source_location_identity;
 mod support;
 
 use support::*;

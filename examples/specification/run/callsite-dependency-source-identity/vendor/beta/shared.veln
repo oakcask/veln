@@ -1,0 +1,7 @@
+fn capture_beta_() -> SourceLocation callsite
+	callsite
+end
+
+pub fn beta__location() -> SourceLocation
+	capture_beta_()
+end

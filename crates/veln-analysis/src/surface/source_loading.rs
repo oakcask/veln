@@ -185,14 +185,19 @@ pub(super) fn lower_source_tree(
     package: Option<&str>,
 ) -> SurfaceModule {
     match derived_module {
-        Some(module_name) => {
-            let internal_module_name = internal_module_name(package, &module_name);
-            lower_surface_ast_with_module_identity(
+        Some(module_name) => match package {
+            Some(package_name) => lower_surface_ast_with_package_module_identity(
                 tree,
-                internal_module_name,
+                package_name.to_string(),
+                module_name,
                 source.span(TextRange::new(0, 0)),
-            )
-        }
+            ),
+            None => lower_surface_ast_with_module_identity(
+                tree,
+                module_name,
+                source.span(TextRange::new(0, 0)),
+            ),
+        },
         None => lower_surface_ast(tree),
     }
 }

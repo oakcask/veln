@@ -6,7 +6,10 @@ mod satisfy;
 mod traversal;
 mod wire;
 
-pub use lower::{lower_surface_ast, lower_surface_ast_with_module_identity};
+pub use lower::{
+    lower_surface_ast, lower_surface_ast_with_module_identity,
+    lower_surface_ast_with_package_module_identity,
+};
 pub use model::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectBinder, EffectDecl,
     EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,

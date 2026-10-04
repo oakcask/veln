@@ -163,10 +163,18 @@ with coordinates from another source.
 The generated-source mapping does not interpolate between sparse mapping
 entries, infer mappings from equal offsets, transform the contents of a copied
 region, combine multiple original sources, or compose mappings from multiple
-generation stages. The current `package` field is empty. The `module` field is
-the caller's resolved module name, or empty when the caller has no resolved
-module name. Canonical virtual-source naming, dependency disambiguation, and
-relocation guarantees are not part of the current value construction.
+generation stages.
+
+For a workspace source, `package` is empty and `module` is the caller's
+logical module path. For a dependency source, `package` is the dependency's
+public package identity and `module` is its logical package-local module path;
+the internal `package::module` resolution spelling is not exposed. The `file`
+field is package-relative. Two dependencies can therefore expose equal
+`module` and `file` values for the same logical module and relative path while
+remaining distinct through `package`. Loading equivalent project and
+dependency trees from different absolute roots produces identical values for
+all `SourceLocation` fields. Canonical virtual-source naming is not part of
+the current value construction.
 
 ## Limits and diagnostics
 
@@ -186,9 +194,8 @@ second modifier is rejected at the duplicate token and offers removal as a
 repair.
 
 A `veln run` entry cannot carry the modifier because it has no Veln call
-expression from which to obtain a location. Canonical virtual-source naming,
-dependency source-identity collisions, relocation guarantees, and
-deferred-observation lifetime guarantees are not implemented.
+expression from which to obtain a location. Canonical virtual-source naming
+and deferred-observation lifetime guarantees are not implemented.
 Runtime-required contract predicates in ordinary functions do not construct
 call-site context. Execution rejects a direct call from such a predicate to a
 call-site-aware function because the enclosing function has no hidden context
@@ -211,6 +218,8 @@ Functions without the modifier retain their ordinary call ABI.
   `examples/specification/fmt/callsite-modifier/case.toml`.
 - Direct-call and wrapper execution evidence:
   the `callsite-direct-runtime` run specification case.
+- Dependency collision execution evidence:
+  [`callsite-dependency-source-identity`](../../examples/specification/run/callsite-dependency-source-identity/).
 - Unicode coordinate evidence:
   the `callsite-unicode-coordinates` run specification case.
 - Mapped doctest-origin evidence:

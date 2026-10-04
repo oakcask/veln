@@ -1,0 +1,5 @@
+[package]
+name = "example/beta"
+
+[lib]
+exports = ["shared.veln"]

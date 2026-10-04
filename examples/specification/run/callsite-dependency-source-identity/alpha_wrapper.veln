@@ -1,0 +1,5 @@
+use shared from "example/alpha"
+
+pub fn from_alpha() -> SourceLocation
+	shared::alpha_location()
+end

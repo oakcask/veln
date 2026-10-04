@@ -42,7 +42,7 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
         .as_ref()
         .filter(|module| module_name_has_valid_initial(&module.name))
         .map(|module| module.name.clone());
-    builder.lower_surface_ast_with_module(tree, module, module_name)
+    builder.lower_surface_ast_with_module(tree, module, module_name, None)
 }
 
 pub fn lower_surface_ast_with_module_identity(
@@ -51,10 +51,32 @@ pub fn lower_surface_ast_with_module_identity(
     span: SourceSpan,
 ) -> SurfaceModule {
     let mut builder = AstBuilder { next_node_id: 1 };
-    let mut module = builder.lower_surface_ast_with_module(tree, None, Some(name.clone()));
+    let mut module = builder.lower_surface_ast_with_module(tree, None, Some(name.clone()), None);
     module.module = Some(ModuleHeader {
         node_id: builder.alloc(),
         name,
+        span,
+    });
+    module
+}
+
+pub fn lower_surface_ast_with_package_module_identity(
+    tree: &SyntaxTree,
+    package_name: String,
+    module_name: String,
+    span: SourceSpan,
+) -> SurfaceModule {
+    let internal_name = format!("{package_name}::{module_name}");
+    let mut builder = AstBuilder { next_node_id: 1 };
+    let mut module = builder.lower_surface_ast_with_module(
+        tree,
+        None,
+        Some(internal_name.clone()),
+        Some(package_name),
+    );
+    module.module = Some(ModuleHeader {
+        node_id: builder.alloc(),
+        name: internal_name,
         span,
     });
     module
@@ -66,6 +88,7 @@ impl AstBuilder {
         tree: &SyntaxTree,
         module: Option<ModuleHeader>,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> SurfaceModule {
         let uses = tree
             .uses
@@ -87,7 +110,11 @@ impl AstBuilder {
             match item {
                 SyntaxItem::Function(function) => {
                     collect_invalid_function_names(function, &mut invalid_names);
-                    functions.push(self.lower_function(function, module_name.clone()));
+                    functions.push(self.lower_function(
+                        function,
+                        module_name.clone(),
+                        package_name.clone(),
+                    ));
                 }
                 SyntaxItem::Effect(effect) => {
                     collect_invalid_effect_names(effect, &mut invalid_names);
@@ -95,7 +122,11 @@ impl AstBuilder {
                 }
                 SyntaxItem::Handler(handler) => {
                     collect_invalid_handler_names(handler, &mut invalid_names);
-                    handlers.push(self.lower_handler_decl(handler, module_name.clone()));
+                    handlers.push(self.lower_handler_decl(
+                        handler,
+                        module_name.clone(),
+                        package_name.clone(),
+                    ));
                 }
                 SyntaxItem::Type(type_decl) => {
                     collect_invalid_type_names(type_decl, &mut invalid_names);
@@ -320,10 +351,12 @@ impl AstBuilder {
         &mut self,
         handler: &SyntaxHandlerDecl,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> HandlerDecl {
         HandlerDecl {
             node_id: self.alloc(),
             module_name,
+            package_name,
             visibility: match handler.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,
@@ -425,10 +458,12 @@ impl AstBuilder {
         &mut self,
         function: &SyntaxFunction,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> Function {
         Function {
             node_id: self.alloc(),
             module_name,
+            package_name,
             kind: match function.kind {
                 veln_syntax::FunctionKind::Function => FunctionKind::Function,
                 veln_syntax::FunctionKind::Test => FunctionKind::Test,

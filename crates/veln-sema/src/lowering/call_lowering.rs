@@ -416,12 +416,27 @@ impl<'a> CoreLowerer<'a> {
             ),
             span: expr.span.clone(),
         };
+        let package = self.function.package_name.clone().unwrap_or_default();
+        let module = self
+            .function
+            .module_name
+            .as_deref()
+            .map(|module_name| {
+                self.function.package_name.as_deref().map_or_else(
+                    || module_name.to_string(),
+                    |package_name| {
+                        module_name
+                            .strip_prefix(package_name)
+                            .and_then(|module_name| module_name.strip_prefix("::"))
+                            .unwrap_or(module_name)
+                            .to_string()
+                    },
+                )
+            })
+            .unwrap_or_default();
         let fields = vec![
-            string_field("package", String::new()),
-            string_field(
-                "module",
-                self.function.module_name.clone().unwrap_or_default(),
-            ),
+            string_field("package", package),
+            string_field("module", module),
             string_field("file", location.file.as_str().to_string()),
             int_field("start_line", location.start.line),
             int_field("start_column", location.start.column),

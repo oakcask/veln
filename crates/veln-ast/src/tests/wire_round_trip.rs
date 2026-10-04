@@ -89,6 +89,45 @@ fn surface_wire_round_trip_preserves_callsite_modifier_span() {
 }
 
 #[test]
+fn surface_wire_round_trip_preserves_dependency_package_identity() {
+    let source = SourceFile::new(
+        "shared.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "handler ask() handles Ask\n",
+            "  value() => 1\n",
+            "end\n",
+            "fn located() -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty());
+    let module = lower_surface_ast_with_package_module_identity(
+        &parsed.tree,
+        "example/dependency".to_string(),
+        "shared".to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    );
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    assert_eq!(
+        decoded.functions[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.handlers[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_generated_origin_boundaries() {
     let text = concat!(
         "fn located() -> SourceLocation callsite\n",
