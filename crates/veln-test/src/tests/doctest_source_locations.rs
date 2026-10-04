@@ -6,17 +6,10 @@ fn equivalent_source_roots_produce_the_same_virtual_doctest_identity() {
     let second_root = test_root("virtual-doctest-second");
     let relative = std::path::Path::new("docs/guide.veln");
     let text = "## ```veln\n## 1\n## ```\n";
-    let mut observed = Vec::new();
-
-    for root in [&first_root, &second_root] {
-        fs::create_dir_all(root.join("docs")).unwrap();
-        fs::write(root.join(relative), text).unwrap();
-        let source = SourceFile::read(root, &root.join(relative)).unwrap();
-        let doctests = doctest_sources(&[source]);
-        let generated = &doctests.sources[0];
-        let fallback = generated.span(TextRange::at(0)).resolved_or_generated();
-        observed.push((generated.path().as_str().to_string(), fallback.file));
-    }
+    let observed = [
+        virtual_doctest_identity(&first_root, relative, text),
+        virtual_doctest_identity(&second_root, relative, text),
+    ];
 
     assert_eq!(observed[0], observed[1]);
     assert_eq!(observed[0].0, "docs/guide.veln#doctest-1_test.veln");
@@ -26,6 +19,20 @@ fn equivalent_source_roots_produce_the_same_virtual_doctest_identity() {
 
     fs::remove_dir_all(first_root).unwrap();
     fs::remove_dir_all(second_root).unwrap();
+}
+
+fn virtual_doctest_identity(
+    root: &std::path::Path,
+    relative: &std::path::Path,
+    text: &str,
+) -> (String, veln_source::SourcePath) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(root.join(relative), text).unwrap();
+    let source = SourceFile::read(root, &root.join(relative)).unwrap();
+    let doctests = doctest_sources(&[source]);
+    let generated = &doctests.sources[0];
+    let fallback = generated.span(TextRange::at(0)).resolved_or_generated();
+    (generated.path().as_str().to_string(), fallback.file)
 }
 
 #[test]
