@@ -40,6 +40,38 @@ fn lexes_number_string_hole_and_invalid_boundaries() {
 }
 
 #[test]
+fn lexes_handles_as_an_ordinary_identifier() {
+    let source = SourceFile::new("tokens.veln", "handles for\n");
+
+    let significant = lex(&source)
+        .tokens
+        .into_iter()
+        .filter(|token| token.kind != TokenKind::Whitespace)
+        .map(|token| (token.kind, token.text))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        significant,
+        vec![
+            (TokenKind::Ident, "handles".to_string()),
+            (TokenKind::For, "for".to_string()),
+            (TokenKind::Newline, "\n".to_string()),
+            (TokenKind::Eof, String::new()),
+        ]
+    );
+    assert!(
+        !PUBLIC_KEYWORDS
+            .iter()
+            .any(|keyword| keyword.spelling == "handles")
+    );
+    assert!(
+        PUBLIC_KEYWORDS
+            .iter()
+            .any(|keyword| keyword.kind == TokenKind::For && keyword.spelling == "for")
+    );
+}
+
+#[test]
 fn token_kind_labels_cover_every_surface_token() {
     let cases = [
         (TokenKind::Whitespace, "whitespace"),

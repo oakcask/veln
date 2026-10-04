@@ -1,4 +1,4 @@
-handler fixed_network(label: String, chunk: ByteChunk) handles host_effects::Network
+handler fixed_network(label: String, chunk: ByteChunk) for host_effects::Network
 	request(operation, subject, bytes, remaining_ms, cancelled) => {
 		status: "ok",
 		value: label,

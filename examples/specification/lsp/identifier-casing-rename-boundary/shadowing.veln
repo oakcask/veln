@@ -3,7 +3,7 @@ effect Choose
   current() -> Int
 end
 
-handler choose(ctx: Int) handles Choose
+handler choose(ctx: Int) for Choose
   choose(value) => value
   current() => ctx
 end
@@ -23,7 +23,7 @@ effect ChoosePair
   other(value: Int, extra: Int) -> Int
 end
 
-handler choose_pair() handles ChoosePair
+handler choose_pair() for ChoosePair
   choose(left, right) => right
   other(value, extra) => extra
 end

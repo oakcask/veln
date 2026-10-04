@@ -4,7 +4,7 @@ fn provide(offset: Int) -> Int
 	offset + 1
 end
 
-handler ask(offset: Int) handles math::Ask
+handler ask(offset: Int) for math::Ask
 	value() => provide(offset)
 end
 

@@ -46,7 +46,6 @@
     "callsite",
     "perform",
     "handler",
-    "handles",
     "handle",
     "let",
     "defer",
@@ -239,16 +238,6 @@
     },
     {
       "source": "handler",
-      "tokens": [
-        {
-          "end": 7,
-          "kind": "keyword",
-          "start": 0
-        }
-      ]
-    },
-    {
-      "source": "handles",
       "tokens": [
         {
           "end": 7,
@@ -993,7 +982,7 @@
       ]
     },
     {
-      "source": "_ _todo _123 name_123 Upper_type",
+      "source": "_ _todo _123 name_123 handles Upper_type",
       "tokens": [
         {
           "end": 1,
@@ -1016,9 +1005,14 @@
           "start": 13
         },
         {
-          "end": 32,
-          "kind": "type",
+          "end": 29,
+          "kind": "identifier",
           "start": 22
+        },
+        {
+          "end": 40,
+          "kind": "type",
+          "start": 30
         }
       ]
     },

@@ -107,7 +107,7 @@ fn surface_wire_round_trip_preserves_dependency_package_identity() {
             "effect Ask\n",
             "  value() -> Int\n",
             "end\n",
-            "handler ask() handles Ask\n",
+            "handler ask() for Ask\n",
             "  value() => 1\n",
             "end\n",
             "fn located() -> SourceLocation callsite\n",

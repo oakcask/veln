@@ -1,6 +1,6 @@
 use math
 
-handler ask() handles math::Ask
+handler ask() for math::Ask
 	value() => provide()
 end
 

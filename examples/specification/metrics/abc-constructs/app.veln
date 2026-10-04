@@ -12,7 +12,7 @@ fn provide(context: Int) -> Int
 	context
 end
 
-handler ask(context: Int) handles Ask
+handler ask(context: Int) for Ask
 	value() => provide(context)
 end
 

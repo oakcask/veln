@@ -520,7 +520,7 @@ fn is_handler_handled_effect_token(
 ) -> bool {
     tokens[index].kind == TokenKind::Ident
         && previous_non_layout_token(tokens, path_roots[index])
-            .is_some_and(|previous| previous.kind == TokenKind::Handles)
+            .is_some_and(|previous| previous.kind == TokenKind::For)
         && next_non_layout_token(tokens, index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon)
 }

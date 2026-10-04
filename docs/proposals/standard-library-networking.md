@@ -225,7 +225,7 @@ unbounded retry loop.
 The module exports:
 
 ```veln
-pub handler system() handles net::IO effects [net, time]
+pub handler system() for net::IO effects [net, time]
 ```
 
 The handler translates portable operations to private host intrinsics. The

@@ -32,7 +32,6 @@ pub enum TokenKind {
     Callsite,
     Perform,
     Handler,
-    Handles,
     Handle,
     Let,
     Defer,
@@ -91,7 +90,7 @@ impl TokenKind {
     pub fn is_contextual_identifier(self) -> bool {
         matches!(
             self,
-            Self::Ident | Self::Callsite | Self::Handle | Self::Handler | Self::Handles
+            Self::Ident | Self::Callsite | Self::Handle | Self::Handler
         )
     }
 
@@ -100,10 +99,7 @@ impl TokenKind {
     }
 
     pub fn is_bare_expression_identifier(self) -> bool {
-        matches!(
-            self,
-            Self::Ident | Self::Callsite | Self::Handler | Self::Handles
-        )
+        matches!(self, Self::Ident | Self::Callsite | Self::Handler)
     }
 
     pub const ALL: &'static [Self] = &[
@@ -136,7 +132,6 @@ impl TokenKind {
         Self::Callsite,
         Self::Perform,
         Self::Handler,
-        Self::Handles,
         Self::Handle,
         Self::Let,
         Self::Defer,
@@ -336,10 +331,6 @@ pub const PUBLIC_KEYWORDS: &[PublicToken] = &[
     PublicToken {
         kind: TokenKind::Handler,
         spelling: "handler",
-    },
-    PublicToken {
-        kind: TokenKind::Handles,
-        spelling: "handles",
     },
     PublicToken {
         kind: TokenKind::Handle,
@@ -606,7 +597,6 @@ const TOKEN_LABELS: &[&str] = &[
     "callsite",
     "perform",
     "handler",
-    "handles",
     "handle",
     "let",
     "defer",

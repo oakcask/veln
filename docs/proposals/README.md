@@ -16,9 +16,6 @@ also states it.
 
 ## Ready
 
-- Handler target syntax using the existing `for` keyword, removing `handles`
-  from the keyword set while preserving handler semantics:
-  [handler-for-syntax.md](handler-for-syntax.md).
 - Standard-library structured logs, events, metrics, traces, explicit context
   propagation, and substitutable exporters, building on canonical and retained
   call-site locations:

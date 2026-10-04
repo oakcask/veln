@@ -47,7 +47,7 @@ fn discard_write_chunks(chunk: ByteChunk, chunks: List<ByteChunk>) -> ()
 	()
 end
 
-handler fixed_duplex(chunk: ByteChunk) handles transport::DuplexStream
+handler fixed_duplex(chunk: ByteChunk) for transport::DuplexStream
 	read_chunk() => fixed_read_chunk(chunk)
 	write_chunks(chunks) => discard_write_chunks(chunk, chunks)
 end
@@ -136,7 +136,7 @@ test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), 
 	callback_network_trace_matches(observed)
 end
 
-handler callback_network(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }) handles host_effects::Network effects [concurrency]
+handler callback_network(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }) for host_effects::Network effects [concurrency]
 	request(operation, subject, bytes, remaining_ms, cancelled) => callback_network_reply(response, trace, operation, bytes)
 end
 

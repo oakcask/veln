@@ -165,7 +165,6 @@ fn is_source_keyword(name: &str) -> bool {
             | "effects"
             | "perform"
             | "handler"
-            | "handles"
             | "handle"
             | "let"
             | "end"

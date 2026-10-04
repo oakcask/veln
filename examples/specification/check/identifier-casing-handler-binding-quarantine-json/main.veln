@@ -2,6 +2,6 @@ effect Ask
   value(input: Int) -> Int
 end
 
-handler ask(Context: Int) handles Ask
+handler ask(Context: Int) for Ask
   value(Result) => _missing
 end

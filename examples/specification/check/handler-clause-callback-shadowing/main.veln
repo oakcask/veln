@@ -19,11 +19,11 @@ fn traced_callback() -> Int effects [stdio]
 	2
 end
 
-handler run_pure() handles PureRunner
+handler run_pure() for PureRunner
 	pure(callback) => callback()
 end
 
-handler run_traced() handles TraceRunner
+handler run_traced() for TraceRunner
 	traced(callback) => callback()
 end
 

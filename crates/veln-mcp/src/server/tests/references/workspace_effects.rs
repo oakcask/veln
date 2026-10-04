@@ -263,7 +263,7 @@ fn references_page_workspace_effect_operation_locations_with_unicode_scalar_coor
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int effects [Choose]\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n\r\nhandler chooser() handles Choose\r\n  pick() => 1\r\nend\r\n",
+        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int effects [Choose]\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n\r\nhandler chooser() for Choose\r\n  pick() => 1\r\nend\r\n",
     );
     let mut server = initialized_server(&workspace);
     let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
@@ -607,7 +607,7 @@ fn references_collect_same_module_effects_and_exclude_lexical_and_module_collisi
         "uses.veln",
         concat!(
             "mod shared\n\n",
-            "handler choose(callback: fn() -> Int effects [Choose], value: Choose) handles Choose effects [Choose]\n",
+            "handler choose(callback: fn() -> Int effects [Choose], value: Choose) for Choose effects [Choose]\n",
             "  pick() => perform Choose::pick()\n",
             "end\n",
         ),
@@ -641,11 +641,11 @@ fn references_collect_same_module_effects_and_exclude_lexical_and_module_collisi
             },
             {
                 "uri": crate::definition::path_to_uri(&workspace.path("uses.veln")),
-                "range": {"start":{"line":3,"column":79},"end":{"line":3,"column":85}}
+                "range": {"start":{"line":3,"column":75},"end":{"line":3,"column":81}}
             },
             {
                 "uri": crate::definition::path_to_uri(&workspace.path("uses.veln")),
-                "range": {"start":{"line":3,"column":95},"end":{"line":3,"column":101}}
+                "range": {"start":{"line":3,"column":91},"end":{"line":3,"column":97}}
             },
             {
                 "uri": crate::definition::path_to_uri(&workspace.path("uses.veln")),
@@ -664,7 +664,7 @@ fn references_reject_imported_and_invalid_cased_effects() {
     );
     workspace.write(
         "main.veln",
-        "effect Task\n  run() -> Int\nend\n\nuse dep from \"example/dep\"\n\nfn imported() -> Int effects [dep::Task]\n  perform dep::Task::run()\nend\n\nhandler imported_handler() handles dep::Task\n  run() => 1\nend\n",
+        "effect Task\n  run() -> Int\nend\n\nuse dep from \"example/dep\"\n\nfn imported() -> Int effects [dep::Task]\n  perform dep::Task::run()\nend\n\nhandler imported_handler() for dep::Task\n  run() => 1\nend\n",
     );
     workspace.write(
         "invalid.veln",
@@ -708,7 +708,7 @@ fn references_reject_unresolved_and_mismatched_effect_occurrences() {
             "fn boundaries() -> Int effects [Choose, Missing, choose]\n",
             "  perform Choose::pick()\n",
             "end\n\n",
-            "handler missing_handler() handles Missing\n",
+            "handler missing_handler() for Missing\n",
             "  pick() => 1\n",
             "end\n",
         ),
@@ -735,7 +735,7 @@ fn references_reject_qualified_workspace_handler_clause_headings() {
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "mod local\n\neffect Task\n  run() -> Int\nend\n\nhandler qualified() handles foreign::Task\n  run() => 1\nend\n",
+        "mod local\n\neffect Task\n  run() -> Int\nend\n\nhandler qualified() for foreign::Task\n  run() => 1\nend\n",
     );
     workspace.write(
         "foreign.veln",
@@ -756,7 +756,7 @@ fn references_reject_standard_library_effect_and_handler_clause_headings() {
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "use transport from \"std\"\n\nhandler standard() handles transport::DuplexStream\n  read_chunk() => 1\nend\n",
+        "use transport from \"std\"\n\nhandler standard() for transport::DuplexStream\n  read_chunk() => 1\nend\n",
     );
     let mut server = initialized_server_with_embedded_resources(&workspace);
 
@@ -784,7 +784,7 @@ fn references_reject_balanced_recovery_shapes() {
             "end\n\n",
             "fn broken() -> Int\n",
             "  effects [Choose]\n",
-            "  handles Choose\n",
+            "  for Choose\n",
             "  value perform Choose::pick()\n",
             "end\n",
         ),
@@ -821,7 +821,7 @@ fn references_reject_recovered_effect_row_and_handler_tokens() {
                 "effect Choose\n",
                 "  pick() -> Int\n",
                 "end\n\n",
-                "handler broken() handles Choose @\n",
+                "handler broken() for Choose @\n",
                 "  pick() => 1\n",
                 "end\n",
             ),
@@ -886,7 +886,7 @@ fn references_do_not_resolve_clean_uses_to_recovered_declarations() {
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "effect Choose\nend\n\nfn use() -> Int effects [Choose]\n  perform Choose::pick()\nend\n\nhandler choose_handler() handles Choose\n  pick() => perform Choose::pick()\nend\n",
+        "effect Choose\nend\n\nfn use() -> Int effects [Choose]\n  perform Choose::pick()\nend\n\nhandler choose_handler() for Choose\n  pick() => perform Choose::pick()\nend\n",
     );
     let mut server = initialized_server(&workspace);
     for (line, column) in [(4, 25), (5, 11), (8, 33), (9, 21)] {
@@ -952,7 +952,7 @@ fn recovered_effect_declaration_makes_a_clean_same_module_declaration_ambiguous(
             "fn use() -> Int effects [Choose]\n",
             "  perform Choose::pick()\n",
             "end\n\n",
-            "handler use_handler() handles Choose\n",
+            "handler use_handler() for Choose\n",
             "  pick() => perform Choose::pick()\n",
             "end\n",
         ),

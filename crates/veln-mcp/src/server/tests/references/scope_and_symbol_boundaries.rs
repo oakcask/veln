@@ -520,7 +520,7 @@ fn references_include_declarations_for_new_workspace_symbol_classes() {
             "effect Run\n",
             "  call(action: fn() -> Int) -> Int\n",
             "end\n\n",
-            "handler run(callback: fn(Int) -> Int) handles Run\n",
+            "handler run(callback: fn(Int) -> Int) for Run\n",
             "  call(action) => callback(action())\n",
             "end\n",
         ),

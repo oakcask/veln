@@ -77,14 +77,14 @@ fn references_expose_every_shared_recovery_identity_from_declaration_and_use() {
         },
         RecoveryCase {
             name: "handler context parameter",
-            source: "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust(Callback: fn(Int) -> Int) handles Adjust\n  amount(value) => Callback(value)\nend\n",
+            source: "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust(Callback: fn(Int) -> Int) for Adjust\n  amount(value) => Callback(value)\nend\n",
             declaration: (5, 16),
             reference: (6, 22),
             ranges: &[(6, 20, 28)],
         },
         RecoveryCase {
             name: "handler operation-clause parameter",
-            source: "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n  amount(Result) => Result\nend\n",
+            source: "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() for Adjust\n  amount(Result) => Result\nend\n",
             declaration: (6, 10),
             reference: (6, 21),
             ranges: &[(6, 21, 27)],

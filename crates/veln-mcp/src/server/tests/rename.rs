@@ -213,7 +213,7 @@ fn rename_handler_clause_begin_local_edits_declaration_and_cleanup_uses() {
             "effect Ask\n",
             "  value() -> Int\n",
             "end\n\n",
-            "handler ask() handles Ask\n",
+            "handler ask() for Ask\n",
             "  value() => begin\n",
             "    let captured = 1\n",
             "    defer\n",
@@ -325,7 +325,7 @@ fn rename_type_edits_function_and_handler_cleanup_annotations() {
             "  end\n",
             "  begun\n",
             "end\n\n",
-            "handler ask(seed: Resource) handles Ask\n",
+            "handler ask(seed: Resource) for Ask\n",
             "  value() => begin\n",
             "    defer\n",
             "      let deferred: Resource = seed\n",
@@ -506,7 +506,7 @@ fn rename_supported_class_locations_match_shared_language_service() {
     let math_test = "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n";
     let handler = concat!(
         "effect Choose\n  pick(value: Bool) -> Int\nend\n\n",
-        "handler choose(callback: fn(Int) -> Int) handles Choose\n",
+        "handler choose(callback: fn(Int) -> Int) for Choose\n",
         "  pick(value) => callback(value)\nend\n",
     );
     for (path, text) in [
@@ -618,7 +618,7 @@ fn rename_supports_aliases_companion_private_functions_and_handler_bindings() {
         "handler.veln",
         concat!(
             "effect Choose\n  pick(value: Bool) -> Int\nend\n\n",
-            "handler choose(callback: fn(Int) -> Int) handles Choose\n",
+            "handler choose(callback: fn(Int) -> Int) for Choose\n",
             "  pick(value) => callback(value)\nend\n",
         ),
     );
@@ -698,7 +698,7 @@ fn rename_preserves_callable_constructor_and_handler_recovery_identities() {
             "fn read_constructor() -> item\n  value(1)\nend\n\n",
             "fn read_callback(Callback: fn() -> Int) -> Int\n  Callback\n  Callback()\nend\n\n",
             "effect Adjust\n  amount(value: Int) -> Int\nend\n\n",
-            "handler adjust(Callback: fn(Int) -> Int) handles Adjust\n",
+            "handler adjust(Callback: fn(Int) -> Int) for Adjust\n",
             "  amount(Value) => Callback(Value)\nend\n",
         ),
     );
@@ -845,7 +845,7 @@ fn rename_reports_handler_binding_and_recovery_conflicts() {
             "fn source() -> Int\n",
             "  1\n",
             "end\n\n",
-            "handler choose() handles Choose\n",
+            "handler choose() for Choose\n",
             "  choose(target) => source()\n",
             "end\n",
         ),
@@ -873,7 +873,7 @@ fn rename_reports_handler_binding_and_recovery_conflicts() {
             "fn origin() -> Int\n",
             "  1\n",
             "end\n\n",
-            "handler adjust(target: Int) handles Adjust\n",
+            "handler adjust(target: Int) for Adjust\n",
             "  amount(value) => origin()\n",
             "end\n",
         ),

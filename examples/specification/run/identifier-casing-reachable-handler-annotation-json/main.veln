@@ -14,11 +14,11 @@ fn body() -> Int effects [Ask]
   perform Ask::value()
 end
 
-handler ask(seed: item) handles Ask
+handler ask(seed: item) for Ask
   value() => 1
 end
 
-handler unreachable(seed: other) handles Ask
+handler unreachable(seed: other) for Ask
   value() => 2
 end
 

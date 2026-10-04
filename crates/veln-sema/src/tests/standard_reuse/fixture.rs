@@ -65,7 +65,7 @@ pub(super) fn standard_module() -> SurfaceModule {
             "  offset + 1\n",
             "end\n",
             "\n",
-            "pub handler ask(offset: Int) handles Ask\n",
+            "pub handler ask(offset: Int) for Ask\n",
             "  value() => provide(offset)\n",
             "end\n",
             "\n",

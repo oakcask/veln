@@ -292,7 +292,7 @@ this boundary from the shared language-service snapshot. The MCP navigation
 adapters inherit the same boundary when they capture a saved snapshot.
 For a selected valid-cased, unrecovered workspace effect declaration,
 references include every structurally complete bare effect-row occurrence on
-functions, tests, handlers, and function types, every handler `handles` target,
+functions, tests, handlers, and function types, every handler `for` target,
 and every `perform
 Effect::operation(...)` qualifier in saved workspace sources that declare the
 same module. The declaration and each supported occurrence select the same
@@ -345,7 +345,7 @@ can use the full module path or its unique implicit leaf alias. An exact full
 path takes precedence over a colliding implicit leaf alias. References also
 include each
 structurally complete matching operation-clause heading in a parse-clean
-same-module handler whose bare `handles` target resolves to the owning effect.
+same-module handler whose bare `for` target resolves to the owning effect.
 The declaration, every included leaf, and every included heading select the
 same module, owning-effect, and operation identity. Each returned range covers
 only the operation name. A definition request at any of those forms returns the
@@ -363,7 +363,7 @@ incomplete, recovered, or additionally qualified operation paths. An operation
 leaf is also excluded when its argument list requires syntax recovery, even if
 the adjacent effect qualifier remains eligible for effect references. A clause
 heading is excluded when its handler declaration is duplicate or recovered,
-its heading is duplicate or recovered, or its `handles` target is qualified,
+its heading is duplicate or recovered, or its `for` target is qualified,
 imported, package-backed, unresolved, or ambiguous. Unknown operation names
 and equal spelling in another effect, module, symbol class, comment, or string
 do not enter the result. Clause parameters and bodies keep their separate

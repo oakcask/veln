@@ -124,7 +124,7 @@ grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL Ty
 grammar_line(101, "EffectDecl    ::= \"pub\"? \"effect\" Name NL EffectOperation+ \"end\" NL?").
 grammar_line(101, "EffectOperation ::= Name \"(\" EffectParamList? \")\" \"->\" TypeText NL").
 grammar_line(101, "EffectParamList ::= Name \":\" TypeText (\",\" Name \":\" TypeText)*").
-grammar_line(101, "HandlerDecl   ::= \"pub\"? \"handler\" Name \"(\" ParamList? \")\" \"handles\" MemberPath Effects? NL HandlerOperationClause+ \"end\" NL?").
+grammar_line(101, "HandlerDecl   ::= \"pub\"? \"handler\" Name \"(\" ParamList? \")\" \"for\" MemberPath Effects? NL HandlerOperationClause+ \"end\" NL?").
 grammar_line(101, "HandlerOperationClause ::= Name \"(\" HandlerOperationParams? \")\" \"=>\" Expr NL").
 grammar_line(101, "HandlerOperationParams ::= Name (\",\" Name)*").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?").
@@ -359,7 +359,6 @@ keyword_kind("effects", effects).
 keyword_kind("callsite", callsite).
 keyword_kind("perform", perform).
 keyword_kind("handler", handler).
-keyword_kind("handles", handles).
 keyword_kind("handle", handle).
 keyword_kind("let", let).
 keyword_kind("defer", defer).
@@ -472,7 +471,7 @@ handler_decl -->
     tok(lparen),
     params_opt,
     tok(rparen),
-    tok(handles),
+    tok(for),
     member_path,
     effects_opt,
     nl,
@@ -1187,7 +1186,6 @@ identifier_text(Text) --> [t(ident, Text)].
 identifier_text(Text) --> [t(callsite, Text)].
 identifier_text(Text) --> [t(handle, Text)].
 identifier_text(Text) --> [t(handler, Text)].
-identifier_text(Text) --> [t(handles, Text)].
 path_segment --> ident.
 path_segment --> tok(decode).
 path_segment --> tok(encode).

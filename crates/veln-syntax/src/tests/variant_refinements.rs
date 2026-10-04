@@ -89,7 +89,7 @@ fn parses_test_results_and_handler_parameters_as_variant_refinements() {
             "effect Transition\n",
             "  move(value: State) -> State\n",
             "end\n",
-            "handler gate(state: State::Ready | State::Closed) handles Transition\n",
+            "handler gate(state: State::Ready | State::Closed) for Transition\n",
             "  move(value) => value\n",
             "end\n",
             "test exact_result() -> Result<Int, Error>::Ok\n",

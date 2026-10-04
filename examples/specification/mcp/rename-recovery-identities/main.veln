@@ -28,6 +28,6 @@ effect Adjust
   amount(value: Int) -> Int
 end
 
-handler adjust(Callback: fn(Int) -> Int) handles Adjust
+handler adjust(Callback: fn(Int) -> Int) for Adjust
   amount(Value) => Callback(Value)
 end

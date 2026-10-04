@@ -302,6 +302,11 @@ the source-surface grammar artifact must agree with these productions. The
 productions describe accepted form; the cleanup nesting resource limit is the
 prose contract above.
 
+A handler declaration requires `for` between its parameter list and its one
+nominal effect target. The former `handles` spelling is an ordinary identifier,
+so it may be used wherever the corresponding identifier casing rules permit.
+Using it as the handler separator is rejected with `for` as the expected token.
+
 <!-- source-surface-grammar:start -->
 ```text
 Module        ::= ModuleHeader? UseDecl* Item*
@@ -326,7 +331,7 @@ TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 EffectDecl    ::= "pub"? "effect" Name NL EffectOperation+ "end" NL?
 EffectOperation ::= Name "(" EffectParamList? ")" "->" TypeText NL
 EffectParamList ::= Name ":" TypeText ("," Name ":" TypeText)*
-HandlerDecl   ::= "pub"? "handler" Name "(" ParamList? ")" "handles" MemberPath Effects? NL HandlerOperationClause+ "end" NL?
+HandlerDecl   ::= "pub"? "handler" Name "(" ParamList? ")" "for" MemberPath Effects? NL HandlerOperationClause+ "end" NL?
 HandlerOperationClause ::= Name "(" HandlerOperationParams? ")" "=>" Expr NL
 HandlerOperationParams ::= Name ("," Name)*
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? "end" NL?

@@ -13,7 +13,7 @@ effect common
 	common() -> Int
 end
 
-handler common() handles common
+handler common() for common
 	common() => 1
 end
 

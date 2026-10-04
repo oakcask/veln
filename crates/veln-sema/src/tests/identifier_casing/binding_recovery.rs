@@ -136,7 +136,7 @@ fn invalid_handler_bindings_do_not_enter_hole_repair_context() {
             "effect Ask\n",
             "  value(input: Int) -> Int\n",
             "end\n",
-            "handler ask(Context: Int) handles Ask\n",
+            "handler ask(Context: Int) for Ask\n",
             "  value(Result) => _missing\n",
             "end\n",
         ),

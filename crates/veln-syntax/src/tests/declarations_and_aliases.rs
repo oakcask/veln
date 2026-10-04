@@ -369,8 +369,8 @@ fn dispatches_mixed_public_and_private_top_level_declarations_in_source_order() 
             "schema PrivateSchema\n  format binary\n  value: UInt8\nend\n",
             "pub effect PublicEffect\n  call() -> ()\nend\n",
             "effect PrivateEffect\n  call() -> ()\nend\n",
-            "pub handler public_handler() handles PublicEffect\n  call() => public_fn()\nend\n",
-            "handler private_handler() handles PrivateEffect\n  call() => private_fn()\nend\n",
+            "pub handler public_handler() for PublicEffect\n  call() => public_fn()\nend\n",
+            "handler private_handler() for PrivateEffect\n  call() => private_fn()\nend\n",
             "pub fn alias = implementation::function\n",
         ),
     );

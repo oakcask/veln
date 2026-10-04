@@ -1,0 +1,34 @@
+# This case covers CLI JSON rendering for parser-owned handler separator failures.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["parse.expected_token", "expected for", "handles"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.expected.0"
+equals = "for"
+
+[[json_assert]]
+path = "diagnostics.0.details.recovery.strategy"
+equals = "skip_token"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected.0"
+equals = "for"
+
+[[json_assert]]
+path = "diagnostics.1.details.recovery.strategy"
+equals = "insert_token"

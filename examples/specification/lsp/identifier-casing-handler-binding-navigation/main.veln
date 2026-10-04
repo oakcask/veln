@@ -3,7 +3,7 @@ effect Adjust
   echo(value: Int) -> Int
 end
 
-handler adjust(Callback: fn(Int) -> Int) handles Adjust
+handler adjust(Callback: fn(Int) -> Int) for Adjust
   amount(value) => Callback(value)
   echo(Result) => Callback(Result)
 end

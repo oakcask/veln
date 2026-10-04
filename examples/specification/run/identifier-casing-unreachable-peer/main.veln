@@ -28,6 +28,6 @@ effect Ask
   value() -> Int
 end
 
-handler ask(Context: Int) handles Ask
+handler ask(Context: Int) for Ask
   value() => Context
 end

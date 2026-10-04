@@ -515,7 +515,7 @@ fn bytecode_backend_runs_lexical_handlers_when_java_is_available() {
          fn provide(base: Int, value: Int) -> Int\n\
            base + value\n\
          end\n\
-         handler picker(base: Int) handles Pick\n\
+         handler picker(base: Int) for Pick\n\
            next(step) => provide(base, step)\n\
          end\n\
          pub fn main() -> () effects [stdio]\n\

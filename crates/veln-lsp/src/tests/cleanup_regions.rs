@@ -208,7 +208,7 @@ fn cleanup_region_type_annotations_support_function_and_handler_navigation() {
         "  begun\n",
         "end\n",
         "\n",
-        "handler ask(seed: Resource) handles Ask\n",
+        "handler ask(seed: Resource) for Ask\n",
         "  value() => begin\n",
         "    defer\n",
         "      let deferred: Resource = seed\n",

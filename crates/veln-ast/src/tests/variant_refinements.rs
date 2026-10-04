@@ -6,7 +6,7 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
         "effect Transition\n",
         "  move(state: State::Ready | State::Closed) -> Result<Int, Error>::Ok\n",
         "end\n",
-        "handler gate(state: State::Ready | State::Closed) handles Transition\n",
+        "handler gate(state: State::Ready | State::Closed) for Transition\n",
         "  move(value) => value\n",
         "end\n",
         "type Boxed\n",

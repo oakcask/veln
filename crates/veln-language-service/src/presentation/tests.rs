@@ -251,7 +251,7 @@ fn signature_help_does_not_treat_bare_handle_as_a_call_candidate() {
         "effect Read\n",
         "  read() -> Int\n",
         "end\n",
-        "handler answer() handles Read\n",
+        "handler answer() for Read\n",
         "  read() => 1\n",
         "end\n",
         "fn caller() -> Int\n",

@@ -34,7 +34,7 @@ fn server_returns_semantic_tokens_for_handler_clause_satisfy_body() {
             "  fallback() -> Int\n",
             "end\n",
             "\n",
-            "handler choose() handles Choose\n",
+            "handler choose() for Choose\n",
             "  pick(value) => _choice satisfy candidate => candidate == value\n",
             "  fallback() => 0\n",
             "end\n",

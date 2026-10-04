@@ -36,7 +36,6 @@ impl<'a> Classifier<'a> {
             | TokenKind::Effects
             | TokenKind::Perform
             | TokenKind::Handler
-            | TokenKind::Handles
             | TokenKind::Handle
             | TokenKind::Let
             | TokenKind::Defer

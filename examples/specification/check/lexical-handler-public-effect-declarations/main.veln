@@ -7,11 +7,11 @@ fn traced(offset: Int) -> Int effects [stdio]
 	offset + 1
 end
 
-pub handler missing(offset: Int) handles Ask
+pub handler missing(offset: Int) for Ask
 	value() => traced(offset)
 end
 
-pub handler declared(offset: Int) handles Ask effects [stdio, stdio]
+pub handler declared(offset: Int) for Ask effects [stdio, stdio]
 	value() => traced(offset)
 end
 

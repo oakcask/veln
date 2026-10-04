@@ -6,7 +6,7 @@ fn body() -> Int effects [Ask]
   perform Ask::value(1)
 end
 
-handler ask(Context: Int) handles Ask
+handler ask(Context: Int) for Ask
   value(Result) => Context + Result
 end
 

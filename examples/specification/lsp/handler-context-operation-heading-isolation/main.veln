@@ -7,7 +7,7 @@ effect Adjust
   amount(value: Int) -> Int
 end
 
-handler adjust(callback: fn(Int) -> Int) handles Adjust
+handler adjust(callback: fn(Int) -> Int) for Adjust
   callback(value) => callback(value)
   amount(value) => callback(value)
 end

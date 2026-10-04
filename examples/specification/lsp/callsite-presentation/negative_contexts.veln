@@ -2,7 +2,7 @@ effect Read
 	read() -> Int
 end
 
-handler answer() handles Read
+handler answer() for Read
 	read() => 1
 end
 

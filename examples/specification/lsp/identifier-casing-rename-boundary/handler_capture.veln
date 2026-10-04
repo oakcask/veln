@@ -6,6 +6,6 @@ fn source() -> Int
   1
 end
 
-handler choose() handles Choose
+handler choose() for Choose
   choose(target) => source()
 end

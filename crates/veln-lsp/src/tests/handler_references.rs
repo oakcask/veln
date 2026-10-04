@@ -5,7 +5,7 @@ fn workspace_handler_references_preserve_utf16_crlf_and_declaration_policy() {
     project.write(
         "main.veln",
         concat!(
-            "handler run(value: Int) handles Work\r\n",
+            "handler run(value: Int) for Work\r\n",
             "  go() => 1\r\n",
             "end\r\n\r\n",
             "fn first() -> Int\r\n",
@@ -63,7 +63,7 @@ fn workspace_handler_references_include_a_declaration_without_occurrences() {
     project.write("veln.toml", "");
     project.write(
         "main.veln",
-        "handler run() handles Work\n  go() => 1\nend\n",
+        "handler run() for Work\n  go() => 1\nend\n",
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
@@ -96,7 +96,7 @@ fn workspace_handler_reference_failures_preserve_later_results() {
     project.write(
         "main.veln",
         concat!(
-            "handler run() handles Work\n  go() => 1\nend\n\n",
+            "handler run() for Work\n  go() => 1\nend\n\n",
             "fn use() -> Int\n  handle 1 with run()\nend\n",
         ),
     );

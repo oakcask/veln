@@ -441,11 +441,11 @@ fn request_clock(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<
 	result
 end
 
-pub handler network(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }) handles host_effects::Network effects [concurrency, fs]
+pub handler network(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }) for host_effects::Network effects [concurrency, fs]
 	request(operation, subject, bytes, remaining_ms, cancelled) => request_network(state, operation, subject, bytes, remaining_ms, cancelled)
 end
 
-pub handler clock(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }) handles host_effects::Clock effects [concurrency]
+pub handler clock(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }) for host_effects::Clock effects [concurrency]
 	request(operation, milliseconds) => request_clock(state, operation, milliseconds)
 	wall_time() => wall_time(state)
 end

@@ -439,7 +439,21 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::LParen, "handler_parameters", vec!["("]);
         let params = self.parse_params_in_context("handler_parameters", true);
         self.expect(TokenKind::RParen, "handler_parameters", vec![")"]);
-        self.expect(TokenKind::Handles, "handler_declaration", vec!["handles"]);
+        if self.at(TokenKind::For) {
+            self.bump();
+        } else if self.at_ident_text("handles") {
+            self.error_current(
+                "parse.expected_token",
+                "expected for",
+                "handler_declaration",
+                vec!["for"],
+                RecoveryStrategy::SkipToken,
+                None,
+            );
+            self.bump();
+        } else {
+            self.expect(TokenKind::For, "handler_declaration", vec!["for"]);
+        }
         let mut effect = self.parse_handler_effect();
         let diagnostic_count = self.diagnostics.len();
         self.expect_newline("handler_declaration");

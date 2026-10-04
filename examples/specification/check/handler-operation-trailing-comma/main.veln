@@ -2,6 +2,6 @@ effect Ask
 	value(input: Int) -> Int
 end
 
-handler ask() handles Ask
+handler ask() for Ask
 	value(input,) => input
 end

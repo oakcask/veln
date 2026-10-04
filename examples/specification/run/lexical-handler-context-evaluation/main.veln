@@ -7,7 +7,7 @@ fn provide(left: Int, right: Int) -> Int
 	left * 10 + right
 end
 
-handler ask(left: Int, right: Int) handles Ask
+handler ask(left: Int, right: Int) for Ask
 	value() => provide(left, right)
 	total(extra) => left + right + extra
 end

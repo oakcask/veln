@@ -2,6 +2,6 @@ effect Choose
   pick(value: Bool) -> Int
 end
 
-handler choose(callback: fn(Int) -> Int) handles Choose
+handler choose(callback: fn(Int) -> Int) for Choose
   pick(value) => callback(value)
 end

@@ -2,6 +2,6 @@ pub effect Audit
   record() -> Int
 end
 
-pub handler audit() handles Audit
+pub handler audit() for Audit
   record() => 1
 end

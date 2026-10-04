@@ -1,4 +1,4 @@
-handler run(value: Int) handles Work
+handler run(value: Int) for Work
   go() => 1
 end
 

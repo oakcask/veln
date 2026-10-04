@@ -4,7 +4,7 @@ effect Gather
 	mix(left: Int, right: Int) -> Int
 end
 
-handler gather(base: Int) handles Gather
+handler gather(base: Int) for Gather
 	seed() => base + 1
 	add(item) => item + base
 	mix(first, second) => first * 10 + second + base

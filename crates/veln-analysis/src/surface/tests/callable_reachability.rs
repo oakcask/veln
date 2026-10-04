@@ -469,7 +469,7 @@ fn companion_test_entry_keeps_qualified_private_target_handler() {
                     "fn provide(offset: Int) -> Int\n",
                     "  offset + 1\n",
                     "end\n",
-                    "handler ask(offset: Int) handles Ask\n",
+                    "handler ask(offset: Int) for Ask\n",
                     "  value() => provide(offset)\n",
                     "end\n",
                     "pub fn compute() -> Int effects [Ask]\n",

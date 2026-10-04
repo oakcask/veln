@@ -300,7 +300,7 @@ fn lossless_tree_preserves_mixed_top_level_declaration_order() {
         "effect Notify\n  send() -> ()\nend\n",
         "schema Packet\n  format binary\n  value: UInt8\nend\n",
         "fn main() -> ()\n  ()\nend\n",
-        "handler notify() handles Notify\n  send() => ()\nend\n",
+        "handler notify() for Notify\n  send() => ()\nend\n",
         "pub fn exported = main\n",
     );
     let source = SourceFile::new("main.veln", text);

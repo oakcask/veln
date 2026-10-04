@@ -151,7 +151,7 @@ impl<'a> Classifier<'a> {
             self.collect_parameters(semantic_tokens);
         }
         while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
-            if self.at(TokenKind::Handles) {
+            if self.at(TokenKind::For) {
                 let token = &self.tokens[self.cursor];
                 semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
                 self.cursor += 1;
