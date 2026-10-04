@@ -473,6 +473,43 @@ fn rejects_effect_operation_parameter_without_type() {
 }
 
 #[test]
+fn preserves_typed_parameter_metadata_after_missing_effect_parameter_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "  record(user, entries: ...audit::Result<core::String, core::Error>::Ok) -> String\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "parse.effect_operation_parameter_type")
+            .count(),
+        1,
+        "{:#?}",
+        output.diagnostics
+    );
+    let SyntaxItem::Effect(effect) = &output.tree.items[0] else {
+        panic!("expected effect declaration");
+    };
+    let entries = &effect.operations[0].params[1];
+    assert_eq!(entries.name, "entries");
+    assert!(entries.is_variadic);
+    assert_eq!(
+        entries.ty.as_deref(),
+        Some("audit::Result<core::String, core::Error>::Ok")
+    );
+    assert_eq!(entries.ty_paths.len(), 3);
+    assert_eq!(entries.ty_refinements.len(), 1);
+}
+
+#[test]
 fn rejects_effect_declaration_without_operations() {
     let source = SourceFile::new("main.veln", concat!("effect Audit\n", "end\n"));
 

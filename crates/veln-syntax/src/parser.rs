@@ -28,6 +28,7 @@ mod expression_primaries;
 mod functions_and_imports;
 mod generic_type_syntax;
 mod integer_literal_diagnostics;
+mod parameters;
 mod schemas;
 mod type_argument_lists;
 mod type_paths;
