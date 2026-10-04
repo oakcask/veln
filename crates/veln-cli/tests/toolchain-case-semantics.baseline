@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"99523fffb80d025ba4d185900374c4756b3137ac"
+source_git_tree	"295732001460b8930f46ce2e37659dcbf0841072"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1759
+case_count	1760
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37873,6 +37873,17 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"4caccd31e02d70b8ea46aa629419ca480bd051440a86eb342752553c66995360"
+case	"examples/specification/run/callsite-virtual-source-fallback"
+field	expectations.exit	0
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"virtual/generated.veln"
+field	invocation.repeat	1
+field	requirements.jdk	true
+field	source_errors	"forbidden"
+case_digest	"0a95fff2ad1d1cc21357422a5fc1fab226066a3e7976572e27335ff83bff3b4b"
 case	"examples/specification/run/channel-first-stream-routing"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -63689,4 +63700,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"7e8721a5b3a97909e491af2e778322f401a08df7818a3a8e9355b4e086428e67"
+aggregate_digest	"2c80e108dda49d496c8e9bed2938d5262552301b5295f4ba62663f5542a68685"
