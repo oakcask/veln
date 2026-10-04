@@ -82,6 +82,11 @@ the VSCode grammar.
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
 
+In an ordinary function, a binding named `callsite` uses the same parameter,
+result, local, or pattern token class and modifiers as any other binding. It is
+not presented as the built-in local unless the enclosing source function has
+the declaration modifier.
+
 ## LSP Encoding
 
 `veln-lsp` exposes the semantic-token legend, full-token response data, and a
@@ -106,6 +111,8 @@ The full response uses LSP relative integer encoding in groups of five:
 
 Tokens are sorted before encoding. Overlapping ranges are skipped so the encoded
 stream remains valid for LSP clients.
+Start characters and token lengths count UTF-16 code units, including when a
+non-BMP scalar precedes a token on the same line.
 
 ## LSP Diagnostics
 

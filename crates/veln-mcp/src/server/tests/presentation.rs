@@ -1,3 +1,4 @@
+use super::dependency_resources::fill_dependency_resource_capacity_completely;
 use super::*;
 
 #[test]
@@ -51,6 +52,58 @@ fn tools_present_callsite_completion_and_signature_help() {
         json!({
             "label": "fn located(message: String) -> SourceLocation callsite",
             "parameters": ["message: String"],
+            "activeParameter": 0
+        })
+    );
+    assert_eq!(server.language_resources.list_result(), resources_before);
+}
+
+#[test]
+fn presentation_uses_dependencies_without_admitting_resources_at_full_capacity() {
+    let workspace = TempWorkspace::new("callsite-presentation-capacity");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n",
+            "fn caller() -> SourceLocation\n",
+            "  dep::located(1)\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub fn located(value: Int) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    fill_dependency_resource_capacity_completely(&mut server);
+    let resources_before = server.language_resources.list_result();
+
+    let completion = server.completion_tool(&json!({
+        "source": "main.veln", "line": 2, "column": 30
+    }));
+    assert_eq!(completion["isError"], false);
+
+    let signature = server.signature_help_tool(&json!({
+        "source": "main.veln", "line": 3, "column": 17
+    }));
+    assert_eq!(signature["isError"], false);
+    assert_eq!(
+        signature["structuredContent"]["signature"],
+        json!({
+            "label": "fn located(value: Int) -> SourceLocation callsite",
+            "parameters": ["value: Int"],
             "activeParameter": 0
         })
     );

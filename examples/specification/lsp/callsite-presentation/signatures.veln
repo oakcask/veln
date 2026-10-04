@@ -4,3 +4,17 @@ end
 fn grouped() -> SourceLocation
   located((1 + 2))
 end
+fn callsite(value: Int) -> Int callsite
+  value
+end
+fn handler(value: Int) -> Int callsite
+  value
+end
+fn handles(value: Int) -> Int callsite
+  value
+end
+fn contextual() -> Int
+  callsite(1)
+  handler(1)
+  handles(1)
+end

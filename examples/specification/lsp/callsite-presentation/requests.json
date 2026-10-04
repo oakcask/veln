@@ -12,6 +12,11 @@
   {"jsonrpc":"2.0","id":11,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"signatures.veln"}},"position":{"line":4,"character":14}}},
   {"jsonrpc":"2.0","id":12,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"negative_contexts.veln"}},"position":{"line":5,"character":12}}},
   {"jsonrpc":"2.0","id":13,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"negative_contexts.veln"}},"position":{"line":3,"character":0}}},
-  {"jsonrpc":"2.0","id":14,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":14,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"signatures.veln"}},"position":{"line":16,"character":12}}},
+  {"jsonrpc":"2.0","id":15,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"signatures.veln"}},"position":{"line":17,"character":11}}},
+  {"jsonrpc":"2.0","id":16,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"signatures.veln"}},"position":{"line":18,"character":11}}},
+  {"jsonrpc":"2.0","id":17,"method":"textDocument/semanticTokens/full","params":{"textDocument":{"uri":{"$workspace_file_uri":"unicode.veln"}}}},
+  {"jsonrpc":"2.0","id":18,"method":"textDocument/semanticTokens/full","params":{"textDocument":{"uri":{"$workspace_file_uri":"ordinary_bindings.veln"}}}},
+  {"jsonrpc":"2.0","id":19,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

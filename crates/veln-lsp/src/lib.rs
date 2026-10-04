@@ -50,7 +50,7 @@ pub fn legend() -> SemanticTokensLegend {
 
 pub fn semantic_tokens_full(source: &SourceFile) -> SemanticTokensFull {
     let tokens = veln_editor::collect_semantic_tokens(source);
-    let data = encode_lsp_semantic_tokens(&tokens)
+    let data = encode_lsp_semantic_tokens(source, &tokens)
         .into_iter()
         .flat_map(|token| {
             [

@@ -51,7 +51,7 @@ fn function_alias_target(
     loop {
         index = next_non_layout_index(tokens, index)?;
         let token = tokens.get(index)?;
-        if token.kind != TokenKind::Ident {
+        if !token.kind.is_contextual_identifier() {
             break;
         }
         segments.push(token.text.clone());

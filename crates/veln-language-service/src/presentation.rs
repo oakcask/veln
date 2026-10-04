@@ -223,7 +223,7 @@ pub fn signature_help_at(
         })
         .collect::<Vec<_>>();
     record_signature_index_token_visits(tokens.tokens.len());
-    let shadow_index = SignatureShadowIndex::new(&tokens.tokens);
+    let shadow_index = SignatureShadowIndex::new(&tokens.tokens, offset);
     let local_signatures = local_signature_declarations(source, &significant);
     let function_names = signature_function_names(snapshot);
     let mut open = Vec::new();
@@ -247,7 +247,7 @@ pub fn signature_help_at(
         let Some((callee_token_index, callee)) = significant.get(callee_index).copied() else {
             continue;
         };
-        if !matches!(callee.kind, TokenKind::Ident | TokenKind::Callsite) {
+        if !callee.kind.is_bare_expression_identifier() {
             continue;
         }
         if declaration_name_token(&significant, callee_index) {
@@ -330,7 +330,7 @@ fn signature_function_names(snapshot: &EffectiveProjectSnapshot) -> HashSet<Stri
                 .windows(2)
                 .filter(|pair| {
                     matches!(pair[0].kind, TokenKind::Fn | TokenKind::Test)
-                        && pair[1].kind == TokenKind::Ident
+                        && pair[1].kind.is_contextual_identifier()
                 })
                 .map(|pair| pair[1].text.clone())
                 .collect::<Vec<_>>()
@@ -351,7 +351,7 @@ fn local_signature_declarations(
         let Some((_, name)) = significant.get(index + 1).copied() else {
             continue;
         };
-        if name.kind != TokenKind::Ident {
+        if !name.kind.is_contextual_identifier() {
             continue;
         }
         let declaration = if significant
@@ -361,7 +361,7 @@ fn local_signature_declarations(
             let Some((_, target)) = significant.get(index + 3).copied() else {
                 continue;
             };
-            if target.kind != TokenKind::Ident
+            if !target.kind.is_contextual_identifier()
                 || significant
                     .get(index + 4)
                     .is_some_and(|(_, token)| token.kind == TokenKind::DoubleColon)
@@ -424,9 +424,9 @@ fn local_signature_function(
 fn parse_function_signature_at(source: &SourceFile, name_offset: usize) -> Option<FunctionDecl> {
     record_signature_header_parse();
     let tokens = lex(source).tokens;
-    let name_index = tokens
-        .iter()
-        .position(|token| token.range.start == name_offset && token.kind == TokenKind::Ident)?;
+    let name_index = tokens.iter().position(|token| {
+        token.range.start == name_offset && token.kind.is_contextual_identifier()
+    })?;
     let start = tokens[..name_index]
         .iter()
         .rposition(|token| matches!(token.kind, TokenKind::Fn | TokenKind::Test))?;
@@ -722,6 +722,41 @@ mod tests {
         );
         assert_eq!(help.parameters, ["message: String"]);
         assert_eq!(help.active_parameter, 0);
+    }
+
+    #[test]
+    fn signature_help_resolves_contextual_function_names_across_sources() {
+        let declarations = ["callsite", "handler", "handles"]
+            .into_iter()
+            .map(|name| format!("pub fn {name}(value: Int) -> Int callsite\n  value\nend\n"))
+            .collect::<String>();
+        let caller = concat!(
+            "use declarations\n",
+            "fn caller() -> Int\n",
+            "  declarations::callsite(1)\n",
+            "  declarations::handler(1)\n",
+            "  declarations::handles(1)\n",
+            "end\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            SourceFile::new("declarations.veln", declarations),
+            SourceFile::new("main.veln", caller),
+        ]);
+
+        for (line, name) in [(3, "callsite"), (4, "handler"), (5, "handles")] {
+            let source_line = caller.lines().nth(line - 1).expect("call line");
+            let column = source_line.find(')').expect("closing parenthesis") + 1;
+            let help = signature_help_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column,
+                },
+            )
+            .expect("contextual-name signature help");
+            assert_eq!(help.label, format!("fn {name}(value: Int) -> Int callsite"));
+        }
     }
 
     #[test]

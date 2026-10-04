@@ -219,7 +219,10 @@ impl<'a> CallsiteScopeCursor<'a> {
     }
 }
 
-pub fn encode_lsp_semantic_tokens(tokens: &[SemanticToken]) -> Vec<LspSemanticToken> {
+pub fn encode_lsp_semantic_tokens(
+    source: &SourceFile,
+    tokens: &[SemanticToken],
+) -> Vec<LspSemanticToken> {
     let mut sorted = tokens.to_vec();
     sorted.sort_by_key(|token| (token.span.start.offset, token.span.end.offset));
 
@@ -227,15 +230,32 @@ pub fn encode_lsp_semantic_tokens(tokens: &[SemanticToken]) -> Vec<LspSemanticTo
     let mut previous_line = 0usize;
     let mut previous_start = 0usize;
     let mut previous_end = 0usize;
+    let mut source_cursor = 0usize;
+    let mut utf16_column = 0usize;
 
     for token in sorted {
         if token.span.start.offset < previous_end {
             continue;
         }
         let line = token.span.start.line.saturating_sub(1);
-        let start = token.span.start.column.saturating_sub(1);
-        let end = token.span.end.column.saturating_sub(1);
-        if line + 1 != token.span.end.line || end <= start {
+        if line + 1 != token.span.end.line {
+            continue;
+        }
+        advance_utf16_column(
+            source.text(),
+            &mut source_cursor,
+            &mut utf16_column,
+            token.span.start.offset,
+        );
+        let start = utf16_column;
+        advance_utf16_column(
+            source.text(),
+            &mut source_cursor,
+            &mut utf16_column,
+            token.span.end.offset,
+        );
+        let end = utf16_column;
+        if end <= start {
             continue;
         }
 
@@ -259,6 +279,17 @@ pub fn encode_lsp_semantic_tokens(tokens: &[SemanticToken]) -> Vec<LspSemanticTo
     }
 
     encoded
+}
+
+fn advance_utf16_column(text: &str, cursor: &mut usize, column: &mut usize, target: usize) {
+    for ch in text[*cursor..target].chars() {
+        if ch == '\n' {
+            *column = 0;
+        } else {
+            *column += ch.len_utf16();
+        }
+    }
+    *cursor = target;
 }
 
 struct Classifier<'a> {

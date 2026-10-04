@@ -135,6 +135,72 @@ fn collector_classifies_variadic_parameter_names_like_parameters() {
         SemanticTokenModifiers::empty().bits()
     )));
 }
+
+#[test]
+fn collector_classifies_ordinary_callsite_bindings_and_references() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn local() -> Int\n",
+            "  let callsite = 1\n",
+            "  callsite\n",
+            "end\n",
+            "fn pattern(value: {field: Int}) -> Int\n",
+            "  let {field: callsite} = value\n",
+            "  callsite\n",
+            "end\n",
+            "fn result_name() -> callsite: Int\n",
+            "ensure callsite > 0\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+
+    let tokens = collect_text(&source);
+    let declaration_readonly = SemanticTokenModifiers::empty()
+        .with(SemanticTokenModifier::Declaration)
+        .with(SemanticTokenModifier::Readonly)
+        .bits();
+    let readonly = SemanticTokenModifiers::empty()
+        .with(SemanticTokenModifier::Readonly)
+        .bits();
+    let result = SemanticTokenModifiers::empty()
+        .with(SemanticTokenModifier::Declaration)
+        .with(SemanticTokenModifier::Readonly)
+        .with(SemanticTokenModifier::Result)
+        .bits();
+
+    assert!(tokens.contains(&(
+        "callsite".to_string(),
+        SemanticTokenType::Variable,
+        declaration_readonly,
+    )));
+    assert_eq!(
+        tokens
+            .iter()
+            .filter(|token| {
+                token
+                    == &&(
+                        "callsite".to_string(),
+                        SemanticTokenType::Variable,
+                        declaration_readonly,
+                    )
+            })
+            .count(),
+        2
+    );
+    assert!(tokens.contains(&(
+        "callsite".to_string(),
+        SemanticTokenType::Variable,
+        readonly,
+    )));
+    assert!(tokens.contains(&("callsite".to_string(), SemanticTokenType::Variable, result,)));
+    assert!(tokens.contains(&(
+        "field".to_string(),
+        SemanticTokenType::Property,
+        SemanticTokenModifiers::empty().bits(),
+    )));
+}
 #[test]
 fn collector_classifies_schema_declarations_and_format_clauses() {
     let source = SourceFile::new(

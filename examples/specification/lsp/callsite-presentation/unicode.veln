@@ -1,0 +1,3 @@
+fn unicode() -> SourceLocation callsite
+  {emoji: "😀", location: callsite}.location
+end

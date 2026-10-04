@@ -139,3 +139,18 @@ equals = []
 id = 19
 path = "/result/structuredContent/items"
 equals = []
+
+[[mcp_assert]]
+id = 20
+path = "/result/structuredContent/signature/label"
+equals = "fn callsite(value: Int) -> Int callsite"
+
+[[mcp_assert]]
+id = 21
+path = "/result/structuredContent/signature/label"
+equals = "fn handler(value: Int) -> Int callsite"
+
+[[mcp_assert]]
+id = 22
+path = "/result/structuredContent/signature/label"
+equals = "fn handles(value: Int) -> Int callsite"

@@ -88,6 +88,24 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
+    pub fn is_contextual_identifier(self) -> bool {
+        matches!(
+            self,
+            Self::Ident | Self::Callsite | Self::Handle | Self::Handler | Self::Handles
+        )
+    }
+
+    pub fn is_binding_identifier(self) -> bool {
+        matches!(self, Self::Ident | Self::Callsite)
+    }
+
+    pub fn is_bare_expression_identifier(self) -> bool {
+        matches!(
+            self,
+            Self::Ident | Self::Callsite | Self::Handler | Self::Handles
+        )
+    }
+
     pub const ALL: &'static [Self] = &[
         Self::Whitespace,
         Self::Comment,

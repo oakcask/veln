@@ -1,6 +1,6 @@
 fn identifier_token_at(tokens: &[Token], offset: usize) -> Option<(usize, &Token)> {
     tokens.iter().enumerate().find(|(_, token)| {
-        token.kind == TokenKind::Ident
+        token.kind.is_contextual_identifier()
             && offset >= token.range.start
             && offset < token.range.end
             && is_identifier(&token.text)
@@ -60,7 +60,7 @@ fn next_path_segment_index(tokens: &[Token], index: usize) -> Option<usize> {
         return None;
     }
     let segment_index = next_non_layout_index(tokens, separator_index)?;
-    (tokens[segment_index].kind == TokenKind::Ident
+    (tokens[segment_index].kind.is_contextual_identifier()
         && is_identifier(&tokens[segment_index].text))
     .then_some(segment_index)
 }

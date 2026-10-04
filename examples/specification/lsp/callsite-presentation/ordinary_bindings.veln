@@ -1,0 +1,12 @@
+fn local() -> Int
+  let callsite = 1
+  callsite
+end
+fn pattern(value: {field: Int}) -> Int
+  let {field: callsite} = value
+  callsite
+end
+fn result_name() -> callsite: Int
+ensure callsite > 0
+  1
+end

@@ -491,9 +491,17 @@ coordinate contract. Invalid paths return `invalid_path`, and invalid
 coordinates return `invalid_position`. A failed completion or signature-help
 request does not prevent a later request for the same saved source from
 succeeding and does not consume an existing references cursor. These tools do
-not create a references cursor. Stable-capture failure, resource admission,
-refresh, and existing cursor state follow the
-[selection-state contract](#selection-state).
+not create a references cursor. Stable-capture exhaustion returns
+`snapshot_changed`.
+
+Completion and signature help can read captured direct-dependency bytes for
+navigation, but neither tool admits dependency resources. They do not change
+retained resource capacity, and full retained capacity cannot make either tool
+return `resource_capacity`. Success, empty results, and failures preserve the
+published resources, workspace roots and generation, published diagnostics,
+prior results, and reference cursors. A separately requested successful
+workspace refresh still follows the [selection-state contract](#selection-state)
+and invalidates cursors.
 
 ### Rename
 
