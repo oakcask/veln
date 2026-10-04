@@ -77,7 +77,9 @@ operators with the matching standard LSP token types. Decimal, lowercase `0b`
 binary, and lowercase `0x` hexadecimal integer literals are each one `number`
 token. The contextual `satisfy` marker and boolean literals are highlighted as
 keywords. `begin` and `defer` are keyword tokens in the lexical fallback and
-the VSCode grammar.
+the VSCode grammar. A handler declaration classifies its `for` separator as a
+keyword. `handles` is an ordinary identifier in both semantic-token fallback
+and the VSCode grammar.
 
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
@@ -312,8 +314,12 @@ Effect reference lookup requires one valid-cased workspace effect declaration
 for that name and module. Outside the imported-workspace case below, it
 excludes qualified imported or package effects,
 generic effect-row parameters, duplicate declarations, invalid-cased or
-unresolved names, recovered effect rows, recovered handler targets, incomplete
-`perform` qualifiers, and equal spelling in another module or symbol class.
+unresolved names, recovered effect rows, handler targets whose effect path
+requires recovery, incomplete `perform` qualifiers, and equal spelling in
+another module or symbol class. Recovering a missing handler `for` separator
+does not by itself exclude a structurally complete bare or qualified target;
+the target keeps its effect identity while the parser reports the separator
+diagnostic.
 Comments and strings do not contribute references.
 Effects, handlers, and effect operations remain unsupported for rename.
 

@@ -663,8 +663,11 @@ an unrelated construct in that source has a parse error. Private effects
 reached through an import, ambiguous or recovered workspace imports,
 dependency-package and standard-library effects, generic effect parameters,
 duplicate declarations, invalid casing, unresolved names, recovered effect
-rows, recovered handler targets, incomplete `perform` qualifiers, other
-modules, and other symbol classes do not enter the result.
+rows, handler targets whose effect path requires recovery, incomplete
+`perform` qualifiers, other modules, and other symbol classes do not enter the
+result. Recovering a missing handler `for` separator does not by itself exclude
+a structurally complete bare or qualified target; the target remains in its
+effect reference set while the saved source retains the separator diagnostic.
 
 A workspace effect-operation result contains each complete
 `perform Effect::operation(arguments)` operation-name leaf from saved sources

@@ -63,7 +63,9 @@ named productions in that same output. Keyword and punctuation tables come from
 compiler-owned public token records. The lexer uses the public keyword records
 for recognition and the public punctuation records for fixed punctuation
 recognition. Every compiler-owned public fixed-spelling token appears in the
-catalog projection.
+catalog projection. The checked artifact therefore publishes `for` as the
+handler-declaration separator and as a public keyword, while `handles` is
+absent from the public keyword projection.
 
 The digest is lowercase SHA-256 over this transcript:
 

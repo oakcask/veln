@@ -30,7 +30,9 @@ spelling is parsed as a literal instead of a name path is also an invalid
 source lookup key. The contextual boolean literal spellings `true` and
 `false` therefore cannot publish bare prelude lookup routes, while the same
 leaf spellings can publish qualified lookup routes that the parser represents
-as name paths, such as `module::true`.
+as name paths, such as `module::true`. Because `handles` is an ordinary
+identifier rather than a source keyword, a function-class source-less
+descriptor can publish it as one lookup segment.
 
 Registry construction is atomic. Valid input publishes one complete immutable
 source-less lookup registry set. If any provider descriptor is invalid, the
