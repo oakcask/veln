@@ -22,6 +22,11 @@ The following behavior is fixed for the implemented slice:
   stdout and stderr fences.
 - Source paths in diagnostics and JSON are project-relative paths using `/`
   separators.
+- A call-site `SourceLocation` uses the ordinary source identifier by default.
+  For generated source with an origin path, its `file` uses that origin while
+  its coordinates remain those of the generated call expression. Generated
+  source without an origin keeps its own identifier. See
+  [call-site-declarations.md](call-site-declarations.md#declaration-behavior).
 - Diagnostics use the stable top-level check JSON envelope described in
   [diagnostics-json.md](diagnostics-json.md).
 - Human diagnostics keep the primary message focused on the failed fact at the

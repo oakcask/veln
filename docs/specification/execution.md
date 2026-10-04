@@ -22,14 +22,17 @@ blockers prevent execution.
 Direct and indirect calls to call-site-aware functions enter checked core with
 a hidden `SourceLocation` argument. Calls from ordinary functions construct
 that value from the call expression, while call-site-aware wrappers forward
-their existing value. Runtime-backed callback consumers bind the caller's
-context to a call-site-aware callback, including a callback that runs in an
-asynchronous task. A runtime contract on a call-site-aware function forwards
-its existing value when it directly calls another call-site-aware function.
-Call-site-aware run entries and the same contract call from an ordinary
-function are execution gates. The ordinary-function contract deliberately does
-not construct hidden call-site context. Direct built-in references in runtime
-contracts execute with the function's supplied value.
+their existing value. When that call expression is in generated source with an
+origin path, the runtime value uses the origin as its file and preserves the
+generated call expression's coordinates. Generated source without an origin
+uses its own source identifier. Runtime-backed callback consumers bind the
+caller's context to a call-site-aware callback, including a callback that runs
+in an asynchronous task. A runtime contract on a call-site-aware function
+forwards its existing value when it directly calls another call-site-aware
+function. Call-site-aware run entries and the same contract call from an
+ordinary function are execution gates. The ordinary-function contract
+deliberately does not construct hidden call-site context. Direct built-in
+references in runtime contracts execute with the function's supplied value.
 The focused declaration and propagation contract is specified by
 [Call-site Declarations](call-site-declarations.md).
 

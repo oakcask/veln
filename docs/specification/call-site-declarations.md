@@ -151,11 +151,11 @@ not enter the variadic argument sequence.
 Direct-call construction copies the call expression's existing source
 identifier into `file`. An ordinary package-selected source therefore uses its
 package-relative path. When a generated source has an origin path, `file` uses
-that origin path and every line, column, and offset keeps the call expression's
-mapped coordinate value. A generated or virtual source without an origin path
-keeps its own source identifier and coordinates. The current generated-origin
-metadata is an identity coordinate map: it can replace the source path but
-does not describe a non-identity coordinate transform.
+that origin path while every line, column, and offset keeps the call
+expression's coordinate in the generated source. A generated or virtual source
+without an origin path keeps its own source identifier and coordinates. The
+current generated-origin metadata maps only the source identifier; it does not
+describe a coordinate transform.
 
 The current `package` field is empty. The `module` field is the caller's
 resolved module name, or empty when the caller has no resolved module name.
