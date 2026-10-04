@@ -93,10 +93,13 @@ impl<'a> Classifier<'a> {
     }
 
     pub(super) fn classify_ident(&self, token: &Token) -> SemanticToken {
-        if matches!(token.text.as_str(), "true" | "false") {
+        if matches!(
+            token.text.as_str(),
+            veln_syntax::TRUE_LITERAL | veln_syntax::FALSE_LITERAL
+        ) {
             return self.simple(token, SemanticTokenType::Keyword);
         }
-        if token.text == "satisfy"
+        if token.text == veln_syntax::SATISFY_MARKER
             && matches!(
                 self.previous_significant_kind(),
                 Some(TokenKind::Hole | TokenKind::Underscore)

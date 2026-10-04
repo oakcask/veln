@@ -500,7 +500,7 @@ impl<'a> ExprParser<'a> {
     }
 
     pub(super) fn parse_satisfy_clause(&mut self) -> Option<SatisfyClause> {
-        if !self.at_ident_text("satisfy") {
+        if !self.at_ident_text(crate::SATISFY_MARKER) {
             return None;
         }
         let mut clause_recovered = false;

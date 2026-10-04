@@ -3,30 +3,6 @@ const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");
 
-const tokenTypes = [
-  "namespace",
-  "type",
-  "parameter",
-  "variable",
-  "property",
-  "enumMember",
-  "function",
-  "keyword",
-  "comment",
-  "string",
-  "number",
-  "operator",
-];
-
-const tokenModifiers = [
-  "declaration",
-  "readonly",
-  "defaultLibrary",
-  "test",
-  "result",
-  "hole",
-];
-
 class VelnLanguageServer {
   constructor(
     command,
@@ -47,6 +23,7 @@ class VelnLanguageServer {
     this.onClearDiagnostics = onClearDiagnostics;
     this.syncedDocuments = new Map();
     this.virtualDocumentUris = new Map();
+    this.disposed = false;
     this.traceLine(
       `starting server command=${JSON.stringify(command)} args=${JSON.stringify(args)} cwd=${JSON.stringify(cwd)}`,
     );
@@ -74,21 +51,39 @@ class VelnLanguageServer {
       }
       this.pending.clear();
     });
-    this.sendRequest("initialize", initializeParams(cwd, workspaceFolders)).then(() =>
-      this.sendNotification("initialized", {}),
-    );
+    this.ready = this.sendRequest(
+      "initialize",
+      initializeParams(cwd, workspaceFolders),
+    ).then((result) => {
+      this.capabilities = result.capabilities ?? {};
+      this.sendNotification("initialized", {});
+      return this.capabilities;
+    });
+    // Activation reports initialization errors; direct clients can await ready.
+    this.ready.catch(() => undefined);
   }
 
   dispose() {
+    this.disposed = true;
     this.onClearDiagnostics();
-    this.sendRequest("shutdown", {})
-      .catch(() => undefined)
-      .finally(() => {
-        this.sendNotification("exit", {});
-      });
+    this.ready
+      .then(() =>
+        this.sendRequest("shutdown", {})
+          .catch(() => undefined)
+          .finally(() => {
+            this.sendNotification("exit", {});
+          }),
+      )
+      .catch(() => undefined);
   }
 
   syncDocument(document) {
+    if (!this.capabilities) {
+      return this.ready.then(() => this.syncDocument(document));
+    }
+    if (this.disposed) {
+      return;
+    }
     const uri = document.uri.toString();
     if (this.syncedDocuments.get(uri) === document.version) {
       return;
@@ -111,6 +106,9 @@ class VelnLanguageServer {
   }
 
   closeDocument(document) {
+    if (!this.capabilities) {
+      return this.ready.then(() => this.closeDocument(document));
+    }
     const uri = document.uri.toString();
     if (!this.syncedDocuments.has(uri)) {
       return;
@@ -122,6 +120,9 @@ class VelnLanguageServer {
   }
 
   semanticTokens(document) {
+    if (!this.capabilities) {
+      return this.ready.then(() => this.semanticTokens(document));
+    }
     this.syncDocument(document);
     return this.sendRequest("textDocument/semanticTokens/full", {
       textDocument: { uri: document.uri.toString() },
@@ -129,6 +130,9 @@ class VelnLanguageServer {
   }
 
   definition(document, position) {
+    if (!this.capabilities) {
+      return this.ready.then(() => this.definition(document, position));
+    }
     this.syncDocument(document);
     return this.sendRequest("textDocument/definition", {
       textDocument: { uri: document.uri.toString() },
@@ -140,6 +144,9 @@ class VelnLanguageServer {
   }
 
   virtualDocument(uri) {
+    if (!this.capabilities) {
+      return this.ready.then(() => this.virtualDocument(uri));
+    }
     return this.sendRequest("veln/virtualDocument", {
       uri: this.canonicalVirtualDocumentUri(uri),
     });
@@ -466,7 +473,7 @@ function toDiagnosticSeverity(severity) {
   }
 }
 
-function activate(context) {
+async function activate(context) {
   const output = vscode.window.createOutputChannel("Veln");
   const diagnostics = vscode.languages.createDiagnosticCollection("veln");
   context.subscriptions.push(output);
@@ -485,7 +492,17 @@ function activate(context) {
     () => diagnostics.clear(),
     velnWorkspaceFolderPaths(),
   );
-  const legend = new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
+  context.subscriptions.push(server);
+  let capabilities;
+  try {
+    capabilities = await server.ready;
+  } catch (error) {
+    output.appendLine(`Failed to initialize Veln language server: ${error.message}`);
+    return;
+  }
+  if (server.disposed) {
+    return;
+  }
   const provider = {
     async provideDocumentSemanticTokens(document) {
       const result = await server.semanticTokens(document);
@@ -502,7 +519,6 @@ function activate(context) {
       return server.virtualDocument(uri);
     },
   };
-  context.subscriptions.push(server);
   for (const document of vscode.workspace.textDocuments) {
     if (document.languageId === "veln") {
       server.syncDocument(document);
@@ -536,19 +552,32 @@ function activate(context) {
       virtualDocumentProvider,
     ),
   );
-  context.subscriptions.push(
-    vscode.languages.registerDefinitionProvider(
-      { language: "veln", scheme: "file" },
-      definitionProvider,
-    ),
-  );
-  context.subscriptions.push(
-    vscode.languages.registerDocumentSemanticTokensProvider(
-      { language: "veln" },
-      provider,
-      legend,
-    ),
-  );
+  if (capabilities.definitionProvider) {
+    context.subscriptions.push(
+      vscode.languages.registerDefinitionProvider(
+        { language: "veln", scheme: "file" },
+        definitionProvider,
+      ),
+    );
+  }
+  const semantic = capabilities.semanticTokensProvider;
+  if (
+    semantic?.full &&
+    Array.isArray(semantic.legend?.tokenTypes) &&
+    Array.isArray(semantic.legend?.tokenModifiers)
+  ) {
+    const legend = new vscode.SemanticTokensLegend(
+      semantic.legend.tokenTypes,
+      semantic.legend.tokenModifiers,
+    );
+    context.subscriptions.push(
+      vscode.languages.registerDocumentSemanticTokensProvider(
+        { language: "veln" },
+        provider,
+        legend,
+      ),
+    );
+  }
 }
 
 function deactivate() {}

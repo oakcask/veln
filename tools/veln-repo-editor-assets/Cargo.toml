@@ -1,0 +1,14 @@
+[package]
+name = "veln-repo-editor-assets"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+serde_json.workspace = true
+veln-editor.workspace = true
+veln-source.workspace = true
+veln-syntax.workspace = true
+
+[lints]
+workspace = true

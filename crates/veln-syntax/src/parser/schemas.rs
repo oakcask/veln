@@ -83,7 +83,7 @@ impl<'a> Parser<'a> {
             if !duplicate {
                 body.format = Some(clause);
             }
-        } else if self.at_ident_text("validate") && !self.peek_at(TokenKind::Colon) {
+        } else if self.at_ident_text(crate::VALIDATE_MARKER) && !self.peek_at(TokenKind::Colon) {
             body.validations
                 .push(self.parse_schema_validation_clause(body.format.is_some()));
         } else if self.at_ident_text("map") && !self.peek_at(TokenKind::Colon) {
@@ -235,7 +235,11 @@ impl<'a> Parser<'a> {
         has_format: bool,
     ) -> SchemaValidationClause {
         let start = self
-            .expect_ident_text("validate", "schema_validation", "validate")
+            .expect_ident_text(
+                crate::VALIDATE_MARKER,
+                "schema_validation",
+                crate::VALIDATE_MARKER,
+            )
             .range;
         if !has_format {
             self.error_current(
@@ -290,7 +294,7 @@ impl<'a> Parser<'a> {
                 id: "parse.schema_mapping_removed",
                 message: "schema mapping clauses are no longer accepted".to_string(),
                 parser_context: "schema_declaration",
-                expected: vec!["field", "validate", "end"],
+                expected: vec!["field", crate::VALIDATE_MARKER, "end"],
                 strategy: RecoveryStrategy::SynchronizeToAnchor,
                 anchor: Some("newline"),
                 repair_candidates: Vec::new(),
@@ -354,7 +358,7 @@ impl<'a> Parser<'a> {
             || self.at(TokenKind::End)
             || self.at(TokenKind::Format)
             || (self.at_ident_text("map") && !self.peek_at(TokenKind::Colon))
-            || (self.at_ident_text("validate") && !self.peek_at(TokenKind::Colon))
+            || (self.at_ident_text(crate::VALIDATE_MARKER) && !self.peek_at(TokenKind::Colon))
         {
             return false;
         }

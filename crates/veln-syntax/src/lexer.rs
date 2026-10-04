@@ -1,7 +1,10 @@
 use veln_literals::{IntegerLiteralError, parse_integer_literal};
 use veln_source::{SourceFile, TextRange};
 
-use crate::{Lexed, PUBLIC_KEYWORDS, PUBLIC_PUNCTUATION, Token, TokenKind};
+use crate::{
+    LINE_COMMENT_START, Lexed, PUBLIC_KEYWORDS, PUBLIC_PUNCTUATION, STRING_DELIMITER,
+    STRING_ESCAPE, Token, TokenKind,
+};
 
 type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 
@@ -14,8 +17,8 @@ pub fn lex(source: &SourceFile) -> Lexed {
         match ch {
             ' ' | '\t' | '\r' => tokens.push(read_whitespace(text, start, ch, &mut chars)),
             '\n' => tokens.push(token(TokenKind::Newline, "\n", start, start + 1)),
-            '#' => tokens.push(read_comment(text, start, &mut chars)),
-            '"' => tokens.push(read_string(text, start, &mut chars)),
+            LINE_COMMENT_START => tokens.push(read_comment(text, start, &mut chars)),
+            STRING_DELIMITER => tokens.push(read_string(text, start, &mut chars)),
             '0'..='9' => tokens.push(read_number(text, start, ch, &mut chars)),
             'A'..='Z' | 'a'..='z' => {
                 tokens.push(read_ident_or_keyword(text, start, ch, &mut chars))
@@ -71,9 +74,9 @@ fn read_string(text: &str, start: usize, chars: &mut CharIter<'_>) -> Token {
             escaped = false;
             continue;
         }
-        if ch == '\\' {
+        if ch == STRING_ESCAPE {
             escaped = true;
-        } else if ch == '"' {
+        } else if ch == STRING_DELIMITER {
             break;
         }
     }

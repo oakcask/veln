@@ -654,9 +654,19 @@ semantic token types and modifiers, and activation for Veln files. On
 activation, it starts the command configured by `veln.server.path` with the
 `lsp` argument. The default command is `veln`.
 
-The extension registers a document semantic token provider. Before requesting
-tokens, it sends the current document text to the server, so highlighting follows
-unsaved editor content.
+The extension waits for the `initialize` response and sends `initialized`
+before synchronizing documents or registering server-backed providers. It
+registers full-document semantic tokens only when the server advertises full
+support with a token-type and token-modifier legend. The registered legend
+uses the connected server's arrays in their advertised order; the extension
+does not assume the legend of the toolchain used to build it. A server without
+full semantic-token support leaves TextMate highlighting available. Definition
+registration likewise requires the advertised definition capability.
+Initialization failure is reported in the Veln output channel and leaves these
+providers unregistered.
+
+Before requesting tokens, the extension sends the current document text to the
+server, so highlighting follows unsaved editor content.
 
 The extension also registers a `veln` diagnostic collection. It starts
 workspace diagnostics for VSCode workspace folders that contain `veln.toml`, or
@@ -674,6 +684,29 @@ syntax and checker diagnostics appear in the Problems pane.
 The `veln.server.trace` setting controls protocol tracing in the Veln output
 channel. `messages` logs compact request, notification, and response summaries.
 `verbose` logs JSON messages with large document text redacted.
+
+### Generated Editor Assets
+
+Run `pnpm --filter veln-language generate:syntax` from the repository root after
+changing lexical facts or semantic token declarations. This command requires
+Rust and projects the toolchain's public lexical facts into editor metadata.
+It regenerates the TextMate grammar, bracket and comment configuration, and
+Veln-specific semantic declarations in the extension manifest. Reserved words
+must agree with the executable source-surface specification before generation
+succeeds. Static assets follow the toolchain used for generation; they do not
+change when a user selects a different server executable.
+
+`pnpm test:vscode` checks the metadata and generated assets without updating
+them. A stale asset fails with the regeneration command. The suite tokenizes
+compiler-projected examples with TextMate and Oniguruma, checks initialization
+and capability boundaries, and connects the extension providers to the built
+`veln lsp` executable to verify unsaved changes, diagnostics, token decoding,
+and dependency virtual-document navigation.
+
+TextMate provides lexical fallback rather than full parser or semantic
+classification. Contextual markers may receive keyword highlighting outside
+their grammatical context. String and number patterns remain editor templates;
+lexer comparisons check the shared valid corpus, not every malformed input.
 
 ## Boundaries
 
