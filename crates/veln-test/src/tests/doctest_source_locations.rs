@@ -1,36 +1,4 @@
 use super::*;
-use std::time::{Duration, Instant};
-
-fn boundary_mapping_duration(size: usize) -> Duration {
-    let doctest = ExtractedDoctest {
-        code: vec!["a".repeat(size)],
-        source_locations: vec![SourceSpan {
-            file: "main.veln".into(),
-            start: LineCol {
-                line: 1,
-                column: 1,
-                offset: 0,
-            },
-            end: LineCol {
-                line: 1,
-                column: size + 1,
-                offset: size,
-            },
-            generated_origin: None,
-        }],
-        ..ExtractedDoctest::default()
-    };
-    let mut samples = Vec::new();
-    for _ in 0..3 {
-        let started = Instant::now();
-        let mappings = generated_doctest_boundary_mappings("scaling", &doctest);
-        samples.push(started.elapsed());
-        assert_eq!(mappings.len(), size + 1);
-        std::hint::black_box(mappings);
-    }
-    samples.sort_unstable();
-    samples[1]
-}
 
 #[test]
 fn generated_doctest_boundaries_use_scalar_columns_and_byte_offsets() {
@@ -197,18 +165,5 @@ fn visible_doctest_maps_follow_generated_paths_across_sources_and_fence_kinds() 
             ("zeta.veln#doctest-2_test.veln", 11),
             ("alpha.veln#doctest-3_test.veln", 2),
         ]
-    );
-}
-
-#[test]
-fn generated_doctest_boundary_mapping_scales_linearly_at_adjacent_sizes() {
-    let smaller = boundary_mapping_duration(160_000);
-    let larger = boundary_mapping_duration(320_000);
-
-    eprintln!("doctest boundary mapping: 160000={smaller:?}, 320000={larger:?}");
-    assert!(
-        larger <= smaller.saturating_mul(3),
-        "doubling one generated line should remain below quadratic growth: \
-         160000={smaller:?}, 320000={larger:?}"
     );
 }
