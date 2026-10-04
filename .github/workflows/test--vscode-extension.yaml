@@ -10,6 +10,8 @@ on:
       - Cargo.lock
       - Cargo.toml
       - rust-toolchain.toml
+      - scripts/agent-run
+      - scripts/ci-run
       - crates/**
       - tools/veln-repo-editor-assets/**
       - tools/veln-repo-language-reference/**
@@ -27,6 +29,8 @@ on:
       - Cargo.lock
       - Cargo.toml
       - rust-toolchain.toml
+      - scripts/agent-run
+      - scripts/ci-run
       - crates/**
       - tools/veln-repo-editor-assets/**
       - tools/veln-repo-language-reference/**
@@ -63,6 +67,6 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
       - name: Test editor asset projection
-        run: cargo test --locked -p veln-repo-editor-assets
+        run: bash scripts/ci-run cargo test --locked -p veln-repo-editor-assets
       - name: Test VSCode extension
         run: pnpm --filter veln-language test
