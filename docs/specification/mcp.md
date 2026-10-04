@@ -487,11 +487,12 @@ Grouping parentheses inside a call argument do not hide the enclosing call's
 signature.
 
 Both tools use the saved-source capture and positive one-based Unicode-scalar
-coordinate contract. For `completion`, invalid paths return `invalid_path`,
-and invalid coordinates return `invalid_position`. A failed completion does
-not prevent a later request for the same saved source from succeeding. These
-tools do not create a references cursor. Stable-capture failure, resource
-admission, refresh, and existing cursor state follow the
+coordinate contract. Invalid paths return `invalid_path`, and invalid
+coordinates return `invalid_position`. A failed completion or signature-help
+request does not prevent a later request for the same saved source from
+succeeding and does not consume an existing references cursor. These tools do
+not create a references cursor. Stable-capture failure, resource admission,
+refresh, and existing cursor state follow the
 [selection-state contract](#selection-state).
 
 ### Rename
@@ -779,7 +780,9 @@ boundary, call-site-aware signature help without hidden-parameter arity,
 completion from the same saved source after those failures. It also covers the
 eligible position before a trailing header comment and the in-comment and
 end-of-line boundaries. Its signature-help checks cover the declaration-header
-boundary and an enclosing call whose argument uses grouping parentheses.
+boundary and an enclosing call whose argument uses grouping parentheses. A
+signature-help failure between references pages demonstrates that presentation
+failure preserves a live references cursor.
 The checked
 `examples/specification/mcp/references-recovery-navigation/` transcript covers
 recovery selection from a declaration and reference, declaration exclusion and

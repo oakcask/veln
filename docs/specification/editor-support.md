@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#lsp-encoding; behavior=#semantic-token-records; limits=#boundaries
-update-when: The `veln lsp` semantic-token, publish-diagnostic, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy contract changes.
+update-when: The `veln lsp` semantic-token, publish-diagnostic, source-presentation, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy contract changes.
 ---
 
 # Editor Support
@@ -18,6 +18,7 @@ used by editor integrations.
 - LSP `textDocument/semanticTokens/full` integer data comes from `veln-lsp`.
 - LSP `textDocument/publishDiagnostics` messages come from `veln-lsp`.
 - Definition and reference identity comes from `veln-language-service`.
+- Completion and signature help come from `veln-language-service`.
 - LSP `textDocument/definition`, `textDocument/references`,
   `textDocument/prepareRename`, and `textDocument/rename` convert shared
   navigation results to LSP responses in `veln-lsp`.
@@ -86,13 +87,14 @@ The only Veln-specific semantic token modifiers are `test`, `result`, and
 `veln-lsp` exposes the semantic-token legend, full-token response data, and a
 stdio JSON-RPC server. The server advertises `textDocumentSync`,
 `definitionProvider`, `referencesProvider`, `documentFormattingProvider`,
-`renameProvider.prepareProvider`, and `semanticTokensProvider` with
-full-document semantic token support. It handles `initialize`, `initialized`,
+`completionProvider`, `signatureHelpProvider`, `renameProvider.prepareProvider`,
+and `semanticTokensProvider` with full-document semantic token support. It
+handles `initialize`, `initialized`,
 `shutdown`, `exit`, `textDocument/didOpen`, `textDocument/didChange`,
 `textDocument/didClose`, `textDocument/semanticTokens/full`,
 `textDocument/definition`, `textDocument/references`,
-`textDocument/formatting`, `textDocument/prepareRename`, and
-`textDocument/rename`.
+`textDocument/completion`, `textDocument/signatureHelp`,
+`textDocument/formatting`, `textDocument/prepareRename`, and `textDocument/rename`.
 
 The full response uses LSP relative integer encoding in groups of five:
 
@@ -645,8 +647,8 @@ Implemented support includes:
 
 - TextMate fallback highlighting and editor-neutral semantic token records.
 - Full-document semantic token legend and relative integer encoding.
-- Stdio lifecycle, diagnostics, definition, references, formatting,
-  prepare-rename, and rename responses described above.
+- Stdio lifecycle, diagnostics, completion, signature-help, definition,
+  references, formatting, prepare-rename, and rename responses described above.
 - Workspace and document-scoped diagnostics, unsaved overlays, source-casing
   diagnostics, and selected-project isolation.
 - Navigation for workspace declarations, exact companions, handler bindings,
@@ -657,8 +659,12 @@ Implemented support includes:
 - VSCode activation, semantic tokens, Problems-pane diagnostics, and the
   `veln-pkg:` content provider.
 
-The server does not implement range or delta semantic-token requests,
-completion, or hover. General dependency search, definition, and rename remain
+The server does not implement range or delta semantic-token requests or hover.
+Completion is limited to the call-site declaration contexts specified in
+[Call-site Declarations](call-site-declarations.md#declaration-behavior).
+Signature help is limited to source function calls that resolve through the
+saved workspace and retained package snapshot. General dependency search,
+definition, and rename remain
 limited to the supported public and snapshot-bound declaration classes above.
 Unsupported symbols, invalid source modules, wrong package snapshots, comments,
 strings, field labels, and out-of-scope bindings return no selected symbol,
@@ -676,7 +682,8 @@ rename, and virtual-document boundaries.
 The checked
 [`callsite-presentation`](../../examples/specification/lsp/callsite-presentation/)
 transcript pins the public semantic-token legend and complete encoded token
-data for a `callsite` declaration modifier and built-in body reference.
+data for a `callsite` declaration modifier, built-in body reference, and
+ordinary same-spelled parameter declaration and reference.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect and
 effect-operation references.

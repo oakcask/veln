@@ -4,8 +4,8 @@ use veln_syntax::{
     declaration_function_signature, lex, parse,
 };
 
-use crate::navigation::function_signature_definition;
-use crate::{EffectiveProjectSnapshot, NavigationSource, SourcePosition, navigate};
+use crate::navigation::function_signature_definition_at;
+use crate::{EffectiveProjectSnapshot, NavigationSource, SourcePosition};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CompletionCandidateKind {
@@ -172,9 +172,9 @@ pub fn signature_help_at(
         if !matches!(callee.kind, TokenKind::Ident | TokenKind::Callsite) {
             continue;
         }
-        let Some(result) = navigate(
+        let Some((selection, definition)) = function_signature_definition_at(
             snapshot,
-            SourcePosition {
+            &SourcePosition {
                 source: position.source.clone(),
                 line: source.line_col(callee.range.start).line,
                 column: source.line_col(callee.range.start).column,
@@ -182,17 +182,12 @@ pub fn signature_help_at(
         ) else {
             continue;
         };
-        if matches!(
-            &result.selected_symbol.declaration.source,
-            NavigationSource::Workspace
-        ) && result.selected_symbol.declaration.span.file == position.source
-            && result.selection.start.offset == result.selected_symbol.declaration.span.start.offset
+        if matches!(&definition.source, NavigationSource::Workspace)
+            && definition.span.file == position.source
+            && selection.start.offset == definition.span.start.offset
         {
             continue;
         }
-        let Some(definition) = function_signature_definition(snapshot, &result) else {
-            continue;
-        };
         let Some(declaration_source) = (match &definition.source {
             NavigationSource::Workspace => {
                 snapshot.workspace_source(&definition.span.file).cloned()
@@ -622,5 +617,95 @@ mod tests {
             "fn located(message: String) -> SourceLocation callsite"
         );
         assert_eq!(help.parameters, ["message: String"]);
+    }
+
+    #[test]
+    fn signature_help_resolves_alias_chains_beyond_the_former_depth_limit() {
+        let mut source = String::from(
+            "pub fn located(message: String) -> SourceLocation callsite\n  callsite\nend\n",
+        );
+        source.push_str("pub fn alias_0 = located\n");
+        for index in 1..70 {
+            source.push_str(&format!("pub fn alias_{index} = alias_{}\n", index - 1));
+        }
+        source.push_str("fn caller() -> SourceLocation\n  alias_69(\"hello\")\nend\n");
+        let snapshot = snapshot(&source);
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 75,
+                column: 19,
+            },
+        )
+        .expect("deep alias signature help");
+
+        assert_eq!(
+            help.label,
+            "fn located(message: String) -> SourceLocation callsite"
+        );
+    }
+
+    #[test]
+    fn signature_help_rejects_a_public_alias_cycle() {
+        let snapshot = snapshot(concat!(
+            "pub fn first = second\n",
+            "pub fn second = first\n",
+            "fn caller() -> Int\n",
+            "  first()\n",
+            "end\n",
+        ));
+
+        assert!(
+            signature_help_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 4,
+                    column: 9,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    fn rejected_nested_candidate_reference_collections(depth: usize) -> usize {
+        let mut source = String::from(concat!(
+            "fn located(value: Int) -> SourceLocation callsite\n",
+            "  callsite\n",
+            "end\n",
+            "fn caller() -> SourceLocation\n",
+            "  let value: Int = 1\n",
+            "  located("
+        ));
+        source.push_str(&"value(".repeat(depth));
+        source.push('1');
+        let column = source.lines().last().expect("call line").chars().count() + 1;
+        source.push_str(&")".repeat(depth));
+        source.push_str(")\nend\n");
+        let snapshot = snapshot(&source);
+        crate::navigation::reset_function_scope_collections();
+
+        let help = signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 6,
+                column,
+            },
+        )
+        .expect("outer signature help");
+        assert_eq!(
+            help.label,
+            "fn located(value: Int) -> SourceLocation callsite"
+        );
+        crate::navigation::function_scope_collections()
+    }
+
+    #[test]
+    fn rejected_nested_signature_candidates_do_not_collect_references() {
+        assert_eq!(rejected_nested_candidate_reference_collections(100), 0);
+        assert_eq!(rejected_nested_candidate_reference_collections(200), 0);
     }
 }

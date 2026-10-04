@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"aec5247518ffa2cf12f36a8b01a20314f23864b3"
+source_git_tree	"10ae5f9bfee7085eedfba3818684b721b2dac24c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1759
@@ -13398,7 +13398,7 @@ field	expectations.lsp_assertions[1].equals	["declaration","readonly","defaultLi
 field	expectations.lsp_assertions[1].id	1
 field	expectations.lsp_assertions[1].operation	"equals"
 field	expectations.lsp_assertions[1].path	"/result/capabilities/semanticTokensProvider/legend/tokenModifiers"
-field	expectations.lsp_assertions[2].equals	[0,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,7,2,3,0,7,1,11,0,0,2,6,1,0,0,6,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,2,1,8,3,2,1,0,3,7,0,2,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,1,10,0,1,0,3,7,0,2,0,2,7,0,0,3,6,6,1,0,6,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,1,1,7,6,0,0,7,1,11,0,0,1,7,9,0,0,7,1,11,0,1,0,3,7,0]
+field	expectations.lsp_assertions[2].equals	[0,0,2,7,0,0,3,7,6,1,0,7,1,11,0,0,1,7,2,3,0,7,1,11,0,0,2,6,1,0,0,6,1,11,0,0,2,2,11,0,0,3,14,1,0,0,15,8,7,0,2,1,8,3,2,1,0,3,7,0,2,0,2,7,0,0,3,8,6,1,0,8,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,1,10,0,1,0,3,7,0,2,0,2,7,0,0,3,6,6,1,0,6,1,11,0,0,1,1,11,0,0,2,2,11,0,0,3,14,1,0,1,1,7,6,0,0,7,1,11,0,0,1,7,9,0,0,7,1,11,0,1,0,3,7,0,2,0,2,7,0,0,3,5,6,1,0,5,1,11,0,0,1,8,2,3,0,8,1,11,0,0,2,3,1,0,0,3,1,11,0,0,2,2,11,0,0,3,3,1,0,1,1,8,2,2,1,0,3,7,0]
 field	expectations.lsp_assertions[2].id	6
 field	expectations.lsp_assertions[2].operation	"equals"
 field	expectations.lsp_assertions[2].path	"/result/data"
@@ -13439,7 +13439,7 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2346,"sha256":"4da1f3186b6faebb46a25d638d4949e30d06535867bf7978f603bd6a32b9ee8f"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"7bef2d2d8aeb33d1214e79cb6140674d54c8edfbbc53897fd2b04163c10c873d"
+case_digest	"b9f8e24f5fc1c0e35f007025ae2ff2adc5e18dc1eaaa9aba7dc00585cec021b4"
 case	"examples/specification/lsp/cleanup-region-navigation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	{"end":{"character":14,"line":7},"start":{"character":6,"line":7}}
@@ -18076,6 +18076,22 @@ field	expectations.mcp_assertions[20].equals	{"activeParameter":0,"label":"fn lo
 field	expectations.mcp_assertions[20].id	14
 field	expectations.mcp_assertions[20].operation	"equals"
 field	expectations.mcp_assertions[20].path	"/result/structuredContent/signature"
+field	expectations.mcp_assertions[21].id	15
+field	expectations.mcp_assertions[21].length	1
+field	expectations.mcp_assertions[21].operation	"length"
+field	expectations.mcp_assertions[21].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[22].equals	{"code":"invalid_position","details":{"column":1,"line":99,"source":"main.veln"},"message":"position is outside the selected source"}
+field	expectations.mcp_assertions[22].id	16
+field	expectations.mcp_assertions[22].operation	"equals"
+field	expectations.mcp_assertions[22].path	"/result/structuredContent"
+field	expectations.mcp_assertions[23].equals	false
+field	expectations.mcp_assertions[23].id	17
+field	expectations.mcp_assertions[23].operation	"equals"
+field	expectations.mcp_assertions[23].path	"/result/isError"
+field	expectations.mcp_assertions[24].id	17
+field	expectations.mcp_assertions[24].length	1
+field	expectations.mcp_assertions[24].operation	"length"
+field	expectations.mcp_assertions[24].path	"/result/structuredContent/references"
 field	expectations.mcp_assertions[2].equals	"callsite"
 field	expectations.mcp_assertions[2].id	3
 field	expectations.mcp_assertions[2].operation	"equals"
@@ -18111,9 +18127,9 @@ field	expectations.mcp_assertions[9].path	"/result/structuredContent/signature/a
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1849,"sha256":"2c7eba2bfd0344ef7e204a322c00c5eb914842c537687a05df5b75b2f6861bc4"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2282,"sha256":"315640ac251e94a502f08a2b43b9c021fdfbbe7049ddc901d09564157f121671"}
 field	source_errors	"forbidden"
-case_digest	"818bcaba31c389b4f66f76c26345f1decabcbc81aa6600efb214c7933a9cb521"
+case_digest	"87775efc1e0ce03820e1635f02da63888804e5727a7d34399d859c0a3d2f3cc3"
 case	"examples/specification/mcp/check-project-diagnostics"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -63501,4 +63517,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"db68e30a021d57602aee94fd736f1e0e6683ef20a019b0029de6b9991b864d6b"
+aggregate_digest	"e7f6579cf2917182285dc877c5036a6e581dab6f72b43d549ae8875c825b2f59"

@@ -10,3 +10,7 @@ end
 fn caller() -> SourceLocation
 	located("hello")
 end
+
+fn named(callsite: Int) -> Int
+	callsite
+end

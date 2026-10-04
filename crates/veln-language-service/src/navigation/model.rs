@@ -246,19 +246,37 @@ pub fn navigate(
     navigate_in_index(snapshot.navigation_index(), &position)
 }
 
-pub(crate) fn function_signature_definition(
+pub(crate) fn function_signature_definition_at(
     snapshot: &EffectiveProjectSnapshot,
-    result: &NavigationResult,
-) -> Option<NavigationLocation> {
-    let index = snapshot.navigation_index();
-    let mut symbol = index.selected_function(result)?;
-    for _ in 0..64 {
+    position: &SourcePosition,
+) -> Option<(SourceSpan, NavigationLocation)> {
+    let request = snapshot
+        .navigation_index()
+        .symbol_at_position(position.source.as_str(), position)?;
+    let selection = request.selection;
+    let Symbol::Function(mut symbol) = request.symbol else {
+        return None;
+    };
+    let mut visited = BTreeSet::new();
+    loop {
         if symbol.declaration_kind != SymbolDeclarationKind::PublicAlias {
-            return Some(symbol.declaration);
+            return Some((selection, symbol.declaration));
         }
-        symbol = index.function_alias_target_symbol(&symbol)?;
+        let declaration_source = match &symbol.declaration.source {
+            NavigationSource::Workspace => String::new(),
+            NavigationSource::Package { uri } => uri.clone(),
+        };
+        let identity = (
+            declaration_source,
+            symbol.declaration.span.file.as_str().to_string(),
+            symbol.declaration.span.start.offset,
+            symbol.declaration.span.end.offset,
+        );
+        if !visited.insert(identity) {
+            return None;
+        }
+        symbol = request.index.function_alias_target_symbol(&symbol)?;
     }
-    None
 }
 
 pub fn navigate_for_rename(

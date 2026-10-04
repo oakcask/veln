@@ -109,3 +109,23 @@ equals = null
 id = 14
 path = "/result/structuredContent/signature"
 equals = {"label":"fn located(value: Int) -> SourceLocation callsite","parameters":["value: Int"],"activeParameter":0}
+
+[[mcp_assert]]
+id = 15
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 16
+path = "/result/structuredContent"
+equals = {"code":"invalid_position","details":{"source":"main.veln","line":99,"column":1},"message":"position is outside the selected source"}
+
+[[mcp_assert]]
+id = 17
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/references"
+length = 1
