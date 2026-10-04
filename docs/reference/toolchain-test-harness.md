@@ -399,6 +399,10 @@ scopes, including the boundary before a multiline `let` initializer completes,
 an edit-free rename conflict with an enclosing parameter, an allowed
 equal-name rename across disjoint sibling `begin` scopes, and prepare-rename
 selection from an outer tail use and a deferred use.
+The `callsite-presentation` LSP specification case uses decoded assertions for
+call-site modifier and built-in-local completion, call-site semantic tokens,
+source signature help, UTF-16 positions, invalid-position failures, and
+unchanged retained-source results after those failures.
 
 The `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in
 `toolchain_harness.rs` cover MCP JSONL decoding, ID selection, pointer
@@ -429,6 +433,11 @@ parameter and an allowed equal-name rename across disjoint sibling `begin`
 scopes. The `defer-binding-visibility` check specification case keeps a binding
 visible at the `defer` statement visible inside its block and requires a later
 binding to remain unresolved there.
+The `callsite-presentation` MCP specification case uses decoded assertions for
+call-site modifier and built-in-local completion, source signature help,
+invalid path and position failures, references-cursor preservation, bounded
+over-budget results, and unchanged workspace selection and saved-source
+results after those outcomes.
 The `references-workspace-handler` MCP specification case uses the same
 decoded assertion model for exact handler reference locations, declaration
 inclusion, Unicode-scalar coordinates, deterministic ordering, and cursor

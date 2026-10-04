@@ -15,7 +15,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
 - Modules, items, expressions, literals, comments, tests, doctests, and grammar:
   [source-surface.md](source-surface.md).
 - Call-site-aware declarations, direct and indirect propagation, runtime
-  callbacks, source-location values, and related diagnostics:
+  callbacks, source-location values, editor presentation, and related
+  diagnostics:
   [call-site-declarations.md](call-site-declarations.md).
 - Type annotations, inference, assignment compatibility, and operators:
   [types.md](types.md).
@@ -27,7 +28,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
   calls: [effects.md](effects.md).
 - Compiler-known descriptor metadata and prelude helpers:
   [prelude-helpers.md](prelude-helpers.md).
-- Editor lexical fallback, semantic token classes, and LSP full-token encoding:
+- Editor lexical fallback, semantic token classes, LSP completion and signature
+  help, and full-token encoding:
   [editor-support.md](editor-support.md).
 
 ## Contracts And Holes
@@ -46,7 +48,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
 ## Commands And Output
 
 - MCP stdio lifecycle, workspace project selection, resources, saved
-  diagnostics, saved navigation, tool declarations, and atomic refresh:
+  diagnostics, saved navigation and source presentation, tool declarations,
+  and atomic refresh:
   [mcp.md](mcp.md).
 - Command routes: [commands.md](commands.md).
 - Shared analysis gates and source discovery:
