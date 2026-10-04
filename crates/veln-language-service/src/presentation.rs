@@ -258,6 +258,7 @@ pub fn signature_help_at(
     let recovery_start = shadow_index.recovery_start();
     let local_signatures = local_signature_declarations(source, &significant);
     let function_names = signature_function_names(snapshot);
+    let mut recovered_function_is_callsite_aware = None;
     let mut open = Vec::new();
     for (significant_index, (_, token)) in significant.iter().enumerate() {
         if token.range.start >= offset {
@@ -288,14 +289,24 @@ pub fn signature_help_at(
         if declaration_name_token(&significant, callee_index) {
             continue;
         }
+        let is_bare = callee_index
+            .checked_sub(1)
+            .is_none_or(|previous| significant[previous].1.kind != TokenKind::DoubleColon);
+        let is_in_function_body =
+            shadow_index.allows_local_signature(&tokens.tokens, callee_token_index);
+        if callee.text == "callsite"
+            && is_bare
+            && is_in_function_body
+            && *recovered_function_is_callsite_aware.get_or_insert_with(|| {
+                recovered_function_has_callsite_modifier(source, &tokens.tokens, recovery_start)
+            })
+        {
+            continue;
+        }
         if shadow_index.shadows(&tokens.tokens, callee_token_index, &callee.text) {
             continue;
         }
-        let local_signature_allowed = shadow_index
-            .allows_local_signature(&tokens.tokens, callee_token_index)
-            && callee_index
-                .checked_sub(1)
-                .is_none_or(|previous| significant[previous].1.kind != TokenKind::DoubleColon);
+        let local_signature_allowed = is_in_function_body && is_bare;
         if local_signature_allowed
             && let Some(function) =
                 local_signature_function(source, &local_signatures, &callee.text)
@@ -343,6 +354,30 @@ pub fn signature_help_at(
         return Some(signature_help(&function, active_parameter));
     }
     None
+}
+
+fn recovered_function_has_callsite_modifier(
+    source: &SourceFile,
+    tokens: &[Token],
+    recovery_start: usize,
+) -> bool {
+    let Some(start_index) = tokens
+        .iter()
+        .position(|token| token.range.start == recovery_start && token.kind == TokenKind::Fn)
+    else {
+        return false;
+    };
+    let Some(name) = tokens[start_index + 1..].iter().find(|token| {
+        !matches!(
+            token.kind,
+            TokenKind::Whitespace | TokenKind::Newline | TokenKind::Comment
+        )
+    }) else {
+        return false;
+    };
+    name.kind.is_contextual_identifier()
+        && parse_function_signature_at(source, name.range.start)
+            .is_some_and(|function| function.callsite.is_some())
 }
 
 fn signature_function_names(snapshot: &EffectiveProjectSnapshot) -> HashSet<String> {
@@ -974,6 +1009,30 @@ mod tests {
                     source: SourcePath::new("main.veln"),
                     line: 5,
                     column: 12,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn signature_help_does_not_bypass_the_callsite_builtin() {
+        let snapshot = snapshot(concat!(
+            "fn callsite(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn caller() -> Int callsite\n",
+            "  callsite(1)\n",
+            "end\n",
+        ));
+
+        assert!(
+            signature_help_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 5,
+                    column: 14,
                 },
             )
             .is_none()

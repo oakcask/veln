@@ -160,3 +160,8 @@ equals = "fn handles(value: Int) -> Int callsite"
 id = 23
 path = "/result/structuredContent/signature"
 equals = null
+
+[[mcp_assert]]
+id = 24
+path = "/result/structuredContent/signature"
+equals = null

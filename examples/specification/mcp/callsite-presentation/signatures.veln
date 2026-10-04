@@ -24,3 +24,6 @@ end
 fn recovered(value: Int) -> Int
   value
 end
+fn shadowed() -> Int callsite
+  callsite(1)
+end

@@ -59,12 +59,21 @@ impl SignatureShadowIndex {
         };
         let end_index = boundaries.get(boundary).copied().unwrap_or(tokens.len());
         let window = &tokens[start_index..end_index];
-        let mut scopes = function_scopes(window);
+        let defer_block_openers = defer_block_openers(window);
+        let mut scopes = window
+            .first()
+            .filter(|token| matches!(token.kind, TokenKind::Fn | TokenKind::Test))
+            .and_then(|_| function_scope(window, 0, &defer_block_openers))
+            .into_iter()
+            .collect::<Vec<_>>();
+        scopes.extend(handler_operation_clause_scopes(
+            window,
+            &defer_block_openers,
+        ));
         let window_end = tokens.get(end_index).map_or_else(
             || tokens.last().map_or(0, |token| token.range.end),
             |token| token.range.start,
         );
-        let defer_block_openers = defer_block_openers(window);
         for scope in scopes
             .iter_mut()
             .filter(|scope| !scope.is_handler_clause && scope.end == scope.body_start)
@@ -189,6 +198,51 @@ mod signature_shadow_tests {
         assert_eq!(larger.1, 1);
         assert_eq!(smaller.2, 1);
         assert_eq!(larger.2, 1);
+    }
+
+    fn malformed_header_with_locals_work(
+        declaration_count: usize,
+        local_count: usize,
+    ) -> (usize, usize, usize, usize) {
+        let mut text = String::new();
+        for index in 0..declaration_count {
+            text.push_str(&format!("fn unfinished_{index} "));
+        }
+        text.push('\n');
+        for index in 0..local_count {
+            text.push_str(&format!("  let value_{index} = {index}\n"));
+        }
+        let source = SourceFile::new("malformed-header.veln", text);
+        let tokens = lex(&source).tokens;
+        reset_local_binding_scope_token_visits();
+        let (inspected, scopes, bindings) =
+            SignatureShadowIndex::new(&tokens, source.len()).work_and_retention();
+        (
+            inspected,
+            scopes,
+            bindings,
+            local_binding_scope_token_visits(),
+        )
+    }
+
+    #[test]
+    fn malformed_header_shadow_index_has_linear_work_and_bounded_retention() {
+        let smaller = malformed_header_with_locals_work(100, 100);
+        let larger = malformed_header_with_locals_work(200, 200);
+        eprintln!("malformed signature scopes: 100={smaller:?}, 200={larger:?}");
+
+        assert!(
+            larger.0 <= smaller.0 * 2 + 32,
+            "shadow-index work grew too quickly: {smaller:?} -> {larger:?}"
+        );
+        assert!(
+            larger.3 <= smaller.3 * 2 + 32,
+            "local-binding work grew too quickly: {smaller:?} -> {larger:?}"
+        );
+        assert_eq!(smaller.1, 1);
+        assert_eq!(larger.1, 1);
+        assert_eq!(smaller.2, 100);
+        assert_eq!(larger.2, 200);
     }
 }
 

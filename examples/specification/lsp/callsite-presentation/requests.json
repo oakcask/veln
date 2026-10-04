@@ -18,6 +18,8 @@
   {"jsonrpc":"2.0","id":17,"method":"textDocument/semanticTokens/full","params":{"textDocument":{"uri":{"$workspace_file_uri":"unicode.veln"}}}},
   {"jsonrpc":"2.0","id":18,"method":"textDocument/semanticTokens/full","params":{"textDocument":{"uri":{"$workspace_file_uri":"ordinary_bindings.veln"}}}},
   {"jsonrpc":"2.0","id":19,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"signatures.veln"}},"position":{"line":23,"character":20}}},
-  {"jsonrpc":"2.0","id":20,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":20,"method":"textDocument/semanticTokens/full","params":{"textDocument":{"uri":{"$workspace_file_uri":"contextual_function.veln"}}}},
+  {"jsonrpc":"2.0","id":21,"method":"textDocument/signatureHelp","params":{"textDocument":{"uri":{"$workspace_file_uri":"signatures.veln"}},"position":{"line":27,"character":13}}},
+  {"jsonrpc":"2.0","id":22,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

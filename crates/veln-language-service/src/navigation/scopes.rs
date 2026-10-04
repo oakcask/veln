@@ -24,35 +24,12 @@ fn local_binding_shadowing_call_target_in_scopes<'a>(
 
 fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
     let defer_block_openers = defer_block_openers(tokens);
-    let mut scopes = Vec::new();
-    for (index, token) in tokens.iter().enumerate() {
-        if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
-            continue;
-        }
-        let Some(body_start) = tokens[index..]
-            .iter()
-            .find(|token| token.kind == TokenKind::Newline)
-            .map(|token| token.range.end)
-        else {
-            continue;
-        };
-        let end = function_scope_end_with_defer_openers(tokens, index + 1, &defer_block_openers)
-            .unwrap_or(body_start);
-        let params = parameter_names(tokens, index, body_start);
-        let result_binding = result_binding_name(tokens, index, body_start);
-        let local_bindings =
-            local_bindings_with_defer_openers(tokens, body_start, end, &defer_block_openers);
-        let local_bindings_by_name = local_binding_index_by_name(&local_bindings);
-        scopes.push(FunctionScope {
-            body_start,
-            end,
-            is_handler_clause: false,
-            params,
-            result_binding,
-            local_bindings,
-            local_bindings_by_name,
-        });
-    }
+    let mut scopes = tokens
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| matches!(token.kind, TokenKind::Fn | TokenKind::Test))
+        .filter_map(|(index, _)| function_scope(tokens, index, &defer_block_openers))
+        .collect::<Vec<_>>();
     // Keep clauses as a source-ordered suffix so lookup can binary-search them
     // without changing the precedence of ordinary scopes.
     scopes.extend(handler_operation_clause_scopes(
@@ -60,6 +37,33 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
         &defer_block_openers,
     ));
     scopes
+}
+
+fn function_scope(
+    tokens: &[Token],
+    index: usize,
+    defer_block_openers: &[bool],
+) -> Option<FunctionScope> {
+    let body_start = tokens[index..]
+        .iter()
+        .find(|token| token.kind == TokenKind::Newline)
+        .map(|token| token.range.end)?;
+    let end = function_scope_end_with_defer_openers(tokens, index + 1, defer_block_openers)
+        .unwrap_or(body_start);
+    let params = parameter_names(tokens, index, body_start);
+    let result_binding = result_binding_name(tokens, index, body_start);
+    let local_bindings =
+        local_bindings_with_defer_openers(tokens, body_start, end, defer_block_openers);
+    let local_bindings_by_name = local_binding_index_by_name(&local_bindings);
+    Some(FunctionScope {
+        body_start,
+        end,
+        is_handler_clause: false,
+        params,
+        result_binding,
+        local_bindings,
+        local_bindings_by_name,
+    })
 }
 
 fn handler_operation_clause_scopes(

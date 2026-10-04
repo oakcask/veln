@@ -362,7 +362,11 @@ impl<'a> Classifier<'a> {
             self.cursor += 1;
             self.skip_trivia();
         }
-        if self.at(TokenKind::Ident) {
+        if self
+            .tokens
+            .get(self.cursor)
+            .is_some_and(|token| token.kind.is_contextual_identifier())
+        {
             let token = &self.tokens[self.cursor];
             let modifiers = if kind == TokenKind::Test {
                 vec![

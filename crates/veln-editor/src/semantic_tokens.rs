@@ -313,7 +313,7 @@ fn collect_function_names(tokens: &[Token]) -> BTreeSet<String> {
                 .iter()
                 .skip(index + 1)
                 .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
-                .filter(|token| token.kind == TokenKind::Ident)
+                .filter(|token| token.kind.is_contextual_identifier())
         {
             names.insert(name.text.clone());
         }

@@ -438,6 +438,44 @@ fn collector_distinguishes_callsite_modifier_builtin_and_ordinary_identifier() {
 }
 
 #[test]
+fn collector_classifies_callsite_function_declarations_and_references() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn callsite(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "fn caller() -> Int\n",
+            "  callsite(1)\n",
+            "end\n",
+        ),
+    );
+    let tokens = collect_text(&source);
+    let callsites = tokens
+        .iter()
+        .filter(|(text, _, _)| text == "callsite")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        callsites,
+        [
+            &(
+                "callsite".to_string(),
+                SemanticTokenType::Function,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .bits(),
+            ),
+            &(
+                "callsite".to_string(),
+                SemanticTokenType::Function,
+                SemanticTokenModifiers::empty().bits(),
+            ),
+        ]
+    );
+}
+
+#[test]
 fn collector_classifies_multiline_handler_operation_clause_bodies() {
     let source = SourceFile::new(
         "main.veln",

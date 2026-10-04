@@ -73,6 +73,9 @@ uses only source parameters. A position inside the declaration's own header
 does not produce signature help. An unfinished call in an earlier declaration
 does not leak signature help into a later declaration header. Grouping
 parentheses within a call argument do not hide the enclosing call's signature.
+Inside a call-site-aware function body, the built-in `callsite` local is not
+callable. A `callsite(` expression therefore does not fall back to a same-named
+workspace or package function and does not produce signature help.
 Every finite acyclic chain of public workspace function aliases resolves to its
 target declaration before rendering; an alias cycle does not produce signature
 help.
