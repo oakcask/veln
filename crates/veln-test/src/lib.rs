@@ -70,61 +70,74 @@ pub fn attach_doctest_expectations(
 }
 
 pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
-    let mut generated_sources = Vec::new();
-    let mut visible_source_locations = BTreeMap::new();
-    let mut expectations = BTreeMap::new();
-    let mut expected_failures = BTreeMap::new();
-    let mut diagnostics = Vec::new();
+    let mut generated = DoctestSources {
+        sources: Vec::new(),
+        visible_source_locations: BTreeMap::new(),
+        expectations: BTreeMap::new(),
+        expected_failures: BTreeMap::new(),
+        diagnostics: Vec::new(),
+    };
     let mut next_index = 1;
     let signatures = result_error_signatures(sources);
 
     for source in sources {
         let extracted = extract_doctests(source, &signatures);
-        diagnostics.extend(extracted.diagnostics);
+        generated.diagnostics.extend(extracted.diagnostics);
         for doctest in extracted.doctests {
-            let name = format!("doctest_{next_index}");
-            let Ok(generated_path) = SourcePath::virtual_source(
-                source.path(),
-                format!("doctest-{next_index}_test.veln"),
-            ) else {
-                diagnostics.push(invalid_doctest_origin_diagnostic(source));
+            if !append_doctest_source(&mut generated, source, doctest, next_index) {
+                generated
+                    .diagnostics
+                    .push(invalid_doctest_origin_diagnostic(source));
                 break;
-            };
-            let generated = generated_doctest_source(&name, &doctest);
-            let copied_regions = generated_doctest_copied_regions(&name, &doctest);
-            if let Some(fail_span) = doctest.fail_span {
-                expected_failures.insert(generated_path.as_str().to_string(), fail_span);
-            }
-            visible_source_locations.insert(
-                generated_path.as_str().to_string(),
-                doctest.visible_source_locations,
-            );
-            generated_sources.push(SourceFile::generated_with_copied_regions(
-                generated_path,
-                generated,
-                source.path().clone(),
-                copied_regions,
-            ));
-            if !doctest.should_fail {
-                expectations.insert(
-                    name,
-                    DoctestExpectation {
-                        expected_output: doctest.expected_output,
-                        expected_runtime_failure: doctest.expected_runtime_failure,
-                    },
-                );
             }
             next_index += 1;
         }
     }
 
-    DoctestSources {
-        sources: generated_sources,
-        visible_source_locations,
-        expectations,
-        expected_failures,
-        diagnostics,
+    generated
+}
+
+fn append_doctest_source(
+    generated: &mut DoctestSources,
+    source: &SourceFile,
+    doctest: ExtractedDoctest,
+    index: usize,
+) -> bool {
+    let name = format!("doctest_{index}");
+    let Ok(generated_path) =
+        SourcePath::virtual_source(source.path(), format!("doctest-{index}_test.veln"))
+    else {
+        return false;
+    };
+    let generated_text = generated_doctest_source(&name, &doctest);
+    let copied_regions = generated_doctest_copied_regions(&name, &doctest);
+    if let Some(fail_span) = doctest.fail_span {
+        generated
+            .expected_failures
+            .insert(generated_path.as_str().to_string(), fail_span);
     }
+    generated.visible_source_locations.insert(
+        generated_path.as_str().to_string(),
+        doctest.visible_source_locations,
+    );
+    generated
+        .sources
+        .push(SourceFile::generated_with_copied_regions(
+            generated_path,
+            generated_text,
+            source.path().clone(),
+            copied_regions,
+        ));
+    if !doctest.should_fail {
+        generated.expectations.insert(
+            name,
+            DoctestExpectation {
+                expected_output: doctest.expected_output,
+                expected_runtime_failure: doctest.expected_runtime_failure,
+            },
+        );
+    }
+    true
 }
 
 fn invalid_doctest_origin_diagnostic(source: &SourceFile) -> Diagnostic {
