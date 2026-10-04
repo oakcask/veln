@@ -285,6 +285,30 @@ fn variant_refinement_widening_is_direct_and_erases_for_core_types() {
 }
 
 #[test]
+fn variant_refinement_subset_widening_stays_at_the_direct_boundary() {
+    let ready = Type::variant_refinement("State", Vec::new(), vec!["Ready".to_string()]);
+    let any_state = Type::variant_refinement(
+        "State",
+        Vec::new(),
+        vec!["Ready".to_string(), "Closed".to_string()],
+    );
+
+    assert!(is_assignable(&any_state, &ready));
+    assert!(!is_assignable(
+        &Type::named("Box", vec![any_state.clone()]),
+        &Type::named("Box", vec![ready.clone()])
+    ));
+    assert!(!is_assignable(
+        &Type::Record(vec![("state".to_string(), any_state.clone())]),
+        &Type::Record(vec![("state".to_string(), ready.clone())])
+    ));
+    assert!(!is_assignable(
+        &Type::function(Vec::new(), any_state, Vec::new()),
+        &Type::function(Vec::new(), ready, Vec::new())
+    ));
+}
+
+#[test]
 fn parses_singleton_and_same_base_variant_union_annotations() {
     assert_eq!(
         parse_type_annotation("Option<Int>::Some"),
