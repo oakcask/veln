@@ -162,81 +162,112 @@ impl<'p, 'a> Lexer<'p, 'a> {
             _ => unreachable!(),
         };
         self.offset += if multiline { 3 } else { 1 };
-        let closing_quotes = loop {
-            let Some(ch) = self.peek_char() else {
-                let raw = &self.text[start..self.offset];
-                decode_toml_string(raw, opening_line, form, 0)?;
-                return Err(SyntaxError {
-                    line: opening_line,
-                    message: "unterminated manifest string".to_string(),
-                });
-            };
-            if ch == '\r' {
-                if !self.text[self.offset..].starts_with("\r\n") {
-                    return Err(SyntaxError {
-                        line: self.line,
-                        message: "lone carriage return in manifest".to_string(),
-                    });
-                }
-                if !multiline {
-                    return Err(self.single_line_newline_or_pending_string_error(
-                        start,
-                        opening_line,
-                        form,
-                    ));
-                }
-                self.offset += 2;
-                self.line += 1;
-                continue;
-            }
-            if ch == '\n' {
-                if !multiline {
-                    return Err(self.single_line_newline_or_pending_string_error(
-                        start,
-                        opening_line,
-                        form,
-                    ));
-                }
-                self.next_char();
-                continue;
-            }
-            if form.is_basic() && ch == '\\' {
-                self.next_char();
-                if self.peek_char() == Some('\r') && !self.text[self.offset..].starts_with("\r\n") {
-                    return Err(SyntaxError {
-                        line: self.line,
-                        message: "lone carriage return in manifest".to_string(),
-                    });
-                }
-                if self.peek_char().is_some() {
-                    self.next_char();
-                }
-                continue;
-            }
-            if ch != quote {
-                self.next_char();
-                continue;
-            }
-
-            let run_start = self.offset;
-            while self.peek_char() == Some(quote) {
-                self.next_char();
-            }
-            let run = (self.offset - run_start) / quote.len_utf8();
-            if !multiline {
-                self.offset = run_start + quote.len_utf8();
-                break 1;
-            }
-            if run >= 3 {
-                break run;
-            }
-        };
+        let closing_quotes = self.scan_string(start, opening_line, form)?;
 
         let raw = &self.text[start..self.offset];
         let decoded = decode_toml_string(raw, opening_line, form, closing_quotes);
         Ok(StringToken {
             decoded,
             source: raw,
+        })
+    }
+
+    fn scan_string(
+        &mut self,
+        start: usize,
+        opening_line: usize,
+        form: StringForm,
+    ) -> Result<usize, SyntaxError> {
+        loop {
+            let Some(ch) = self.peek_char() else {
+                return self.unterminated_string_error(start, opening_line, form);
+            };
+            if matches!(ch, '\r' | '\n') {
+                self.scan_string_newline(ch, start, opening_line, form)?;
+                continue;
+            }
+            if form.is_basic() && ch == '\\' {
+                self.scan_basic_string_escape()?;
+                continue;
+            }
+            if ch != form.quote() {
+                self.next_char();
+                continue;
+            }
+            if let Some(closing_quotes) = self.scan_quote_run(form) {
+                return Ok(closing_quotes);
+            }
+        }
+    }
+
+    fn scan_string_newline(
+        &mut self,
+        ch: char,
+        start: usize,
+        opening_line: usize,
+        form: StringForm,
+    ) -> Result<(), SyntaxError> {
+        if ch == '\r' && !self.text[self.offset..].starts_with("\r\n") {
+            return Err(SyntaxError {
+                line: self.line,
+                message: "lone carriage return in manifest".to_string(),
+            });
+        }
+        if !form.is_multiline() {
+            return Err(self.single_line_newline_or_pending_string_error(
+                start,
+                opening_line,
+                form,
+            ));
+        }
+        if ch == '\r' {
+            self.offset += 2;
+            self.line += 1;
+        } else {
+            self.next_char();
+        }
+        Ok(())
+    }
+
+    fn scan_basic_string_escape(&mut self) -> Result<(), SyntaxError> {
+        self.next_char();
+        if self.peek_char() == Some('\r') && !self.text[self.offset..].starts_with("\r\n") {
+            return Err(SyntaxError {
+                line: self.line,
+                message: "lone carriage return in manifest".to_string(),
+            });
+        }
+        if self.peek_char().is_some() {
+            self.next_char();
+        }
+        Ok(())
+    }
+
+    fn scan_quote_run(&mut self, form: StringForm) -> Option<usize> {
+        let quote = form.quote();
+        let run_start = self.offset;
+        while self.peek_char() == Some(quote) {
+            self.next_char();
+        }
+        let run = (self.offset - run_start) / quote.len_utf8();
+        if !form.is_multiline() {
+            self.offset = run_start + quote.len_utf8();
+            return Some(1);
+        }
+        (run >= 3).then_some(run)
+    }
+
+    fn unterminated_string_error(
+        &self,
+        start: usize,
+        opening_line: usize,
+        form: StringForm,
+    ) -> Result<usize, SyntaxError> {
+        let raw = &self.text[start..self.offset];
+        decode_toml_string(raw, opening_line, form, 0)?;
+        Err(SyntaxError {
+            line: opening_line,
+            message: "unterminated manifest string".to_string(),
         })
     }
 

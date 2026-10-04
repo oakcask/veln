@@ -130,3 +130,30 @@ fn policy_scan_provenance_retains_escape_lines_and_local_decode_errors() {
     assert_eq!(error.line, 4);
     assert_eq!(error.message, "unsupported manifest string escape `q`");
 }
+
+#[test]
+fn lexer_preserves_string_boundaries_across_escapes_and_crlf() {
+    let source = "first = \"escaped\\\"quote\"\r\nsecond = \"\"\"line one\r\nline two\"\"\"\r\nthird = 'done'\r\n";
+    let tokens = Lexer::new(Path::new("case.toml"), source).lex().tokens;
+    let strings = tokens
+        .iter()
+        .filter_map(|token| match &token.kind {
+            TokenKind::String(string) => Some((token.line, string)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(strings.len(), 3);
+    assert_eq!(strings[0].0, 1);
+    assert_eq!(
+        strings[0].1.decoded.as_ref().unwrap().text(),
+        "escaped\"quote"
+    );
+    assert_eq!(strings[1].0, 2);
+    assert_eq!(
+        strings[1].1.decoded.as_ref().unwrap().text(),
+        "line one\nline two"
+    );
+    assert_eq!(strings[2].0, 4);
+    assert_eq!(strings[2].1.decoded.as_ref().unwrap().text(), "done");
+}
