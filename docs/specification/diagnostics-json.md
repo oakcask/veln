@@ -59,6 +59,13 @@ enclosing `if` expression's following `else` branch, or an enclosing `match`
 expression's following arm. It does not merge a following top-level
 declaration into the failed body.
 
+A handler declaration that uses the former `handles` separator reports
+`parse.expected_token` at `handles`. Its message is `expected for`, its
+`details.expected` value is `["for"]`, and its recovery strategy is
+`skip_token`. A handler declaration that omits the separator reports the same
+diagnostic at the effect target with `insert_token` recovery. Both recoveries
+retain the target effect and the boundary of a following declaration.
+
 Malformed integer literals use `parse.integer_literal` with the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;
 related notes may identify the accepted digit set or prefix. Invalid literal
