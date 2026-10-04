@@ -1,0 +1,15 @@
+effect Ask
+	value() -> Int
+end
+
+handler old() handles Ask
+	value() => 1
+end
+
+handler missing() Ask
+	value() => 2
+end
+
+fn following() -> Int
+	3
+end

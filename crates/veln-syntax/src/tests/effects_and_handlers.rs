@@ -283,8 +283,9 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
                 && args.len() == 1
                 && matches!(&body.kind, ExprKind::Perform { operation, .. } if operation == "value")
     ));
+    let formatted = format_tree(&output.tree);
     assert_eq!(
-        format_tree(&output.tree),
+        formatted,
         concat!(
             "effect Ask\n",
             "\tvalue() -> Int\n",
@@ -303,6 +304,13 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
             "end\n",
         )
     );
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
 }
 
 #[test]

@@ -1,0 +1,10 @@
+# This case covers human CLI rendering for parser-owned handler separator failures.
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["main.veln:5:15: error[parse.expected_token]: expected for", "main.veln:9:19: error[parse.expected_token]: expected for"]
+
+[stderr]
+format = "empty"
