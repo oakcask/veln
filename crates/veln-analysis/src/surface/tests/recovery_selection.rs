@@ -17,7 +17,7 @@ fn run_entry_filters_unreachable_invalid_non_function_names() {
         "effect Ask\n",
         "  value() -> Int\n",
         "end\n",
-        "handler ask(Context: Int) handles Ask\n",
+        "handler ask(Context: Int) for Ask\n",
         "  value() => Context\n",
         "end\n",
     ));

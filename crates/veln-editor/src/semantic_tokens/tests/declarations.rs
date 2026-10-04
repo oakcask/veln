@@ -405,7 +405,7 @@ fn collector_classifies_handler_declarations() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub handler ask(ctx: Int) handles Ask effects [stdio]\n",
+            "pub handler ask(ctx: Int) for Ask effects [stdio]\n",
             "  value(item) => provide_value(ctx, item)\n",
             "end\n",
             "\n",
@@ -442,7 +442,7 @@ fn collector_classifies_handler_declarations() {
         ))
     );
     assert!(tokens.contains(&(
-        "handles".to_string(),
+        "for".to_string(),
         SemanticTokenType::Keyword,
         SemanticTokenModifiers::empty().bits()
     )));
@@ -609,7 +609,7 @@ fn collector_classifies_multiline_handler_operation_clause_bodies() {
             "  fallback() -> Int\n",
             "end\n",
             "\n",
-            "handler choose() handles Choose\n",
+            "handler choose() for Choose\n",
             "  pick(value) => match value\n",
             "    true => value\n",
             "    false => match value\n",
@@ -655,7 +655,7 @@ fn collector_bounds_handler_operation_cleanup_regions() {
             "  fallback() -> Int\n",
             "end\n",
             "\n",
-            "handler resource() handles Resource\n",
+            "handler resource() for Resource\n",
             "  access(value) => begin\n",
             "    defer\n",
             "      release(value)\n",
@@ -694,7 +694,7 @@ fn collector_bounds_handler_operation_clause_else_if_bodies() {
             "  fallback() -> Int\n",
             "end\n",
             "\n",
-            "handler choose() handles Choose\n",
+            "handler choose() for Choose\n",
             "  pick(value) => if value == 0\n",
             "    value\n",
             "  else if value == 1\n",
@@ -740,7 +740,7 @@ fn collector_keeps_satisfy_arrow_inside_handler_operation_clause_body() {
             "  fallback() -> Int\n",
             "end\n",
             "\n",
-            "handler choose() handles Choose\n",
+            "handler choose() for Choose\n",
             "  pick(value) => _choice satisfy candidate => candidate == value\n",
             "  fallback() => 0\n",
             "end\n",

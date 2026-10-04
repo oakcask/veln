@@ -7,7 +7,7 @@ effect Common
 	Common() -> Int
 end
 
-handler Common() handles Common
+handler Common() for Common
 	Common() => 1
 end
 
@@ -28,7 +28,7 @@ effect lower_collision
 	lower_collision() -> Int
 end
 
-handler lower_collision() handles lower_collision
+handler lower_collision() for lower_collision
 	lower_collision() => 1
 end
 

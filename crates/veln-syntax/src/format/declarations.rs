@@ -131,7 +131,7 @@ fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &Hand
                 .as_str(),
         );
     }
-    header.push_str(") handles ");
+    header.push_str(") for ");
     header.push_str(&handler.effect.join("::"));
     if let Some(effects) = &handler.effects {
         header.push_str(" effects [");

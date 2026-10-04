@@ -74,7 +74,7 @@ fn counts_abc_constructs_from_function_bodies() {
         ),
         (
             "handler application",
-            "fn subject() -> Int effects [Ask]\n  handle perform Ask::value() with ask(1)\nend\n\neffect Ask\n  value() -> Int\nend\n\nhandler ask(context: Int) handles Ask\n  value() => provide(context)\nend\n",
+            "fn subject() -> Int effects [Ask]\n  handle perform Ask::value() with ask(1)\nend\n\neffect Ask\n  value() -> Int\nend\n\nhandler ask(context: Int) for Ask\n  value() => provide(context)\nend\n",
             AbcVector {
                 assignments: 0,
                 branches: 2,

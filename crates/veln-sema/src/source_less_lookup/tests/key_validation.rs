@@ -1,4 +1,17 @@
 use super::*;
+use crate::source_less_names::validate_source_less_lookup_segment;
+
+#[test]
+fn handles_is_a_consumable_source_less_lookup_segment() {
+    assert_eq!(
+        validate_source_less_lookup_segment(
+            "test_provider",
+            "handles",
+            SourceLessNameClass::Function,
+        ),
+        Ok(())
+    );
+}
 
 #[test]
 fn unconsumable_standard_symbol_key_blocks_lookup_publication() {

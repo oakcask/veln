@@ -142,7 +142,7 @@ fn cleanup_region_annotations_keep_qualified_type_segments() {
             "    ()\n",
             "  end\n",
             "end\n",
-            "handler ask() handles Ask\n",
+            "handler ask() for Ask\n",
             "  value() => begin\n",
             "    let in_handler: helper::Item = ()\n",
             "    ()\n",

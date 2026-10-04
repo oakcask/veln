@@ -77,7 +77,9 @@ operators with the matching standard LSP token types. Decimal, lowercase `0b`
 binary, and lowercase `0x` hexadecimal integer literals are each one `number`
 token. The contextual `satisfy` marker and boolean literals are highlighted as
 keywords. `begin` and `defer` are keyword tokens in the lexical fallback and
-the VSCode grammar.
+the VSCode grammar. A handler declaration classifies its `for` separator as a
+keyword. `handles` is an ordinary identifier in both semantic-token fallback
+and the VSCode grammar.
 
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
@@ -292,7 +294,7 @@ this boundary from the shared language-service snapshot. The MCP navigation
 adapters inherit the same boundary when they capture a saved snapshot.
 For a selected valid-cased, unrecovered workspace effect declaration,
 references include every structurally complete bare effect-row occurrence on
-functions, tests, handlers, and function types, every handler `handles` target,
+functions, tests, handlers, and function types, every handler `for` target,
 and every `perform
 Effect::operation(...)` qualifier in saved workspace sources that declare the
 same module. The declaration and each supported occurrence select the same
@@ -312,8 +314,12 @@ Effect reference lookup requires one valid-cased workspace effect declaration
 for that name and module. Outside the imported-workspace case below, it
 excludes qualified imported or package effects,
 generic effect-row parameters, duplicate declarations, invalid-cased or
-unresolved names, recovered effect rows, recovered handler targets, incomplete
-`perform` qualifiers, and equal spelling in another module or symbol class.
+unresolved names, recovered effect rows, handler targets whose effect path
+requires recovery, incomplete `perform` qualifiers, and equal spelling in
+another module or symbol class. Recovering a missing handler `for` separator
+does not by itself exclude a structurally complete bare or qualified target;
+the target keeps its effect identity while the parser reports the separator
+diagnostic.
 Comments and strings do not contribute references.
 Effects, handlers, and effect operations remain unsupported for rename.
 
@@ -345,7 +351,7 @@ can use the full module path or its unique implicit leaf alias. An exact full
 path takes precedence over a colliding implicit leaf alias. References also
 include each
 structurally complete matching operation-clause heading in a parse-clean
-same-module handler whose bare `handles` target resolves to the owning effect.
+same-module handler whose bare `for` target resolves to the owning effect.
 The declaration, every included leaf, and every included heading select the
 same module, owning-effect, and operation identity. Each returned range covers
 only the operation name. A definition request at any of those forms returns the
@@ -363,7 +369,7 @@ incomplete, recovered, or additionally qualified operation paths. An operation
 leaf is also excluded when its argument list requires syntax recovery, even if
 the adjacent effect qualifier remains eligible for effect references. A clause
 heading is excluded when its handler declaration is duplicate or recovered,
-its heading is duplicate or recovered, or its `handles` target is qualified,
+its heading is duplicate or recovered, or its `for` target is qualified,
 imported, package-backed, unresolved, or ambiguous. Unknown operation names
 and equal spelling in another effect, module, symbol class, comment, or string
 do not enter the result. Clause parameters and bodies keep their separate

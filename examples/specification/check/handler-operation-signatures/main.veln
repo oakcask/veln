@@ -20,12 +20,12 @@ fn recursive(ctx: Int) -> Int effects [Ask]
 	perform Ask::value()
 end
 
-handler bad(ctx: Int) handles Ask
+handler bad(ctx: Int) for Ask
 	value() => wrong(ctx, 1)
 	other() => recursive(ctx)
 end
 
-handler duplicate_and_unknown(ctx: Int) handles Single
+handler duplicate_and_unknown(ctx: Int) for Single
 	op() => right(ctx)
 	op() => right(ctx)
 	extra() => right(ctx)

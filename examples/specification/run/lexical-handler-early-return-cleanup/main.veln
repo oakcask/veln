@@ -6,7 +6,7 @@ fn provide(ctx: Int) -> Int
 	ctx
 end
 
-handler ask(ctx: Int) handles Ask
+handler ask(ctx: Int) for Ask
 	value() => provide(ctx)
 end
 

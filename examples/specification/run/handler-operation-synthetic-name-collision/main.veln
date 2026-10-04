@@ -6,11 +6,11 @@ effect Second
 	b_c() -> Int
 end
 
-handler a_b(seed: Int) handles First
+handler a_b(seed: Int) for First
 	c() => seed + 1
 end
 
-handler a(seed: Int) handles Second
+handler a(seed: Int) for Second
 	b_c() => seed + 2
 end
 

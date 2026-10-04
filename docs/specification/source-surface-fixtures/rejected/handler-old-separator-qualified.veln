@@ -1,0 +1,3 @@
+handler qualified() handles handles::Ask
+	value() => 1
+end

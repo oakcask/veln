@@ -12,7 +12,7 @@ end
 effect Read
   read() -> Int
 end
-handler answer() handles Read
+handler answer() for Read
   read() => 1
 end
 fn bare_handle_operator() -> Int

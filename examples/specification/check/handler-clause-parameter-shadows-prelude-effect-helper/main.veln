@@ -6,7 +6,7 @@ fn answer() -> String
 	"ok"
 end
 
-handler ask() handles Ask
+handler ask() for Ask
 	value(stream_adapter_accept_loop) => stream_adapter_accept_loop()
 end
 

@@ -325,7 +325,7 @@ fn workspace_handler_operation_clause_references_preserve_utf16_crlf_and_declara
     project.write("veln.toml", "");
     project.write(
         "main.veln",
-        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n\r\nhandler chooser() handles Choose\r\n  pick() => 1\r\nend\r\n",
+        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n\r\nhandler chooser() for Choose\r\n  pick() => 1\r\nend\r\n",
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
@@ -435,7 +435,7 @@ fn workspace_effect_references_cover_same_module_sources_and_exclude_collisions(
         "uses.veln",
         concat!(
             "mod shared\n\n",
-            "handler choose(callback: fn() -> Int effects [Choose], value: Choose) handles Choose effects [Choose]\n",
+            "handler choose(callback: fn() -> Int effects [Choose], value: Choose) for Choose effects [Choose]\n",
             "  pick() => perform Choose::pick()\n",
             "end\n",
         ),
@@ -465,8 +465,8 @@ fn workspace_effect_references_cover_same_module_sources_and_exclude_collisions(
                     "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":6,\"character\":28}},\"end\":{{\"line\":6,\"character\":34}}}}}},",
                     "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":7,\"character\":10}},\"end\":{{\"line\":7,\"character\":16}}}}}},",
                     "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":2,\"character\":46}},\"end\":{{\"line\":2,\"character\":52}}}}}},",
-                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":2,\"character\":78}},\"end\":{{\"line\":2,\"character\":84}}}}}},",
-                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":2,\"character\":94}},\"end\":{{\"line\":2,\"character\":100}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":2,\"character\":74}},\"end\":{{\"line\":2,\"character\":80}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":2,\"character\":90}},\"end\":{{\"line\":2,\"character\":96}}}}}},",
                     "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":3,\"character\":20}},\"end\":{{\"line\":3,\"character\":26}}}}}}]"
                 ),
                 declaration_uri,
@@ -497,7 +497,7 @@ fn workspace_effect_references_reject_imported_and_invalid_cased_effects() {
             "fn imported() -> Int effects [dep::Task]\n",
             "  perform dep::Task::run()\n",
             "end\n\n",
-            "handler imported_handler() handles dep::Task\n",
+            "handler imported_handler() for dep::Task\n",
             "  run() => 1\n",
             "end\n",
         ),
@@ -546,7 +546,7 @@ fn workspace_effect_references_reject_qualified_workspace_effects() {
             "fn qualified() -> Int effects [foreign::E]\n",
             "  perform foreign::E::run()\n",
             "end\n\n",
-            "handler qualified_handler() handles foreign::E\n",
+            "handler qualified_handler() for foreign::E\n",
             "  run() => 1\n",
             "end\n",
         ),
@@ -583,7 +583,7 @@ fn workspace_effect_references_reject_unresolved_and_mismatched_occurrences() {
             "fn boundaries() -> Int effects [Choose, Missing, choose]\n",
             "  perform Choose::pick()\n",
             "end\n\n",
-            "handler missing_handler() handles Missing\n",
+            "handler missing_handler() for Missing\n",
             "  pick() => 1\n",
             "end\n",
         ),
@@ -643,7 +643,7 @@ fn workspace_effect_references_reject_ambiguous_declarations() {
             "fn choose() -> Int effects [Choose]\n",
             "  1\n",
             "end\n\n",
-            "handler choose_handler() handles Choose\n",
+            "handler choose_handler() for Choose\n",
             "  first() => 1\n",
             "end\n",
         ),
@@ -671,7 +671,7 @@ fn workspace_handler_operation_clause_references_reject_standard_library_effects
     project.write("veln.toml", "");
     project.write(
         "main.veln",
-        "use transport from \"std\"\n\nhandler standard() handles transport::DuplexStream\n  read_chunk() => 1\nend\n",
+        "use transport from \"std\"\n\nhandler standard() for transport::DuplexStream\n  read_chunk() => 1\nend\n",
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
@@ -814,7 +814,7 @@ fn workspace_effect_references_reject_balanced_recovery_shapes() {
             "end\n\n",
             "fn broken() -> Int\n",
             "  effects [Choose]\n",
-            "  handles Choose\n",
+            "  for Choose\n",
             "  value perform Choose::pick()\n",
             "end\n",
         ),
@@ -864,7 +864,7 @@ fn recovered_effect_declaration_makes_a_clean_same_module_declaration_ambiguous(
             "fn use() -> Int effects [Choose]\n",
             "  perform Choose::pick()\n",
             "end\n\n",
-            "handler use_handler() handles Choose\n",
+            "handler use_handler() for Choose\n",
             "  pick() => perform Choose::pick()\n",
             "end\n",
         ),

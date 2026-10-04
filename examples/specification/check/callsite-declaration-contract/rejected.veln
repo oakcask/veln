@@ -30,7 +30,7 @@ effect Locate
   current() -> SourceLocation
 end
 
-handler locate() handles Locate
+handler locate() for Locate
   current() => callsite
 end
 

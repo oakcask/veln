@@ -1,6 +1,6 @@
 use host_effects from "std"
 
-handler observe_join(started: Sender<String>) handles host_effects::TaskJoin effects [concurrency]
+handler observe_join(started: Sender<String>) for host_effects::TaskJoin effects [concurrency]
 	waiting() => begin
 		let _ = channel::send(started, "join waiting")
 		()

@@ -1,0 +1,19 @@
+use helper::handles
+
+fn handles(input: Int) -> Int
+	input + 1
+end
+
+fn wrap(handles: Int) -> { handles : Int }
+	let next = helper::handles::value(handles)
+	{ handles: next }
+end
+
+fn local() -> Int
+	let handles = 1
+	handles
+end
+
+pub fn main() -> Int
+	wrap(handles(local())).handles
+end

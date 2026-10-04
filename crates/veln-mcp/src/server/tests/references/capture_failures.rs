@@ -336,7 +336,7 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
     workspace.write(
         "main.veln",
         concat!(
-            "handler run() handles Work\n  go() => 1\nend\n\n",
+            "handler run() for Work\n  go() => 1\nend\n\n",
             "fn first() -> Int\n  handle 1 with run()\nend\n\n",
             "fn second() -> Int\n  handle 2 with run()\nend\n",
         ),
@@ -367,7 +367,7 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
         fs::write(
             &main,
             format!(
-                "handler run() handles Work\n  go() => {value}\nend\n\nfn first() -> Int\n  handle 1 with run()\nend\n\nfn second() -> Int\n  handle 2 with run()\nend\n"
+                "handler run() for Work\n  go() => {value}\nend\n\nfn first() -> Int\n  handle 1 with run()\nend\n\nfn second() -> Int\n  handle 2 with run()\nend\n"
             ),
         )
         .unwrap();

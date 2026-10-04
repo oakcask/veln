@@ -3,7 +3,7 @@ effect Label
 	value() -> String
 end
 
-handler label(text: String) handles Label
+handler label(text: String) for Label
 	value() => text
 end
 

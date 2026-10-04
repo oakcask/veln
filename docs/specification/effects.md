@@ -16,7 +16,7 @@ effect Ask
 	value() -> Int
 end
 
-handler ask(offset: Int) handles Ask
+handler ask(offset: Int) for Ask
 	value() => offset + 1
 end
 
@@ -99,7 +99,7 @@ library functions may retain user-defined effects in their signatures.
 When a `.test.veln` companion writes an explicit `use` for its exact target,
 the same qualified target path can name a private target nominal effect in
 `perform`, declaration effect lists, function type annotation effect lists,
-companion-local handler `handles` clauses, and declared handler effect lists.
+companion-local handler `for` targets, and declared handler effect lists.
 The permission is exact and
 non-transitive. Bare names, missing imports, wrong-target companions,
 `_test.veln` integration modules, and external packages do not receive this
@@ -568,7 +568,7 @@ ordinary Veln lexical handler around the calls that need controlled results:
 ```veln
 use host_effects from "std"
 
-handler fake_clock() handles host_effects::Clock
+handler fake_clock() for host_effects::Clock
 	request(operation, milliseconds) => Ok(42)
 	wall_time() => Ok({ unix_seconds: 0, nanosecond: 0 })
 end

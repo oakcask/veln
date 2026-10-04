@@ -5,7 +5,7 @@ effect Task
   Done() -> Int
 end
 
-handler task() handles Task
+handler task() for Task
   Done() => 1
 end
 

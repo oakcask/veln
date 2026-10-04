@@ -404,7 +404,7 @@ fn unavailable_callsite_modifiers_keep_the_ordinary_unresolved_name_diagnostic()
         "effect Locate\n",
         "  current() -> SourceLocation\n",
         "end\n",
-        "handler locate() handles Locate\n",
+        "handler locate() for Locate\n",
         "  current() => callsite\n",
         "end\n",
     ));

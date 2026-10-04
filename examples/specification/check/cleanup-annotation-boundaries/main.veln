@@ -25,7 +25,7 @@ fn main() -> ()
 	()
 end
 
-handler ask() handles Ask
+handler ask() for Ask
 	value() => begin
 		let handler_packet: Packet = ()
 		let handler_exact: UInt16be = ()

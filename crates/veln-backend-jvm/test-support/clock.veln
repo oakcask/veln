@@ -1,11 +1,11 @@
 use host_effects from "std"
 
-handler fixed_clock(value: Int) handles host_effects::Clock
+handler fixed_clock(value: Int) for host_effects::Clock
 	request(operation, milliseconds) => Ok(value)
 	wall_time() => Ok({ unix_seconds: value, nanosecond: 0 })
 end
 
-handler failing_clock(failed_operation: String, message: String) handles host_effects::Clock
+handler failing_clock(failed_operation: String, message: String) for host_effects::Clock
 	request(operation, milliseconds) => if operation == failed_operation
 		Err(message)
 	else
@@ -18,7 +18,7 @@ handler failing_clock(failed_operation: String, message: String) handles host_ef
 	end
 end
 
-handler outcome_clock(outcome: Int) handles host_effects::Clock
+handler outcome_clock(outcome: Int) for host_effects::Clock
 	request(operation, milliseconds) => if operation == "wait_cancellable"
 		Ok(outcome)
 	else
@@ -27,12 +27,12 @@ handler outcome_clock(outcome: Int) handles host_effects::Clock
 	wall_time() => Ok({ unix_seconds: 0, nanosecond: 0 })
 end
 
-handler wall_clock(seconds: Int, nanosecond: Int) handles host_effects::Clock
+handler wall_clock(seconds: Int, nanosecond: Int) for host_effects::Clock
 	request(operation, milliseconds) => Ok(0)
 	wall_time() => Ok({ unix_seconds: seconds, nanosecond: nanosecond })
 end
 
-handler backwards_wall_clock(state: { tx : Sender<Int>, rx : Receiver<Int> }) handles host_effects::Clock effects [concurrency]
+handler backwards_wall_clock(state: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Clock effects [concurrency]
 	request(operation, milliseconds) => Ok(0)
 	wall_time() => next_backwards_wall_time(state)
 end

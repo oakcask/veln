@@ -14,7 +14,7 @@ effect Choose
   pick(value: Bool) -> Bool
 end
 
-handler choose() handles Choose
+handler choose() for Choose
   pick(value) => value
 end
 

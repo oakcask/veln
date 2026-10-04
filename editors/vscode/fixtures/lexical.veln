@@ -1,7 +1,7 @@
 fn function_name(value: Int) -> result: Int
 let fn_value = 42.member + 0b00101 + 0xCafe + 42.5
 left>>>right >> middle << other |> finish
-_ _todo _123 name_123 Upper_type
+_ _todo _123 name_123 handles Upper_type
 "# fn 0xCafe _hole" # string content is not syntax
 "escaped \" quote \\ slash" # trailing comment
 "😀" + 1

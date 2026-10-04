@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"031ed94ec8d173f15bd5c818a68acde710b7d718"
+source_git_tree	"d7b9a3b6cce42bd1d95985a931f26af436649b9f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1762
+case_count	1765
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -2061,7 +2061,7 @@ field	expectations.json_assertions[20].path	"diagnostics.10.span.end.column"
 field	expectations.json_assertions[21].equals	"satisfy candidate"
 field	expectations.json_assertions[21].operation	"equals"
 field	expectations.json_assertions[21].path	"diagnostics.12.details.binding_kind"
-field	expectations.json_assertions[22].equals	[{"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"end":{"column":50,"line":47,"offset":705},"file":"rejected.veln","start":{"column":42,"line":47,"offset":697}}},{"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"end":{"column":26,"line":48,"offset":731},"file":"rejected.veln","start":{"column":18,"line":48,"offset":723}}}]
+field	expectations.json_assertions[22].equals	[{"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"end":{"column":50,"line":47,"offset":701},"file":"rejected.veln","start":{"column":42,"line":47,"offset":693}}},{"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"end":{"column":26,"line":48,"offset":727},"file":"rejected.veln","start":{"column":18,"line":48,"offset":719}}}]
 field	expectations.json_assertions[22].operation	"equals"
 field	expectations.json_assertions[22].path	"diagnostics.12.related"
 field	expectations.json_assertions[23].equals	"{package: String, module: String, file: String, start_line: Int, start_column: Int, start_offset: Int, end_line: Int, end_column: Int, end_offset: Int}"
@@ -2076,7 +2076,7 @@ field	expectations.json_assertions[3].path	"diagnostics.0.details.candidate_quer
 field	expectations.json_assertions[4].equals	[{"kind":"repair_hint","message":"Add `callsite` after the function's optional effects clause.","span":{"end":{"column":1,"line":4,"offset":55},"file":"rejected.veln","start":{"column":1,"line":1,"offset":0}}}]
 field	expectations.json_assertions[4].operation	"equals"
 field	expectations.json_assertions[4].path	"diagnostics.2.related"
-field	expectations.json_assertions[5].equals	[{"kind":"repair_hint","message":"Add `callsite` after the function's optional effects clause.","span":{"end":{"column":1,"line":41,"offset":526},"file":"rejected.veln","start":{"column":1,"line":37,"offset":463}}}]
+field	expectations.json_assertions[5].equals	[{"kind":"repair_hint","message":"Add `callsite` after the function's optional effects clause.","span":{"end":{"column":1,"line":41,"offset":522},"file":"rejected.veln","start":{"column":1,"line":37,"offset":459}}}]
 field	expectations.json_assertions[5].operation	"equals"
 field	expectations.json_assertions[5].path	"diagnostics.10.related"
 field	expectations.json_assertions[6].equals	"parameter"
@@ -2106,7 +2106,7 @@ field	invocation.command[3]	"rejected.veln"
 field	invocation.command[4]	"duplicate.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"c1bfcf5854d64330c34015cdad1762772f3e3edb4b6f189ea69e16786482627d"
+case_digest	"28fc4e662d077b25c709e8aebdc662dd383fb8e70bcfa3eb96f7dd07a03c1c90"
 case	"examples/specification/check/channel-first-stream-routing-effects"
 field	expectations.diagnostics[0].id	"effect.missing_public"
 field	expectations.diagnostics[0].kind	"effect"
@@ -5393,6 +5393,201 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"15d41c1d00ba95afe844c6b0eadd32ff350236dd76510ab310ab3c41ec48f3e1"
+case	"examples/specification/check/handler-for-separator-diagnostics"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"main.veln:9:15: error[parse.expected_token]: expected for"
+field	expectations.stdout.contains[1]	"main.veln:13:19: error[parse.expected_token]: expected for"
+field	expectations.stdout.contains[2]	"main.veln:17:24: error[parse.expected_token]: expected for"
+field	expectations.stdout.contains[3]	"main.veln:21:25: error[parse.expected_token]: expected for"
+field	expectations.stdout.contains[4]	"main.veln:25:24: error[parse.expected_token]: expected for"
+field	expectations.stdout.contains[5]	"main.veln:29:32: error[parse.expected_token]: expected for"
+field	expectations.stdout.contains[6]	"main.veln:33:20: error[parse.expected_token]: expected for"
+field	expectations.stdout.format	"text"
+field	expectations.stdout.not_contains[0]	"parse.expected_identifier"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"d5e86e942cb6abb4959352b9f8128ccac24cd3f3e190ff0ab5a51ac3c488ba91"
+case	"examples/specification/check/handler-for-separator-diagnostics-json"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[10].equals	"parse.expected_token"
+field	expectations.json_assertions[10].operation	"equals"
+field	expectations.json_assertions[10].path	"diagnostics.2.id"
+field	expectations.json_assertions[11].equals	"expected for"
+field	expectations.json_assertions[11].operation	"equals"
+field	expectations.json_assertions[11].path	"diagnostics.2.message"
+field	expectations.json_assertions[12].equals	"handles"
+field	expectations.json_assertions[12].operation	"equals"
+field	expectations.json_assertions[12].path	"diagnostics.2.details.unexpected.text"
+field	expectations.json_assertions[13].equals	"for"
+field	expectations.json_assertions[13].operation	"equals"
+field	expectations.json_assertions[13].path	"diagnostics.2.details.expected.0"
+field	expectations.json_assertions[14].equals	"insert_token"
+field	expectations.json_assertions[14].operation	"equals"
+field	expectations.json_assertions[14].path	"diagnostics.2.details.recovery.strategy"
+field	expectations.json_assertions[15].equals	17
+field	expectations.json_assertions[15].operation	"equals"
+field	expectations.json_assertions[15].path	"diagnostics.2.span.start.line"
+field	expectations.json_assertions[16].equals	24
+field	expectations.json_assertions[16].operation	"equals"
+field	expectations.json_assertions[16].path	"diagnostics.2.span.start.column"
+field	expectations.json_assertions[17].equals	17
+field	expectations.json_assertions[17].operation	"equals"
+field	expectations.json_assertions[17].path	"diagnostics.2.span.end.line"
+field	expectations.json_assertions[18].equals	31
+field	expectations.json_assertions[18].operation	"equals"
+field	expectations.json_assertions[18].path	"diagnostics.2.span.end.column"
+field	expectations.json_assertions[19].equals	"parse.expected_token"
+field	expectations.json_assertions[19].operation	"equals"
+field	expectations.json_assertions[19].path	"diagnostics.3.id"
+field	expectations.json_assertions[1].equals	7
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.json_assertions[20].equals	"expected for"
+field	expectations.json_assertions[20].operation	"equals"
+field	expectations.json_assertions[20].path	"diagnostics.3.message"
+field	expectations.json_assertions[21].equals	"handles"
+field	expectations.json_assertions[21].operation	"equals"
+field	expectations.json_assertions[21].path	"diagnostics.3.details.unexpected.text"
+field	expectations.json_assertions[22].equals	"for"
+field	expectations.json_assertions[22].operation	"equals"
+field	expectations.json_assertions[22].path	"diagnostics.3.details.expected.0"
+field	expectations.json_assertions[23].equals	"skip_token"
+field	expectations.json_assertions[23].operation	"equals"
+field	expectations.json_assertions[23].path	"diagnostics.3.details.recovery.strategy"
+field	expectations.json_assertions[24].equals	21
+field	expectations.json_assertions[24].operation	"equals"
+field	expectations.json_assertions[24].path	"diagnostics.3.span.start.line"
+field	expectations.json_assertions[25].equals	25
+field	expectations.json_assertions[25].operation	"equals"
+field	expectations.json_assertions[25].path	"diagnostics.3.span.start.column"
+field	expectations.json_assertions[26].equals	21
+field	expectations.json_assertions[26].operation	"equals"
+field	expectations.json_assertions[26].path	"diagnostics.3.span.end.line"
+field	expectations.json_assertions[27].equals	32
+field	expectations.json_assertions[27].operation	"equals"
+field	expectations.json_assertions[27].path	"diagnostics.3.span.end.column"
+field	expectations.json_assertions[28].equals	"parse.expected_token"
+field	expectations.json_assertions[28].operation	"equals"
+field	expectations.json_assertions[28].path	"diagnostics.4.id"
+field	expectations.json_assertions[29].equals	"expected for"
+field	expectations.json_assertions[29].operation	"equals"
+field	expectations.json_assertions[29].path	"diagnostics.4.message"
+field	expectations.json_assertions[2].length	7
+field	expectations.json_assertions[2].operation	"length"
+field	expectations.json_assertions[2].path	"diagnostics"
+field	expectations.json_assertions[30].equals	"for"
+field	expectations.json_assertions[30].operation	"equals"
+field	expectations.json_assertions[30].path	"diagnostics.4.details.expected.0"
+field	expectations.json_assertions[31].equals	"handles"
+field	expectations.json_assertions[31].operation	"equals"
+field	expectations.json_assertions[31].path	"diagnostics.4.details.unexpected.text"
+field	expectations.json_assertions[32].equals	"insert_token"
+field	expectations.json_assertions[32].operation	"equals"
+field	expectations.json_assertions[32].path	"diagnostics.4.details.recovery.strategy"
+field	expectations.json_assertions[33].equals	25
+field	expectations.json_assertions[33].operation	"equals"
+field	expectations.json_assertions[33].path	"diagnostics.4.span.start.line"
+field	expectations.json_assertions[34].equals	24
+field	expectations.json_assertions[34].operation	"equals"
+field	expectations.json_assertions[34].path	"diagnostics.4.span.start.column"
+field	expectations.json_assertions[35].equals	25
+field	expectations.json_assertions[35].operation	"equals"
+field	expectations.json_assertions[35].path	"diagnostics.4.span.end.line"
+field	expectations.json_assertions[36].equals	31
+field	expectations.json_assertions[36].operation	"equals"
+field	expectations.json_assertions[36].path	"diagnostics.4.span.end.column"
+field	expectations.json_assertions[37].equals	"parse.expected_token"
+field	expectations.json_assertions[37].operation	"equals"
+field	expectations.json_assertions[37].path	"diagnostics.5.id"
+field	expectations.json_assertions[38].equals	"expected for"
+field	expectations.json_assertions[38].operation	"equals"
+field	expectations.json_assertions[38].path	"diagnostics.5.message"
+field	expectations.json_assertions[39].equals	"for"
+field	expectations.json_assertions[39].operation	"equals"
+field	expectations.json_assertions[39].path	"diagnostics.5.details.expected.0"
+field	expectations.json_assertions[3].equals	"for"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.details.expected.0"
+field	expectations.json_assertions[40].equals	"handles"
+field	expectations.json_assertions[40].operation	"equals"
+field	expectations.json_assertions[40].path	"diagnostics.5.details.unexpected.text"
+field	expectations.json_assertions[41].equals	"insert_token"
+field	expectations.json_assertions[41].operation	"equals"
+field	expectations.json_assertions[41].path	"diagnostics.5.details.recovery.strategy"
+field	expectations.json_assertions[42].equals	29
+field	expectations.json_assertions[42].operation	"equals"
+field	expectations.json_assertions[42].path	"diagnostics.5.span.start.line"
+field	expectations.json_assertions[43].equals	32
+field	expectations.json_assertions[43].operation	"equals"
+field	expectations.json_assertions[43].path	"diagnostics.5.span.start.column"
+field	expectations.json_assertions[44].equals	29
+field	expectations.json_assertions[44].operation	"equals"
+field	expectations.json_assertions[44].path	"diagnostics.5.span.end.line"
+field	expectations.json_assertions[45].equals	39
+field	expectations.json_assertions[45].operation	"equals"
+field	expectations.json_assertions[45].path	"diagnostics.5.span.end.column"
+field	expectations.json_assertions[46].equals	"parse.expected_token"
+field	expectations.json_assertions[46].operation	"equals"
+field	expectations.json_assertions[46].path	"diagnostics.6.id"
+field	expectations.json_assertions[47].equals	"expected for"
+field	expectations.json_assertions[47].operation	"equals"
+field	expectations.json_assertions[47].path	"diagnostics.6.message"
+field	expectations.json_assertions[48].equals	"for"
+field	expectations.json_assertions[48].operation	"equals"
+field	expectations.json_assertions[48].path	"diagnostics.6.details.expected.0"
+field	expectations.json_assertions[49].equals	"handles"
+field	expectations.json_assertions[49].operation	"equals"
+field	expectations.json_assertions[49].path	"diagnostics.6.details.unexpected.text"
+field	expectations.json_assertions[4].equals	"parse.expected_token"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.0.id"
+field	expectations.json_assertions[50].equals	"skip_token"
+field	expectations.json_assertions[50].operation	"equals"
+field	expectations.json_assertions[50].path	"diagnostics.6.details.recovery.strategy"
+field	expectations.json_assertions[51].equals	33
+field	expectations.json_assertions[51].operation	"equals"
+field	expectations.json_assertions[51].path	"diagnostics.6.span.start.line"
+field	expectations.json_assertions[52].equals	20
+field	expectations.json_assertions[52].operation	"equals"
+field	expectations.json_assertions[52].path	"diagnostics.6.span.start.column"
+field	expectations.json_assertions[53].equals	33
+field	expectations.json_assertions[53].operation	"equals"
+field	expectations.json_assertions[53].path	"diagnostics.6.span.end.line"
+field	expectations.json_assertions[54].equals	27
+field	expectations.json_assertions[54].operation	"equals"
+field	expectations.json_assertions[54].path	"diagnostics.6.span.end.column"
+field	expectations.json_assertions[5].equals	"expected for"
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"diagnostics.0.message"
+field	expectations.json_assertions[6].equals	"handles"
+field	expectations.json_assertions[6].operation	"equals"
+field	expectations.json_assertions[6].path	"diagnostics.0.details.unexpected.text"
+field	expectations.json_assertions[7].equals	"skip_token"
+field	expectations.json_assertions[7].operation	"equals"
+field	expectations.json_assertions[7].path	"diagnostics.0.details.recovery.strategy"
+field	expectations.json_assertions[8].equals	"for"
+field	expectations.json_assertions[8].operation	"equals"
+field	expectations.json_assertions[8].path	"diagnostics.1.details.expected.0"
+field	expectations.json_assertions[9].equals	"insert_token"
+field	expectations.json_assertions[9].operation	"equals"
+field	expectations.json_assertions[9].path	"diagnostics.1.details.recovery.strategy"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"parse.expected_token"
+field	expectations.stdout.contains[1]	"expected for"
+field	expectations.stdout.contains[2]	"handles"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"5cbc81a25819b7b6d7ccc9f07cef191fc515b676e2b010f628a77c40d7eac9b1"
 case	"examples/specification/check/handler-operation-nested-private-dependency"
 field	expectations.diagnostics[0].id	"effect.missing_public"
 field	expectations.diagnostics[0].kind	"effect"
@@ -5632,6 +5827,23 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"4105e34be084210485a6a84a5cdbeb8e448d6ba49d8c28fc10f537de1d8eb280"
+case	"examples/specification/check/handles-ordinary-identifiers"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"ok"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	0
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"helper/handles.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"1d1b06b536720e354887eaa1b8b8c30894a58eafe3ccaaad9fd43c53c8985a62"
 case	"examples/specification/check/hole-expected-type-flow-human"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -13845,7 +14057,7 @@ case	"examples/specification/lsp/handler-operation-editor"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"referencesProvider\":true"
-field	expectations.stdout.contains[10]	"handler ask(ctx: Int) handles Ask\\n\\tvalue() => provide(ctx, 1)\\n\\tadd(left, right) => if left == 0\\n\\t\\tprovide(ctx, right)\\n\\telse if left == 1\\n\\t\\tprovide(ctx, left)\\n\\telse\\n\\t\\tprovide(ctx, left + { left: right }.left)\\n\\tend\\nend\\n"
+field	expectations.stdout.contains[10]	"handler ask(ctx: Int) for Ask\\n\\tvalue() => provide(ctx, 1)\\n\\tadd(left, right) => if left == 0\\n\\t\\tprovide(ctx, right)\\n\\telse if left == 1\\n\\t\\tprovide(ctx, left)\\n\\telse\\n\\t\\tprovide(ctx, left + { left: right }.left)\\n\\tend\\nend\\n"
 field	expectations.stdout.contains[11]	"\"id\":5,\"result\":{\"data\":["
 field	expectations.stdout.contains[12]	"\"id\":6,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[13]	"\"range\":{\"start\":{\"line\":11,\"character\":11},\"end\":{\"line\":11,\"character\":16}}"
@@ -13873,7 +14085,7 @@ field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1725,"sha256":"3671a96f9f7b48730010ba6677a6ba73e7c724957c5dee1ea6728644be2487ad"}
 field	source_errors	"forbidden"
-case_digest	"5fe85efc55b42c65a8ca111515628804fa57bc464b7dd3bd2dce41c4e0d58afc"
+case_digest	"83dd32e1fef101f8afb4ff5c4539e42e5aba54787927a49596adfaeb9a3ea342"
 case	"examples/specification/lsp/handler-satisfy-semantic-tokens"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -13883,9 +14095,9 @@ field	expectations.stdout.contains[2]	"\"id\":3,\"result\":null"
 field	expectations.stdout.not_contains[0]	"\"id\":2,\"result\":{\"data\":[]}"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":733,"sha256":"94cf63538cf99af4000b58ec48951f4a815a884c04b6285e40ee880c67283214"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":729,"sha256":"0e7fb3f2a6888ba203bda13694a2a081937390624ff2c1df890ae837b4d38994"}
 field	source_errors	"forbidden"
-case_digest	"d0fabaa0ed7c7b9286f211cbf4f34d30759a1f34e72a009a734e95b9fd0f004f"
+case_digest	"2273c25a131c55091c3b9510968bf83ccbaae9c397d74998fe100bcf3c756739"
 case	"examples/specification/lsp/handler-semantic-tokens"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -13896,9 +14108,9 @@ field	expectations.stdout.contains[3]	"0,8,3,6,1"
 field	expectations.stdout.contains[4]	"\"id\":3,\"result\":null"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":723,"sha256":"7e7cc238bd84ee40138f83ca64138e809284dab31327b46e58dc83d33808bca7"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":719,"sha256":"ee44f5a41872682ba790463e23ff128152642b9ba968f38d7ae047ac23fb6601"}
 field	source_errors	"forbidden"
-case_digest	"82e8587873736b0a8db707b3e3f5f7ab3cc92ed678f51b7657a776b4e4131127"
+case_digest	"0d7ce05b0b5038ae5ab715bc8343a7e20bb7a6a51ca42c33e81321a1c7d8a161"
 case	"examples/specification/lsp/identifier-casing-handler-binding-navigation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -15180,11 +15392,11 @@ field	expectations.lsp_assertions[70].equals	"shadowing.veln"
 field	expectations.lsp_assertions[70].id	24
 field	expectations.lsp_assertions[70].operation	"equals"
 field	expectations.lsp_assertions[70].path	"/error/data/details/affected_scope/file"
-field	expectations.lsp_assertions[71].equals	465
+field	expectations.lsp_assertions[71].equals	457
 field	expectations.lsp_assertions[71].id	24
 field	expectations.lsp_assertions[71].operation	"equals"
 field	expectations.lsp_assertions[71].path	"/error/data/details/affected_scope/start_offset"
-field	expectations.lsp_assertions[72].equals	472
+field	expectations.lsp_assertions[72].equals	464
 field	expectations.lsp_assertions[72].id	24
 field	expectations.lsp_assertions[72].operation	"equals"
 field	expectations.lsp_assertions[72].path	"/error/data/details/affected_scope/end_offset"
@@ -15331,7 +15543,7 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":7757,"sha256":"2b8b39cde857944c0f7b074c8076be3eb3df0e30c4562635d060965d810d8134"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"17ffee4e2064bced51321881019ae29a8ac0204fd5bc3bccbbe1b6d3baf2bddf"
+case_digest	"d5b501634ee692bafbdcf24589bf11d4f2f3ed95b5f7709586b16cdc55bdd190"
 case	"examples/specification/lsp/identifier-casing-snapshot-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -18062,25 +18274,25 @@ case_digest	"b44b972ffd8d3d5432f6725bc2d3f1e981654043b7586be116e1d2b6503154c3"
 case	"examples/specification/lsp/standard-library-virtual-document"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"
+field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"
 field	expectations.stdout.contains[10]	"\"id\":9,\"error\":{\"code\":-32602"
 field	expectations.stdout.contains[11]	"\"id\":10,\"result\":null"
 field	expectations.stdout.contains[1]	"\"id\":3,\"result\":\"use bytes\\nuse diagnostic\\n"
 field	expectations.stdout.contains[2]	"prelude_builtin::int_to_string(value)\\nend\\n\""
-field	expectations.stdout.contains[3]	"\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/prelude.veln\""
+field	expectations.stdout.contains[3]	"\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/prelude.veln\""
 field	expectations.stdout.contains[4]	"\"id\":5,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[5]	"\"range\":{\"start\":{\"line\":10,\"character\":24}"
 field	expectations.stdout.contains[6]	"\"id\":6,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[7]	"\"range\":{\"start\":{\"line\":15,\"character\":6}"
-field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/http2/diagnostic.veln\""
+field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/http2/diagnostic.veln\""
 field	expectations.stdout.contains[9]	"\"id\":8,\"result\":null"
 field	expectations.stdout.not_contains[0]	"crates/veln-stdlib"
 field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1699,"sha256":"9667e151f1555eb52497d4c95968f1d2effe49afba8f8ce3c74e119d5afcfdbd"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1699,"sha256":"86777ef90c4ee6f37e1b95ce0eb3b4fcf16e9bc51c90cfb7cc2c161aaddf428f"}
 field	source_errors	"expected"
-case_digest	"2aef2fcbc9633bf7389d4159f1b7cf0179cdab3fa93d8fae7c9cc7530951940d"
+case_digest	"48b3dfaf8ae64807fcf1217218039635752f61492665d6c933d2840fd6f2f335"
 case	"examples/specification/lsp/unopened-missing-file"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -19044,11 +19256,11 @@ field	expectations.mcp_assertions[101].id	26
 field	expectations.mcp_assertions[101].length	10
 field	expectations.mcp_assertions[101].operation	"length"
 field	expectations.mcp_assertions[101].path	"/result/structuredContent/topics"
-field	expectations.mcp_assertions[102].equals	{"summary":"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.","title":"Contracts","uri":"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/contracts"}
+field	expectations.mcp_assertions[102].equals	{"summary":"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.","title":"Contracts","uri":"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/contracts"}
 field	expectations.mcp_assertions[102].id	26
 field	expectations.mcp_assertions[102].operation	"equals"
 field	expectations.mcp_assertions[102].path	"/result/structuredContent/topics/0"
-field	expectations.mcp_assertions[103].equals	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/types-inference-constructors"
+field	expectations.mcp_assertions[103].equals	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/types-inference-constructors"
 field	expectations.mcp_assertions[103].id	26
 field	expectations.mcp_assertions[103].operation	"equals"
 field	expectations.mcp_assertions[103].path	"/result/structuredContent/topics/9/uri"
@@ -19089,7 +19301,7 @@ field	expectations.mcp_assertions[18].path	"/error/data/code"
 field	expectations.mcp_assertions[19].id	7
 field	expectations.mcp_assertions[19].operation	"missing"
 field	expectations.mcp_assertions[19].path	"/result"
-field	expectations.mcp_assertions[1].equals	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/index"
+field	expectations.mcp_assertions[1].equals	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/index"
 field	expectations.mcp_assertions[1].id	2
 field	expectations.mcp_assertions[1].operation	"equals"
 field	expectations.mcp_assertions[1].path	"/result/resources/0/uri"
@@ -19173,7 +19385,7 @@ field	expectations.mcp_assertions[38].equals	"Schemas"
 field	expectations.mcp_assertions[38].id	9
 field	expectations.mcp_assertions[38].operation	"equals"
 field	expectations.mcp_assertions[38].path	"/result/structuredContent/results/0/title"
-field	expectations.mcp_assertions[39].equals	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/schemas"
+field	expectations.mcp_assertions[39].equals	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/schemas"
 field	expectations.mcp_assertions[39].id	9
 field	expectations.mcp_assertions[39].operation	"equals"
 field	expectations.mcp_assertions[39].path	"/result/structuredContent/results/0/uri"
@@ -19199,7 +19411,7 @@ field	expectations.mcp_assertions[44].equals	false
 field	expectations.mcp_assertions[44].id	12
 field	expectations.mcp_assertions[44].operation	"equals"
 field	expectations.mcp_assertions[44].path	"/result/isError"
-field	expectations.mcp_assertions[45].equals	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/lexical-structure"
+field	expectations.mcp_assertions[45].equals	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/lexical-structure"
 field	expectations.mcp_assertions[45].id	12
 field	expectations.mcp_assertions[45].operation	"equals"
 field	expectations.mcp_assertions[45].path	"/result/structuredContent/uri"
@@ -19233,7 +19445,7 @@ field	expectations.mcp_assertions[52].equals	false
 field	expectations.mcp_assertions[52].id	14
 field	expectations.mcp_assertions[52].operation	"equals"
 field	expectations.mcp_assertions[52].path	"/result/isError"
-field	expectations.mcp_assertions[53].equals	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/index"
+field	expectations.mcp_assertions[53].equals	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/index"
 field	expectations.mcp_assertions[53].id	14
 field	expectations.mcp_assertions[53].operation	"equals"
 field	expectations.mcp_assertions[53].path	"/result/structuredContent/uri"
@@ -19284,7 +19496,7 @@ field	expectations.mcp_assertions[64].equals	"resource_not_found"
 field	expectations.mcp_assertions[64].id	16
 field	expectations.mcp_assertions[64].operation	"equals"
 field	expectations.mcp_assertions[64].path	"/result/structuredContent/code"
-field	expectations.mcp_assertions[65].equals	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/Lexical-Structure"
+field	expectations.mcp_assertions[65].equals	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/Lexical-Structure"
 field	expectations.mcp_assertions[65].id	16
 field	expectations.mcp_assertions[65].operation	"equals"
 field	expectations.mcp_assertions[65].path	"/result/structuredContent/details/uri"
@@ -19299,11 +19511,11 @@ field	expectations.mcp_assertions[68].equals	"resource_not_found"
 field	expectations.mcp_assertions[68].id	17
 field	expectations.mcp_assertions[68].operation	"equals"
 field	expectations.mcp_assertions[68].path	"/result/structuredContent/code"
-field	expectations.mcp_assertions[69].equals	"veln-doc:///package/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/index"
+field	expectations.mcp_assertions[69].equals	"veln-doc:///package/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/index"
 field	expectations.mcp_assertions[69].id	17
 field	expectations.mcp_assertions[69].operation	"equals"
 field	expectations.mcp_assertions[69].path	"/result/structuredContent/details/uri"
-field	expectations.mcp_assertions[6].equals	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/index"
+field	expectations.mcp_assertions[6].equals	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/index"
 field	expectations.mcp_assertions[6].id	3
 field	expectations.mcp_assertions[6].operation	"equals"
 field	expectations.mcp_assertions[6].path	"/result/contents/0/uri"
@@ -19318,7 +19530,7 @@ field	expectations.mcp_assertions[72].equals	"resource_not_found"
 field	expectations.mcp_assertions[72].id	18
 field	expectations.mcp_assertions[72].operation	"equals"
 field	expectations.mcp_assertions[72].path	"/result/structuredContent/code"
-field	expectations.mcp_assertions[73].equals	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/missing"
+field	expectations.mcp_assertions[73].equals	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/missing"
 field	expectations.mcp_assertions[73].id	18
 field	expectations.mcp_assertions[73].operation	"equals"
 field	expectations.mcp_assertions[73].path	"/result/structuredContent/details/uri"
@@ -19367,7 +19579,7 @@ field	expectations.mcp_assertions[83].path	"/result/resources/12/mimeType"
 field	expectations.mcp_assertions[84].id	2
 field	expectations.mcp_assertions[84].operation	"missing"
 field	expectations.mcp_assertions[84].path	"/result/resources/12/description"
-field	expectations.mcp_assertions[85].equals	"veln-pkg:///std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/bytes.veln"
+field	expectations.mcp_assertions[85].equals	"veln-pkg:///std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/bytes.veln"
 field	expectations.mcp_assertions[85].id	21
 field	expectations.mcp_assertions[85].operation	"equals"
 field	expectations.mcp_assertions[85].path	"/result/contents/0/uri"
@@ -19379,7 +19591,7 @@ field	expectations.mcp_assertions[87].contains	"type ByteView"
 field	expectations.mcp_assertions[87].id	21
 field	expectations.mcp_assertions[87].operation	"contains"
 field	expectations.mcp_assertions[87].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[88].equals	"veln-pkg:///std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/prelude.veln"
+field	expectations.mcp_assertions[88].equals	"veln-pkg:///std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/prelude.veln"
 field	expectations.mcp_assertions[88].id	22
 field	expectations.mcp_assertions[88].operation	"equals"
 field	expectations.mcp_assertions[88].path	"/result/contents/0/uri"
@@ -19387,7 +19599,7 @@ field	expectations.mcp_assertions[89].equals	"text/x-veln; charset=utf-8"
 field	expectations.mcp_assertions[89].id	22
 field	expectations.mcp_assertions[89].operation	"equals"
 field	expectations.mcp_assertions[89].path	"/result/contents/0/mimeType"
-field	expectations.mcp_assertions[8].contains	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/lexical-structure"
+field	expectations.mcp_assertions[8].contains	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/lexical-structure"
 field	expectations.mcp_assertions[8].id	3
 field	expectations.mcp_assertions[8].operation	"contains"
 field	expectations.mcp_assertions[8].path	"/result/contents/0/text"
@@ -19428,7 +19640,7 @@ field	expectations.mcp_assertions[98].path	"/error/data/code"
 field	expectations.mcp_assertions[99].id	25
 field	expectations.mcp_assertions[99].operation	"missing"
 field	expectations.mcp_assertions[99].path	"/result"
-field	expectations.mcp_assertions[9].equals	"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/lexical-structure"
+field	expectations.mcp_assertions[9].equals	"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/lexical-structure"
 field	expectations.mcp_assertions[9].id	4
 field	expectations.mcp_assertions[9].operation	"equals"
 field	expectations.mcp_assertions[9].path	"/result/contents/0/uri"
@@ -19446,9 +19658,9 @@ field	expectations.stdout.contains[8]	"\"name\":\"read_doc\""
 field	expectations.stdout.contains[9]	"\"scope\":\"language\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"e85aa888145c8b3f1fb077096b665c1bc9d3c276f096c5c687fa2c0810f8a4e3"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"3b081dd5a128e70197ce6bb5f0222a10d9b0d0ff3ce46f236dc7788fb3c20136"}
 field	source_errors	"forbidden"
-case_digest	"ddb784e9af9243e4f6f69a29e5d4e46acd2c44163745648b28bce864ab7b7ae9"
+case_digest	"77f215c3d7db2ddb6ec116875e2dc8d1f383398e69184401e0f4be2f3d99e4c4"
 case	"examples/specification/mcp/references-dependency-function"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -21778,7 +21990,7 @@ field	expectations.mcp_assertions[26].id	8
 field	expectations.mcp_assertions[26].length	4
 field	expectations.mcp_assertions[26].operation	"length"
 field	expectations.mcp_assertions[26].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[27].equals	"veln-pkg:///std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/prelude.veln"
+field	expectations.mcp_assertions[27].equals	"veln-pkg:///std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/prelude.veln"
 field	expectations.mcp_assertions[27].id	8
 field	expectations.mcp_assertions[27].operation	"equals"
 field	expectations.mcp_assertions[27].path	"/result/structuredContent/references/3/uri"
@@ -21825,7 +22037,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1118,"sha256":"68702724fade9cf3d93e642f4ce83f9189fb7fed5bf95bfb66c6c33209e6bf25"}
 field	source_errors	"forbidden"
-case_digest	"3021719c4ef995e079bc2904a78ef6a0f20ab7c7f3275f84311d9c4231415115"
+case_digest	"ff1bdb43fd77e0f56aae73f168dbd423aeccc1259d5ec666498b883a7118a440"
 case	"examples/specification/mcp/references-standard-library-type-alias"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -21888,7 +22100,7 @@ field	expectations.mcp_assertions[22].id	8
 field	expectations.mcp_assertions[22].length	10
 field	expectations.mcp_assertions[22].operation	"length"
 field	expectations.mcp_assertions[22].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[23].equals	"veln-pkg:///std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/prelude.veln"
+field	expectations.mcp_assertions[23].equals	"veln-pkg:///std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/prelude.veln"
 field	expectations.mcp_assertions[23].id	8
 field	expectations.mcp_assertions[23].operation	"equals"
 field	expectations.mcp_assertions[23].path	"/result/structuredContent/references/9/uri"
@@ -21935,7 +22147,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1116,"sha256":"c057191b59a1f0a1f20e623389b66deab09e4ef96381add88d0a43d2d7e7d777"}
 field	source_errors	"forbidden"
-case_digest	"74063855f6ba7ddbf48deea3d3a4487fae3587924b7a6a5cc5539db9edee9025"
+case_digest	"35204a0eb19644fc5d963ce40661a8246a73c3ac6888bf6f3f23ecb3c3743717"
 case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	3
@@ -24397,11 +24609,11 @@ field	expectations.mcp_assertions[11].contains	"- Package identity: std"
 field	expectations.mcp_assertions[11].id	4
 field	expectations.mcp_assertions[11].operation	"contains"
 field	expectations.mcp_assertions[11].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[12].contains	"veln-doc:///package/std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/documentation/c6231d1a89ee54fd032923489a163460e8b463ac4ae35c6ecbff748e847c5de1/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+field	expectations.mcp_assertions[12].contains	"veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 field	expectations.mcp_assertions[12].id	4
 field	expectations.mcp_assertions[12].operation	"contains"
 field	expectations.mcp_assertions[12].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[13].contains	"veln-doc:///package/std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/documentation/c6231d1a89ee54fd032923489a163460e8b463ac4ae35c6ecbff748e847c5de1/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+field	expectations.mcp_assertions[13].contains	"veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 field	expectations.mcp_assertions[13].id	4
 field	expectations.mcp_assertions[13].operation	"contains"
 field	expectations.mcp_assertions[13].path	"/result/contents/0/text"
@@ -24409,15 +24621,15 @@ field	expectations.mcp_assertions[14].contains	"- Source path: prelude.veln"
 field	expectations.mcp_assertions[14].id	5
 field	expectations.mcp_assertions[14].operation	"contains"
 field	expectations.mcp_assertions[14].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[15].contains	"veln-doc:///package/std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/documentation/c6231d1a89ee54fd032923489a163460e8b463ac4ae35c6ecbff748e847c5de1/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+field	expectations.mcp_assertions[15].contains	"veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 field	expectations.mcp_assertions[15].id	5
 field	expectations.mcp_assertions[15].operation	"contains"
 field	expectations.mcp_assertions[15].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[16].contains	"veln-doc:///package/std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/documentation/c6231d1a89ee54fd032923489a163460e8b463ac4ae35c6ecbff748e847c5de1/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+field	expectations.mcp_assertions[16].contains	"veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 field	expectations.mcp_assertions[16].id	5
 field	expectations.mcp_assertions[16].operation	"contains"
 field	expectations.mcp_assertions[16].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[17].contains	"veln-doc:///package/std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/documentation/c6231d1a89ee54fd032923489a163460e8b463ac4ae35c6ecbff748e847c5de1/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+field	expectations.mcp_assertions[17].contains	"veln-doc:///package/std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/documentation/227fa4db2386e0df9c51932d1966480885aab1dddd977c9d8528d48fe7177f29/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 field	expectations.mcp_assertions[17].id	5
 field	expectations.mcp_assertions[17].operation	"contains"
 field	expectations.mcp_assertions[17].path	"/result/contents/0/text"
@@ -24558,9 +24770,9 @@ field	expectations.stdout.contains[8]	"# Function join_host_port"
 field	expectations.stdout.contains[9]	"byte_chunk_len"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4053,"sha256":"823b0b24e6a14f67f63e92bfb72fdc8d923bacf41a2ea75c2967bc9e8ec3b751"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4053,"sha256":"9848f53381ae194fcfc8231d30a36fa5107429bd5c0525f0c14bb0fb39d4d273"}
 field	source_errors	"forbidden"
-case_digest	"80b038cee33d6c462463a7a688bea83a3ab80ed7ae15974b6881cecbbac847dd"
+case_digest	"222bca78d4f1ca1f80be4a48fa27413cd7303950d67ea80da8cfc749f4af5820"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	{"code":-32602,"message":"Server not initialized"}
@@ -63738,4 +63950,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"f248600d76b040857b48cfc09237973620b705216f920581f6257239d8c9fad8"
+aggregate_digest	"ae90c80ecc3565e9b1ce571c4d32e17a556634dd60356b2f2f3019e2d519deca"

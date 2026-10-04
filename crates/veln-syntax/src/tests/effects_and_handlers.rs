@@ -1,5 +1,7 @@
 use super::*;
 
+mod handler_recovery;
+
 #[test]
 fn parses_decode_as_an_explicit_module_member_name() {
     let source = SourceFile::new(
@@ -248,7 +250,7 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
             "  ctx\n",
             "end\n",
             "\n",
-            "handler ask(ctx:Int) handles Ask effects [stdio]\n",
+            "handler ask(ctx:Int) for Ask effects [stdio]\n",
             "  value() => provide(ctx)\n",
             "end\n",
             "\n",
@@ -283,8 +285,9 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
                 && args.len() == 1
                 && matches!(&body.kind, ExprKind::Perform { operation, .. } if operation == "value")
     ));
+    let formatted = format_tree(&output.tree);
     assert_eq!(
-        format_tree(&output.tree),
+        formatted,
         concat!(
             "effect Ask\n",
             "\tvalue() -> Int\n",
@@ -294,7 +297,7 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
             "\tctx\n",
             "end\n",
             "\n",
-            "handler ask(ctx: Int) handles Ask effects [stdio]\n",
+            "handler ask(ctx: Int) for Ask effects [stdio]\n",
             "\tvalue() => provide(ctx)\n",
             "end\n",
             "\n",
@@ -303,6 +306,37 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
             "end\n",
         )
     );
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn accepts_handles_in_ordinary_identifier_positions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use handles\n\n",
+            "fn handles(handles: Int) -> { handles : Int }\n",
+            "  let handles = handles::value(handles)\n",
+            "  { handles: handles }\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.uses[0].name, "handles");
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function declaration");
+    };
+    assert_eq!(function.name.as_deref(), Some("handles"));
+    assert_eq!(function.params[0].name, "handles");
 }
 
 #[test]
@@ -310,7 +344,7 @@ fn handler_declaration_preserves_header_and_body_boundaries() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub handler audit(ctx: Context) handles telemetry::Audit effects [stdio, net]\n",
+            "pub handler audit(ctx: Context) for telemetry::Audit effects [stdio, net]\n",
             "  record(message) => ctx.record(message)\n",
             "\n",
             "  flush() => ctx.flush()\n",
@@ -356,7 +390,7 @@ fn rejects_trailing_comma_in_handler_operation_parameters() {
             "  next(step: Int) -> Int\n",
             "end\n",
             "\n",
-            "handler pick() handles Pick\n",
+            "handler pick() for Pick\n",
             "  next(step,) => step\n",
             "end\n",
         ),
@@ -388,7 +422,7 @@ fn rejects_old_handler_operation_syntax_with_one_migration_diagnostic() {
             "  1\n",
             "end\n",
             "\n",
-            "handler ask() handles Ask\n",
+            "handler ask() for Ask\n",
             "  value = provide\n",
             "end\n",
         ),
@@ -462,10 +496,10 @@ fn records_recovery_for_effect_rows_and_handled_effects() {
             "fn broken() -> Int effects [Choose @]\n",
             "  1\n",
             "end\n\n",
-            "handler broken() handles Choose @\n",
+            "handler broken() for Choose @\n",
             "  pick() => 1\n",
             "end\n\n",
-            "handler row_broken() handles Choose effects [Choose @]\n",
+            "handler row_broken() for Choose effects [Choose @]\n",
             "  pick() => 1\n",
             "end\n",
         ),

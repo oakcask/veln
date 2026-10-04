@@ -187,7 +187,7 @@ equals = [
 [[json_assert]]
 path = "diagnostics.10.related"
 equals = [
-  {"kind":"repair_hint","message":"Add `callsite` after the function's optional effects clause.","span":{"file":"rejected.veln","start":{"line":37,"column":1,"offset":463},"end":{"line":41,"column":1,"offset":526}}}
+  {"kind":"repair_hint","message":"Add `callsite` after the function's optional effects clause.","span":{"file":"rejected.veln","start":{"line":37,"column":1,"offset":459},"end":{"line":41,"column":1,"offset":522}}}
 ]
 
 [[json_assert]]
@@ -269,8 +269,8 @@ equals = "satisfy candidate"
 [[json_assert]]
 path = "diagnostics.12.related"
 equals = [
-  {"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"file":"rejected.veln","start":{"line":47,"column":42,"offset":697},"end":{"line":47,"column":50,"offset":705}}},
-  {"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"file":"rejected.veln","start":{"line":48,"column":18,"offset":723},"end":{"line":48,"column":26,"offset":731}}}
+  {"kind":"builtin_origin","message":"The `callsite` modifier introduces the built-in binding here.","span":{"file":"rejected.veln","start":{"line":47,"column":42,"offset":693},"end":{"line":47,"column":50,"offset":701}}},
+  {"kind":"repair_hint","message":"Rename this binding so the built-in `callsite` value remains visible.","span":{"file":"rejected.veln","start":{"line":48,"column":18,"offset":719},"end":{"line":48,"column":26,"offset":727}}}
 ]
 
 [[json_assert]]

@@ -5,7 +5,7 @@ fn write_handler_workspace(workspace: &TempWorkspace) {
     workspace.write(
         "main.veln",
         concat!(
-            "handler run(value: Int) handles Work\r\n",
+            "handler run(value: Int) for Work\r\n",
             "  go() => 1\r\n",
             "end\r\n\r\n",
             "fn first() -> Int\r\n",
@@ -63,10 +63,7 @@ fn references_page_workspace_handlers_with_unicode_scalar_coordinates() {
 fn references_include_a_workspace_handler_declaration_without_occurrences() {
     let workspace = TempWorkspace::new("references-workspace-handler-declaration-only");
     workspace.write("veln.toml", "");
-    workspace.write(
-        "main.veln",
-        "handler run() handles Work\n  go() => 1\nend\n",
-    );
+    workspace.write("main.veln", "handler run() for Work\n  go() => 1\nend\n");
     let mut server = initialized_server(&workspace);
 
     let without_declaration = server.references_tool(&json!({

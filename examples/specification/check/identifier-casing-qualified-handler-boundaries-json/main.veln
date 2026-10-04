@@ -2,7 +2,7 @@ effect Ask
   value() -> Int
 end
 
-handler ask(seed: Missing::Thing) handles Ask
+handler ask(seed: Missing::Thing) for Ask
   value() => missing::Thing()
 end
 

@@ -2,7 +2,7 @@ effect Ask
   value(input: Int) -> Int
 end
 
-handler ask(Offset: Int) handles Ask
+handler ask(Offset: Int) for Ask
   value(Answer) => Answer + Offset
 end
 

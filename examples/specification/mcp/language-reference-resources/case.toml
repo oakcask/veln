@@ -28,7 +28,7 @@ equals = {"listChanged":false,"subscribe":false}
 [[mcp_assert]]
 id = 2
 path = "/result/resources/0/uri"
-equals = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/index"
+equals = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/index"
 
 [[mcp_assert]]
 id = 2
@@ -53,7 +53,7 @@ length = 1
 [[mcp_assert]]
 id = 3
 path = "/result/contents/0/uri"
-equals = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/index"
+equals = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/index"
 
 [[mcp_assert]]
 id = 3
@@ -63,12 +63,12 @@ equals = "text/markdown; charset=utf-8"
 [[mcp_assert]]
 id = 3
 path = "/result/contents/0/text"
-contains = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/lexical-structure"
+contains = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/lexical-structure"
 
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/uri"
-equals = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/lexical-structure"
+equals = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/lexical-structure"
 
 [[mcp_assert]]
 id = 4
@@ -218,7 +218,7 @@ equals = "Schemas"
 [[mcp_assert]]
 id = 9
 path = "/result/structuredContent/results/0/uri"
-equals = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/schemas"
+equals = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/schemas"
 
 [[mcp_assert]]
 id = 9
@@ -248,7 +248,7 @@ equals = false
 [[mcp_assert]]
 id = 12
 path = "/result/structuredContent/uri"
-equals = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/lexical-structure"
+equals = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/lexical-structure"
 
 [[mcp_assert]]
 id = 12
@@ -288,7 +288,7 @@ equals = false
 [[mcp_assert]]
 id = 14
 path = "/result/structuredContent/uri"
-equals = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/index"
+equals = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/index"
 
 [[mcp_assert]]
 id = 14
@@ -348,7 +348,7 @@ equals = "resource_not_found"
 [[mcp_assert]]
 id = 16
 path = "/result/structuredContent/details/uri"
-equals = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/Lexical-Structure"
+equals = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/Lexical-Structure"
 
 [[mcp_assert]]
 id = 16
@@ -368,7 +368,7 @@ equals = "resource_not_found"
 [[mcp_assert]]
 id = 17
 path = "/result/structuredContent/details/uri"
-equals = "veln-doc:///package/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/index"
+equals = "veln-doc:///package/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/index"
 
 [[mcp_assert]]
 id = 17
@@ -388,7 +388,7 @@ equals = "resource_not_found"
 [[mcp_assert]]
 id = 18
 path = "/result/structuredContent/details/uri"
-equals = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/missing"
+equals = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/missing"
 
 [[mcp_assert]]
 id = 18
@@ -448,7 +448,7 @@ missing = true
 [[mcp_assert]]
 id = 21
 path = "/result/contents/0/uri"
-equals = "veln-pkg:///std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/bytes.veln"
+equals = "veln-pkg:///std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/bytes.veln"
 
 [[mcp_assert]]
 id = 21
@@ -463,7 +463,7 @@ contains = "type ByteView"
 [[mcp_assert]]
 id = 22
 path = "/result/contents/0/uri"
-equals = "veln-pkg:///std/snapshot/cb721997bb613afb07f67b7b2dbc1e1965c79824680c7d1ca34a73f215869e72/prelude.veln"
+equals = "veln-pkg:///std/snapshot/afbe45306dd2e1b01acf39e099929b54604a3c664482f4f9288b65ffbd62ec6a/prelude.veln"
 
 [[mcp_assert]]
 id = 22
@@ -533,9 +533,9 @@ length = 10
 [[mcp_assert]]
 id = 26
 path = "/result/structuredContent/topics/0"
-equals = {"uri":"veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/contracts","title":"Contracts","summary":"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations."}
+equals = {"uri":"veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/contracts","title":"Contracts","summary":"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations."}
 
 [[mcp_assert]]
 id = 26
 path = "/result/structuredContent/topics/9/uri"
-equals = "veln-doc:///language/snapshot/4c731c36f7e2624a6dc0c37c73c1ba59fc2a8d237719f42bec12b4fccaeddcfd/topic/types-inference-constructors"
+equals = "veln-doc:///language/snapshot/3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e/topic/types-inference-constructors"

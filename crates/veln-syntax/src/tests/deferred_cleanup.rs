@@ -424,7 +424,7 @@ fn lossless_tree_exposes_cleanup_region_nodes() {
 fn handler_operation_navigation_exposes_begin_region() {
     let source = SourceFile::new(
         "handler.veln",
-        "effect Resource\n close() -> ()\nend\n\nhandler Cleanup() handles Resource\n close() => begin\n  ()\n end\nend\n",
+        "effect Resource\n close() -> ()\nend\n\nhandler Cleanup() for Resource\n close() => begin\n  ()\n end\nend\n",
     );
     let output = parse(&source);
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);

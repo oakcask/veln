@@ -15,7 +15,7 @@ fn type_environment_collects_effect_function_and_handler_signatures() {
             "  value::to_string()\n",
             "end\n",
             "\n",
-            "pub handler recorder() handles Audit\n",
+            "pub handler recorder() for Audit\n",
             "  record(value) => value::to_string()\n",
             "end\n",
         ),

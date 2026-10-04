@@ -36,6 +36,69 @@ fn edits(result: &Value) -> &Vec<Value> {
         .unwrap_or_else(|| panic!("rename edits missing: {result:#}"))
 }
 
+fn live_main_reference_cursor(server: &mut Server) -> String {
+    server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":4, "page_size":1,
+        "include_declaration":true
+    }))["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+fn assert_main_reference_continuation(server: &mut Server, cursor: String, expected_uri: &str) {
+    let continuation = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(continuation["isError"], false, "{continuation:#}");
+    let references = continuation["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert_eq!(references.len(), 1, "{continuation:#}");
+    assert_eq!(references[0]["uri"], expected_uri, "{continuation:#}");
+    assert_eq!(
+        references[0]["range"],
+        json!({"start":{"line":2,"column":3},"end":{"line":2,"column":9}}),
+        "{continuation:#}"
+    );
+    assert!(
+        continuation["structuredContent"]
+            .get("next_cursor")
+            .is_none(),
+        "{continuation:#}"
+    );
+}
+
+#[derive(Clone, Copy)]
+enum RenameCursorOutcome {
+    Edits(usize),
+    Error(&'static str),
+}
+
+#[derive(Clone, Copy)]
+struct RenameCursorCase {
+    name: &'static str,
+    source: &'static str,
+    line: usize,
+    column: usize,
+    new_name: &'static str,
+    outcome: RenameCursorOutcome,
+}
+
+fn assert_rename_cursor_outcome(case: RenameCursorCase, result: &Value) {
+    match case.outcome {
+        RenameCursorOutcome::Error(code) => {
+            assert_eq!(
+                result["structuredContent"]["code"], code,
+                "{}: {result:#}",
+                case.name
+            );
+            assert!(result["structuredContent"].get("edits").is_none());
+        }
+        RenameCursorOutcome::Edits(count) => {
+            assert_eq!(edits(result).len(), count, "{}: {result:#}", case.name);
+        }
+    }
+}
+
 fn shared_conflicting_uri(
     server: &mut Server,
     source: &str,
@@ -213,7 +276,7 @@ fn rename_handler_clause_begin_local_edits_declaration_and_cleanup_uses() {
             "effect Ask\n",
             "  value() -> Int\n",
             "end\n\n",
-            "handler ask() handles Ask\n",
+            "handler ask() for Ask\n",
             "  value() => begin\n",
             "    let captured = 1\n",
             "    defer\n",
@@ -325,7 +388,7 @@ fn rename_type_edits_function_and_handler_cleanup_annotations() {
             "  end\n",
             "  begun\n",
             "end\n\n",
-            "handler ask(seed: Resource) handles Ask\n",
+            "handler ask(seed: Resource) for Ask\n",
             "  value() => begin\n",
             "    defer\n",
             "      let deferred: Resource = seed\n",
@@ -506,7 +569,7 @@ fn rename_supported_class_locations_match_shared_language_service() {
     let math_test = "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n";
     let handler = concat!(
         "effect Choose\n  pick(value: Bool) -> Int\nend\n\n",
-        "handler choose(callback: fn(Int) -> Int) handles Choose\n",
+        "handler choose(callback: fn(Int) -> Int) for Choose\n",
         "  pick(value) => callback(value)\nend\n",
     );
     for (path, text) in [
@@ -618,7 +681,7 @@ fn rename_supports_aliases_companion_private_functions_and_handler_bindings() {
         "handler.veln",
         concat!(
             "effect Choose\n  pick(value: Bool) -> Int\nend\n\n",
-            "handler choose(callback: fn(Int) -> Int) handles Choose\n",
+            "handler choose(callback: fn(Int) -> Int) for Choose\n",
             "  pick(value) => callback(value)\nend\n",
         ),
     );
@@ -698,7 +761,7 @@ fn rename_preserves_callable_constructor_and_handler_recovery_identities() {
             "fn read_constructor() -> item\n  value(1)\nend\n\n",
             "fn read_callback(Callback: fn() -> Int) -> Int\n  Callback\n  Callback()\nend\n\n",
             "effect Adjust\n  amount(value: Int) -> Int\nend\n\n",
-            "handler adjust(Callback: fn(Int) -> Int) handles Adjust\n",
+            "handler adjust(Callback: fn(Int) -> Int) for Adjust\n",
             "  amount(Value) => Callback(Value)\nend\n",
         ),
     );
@@ -845,7 +908,7 @@ fn rename_reports_handler_binding_and_recovery_conflicts() {
             "fn source() -> Int\n",
             "  1\n",
             "end\n\n",
-            "handler choose() handles Choose\n",
+            "handler choose() for Choose\n",
             "  choose(target) => source()\n",
             "end\n",
         ),
@@ -873,7 +936,7 @@ fn rename_reports_handler_binding_and_recovery_conflicts() {
             "fn origin() -> Int\n",
             "  1\n",
             "end\n\n",
-            "handler adjust(target: Int) handles Adjust\n",
+            "handler adjust(target: Int) for Adjust\n",
             "  amount(value) => origin()\n",
             "end\n",
         ),
@@ -1234,37 +1297,6 @@ fn rename_rejects_oversized_identifiers_before_edit_construction() {
 
 #[test]
 fn rename_non_capture_results_preserve_live_reference_cursors() {
-    fn live_cursor(server: &mut Server) -> String {
-        server.references_tool(&json!({
-            "source":"main.veln", "line":2, "column":4, "page_size":1,
-            "include_declaration":true
-        }))["structuredContent"]["next_cursor"]
-            .as_str()
-            .unwrap()
-            .to_owned()
-    }
-
-    fn assert_continuation(server: &mut Server, cursor: String, expected_uri: &str) {
-        let continuation = server.references_tool(&json!({"cursor": cursor}));
-        assert_eq!(continuation["isError"], false, "{continuation:#}");
-        let references = continuation["structuredContent"]["references"]
-            .as_array()
-            .unwrap();
-        assert_eq!(references.len(), 1, "{continuation:#}");
-        assert_eq!(references[0]["uri"], expected_uri, "{continuation:#}");
-        assert_eq!(
-            references[0]["range"],
-            json!({"start":{"line":2,"column":3},"end":{"line":2,"column":9}}),
-            "{continuation:#}"
-        );
-        assert!(
-            continuation["structuredContent"]
-                .get("next_cursor")
-                .is_none(),
-            "{continuation:#}"
-        );
-    }
-
     let workspace = TempWorkspace::new("rename-preserve-cursors");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -1277,67 +1309,74 @@ fn rename_non_capture_results_preserve_live_reference_cursors() {
     let mut server = initialized_server(&workspace);
     let expected_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
     let cases = [
-        (
-            "success",
-            json!({"source":"main.veln","line":1,"column":4,"new_name":"next"}),
-            None,
-            Some(2usize),
-        ),
-        (
-            "empty selection",
-            json!({"source":"main.veln","line":4,"column":1,"new_name":"next"}),
-            None,
-            Some(0),
-        ),
-        (
-            "invalid name",
-            json!({"source":"main.veln","line":1,"column":4,"new_name":"two words"}),
-            Some("rename.invalid_name"),
-            None,
-        ),
-        (
-            "invalid case",
-            json!({"source":"main.veln","line":1,"column":4,"new_name":"Next"}),
-            Some("rename.invalid_case"),
-            None,
-        ),
-        (
-            "conflict",
-            json!({"source":"main.veln","line":1,"column":4,"new_name":"occupied"}),
-            Some("rename.conflict"),
-            None,
-        ),
-        (
-            "invalid path",
-            json!({"source":"missing.veln","line":1,"column":1,"new_name":"next"}),
-            Some("invalid_path"),
-            None,
-        ),
-        (
-            "invalid position",
-            json!({"source":"main.veln","line":1,"column":99,"new_name":"next"}),
-            Some("invalid_position"),
-            None,
-        ),
+        RenameCursorCase {
+            name: "success",
+            source: "main.veln",
+            line: 1,
+            column: 4,
+            new_name: "next",
+            outcome: RenameCursorOutcome::Edits(2),
+        },
+        RenameCursorCase {
+            name: "empty selection",
+            source: "main.veln",
+            line: 4,
+            column: 1,
+            new_name: "next",
+            outcome: RenameCursorOutcome::Edits(0),
+        },
+        RenameCursorCase {
+            name: "invalid name",
+            source: "main.veln",
+            line: 1,
+            column: 4,
+            new_name: "two words",
+            outcome: RenameCursorOutcome::Error("rename.invalid_name"),
+        },
+        RenameCursorCase {
+            name: "invalid case",
+            source: "main.veln",
+            line: 1,
+            column: 4,
+            new_name: "Next",
+            outcome: RenameCursorOutcome::Error("rename.invalid_case"),
+        },
+        RenameCursorCase {
+            name: "conflict",
+            source: "main.veln",
+            line: 1,
+            column: 4,
+            new_name: "occupied",
+            outcome: RenameCursorOutcome::Error("rename.conflict"),
+        },
+        RenameCursorCase {
+            name: "invalid path",
+            source: "missing.veln",
+            line: 1,
+            column: 1,
+            new_name: "next",
+            outcome: RenameCursorOutcome::Error("invalid_path"),
+        },
+        RenameCursorCase {
+            name: "invalid position",
+            source: "main.veln",
+            line: 1,
+            column: 99,
+            new_name: "next",
+            outcome: RenameCursorOutcome::Error("invalid_position"),
+        },
     ];
 
-    for (name, arguments, expected_code, expected_edits) in cases {
-        let cursor = live_cursor(&mut server);
-        let result = server.rename_tool(&arguments);
-        match (expected_code, expected_edits) {
-            (Some(code), None) => {
-                assert_eq!(
-                    result["structuredContent"]["code"], code,
-                    "{name}: {result:#}"
-                );
-                assert!(result["structuredContent"].get("edits").is_none());
-            }
-            (None, Some(count)) => {
-                assert_eq!(edits(&result).len(), count, "{name}: {result:#}");
-            }
-            _ => unreachable!(),
-        }
-        assert_continuation(&mut server, cursor, &expected_uri);
+    for case in cases {
+        let cursor = live_main_reference_cursor(&mut server);
+        let result = server.rename_tool(&json!({
+            "source": case.source,
+            "line": case.line,
+            "column": case.column,
+            "new_name": case.new_name
+        }));
+        assert_rename_cursor_outcome(case, &result);
+        assert_main_reference_continuation(&mut server, cursor, &expected_uri);
     }
 }
 
@@ -1349,13 +1388,7 @@ fn rename_capture_exhaustion_preserves_state_and_allows_a_later_call() {
     let mut server = initialized_server(&workspace);
     let before_resources = server.language_resources.list_result();
     let before_selection = server.selection_result();
-    let cursor = server.references_tool(&json!({
-        "source":"main.veln", "line":2, "column":4, "page_size":1,
-        "include_declaration":true
-    }))["structuredContent"]["next_cursor"]
-        .as_str()
-        .unwrap()
-        .to_owned();
+    let cursor = live_main_reference_cursor(&mut server);
     let attempts = Rc::new(Cell::new(0usize));
     let attempts_for_hook = Rc::clone(&attempts);
     let path = workspace.path("main.veln");
@@ -1382,22 +1415,8 @@ fn rename_capture_exhaustion_preserves_state_and_allows_a_later_call() {
     assert_eq!(server.language_resources.list_result(), before_resources);
     assert_eq!(server.selection_result(), before_selection);
 
-    let continuation = server.references_tool(&json!({"cursor": cursor}));
-    assert_eq!(continuation["isError"], false, "{continuation:#}");
-    let references = continuation["structuredContent"]["references"]
-        .as_array()
-        .unwrap();
-    assert_eq!(references.len(), 1, "{continuation:#}");
-    assert_eq!(
-        references[0]["uri"],
-        crate::definition::path_to_uri(&workspace.path("main.veln")),
-        "{continuation:#}"
-    );
-    assert_eq!(
-        references[0]["range"],
-        json!({"start":{"line":2,"column":3},"end":{"line":2,"column":9}}),
-        "{continuation:#}"
-    );
+    let expected_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+    assert_main_reference_continuation(&mut server, cursor, &expected_uri);
 
     drop(_hook);
     workspace.write("main.veln", "fn target() -> Int\n  target()\nend\n");

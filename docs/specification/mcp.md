@@ -641,7 +641,7 @@ failures retain the general state-preservation and failure-atomicity rules of
 saved workspace navigation.
 
 A workspace effect result contains bare effect rows on functions, tests,
-handlers, and function types, handler `handles` targets, and
+handlers, and function types, handler `for` targets, and
 `perform Effect::operation(...)` qualifiers from every saved source that
 declares the selected effect's module. For a public effect reached through one
 parse-clean, unambiguous workspace import, the same result also contains
@@ -663,8 +663,11 @@ an unrelated construct in that source has a parse error. Private effects
 reached through an import, ambiguous or recovered workspace imports,
 dependency-package and standard-library effects, generic effect parameters,
 duplicate declarations, invalid casing, unresolved names, recovered effect
-rows, recovered handler targets, incomplete `perform` qualifiers, other
-modules, and other symbol classes do not enter the result.
+rows, handler targets whose effect path requires recovery, incomplete
+`perform` qualifiers, other modules, and other symbol classes do not enter the
+result. Recovering a missing handler `for` separator does not by itself exclude
+a structurally complete bare or qualified target; the target remains in its
+effect reference set while the saved source retains the separator diagnostic.
 
 A workspace effect-operation result contains each complete
 `perform Effect::operation(arguments)` operation-name leaf from saved sources
@@ -675,7 +678,7 @@ through one parse-clean, unambiguous workspace import. The written qualifier
 can use the full module path or its unique implicit leaf alias. An exact full
 path takes precedence over a colliding implicit leaf alias. The result also
 contains each structurally complete matching operation-clause heading in a
-parse-clean same-module handler whose bare `handles` target resolves to the
+parse-clean same-module handler whose bare `for` target resolves to the
 owning effect.
 The declaration, each leaf, and each included heading select the same module,
 owning-effect, and operation identity. Every location covers only the
@@ -694,7 +697,7 @@ or additionally qualified operation paths return a successful empty result. An
 operation leaf whose argument list requires syntax recovery is excluded even
 when its adjacent effect qualifier remains eligible. A clause heading is
 excluded when its handler declaration is duplicate or recovered, its heading
-is duplicate or recovered, or its `handles` target is qualified, imported,
+is duplicate or recovered, or its `for` target is qualified, imported,
 package-backed, unresolved, or ambiguous. Unknown operation names and equal
 spelling in another effect, module, symbol class, comment, or string are
 excluded. Clause parameters and bodies keep their separate binding and

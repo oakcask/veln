@@ -7,7 +7,7 @@ fn provide(offset: Int) -> Int effects [stdio]
 	offset + 1
 end
 
-handler ask(offset: Int) handles Ask
+handler ask(offset: Int) for Ask
 	value() => provide(offset)
 end
 

@@ -657,7 +657,7 @@
                     "effect Ask\n",
                     "  value() -> Int\n",
                     "end\n\n",
-                    "handler ask() handles Ask\n",
+                    "handler ask() for Ask\n",
                     "  value() => begin\n",
                     "    let captured = 1\n",
                     "    defer\n",
@@ -991,7 +991,7 @@
     #[test]
     fn handler_clause_scope_discovery_is_linear_for_many_arrows_on_one_line() {
         fn token_visits(arrow_count: usize) -> (usize, usize) {
-            let mut source_text = String::from("handler invalid() handles Invalid\n  clause() ");
+            let mut source_text = String::from("handler invalid() for Invalid\n  clause() ");
             for _ in 0..arrow_count {
                 source_text.push_str("=> value ");
             }
@@ -1025,7 +1025,7 @@
     fn handler_clause_scope_boundaries_grow_linearly_with_clause_count() {
         fn token_visits(clause_count: usize) -> usize {
             let mut source_text = String::from(
-                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
+                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() for Adjust\n",
             );
             for _ in 0..clause_count {
                 source_text.push_str("  amount(value) => value\n");
@@ -1054,7 +1054,7 @@
     fn handler_clause_local_binding_collection_grows_linearly() {
         fn token_visits(clause_count: usize) -> usize {
             let mut source_text = String::from(
-                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
+                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() for Adjust\n",
             );
             for _ in 0..clause_count {
                 source_text.push_str("  amount(value) => value\n");
@@ -1087,7 +1087,7 @@
             clause_count: usize,
         ) -> ((usize, usize), std::time::Duration) {
             let mut source_text = String::from(
-                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust(context: Int) handles Adjust\n",
+                "effect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust(context: Int) for Adjust\n",
             );
             for _ in 0..clause_count {
                 source_text.push_str("  amount(value) => context\n");
@@ -1141,7 +1141,7 @@
     fn handler_clause_function_reference_lookup_scales_with_generated_clauses() {
         fn reference_work(clause_count: usize) -> ((usize, usize), usize, std::time::Duration) {
             let mut source_text = String::from(
-                "fn target(value: Int) -> Int\n  value\nend\n\neffect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() handles Adjust\n",
+                "fn target(value: Int) -> Int\n  value\nend\n\neffect Adjust\n  amount(value: Int) -> Int\nend\n\nhandler adjust() for Adjust\n",
             );
             for _ in 0..clause_count {
                 source_text.push_str("  amount(value) => target(value)\n");
@@ -1283,7 +1283,7 @@
                 "  amount(value: Int) -> Int\n",
                 "  echo(value: Int) -> Int\n",
                 "end\n\n",
-                "handler adjust(Callback: fn(Int) -> Int) handles Adjust\n",
+                "handler adjust(Callback: fn(Int) -> Int) for Adjust\n",
                 "  amount(value) => Callback(value)\n",
                 "  echo(Result) => Callback(Result)\n",
                 "end\n",
@@ -1367,7 +1367,7 @@
                 "effect Common\n",
                 "  Common() -> Int\n",
                 "end\n\n",
-                "handler Common() handles Common\n",
+                "handler Common() for Common\n",
                 "  Common() => 1\n",
                 "end\n\n",
                 "type Common\n",
@@ -1383,7 +1383,7 @@
                 "effect lower_collision\n",
                 "  lower_collision() -> Int\n",
                 "end\n\n",
-                "handler lower_collision() handles lower_collision\n",
+                "handler lower_collision() for lower_collision\n",
                 "  lower_collision() => 1\n",
                 "end\n\n",
                 "fn lower_collision() -> Int\n",

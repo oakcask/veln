@@ -1,7 +1,7 @@
 use other
 use math
 
-handler local() handles other::Local effects [math::Ask]
+handler local() for other::Local effects [math::Ask]
 	value() => provide()
 end
 

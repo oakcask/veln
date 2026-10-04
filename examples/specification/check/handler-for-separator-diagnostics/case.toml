@@ -1,0 +1,11 @@
+# This case covers human CLI rendering for parser-owned handler separator failures.
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["main.veln:9:15: error[parse.expected_token]: expected for", "main.veln:13:19: error[parse.expected_token]: expected for", "main.veln:17:24: error[parse.expected_token]: expected for", "main.veln:21:25: error[parse.expected_token]: expected for", "main.veln:25:24: error[parse.expected_token]: expected for", "main.veln:29:32: error[parse.expected_token]: expected for", "main.veln:33:20: error[parse.expected_token]: expected for"]
+not_contains = ["parse.expected_identifier"]
+
+[stderr]
+format = "empty"

@@ -5,7 +5,7 @@ mod navigation_handler_references_tests {
         vec![
             source(
                 "declaration.veln",
-                "mod shared\n\nhandler run(value: Int) handles Work\n  go() => 1\nend\n",
+                "mod shared\n\nhandler run(value: Int) for Work\n  go() => 1\nend\n",
             ),
             source(
                 "uses.veln",
@@ -47,7 +47,7 @@ mod navigation_handler_references_tests {
             source(
                 "main.veln",
                 concat!(
-                    "handler run() handles Work\n",
+                    "handler run() for Work\n",
                     "  go() => 1\n",
                     "end\n\n",
                     "fn use() -> Int\n",
@@ -68,7 +68,7 @@ mod navigation_handler_references_tests {
                 "other.veln",
                 concat!(
                     "mod other\n\n",
-                    "handler run() handles Work\n",
+                    "handler run() for Work\n",
                     "  go() => 2\n",
                     "end\n\n",
                     "fn use() -> Int\n",
@@ -86,7 +86,7 @@ mod navigation_handler_references_tests {
                     "type run\n",
                     "  run\n",
                     "end\n\n",
-                    "handler wrapper(run: fn(Int) -> Int) handles Work\n",
+                    "handler wrapper(run: fn(Int) -> Int) for Work\n",
                     "  go(run: Int) => run\n",
                     "  keep(value: Int) => run(value)\n",
                     "end\n",
@@ -148,14 +148,14 @@ mod navigation_handler_references_tests {
         let duplicate = vec![
             source(
                 "first.veln",
-                "mod shared\n\nhandler run() handles Work\n  go() => 1\nend\n",
+                "mod shared\n\nhandler run() for Work\n  go() => 1\nend\n",
             ),
             source(
                 "second.veln",
                 concat!(
                     "mod shared\n\n",
-                    "handler run() handles Work\n  go() => 2\nend\n\n",
-                    "handler keep() handles Work\n  go() => 3\nend\n\n",
+                    "handler run() for Work\n  go() => 2\nend\n\n",
+                    "handler keep() for Work\n  go() => 3\nend\n\n",
                     "fn use() -> Int\n  handle 1 with run()\nend\n\n",
                     "fn valid() -> Int\n  handle 2 with keep()\nend\n",
                 ),
@@ -172,8 +172,8 @@ mod navigation_handler_references_tests {
         let recovered = vec![source(
             "main.veln",
             concat!(
-                "handler run() handles Work @\n  go() => 1\nend\n\n",
-                "handler keep() handles Work\n  go() => 2\nend\n\n",
+                "handler run() for Work @\n  go() => 1\nend\n\n",
+                "handler keep() for Work\n  go() => 2\nend\n\n",
                 "fn use() -> Int\n  handle 1 with run()\nend\n\n",
                 "fn valid() -> Int\n  handle 2 with keep()\nend\n",
             ),
@@ -191,8 +191,8 @@ mod navigation_handler_references_tests {
         let sources = vec![source(
             "main.veln",
             concat!(
-                "handler run() handles Work\n  go() => 0x1_0\nend\n\n",
-                "handler keep() handles Work\n  go() => 2\nend\n\n",
+                "handler run() for Work\n  go() => 0x1_0\nend\n\n",
+                "handler keep() for Work\n  go() => 2\nend\n\n",
                 "fn use() -> Int\n  handle 1 with run()\nend\n\n",
                 "fn valid() -> Int\n  handle 2 with keep()\nend\n",
             ),
@@ -216,7 +216,7 @@ mod navigation_handler_references_tests {
         let sources = vec![source(
             "main.veln",
             concat!(
-                "handler run() handles Work\n  go() => 1\nend\n\n",
+                "handler run() for Work\n  go() => 1\nend\n\n",
                 "fn valid() -> Int\n  handle 1 with run()\nend\n\n",
                 "fn qualified() -> Int\n  handle 1 with other::run()\nend\n\n",
                 "fn unresolved() -> Int\n  handle 1 with missing()\nend\n\n",
@@ -238,14 +238,14 @@ mod navigation_handler_references_tests {
                 "main.veln",
                 concat!(
                     "use other\n\n",
-                    "handler stable() handles Work\n  go() => 1\nend\n\n",
+                    "handler stable() for Work\n  go() => 1\nend\n\n",
                     "fn imported() -> Int\n  handle 1 with other::run()\nend\n\n",
                     "fn valid() -> Int\n  handle 2 with stable()\nend\n",
                 ),
             ),
             source(
                 "other.veln",
-                "pub handler run() handles Work\n  go() => 2\nend\n",
+                "pub handler run() for Work\n  go() => 2\nend\n",
             ),
         ];
 
@@ -259,14 +259,14 @@ mod navigation_handler_references_tests {
         let sources = vec![
             source(
                 "first.veln",
-                "mod shared\n\nhandler run() handles Work\n  go() => 1\nend\n",
+                "mod shared\n\nhandler run() for Work\n  go() => 1\nend\n",
             ),
             source(
                 "second.veln",
                 concat!(
                     "mod shared\n\n",
-                    "handler run() handles Work\n  go() => 2\nend\n\n",
-                    "handler stable() handles Work\n  go() => 3\nend\n\n",
+                    "handler run() for Work\n  go() => 2\nend\n\n",
+                    "handler stable() for Work\n  go() => 3\nend\n\n",
                     "fn ambiguous() -> Int\n  handle 1 with run()\nend\n\n",
                     "fn valid() -> Int\n  handle 2 with stable()\nend\n",
                 ),
@@ -285,7 +285,7 @@ mod navigation_handler_references_tests {
                 "main.veln",
                 concat!(
                     "use dep from \"example/dep\"\n\n",
-                    "handler run() handles Work\n  go() => 1\nend\n\n",
+                    "handler run() for Work\n  go() => 1\nend\n\n",
                     "fn local() -> Int\n  handle 1 with run()\nend\n\n",
                     "fn imported() -> Int\n  handle 2 with dep::run()\nend\n",
                 ),
@@ -294,7 +294,7 @@ mod navigation_handler_references_tests {
                 "example/dep",
                 &[(
                     "dep.veln",
-                    "pub handler run() handles Work\n  go() => 2\nend\n",
+                    "pub handler run() for Work\n  go() => 2\nend\n",
                 )],
                 ["dep.veln"],
             )],
@@ -309,7 +309,7 @@ mod navigation_handler_references_tests {
         let sources = vec![
             source(
                 "declaration.veln",
-                "mod shared\n\nhandler run() handles Work\n  go() => 1\nend\n",
+                "mod shared\n\nhandler run() for Work\n  go() => 1\nend\n",
             ),
             source(
                 "uses.veln",
@@ -330,7 +330,7 @@ mod navigation_handler_references_tests {
         count: usize,
     ) -> (usize, usize, usize, std::time::Duration) {
         let mut body = String::from(
-            "handler run() handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
+            "handler run() for Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
         );
         for index in 0..count {
             body.push_str(&format!("  let value_{index} = handle {index} with run()\n"));
@@ -353,7 +353,7 @@ mod navigation_handler_references_tests {
         depth: usize,
     ) -> (usize, std::time::Duration) {
         let mut body = String::from(
-            "handler run(value: Int) handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n  ",
+            "handler run(value: Int) for Work\n  go() => 1\nend\n\nfn consume() -> Int\n  ",
         );
         for _ in 0..depth {
             body.push_str("handle 0 with run(");
@@ -379,7 +379,7 @@ mod navigation_handler_references_tests {
 
     fn measure_recovered_handler_reference_index_work(count: usize) -> (usize, usize) {
         let mut body = String::from(
-            "handler run() handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
+            "handler run() for Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
         );
         for index in 0..count {
             body.push_str(&format!(

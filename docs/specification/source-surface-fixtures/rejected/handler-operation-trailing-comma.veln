@@ -2,6 +2,6 @@ effect Pick
 	next(step: Int) -> Int
 end
 
-handler pick() handles Pick
+handler pick() for Pick
 	next(step,) => step
 end

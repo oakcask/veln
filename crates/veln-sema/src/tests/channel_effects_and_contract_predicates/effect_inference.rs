@@ -45,7 +45,7 @@ fn nested_handler_effects_keep_argument_effects_outside_the_handler() {
         concat!(
             "effect Ask\n  value() -> Int\nend\n",
             "fn provide(value: Int) -> Int\n  stdio::println(\"provide\")\n  value\nend\n",
-            "handler ask(value: Int) handles Ask\n  value() => provide(value)\nend\n",
+            "handler ask(value: Int) for Ask\n  value() => provide(value)\nend\n",
             "fn compute() -> Int\n  time::monotonic_ms()\n  perform Ask::value()\nend\n",
             "pub fn main() -> Int\n",
             "  [handle compute() with ask(perform Ask::value())]\n",
@@ -224,7 +224,7 @@ fn bounded_effect_inference_preserves_private_propagation_paths() {
                     "  offset + 1\n",
                     "end\n",
                     "\n",
-                    "handler ask(offset: Int) handles Ask\n",
+                    "handler ask(offset: Int) for Ask\n",
                     "  value() => provide(offset)\n",
                     "end\n",
                     "\n",
@@ -316,7 +316,7 @@ fn effect_inference_updates_shared_function_and_handler_dependents() {
             "  terminal()\n",
             "end\n",
             "\n",
-            "handler ask() handles Ask\n",
+            "handler ask() for Ask\n",
             "  value() => terminal()\n",
             "end\n",
             "\n",
@@ -418,7 +418,7 @@ fn bounded_effect_inference_work_grows_linearly_for_unrelated_annotated_modules(
                 "  offset + 1\n",
                 "end\n",
                 "\n",
-                "handler ask(offset: Int) handles Ask\n",
+                "handler ask(offset: Int) for Ask\n",
                 "  value() => provide(offset)\n",
                 "end\n",
                 "\n",
@@ -487,7 +487,7 @@ fn nested_handler_effect_stack_work_grows_linearly() {
             "main.veln",
             format!(
                 "effect Ask\n  value() -> Int\nend\n\
-                 handler ask() handles Ask\n  value() => 1\nend\n\
+                 handler ask() for Ask\n  value() => 1\nend\n\
                  pub fn main() -> Int\n  {expression}\nend\n"
             ),
         );
@@ -518,7 +518,7 @@ fn nested_handler_effect_membership_work_grows_linearly() {
         for index in 0..effect_count {
             source_text.push_str(&format!(
                 "effect Effect{index}\n  value() -> Int\nend\n\
-                 handler handler{index}() handles Effect{index}\n  value() => {index}\nend\n"
+                 handler handler{index}() for Effect{index}\n  value() => {index}\nend\n"
             ));
         }
 

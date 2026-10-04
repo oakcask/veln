@@ -529,7 +529,7 @@ mod tests {
                         "  perform Ask::value()\n",
                         "end\n",
                         "\n",
-                        "handler ask(seed: Int) handles Ask\n",
+                        "handler ask(seed: Int) for Ask\n",
                         "  value() => seed\n",
                         "end\n",
                         "\n",

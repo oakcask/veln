@@ -22,7 +22,7 @@ mod navigation_effect_references_tests {
                     "test choose_test() -> Int effects [Choose]\n",
                     "  perform Choose::pick(false)\n",
                     "end\n\n",
-                    "handler choose_handler(callback: fn(Int) -> Int effects [Choose]) handles Choose effects [Choose]\n",
+                    "handler choose_handler(callback: fn(Int) -> Int effects [Choose]) for Choose effects [Choose]\n",
                     "  pick(value) => perform Choose::pick(value)\n",
                     "end\n",
                 ),
@@ -38,14 +38,14 @@ mod navigation_effect_references_tests {
             ("uses.veln", 3, 36),
             ("uses.veln", 4, 11),
             ("uses.veln", 7, 58),
-            ("uses.veln", 7, 75),
-            ("uses.veln", 7, 91),
+            ("uses.veln", 7, 71),
+            ("uses.veln", 7, 87),
             ("uses.veln", 8, 26),
         ];
         for (path, line, column) in [
             ("declaration.veln", 3, 8),
             ("declaration.veln", 7, 29),
-            ("uses.veln", 7, 75),
+            ("uses.veln", 7, 71),
             ("uses.veln", 8, 26),
         ] {
             let result = query(shared_sources(), path, line, column).unwrap();
@@ -81,7 +81,7 @@ mod navigation_effect_references_tests {
                     "fn qualified(callback: fn() -> Int effects [fx::Remote]) -> Int effects [library::fx::Remote]\n",
                     "  perform fx::Remote::run()\n",
                     "end\n\n",
-                    "handler qualified_handler() handles fx::Remote effects [library::fx::Remote]\n",
+                    "handler qualified_handler() for fx::Remote effects [library::fx::Remote]\n",
                     "  run() => perform fx::Remote::run()\n",
                     "end\n\n",
                     "test qualified_test() -> Int effects [fx::Remote]\n",
@@ -94,8 +94,8 @@ mod navigation_effect_references_tests {
             ("consumer.veln", 2, 49),
             ("consumer.veln", 2, 87),
             ("consumer.veln", 3, 15),
-            ("consumer.veln", 6, 41),
-            ("consumer.veln", 6, 70),
+            ("consumer.veln", 6, 37),
+            ("consumer.veln", 6, 66),
             ("consumer.veln", 7, 24),
             ("consumer.veln", 10, 43),
             ("library/fx.veln", 5, 28),
@@ -107,8 +107,8 @@ mod navigation_effect_references_tests {
             ("consumer.veln", 2, 49),
             ("consumer.veln", 2, 87),
             ("consumer.veln", 3, 15),
-            ("consumer.veln", 6, 41),
-            ("consumer.veln", 6, 70),
+            ("consumer.veln", 6, 37),
+            ("consumer.veln", 6, 66),
             ("consumer.veln", 7, 24),
             ("consumer.veln", 10, 43),
         ] {
@@ -136,6 +136,32 @@ mod navigation_effect_references_tests {
             assert_location(&result.definition, "library/fx.veln", 2, 3);
             assert_eq!(locations(&result.references), expected_operations);
         }
+    }
+
+    #[test]
+    fn workspace_effect_references_keep_qualified_handler_target_after_missing_separator() {
+        let sources = vec![
+            source(
+                "handles.veln",
+                "pub effect Ask\n  value() -> Int\nend\n",
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use handles\n\n",
+                    "handler missing() handles::Ask\n",
+                    "  value() => 1\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let declaration = query(sources.clone(), "handles.veln", 1, 12).unwrap();
+        assert_eq!(locations(&declaration.references), [("main.veln", 3, 28)]);
+
+        let target = query(sources, "main.veln", 3, 28).unwrap();
+        assert_location(&target.definition, "handles.veln", 1, 12);
+        assert_eq!(locations(&target.references), [("main.veln", 3, 28)]);
     }
 
     #[test]
@@ -467,7 +493,7 @@ mod navigation_effect_references_tests {
                     "type Choose\n",
                     "  Choose\n",
                     "end\n\n",
-                    "handler Choose() handles Choose\n",
+                    "handler Choose() for Choose\n",
                     "  Choose() => perform Choose::Choose()\n",
                     "end\n\n",
                     "fn Choose() -> Int\n",
@@ -497,7 +523,7 @@ mod navigation_effect_references_tests {
         assert_eq!(
             locations(&result.references),
             [
-                ("main.veln", 10, 26),
+                ("main.veln", 10, 22),
                 ("main.veln", 11, 23),
                 ("main.veln", 18, 46),
                 ("main.veln", 18, 89),
@@ -693,7 +719,7 @@ mod navigation_effect_references_tests {
             "end\n\n",
             "fn broken() -> Int\n",
             "  effects [Choose]\n",
-            "  handles Choose\n",
+            "  for Choose\n",
             "  value perform Choose::pick()\n",
             "end\n",
         );
@@ -729,12 +755,12 @@ mod navigation_effect_references_tests {
                     "effect Choose\n",
                     "  pick() -> Int\n",
                     "end\n\n",
-                    "handler broken() handles Choose @\n",
+                    "handler broken() for Choose @\n",
                     "  pick() => 1\n",
                     "end\n",
                 ),
                 5,
-                26,
+                22,
             ),
         ] {
             let sources = vec![source("main.veln", text)];
@@ -748,14 +774,14 @@ mod navigation_effect_references_tests {
             "effect Choose\n",
             "  pick() -> Int\n",
             "end\n\n",
-            "handler broken() handles Choose effects [Choose @]\n",
+            "handler broken() for Choose effects [Choose @]\n",
             "  pick() => 1\n",
             "end\n",
         );
         let sources = vec![source("main.veln", text)];
         let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
-        assert_eq!(locations(&declaration.references), [("main.veln", 5, 26)]);
-        assert!(query(sources, "main.veln", 5, 42).is_none());
+        assert_eq!(locations(&declaration.references), [("main.veln", 5, 22)]);
+        assert!(query(sources, "main.veln", 5, 38).is_none());
     }
 
     #[test]
@@ -820,7 +846,7 @@ mod navigation_effect_references_tests {
             "fn use() -> Int effects [Choose]\n",
             "  perform Choose::pick()\n",
             "end\n\n",
-            "handler choose_handler() handles Choose\n",
+            "handler choose_handler() for Choose\n",
             "  pick() => perform Choose::pick()\n",
             "end\n",
         );
@@ -849,7 +875,7 @@ mod navigation_effect_references_tests {
                     "fn use() -> Int effects [Choose]\n",
                     "  perform Choose::pick()\n",
                     "end\n\n",
-                    "handler use_handler() handles Choose\n",
+                    "handler use_handler() for Choose\n",
                     "  pick() => perform Choose::pick()\n",
                     "end\n",
                 ),
@@ -1126,7 +1152,7 @@ mod navigation_effect_references_tests {
             let input = source(
                 "main.veln",
                 &format!(
-                    "handler deep() handles {qualifier}::Effect\n  run() => perform {qualifier}::Effect::run()\nend\n"
+                    "handler deep() for {qualifier}::Effect\n  run() => perform {qualifier}::Effect::run()\nend\n"
                 ),
             );
             let token_count = veln_syntax::lex(&input).tokens.len();
@@ -1142,6 +1168,37 @@ mod navigation_effect_references_tests {
                 token_count,
             );
             assert_eq!(token_visits, token_count);
+        }
+    }
+
+    #[test]
+    fn recovered_qualified_handler_target_indexing_scales_across_adjacent_sizes() {
+        for count in [250, 500, 1_000] {
+            let mut handlers = String::from("use handles\n\n");
+            for index in 0..count {
+                handlers.push_str(&format!(
+                    "handler missing_{index}() handles::Ask\n  value() => {index}\nend\n\n"
+                ));
+            }
+            let snapshot = EffectiveProjectSnapshot::new(vec![
+                source(
+                    "handles.veln",
+                    "pub effect Ask\n  value() -> Int\nend\n",
+                ),
+                source("main.veln", &handlers),
+            ]);
+
+            let index_started = std::time::Instant::now();
+            let _ = snapshot.navigation_index();
+            let index_elapsed = index_started.elapsed();
+            let query_started = std::time::Instant::now();
+            let result = query_snapshot(&snapshot, "handles.veln", 1, 12).unwrap();
+            let query_elapsed = query_started.elapsed();
+            eprintln!(
+                "recovered qualified handler targets: count={count} references={} index_elapsed={index_elapsed:?} query_elapsed={query_elapsed:?}",
+                result.references.len(),
+            );
+            assert_eq!(result.references.len(), count);
         }
     }
 

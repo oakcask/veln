@@ -8,13 +8,13 @@ fn unresolved(value: Int) -> Int
 	missing_call(value)
 end
 
-handler bad() handles Choose
+handler bad() for Choose
 	zero(extra) => extra
 	one(value, extra) => value
 	two(same, same) => same
 end
 
-handler bad_result() handles Choose
+handler bad_result() for Choose
 	zero() => "wrong"
 	one(value) => unresolved(value)
 	two(left, right) => left + right

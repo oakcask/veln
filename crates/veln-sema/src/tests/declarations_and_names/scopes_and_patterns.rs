@@ -148,7 +148,7 @@ fn lexical_handler_lowers_through_checked_core_and_typed_ir() {
             "  ctx\n",
             "end\n",
             "\n",
-            "handler ask(ctx: Int) handles Ask\n",
+            "handler ask(ctx: Int) for Ask\n",
             "  value() => provide(ctx)\n",
             "end\n",
             "\n",

@@ -6,6 +6,6 @@ fn value(ctx: Int) -> Int
 	ctx
 end
 
-handler missing(ctx: Int) handles Missing
+handler missing(ctx: Int) for Missing
 	value() => value(ctx)
 end

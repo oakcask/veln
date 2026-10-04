@@ -11,11 +11,11 @@ fn traced(offset: Int) -> Int effects [stdio]
 	offset + 1
 end
 
-handler outer(offset: Int) handles Outer
+handler outer(offset: Int) for Outer
 	value() => handle perform Inner::value() with inner(offset)
 end
 
-handler inner(offset: Int) handles Inner
+handler inner(offset: Int) for Inner
 	value() => traced(offset)
 end
 

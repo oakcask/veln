@@ -580,6 +580,8 @@ fn valid_effect_reference_ranges(
 ) -> BTreeSet<(usize, usize)> {
     let path_roots = path_root_indices(tokens);
     let mut regions = Vec::new();
+    let mut handler_target_ranges = BTreeSet::new();
+    let mut handler_target_token_cursor = 0usize;
     for item in &syntax.items {
         match item {
             SyntaxItem::Function(function) => {
@@ -587,6 +589,14 @@ fn valid_effect_reference_ranges(
             }
             SyntaxItem::Handler(handler) => {
                 collect_handler_effect_reference_regions(handler, &mut regions);
+                if let Some(range) = handler_effect_leaf_range(
+                    tokens,
+                    &mut handler_target_token_cursor,
+                    handler,
+                )
+                {
+                    handler_target_ranges.insert(range);
+                }
             }
             SyntaxItem::Effect(effect) => {
                 collect_effect_declaration_reference_regions(tokens, effect, &mut regions);
@@ -606,8 +616,30 @@ fn valid_effect_reference_ranges(
         tokens,
         effect_list_membership,
         &path_roots,
+        &handler_target_ranges,
         &merged_regions,
     )
+}
+
+fn handler_effect_leaf_range(
+    tokens: &[Token],
+    token_cursor: &mut usize,
+    handler: &veln_syntax::HandlerDecl,
+) -> Option<(usize, usize)> {
+    let mut leaf = None;
+    while let Some(token) = tokens.get(*token_cursor) {
+        if token.range.end > handler.effect_span.end.offset {
+            break;
+        }
+        if !handler.effect_recovered
+            && token.kind == TokenKind::Ident
+            && handler.effect_span.start.offset <= token.range.start
+        {
+            leaf = Some((token.range.start, token.range.end));
+        }
+        *token_cursor += 1;
+    }
+    leaf
 }
 
 fn collect_function_effect_reference_regions(
@@ -748,6 +780,7 @@ fn collect_effect_reference_token_ranges(
     tokens: &[Token],
     effect_list_membership: &[bool],
     path_roots: &[usize],
+    handler_target_ranges: &BTreeSet<(usize, usize)>,
     merged_regions: &[(usize, usize)],
 ) -> BTreeSet<(usize, usize)> {
     let mut ranges = BTreeSet::new();
@@ -766,6 +799,7 @@ fn collect_effect_reference_token_ranges(
             && token.range.end <= end
             && token.kind == TokenKind::Ident
             && (is_effect_list_member_token(tokens, effect_list_membership, index)
+                || handler_target_ranges.contains(&(token.range.start, token.range.end))
                 || is_handler_handled_effect_token(tokens, path_roots, index)
                 || is_perform_effect_qualifier_token(tokens, path_roots, index))
         {

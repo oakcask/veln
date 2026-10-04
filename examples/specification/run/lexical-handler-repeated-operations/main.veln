@@ -6,7 +6,7 @@ fn provide(base: Int, step: Int) -> Int
 	base + step
 end
 
-handler pick(base: Int) handles Pick
+handler pick(base: Int) for Pick
 	next(step) => provide(base, step)
 end
 

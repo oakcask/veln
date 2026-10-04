@@ -2,7 +2,7 @@ effect Transition
   move(value: State) -> State
 end
 
-handler gate(state: protocol::State::Ready | protocol::State::Closed) handles Transition
+handler gate(state: protocol::State::Ready | protocol::State::Closed) for Transition
   move(value) => value
 end
 

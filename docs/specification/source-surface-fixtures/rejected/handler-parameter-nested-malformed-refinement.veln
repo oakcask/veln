@@ -2,6 +2,6 @@ effect Transition
 	move(value: State) -> State
 end
 
-handler gate(state: List<State::>) handles Transition
+handler gate(state: List<State::>) for Transition
 	move(value) => value
 end

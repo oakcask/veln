@@ -7,7 +7,7 @@ effect ClockRelay
 	read() -> Reading
 end
 
-handler clock_relay() handles ClockRelay effects [time]
+handler clock_relay() for ClockRelay effects [time]
 	round_trip(value) => value
 	read() => time::wall_time()
 end

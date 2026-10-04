@@ -26,7 +26,7 @@ effect Choose
   pick(value: Bool) -> Int
 end
 
-handler choose() handles Choose
+handler choose() for Choose
   pick(value) => match value
     true => value
     value => value
