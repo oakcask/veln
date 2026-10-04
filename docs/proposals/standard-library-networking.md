@@ -7,8 +7,8 @@ update-when: The planned standard-library network API, network effect boundary, 
 
 ## Outcome
 
-The standard package now exports the value-only `net` foundation described by
-the current [standard-library networking specification](../specification/standard-library-networking.md).
+The standard package now exports the `net` foundation described by the current
+[standard-library networking specification](../specification/standard-library-networking.md).
 The public `net::IO` effect and direct stream-operation facade are now current
 behavior. The remaining work will add the portable system implementation. An
 application will select that host implementation by handling `net::IO` with
@@ -270,8 +270,9 @@ returns `InvalidResource`.
 
 ## Compatibility and migration
 
-The remaining implementation must move the effectful public contract into
-`std::net` without leaving two independently maintained network APIs.
+The remaining implementation must put the system handler behind the effectful
+public contract already owned by `std::net`, without creating a second public
+network API.
 
 1. Add private host intrinsics under a namespace that source imports cannot
    resolve.
@@ -326,7 +327,7 @@ behavior. For the remaining work, add executable evidence before describing
 the implementation as current behavior. Extend the smallest focused current
 specification pages for:
 
-- the `net::IO` and `net::system()` effect boundary;
+- the `net::system()` implementation of the current `net::IO` boundary;
 - listener and stream lifecycle transitions;
 - the `transport::DuplexStream` adapter boundary.
 

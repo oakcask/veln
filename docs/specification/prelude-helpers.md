@@ -32,11 +32,14 @@ labels, lowering identity, and stability class for the descriptor-backed
 subset.
 
 The descriptor-backed subset covers stdio effect metadata, concurrency effect
-metadata, and minimal `fs`, `net`, `time`, and `process` intrinsics. The
-toolchain `std` package is the source of truth for prelude declarations,
-visibility, ordinary types, ADTs other than compiler-owned `Option`, `Result`,
-and `List`, and Veln helper bodies. Compiler adapters retain expected-type and
-callback inference for public helper names declared by that package.
+metadata, minimal `fs`, `net`, `time`, and `process` intrinsics, and opaque
+`NetListener` and `NetStream` resource type identities. The resource
+descriptors have no constructors and allow exported standard-package aliases
+to name host resources without exposing their representation. The toolchain
+`std` package is the source of truth for prelude declarations, visibility,
+ordinary types, ADTs other than compiler-owned `Option`, `Result`, and `List`,
+and Veln helper bodies. Compiler adapters retain expected-type and callback
+inference for public helper names declared by that package.
 
 The `time::wall_time` descriptor returns the structural record type named by
 the public `std::prelude::WallTime` alias. The descriptor therefore supplies

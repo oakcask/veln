@@ -151,6 +151,13 @@ Bare names resolve to local bindings. Function calls resolve to:
 - implicit standard prelude helper imports by bare name or `prelude::function`
   form
 
+A qualified function declared by a resolved source import takes precedence
+over a compiler-known qualified fallback with the same spelling. For example,
+after `use net from "std"`, `net::connect` selects the exported `std::net`
+function declaration. Its source signature, effects, and package definition
+location remain authoritative instead of being replaced by a synthetic
+compiler-known call target.
+
 Unresolved values and call targets produce `name.unresolved` diagnostics. A
 qualified call does not fall back to a bare function with the same final
 segment when no matching import alias exists.

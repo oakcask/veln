@@ -202,6 +202,11 @@ follows direct bare function calls and `use` alias qualified function calls
 until a fixed point. Public function aliases carry the referenced function's
 signature and effects. Calls through a local binding with a function type infer
 the effects written in that function type.
+When a resolved imported source function and a compiler-known qualified call
+share one spelling, inference uses the source function signature. A call to
+the exported `std::net` facade through its `net` import therefore contributes
+the declared nominal `net::IO` effect rather than the coarse host `net` effect
+of a compiler-known fallback.
 
 ## File System Calls
 
@@ -285,6 +290,11 @@ time::is_cancelled_owner(owner: CancelOwner) -> Bool effects [time]
 time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> () effects [time]
 time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> CancellableWaitOutcome effects [time]
 ```
+
+The following `net::` call behavior is the compiler-known compatibility
+boundary used when no resolved source import owns `net`. An explicit
+`use net from "std"` selects the source declarations specified by
+[standard-library networking](standard-library-networking.md) instead.
 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
 effect. Direct calls to `net::listen`, `net::connect`, `net::accept`,
