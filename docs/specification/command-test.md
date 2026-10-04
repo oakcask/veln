@@ -66,6 +66,15 @@ generated source. `#` lines remain visible comments. A leading extra space
 can make a literal source line beginning with `>` visible. Hidden setup is
 included in static analysis but omitted from rendered documentation examples.
 
+The generated source maps each doctest body line back to its documentation
+comment coordinates. When a call expression has mapped start and end
+boundaries, a call-site-aware function observes the original source path and
+the original line, column, and byte-offset coordinates. The complete generated
+span is used when either boundary is unavailable; a `SourceLocation` does not
+mix the original path with generated coordinates. The focused mapping and
+fallback contract is specified by
+[Call-site Declarations](call-site-declarations.md#declaration-behavior).
+
 ## Expected output
 
 An adjacent `veln-output` fence applies to the immediately preceding
@@ -102,3 +111,7 @@ satisfy an output fence.
 
 Implementation: `crates/veln-cli/src/commands/test.rs` and its scheduler.
 The machine-facing case fields are specified in [test-json.md](test-json.md).
+The
+[`callsite-generated-origin-runtime`](../../examples/specification/test/callsite-generated-origin-runtime/)
+case checks the doctest coordinate mapping through `veln test --json` and the
+JVM backend.

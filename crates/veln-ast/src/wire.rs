@@ -1,4 +1,4 @@
-use veln_source::{LineCol, SourcePath, SourceSpan};
+use veln_source::{GeneratedSpanOrigin, LineCol, SourcePath, SourceSpan};
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectBinder, EffectDecl,
@@ -12,7 +12,7 @@ use crate::{
     VariantRefinementTypeArgument, Visibility,
 };
 
-const MAGIC: &[u8; 8] = b"VLNAST8\n";
+const MAGIC: &[u8; 8] = b"VLNAST9\n";
 
 mod decoder;
 mod encoder;

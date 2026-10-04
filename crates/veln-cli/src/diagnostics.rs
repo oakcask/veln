@@ -361,6 +361,7 @@ mod tests {
                 column,
                 offset: 0,
             },
+            generated_origin: None,
         }
     }
 

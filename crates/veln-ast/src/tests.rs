@@ -73,6 +73,7 @@ fn push_span(bytes: &mut Vec<u8>) {
     for value in [1_u64, 1, 0, 4, 1, 3] {
         bytes.extend_from_slice(&value.to_le_bytes());
     }
+    bytes.push(0);
 }
 
 fn push_legacy_codec_identity(bytes: &mut Vec<u8>) {

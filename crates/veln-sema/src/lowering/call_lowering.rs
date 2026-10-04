@@ -398,6 +398,8 @@ impl<'a> CoreLowerer<'a> {
             );
         }
 
+        let location = expr.span.resolved_or_generated();
+
         let string_field = |name: &str, value: String| CoreRecordField {
             node_id: expr.node_id,
             name: name.to_string(),
@@ -420,13 +422,13 @@ impl<'a> CoreLowerer<'a> {
                 "module",
                 self.function.module_name.clone().unwrap_or_default(),
             ),
-            string_field("file", expr.span.file.as_str().to_string()),
-            int_field("start_line", expr.span.start.line),
-            int_field("start_column", expr.span.start.column),
-            int_field("start_offset", expr.span.start.offset),
-            int_field("end_line", expr.span.end.line),
-            int_field("end_column", expr.span.end.column),
-            int_field("end_offset", expr.span.end.offset),
+            string_field("file", location.file.as_str().to_string()),
+            int_field("start_line", location.start.line),
+            int_field("start_column", location.start.column),
+            int_field("start_offset", location.start.offset),
+            int_field("end_line", location.end.line),
+            int_field("end_column", location.end.column),
+            int_field("end_offset", location.end.offset),
         ];
         self.core_expr(
             expr,

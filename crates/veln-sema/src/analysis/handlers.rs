@@ -401,6 +401,7 @@ fn clause_parameter_span(clause: &HandlerOperationClauseDecl) -> SourceSpan {
                 file: first.span.file.clone(),
                 start: first.span.start,
                 end: last.span.end,
+                generated_origin: None,
             }
         },
     )

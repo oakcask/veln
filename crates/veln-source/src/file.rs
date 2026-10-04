@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::{LineCol, SourcePath, SourceSpan, TextRange};
 
@@ -9,15 +11,169 @@ const UTF8_COLUMN_INDEX_BLOCK_BYTES: usize = 256;
 #[derive(Clone, Debug)]
 pub struct SourceFile {
     path: SourcePath,
-    text: String,
+    text: Arc<str>,
     line_starts: Vec<usize>,
     utf8_continuation_prefix: Vec<usize>,
-    generated_origin_path: GeneratedOriginPath,
+    generated_origin: Option<Arc<GeneratedSpanOrigin>>,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GeneratedSourceOrigin {
+    original_path: Option<SourcePath>,
+    boundary_mappings: GeneratedBoundaryMappings,
+    generated_text: Option<Arc<str>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum GeneratedBoundaryMappings {
+    Explicit(Arc<BTreeMap<usize, LineCol>>),
+    CopiedRegions(Arc<[CopiedSourceRegion]>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct CopiedSourceRegion {
+    generated: TextRange,
+    generated_start: LineCol,
+    original_start: LineCol,
+    original_end: LineCol,
+}
+
+impl GeneratedSourceOrigin {
+    pub fn new(
+        original_path: Option<SourcePath>,
+        boundary_mappings: impl IntoIterator<Item = (usize, LineCol)>,
+    ) -> Self {
+        Self {
+            original_path,
+            boundary_mappings: GeneratedBoundaryMappings::Explicit(Arc::new(
+                boundary_mappings.into_iter().collect(),
+            )),
+            generated_text: None,
+        }
+    }
+
+    pub fn original_path(&self) -> Option<&SourcePath> {
+        self.original_path.as_ref()
+    }
+
+    pub fn explicit_boundary_count(&self) -> usize {
+        match &self.boundary_mappings {
+            GeneratedBoundaryMappings::Explicit(mappings) => mappings.len(),
+            GeneratedBoundaryMappings::CopiedRegions(_) => 0,
+        }
+    }
+
+    pub fn copied_region_count(&self) -> usize {
+        match &self.boundary_mappings {
+            GeneratedBoundaryMappings::Explicit(_) => 0,
+            GeneratedBoundaryMappings::CopiedRegions(regions) => regions.len(),
+        }
+    }
+
+    pub(crate) fn mapped_boundary(&self, generated: LineCol) -> Option<LineCol> {
+        match &self.boundary_mappings {
+            GeneratedBoundaryMappings::Explicit(mappings) => {
+                mappings.get(&generated.offset).copied()
+            }
+            GeneratedBoundaryMappings::CopiedRegions(regions) => {
+                if !self
+                    .generated_text
+                    .as_ref()
+                    .is_some_and(|text| text.is_char_boundary(generated.offset))
+                {
+                    return None;
+                }
+                let index =
+                    regions.partition_point(|region| region.generated.end < generated.offset);
+                let region = regions.get(index)?;
+                if generated.offset == region.generated.end {
+                    return Some(region.original_end);
+                }
+                if generated.offset < region.generated.start
+                    || generated.line != region.generated_start.line
+                {
+                    return None;
+                }
+                Some(LineCol {
+                    line: region.original_start.line,
+                    column: region.original_start.column
+                        + generated
+                            .column
+                            .saturating_sub(region.generated_start.column),
+                    offset: region.original_start.offset
+                        + generated.offset.saturating_sub(region.generated.start),
+                })
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct GeneratedSpanOrigin {
+    source_origin: Option<GeneratedSourceOrigin>,
+    detached_original_path: Option<SourcePath>,
+    original_start: Option<LineCol>,
+    original_end: Option<LineCol>,
+}
+
+impl GeneratedSpanOrigin {
+    pub fn new(
+        original_path: Option<SourcePath>,
+        original_start: Option<LineCol>,
+        original_end: Option<LineCol>,
+    ) -> Self {
+        Self {
+            source_origin: None,
+            detached_original_path: original_path,
+            original_start,
+            original_end,
+        }
+    }
+
+    fn mapped(source_origin: GeneratedSourceOrigin) -> Self {
+        Self {
+            source_origin: Some(source_origin),
+            detached_original_path: None,
+            original_start: None,
+            original_end: None,
+        }
+    }
+
+    pub fn original_path(&self) -> Option<&SourcePath> {
+        self.source_origin
+            .as_ref()
+            .map_or(self.detached_original_path.as_ref(), |origin| {
+                origin.original_path()
+            })
+    }
+
+    pub fn original_start(&self) -> Option<LineCol> {
+        self.original_start
+    }
+
+    pub fn original_end(&self) -> Option<LineCol> {
+        self.original_end
+    }
+
+    pub fn source_origin(&self) -> Option<&GeneratedSourceOrigin> {
+        self.source_origin.as_ref()
+    }
+}
+
+impl PartialEq for GeneratedSpanOrigin {
+    fn eq(&self, other: &Self) -> bool {
+        self.source_origin == other.source_origin
+            && self.original_path() == other.original_path()
+            && self.original_start == other.original_start
+            && self.original_end == other.original_end
+    }
+}
+
+impl Eq for GeneratedSpanOrigin {}
 
 impl SourceFile {
     pub fn new(path: impl Into<SourcePath>, text: impl Into<String>) -> Self {
-        Self::with_generated_origin(path, text, GeneratedOriginPath::NotGenerated)
+        Self::with_generated_origin(path, text, None)
     }
 
     pub fn generated(
@@ -25,15 +181,64 @@ impl SourceFile {
         text: impl Into<String>,
         origin_path: Option<SourcePath>,
     ) -> Self {
-        Self::with_generated_origin(path, text, GeneratedOriginPath::Generated(origin_path))
+        Self::with_generated_origin(
+            path,
+            text,
+            Some(GeneratedSourceOrigin::new(origin_path, [])),
+        )
+    }
+
+    pub fn generated_with_mappings(
+        path: impl Into<SourcePath>,
+        text: impl Into<String>,
+        origin_path: SourcePath,
+        boundary_mappings: impl IntoIterator<Item = (usize, LineCol)>,
+    ) -> Self {
+        Self::with_generated_origin(
+            path,
+            text,
+            Some(GeneratedSourceOrigin::new(
+                Some(origin_path),
+                boundary_mappings,
+            )),
+        )
+    }
+
+    pub fn generated_with_copied_regions(
+        path: impl Into<SourcePath>,
+        text: impl Into<String>,
+        origin_path: SourcePath,
+        copied_regions: impl IntoIterator<Item = (TextRange, LineCol, LineCol)>,
+    ) -> Self {
+        let mut source = Self::with_generated_origin(path, text, None);
+        let mut regions = copied_regions
+            .into_iter()
+            .map(
+                |(generated, original_start, original_end)| CopiedSourceRegion {
+                    generated_start: source.line_col(generated.start),
+                    generated,
+                    original_start,
+                    original_end,
+                },
+            )
+            .collect::<Vec<_>>();
+        regions.sort_by_key(|region| (region.generated.start, region.generated.end));
+        source.generated_origin = Some(Arc::new(GeneratedSpanOrigin::mapped(
+            GeneratedSourceOrigin {
+                original_path: Some(origin_path),
+                boundary_mappings: GeneratedBoundaryMappings::CopiedRegions(regions.into()),
+                generated_text: Some(Arc::clone(&source.text)),
+            },
+        )));
+        source
     }
 
     fn with_generated_origin(
         path: impl Into<SourcePath>,
         text: impl Into<String>,
-        generated_origin_path: GeneratedOriginPath,
+        generated_origin: Option<GeneratedSourceOrigin>,
     ) -> Self {
-        let text = text.into();
+        let text: Arc<str> = Arc::from(text.into());
         let mut line_starts = vec![0];
         let mut utf8_continuation_prefix = vec![0];
         let mut continuation_count = 0;
@@ -48,7 +253,7 @@ impl SourceFile {
                 continuation_count += 1;
             }
         }
-        if !text.is_empty() && text.len() % UTF8_COLUMN_INDEX_BLOCK_BYTES == 0 {
+        if !text.is_empty() && text.len().is_multiple_of(UTF8_COLUMN_INDEX_BLOCK_BYTES) {
             utf8_continuation_prefix.push(continuation_count);
         }
         Self {
@@ -56,7 +261,8 @@ impl SourceFile {
             text,
             line_starts,
             utf8_continuation_prefix,
-            generated_origin_path,
+            generated_origin: generated_origin
+                .map(|origin| Arc::new(GeneratedSpanOrigin::mapped(origin))),
         }
     }
 
@@ -75,10 +281,15 @@ impl SourceFile {
     }
 
     pub fn generated_origin_path(&self) -> Option<Option<&SourcePath>> {
-        match &self.generated_origin_path {
-            GeneratedOriginPath::NotGenerated => None,
-            GeneratedOriginPath::Generated(origin_path) => Some(origin_path.as_ref()),
-        }
+        self.generated_origin
+            .as_ref()
+            .map(|origin| origin.original_path())
+    }
+
+    pub fn generated_origin(&self) -> Option<&GeneratedSourceOrigin> {
+        self.generated_origin
+            .as_deref()
+            .and_then(GeneratedSpanOrigin::source_origin)
     }
 
     pub fn len(&self) -> usize {
@@ -120,18 +331,15 @@ impl SourceFile {
     }
 
     pub fn span(&self, range: TextRange) -> SourceSpan {
+        let start = self.line_col(range.start);
+        let end = self.line_col(range.end);
         SourceSpan {
             file: self.path.clone(),
-            start: self.line_col(range.start),
-            end: self.line_col(range.end),
+            start,
+            end,
+            generated_origin: self.generated_origin.clone(),
         }
     }
-}
-
-#[derive(Clone, Debug)]
-enum GeneratedOriginPath {
-    NotGenerated,
-    Generated(Option<SourcePath>),
 }
 
 fn relative_path(root: &Path, path: &Path) -> String {

@@ -1241,6 +1241,7 @@ fn source_spans_for_sorted_ranges(source: &SourceFile, ranges: &[TextRange]) -> 
                 file: source.path().clone(),
                 start,
                 end,
+                generated_origin: source.span(*range).generated_origin,
             }
         })
         .collect()

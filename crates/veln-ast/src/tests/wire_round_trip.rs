@@ -89,6 +89,115 @@ fn surface_wire_round_trip_preserves_callsite_modifier_span() {
 }
 
 #[test]
+fn surface_wire_round_trip_preserves_generated_origin_boundaries() {
+    let text = concat!(
+        "fn located() -> SourceLocation callsite\n",
+        "  callsite\n",
+        "end\n",
+        "fn caller() -> SourceLocation\n",
+        "  located()\n",
+        "end\n",
+    );
+    let call_start = text.rfind("located()").expect("call expression start");
+    let call_end = call_start + "located()".len();
+    let original_start = veln_source::LineCol {
+        line: 41,
+        column: 7,
+        offset: 1_001,
+    };
+    let original_end = veln_source::LineCol {
+        line: 43,
+        column: 19,
+        offset: 1_099,
+    };
+    let source = SourceFile::generated_with_mappings(
+        "virtual/generated.veln",
+        text,
+        veln_source::SourcePath::new("templates/original.veln"),
+        [(call_start, original_start), (call_end, original_end)],
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty());
+    let module = lower_surface_ast(&parsed.tree);
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+    let BodyLineKind::Expr { expr } = &decoded.functions[1].body[0].kind else {
+        panic!("expected call expression body");
+    };
+    assert!(expr.span.generated_origin.is_some());
+    assert_eq!(
+        expr.span
+            .original_path()
+            .map(veln_source::SourcePath::as_str),
+        Some("templates/original.veln")
+    );
+    assert_eq!(expr.span.original_start(), Some(original_start));
+    assert_eq!(expr.span.original_end(), Some(original_end));
+    let resolved = expr.span.resolved_origin().expect("complete mapped span");
+    assert_eq!(resolved.file.as_str(), "templates/original.veln");
+    assert_eq!(resolved.start, original_start);
+    assert_eq!(resolved.end, original_end);
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+#[test]
+fn surface_wire_round_trip_preserves_incomplete_generated_origin_fallback() {
+    let text = concat!(
+        "fn located() -> SourceLocation callsite\n",
+        "  callsite\n",
+        "end\n",
+        "fn caller() -> SourceLocation\n",
+        "  located()\n",
+        "end\n",
+    );
+    let call_start = text.rfind("located()").expect("call expression start");
+    let call_end = call_start + "located()".len();
+    let original = veln_source::LineCol {
+        line: 41,
+        column: 7,
+        offset: 1_001,
+    };
+    let cases = [
+        SourceFile::generated(
+            "virtual/path-only.veln",
+            text,
+            Some(veln_source::SourcePath::new("templates/original.veln")),
+        ),
+        SourceFile::generated_with_mappings(
+            "virtual/missing-end.veln",
+            text,
+            veln_source::SourcePath::new("templates/original.veln"),
+            [(call_start, original)],
+        ),
+        SourceFile::generated_with_mappings(
+            "virtual/missing-start.veln",
+            text,
+            veln_source::SourcePath::new("templates/original.veln"),
+            [(call_end, original)],
+        ),
+    ];
+
+    for source in cases {
+        let generated = source.span(veln_source::TextRange::new(call_start, call_end));
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty());
+        let module = lower_surface_ast(&parsed.tree);
+        let encoded = encode_surface_module(&module);
+        let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+        let BodyLineKind::Expr { expr } = &decoded.functions[1].body[0].kind else {
+            panic!("expected call expression body");
+        };
+
+        assert_eq!(expr.span, generated);
+        assert!(expr.span.generated_origin.is_some());
+        assert!(expr.span.resolved_origin().is_none());
+        assert_eq!(expr.span.resolved_or_generated(), generated);
+        assert_eq!(encode_surface_module(&decoded), encoded);
+    }
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_contract_callsite_reference_span() {
     let module = lower_source("fn guarded() -> ()\nrequire callsite\n  ()\nend\n");
     let encoded = encode_surface_module(&module);

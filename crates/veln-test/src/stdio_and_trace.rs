@@ -101,6 +101,7 @@ pub(super) fn contract_failure_from_trace_line(line: &str) -> Option<TestFailure
             column: end_column,
             offset: 0,
         },
+        generated_origin: None,
     };
     let message = format!("contract failure: {clause} `{predicate}` in `{function}` blame {blame}");
     Some(TestFailure::contract(

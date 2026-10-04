@@ -262,6 +262,7 @@ pub(super) fn remap_doctest_diagnostic(
         file: original.file.clone(),
         start,
         end: start,
+        generated_origin: None,
     });
     diagnostic
 }

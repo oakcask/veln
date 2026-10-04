@@ -74,6 +74,7 @@ impl<'a> DoctestExtractor<'a> {
                 .extend(veln_metadata_diagnostics(info, span.clone()));
             self.fence = Some(Fence::Veln {
                 lines: Vec::new(),
+                source_locations: Vec::new(),
                 visible_lines: Vec::new(),
                 visible_source_locations: Vec::new(),
                 error_type: doctest_error_type(info).map(ToString::to_string),
@@ -103,6 +104,7 @@ impl<'a> DoctestExtractor<'a> {
         match self.fence.take().expect("active fence should exist") {
             Fence::Veln {
                 lines,
+                source_locations,
                 visible_lines,
                 visible_source_locations,
                 error_type,
@@ -115,6 +117,7 @@ impl<'a> DoctestExtractor<'a> {
                 if !ignored {
                     self.pending = Some(ExtractedDoctest {
                         code: lines,
+                        source_locations,
                         visible_code: visible_lines,
                         visible_source_locations,
                         error_type,
@@ -138,17 +141,20 @@ impl<'a> DoctestExtractor<'a> {
         match self.fence.as_mut().expect("active fence should exist") {
             Fence::Veln {
                 lines,
+                source_locations,
                 visible_lines,
                 visible_source_locations,
                 ..
             } => {
-                lines.push(doctest_code_line(content));
+                let code = doctest_code_line(content);
+                let source_location = self
+                    .source
+                    .span(TextRange::new(line_range.end - code.len(), line_range.end));
+                lines.push(code);
+                source_locations.push(source_location.clone());
                 if !content.starts_with("> ") {
                     visible_lines.push(content.to_string());
-                    visible_source_locations.push(self.source.span(TextRange::new(
-                        line_range.end - content.len(),
-                        line_range.end,
-                    )));
+                    visible_source_locations.push(source_location);
                 }
             }
             Fence::Output { lines, .. } => lines.push(content.to_string()),

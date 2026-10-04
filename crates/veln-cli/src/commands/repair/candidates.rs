@@ -426,6 +426,7 @@ fn source_span(value: &JsonValue) -> Option<SourceSpan> {
         file: object_string(value, "file")?.into(),
         start: line_col(object_value(value, "start")?)?,
         end: line_col(object_value(value, "end")?)?,
+        generated_origin: None,
     })
 }
 

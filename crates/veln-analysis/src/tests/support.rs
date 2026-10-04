@@ -278,5 +278,6 @@ pub(super) fn span(
             column: end_column,
             offset: end_offset,
         },
+        generated_origin: None,
     }
 }

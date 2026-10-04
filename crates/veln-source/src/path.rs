@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SourcePath(String);
+pub struct SourcePath(Arc<str>);
 
 impl SourcePath {
     pub fn new(path: impl Into<String>) -> Self {
@@ -7,7 +9,7 @@ impl SourcePath {
         while let Some(stripped) = path.strip_prefix("./") {
             path = stripped.to_string();
         }
-        Self(path)
+        Self(path.into())
     }
 
     pub fn as_str(&self) -> &str {

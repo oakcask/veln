@@ -1,12 +1,7 @@
 use super::*;
 
 pub(super) fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -> String {
-    let return_type = doctest.error_type.as_ref().map_or_else(
-        || "()".to_string(),
-        |error_type| format!("Result<(), {error_type}>"),
-    );
-    let item_kind = if doctest.should_fail { "fn" } else { "test" };
-    let mut text = format!("{item_kind} {name}() -> {return_type} effects [stdio]\n");
+    let mut text = generated_doctest_header(name, doctest);
     for line in &doctest.code {
         if line.is_empty() {
             text.push('\n');
@@ -22,6 +17,33 @@ pub(super) fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -
         text.push_str("  ()\nend\n");
     }
     text
+}
+
+fn generated_doctest_header(name: &str, doctest: &ExtractedDoctest) -> String {
+    let return_type = doctest.error_type.as_ref().map_or_else(
+        || "()".to_string(),
+        |error_type| format!("Result<(), {error_type}>"),
+    );
+    let item_kind = if doctest.should_fail { "fn" } else { "test" };
+    format!("{item_kind} {name}() -> {return_type} effects [stdio]\n")
+}
+
+pub(super) fn generated_doctest_copied_regions(
+    name: &str,
+    doctest: &ExtractedDoctest,
+) -> Vec<(TextRange, LineCol, LineCol)> {
+    let mut generated_line_start = generated_doctest_header(name, doctest).len();
+    let mut regions = Vec::with_capacity(doctest.code.len());
+    for (line, original) in doctest.code.iter().zip(&doctest.source_locations) {
+        let generated_code_start = generated_line_start + usize::from(!line.is_empty()) * 2;
+        regions.push((
+            TextRange::new(generated_code_start, generated_code_start + line.len()),
+            original.start,
+            original.end,
+        ));
+        generated_line_start += usize::from(!line.is_empty()) * 2 + line.len() + 1;
+    }
+    regions
 }
 
 pub(super) fn reconstructed_stream(events: &[JsonValue], stream: &str) -> String {

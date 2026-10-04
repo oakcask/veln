@@ -1,0 +1,32 @@
+# This JVM case checks compiler-generated doctest source mapping, not a standard-library API.
+command = ["test", "--json"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "summary.total"
+equals = 1
+
+[[json_assert]]
+path = "summary.passed"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "doctest_1"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "passed"
