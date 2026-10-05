@@ -461,6 +461,15 @@ observe the retained type argument after substitution. Private omitted-result
 inference applies these rules too, so its inferred signature agrees with
 ordinary body inference.
 
+The join applies when repeated constructor payloads use a type parameter
+directly. If the same parameter also occurs inside an invariant named payload,
+that nested occurrence instead establishes an exact constraint. Every direct
+or nested contribution must then match that constraint; the checker does not
+widen across the nested named type. For example, given `Built(A, Vec<A>)`,
+`Built(Ready, [Ready])` infers `Container<State::Ready>::Built`, while
+`Built(Ready, [Closed])` reports `type.mismatch`. Reversing the two payload
+positions does not change either result.
+
 An explicit aggregate component type supplies context while the aggregate is
 constructed. A constructor singleton can widen directly at that component
 boundary, so `[Ready]` can construct an explicitly expected `Vec<State>` and

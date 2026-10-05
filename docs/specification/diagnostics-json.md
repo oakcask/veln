@@ -106,8 +106,11 @@ field, or an inferred named aggregate with a refined type argument, to the
 corresponding type that uses the base ADT. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement
-as actual. If an earlier error leaves the value untyped,
-`type.variant_mismatch` is omitted.
+as actual. The same rule applies when one constructor payload uses a type
+parameter directly and another uses it inside an invariant named type: the
+diagnostic reports the exact constraint established by the other payload
+rather than widening the nested type. If an earlier error leaves the value
+untyped, `type.variant_mismatch` is omitted.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
