@@ -196,9 +196,7 @@ mod tests {
             .join("../..")
             .canonicalize()
             .unwrap();
-        let case_dir = repo_root.join(
-            "examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel",
-        );
+        let case_dir = repo_root.join("examples/specification/run/transport-boundary");
         let manifest_path = case_dir.join("case.toml");
         let text = fs::read_to_string(&manifest_path).unwrap();
         let manifest =
