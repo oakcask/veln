@@ -117,81 +117,74 @@ fn load_external_dependency_project<'a>(
     use_decl: &UseDecl,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<(Project, &'a veln_project::ManifestDependency)> {
-    let Some(manifest) = project.manifest.as_ref() else {
+    let Some(dependency) = project.manifest.as_ref().and_then(|manifest| {
+        manifest
+            .dependencies
+            .iter()
+            .find(|dependency| dependency.package == package)
+    }) else {
         diagnostics.push(unavailable_external_package_diagnostic(use_decl));
         return None;
     };
-    let Some(dependency) = manifest
-        .dependencies
-        .iter()
-        .find(|dependency| dependency.package == package)
-    else {
-        diagnostics.push(unavailable_external_package_diagnostic(use_decl));
-        return None;
-    };
-    if let Some(captured) = captured_dependencies
-        .and_then(|dependencies| captured_dependency_project(dependencies, dependency))
-    {
-        let Some(dependency_project) = &captured.project else {
+
+    match resolve_external_dependency_project(project, captured_dependencies, dependency) {
+        Ok(dependency_project) => Some((dependency_project, dependency)),
+        Err(DependencyProjectLoadError::Unavailable) => {
             diagnostics.push(unavailable_external_package_diagnostic(use_decl));
-            return None;
-        };
-        if dependency_project.manifest.is_none() {
+            None
+        }
+        Err(DependencyProjectLoadError::MissingManifest) => {
             diagnostics.push(package_name_mismatch_diagnostic(
                 package,
                 None,
                 &dependency.package_span,
             ));
-            return None;
+            None
         }
-        return Some((dependency_project.clone(), dependency));
     }
-    if captured_dependencies.is_some() {
-        diagnostics.push(unavailable_external_package_diagnostic(use_decl));
-        return None;
+}
+
+enum DependencyProjectLoadError {
+    Unavailable,
+    MissingManifest,
+}
+
+fn resolve_external_dependency_project(
+    project: &Project,
+    captured_dependencies: Option<&[CapturedDependencyProject]>,
+    dependency: &veln_project::ManifestDependency,
+) -> Result<Project, DependencyProjectLoadError> {
+    let dependency_project = match captured_dependencies {
+        Some(dependencies) => captured_dependency_project(dependencies, dependency)
+            .and_then(|captured| captured.project.clone())
+            .ok_or(DependencyProjectLoadError::Unavailable)?,
+        None => load_direct_dependency_project(project, dependency)?,
+    };
+    if dependency_project.manifest.is_none() {
+        return Err(DependencyProjectLoadError::MissingManifest);
     }
+    Ok(dependency_project)
+}
+
+fn load_direct_dependency_project(
+    project: &Project,
+    dependency: &veln_project::ManifestDependency,
+) -> Result<Project, DependencyProjectLoadError> {
     let Some(dependency_root) = dependency
         .direct_analysis_source_root(&project.root)
         .ok()
         .flatten()
     else {
-        diagnostics.push(unavailable_external_package_diagnostic(use_decl));
-        return None;
+        return Err(DependencyProjectLoadError::Unavailable);
     };
 
-    let has_direct_manifest = match read_manifest(&dependency_root) {
-        Ok(manifest) => manifest.is_some(),
-        Err(_) => {
-            diagnostics.push(unavailable_external_package_diagnostic(use_decl));
-            return None;
-        }
-    };
-    if !has_direct_manifest {
-        diagnostics.push(package_name_mismatch_diagnostic(
-            package,
-            None,
-            &dependency.package_span,
-        ));
-        return None;
+    let direct_manifest =
+        read_manifest(&dependency_root).map_err(|_| DependencyProjectLoadError::Unavailable)?;
+    if direct_manifest.is_none() {
+        return Err(DependencyProjectLoadError::MissingManifest);
     }
 
-    let dependency_project = match Project::discover(dependency_root, &[]) {
-        Ok(project) => project,
-        Err(_) => {
-            diagnostics.push(unavailable_external_package_diagnostic(use_decl));
-            return None;
-        }
-    };
-
-    if dependency_project.manifest.is_none() {
-        diagnostics.push(package_name_mismatch_diagnostic(
-            package,
-            None,
-            &dependency.package_span,
-        ));
-        return None;
-    }
-    Some((dependency_project, dependency))
+    Project::discover(dependency_root, &[]).map_err(|_| DependencyProjectLoadError::Unavailable)
 }
 
 fn captured_dependency_project<'a>(
