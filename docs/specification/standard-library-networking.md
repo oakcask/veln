@@ -100,6 +100,12 @@ unchanged. The short `connect`, `accept`, `read`, and `write` functions supply
 `None` for both options. Each `*_with` function passes both supplied options
 unchanged.
 
+The complete-write helper has this signature:
+
+```veln
+pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [IO]
+```
+
 `write_all(stream, bytes, deadline, token)` writes the complete `ByteChunk`.
 It returns `Ok(())` without performing `IO::write` when the input is empty.
 After `Written(count)` commits a proper prefix, it performs another write with
