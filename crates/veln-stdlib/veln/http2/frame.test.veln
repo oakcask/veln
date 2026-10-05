@@ -6,9 +6,9 @@ test frame_decode_and_encode_header() -> Result<(), String>
 	let view = byte_view(input, byte_offset(0)?, byte_chunk_count(input))?
 	let decoded = http2::frame::decode(view)?
 	if decoded.length == 3 and decoded.kind == 1 and decoded.flags == 4 and decoded.stream_id == 1
-		match byte_count_to_int(byte_chunk_count(http2::frame::encode_header(3, 1, 4, 1)?)) == 9
-			true => Ok(())
-			false => Err("HTTP/2 frame header encoding changed")
+		match byte_count_to_int(byte_chunk_count(http2::frame::encode_header(3, 1, 4, 1)?))
+			9 => Ok(())
+			_ => Err("HTTP/2 frame header encoding changed")
 		end
 	else
 		Err("HTTP/2 frame decoding changed")
@@ -19,5 +19,15 @@ test frame_encode_rejects_stream_id_outside_domain() -> Result<(), String>
 	match http2::frame::encode_header(0, 0, 0, 2147483648)
 		Ok(_) => Err("out-of-range HTTP/2 stream id was encoded")
 		Err(_) => Ok(())
+	end
+end
+
+test frame_decode_preserves_bounded_payload_bytes() -> Result<(), String>
+	let bytes = byte_chunk_from_hex("000002010400000001aabb")?
+	let frame = http2::frame::decode(byte_view(bytes, byte_offset(0)?, byte_count(11)?)?)?
+	if frame.length == 2 and frame.kind == 1 and frame.flags == 4 and frame.stream_id == 1 and byte_count_to_int(byte_view_count(frame.payload)) == 2 and byte_read_u16_be(frame.payload)? == 43707
+		Ok(())
+	else
+		Err("decoded frame payload changed")
 	end
 end

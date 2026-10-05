@@ -1,3 +1,5 @@
+use prelude
+
 fn increment(value: Int) -> Int
 	value + 1
 end
@@ -11,9 +13,9 @@ test pure_veln_control() -> Result<(), String>
 end
 
 test collection_callback_reaches_private_helper() -> Result<(), String>
-	match vec_len(vec_map([1, 2], increment)) == 2
-		true => Ok(())
-		false => Err("mapped values did not match")
+	match vec_len(vec_map([1, 2], increment))
+		2 => Ok(())
+		_ => Err("mapped values did not match")
 	end
 end
 
@@ -36,4 +38,1379 @@ test source_adt_and_intrinsic_delegation() -> Result<(), String>
 		end
 		Err(error) => Err(error)
 	end
+end
+
+fn expect_prelude(condition: Bool, contract: String) -> Result<(), String>
+	if condition
+		Ok(())
+	else
+		Err(contract)
+	end
+end
+
+fn double_value(value: Int) -> Int
+	value * 2
+end
+
+fn keep_non_two(value: Int) -> Bool
+	value != 2
+end
+
+fn add_values(left: Int, right: Int) -> Int
+	left + right
+end
+
+fn keep_positive(value: Int) -> Option<Int>
+	if value > 0
+		Some(value)
+	else
+		None
+	end
+end
+
+fn add_one_result(value: Int) -> Result<Int, String>
+	Ok(value + 1)
+end
+
+fn double_until_two(value: Int) -> Result<Int, String>
+	if value == 2
+		Err("stop")
+	else
+		Ok(value * 2)
+	end
+end
+
+fn preserve_error(error: String) -> String
+	error
+end
+
+fn attach_context(context: String, value: Int) -> Result<{ prefix : String, value : Int }, String>
+	Ok({ prefix: context, value: value })
+end
+
+fn stop_at_two(context: String, value: Int) -> Result<{ prefix : String, value : Int }, String>
+	if value == 2
+		Err(context)
+	else
+		Ok({ prefix: context, value: value })
+	end
+end
+
+test string_split_and_parse_preserve_values_and_failures() -> Result<(), String>
+	let first = match string_split_once("odd:2", ":")
+		Some({ left: "odd", right: "2" }) => true
+		_ => false
+	end
+	let repeated = match string_split_once("a:b:c", ":")
+		Some({ left: "a", right: "b:c" }) => true
+		_ => false
+	end
+	let absent = match string_split_once("plain", ":")
+		None => true
+		_ => false
+	end
+	let parsed = match string_parse_int("42")
+		Ok(42) => true
+		_ => false
+	end
+	let rejected = match result_map_err(string_parse_int("bad"), preserve_error)
+		Err("bad") => true
+		_ => false
+	end
+	expect_prelude(first and repeated and absent and parsed and rejected, "string split or integer parse changed")
+end
+
+test container_transformations_preserve_order_and_original_state() -> Result<(), String>
+	let values: Vec<Int> = vec_concat(vec_push([1], 2), [3])
+	let original = { "a": 1 }
+	let updated = dict_insert(original, "b", 2)
+	let removed = dict_remove(updated, "a")
+	let dictionary = match dict_get(original, "a")
+		Some(1) => match dict_get(updated, "b")
+			Some(2) => match dict_get(removed, "a")
+				None => dict_contains(removed, "b")
+				_ => false
+			end
+			_ => false
+		end
+		_ => false
+	end
+	let empty: Vec<Int> = []
+	let list: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_nil())))
+	let vec_failure = match vec_try_map([1, 2, 3], double_until_two)
+		Err("stop") => true
+		_ => false
+	end
+	let list_failure = match list_try_map(list, double_until_two)
+		Err("stop") => true
+		_ => false
+	end
+	let _ = expect_prelude(values == [1, 2, 3] and vec_filter(values, keep_non_two) == [1, 3] and vec_map([1, 2], double_value) == [2, 4] and vec_fold([2, 4], 0, add_values) == 6 and vec_is_empty(empty) and dictionary and vec_failure and list_failure, "Vec or Dict transformation changed")?
+	let reversed = match list_reverse(list)
+		Cons(3, Cons(2, Cons(1, Nil))) => true
+		_ => false
+	end
+	expect_prelude(list_fold(list, 0, add_values) == 6 and reversed and list_fold(list_filter(list, keep_non_two), 0, add_values) == 4 and list_fold(list_map(list, double_value), 0, add_values) == 12 and list_is_empty(list_nil()), "List transformation changed")
+end
+
+test option_result_and_contextual_traversal_preserve_variants() -> Result<(), String>
+	let option = match option_and_then(option_map(Some(3), double_value), keep_positive)
+		Some(6) => true
+		_ => false
+	end
+	let result = match result_and_then(result_map(Ok(3), double_value), add_one_result)
+		Ok(7) => true
+		_ => false
+	end
+	let mapped = match vec_try_map_with("ctx", [1, 2], attach_context)
+		Ok(items) => items == [{ prefix: "ctx", value: 1 }, { prefix: "ctx", value: 2 }]
+		_ => false
+	end
+	let stopped = match vec_try_map_with("ctx", [1, 2, 3], stop_at_two)
+		Err("ctx") => true
+		_ => false
+	end
+	expect_prelude(option and result and option_unwrap_or(None, 7) == 7 and mapped and stopped, "Option, Result, or contextual traversal changed")
+end
+
+# Byte chunks are immutable prelude values with pure construction and slicing helpers.
+fn chunk_count_text(chunk: ByteChunk) -> String
+	int_to_string(byte_count_to_int(byte_chunk_count(chunk)))
+end
+
+test byte_vocabulary() -> Result<(), String>
+	let first = byte(1)?
+	let second = byte(2)?
+	let third = byte(255)?
+	let combined = byte_append(byte_chunk([first, second]), byte_chunk([third]))
+	let one = byte_count(1)?
+	let two = byte_count(2)?
+	let taken = byte_take(combined, two)?
+	let dropped = byte_drop(combined, one)?
+	let offset = byte_offset(4)?
+	let _ = expect_prelude(chunk_count_text(combined) == "3", "byte-vocabulary observation 1")?
+	let _ = expect_prelude(chunk_count_text(taken) == "2", "byte-vocabulary observation 2")?
+	let _ = expect_prelude(chunk_count_text(dropped) == "2", "byte-vocabulary observation 3")?
+	let _ = expect_prelude(byte_to_int(second) == 2, "byte-vocabulary observation 4")?
+	let _ = expect_prelude(byte_offset_to_int(offset) == 4, "byte-vocabulary observation 5")?
+	Ok(())
+end
+
+# Compact hex fixture text decodes to ordinary ByteChunk values.
+fn count_text(chunk: ByteChunk) -> String
+	int_to_string(byte_count_to_int(byte_chunk_count(chunk)))
+end
+
+test byte_fixture_hex() -> Result<(), String>
+	let compact = byte_chunk_from_hex("0001ff")?
+	let spaced = byte_chunk_from_hex("00 01\nff\t10")?
+	let first_two = byte_count(2)?
+	let compact_head = byte_take(compact, first_two)?
+	let _ = expect_prelude(count_text(compact) == "3", "byte-fixture-hex observation 1")?
+	let _ = expect_prelude(count_text(spaced) == "4", "byte-fixture-hex observation 2")?
+	let _ = expect_prelude(count_text(compact_head) == "2", "byte-fixture-hex observation 3")?
+	Ok(())
+end
+
+# Compact hex fixtures reject non-hex characters, prefixes, and separators.
+fn error_text(result: Result<ByteChunk, String>) -> String
+	match result
+		Ok(_) => "unexpected success"
+		Err(error) => error
+	end
+end
+
+test byte_fixture_hex_invalid() -> Result<(), String>
+	let _ = expect_prelude(error_text(byte_chunk_from_hex("0x00")) == "fixture.hex.invalid_character: expected ASCII hex digit at byte offset 0 low nibble", "byte-fixture-hex-invalid observation 1")?
+	let _ = expect_prelude(error_text(byte_chunk_from_hex("00_01")) == "fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble", "byte-fixture-hex-invalid observation 2")?
+	let _ = expect_prelude(error_text(byte_chunk_from_hex("00#comment")) == "fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble", "byte-fixture-hex-invalid observation 3")?
+	Ok(())
+end
+
+# Compact hex fixtures reject a dangling final nibble.
+test byte_fixture_hex_odd() -> Result<(), String>
+	let _ = expect_prelude(error_text(byte_chunk_from_hex("001")) == "fixture.hex.odd_length: dangling hex nibble at byte offset 1 high nibble", "byte-fixture-hex-odd observation 1")?
+	Ok(())
+end
+
+# ByteView reads and writes fixed-width unsigned values.
+fn int_result_text(result: Result<Int, String>) -> String
+	match result
+		Ok(value) => int_to_string(value)
+		Err(error) => error
+	end
+end
+
+fn chunk_result_text(result: Result<ByteChunk, String>) -> String
+	match result
+		Ok(chunk) => int_to_string(byte_count_to_int(byte_chunk_count(chunk)))
+		Err(error) => error
+	end
+end
+
+fn view_result_text(result: Result<ByteView, String>) -> String
+	match result
+		Ok(view) => int_to_string(byte_count_to_int(byte_chunk_count(byte_view_to_chunk(view))))
+		Err(error) => error
+	end
+end
+
+test binary_byteview() -> Result<(), String> effects [concurrency]
+	let chunk = byte_chunk_from_hex("00010203ff")?
+	let one = byte_count(1)?
+	let two = byte_count(2)?
+	let three = byte_count(3)?
+	let four = byte_count(4)?
+	let zero_offset = byte_offset(0)?
+	let one_offset = byte_offset(1)?
+	let four_offset = byte_offset(4)?
+	let slice = byte_view(chunk, one_offset, three)?
+	let _ = expect_prelude(int_result_text(byte_read_u8_be(slice)) == "1", "binary-byteview observation 1")?
+	let _ = expect_prelude(int_result_text(byte_read_u16_be(slice)) == "258", "binary-byteview observation 2")?
+	let _ = expect_prelude(int_result_text(byte_read_u24_be(slice)) == "66051", "binary-byteview observation 3")?
+	let _ = expect_prelude(int_result_text(byte_read_u16_le(slice)) == "513", "binary-byteview observation 4")?
+	let _ = expect_prelude(int_result_text(byte_read_u24_le(slice)) == "197121", "binary-byteview observation 5")?
+	let pair = channel::bounded<ByteView>(1)
+	let _ = channel::send(pair.tx, slice)
+	let received = match channel::recv(pair.rx)
+		Some(value) => value
+		None => slice
+	end
+	let _ = expect_prelude(int_result_text(byte_read_u24_be(received)) == "66051", "binary-byteview observation 6")?
+	let received_chunk = byte_view_to_chunk(received)
+	let _ = expect_prelude(int_result_text(byte_read_u24_be(byte_view(received_chunk, zero_offset, three)?)) == "66051", "binary-byteview observation 7")?
+	let _ = expect_prelude(int_result_text(byte_read_u31_be(byte_view(byte_write_u31_be(2147483647)?, zero_offset, four)?)) == "2147483647", "binary-byteview observation 8")?
+	let _ = expect_prelude(int_result_text(byte_read_u32_be(byte_view(byte_write_u32_be(4294967295)?, zero_offset, four)?)) == "4294967295", "binary-byteview observation 9")?
+	let _ = expect_prelude(int_result_text(byte_read_u31_le(byte_view(byte_write_u31_le(2147483647)?, zero_offset, four)?)) == "2147483647", "binary-byteview observation 10")?
+	let _ = expect_prelude(int_result_text(byte_read_u32_le(byte_view(byte_write_u32_le(4294967295)?, zero_offset, four)?)) == "4294967295", "binary-byteview observation 11")?
+	let _ = expect_prelude(chunk_result_text(byte_write_u16_be(4660)) == "2", "binary-byteview observation 12")?
+	let _ = expect_prelude(int_result_text(byte_read_u16_be(byte_view(byte_write_u16_be(4660)?, zero_offset, two)?)) == "4660", "binary-byteview observation 13")?
+	let _ = expect_prelude(chunk_result_text(byte_write_u16_le(4660)) == "2", "binary-byteview observation 14")?
+	let _ = expect_prelude(int_result_text(byte_read_u16_le(byte_view(byte_write_u16_le(4660)?, zero_offset, two)?)) == "4660", "binary-byteview observation 15")?
+	let _ = expect_prelude(int_result_text(byte_read_u16_be(byte_view(byte_write_u16_le(4660)?, zero_offset, two)?)) == "13330", "binary-byteview observation 16")?
+	let _ = expect_prelude(int_result_text(byte_read_u24_be(byte_view(byte_write_u24_le(66051)?, zero_offset, three)?)) == "197121", "binary-byteview observation 17")?
+	let _ = expect_prelude(int_result_text(byte_read_u32_be(byte_view(byte_write_u32_le(16909060)?, zero_offset, four)?)) == "67305985", "binary-byteview observation 18")?
+	let _ = expect_prelude(int_result_text(byte_read_u24_be(byte_view(chunk, zero_offset, two)?)) == "byte read requires 3 bytes but view has 2", "binary-byteview observation 19")?
+	let _ = expect_prelude(int_result_text(byte_read_u24_le(byte_view(chunk, zero_offset, two)?)) == "byte read requires 3 bytes but view has 2", "binary-byteview observation 20")?
+	let _ = expect_prelude(view_result_text(byte_view(chunk, four_offset, two)) == "byte view range exceeds chunk length", "binary-byteview observation 21")?
+	let _ = expect_prelude(chunk_result_text(byte_write_u8_be(256)) == "byte_write_u8_be value must be between 0 and 255", "binary-byteview observation 22")?
+	let _ = expect_prelude(chunk_result_text(byte_write_u32_le(4294967296)) == "byte_write_u32_le value must be between 0 and 4294967295", "binary-byteview observation 23")?
+	let _ = expect_prelude(int_result_text(byte_read_u31_be(byte_view(byte_write_u32_be(4294967295)?, zero_offset, four)?)) == "byte_read_u31_be value exceeds maximum 2147483647", "binary-byteview observation 24")?
+	let _ = expect_prelude(int_result_text(byte_read_u31_le(byte_view(byte_write_u32_le(4294967295)?, zero_offset, four)?)) == "byte_read_u31_le value exceeds maximum 2147483647", "binary-byteview observation 25")?
+	let _ = expect_prelude(byte_count_to_int(one) == 1, "binary-byteview observation 26")?
+	Ok(())
+end
+
+# Two-receiver timeout-result selection keeps indexes and returns Ok(None) for empty outcomes.
+fn channel_select_timeout_result_result_score(selected: Result<Option<{ index : Int, value : Int }>, SelectError>) -> Int
+	match selected
+		Ok(Some(value)) => value.index * 100 + value.value
+		Ok(None) => 0
+		Err(_) => -1
+	end
+end
+
+test channel_select_timeout_result() -> Result<(), String> effects [concurrency]
+	let left_ready_left = channel::bounded<Int>(1)
+	let left_ready_right = channel::bounded<Int>(1)
+	let _ = channel::send(left_ready_left.tx, 13)
+	let left_selected = channel::select_timeout_result(left_ready_left.rx, left_ready_right.rx, 25)
+	let right_ready_left = channel::bounded<Int>(1)
+	let right_ready_right = channel::bounded<Int>(1)
+	let _ = channel::send(right_ready_right.tx, 21)
+	let right_selected = channel::select_timeout_result(right_ready_left.rx, right_ready_right.rx, 25)
+	let tie_left = channel::bounded<Int>(1)
+	let tie_right = channel::bounded<Int>(1)
+	let _ = channel::send(tie_left.tx, 31)
+	let _ = channel::send(tie_right.tx, 47)
+	let tie_selected = channel::select_timeout_result(tie_left.rx, tie_right.rx, 25)
+	let timeout_left = channel::bounded<Int>(1)
+	let timeout_right = channel::bounded<Int>(1)
+	let timeout_selected = channel::select_timeout_result(timeout_left.rx, timeout_right.rx, 0)
+	let closed_left = channel::bounded<Int>(1)
+	let closed_right = channel::bounded<Int>(1)
+	channel::close(closed_left.tx)
+	channel::close(closed_right.tx)
+	let closed_selected = channel::select_timeout_result(closed_left.rx, closed_right.rx, 25)
+	let _ = expect_prelude(channel_select_timeout_result_result_score(left_selected) == 13, "channel-select-timeout-result value 1")?
+	let _ = expect_prelude(channel_select_timeout_result_result_score(right_selected) == 121, "channel-select-timeout-result value 3")?
+	let _ = expect_prelude(channel_select_timeout_result_result_score(tie_selected) == 31, "channel-select-timeout-result value 5")?
+	let _ = expect_prelude(channel_select_timeout_result_result_score(timeout_selected) == 0, "channel-select-timeout-result value 7")?
+	let _ = expect_prelude(channel_select_timeout_result_result_score(closed_selected) == 0, "channel-select-timeout-result value 9")?
+	Ok(())
+end
+
+# Cancellable two-receiver timeout selection keeps receiver indexes and reports token cancellation.
+fn channel_select_timeout_cancellable_result_score(selected: Result<Option<{ index : Int, value : Int }>, SelectError>) -> Int
+	match selected
+		Ok(Some(value)) => value.index * 100 + value.value
+		Ok(None) => 0
+		Err(_) => -1
+	end
+end
+
+test channel_select_timeout_cancellable() -> Result<(), String> effects [concurrency, time]
+	let left_ready_left = channel::bounded<Int>(1)
+	let left_ready_right = channel::bounded<Int>(1)
+	let _ = channel::send(left_ready_left.tx, 13)
+	let left_ready_token = time::cancel_token()
+	let left_selected = channel::select_timeout_cancellable(left_ready_left.rx, left_ready_right.rx, 25, left_ready_token)
+	let right_ready_left = channel::bounded<Int>(1)
+	let right_ready_right = channel::bounded<Int>(1)
+	let _ = channel::send(right_ready_right.tx, 21)
+	let right_ready_token = time::cancel_token()
+	let right_selected = channel::select_timeout_cancellable(right_ready_left.rx, right_ready_right.rx, 25, right_ready_token)
+	let timeout_left = channel::bounded<Int>(1)
+	let timeout_right = channel::bounded<Int>(1)
+	let timeout_token = time::cancel_token()
+	let timeout_selected = channel::select_timeout_cancellable(timeout_left.rx, timeout_right.rx, 0, timeout_token)
+	let cancelled_left = channel::bounded<Int>(1)
+	let cancelled_right = channel::bounded<Int>(1)
+	let _ = channel::send(cancelled_right.tx, 55)
+	let cancelled_token = time::cancel_token()
+	time::cancel(cancelled_token)
+	let cancelled_selected = channel::select_timeout_cancellable(cancelled_left.rx, cancelled_right.rx, 25, cancelled_token)
+	let _ = expect_prelude(channel_select_timeout_cancellable_result_score(left_selected) == 13, "channel-select-timeout-cancellable value 1")?
+	let _ = expect_prelude(channel_select_timeout_cancellable_result_score(right_selected) == 121, "channel-select-timeout-cancellable value 3")?
+	let _ = expect_prelude(channel_select_timeout_cancellable_result_score(timeout_selected) == 0, "channel-select-timeout-cancellable value 5")?
+	let _ = expect_prelude(channel_select_timeout_cancellable_result_score(cancelled_selected) == -1, "channel-select-timeout-cancellable value 7")?
+	Ok(())
+end
+
+# Receiver-list timeout selection keeps list priority and adapter handlers plain.
+type ResponseAction
+	SendBytes { stream_id: Int, bytes: ByteChunk }
+	EndStream { stream_id: Int }
+	Decline { stream_id: Int }
+end
+
+fn channel_select_many_timeout_bool_text(value: Bool) -> String
+	if value
+		"true"
+	else
+		"false"
+	end
+end
+
+fn channel_select_many_timeout_ready_score(selected: Option<{ index : Int, value : Int }>) -> Int
+	match selected
+		Some(value) => value.index * 100 + value.value
+		None => 0
+	end
+end
+
+fn channel_select_many_timeout_timeout_score(selected: Option<{ index : Int, value : Int }>) -> Int
+	match selected
+		Some(value) => value.index * 100 + value.value
+		None => 0
+	end
+end
+
+fn channel_select_many_timeout_result_score(selected: Result<Option<{ index : Int, value : Int }>, SelectError>) -> Int
+	match selected
+		Ok(Some(value)) => value.index * 100 + value.value
+		Ok(None) => 0
+		Err(_) => -1
+	end
+end
+
+fn channel_select_many_timeout_handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn channel_select_many_timeout_stream_id_for_index(index: Int) -> Int
+	match index
+		0 => 11
+		1 => 13
+		_ => 17
+	end
+end
+
+fn channel_select_many_timeout_handle_selected(selected: Option<{ index : Int, value : StreamInput }>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match selected
+		Some(route) => channel_select_many_timeout_handle_stream_input(channel_select_many_timeout_stream_id_for_index(route.index), route.value, state)
+		None => { actions: list_cons(Decline(0), list_nil()), next_state: state }
+	end
+end
+
+fn channel_select_many_timeout_route_with_timeout(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	channel_select_many_timeout_handle_selected(channel::select_many_timeout(receivers, 25), state)
+end
+
+fn channel_select_many_timeout_action_score(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(stream_id, _) => stream_id * 10 + channel_select_many_timeout_action_score(tail)
+			EndStream(stream_id) => stream_id * 10 + channel_select_many_timeout_action_score(tail)
+			Decline(stream_id) => stream_id * 10 + channel_select_many_timeout_action_score(tail)
+		end
+	end
+end
+
+test channel_select_many_timeout() -> Result<(), String> effects [concurrency]
+	let first = channel::bounded<Int>(1)
+	let second = channel::bounded<Int>(1)
+	let third = channel::bounded<Int>(1)
+	let _ = channel::send(second.tx, 21)
+	let _ = channel::send(third.tx, 34)
+	let ready_receivers: List<Receiver<Int>> = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_nil())))
+	let ready_selected = channel::select_many_timeout(ready_receivers, 25)
+	let timeout_first = channel::bounded<Int>(1)
+	let timeout_second = channel::bounded<Int>(1)
+	let timeout_receivers: List<Receiver<Int>> = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_nil()))
+	let timeout_selected = channel::select_many_timeout(timeout_receivers, 0)
+	let result_first = channel::bounded<Int>(1)
+	let result_second = channel::bounded<Int>(1)
+	let result_third = channel::bounded<Int>(1)
+	let _ = channel::send(result_second.tx, 21)
+	let _ = channel::send(result_third.tx, 34)
+	let result_receivers: List<Receiver<Int>> = list_cons(result_first.rx, list_cons(result_second.rx, list_cons(result_third.rx, list_nil())))
+	let result_selected = channel::select_many_timeout_result(result_receivers, 25)
+	let result_timeout_first = channel::bounded<Int>(1)
+	let result_timeout_second = channel::bounded<Int>(1)
+	let result_timeout_receivers: List<Receiver<Int>> = list_cons(result_timeout_first.rx, list_cons(result_timeout_second.rx, list_nil()))
+	let result_timeout_selected = channel::select_many_timeout_result(result_timeout_receivers, 0)
+	let stream_bytes = byte_chunk_from_hex("abcd")?
+	let stream_first = channel::bounded<StreamInput>(1)
+	let stream_second = channel::bounded<StreamInput>(1)
+	let stream_third = channel::bounded<StreamInput>(1)
+	let _ = channel::send(stream_third.tx, Chunk(stream_bytes))
+	let stream_receivers = list_cons(stream_first.rx, list_cons(stream_second.rx, list_cons(stream_third.rx, list_nil())))
+	let handled = channel_select_many_timeout_route_with_timeout(stream_receivers, { chunks: 0, ended: false })
+	let _ = expect_prelude(channel_select_many_timeout_ready_score(ready_selected) == 121, "channel-select-many-timeout value 1")?
+	let _ = expect_prelude(channel_select_many_timeout_timeout_score(timeout_selected) == 0, "channel-select-many-timeout value 3")?
+	let _ = expect_prelude(channel_select_many_timeout_result_score(result_selected) == 121, "channel-select-many-timeout value 5")?
+	let _ = expect_prelude(channel_select_many_timeout_result_score(result_timeout_selected) == 0, "channel-select-many-timeout value 7")?
+	let _ = expect_prelude(channel_select_many_timeout_action_score(handled.actions) == 170, "channel-select-many-timeout value 9")?
+	let _ = expect_prelude(handled.next_state.chunks == 1, "channel-select-many-timeout value 11")?
+	let _ = expect_prelude(channel_select_many_timeout_bool_text(handled.next_state.ended) == "false", "channel-select-many-timeout value 13")?
+	Ok(())
+end
+
+# Cancellable receiver-list timeout selection keeps priority and reports token cancellation.
+fn channel_select_many_timeout_cancellable_result_score(selected: Result<Option<{ index : Int, value : Int }>, SelectError>) -> Int
+	match selected
+		Ok(Some(value)) => value.index * 100 + value.value
+		Ok(None) => 0
+		Err(_) => -1
+	end
+end
+
+test channel_select_many_timeout_cancellable() -> Result<(), String> effects [concurrency, time]
+	let first = channel::bounded<Int>(1)
+	let second = channel::bounded<Int>(1)
+	let third = channel::bounded<Int>(1)
+	let _ = channel::send(second.tx, 21)
+	let _ = channel::send(third.tx, 34)
+	let ready_receivers: List<Receiver<Int>> = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_nil())))
+	let ready_token = time::cancel_token()
+	let ready_selected = channel::select_many_timeout_cancellable(ready_receivers, 25, ready_token)
+	let timeout_first = channel::bounded<Int>(1)
+	let timeout_second = channel::bounded<Int>(1)
+	let timeout_receivers: List<Receiver<Int>> = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_nil()))
+	let timeout_token = time::cancel_token()
+	let timeout_selected = channel::select_many_timeout_cancellable(timeout_receivers, 0, timeout_token)
+	let cancelled_first = channel::bounded<Int>(1)
+	let cancelled_second = channel::bounded<Int>(1)
+	let _ = channel::send(cancelled_second.tx, 55)
+	let cancelled_receivers: List<Receiver<Int>> = list_cons(cancelled_first.rx, list_cons(cancelled_second.rx, list_nil()))
+	let cancelled_token = time::cancel_token()
+	time::cancel(cancelled_token)
+	let cancelled_selected = channel::select_many_timeout_cancellable(cancelled_receivers, 25, cancelled_token)
+	let _ = expect_prelude(channel_select_many_timeout_cancellable_result_score(ready_selected) == 121, "channel-select-many-timeout-cancellable value 1")?
+	let _ = expect_prelude(channel_select_many_timeout_cancellable_result_score(timeout_selected) == 0, "channel-select-many-timeout-cancellable value 3")?
+	let _ = expect_prelude(channel_select_many_timeout_cancellable_result_score(cancelled_selected) == -1, "channel-select-many-timeout-cancellable value 5")?
+	Ok(())
+end
+
+# Concurrency operations require the concurrency effect and report fallible joins.
+fn concurrency_boundary_produce() -> String
+	"task"
+end
+
+test concurrency_boundary() -> Result<(), String> effects [concurrency]
+	let task = task::spawn(concurrency_boundary_produce)
+	let task_output = match task::join(task)
+		Ok(value) => value
+		Err(_) => "failed"
+	end
+	let typed_task = task::spawn<String>(concurrency_boundary_produce)
+	let typed_task_output = match task::join(typed_task)
+		Ok(value) => value
+		Err(_) => "failed"
+	end
+	let pair = channel::bounded<String>(1)
+	let extra: Sender<String> = channel::clone(pair.tx)
+	let _ = channel::send(extra, "channel")
+	let channel_output = match channel::select_priority_result(pair.rx, pair.rx)
+		Ok(Some(selected)) => selected.value
+		Ok(None) => "closed"
+		Err(_) => "interrupted"
+	end
+	let inferred: { tx : Sender<String>, rx : Receiver<String> } = channel::bounded(1)
+	let _ = channel::send(inferred.tx, "inferred")
+	let inferred_output = match channel::recv(inferred.rx)
+		Some(value) => value
+		None => "closed"
+	end
+	let closed = channel::bounded<String>(1)
+	channel::close(closed.tx)
+	let closed_recv = match channel::recv(closed.rx)
+		Some(value) => value
+		None => "closed"
+	end
+	let closed_send = match channel::send(closed.tx, "late")
+		Ok(_) => "sent"
+		Err(_) => "send-error"
+	end
+	channel::close(pair.tx)
+	let _ = expect_prelude(task_output == "task", "concurrency-boundary value 0")?
+	let _ = expect_prelude(typed_task_output == "task", "concurrency-boundary value 1")?
+	let _ = expect_prelude(channel_output == "channel", "concurrency-boundary value 2")?
+	let _ = expect_prelude(inferred_output == "inferred", "concurrency-boundary value 3")?
+	let _ = expect_prelude(closed_recv == "closed", "concurrency-boundary value 4")?
+	let _ = expect_prelude(closed_send == "send-error", "concurrency-boundary value 5")?
+	Ok(())
+end
+
+# Fallible channel selection returns selected values through Result wrappers.
+test concurrency_result_selection() -> Result<(), String> effects [concurrency]
+	let left = channel::bounded<String>(1)
+	let right = channel::bounded<String>(1)
+	let _ = channel::send(right.tx, "result")
+	let result = match channel::select_result(left.rx, right.rx)
+		Ok(Some(selected)) => selected.value
+		Ok(None) => "none"
+		Err(_) => "interrupted"
+	end
+	let _ = expect_prelude(result == "result", "concurrency-result-selection value 0")?
+	let first = channel::bounded<String>(1)
+	let second = channel::bounded<String>(1)
+	let _ = channel::send(first.tx, "priority")
+	let priority = match channel::select_priority_result(first.rx, second.rx)
+		Ok(Some(selected)) => selected.value
+		Ok(None) => "none"
+		Err(_) => "interrupted"
+	end
+	let _ = expect_prelude(priority == "priority", "concurrency-result-selection value 1")?
+	Ok(())
+end
+
+# StreamInput distinguishes byte arrival from explicit stream end.
+fn stream_input_vocabulary_describe(input: StreamInput) -> Int
+	match input
+		prelude::StreamInput::Chunk(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		prelude::End => -1
+	end
+end
+
+test stream_input_vocabulary() -> Result<(), String>
+	let empty = byte_chunk([])
+	let one = byte(1)?
+	let non_empty = byte_chunk([one])
+	let empty_arrival = Chunk(empty)
+	let byte_arrival = prelude::StreamInput::Chunk(non_empty)
+	let ended = End
+	let _ = expect_prelude(stream_input_vocabulary_describe(empty_arrival) == 0, "stream-input-vocabulary value 0")?
+	let _ = expect_prelude(stream_input_vocabulary_describe(byte_arrival) == 1, "stream-input-vocabulary value 1")?
+	let _ = expect_prelude(stream_input_vocabulary_describe(ended) == -1, "stream-input-vocabulary value 2")?
+	Ok(())
+end
+
+# DecodeStep exposes ordinary source-visible incremental decode outcomes.
+fn codec_decode_step_vocabulary_complete_decoder(view: ByteView) -> DecodeStep<Int>
+	let chunk = byte_view_to_chunk(view)
+	Decoded(byte_count_to_int(byte_chunk_count(chunk)), byte_chunk_count(chunk))
+end
+
+fn codec_decode_step_vocabulary_waiting_decoder(expected: ByteCount) -> DecodeStep<Int>
+	NeedMore(NeedBytes(expected))
+end
+
+fn codec_decode_step_vocabulary_invalid_decoder(offset: ByteOffset) -> DecodeStep<Int>
+	Invalid(DecodeError("codec.invalid_input", offset, "DemoPacket.kind"))
+end
+
+fn codec_decode_step_vocabulary_step_kind(step: DecodeStep<Int>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn codec_decode_step_vocabulary_decoded_value(step: DecodeStep<Int>) -> Int
+	match step
+		Decoded(value, _) => value
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn codec_decode_step_vocabulary_decoded_consumed(step: DecodeStep<Int>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn codec_decode_step_vocabulary_readiness_kind(step: DecodeStep<Int>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn codec_decode_step_vocabulary_readiness_count(step: DecodeStep<Int>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn codec_decode_step_vocabulary_error_id(step: DecodeStep<Int>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
+	end
+end
+
+fn codec_decode_step_vocabulary_error_offset(step: DecodeStep<Int>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(_) => 0
+		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+		Invalid(DecodeErrorWithReason(_, offset, _, _)) => byte_offset_to_int(offset)
+	end
+end
+
+fn codec_decode_step_vocabulary_error_path(step: DecodeStep<Int>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(_, _, path)) => path
+		Invalid(DecodeErrorWithReason(_, _, path, _)) => path
+	end
+end
+
+test codec_decode_step_vocabulary() -> Result<(), String>
+	let bytes = byte_chunk_from_hex("010203")?
+	let offset = byte_offset(0)?
+	let count = byte_count(3)?
+	let view = byte_view(bytes, offset, count)?
+	let decoded = codec_decode_step_vocabulary_complete_decoder(view)
+	let needed = byte_count(8)?
+	let waiting = codec_decode_step_vocabulary_waiting_decoder(needed)
+	let invalid_offset = byte_offset(5)?
+	let invalid = codec_decode_step_vocabulary_invalid_decoder(invalid_offset)
+	let _ = expect_prelude(codec_decode_step_vocabulary_step_kind(decoded) == "decoded", "codec-decode-step-vocabulary value 0")?
+	let _ = expect_prelude(codec_decode_step_vocabulary_decoded_value(decoded) == 3, "codec-decode-step-vocabulary value 1")?
+	let _ = expect_prelude(codec_decode_step_vocabulary_decoded_consumed(decoded) == 3, "codec-decode-step-vocabulary value 2")?
+	let _ = expect_prelude(codec_decode_step_vocabulary_step_kind(waiting) == "need_more", "codec-decode-step-vocabulary value 3")?
+	let _ = expect_prelude(codec_decode_step_vocabulary_readiness_kind(waiting) == "need_bytes", "codec-decode-step-vocabulary value 4")?
+	let _ = expect_prelude(codec_decode_step_vocabulary_readiness_count(waiting) == 8, "codec-decode-step-vocabulary value 5")?
+	let _ = expect_prelude(codec_decode_step_vocabulary_step_kind(invalid) == "invalid", "codec-decode-step-vocabulary value 6")?
+	let _ = expect_prelude(codec_decode_step_vocabulary_error_id(invalid) == "codec.invalid_input", "codec-decode-step-vocabulary value 7")?
+	let _ = expect_prelude(codec_decode_step_vocabulary_error_offset(invalid) == 5, "codec-decode-step-vocabulary value 8")?
+	let _ = expect_prelude(codec_decode_step_vocabulary_error_path(invalid) == "DemoPacket.kind", "codec-decode-step-vocabulary value 9")?
+	Ok(())
+end
+
+# EncodeStep exposes ordinary source-visible incremental encode outcomes.
+fn codec_encode_step_vocabulary_complete_encoder(chunks: List<ByteChunk>) -> EncodeStep<String>
+	Encoded(chunks)
+end
+
+fn codec_encode_step_vocabulary_limited_encoder(chunks: List<ByteChunk>, produced: ByteCount) -> EncodeStep<String>
+	prelude::EncodeStep::Partial(chunks, produced, "waiting-for-sink")
+end
+
+fn codec_encode_step_vocabulary_invalid_encoder() -> EncodeStep<String>
+	EncodeStep::Invalid(EncodeError("codec.out_of_range", "DemoPacket.length", "value exceeds UInt24be"))
+end
+
+fn codec_encode_step_vocabulary_chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + codec_encode_step_vocabulary_chunk_count(tail)
+	end
+end
+
+fn codec_encode_step_vocabulary_chunk_byte_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(chunk, tail) => byte_count_to_int(byte_chunk_count(chunk)) + codec_encode_step_vocabulary_chunk_byte_count(tail)
+	end
+end
+
+fn codec_encode_step_vocabulary_step_kind(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		EncodeStep::Invalid(_) => "invalid"
+	end
+end
+
+fn codec_encode_step_vocabulary_emitted_chunks(step: EncodeStep<String>) -> Int
+	match step
+		Encoded(chunks) => codec_encode_step_vocabulary_chunk_count(chunks)
+		Partial(chunks, _, _) => codec_encode_step_vocabulary_chunk_count(chunks)
+		Invalid(_) => 0
+	end
+end
+
+fn codec_encode_step_vocabulary_emitted_bytes(step: EncodeStep<String>) -> Int
+	match step
+		Encoded(chunks) => codec_encode_step_vocabulary_chunk_byte_count(chunks)
+		Partial(_, produced, _) => byte_count_to_int(produced)
+		Invalid(_) => 0
+	end
+end
+
+fn codec_encode_step_vocabulary_pending_state(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, state) => state
+		Invalid(_) => "none"
+	end
+end
+
+fn codec_encode_step_vocabulary_error_id(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn codec_encode_step_vocabulary_error_path(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn codec_encode_step_vocabulary_error_reason(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+test codec_encode_step_vocabulary() -> Result<(), String>
+	let first = byte_chunk_from_hex("0102")?
+	let second = byte_chunk_from_hex("ff")?
+	let complete_chunks = list_cons(first, list_cons(second, list_nil()))
+	let encoded = codec_encode_step_vocabulary_complete_encoder(complete_chunks)
+	let limited_chunk = byte_chunk_from_hex("aa55")?
+	let limited_chunks = list_cons(limited_chunk, list_nil())
+	let produced = byte_count(2)?
+	let partial = codec_encode_step_vocabulary_limited_encoder(limited_chunks, produced)
+	let invalid = codec_encode_step_vocabulary_invalid_encoder()
+	let _ = expect_prelude(codec_encode_step_vocabulary_step_kind(encoded) == "encoded", "codec-encode-step-vocabulary value 0")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_emitted_chunks(encoded) == 2, "codec-encode-step-vocabulary value 1")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_emitted_bytes(encoded) == 3, "codec-encode-step-vocabulary value 2")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_step_kind(partial) == "partial", "codec-encode-step-vocabulary value 3")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_emitted_chunks(partial) == 1, "codec-encode-step-vocabulary value 4")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_emitted_bytes(partial) == 2, "codec-encode-step-vocabulary value 5")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_pending_state(partial) == "waiting-for-sink", "codec-encode-step-vocabulary value 6")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_step_kind(invalid) == "invalid", "codec-encode-step-vocabulary value 7")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_error_id(invalid) == "codec.out_of_range", "codec-encode-step-vocabulary value 8")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_error_path(invalid) == "DemoPacket.length", "codec-encode-step-vocabulary value 9")?
+	let _ = expect_prelude(codec_encode_step_vocabulary_error_reason(invalid) == "value exceeds UInt24be", "codec-encode-step-vocabulary value 10")?
+	Ok(())
+end
+
+# Cancellation owner status is observable by adapter-owned code.
+fn transport_cancel_owner_status_status_text(cancelled: Bool) -> String
+	if cancelled
+		"cancelled"
+	else
+		"active"
+	end
+end
+
+test transport_cancel_owner_status() -> Result<(), String> effects [time]
+	let owner = time::cancel_owner()
+	let _ = expect_prelude(transport_cancel_owner_status_status_text(time::is_cancelled_owner(owner)) == "active", "transport-cancel-owner-status value 0")?
+	time::cancel_owned(owner)
+	let _ = expect_prelude(transport_cancel_owner_status_status_text(time::is_cancelled_owner(owner)) == "cancelled", "transport-cancel-owner-status value 1")?
+	Ok(())
+end
+
+# Cancellation token status is observable without waiting or cancelling.
+fn transport_cancel_token_status_status_text(cancelled: Bool) -> String
+	if cancelled
+		"cancelled"
+	else
+		"active"
+	end
+end
+
+test transport_cancel_token_status() -> Result<(), String> effects [time]
+	let token = time::cancel_token()
+	let _ = expect_prelude(transport_cancel_token_status_status_text(time::is_cancelled(token)) == "active", "transport-cancel-token-status value 0")?
+	time::cancel(token)
+	let _ = expect_prelude(transport_cancel_token_status_status_text(time::is_cancelled(token)) == "cancelled", "transport-cancel-token-status value 1")?
+	Ok(())
+end
+
+# Channel-first stream routing selects between ordinary stream input routes.
+type TwoRouteAction
+	TwoRouteSendBytes { stream_id: Int, bytes: ByteChunk }
+	TwoRouteEndStream { stream_id: Int }
+	TwoRouteDecline { stream_id: Int }
+end
+
+fn channel_first_stream_routing_handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<TwoRouteAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(TwoRouteSendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(TwoRouteEndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn channel_first_stream_routing_append_actions(left: List<TwoRouteAction>, right: List<TwoRouteAction>) -> List<TwoRouteAction>
+	match left
+		Nil => right
+		Cons(action, tail) => list_cons(action, channel_first_stream_routing_append_actions(tail, right))
+	end
+end
+
+fn channel_first_stream_routing_action_stream_score(actions: List<TwoRouteAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			TwoRouteSendBytes(stream_id, _) => stream_id * 10 + channel_first_stream_routing_action_stream_score(tail)
+			TwoRouteEndStream(stream_id) => stream_id * 10 + channel_first_stream_routing_action_stream_score(tail)
+			TwoRouteDecline(stream_id) => stream_id * 10 + channel_first_stream_routing_action_stream_score(tail)
+		end
+	end
+end
+
+fn channel_first_stream_routing_write_count(actions: List<TwoRouteAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			TwoRouteSendBytes(_, _) => 1 + channel_first_stream_routing_write_count(tail)
+			TwoRouteEndStream(_) => channel_first_stream_routing_write_count(tail)
+			TwoRouteDecline(_) => channel_first_stream_routing_write_count(tail)
+		end
+	end
+end
+
+fn channel_first_stream_routing_bool_text(value: Bool) -> String
+	if value
+		"true"
+	else
+		"false"
+	end
+end
+
+test channel_first_stream_routing() -> Result<(), String> effects [concurrency]
+	let first = byte_chunk_from_hex("0102")?
+	let left = channel::bounded<StreamInput>(2)
+	let right = channel::bounded<StreamInput>(2)
+	let _ = channel::send(left.tx, Chunk(first))
+	let _ = channel::send(right.tx, End)
+	let first_selected: { index : Int, value : StreamInput } = match channel::select_priority(left.rx, right.rx)
+		Some(selected) => selected
+		None => { index: 0, value: End }
+	end
+	let left_handled = channel_first_stream_routing_handle_stream_input(1, first_selected.value, { chunks: 0, ended: false })
+	let second_selected: { index : Int, value : StreamInput } = match channel::select_priority(left.rx, right.rx)
+		Some(selected) => selected
+		None => { index: 1, value: End }
+	end
+	let right_handled = channel_first_stream_routing_handle_stream_input(3, second_selected.value, { chunks: 0, ended: false })
+	let actions = channel_first_stream_routing_append_actions(left_handled.actions, right_handled.actions)
+	let _ = expect_prelude(first_selected.index == 0, "channel-first-stream-routing value 1")?
+	let _ = expect_prelude(second_selected.index == 1, "channel-first-stream-routing value 3")?
+	let _ = expect_prelude(channel_first_stream_routing_action_stream_score(actions) == 40, "channel-first-stream-routing value 5")?
+	let _ = expect_prelude(left_handled.next_state.chunks == 1, "channel-first-stream-routing value 7")?
+	let _ = expect_prelude(channel_first_stream_routing_bool_text(left_handled.next_state.ended) == "false", "channel-first-stream-routing value 9")?
+	let _ = expect_prelude(right_handled.next_state.chunks == 0, "channel-first-stream-routing value 11")?
+	let _ = expect_prelude(channel_first_stream_routing_bool_text(right_handled.next_state.ended) == "true", "channel-first-stream-routing value 13")?
+	let _ = expect_prelude(channel_first_stream_routing_write_count(actions) == 1, "channel-first-stream-routing value 15")?
+	Ok(())
+end
+
+# Channel-first stream routing can compose three ordinary stream input routes.
+type ThreeRouteAction
+	ThreeRouteSendBytes { stream_id: Int, bytes: ByteChunk }
+	ThreeRouteEndStream { stream_id: Int }
+	ThreeRouteDecline { stream_id: Int }
+end
+
+fn channel_first_stream_routing_three_route_handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ThreeRouteAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(ThreeRouteSendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(ThreeRouteEndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn channel_first_stream_routing_three_route_append_actions(left: List<ThreeRouteAction>, right: List<ThreeRouteAction>) -> List<ThreeRouteAction>
+	match left
+		Nil => right
+		Cons(action, tail) => list_cons(action, channel_first_stream_routing_three_route_append_actions(tail, right))
+	end
+end
+
+fn channel_first_stream_routing_three_route_action_stream_score(actions: List<ThreeRouteAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			ThreeRouteSendBytes(stream_id, _) => stream_id * 10 + channel_first_stream_routing_three_route_action_stream_score(tail)
+			ThreeRouteEndStream(stream_id) => stream_id * 10 + channel_first_stream_routing_three_route_action_stream_score(tail)
+			ThreeRouteDecline(stream_id) => stream_id * 10 + channel_first_stream_routing_three_route_action_stream_score(tail)
+		end
+	end
+end
+
+fn channel_first_stream_routing_three_route_write_count(actions: List<ThreeRouteAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			ThreeRouteSendBytes(_, _) => 1 + channel_first_stream_routing_three_route_write_count(tail)
+			ThreeRouteEndStream(_) => channel_first_stream_routing_three_route_write_count(tail)
+			ThreeRouteDecline(_) => channel_first_stream_routing_three_route_write_count(tail)
+		end
+	end
+end
+
+fn channel_first_stream_routing_three_route_bool_text(value: Bool) -> String
+	if value
+		"true"
+	else
+		"false"
+	end
+end
+
+fn channel_first_stream_routing_three_route_select_three_priority(first: Receiver<StreamInput>, second: Receiver<StreamInput>, third: Receiver<StreamInput>, closed: Receiver<StreamInput>) -> Option<{ index : Int, value : StreamInput }> effects [concurrency]
+	match channel::select_priority(first, second)
+		Some(selected) => Some(selected)
+		None => match channel::select_priority(third, closed)
+			Some(selected) => Some({ index: 2, value: selected.value })
+			None => None
+		end
+	end
+end
+
+fn channel_first_stream_routing_three_route_handled_route(index: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ThreeRouteAction>, next_state : { chunks : Int, ended : Bool } }
+	match index
+		0 => channel_first_stream_routing_three_route_handle_stream_input(1, input, state)
+		1 => channel_first_stream_routing_three_route_handle_stream_input(3, input, state)
+		_ => channel_first_stream_routing_three_route_handle_stream_input(5, input, state)
+	end
+end
+
+test channel_first_stream_routing_three_route() -> Result<(), String> effects [concurrency]
+	let middle_bytes = byte_chunk_from_hex("0102")?
+	let last_bytes = byte_chunk_from_hex("0a")?
+	let first = channel::bounded<StreamInput>(2)
+	let second = channel::bounded<StreamInput>(2)
+	let third = channel::bounded<StreamInput>(2)
+	let closed = channel::bounded<StreamInput>(1)
+	let _ = channel::send(first.tx, End)
+	let _ = channel::send(second.tx, Chunk(middle_bytes))
+	let _ = channel::send(third.tx, Chunk(last_bytes))
+	channel::close(first.tx)
+	channel::close(second.tx)
+	channel::close(third.tx)
+	channel::close(closed.tx)
+	let selected_first = match channel_first_stream_routing_three_route_select_three_priority(first.rx, second.rx, third.rx, closed.rx)
+		Some(selected) => selected
+		None => { index: 0, value: End }
+	end
+	let handled_first = channel_first_stream_routing_three_route_handled_route(selected_first.index, selected_first.value, { chunks: 0, ended: false })
+	let selected_second = match channel_first_stream_routing_three_route_select_three_priority(first.rx, second.rx, third.rx, closed.rx)
+		Some(selected) => selected
+		None => { index: 0, value: End }
+	end
+	let handled_second = channel_first_stream_routing_three_route_handled_route(selected_second.index, selected_second.value, { chunks: 0, ended: false })
+	let selected_third = match channel_first_stream_routing_three_route_select_three_priority(first.rx, second.rx, third.rx, closed.rx)
+		Some(selected) => selected
+		None => { index: 0, value: End }
+	end
+	let handled_third = channel_first_stream_routing_three_route_handled_route(selected_third.index, selected_third.value, { chunks: 0, ended: false })
+	let first_actions = channel_first_stream_routing_three_route_append_actions(handled_first.actions, handled_second.actions)
+	let actions = channel_first_stream_routing_three_route_append_actions(first_actions, handled_third.actions)
+	let _ = expect_prelude(selected_first.index == 0, "channel-first-stream-routing-three-route value 1")?
+	let _ = expect_prelude(selected_second.index == 1, "channel-first-stream-routing-three-route value 3")?
+	let _ = expect_prelude(selected_third.index == 2, "channel-first-stream-routing-three-route value 5")?
+	let _ = expect_prelude(channel_first_stream_routing_three_route_action_stream_score(actions) == 90, "channel-first-stream-routing-three-route value 7")?
+	let _ = expect_prelude(channel_first_stream_routing_three_route_bool_text(handled_first.next_state.ended) == "true", "channel-first-stream-routing-three-route value 9")?
+	let _ = expect_prelude(handled_second.next_state.chunks == 1, "channel-first-stream-routing-three-route value 11")?
+	let _ = expect_prelude(handled_third.next_state.chunks == 1, "channel-first-stream-routing-three-route value 13")?
+	let _ = expect_prelude(channel_first_stream_routing_three_route_write_count(actions) == 2, "channel-first-stream-routing-three-route value 15")?
+	Ok(())
+end
+
+# Channel-first stream routing can compose four ordinary stream input routes.
+type FourRouteAction
+	FourRouteSendBytes { stream_id: Int, bytes: ByteChunk }
+	FourRouteEndStream { stream_id: Int }
+	FourRouteDecline { stream_id: Int }
+end
+
+fn channel_first_stream_routing_four_route_handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<FourRouteAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(FourRouteSendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(FourRouteEndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn channel_first_stream_routing_four_route_append_actions(left: List<FourRouteAction>, right: List<FourRouteAction>) -> List<FourRouteAction>
+	match left
+		Nil => right
+		Cons(action, tail) => list_cons(action, channel_first_stream_routing_four_route_append_actions(tail, right))
+	end
+end
+
+fn channel_first_stream_routing_four_route_action_stream_score(actions: List<FourRouteAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			FourRouteSendBytes(stream_id, _) => stream_id * 10 + channel_first_stream_routing_four_route_action_stream_score(tail)
+			FourRouteEndStream(stream_id) => stream_id * 10 + channel_first_stream_routing_four_route_action_stream_score(tail)
+			FourRouteDecline(stream_id) => stream_id * 10 + channel_first_stream_routing_four_route_action_stream_score(tail)
+		end
+	end
+end
+
+fn channel_first_stream_routing_four_route_write_count(actions: List<FourRouteAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			FourRouteSendBytes(_, _) => 1 + channel_first_stream_routing_four_route_write_count(tail)
+			FourRouteEndStream(_) => channel_first_stream_routing_four_route_write_count(tail)
+			FourRouteDecline(_) => channel_first_stream_routing_four_route_write_count(tail)
+		end
+	end
+end
+
+fn channel_first_stream_routing_four_route_bool_text(value: Bool) -> String
+	if value
+		"true"
+	else
+		"false"
+	end
+end
+
+fn channel_first_stream_routing_four_route_select_four_priority(first: Receiver<StreamInput>, second: Receiver<StreamInput>, third: Receiver<StreamInput>, fourth: Receiver<StreamInput>) -> Option<{ index : Int, value : StreamInput }> effects [concurrency]
+	match channel::select_priority(first, second)
+		Some(selected) => Some(selected)
+		None => match channel::select_priority(third, fourth)
+			Some(selected) => Some({ index: selected.index + 2, value: selected.value })
+			None => None
+		end
+	end
+end
+
+fn channel_first_stream_routing_four_route_handled_route(index: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<FourRouteAction>, next_state : { chunks : Int, ended : Bool } }
+	match index
+		0 => channel_first_stream_routing_four_route_handle_stream_input(1, input, state)
+		1 => channel_first_stream_routing_four_route_handle_stream_input(3, input, state)
+		2 => channel_first_stream_routing_four_route_handle_stream_input(5, input, state)
+		_ => channel_first_stream_routing_four_route_handle_stream_input(7, input, state)
+	end
+end
+
+test channel_first_stream_routing_four_route() -> Result<(), String> effects [concurrency]
+	let second_bytes = byte_chunk_from_hex("0102")?
+	let fourth_bytes = byte_chunk_from_hex("0a0b")?
+	let first = channel::bounded<StreamInput>(2)
+	let second = channel::bounded<StreamInput>(2)
+	let third = channel::bounded<StreamInput>(2)
+	let fourth = channel::bounded<StreamInput>(2)
+	let _ = channel::send(first.tx, End)
+	let _ = channel::send(second.tx, Chunk(second_bytes))
+	let _ = channel::send(third.tx, End)
+	let _ = channel::send(fourth.tx, Chunk(fourth_bytes))
+	channel::close(first.tx)
+	channel::close(second.tx)
+	channel::close(third.tx)
+	channel::close(fourth.tx)
+	let selected_first = match channel_first_stream_routing_four_route_select_four_priority(first.rx, second.rx, third.rx, fourth.rx)
+		Some(selected) => selected
+		None => { index: 0, value: End }
+	end
+	let handled_first = channel_first_stream_routing_four_route_handled_route(selected_first.index, selected_first.value, { chunks: 0, ended: false })
+	let selected_second = match channel_first_stream_routing_four_route_select_four_priority(first.rx, second.rx, third.rx, fourth.rx)
+		Some(selected) => selected
+		None => { index: 0, value: End }
+	end
+	let handled_second = channel_first_stream_routing_four_route_handled_route(selected_second.index, selected_second.value, { chunks: 0, ended: false })
+	let selected_third = match channel_first_stream_routing_four_route_select_four_priority(first.rx, second.rx, third.rx, fourth.rx)
+		Some(selected) => selected
+		None => { index: 0, value: End }
+	end
+	let handled_third = channel_first_stream_routing_four_route_handled_route(selected_third.index, selected_third.value, { chunks: 0, ended: false })
+	let selected_fourth = match channel_first_stream_routing_four_route_select_four_priority(first.rx, second.rx, third.rx, fourth.rx)
+		Some(selected) => selected
+		None => { index: 0, value: End }
+	end
+	let handled_fourth = channel_first_stream_routing_four_route_handled_route(selected_fourth.index, selected_fourth.value, { chunks: 0, ended: false })
+	let first_actions = channel_first_stream_routing_four_route_append_actions(handled_first.actions, handled_second.actions)
+	let second_actions = channel_first_stream_routing_four_route_append_actions(handled_third.actions, handled_fourth.actions)
+	let actions = channel_first_stream_routing_four_route_append_actions(first_actions, second_actions)
+	let _ = expect_prelude(selected_first.index == 0, "channel-first-stream-routing-four-route value 1")?
+	let _ = expect_prelude(selected_second.index == 1, "channel-first-stream-routing-four-route value 3")?
+	let _ = expect_prelude(selected_third.index == 2, "channel-first-stream-routing-four-route value 5")?
+	let _ = expect_prelude(selected_fourth.index == 3, "channel-first-stream-routing-four-route value 7")?
+	let _ = expect_prelude(channel_first_stream_routing_four_route_action_stream_score(actions) == 160, "channel-first-stream-routing-four-route value 9")?
+	let _ = expect_prelude(channel_first_stream_routing_four_route_bool_text(handled_first.next_state.ended) == "true", "channel-first-stream-routing-four-route value 11")?
+	let _ = expect_prelude(handled_second.next_state.chunks == 1, "channel-first-stream-routing-four-route value 13")?
+	let _ = expect_prelude(channel_first_stream_routing_four_route_bool_text(handled_third.next_state.ended) == "true", "channel-first-stream-routing-four-route value 15")?
+	let _ = expect_prelude(handled_fourth.next_state.chunks == 1, "channel-first-stream-routing-four-route value 17")?
+	let _ = expect_prelude(channel_first_stream_routing_four_route_write_count(actions) == 2, "channel-first-stream-routing-four-route value 19")?
+	Ok(())
+end
+
+# General channel-first stream routing accepts a receiver list and returns the selected route.
+fn channel_first_stream_routing_general_list_route_ready_stream_input(receivers: List<Receiver<StreamInput>>) -> { index : Int, value : StreamInput } effects [concurrency]
+	match channel::select_many_priority(receivers)
+		Some(selected) => selected
+		None => { index: -1, value: End }
+	end
+end
+
+fn channel_first_stream_routing_general_list_input_score(input: StreamInput) -> Int
+	match input
+		Chunk(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		End => 0
+	end
+end
+
+fn channel_first_stream_routing_general_list_selected_score(selected: { index : Int, value : StreamInput }) -> Int
+	selected.index * 100 + channel_first_stream_routing_general_list_input_score(selected.value)
+end
+
+test channel_first_stream_routing_general_list() -> Result<(), String> effects [concurrency]
+	let first_value = byte_chunk_from_hex("11")?
+	let first_next_value = byte_chunk_from_hex("2233")?
+	let second_value = byte_chunk_from_hex("445566")?
+	let third_value = byte_chunk_from_hex("778899aa")?
+	let fourth_value = byte_chunk_from_hex("bbccddee00")?
+	let fifth_value = byte_chunk_from_hex("102030405060")?
+	let sixth_value = byte_chunk_from_hex("708090a0b0c0d0")?
+	let first = channel::bounded<StreamInput>(2)
+	let second = channel::bounded<StreamInput>(1)
+	let third = channel::bounded<StreamInput>(1)
+	let fourth = channel::bounded<StreamInput>(1)
+	let fifth = channel::bounded<StreamInput>(1)
+	let sixth = channel::bounded<StreamInput>(1)
+	let _ = channel::send(first.tx, Chunk(first_value))
+	let _ = channel::send(first.tx, Chunk(first_next_value))
+	let _ = channel::send(second.tx, Chunk(second_value))
+	let _ = channel::send(third.tx, Chunk(third_value))
+	let _ = channel::send(fourth.tx, Chunk(fourth_value))
+	let _ = channel::send(fifth.tx, Chunk(fifth_value))
+	let _ = channel::send(sixth.tx, Chunk(sixth_value))
+	channel::close(first.tx)
+	channel::close(second.tx)
+	channel::close(third.tx)
+	channel::close(fourth.tx)
+	channel::close(fifth.tx)
+	channel::close(sixth.tx)
+	let receivers = list_cons(first.rx, list_cons(second.rx, list_cons(third.rx, list_cons(fourth.rx, list_cons(fifth.rx, list_cons(sixth.rx, list_nil()))))))
+	let selected_first = channel_first_stream_routing_general_list_route_ready_stream_input(receivers)
+	let selected_second = channel_first_stream_routing_general_list_route_ready_stream_input(receivers)
+	let selected_third = channel_first_stream_routing_general_list_route_ready_stream_input(receivers)
+	let selected_fourth = channel_first_stream_routing_general_list_route_ready_stream_input(receivers)
+	let selected_fifth = channel_first_stream_routing_general_list_route_ready_stream_input(receivers)
+	let selected_sixth = channel_first_stream_routing_general_list_route_ready_stream_input(receivers)
+	let selected_seventh = channel_first_stream_routing_general_list_route_ready_stream_input(receivers)
+	let _ = expect_prelude(selected_first.index == 0, "channel-first-stream-routing-general-list value 1")?
+	let _ = expect_prelude(channel_first_stream_routing_general_list_input_score(selected_first.value) == 1, "channel-first-stream-routing-general-list value 3")?
+	let _ = expect_prelude(selected_second.index == 0, "channel-first-stream-routing-general-list value 5")?
+	let _ = expect_prelude(channel_first_stream_routing_general_list_input_score(selected_second.value) == 2, "channel-first-stream-routing-general-list value 7")?
+	let _ = expect_prelude(selected_third.index == 1, "channel-first-stream-routing-general-list value 9")?
+	let _ = expect_prelude(channel_first_stream_routing_general_list_input_score(selected_third.value) == 3, "channel-first-stream-routing-general-list value 11")?
+	let _ = expect_prelude(selected_fourth.index == 2, "channel-first-stream-routing-general-list value 13")?
+	let _ = expect_prelude(channel_first_stream_routing_general_list_input_score(selected_fourth.value) == 4, "channel-first-stream-routing-general-list value 15")?
+	let _ = expect_prelude(selected_fifth.index == 3, "channel-first-stream-routing-general-list value 17")?
+	let _ = expect_prelude(channel_first_stream_routing_general_list_input_score(selected_fifth.value) == 5, "channel-first-stream-routing-general-list value 19")?
+	let _ = expect_prelude(selected_sixth.index == 4, "channel-first-stream-routing-general-list value 21")?
+	let _ = expect_prelude(channel_first_stream_routing_general_list_input_score(selected_sixth.value) == 6, "channel-first-stream-routing-general-list value 23")?
+	let _ = expect_prelude(selected_seventh.index == 5, "channel-first-stream-routing-general-list value 25")?
+	let _ = expect_prelude(channel_first_stream_routing_general_list_input_score(selected_seventh.value) == 7, "channel-first-stream-routing-general-list value 27")?
+	let first_score = channel_first_stream_routing_general_list_selected_score(selected_first) + channel_first_stream_routing_general_list_selected_score(selected_second) + channel_first_stream_routing_general_list_selected_score(selected_third)
+	let second_score = channel_first_stream_routing_general_list_selected_score(selected_fourth) + channel_first_stream_routing_general_list_selected_score(selected_fifth)
+	let third_score = channel_first_stream_routing_general_list_selected_score(selected_sixth) + channel_first_stream_routing_general_list_selected_score(selected_seventh)
+	let total_score = first_score + second_score + third_score
+	let _ = expect_prelude(total_score == 1528, "channel-first-stream-routing-general-list value 29")?
+	Ok(())
+end
+
+# Cancellable stream routing maps receiver-list selection outcomes to actions.
+type CancellableRouteAction
+	CancellableRouteSendBytes { stream_id: Int, bytes: ByteChunk }
+	CancellableRouteEndStream { stream_id: Int }
+	CancellableRouteRetryAfterDeadline { stream_id: Int }
+	CancellableRouteCleanupAfterCancel { stream_id: Int }
+	CancellableRouteDecline { stream_id: Int }
+end
+
+type CancellableRouteOutcome
+	CancellableRouteRouted { index: Int, value: StreamInput }
+	CancellableRouteTimedOut
+	CancellableRouteCancelled
+end
+
+fn stream_adapter_cancellable_channel_first_routing_handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<CancellableRouteAction>, next_state : { chunks : Int, ended : Bool } }
+	match input
+		Chunk(bytes) => { actions: list_cons(CancellableRouteSendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		End => { actions: list_cons(CancellableRouteEndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+	end
+end
+
+fn stream_adapter_cancellable_channel_first_routing_stream_id_for_index(index: Int) -> Int
+	match index
+		0 => 11
+		1 => 13
+		_ => 17
+	end
+end
+
+fn stream_adapter_cancellable_channel_first_routing_with_outcome(outcome: String, handled: { actions : List<CancellableRouteAction>, next_state : { chunks : Int, ended : Bool } }) -> { outcome : String, actions : List<CancellableRouteAction>, next_state : { chunks : Int, ended : Bool } }
+	{ outcome: outcome, actions: handled.actions, next_state: handled.next_state }
+end
+
+fn stream_adapter_cancellable_channel_first_routing_route_outcome(selected: Result<Option<{ index : Int, value : StreamInput }>, SelectError>) -> CancellableRouteOutcome
+	match selected
+		Ok(Some(route)) => CancellableRouteRouted(route.index, route.value)
+		Ok(None) => CancellableRouteTimedOut
+		Err(_) => CancellableRouteCancelled
+	end
+end
+
+fn stream_adapter_cancellable_channel_first_routing_handle_route_outcome(outcome: CancellableRouteOutcome, state: { chunks : Int, ended : Bool }) -> { outcome : String, actions : List<CancellableRouteAction>, next_state : { chunks : Int, ended : Bool } }
+	match outcome
+		CancellableRouteRouted(index, value) => stream_adapter_cancellable_channel_first_routing_with_outcome("routed", stream_adapter_cancellable_channel_first_routing_handle_stream_input(stream_adapter_cancellable_channel_first_routing_stream_id_for_index(index), value, state))
+		CancellableRouteTimedOut => { outcome: "timed-out", actions: list_cons(CancellableRouteDecline(0), list_nil()), next_state: state }
+		CancellableRouteCancelled => { outcome: "cancelled", actions: list_cons(CancellableRouteCleanupAfterCancel(17), list_nil()), next_state: state }
+	end
+end
+
+fn stream_adapter_cancellable_channel_first_routing_route_with_cancellable_channel_first(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, timeout_ms: Int, token: CancelToken) -> { outcome : String, actions : List<CancellableRouteAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+	stream_adapter_cancellable_channel_first_routing_handle_route_outcome(stream_adapter_cancellable_channel_first_routing_route_outcome(channel::select_many_timeout_cancellable(receivers, timeout_ms, token)), state)
+end
+
+fn stream_adapter_cancellable_channel_first_routing_action_score(actions: List<CancellableRouteAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			CancellableRouteSendBytes(stream_id, bytes) => stream_id * 100 + byte_count_to_int(byte_chunk_count(bytes)) + stream_adapter_cancellable_channel_first_routing_action_score(tail)
+			CancellableRouteEndStream(stream_id) => stream_id * 10 + stream_adapter_cancellable_channel_first_routing_action_score(tail)
+			CancellableRouteRetryAfterDeadline(stream_id) => 1000 + stream_id + stream_adapter_cancellable_channel_first_routing_action_score(tail)
+			CancellableRouteCleanupAfterCancel(stream_id) => 2000 + stream_id + stream_adapter_cancellable_channel_first_routing_action_score(tail)
+			CancellableRouteDecline(stream_id) => stream_id + stream_adapter_cancellable_channel_first_routing_action_score(tail)
+		end
+	end
+end
+
+fn stream_adapter_cancellable_channel_first_routing_bool_text(value: Bool) -> String
+	if value
+		"true"
+	else
+		"false"
+	end
+end
+
+test stream_adapter_cancellable_channel_first_routing() -> Result<(), String> effects [concurrency, time]
+	let payload = byte_chunk_from_hex("0a0b")?
+	let ready_first = channel::bounded<StreamInput>(1)
+	let ready_second = channel::bounded<StreamInput>(1)
+	let ready_third = channel::bounded<StreamInput>(1)
+	let ready_fourth = channel::bounded<StreamInput>(1)
+	let ready_fifth = channel::bounded<StreamInput>(1)
+	let _ = channel::send(ready_fourth.tx, Chunk(payload))
+	let ready_receivers = list_cons(ready_first.rx, list_cons(ready_second.rx, list_cons(ready_third.rx, list_cons(ready_fourth.rx, list_cons(ready_fifth.rx, list_nil())))))
+	let ready_token = time::cancel_token()
+	let ready = stream_adapter_cancellable_channel_first_routing_route_with_cancellable_channel_first(ready_receivers, { chunks: 0, ended: false }, 25, ready_token)
+	let _ = expect_prelude(ready.outcome == "routed", "stream-adapter-cancellable-channel-first-routing value 1")?
+	let _ = expect_prelude(stream_adapter_cancellable_channel_first_routing_action_score(ready.actions) == 1702, "stream-adapter-cancellable-channel-first-routing value 3")?
+	let _ = expect_prelude(ready.next_state.chunks == 1, "stream-adapter-cancellable-channel-first-routing value 5")?
+	let timeout_first = channel::bounded<StreamInput>(1)
+	let timeout_second = channel::bounded<StreamInput>(1)
+	let timeout_third = channel::bounded<StreamInput>(1)
+	let timeout_fourth = channel::bounded<StreamInput>(1)
+	let timeout_fifth = channel::bounded<StreamInput>(1)
+	let timeout_receivers = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_cons(timeout_third.rx, list_cons(timeout_fourth.rx, list_cons(timeout_fifth.rx, list_nil())))))
+	let timeout_token = time::cancel_token()
+	let timed_out = stream_adapter_cancellable_channel_first_routing_route_with_cancellable_channel_first(timeout_receivers, ready.next_state, 0, timeout_token)
+	let _ = expect_prelude(timed_out.outcome == "timed-out", "stream-adapter-cancellable-channel-first-routing value 6")?
+	let _ = expect_prelude(stream_adapter_cancellable_channel_first_routing_action_score(timed_out.actions) == 0, "stream-adapter-cancellable-channel-first-routing value 8")?
+	let _ = expect_prelude(timed_out.next_state.chunks == 1, "stream-adapter-cancellable-channel-first-routing value 10")?
+	let cancel_first = channel::bounded<StreamInput>(1)
+	let cancel_second = channel::bounded<StreamInput>(1)
+	let cancel_third = channel::bounded<StreamInput>(1)
+	let cancel_fourth = channel::bounded<StreamInput>(1)
+	let cancel_fifth = channel::bounded<StreamInput>(1)
+	let cancel_receivers = list_cons(cancel_first.rx, list_cons(cancel_second.rx, list_cons(cancel_third.rx, list_cons(cancel_fourth.rx, list_cons(cancel_fifth.rx, list_nil())))))
+	let cancel_token = time::cancel_token()
+	time::cancel(cancel_token)
+	let cancelled = stream_adapter_cancellable_channel_first_routing_route_with_cancellable_channel_first(cancel_receivers, timed_out.next_state, 25, cancel_token)
+	let _ = expect_prelude(cancelled.outcome == "cancelled", "stream-adapter-cancellable-channel-first-routing value 11")?
+	let _ = expect_prelude(stream_adapter_cancellable_channel_first_routing_action_score(cancelled.actions) == 2017, "stream-adapter-cancellable-channel-first-routing value 13")?
+	let _ = expect_prelude(stream_adapter_cancellable_channel_first_routing_bool_text(cancelled.next_state.ended) == "false", "stream-adapter-cancellable-channel-first-routing value 15")?
+	Ok(())
+end
+
+test channel_receive_and_selection_preserve_fairness_priority_and_timeouts() -> Result<(), String> effects [concurrency]
+	let pair = channel::bounded<String>(2)
+	let _ = channel::send(pair.tx, "first")
+	let received = match channel::recv(pair.rx)
+		Some("first") => true
+		_ => false
+	end
+	let left = channel::bounded<String>(1)
+	let right = channel::bounded<String>(1)
+	let _ = channel::send(left.tx, "left")
+	let _ = channel::send(right.tx, "right")
+	let selected = match channel::select(left.rx, right.rx)
+		Some({ index: 0, value: "left" }) => true
+		_ => false
+	end
+	let balanced_left = channel::bounded<String>(2)
+	let balanced_right = channel::bounded<String>(2)
+	let _ = channel::send(balanced_left.tx, "left-a")
+	let _ = channel::send(balanced_left.tx, "left-b")
+	let _ = channel::send(balanced_right.tx, "right-a")
+	let _ = channel::send(balanced_right.tx, "right-b")
+	let first = match channel::select(balanced_left.rx, balanced_right.rx)
+		Some({ index: 1, value: "right-a" }) => true
+		_ => false
+	end
+	let second = match channel::select(balanced_left.rx, balanced_right.rx)
+		Some({ index: 0, value: "left-a" }) => true
+		_ => false
+	end
+	let priority = match channel::select_priority(left.rx, right.rx)
+		Some({ index: 1, value: "right" }) => true
+		_ => false
+	end
+	let timeout = channel::bounded<String>(1)
+	let timed_out = match channel::select_timeout(timeout.rx, timeout.rx, 0)
+		None => true
+		_ => false
+	end
+	let result_timeout = match channel::select_timeout_result(timeout.rx, timeout.rx, 0)
+		Ok(None) => true
+		_ => false
+	end
+	expect_prelude(received and selected and first and second and priority and timed_out and result_timeout, "channel fairness, priority, or timeout changed")
 end

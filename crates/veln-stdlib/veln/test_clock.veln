@@ -1,0 +1,36 @@
+use host_effects
+
+pub handler clock(now: Int, wait_outcome: Int, expected_wait: Int, seconds: Int, nanosecond: Int) for host_effects::Clock
+	request(operation, milliseconds) => clock_request(operation, milliseconds, now, wait_outcome, expected_wait)
+	wall_time() => Ok({ unix_seconds: seconds, nanosecond: nanosecond })
+end
+
+fn clock_request(operation: String, milliseconds: Int, now: Int, wait_outcome: Int, expected_wait: Int) -> Result<Int, String>
+	if operation == "now"
+		Ok(now)
+	else if operation == "cancelled"
+		Ok(if wait_outcome == 2
+			1
+		else
+			0
+		end)
+	else if operation == "wait_cancellable"
+		Ok(wait_outcome)
+	else if operation == "wait" and milliseconds == expected_wait
+		Ok(0)
+	else
+		Err("unexpected clock operation or duration")
+	end
+end
+
+pub handler backwards(state: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Clock effects [concurrency]
+	request(operation, milliseconds) => Err("unexpected clock request")
+	wall_time() => next_wall_time(state)
+end
+
+fn next_wall_time(state: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<{ unix_seconds : Int, nanosecond : Int }, String> effects [concurrency]
+	match channel::recv(state.rx)
+		Some(seconds) => Ok({ unix_seconds: seconds, nanosecond: 0 })
+		None => Err("unexpected extra wall clock read")
+	end
+end

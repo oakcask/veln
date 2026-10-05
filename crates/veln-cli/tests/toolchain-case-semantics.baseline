@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"39e4c8716b6c2599de8b42b0af2a271981154b86"
+source_git_tree	"9a5969c6e39b598e22663db7c0bd38cf63330c7f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1773
+case_count	1706
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -26780,52 +26780,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"e29097e7055a50770a321f3ff6d963d7275f5eeb733e3999cf9e038ac96ea5e2"
-case	"examples/specification/run/binary-buffer-boundary"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":294,"sha256":"5bafe302fedf038d49b414bfbd5af6191ead9373bdd8ce472ff3066139f96fce"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":2,"sha256":"ee9040f65c341855e070ff438eb0ea9d5b831b2a2c270fb7ef592d750408e3b3"}
-field	expectations.output_chunk_lists[0].chunks[1]	{"byte_length":2,"sha256":"2fa1b377bf67309f65e5e7bc9d924345ca648dec4e601a398a9cb497dcba3765"}
-field	expectations.output_chunk_lists[0].name	"buffer-output"
-field	expectations.output_chunk_lists[1].name	"empty-output"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"bef295ef23200d00bb3235d6ce455dda21816600769f824602197d183efa275c"
-case	"examples/specification/run/binary-byteview"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":444,"sha256":"5fb677b9b7f18524ba8c0ac80ff604a39d9b98d054e43554339a66d387f03a74"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"782a3491c2797d2e1cf1943156df081a16ff672f6b4c24078aaff9899c6526e6"
 case	"examples/specification/run/binary-byteview-freeze-boundary"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -26995,35 +26949,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"22825dd52ab4378a4823859f37e8021b55d0fd4c4be1ea35df7e24fe5654c092"
-case	"examples/specification/run/binary-byteview-u40-u48-helpers"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":642,"sha256":"d9c95e151d1d04b7be8813449d046e360b232efa3c68c1a542ac919033ba1107"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":5,"sha256":"74f81fe167d99b4cb41d6d0ccda82278caee9f3e2f25d5e5a3936ff3dcec60d0"}
-field	expectations.output_chunk_lists[0].name	"u40-big"
-field	expectations.output_chunk_lists[1].chunks[0]	{"byte_length":5,"sha256":"6ca634de76e9d886a6e5f19e5daa54ccd9c0af3338ec96bbcf1cefc0691663df"}
-field	expectations.output_chunk_lists[1].name	"u40-little"
-field	expectations.output_chunk_lists[2].chunks[0]	{"byte_length":6,"sha256":"7192385c3c0605de55bb9476ce1d90748190ecb32a8eed7f5207b30cf6a1fe89"}
-field	expectations.output_chunk_lists[2].name	"u48-big"
-field	expectations.output_chunk_lists[3].chunks[0]	{"byte_length":6,"sha256":"3c249f3a9fb2680b3a57e3d4cd78fe3c3e0aa70a9def0da6d45d554937d5aae9"}
-field	expectations.output_chunk_lists[3].name	"u48-little"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"2fb5acb112bbdfe253072ce49ed8506ba491d3ee345d6740862f9aa7a1fbc85e"
 case	"examples/specification/run/binary-byteview-u48-write-failure-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"failed"
@@ -27081,60 +27006,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"2ee9e0b1b47ccae0ee4f05ca7fa60c879d8c80e22968c3c7019f5621979fb078"
-case	"examples/specification/run/binary-byteview-u56-helpers"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":675,"sha256":"a1d5b70c0235647ce8b3dbb10b5aece98c561a4834c769a3340bb4f49a96f985"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":7,"sha256":"32bbe378a25091502b2baf9f7258c19444e7a43ee4593b08030acd790bd66e6a"}
-field	expectations.output_chunk_lists[0].name	"u56-big"
-field	expectations.output_chunk_lists[1].chunks[0]	{"byte_length":7,"sha256":"4bd00f01eadfdf639fdcd3c924c8935961df7f9ee44fcd4839da21bca5e65ffc"}
-field	expectations.output_chunk_lists[1].name	"u56-little"
-field	expectations.output_chunk_lists[2].chunks[0]	{"byte_length":7,"sha256":"adaac4b55ddb3a6ab09d09b3b1e43850b9e5ae838a9460152bf064e3ee61ae6a"}
-field	expectations.output_chunk_lists[2].name	"u56-max-big"
-field	expectations.output_chunk_lists[3].chunks[0]	{"byte_length":7,"sha256":"adaac4b55ddb3a6ab09d09b3b1e43850b9e5ae838a9460152bf064e3ee61ae6a"}
-field	expectations.output_chunk_lists[3].name	"u56-max-little"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"8a7bc556d38ae5651bd4136f40a2102df6f80fdec3182746e29d05a2e6dcfbee"
-case	"examples/specification/run/binary-byteview-u64-helpers"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"u64-read 72623859790382856 72623859790382856\noutput_chunk_list u64-big count 1\noutput_chunk u64-big index 0 hex \"0102030405060708\" count 8\noutput_chunk_list u64-little count 1\noutput_chunk u64-little index 0 hex \"0807060504030201\" count 8\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":8,"sha256":"66840dda154e8a113c31dd0ad32f7f3a366a80e8136979d8f5a101d3d29d6f72"}
-field	expectations.output_chunk_lists[0].name	"u64-big"
-field	expectations.output_chunk_lists[1].chunks[0]	{"byte_length":8,"sha256":"380b980886b7a3e726b5c2776160d7842b8f139eaea1e6acf7442cdf890e6287"}
-field	expectations.output_chunk_lists[1].name	"u64-little"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"fb4b2d775818283b1a41ab91b1da6e75b5be551c2414278be7658f7dc1ba54de"
 case	"examples/specification/run/binary-byteview-u64-truncated-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"failed"
@@ -27628,47 +27499,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"88bad5e2dce8743f2c27d2528ff2406dad4a3b9e40824a97dce365282f4ae4bb"
-case	"examples/specification/run/binary-output-chunk-production"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":1226,"sha256":"e7563f7943d3b9b3e8f2a6f286512172d9e7ec420f0dbb2489357956c1d0735f"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":2,"sha256":"a12871fee210fb8619291eaea194581cbd2531e4b23759d225f6806923f63222"}
-field	expectations.output_chunk_lists[0].chunks[1]	{"byte_length":3,"sha256":"2848698aa4b3431e3db06c343ca2cb0455f8aaf16c85cdd828c92ddf7dc134f8"}
-field	expectations.output_chunk_lists[0].chunks[2]	{"byte_length":1,"sha256":"67586e98fad27da0b9968bc039a1ef34c939b9b8e523a8bef89d478608c5ecf6"}
-field	expectations.output_chunk_lists[0].name	"full-produced"
-field	expectations.output_chunk_lists[1].name	"full-remaining"
-field	expectations.output_chunk_lists[2].chunks[0]	{"byte_length":2,"sha256":"a12871fee210fb8619291eaea194581cbd2531e4b23759d225f6806923f63222"}
-field	expectations.output_chunk_lists[2].chunks[1]	{"byte_length":3,"sha256":"2848698aa4b3431e3db06c343ca2cb0455f8aaf16c85cdd828c92ddf7dc134f8"}
-field	expectations.output_chunk_lists[2].name	"partial-produced"
-field	expectations.output_chunk_lists[3].chunks[0]	{"byte_length":1,"sha256":"67586e98fad27da0b9968bc039a1ef34c939b9b8e523a8bef89d478608c5ecf6"}
-field	expectations.output_chunk_lists[3].name	"partial-remaining"
-field	expectations.output_chunk_lists[4].name	"first-too-large-produced"
-field	expectations.output_chunk_lists[5].chunks[0]	{"byte_length":2,"sha256":"a12871fee210fb8619291eaea194581cbd2531e4b23759d225f6806923f63222"}
-field	expectations.output_chunk_lists[5].chunks[1]	{"byte_length":3,"sha256":"2848698aa4b3431e3db06c343ca2cb0455f8aaf16c85cdd828c92ddf7dc134f8"}
-field	expectations.output_chunk_lists[5].chunks[2]	{"byte_length":1,"sha256":"67586e98fad27da0b9968bc039a1ef34c939b9b8e523a8bef89d478608c5ecf6"}
-field	expectations.output_chunk_lists[5].name	"first-too-large-remaining"
-field	expectations.output_chunk_lists[6].name	"zero-produced"
-field	expectations.output_chunk_lists[7].chunks[0]	{"byte_length":2,"sha256":"a12871fee210fb8619291eaea194581cbd2531e4b23759d225f6806923f63222"}
-field	expectations.output_chunk_lists[7].chunks[1]	{"byte_length":3,"sha256":"2848698aa4b3431e3db06c343ca2cb0455f8aaf16c85cdd828c92ddf7dc134f8"}
-field	expectations.output_chunk_lists[7].chunks[2]	{"byte_length":1,"sha256":"67586e98fad27da0b9968bc039a1ef34c939b9b8e523a8bef89d478608c5ecf6"}
-field	expectations.output_chunk_lists[7].name	"zero-remaining"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"e462e8ab1b511d0ac60ca89d5724ce62bb50040994e6c985915993680105ad75"
 case	"examples/specification/run/binary-schema-anonymous-record-decode"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -30904,27 +30734,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"e1397ea2654d83ff2ba240b7fdacdd8bd421520c7e66aa4d21adb2ccfc8d178c"
-case	"examples/specification/run/binary-schema-frame-payload-decode"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"2 1 4 1 2 43707\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"fbb1afac1b93b75c6e7b1718d3e251a0b8ba818eed83a2f0769575c32d3baf3e"
 case	"examples/specification/run/binary-schema-frame-payload-length-human"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[schema.length_out_of_bounds]: payload length out of bounds at byte offset 11"
@@ -37870,48 +37679,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"b06468fe3d2532360396677e8db41e88df00d19f444237d151e8452787691ac1"
-case	"examples/specification/run/byte-fixture-hex"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"3\n4\n2\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"ba6ac38bdec8187ea0040fc6c1f27bdd945fe84cffe3a2a60121e8640838cdf6"
-case	"examples/specification/run/byte-fixture-hex-invalid"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"fixture.hex.invalid_character: expected ASCII hex digit at byte offset 0 low nibble\nfixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble\nfixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"d497a45aa488e2aefa37d8520b8699539e37abd15b2fa59c03e48abee9de5586"
 case	"examples/specification/run/byte-fixture-hex-invalid-human"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble)"
@@ -37978,27 +37745,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"f055607bbc1e69d9184b953866f3d5bed3e38205ff0429600a2492440a794fb5"
-case	"examples/specification/run/byte-fixture-hex-odd"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"fixture.hex.odd_length: dangling hex nibble at byte offset 1 high nibble\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"57b8a8ec65d9cbd1903c09724861ea6146217a9c6138f08919f747fb0f14424a"
 case	"examples/specification/run/byte-fixture-hex-odd-human"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"Err(fixture.hex.odd_length: dangling hex nibble at byte offset 1 high nibble)"
@@ -38065,57 +37811,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"47d8a00619a3bd2cf56e790f67379aaf71f969c081e3ff036812a6942be34083"
-case	"examples/specification/run/byte-vocabulary"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"3\n2\n2\n2\n4\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"aab5d24096287afd13dfa25a66531d87aa3c3654e3c1488afd2fb0f54c2f1080"
-case	"examples/specification/run/byte-vocabulary-bounds"
-field	expectations.exit	1
-field	expectations.json_assertions[0].equals	"failed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals	"result"
-field	expectations.json_assertions[1].operation	"equals"
-field	expectations.json_assertions[1].path	"error.kind"
-field	expectations.json_assertions[2].equals	"runtime"
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error.details.phase"
-field	expectations.json_assertions[3].equals	"result"
-field	expectations.json_assertions[3].operation	"equals"
-field	expectations.json_assertions[3].path	"error.details.kind"
-field	expectations.json_assertions[4].equals	"byte count exceeds chunk length"
-field	expectations.json_assertions[4].operation	"equals"
-field	expectations.json_assertions[4].path	"error.details.value"
-field	expectations.json_assertions[5].equals_file	"Err(byte count exceeds chunk length)\n"
-field	expectations.json_assertions[5].operation	"equals_file"
-field	expectations.json_assertions[5].path	"stderr"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"f00a9ea9d8a375fc87b84a00008426a0e3db2fee600557aa9ef74c98b69be7e6"
 case	"examples/specification/run/callsite-contract-call-runtime"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -38277,197 +37972,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"4caccd31e02d70b8ea46aa629419ca480bd051440a86eb342752553c66995360"
-case	"examples/specification/run/channel-first-stream-routing"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"selected 0:1 action-score 40 left-chunks 1 left-ended false right-chunks 0 right-ended true writes 1\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"c90576f5cea32246520d856c6e8598961e93486d847afd589fe3dc56cd77842d"
-case	"examples/specification/run/channel-first-stream-routing-four-route"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"selected 0:1:2:3 action-score 160 first-ended true second-chunks 1 third-ended true fourth-chunks 1 writes 2\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"cc430733c031eb3836f34f72ee9dcebfa74128c864fe4806cbd67e72157a8866"
-case	"examples/specification/run/channel-first-stream-routing-general-list"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"general-list 0/1 0/2 1/3 2/4 3/5 4/6 5/7 score 1528\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"f42868bbda8bc592048a6377746e96e44510b8b13f3ab185ba70f6dc0cd5391c"
-case	"examples/specification/run/channel-first-stream-routing-three-route"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"selected 0:1:2 action-score 90 first-ended true middle-chunks 1 third-chunks 1 writes 2\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"ae76b0edd019739f946ddddb5938ebefb2da8b8b40e707316d0e8108858ce5fd"
-case	"examples/specification/run/channel-select-many-timeout"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"ready 121 timeout 0 result 121 result-timeout 0 route-actions 170 chunks 1 ended false\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"fe9a5e9085a7bd78867b3e8b0bfe2a5f84de81f7f9e799ca1e3bc8a7f6c6fe07"
-case	"examples/specification/run/channel-select-many-timeout-cancellable"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"ready 121 timeout 0 cancelled -1\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"ba0132dbe644ed605eb92df5468d2fcb2286a8c437d9e85161d298730303d8e2"
-case	"examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"cancelled\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.command[4]	"fixture_effects.veln"
-field	invocation.command[5]	"fake_effects.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"a20bd1147c4d5403aa412bcfeb7a9d765de7b8ce3b071f7510f065a98dd8075c"
-case	"examples/specification/run/channel-select-timeout-cancellable"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"left 13 right 121 timeout 0 cancelled -1\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"5661dd99ea126b293c86987cbc21ea742f32148901c8f3a8c587208b014d9473"
-case	"examples/specification/run/channel-select-timeout-result"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"left 13 right 121 tie 31 timeout 0 closed 0\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"d57e762d9a565fabac8adef26e6fd1fae160f39aaf92753d10371635bf4f0eab"
 case	"examples/specification/run/codec-byteview-offset-needmore"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -39763,27 +39267,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"6bba0e4bad7c62d0a0ec2203cf78280e2a2bac215492086d6bfeac26174c6798"
-case	"examples/specification/run/codec-decode-step-vocabulary"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"decoded\n3\n3\nneed_more\nneed_bytes\n8\ninvalid\ncodec.invalid_input\n5\nDemoPacket.kind\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"c1f7e11bfe2ef236d0482a7e14a44aeeee8f5e7272d1718e705b6c45b5221d19"
 case	"examples/specification/run/codec-dispatch-encode-result-compat-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"failed"
@@ -39927,27 +39410,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"a962d8d00daf91fd422dfc70c49c299ac9686c37753fb04ab8d6612b3545a1e3"
-case	"examples/specification/run/codec-encode-step-vocabulary"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"encoded\n2\n3\npartial\n1\n2\nwaiting-for-sink\ninvalid\ncodec.out_of_range\nDemoPacket.length\nvalue exceeds UInt24be\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"bda4036fde1ccefad0c264bc8a83ba848844018fdd202c9f825ab4cb23ba6c33"
 case	"examples/specification/run/codec-imported-decode-need-end-boundary-human"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[codec.incomplete_input]: incomplete input at byte offset 0"
@@ -41968,66 +41430,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"0ec330bb40fd48196b6ea3fe39486690af538cf06edf34659866e1bd5e367aed"
-case	"examples/specification/run/concurrency-boundary"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"task\ntask\nchannel\ninferred\nclosed\nsend-error\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"94953e701439fd6c63459a7f090491567bda66de9c613e7b0533ce8583c69cd6"
-case	"examples/specification/run/concurrency-result-selection"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"result\npriority\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"da5aeeb5c5ed155a3a080970aed04d37ca71ed26d497c6353962b7a795b5cc30"
-case	"examples/specification/run/concurrency-selection"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"first\nleft\nright-a\nleft-a\nright\ntimeout\ntimeout\ncancelled\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"43dc9e05778c41c26b133bc72c8fda14f343dcd9be707fd5f9c9ac96c2934a37"
 case	"examples/specification/run/contract-ensure-early-return"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"failed"
@@ -43731,27 +43133,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"9e918880f46242fc2856757764db0005dc9cd37fe12e7497fb79f1c0cef611a1"
-case	"examples/specification/run/hpack-dynamic-table-state"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"initial 72 0 0\ninserted 72 70 2\nnewest bb 0 255\noldest a 49\nshrunk 36 36 1\noriginal 72 70 2\ngrown 96 36 1\nnegative HPACK dynamic table capacity must not be negative\npreserved 72 70 2\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"4c3727312c16561e6a5605439781c8c1df4718f9b2b3b5de9b1180a522410d4c"
 case	"examples/specification/run/hpack-fixture-codec-boundary"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -44253,132 +43634,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"6ee6fc6d67139de4012919360ee96e73772a8d850d5245766994949ce5ab86e7"
-case	"examples/specification/run/hpack-header-block-decoding"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"decoded 4 11\nx=0,255\ntable 1\nmisplaced_table_size_update\nliteral_failure\ntable_size_update_failure\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"03daf87984eea9908d40f85e4efeadf4eaedd52ecc15b2dbcdd7ce525fcd2b47"
-case	"examples/specification/run/hpack-header-block-encoding"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"bytes 130 64 1 120 2 0 255 190\ndecoded 3\nheader :method 71 69 84\nheader x 0 255\nheader x 0 255\ntable 256 35 1\nnewest x 0 255\ninvalid_name\nactive_capacity\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"9879084f4ec5090902c9f9840890236254347474501f7a19da9de7bab18d375a"
-case	"examples/specification/run/hpack-huffman-codec"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"encoded 241 227 194 229 242 58 107 160 171 144 244 255\ndecoded 0 255\neos HPACK Huffman payload contains EOS symbol\npadding invalid HPACK Huffman padding\ntruncated invalid HPACK Huffman code sequence\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"bc721536fd56ed34cfcbbcf3daadd51e0796a53f5a0f00da7c68a4258c470d26"
-case	"examples/specification/run/hpack-indexed-header-field"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"static :method 71 1 0\ndynamic newest 0 1 2\nzero zero_index 0 0 0\nincomplete incomplete_integer 0 0 0\nunavailable unavailable_dynamic_entry 64 3 2\noriginal 78 2\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"e122f87da653192555a4d906e7367b9a71ede78b24b64b7ea6f38bb986889aac"
-case	"examples/specification/run/hpack-literal-header-field"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"incremental incremental_indexing x 0 6 2\ndynamic-name without_indexing older 116 6 1\nnever never_indexed :path 0 7 1\nunavailable unavailable_dynamic_name 63 0 0\ntruncated truncated_raw_value 0 3 1\nhuffman value_huffman_failure 0 0 0\noriginal 38 1\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"0d6e3cd049e740ba5b39ce0c4588ddf0d9cd087edb7159f20046d7e51301f037"
-case	"examples/specification/run/hpack-prefixed-integer-codec"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"canonical 31 154 10\nrepresented 234\nround-trip 1337 3\nindexed-prefix 255 0\ntable-size-prefix 63 129 1\nliteral-length-prefix 127 1\nindexed-decoded 255 3\ntable-size-decoded 289 3\nliteral-length-decoded 128 2\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"c33b40559752317daeeb466f2844c2b9a149f68166a41e82bfa7cab47a5c4468"
 case	"examples/specification/run/hpack-static-codec-boundary"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -44620,27 +43875,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"10d58fbe2484c87abe5d0c54f5cc2534729b4529bd705023c9df74b5fde81dcf"
-case	"examples/specification/run/hpack-table-size-update"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"shrink 36 2 36 36 1\nwrong not_table_size_update 0 0\nincomplete incomplete_integer 0 0\nmalformed malformed_integer 0 0\nlimit capacity_limit 89 64\noriginal 100 70 2\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"3aaf1fd56439f2f2f8308608bb872c166320c5e42d3551c392a46fd797a2ec6f"
 case	"examples/specification/run/http2-adapter-core-write-boundary"
 field	expectations.exit	0
 field	expectations.file_assertions[0].equals	{"logical_field":"expectations.file_assertions[0].equals","byte_length":520,"sha256":"b368daf719ef3caef608b576702c1cf33d4deabad98c7630cbf6a7f8a1967c4e"}
@@ -45187,529 +44421,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"296f29cca5c32e97ce748ff2415802594759507d049ddbf627340ad1d56dd097"
-case	"examples/specification/run/http2-core-application-event-drain"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":337,"sha256":"a107921c577706091188066869a7144b2c86f3e4e9e79280ade473287d9b4947"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"27e3d7c93cfefe9fff44809fe907a7fffe48d356e963f6c28e43c4bed4e389d2"
-case	"examples/specification/run/http2-core-connection-shutdown"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":826,"sha256":"330a0f2719d3dffe388dead8d1e936f62dd9d73a09978ecc3fc7d926b86dc1eb"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"aecb2c8ac0f64ce1a257fb68f7d68f2921eb53180842ba2548d44085978900a9"
-case	"examples/specification/run/http2-core-connection-state"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":1399,"sha256":"36e5a95363e742642ba2a22119d805e0f5ec0b02e84408bf89c5331c4f3b8851"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"b5ec30b945edda6b959faa238b3cd7898791cd6aa4c6fb7802b37db034279848"
-case	"examples/specification/run/http2-core-connection-window-update-flow-control"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":760,"sha256":"786038c409302a0357be05b2695c219dfbc58418de53fcac22e4f4b7cd15282c"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"f46440baf6ad1bf08a2b7db1817f84191dd9b38790be45431388956ff88d8055"
-case	"examples/specification/run/http2-core-data-receive-flow-control"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":895,"sha256":"1e4273e6a5ab9d774aa040f5dcd4e776ec842278d735d68c65ef68493ad9f8c4"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"8013ec2dbf4f96cc399edaae76ab5eeffb5bfe8e9230a731897a6d3f46b2e5d1"
-case	"examples/specification/run/http2-core-flow-control-domains"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":978,"sha256":"815a60160dffdf11b41c2b8b01795565e99db9244e084dd4a156853617cfe4fd"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"feb24207c1c64bdddb8fb5a869284e32b928bf0dbe9f08c8db49f5a8be7a66da"
-case	"examples/specification/run/http2-core-goaway-send"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":730,"sha256":"fd279813f8230304bb532ddebc4dd8ac424d671bfc9b7239741239f355eb4415"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":19,"sha256":"a6052f25dae088ff18ac890cb9fdba70b59cd31333595628476a4bb03c3b0774"}
-field	expectations.output_chunk_lists[0].name	"goaway-send"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"cdb19249d3af5c065a8cb5509217d8d2830223647d61027a92637d420a7c281a"
-case	"examples/specification/run/http2-core-header-list-validation"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":734,"sha256":"baf5b9d0c58c54b6d39cc07ae28810ad286dad3ceb6d00d1f726ce46ffff69d0"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"9017eeeac08d1d721f53fa113620dec44c093727453a1fa511e20e8e452cdd1f"
-case	"examples/specification/run/http2-core-local-settings-send"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":566,"sha256":"c32e5988c773d37f9853758620bfddfbe85de0c576e60b52736ea79c725a68ae"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":27,"sha256":"20f03aa08a2d883a906b3b2835388535f7b7c876d9d4512b71c5422b9aae509b"}
-field	expectations.output_chunk_lists[0].name	"ordered"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"f1156be278d76281f0c8105b2cac8aa76122ab3eab30654e4f15349f6f136846"
-case	"examples/specification/run/http2-core-outbound-data-flow"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":1535,"sha256":"88e327b83d60b77fd6857e4231342e4b7cdad244ef3c177321fad7cef6b41986"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":13,"sha256":"b931fdd4df6dafc32ea60a94d7985e153769980d15793fe6f1bed85b0eb68dfb"}
-field	expectations.output_chunk_lists[0].name	"data"
-field	expectations.output_chunk_lists[1].chunks[0]	{"byte_length":13,"sha256":"2ac925d99f873070a6384bb0617d3a860f6ca1c954b5d9129301ac6c9fc78388"}
-field	expectations.output_chunk_lists[1].name	"stream-window"
-field	expectations.output_chunk_lists[2].chunks[0]	{"byte_length":13,"sha256":"80f8a6c0e605b82d97df53aae8745a8223cf92b799156e3e1f18b8738e62110e"}
-field	expectations.output_chunk_lists[2].name	"connection-window"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"3027b6091c51b2d8a0eb7934cc9d97094482879f2e0c47ad24946a0958c974dc"
-case	"examples/specification/run/http2-core-outbound-headers"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":2565,"sha256":"7f3ee1e9eec3795da32f4de32b81939a6de88a49f241b97311b88cc080721166"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":15,"sha256":"723d4e7867f050d41789e1a8c1328e9167858faa0980aa5d94829e0c34b629a6"}
-field	expectations.output_chunk_lists[0].name	"request-headers"
-field	expectations.output_chunk_lists[1].chunks[0]	{"byte_length":13,"sha256":"1618637e9bc1db16056bcc1493f2abbfb937a947f733569baed3a2d66cbd7884"}
-field	expectations.output_chunk_lists[1].name	"response-headers"
-field	expectations.output_chunk_lists[2].chunks[0]	{"byte_length":20,"sha256":"aaeacfdbc397c1e08b8c65985f8059e1b9c1f487922fb723bb6b660401dc80b7"}
-field	expectations.output_chunk_lists[2].name	"trailers"
-field	expectations.output_chunk_lists[3].chunks[0]	{"byte_length":19,"sha256":"a495666f37405b23633adb080ca48f4ae7bf11751b87d90fdd2e79065860271e"}
-field	expectations.output_chunk_lists[3].name	"push-promise"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"af5284b7155e8fb4cbc9736fdd22ff75d5caede5dcea27d456e32ee665f84ad7"
-case	"examples/specification/run/http2-core-outbound-stream-control"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":930,"sha256":"d9b9e3d13de98c3779242e0204c2486667220f93bf098eeed9dd60a5e2a0bcad"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":13,"sha256":"37bd147116f9abe27a146547447636d7ff26ad518978c37cb60f598ca7584e1e"}
-field	expectations.output_chunk_lists[0].name	"rst-stream"
-field	expectations.output_chunk_lists[1].chunks[0]	{"byte_length":14,"sha256":"c02601dc0d4622f24f8ae6c1926b14741a1c75f3399c3aca612f04e429e58154"}
-field	expectations.output_chunk_lists[1].name	"priority"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"bb46af41863e4038be5285421058c921cc929b4240b709e0969c06672c00748a"
-case	"examples/specification/run/http2-core-output-buffer"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":1074,"sha256":"581b95b5a38ea25223d84d79ee9e709e93c3c00dd7b58ec18c6eddf9c5806832"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"4426f9bcd3682634adc81a0bb2133e81963e642fe0a6daf568d75c4963c4d3a8"
-case	"examples/specification/run/http2-core-peer-settings-state"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":3053,"sha256":"9efcf8939ae91ef950dee9d4a1566dc6cdf8a219e30df783d0ea197fe3d7efa9"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"2bee1aa782ea7ad37b3a7296b6dfc1bca479db361eeec2e4b75cfcc5837ac76e"
-case	"examples/specification/run/http2-core-peer-stream-admission"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":384,"sha256":"4b3c00226cf895c2addf5994e09db81d7330e0948c0f03cf0cd2a6df53c856c4"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"155868f1a4add89d0a8bd06422446e464e9ad1ff62da2cbe8541728052034f14"
-case	"examples/specification/run/http2-core-ping-transitions"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":722,"sha256":"6d12360686bf8592ce7232d1071e83820603da1e98fe481021fb39f3a83022df"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":17,"sha256":"b106bf05cd2ab2a161584c0cb61ae81c4f7cf8e32f28747fe24312abac6537ea"}
-field	expectations.output_chunk_lists[0].name	"ping-request"
-field	expectations.output_chunk_lists[1].chunks[0]	{"byte_length":17,"sha256":"5655ad00f051a37b78d876488f6d168cab8c71b6fb1aa2d2e77d46e55f377da5"}
-field	expectations.output_chunk_lists[1].name	"ping-ack"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"8357b6a30ee910cf1464bf6531d140f7e747b06c952ab57cd7823952a92bdb44"
-case	"examples/specification/run/http2-core-receive-connection-boundary"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":2839,"sha256":"a5ba4969f3cf8ace6abf1e558506e0d6e5eed4c109559d289f549732d54b8344"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":9,"sha256":"a9fd441cc14ae4b467f3ea0a0ed70de71bb5834db34815eca9cceb70017adfd6"}
-field	expectations.output_chunk_lists[0].name	"settings"
-field	expectations.output_chunk_lists[1].chunks[0]	{"byte_length":9,"sha256":"a9fd441cc14ae4b467f3ea0a0ed70de71bb5834db34815eca9cceb70017adfd6"}
-field	expectations.output_chunk_lists[1].chunks[1]	{"byte_length":17,"sha256":"5655ad00f051a37b78d876488f6d168cab8c71b6fb1aa2d2e77d46e55f377da5"}
-field	expectations.output_chunk_lists[1].name	"ping"
-field	expectations.output_chunk_lists[2].chunks[0]	{"byte_length":9,"sha256":"a9fd441cc14ae4b467f3ea0a0ed70de71bb5834db34815eca9cceb70017adfd6"}
-field	expectations.output_chunk_lists[2].chunks[1]	{"byte_length":17,"sha256":"5655ad00f051a37b78d876488f6d168cab8c71b6fb1aa2d2e77d46e55f377da5"}
-field	expectations.output_chunk_lists[2].name	"ordered"
-field	expectations.output_chunk_lists[3].chunks[0]	{"byte_length":9,"sha256":"a9fd441cc14ae4b467f3ea0a0ed70de71bb5834db34815eca9cceb70017adfd6"}
-field	expectations.output_chunk_lists[3].name	"complete-partial"
-field	expectations.output_chunk_lists[4].chunks[0]	{"byte_length":17,"sha256":"812a7c614d63b720a10d1ad851037fdec408fd16fb254cda4380d32bcb726fa8"}
-field	expectations.output_chunk_lists[4].name	"push-promise"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"c8c035ada0a543882e0dbbf63dca6c57d6f56969382c8ff5e992e0adcc449335"
-case	"examples/specification/run/http2-core-receive-frame-dispatch"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":5049,"sha256":"31efd3cf3747b108390d0f655213bbc56024833910103fb0af8dc33ccb3924f0"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"3454feed40f2532ac9f91488599cfffc749c0a4e39e0e09706290e6588001c9a"
-case	"examples/specification/run/http2-core-settings-ack-state"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":1098,"sha256":"34d5a10fb95b04b5d2082a619ac76253d0bffb216ed516e71d2387f211f8d8db"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.output_chunk_lists[0].chunks[0]	{"byte_length":9,"sha256":"a9fd441cc14ae4b467f3ea0a0ed70de71bb5834db34815eca9cceb70017adfd6"}
-field	expectations.output_chunk_lists[0].name	"peer-ack-send"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"f6606855ad729f9fe3757cd22009c3de9eb6305b931617a95eb3ffeec6142eda"
-case	"examples/specification/run/http2-core-stream-collection"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":3357,"sha256":"d2f04ae2726e5366a59e3961ced8704aa3d74c3339ec29a7b44cdeff0c34f6dd"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"5035af050b81188ab18afbebe8036cb8779af3c2962631601465cd25fe3434ba"
-case	"examples/specification/run/http2-core-stream-frame-admission"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":901,"sha256":"cd65a36a4aeb6ed3e4d3aba7b932112f7f1361c7cb39ab7a758741a759cf2391"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"c3bf802294500c6a9deff7df2a4f67416ba0d6b6600de4dfec36d0a1263728dc"
-case	"examples/specification/run/http2-core-stream-lifecycle-transitions"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":475,"sha256":"498b79052546f46e9f38e0ce27ba7133ceae3356597318986a50b9cdef57adbf"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"c6fbb8d3156d3e3cf0c4ea3a43549b57a9bb0bc1633dda879b9d3e2817124cc9"
-case	"examples/specification/run/http2-core-stream-window-update-flow-control"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	{"logical_field":"expectations.json_assertions[1].equals_file","byte_length":827,"sha256":"a7660542dde9d619807bc255bd0baed5f2ab786277d0f2796834e07f287ff5ae"}
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"3c1aff9c2cec4bb534758788f091aa56e42d9bdd76e775627d012adeb3d64945"
 case	"examples/specification/run/http2-initial-peer-settings-gate-human"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[http2.protocol.initial_peer_settings_required]: initial peer frame must be non-ACK SETTINGS at byte offset 24"
@@ -53823,60 +52534,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"3d3caf25b9bc9921cd64cb6cc7971de8c470163a2434fc3bb72b88565c15ab7c"
-case	"examples/specification/run/prelude-containers"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"odd\nb:c\nno-separator\n42\n1\n2\nremoved\n6\n15\nbad\nb\n7\nstop\nempty\n6\n6\n4\n12\nstop\nlist-empty\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"362be270fc1c07515ac1c91451e30cff4653f451a834d5cb30acc9ac7a4608e1"
-case	"examples/specification/run/prelude-helpers"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"veln-run-json/v0"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"schema_version"
-field	expectations.json_assertions[1].equals	"run"
-field	expectations.json_assertions[1].operation	"equals"
-field	expectations.json_assertions[1].path	"command"
-field	expectations.json_assertions[2].equals	"passed"
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"status"
-field	expectations.json_assertions[3].equals	0
-field	expectations.json_assertions[3].operation	"equals"
-field	expectations.json_assertions[3].path	"exit_code"
-field	expectations.json_assertions[4].equals_file	"0\n3\n0\n3\n3\n3\n0\n2\n0\n2\n2\n2\n3\nctx\n"
-field	expectations.json_assertions[4].operation	"equals_file"
-field	expectations.json_assertions[4].path	"stdout"
-field	expectations.json_assertions[5].equals	""
-field	expectations.json_assertions[5].operation	"equals"
-field	expectations.json_assertions[5].path	"stderr"
-field	expectations.json_assertions[6].equals	null
-field	expectations.json_assertions[6].operation	"equals"
-field	expectations.json_assertions[6].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"656bb53f56380467e20ced5687ccb3a4ebf410621d0f047d4dabc0af171c974f"
 case	"examples/specification/run/process-exit-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"failed"
@@ -58559,27 +57216,6 @@ field	invocation.repeat	2
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"50c5fd21f4cd4c5f59c95bd1186e9da0014e8d04fa98890aafd15bccd1295bb1"
-case	"examples/specification/run/standard-library-network-address-values"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"127.0.0.1:8080\n[::1]:443\n127.0.0.1:0 -> 127.0.0.1:0\nexample.test:65535 -> example.test:65535\n[2001:db8::1]:443 -> 2001:db8::1:443\ninvalid\ninvalid\ninvalid\ninvalid\ninvalid\ninvalid\ninvalid\ninvalid\ninvalid\ninvalid\ninvalid\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	""
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"stderr"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"17eb6410fc122ee117a62d9882a4a4a29a753658353bfa572eb66095fba38aff"
 case	"examples/specification/run/standard-library-network-io-unhandled"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"runnable entry retains user-defined effect `std::net::IO`"
@@ -58614,27 +57250,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"76bbf30e73a616de70ce919609fd5cf238a3cc33fd86be6dac02b1f1ddd2c115"
-case	"examples/specification/run/stream-adapter-cancellable-channel-first-routing"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"receiver-list cancellable outcome\nrouted score 1702 chunks 1\ntimed-out score 0 chunks 1\ncancelled score 2017 ended false\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"adf0ea03366ef46c0023bf72c1af655591c44d5557d2218beb4f046087c5ddb3"
 case	"examples/specification/run/stream-adapter-cancellable-routing"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -58702,27 +57317,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"8507ecbb2b05791056f4d36c55e1bd65e5c30b37d3d5457d484e644038f3973d"
-case	"examples/specification/run/stream-input-vocabulary"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"0\n1\n-1\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"f8c363adbfaf6fca31d36dcd82381ff7f1f7a6305228d822679ba1405ed671a2"
 case	"examples/specification/run/tail-recursion-trampoline"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"veln-run-json/v0"
@@ -58812,48 +57406,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"b084585c633be38044bcbda17d83cbe40e65022e783e56ec8294aa456590b37b"
-case	"examples/specification/run/transport-cancel-owner-status"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"active\ncancelled\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"af5ed15613f79c08df2b7fecdece8e1745d6879beaba4c54b70a56be4ed47e97"
-case	"examples/specification/run/transport-cancel-token-status"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"active\ncancelled\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"af5ed15613f79c08df2b7fecdece8e1745d6879beaba4c54b70a56be4ed47e97"
 case	"examples/specification/run/transport-cancellable-wait"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -58939,50 +57491,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"11e39817a0a03c464d232cf6125e447c0f5f6877f39ef4bd5ff4acac12c37f50"
-case	"examples/specification/run/transport-cancellable-wait-outcome"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"ready\ncleanup\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"b4e153e2963ab5c2c824a3dcdf4a01ed36be8ffcd87e14d434b3af9b31fb448c"
-case	"examples/specification/run/transport-cancellable-wait-outcome-deadline"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"retry\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.command[4]	"fixture_effects.veln"
-field	invocation.command[5]	"fake_effects.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"8ef65fd30089290d5170a4c19b045cfe845eaab62187f66f2f53ec24d6798641"
 case	"examples/specification/run/transport-deadline"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -61707,29 +60215,6 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"forbidden"
 case_digest	"8f4412763731e7839d12559a5f4858b5c20ed148b4bd46f8f2321e1713f4e00a"
-case	"examples/specification/run/transport-wall-clock"
-field	expectations.exit	0
-field	expectations.json_assertions[0].equals	"passed"
-field	expectations.json_assertions[0].operation	"equals"
-field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals_file	"{\"unix_seconds\":0,\"nanosecond\":-1}\n{\"unix_seconds\":0,\"nanosecond\":0}\n{\"unix_seconds\":-1,\"nanosecond\":999999999}\nbackwards\ndeadline-monotonic wall=1234:567\n"
-field	expectations.json_assertions[1].operation	"equals_file"
-field	expectations.json_assertions[1].path	"stdout"
-field	expectations.json_assertions[2].equals	null
-field	expectations.json_assertions[2].operation	"equals"
-field	expectations.json_assertions[2].path	"error"
-field	expectations.stderr.format	"empty"
-field	expectations.stdout.format	"json"
-field	invocation.command[0]	"run"
-field	invocation.command[1]	"--json"
-field	invocation.command[2]	"main"
-field	invocation.command[3]	"main.veln"
-field	invocation.command[4]	"fixture_effects.veln"
-field	invocation.command[5]	"fake_effects.veln"
-field	invocation.repeat	1
-field	requirements.jdk	true
-field	source_errors	"forbidden"
-case_digest	"3f07b498a404f5ee399819cb6793959d4762d2ded0507e3ea38703687d17efe6"
 case	"examples/specification/run/transport-wall-clock-overflow-lower"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"failed"
@@ -64128,4 +62613,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"22a7f5645428953ff71c179205a270d035a0968c1726b0028d4e907ada473ff5"
+aggregate_digest	"b02442a464eb38a9e720635e965528734a2a72a447274ae438fd389d7f0064df"

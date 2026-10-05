@@ -1,0 +1,238 @@
+use prelude
+
+fn expect_bytes(actual: ByteChunk, expected_hex: String) -> Result<(), String>
+	let expected = byte_chunk_from_hex(expected_hex)?
+	if byte_count_to_int(byte_chunk_count(actual)) == byte_count_to_int(byte_chunk_count(expected))
+		expect_octets(actual, expected, 0)
+	else
+		Err("byte count changed")
+	end
+end
+
+fn expect_octets(actual: ByteChunk, expected: ByteChunk, index: Int) -> Result<(), String>
+	if index == byte_count_to_int(byte_chunk_count(expected))
+		Ok(())
+	else
+		expect_next_octet(actual, expected, index)
+	end
+end
+
+fn expect_next_octet(actual: ByteChunk, expected: ByteChunk, index: Int) -> Result<(), String>
+	let one = byte_count(1)?
+	let offset = byte_offset(index)?
+	if byte_read_u8_be(byte_view(actual, offset, one)?)? == byte_read_u8_be(byte_view(expected, offset, one)?)?
+		expect_octets(actual, expected, index + 1)
+	else
+		Err("byte contents changed")
+	end
+end
+
+fn bytes_expect(condition: Bool) -> Result<(), String>
+	if condition
+		Ok(())
+	else
+		Err("byte API value changed")
+	end
+end
+
+fn expect_chunk_list(chunks: List<ByteChunk>, hexes: List<String>) -> Result<(), String>
+	match chunks
+		Nil => match hexes
+			Nil => Ok(())
+			_ => Err("missing chunk")
+		end
+		Cons(chunk, tail) => match hexes
+			Cons(hex, remaining) => expect_chunk_and_tail(chunk, tail, hex, remaining)
+			_ => Err("unexpected chunk")
+		end
+	end
+end
+
+test bounded_views_preserve_offsets_and_slice_contents() -> Result<(), String>
+	let bytes = byte_chunk_from_hex("010203040506")?
+	let pending = byte_view(bytes, byte_offset(1)?, byte_count(4)?)?
+	let consumed = byte_count(2)?
+	let prefix = byte_view_take(pending, consumed)?
+	let suffix = byte_view_drop(pending, consumed)?
+	let middle = byte_view_slice(pending, byte_count(1)?, consumed)?
+	let _ = bytes_expect(byte_count_to_int(byte_view_count(pending)) == 4)?
+	let _ = expect_bytes(byte_view_to_chunk(prefix), "0203")?
+	let _ = expect_bytes(byte_view_to_chunk(suffix), "0405")?
+	let _ = expect_bytes(byte_view_to_chunk(middle), "0304")?
+	let bounds = match byte_view_slice(pending, byte_count(3)?, consumed)
+		Err("byte view range exceeds view length") => true
+		_ => false
+	end
+	let _ = bytes_expect(bounds)?
+	let outputs = byte_chunks_append(byte_chunks_one(byte_view_to_chunk(prefix)), byte_chunks_one(byte_view_to_chunk(suffix)))
+	let _ = expect_chunk_list(outputs, list_cons("0203", list_cons("0405", list_nil())))?
+	expect_chunk_list(byte_chunks_empty(), list_nil())
+end
+
+test chunk_production_preserves_whole_chunks_order_and_input() -> Result<(), String>
+	let first = byte_chunk_from_hex("0102")?
+	let second = byte_chunk_from_hex("030405")?
+	let third = byte_chunk_from_hex("06")?
+	let chunks = byte_chunks_append(byte_chunks_one(first), byte_chunks_append(byte_chunks_one(second), byte_chunks_one(third)))
+	let hexes = list_cons("0102", list_cons("030405", list_cons("06", list_nil())))
+	let full = byte_chunks_produce(chunks, byte_count(6)?)
+	let _ = bytes_expect(byte_count_to_int(full.produced) == 6)?
+	let _ = expect_chunk_list(full.chunks, hexes)?
+	let _ = expect_chunk_list(full.remaining, list_nil())?
+	let partial = byte_chunks_produce(chunks, byte_count(5)?)
+	let _ = bytes_expect(byte_count_to_int(partial.produced) == 5)?
+	let _ = expect_chunk_list(partial.chunks, list_cons("0102", list_cons("030405", list_nil())))?
+	let _ = expect_chunk_list(partial.remaining, list_cons("06", list_nil()))?
+	let too_small = byte_chunks_produce(chunks, byte_count(1)?)
+	let zero = byte_chunks_produce(chunks, byte_count(0)?)
+	let _ = bytes_expect(byte_count_to_int(too_small.produced) == 0 and byte_count_to_int(zero.produced) == 0)?
+	let _ = expect_chunk_list(too_small.chunks, list_nil())?
+	let _ = expect_chunk_list(zero.chunks, list_nil())?
+	let _ = expect_chunk_list(too_small.remaining, hexes)?
+	let _ = expect_chunk_list(zero.remaining, hexes)?
+	expect_chunk_list(chunks, hexes)
+end
+
+test byte_lengths_and_function_aliases_match_counts() -> Result<(), String>
+	let empty = byte_chunk_from_hex("")?
+	let chunk = byte_chunk_from_hex("010203")?
+	let empty_view = byte_view(chunk, byte_offset(1)?, byte_count(0)?)?
+	let view = byte_view(chunk, byte_offset(0)?, byte_count(2)?)?
+	let chunk_len: fn(ByteChunk) -> ByteCount = byte_chunk_len
+	let view_len: fn(ByteView) -> ByteCount = byte_view_len
+	bytes_expect(byte_count_to_int(byte_chunk_len(empty)) == 0 and byte_count_to_int(byte_chunk_len(chunk)) == 3 and byte_count_to_int(prelude::byte_chunk_len(empty)) == 0 and byte_count_to_int(prelude::byte_chunk_len(chunk)) == 3 and byte_count_to_int(byte_chunk_count(chunk)) == 3 and byte_count_to_int(chunk_len(chunk)) == 3 and byte_count_to_int(byte_view_len(empty_view)) == 0 and byte_count_to_int(byte_view_len(view)) == 2 and byte_count_to_int(prelude::byte_view_len(empty_view)) == 0 and byte_count_to_int(prelude::byte_view_len(view)) == 2 and byte_count_to_int(byte_view_count(view)) == 2 and byte_count_to_int(view_len(view)) == 2)
+end
+
+test byte_take_rejects_count_beyond_input() -> Result<(), String>
+	let chunk = byte_chunk([byte(1)?])
+	match byte_take(chunk, byte_count(2)?)
+		Err("byte count exceeds chunk length") => Ok(())
+		_ => Err("byte_take accepted an out-of-bounds count")
+	end
+end
+
+test u40_reads_and_writes_both_byte_orders() -> Result<(), String>
+	let count = byte_count(5)?
+	let big = byte_chunk_from_hex("0102030405")?
+	let little = byte_chunk_from_hex("0504030201")?
+	let _ = bytes_expect(byte_read_u40_be(byte_view(big, byte_offset(0)?, count)?)? == 4328719365 and byte_read_u40_le(byte_view(little, byte_offset(0)?, count)?)? == 4328719365)?
+	let _ = expect_bytes(byte_write_u40_be(4328719365)?, "0102030405")?
+	let _ = expect_bytes(byte_write_u40_le(4328719365)?, "0504030201")?
+	let _ = expect_bytes(byte_write_u40_be(1099511627775)?, "ffffffffff")?
+	let _ = expect_bytes(byte_write_u40_le(1099511627775)?, "ffffffffff")?
+	let high = match byte_write_u40_be(1099511627776)
+		Err("byte_write_u40_be value must be between 0 and 1099511627775") => true
+		_ => false
+	end
+	let negative = match byte_write_u40_le(-1)
+		Err("byte_write_u40_le value must be between 0 and 1099511627775") => true
+		_ => false
+	end
+	let overflow = match byte_write_u40_le(1099511627776)
+		Err("byte_write_u40_le value must be between 0 and 1099511627775") => true
+		_ => false
+	end
+	let _ = bytes_expect(high and negative and overflow)?
+	let short = byte_view(big, byte_offset(0)?, byte_count(4)?)?
+	let big_failure = match byte_read_u40_be(short)
+		Err("byte read requires 5 bytes but view has 4") => true
+		_ => false
+	end
+	let little_failure = match byte_read_u40_le(short)
+		Err("byte read requires 5 bytes but view has 4") => true
+		_ => false
+	end
+	bytes_expect(big_failure and little_failure)
+end
+
+test u48_reads_and_writes_both_byte_orders() -> Result<(), String>
+	let count = byte_count(6)?
+	let big = byte_chunk_from_hex("010203040506")?
+	let little = byte_chunk_from_hex("060504030201")?
+	let _ = bytes_expect(byte_read_u48_be(byte_view(big, byte_offset(0)?, count)?)? == 1108152157446 and byte_read_u48_le(byte_view(little, byte_offset(0)?, count)?)? == 1108152157446)?
+	let _ = expect_bytes(byte_write_u48_be(1108152157446)?, "010203040506")?
+	let _ = expect_bytes(byte_write_u48_le(1108152157446)?, "060504030201")?
+	let _ = expect_bytes(byte_write_u48_be(281474976710655)?, "ffffffffffff")?
+	let _ = expect_bytes(byte_write_u48_le(281474976710655)?, "ffffffffffff")?
+	let high = match byte_write_u48_be(281474976710656)
+		Err("byte_write_u48_be value must be between 0 and 281474976710655") => true
+		_ => false
+	end
+	let negative = match byte_write_u48_le(-1)
+		Err("byte_write_u48_le value must be between 0 and 281474976710655") => true
+		_ => false
+	end
+	let overflow = match byte_write_u48_le(281474976710656)
+		Err("byte_write_u48_le value must be between 0 and 281474976710655") => true
+		_ => false
+	end
+	let _ = bytes_expect(high and negative and overflow)?
+	let short = byte_view(big, byte_offset(0)?, byte_count(5)?)?
+	let big_failure = match byte_read_u48_be(short)
+		Err("byte read requires 6 bytes but view has 5") => true
+		_ => false
+	end
+	let little_failure = match byte_read_u48_le(short)
+		Err("byte read requires 6 bytes but view has 5") => true
+		_ => false
+	end
+	bytes_expect(big_failure and little_failure)
+end
+
+test u56_reads_and_writes_both_byte_orders() -> Result<(), String>
+	let count = byte_count(7)?
+	let big = byte_chunk_from_hex("01020304050607")?
+	let little = byte_chunk_from_hex("07060504030201")?
+	let _ = bytes_expect(byte_read_u56_be(byte_view(big, byte_offset(0)?, count)?)? == 283686952306183 and byte_read_u56_le(byte_view(little, byte_offset(0)?, count)?)? == 283686952306183)?
+	let _ = expect_bytes(byte_write_u56_be(283686952306183)?, "01020304050607")?
+	let _ = expect_bytes(byte_write_u56_le(283686952306183)?, "07060504030201")?
+	let _ = expect_bytes(byte_write_u56_be(72057594037927935)?, "ffffffffffffff")?
+	let _ = expect_bytes(byte_write_u56_le(72057594037927935)?, "ffffffffffffff")?
+	let high = match byte_write_u56_be(72057594037927936)
+		Err("byte_write_u56_be value must be between 0 and 72057594037927935") => true
+		_ => false
+	end
+	let negative = match byte_write_u56_le(-1)
+		Err("byte_write_u56_le value must be between 0 and 72057594037927935") => true
+		_ => false
+	end
+	let overflow = match byte_write_u56_le(72057594037927936)
+		Err("byte_write_u56_le value must be between 0 and 72057594037927935") => true
+		_ => false
+	end
+	let _ = bytes_expect(high and negative and overflow)?
+	let short = byte_view(big, byte_offset(0)?, byte_count(6)?)?
+	let big_failure = match byte_read_u56_be(short)
+		Err("byte read requires 7 bytes but view has 6") => true
+		_ => false
+	end
+	let little_failure = match byte_read_u56_le(short)
+		Err("byte read requires 7 bytes but view has 6") => true
+		_ => false
+	end
+	bytes_expect(big_failure and little_failure)
+end
+
+test u64_reads_and_writes_both_byte_orders() -> Result<(), String>
+	let count = byte_count(8)?
+	let big = byte_chunk_from_hex("0102030405060708")?
+	let little = byte_chunk_from_hex("0807060504030201")?
+	let _ = bytes_expect(byte_read_u64_be(byte_view(big, byte_offset(0)?, count)?)? == 72623859790382856 and byte_read_u64_le(byte_view(little, byte_offset(0)?, count)?)? == 72623859790382856)?
+	let _ = expect_bytes(byte_write_u64_be(72623859790382856)?, "0102030405060708")?
+	let _ = expect_bytes(byte_write_u64_le(72623859790382856)?, "0807060504030201")?
+	let short = byte_view(big, byte_offset(0)?, byte_count(7)?)?
+	let big_failure = match byte_read_u64_be(short)
+		Err("byte read requires 8 bytes but view has 7") => true
+		_ => false
+	end
+	let little_failure = match byte_read_u64_le(short)
+		Err("byte read requires 8 bytes but view has 7") => true
+		_ => false
+	end
+	bytes_expect(big_failure and little_failure)
+end
+
+fn expect_chunk_and_tail(chunk: ByteChunk, tail: List<ByteChunk>, hex: String, remaining: List<String>) -> Result<(), String>
+	let _ = expect_bytes(chunk, hex)?
+	expect_chunk_list(tail, remaining)
+end
