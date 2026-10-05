@@ -464,7 +464,9 @@ inference applies these rules too, so its inferred signature agrees with
 ordinary body inference. If an element, entry, or payload expression fails to
 type-check, its recovered type does not contribute to the aggregate join. The
 failed expression leaves the previously accumulated join unchanged for later
-successful contributions and for an inferred private result.
+successful contributions and for an inferred private result. This exclusion
+also applies when a call argument or constructor payload fails but recovery can
+still identify the call or constructor's refined result type.
 
 The join applies when repeated constructor payloads use a type parameter
 directly. If the same parameter also occurs inside an invariant named payload,

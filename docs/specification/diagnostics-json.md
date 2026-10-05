@@ -109,11 +109,13 @@ type as expected and preserves the later contribution's constructor refinement
 as actual. The accumulated expected type contains only successfully typed
 contributions. A contribution that already produced a diagnostic leaves that
 type unchanged, does not produce a derivative aggregate mismatch, and cannot
-change the expected type reported for a later contribution. The same rule
-applies when one constructor payload uses a type parameter directly and
-another uses it inside an invariant named type: the diagnostic reports the
-exact constraint established by the other payload rather than widening the
-nested type. If an earlier error leaves the value untyped,
+change the expected type reported for a later contribution. A rejected call or
+constructor expression follows this rule even when recovery can determine its
+refined result type from the resolved declaration. The same rule applies when
+one constructor payload uses a type parameter directly and another uses it
+inside an invariant named type: the diagnostic reports the exact constraint
+established by the other payload rather than widening the nested type. If an
+earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
