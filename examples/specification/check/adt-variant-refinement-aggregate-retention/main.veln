@@ -40,12 +40,24 @@ fn table()
 	{ready(): Closed, closed(): Ready}
 end
 
+fn table_reverse()
+	{closed(): Ready, ready(): Closed}
+end
+
 fn paired()
 	Paired(Closed, Ready)
 end
 
-fn payload(value: Pair<State::Ready>::Paired) -> State::Ready
-	match value
+fn paired_reverse()
+	Paired(Ready, Closed)
+end
+
+fn retained_pair()
+	Paired(Ready, Ready)
+end
+
+fn payload() -> State::Ready
+	match retained_pair()
 		Paired(item, _) => item
 	end
 end
@@ -65,10 +77,12 @@ fn main() -> ()
 	let base_join: Vec<State> = with_base(Closed)
 	let optional_values: Vec<Option<Int>> = optional()
 	let entries: Dict<State::Ready | State::Closed, State::Ready | State::Closed> = table()
+	let reverse_entries: Dict<State::Ready | State::Closed, State::Ready | State::Closed> = table_reverse()
 	let pair: Pair<State::Ready | State::Closed>::Paired = paired()
+	let reverse_pair: Pair<State::Ready | State::Closed>::Paired = paired_reverse()
 	let contextual_vec: Vec<State> = [Ready, Closed]
 	let contextual_dict: Dict<String, State> = {"ready": Ready}
 	let contextual_pair: Pair<State> = Paired(Ready, Closed)
-	let item: State::Ready = payload(Paired(Ready, Ready))
+	let item: State::Ready = payload()
 	let items: Vec<State::Ready> = projected()
 end
