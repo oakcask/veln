@@ -134,7 +134,10 @@ composition but cannot perform host networking.
 
 The exported implementation and companion tests are in
 `crates/veln-stdlib/veln/net.veln` and
-`crates/veln-stdlib/veln/net.test.veln`. Checked command-level examples under
-`examples/specification/check/` and `examples/specification/run/` cover the
-explicit standard-module identity, nominal effect requirement, and unhandled
-runner boundary.
+`crates/veln-stdlib/veln/net.test.veln`. The companion tests cover the values
+that source code can construct. The JVM backend effect-injection tests use
+separate Veln test support to exercise every forwarding function with opaque
+listener and stream resources and to check resource, option, byte, and result
+preservation. Checked command-level examples under `examples/specification/check/`
+and `examples/specification/run/` cover the explicit standard-module identity,
+nominal effect requirement, and unhandled runner boundary.

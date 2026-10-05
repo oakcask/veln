@@ -63,7 +63,7 @@ compiler adapter descriptors to publish.
 | Compiler-adapter descriptors reporting `compiler_adapter` | `prelude_builtin::name` |
 | The implicit standard module name reporting `standard_names` | `prelude` |
 | Built-in type-syntax descriptors reporting `type_syntax` | the built-in type constructor spelling |
-| Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some` |
+| Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some`; opaque resource types publish `NetListener` and `NetStream` without constructor keys |
 
 ## Lookup Consumers
 
@@ -76,6 +76,9 @@ selecting a compiler-adapter descriptor. Public type-annotation reference
 helpers and internal type annotation parsing check built-in type constructor
 arity through the published built-in type-syntax registry. Built-in ADT lookup
 seeds application registry state from the published built-in ADT registry.
+The opaque `NetListener` and `NetStream` entries let exported standard-package
+type aliases resolve to their compiler-provided resource identities without
+making either resource source-constructible.
 
 ## Limits
 
