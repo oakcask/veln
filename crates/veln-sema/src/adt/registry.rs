@@ -753,7 +753,17 @@ fn type_alias_descriptors(
     descriptors: &[AdtDescriptor],
 ) -> Vec<AdtDescriptor> {
     let uses = normal_use_decls(module);
-    let aliases = module
+    let aliases = eligible_type_aliases(module);
+    let targets = TypeAliasTargetIndex::new(descriptors, &aliases, &uses);
+    let steps = aliases
+        .iter()
+        .map(|alias| targets.target(alias))
+        .collect::<Vec<_>>();
+    TypeAliasResolver::new(descriptors, &aliases, &steps).resolve()
+}
+
+fn eligible_type_aliases(module: &SurfaceModule) -> Vec<&PublicAlias> {
+    module
         .aliases
         .iter()
         .filter(|alias| {
@@ -768,60 +778,7 @@ fn type_alias_descriptors(
                     Some(veln_ast::NameClass::Type),
                 )
         })
-        .collect::<Vec<_>>();
-    let targets = TypeAliasTargetIndex::new(descriptors, &aliases, &uses);
-    let steps = aliases
-        .iter()
-        .map(|alias| targets.target(alias))
-        .collect::<Vec<_>>();
-    let mut memo: Vec<Option<Option<AdtDescriptor>>> = vec![None; aliases.len()];
-    let mut resolved = Vec::new();
-    let mut visiting = vec![false; aliases.len()];
-    for start in 0..aliases.len() {
-        if memo[start].is_some() {
-            continue;
-        }
-        let mut path = Vec::new();
-        let mut current = start;
-        let terminal = loop {
-            #[cfg(test)]
-            type_alias_resolution_counters::record_work();
-            if let Some(known) = &memo[current] {
-                break known.clone();
-            }
-            if visiting[current] {
-                break None;
-            }
-            visiting[current] = true;
-            path.push(current);
-            match steps[current] {
-                TypeAliasTarget::Descriptor(index) => break Some(descriptors[index].clone()),
-                TypeAliasTarget::Alias(index) => current = index,
-                TypeAliasTarget::Missing => break None,
-            }
-        };
-        let mut target = terminal;
-        for index in path.into_iter().rev() {
-            visiting[index] = false;
-            let descriptor = target.as_ref().map(|target| {
-                let alias = aliases[index];
-                let mut descriptor = target.clone();
-                descriptor.nominal_identity = (alias.module_name.as_deref()
-                    != Some("std::prelude"))
-                .then(|| target.identity());
-                descriptor.type_name = alias.name.clone().expect("filtered alias has a name");
-                descriptor.module_name = alias.module_name.clone();
-                descriptor.visibility = Visibility::Public;
-                descriptor
-            });
-            memo[index] = Some(descriptor.clone());
-            if let Some(descriptor) = &descriptor {
-                resolved.push(descriptor.clone());
-            }
-            target = descriptor;
-        }
-    }
-    resolved
+        .collect()
 }
 
 #[derive(Clone, Copy)]
@@ -832,6 +789,91 @@ enum TypeAliasTarget {
 }
 
 type TypeAliasKey = (Option<String>, String);
+
+struct TypeAliasResolver<'a> {
+    descriptors: &'a [AdtDescriptor],
+    aliases: &'a [&'a PublicAlias],
+    steps: &'a [TypeAliasTarget],
+    memo: Vec<Option<Option<AdtDescriptor>>>,
+    visiting: Vec<bool>,
+    resolved: Vec<AdtDescriptor>,
+}
+
+impl<'a> TypeAliasResolver<'a> {
+    fn new(
+        descriptors: &'a [AdtDescriptor],
+        aliases: &'a [&'a PublicAlias],
+        steps: &'a [TypeAliasTarget],
+    ) -> Self {
+        Self {
+            descriptors,
+            aliases,
+            steps,
+            memo: vec![None; aliases.len()],
+            visiting: vec![false; aliases.len()],
+            resolved: Vec::new(),
+        }
+    }
+
+    fn resolve(mut self) -> Vec<AdtDescriptor> {
+        for start in 0..self.aliases.len() {
+            if self.memo[start].is_none() {
+                self.resolve_from(start);
+            }
+        }
+        self.resolved
+    }
+
+    fn resolve_from(&mut self, start: usize) {
+        let (path, terminal) = self.trace_from(start);
+        let mut target = terminal;
+        for index in path.into_iter().rev() {
+            self.visiting[index] = false;
+            let descriptor = target
+                .as_ref()
+                .map(|target| alias_descriptor(self.aliases[index], target));
+            self.memo[index] = Some(descriptor.clone());
+            if let Some(descriptor) = &descriptor {
+                self.resolved.push(descriptor.clone());
+            }
+            target = descriptor;
+        }
+    }
+
+    fn trace_from(&mut self, start: usize) -> (Vec<usize>, Option<AdtDescriptor>) {
+        let mut path = Vec::new();
+        let mut current = start;
+        loop {
+            #[cfg(test)]
+            type_alias_resolution_counters::record_work();
+            if let Some(known) = &self.memo[current] {
+                return (path, known.clone());
+            }
+            if self.visiting[current] {
+                return (path, None);
+            }
+            self.visiting[current] = true;
+            path.push(current);
+            match self.steps[current] {
+                TypeAliasTarget::Descriptor(index) => {
+                    return (path, Some(self.descriptors[index].clone()));
+                }
+                TypeAliasTarget::Alias(index) => current = index,
+                TypeAliasTarget::Missing => return (path, None),
+            }
+        }
+    }
+}
+
+fn alias_descriptor(alias: &PublicAlias, target: &AdtDescriptor) -> AdtDescriptor {
+    let mut descriptor = target.clone();
+    descriptor.nominal_identity =
+        (alias.module_name.as_deref() != Some("std::prelude")).then(|| target.identity());
+    descriptor.type_name = alias.name.clone().expect("filtered alias has a name");
+    descriptor.module_name = alias.module_name.clone();
+    descriptor.visibility = Visibility::Public;
+    descriptor
+}
 
 struct TypeAliasTargetIndex {
     descriptor_first: HashMap<TypeAliasKey, usize>,
@@ -854,18 +896,21 @@ impl TypeAliasTargetIndex {
             alias_last: HashMap::new(),
             imports: HashMap::new(),
         };
+        index.index_descriptors(descriptors);
+        index.index_aliases(aliases);
+        index.index_imports(uses);
+        index
+    }
+
+    fn index_descriptors(&mut self, descriptors: &[AdtDescriptor]) {
         for (position, descriptor) in descriptors.iter().enumerate() {
             let key = descriptor_identity(descriptor);
-            index
-                .descriptor_first
-                .entry(key.clone())
-                .or_insert(position);
-            index.descriptor_last.insert(key, position);
+            self.descriptor_first.entry(key.clone()).or_insert(position);
+            self.descriptor_last.insert(key, position);
             if descriptor.module_name.as_deref() == Some("std::prelude")
                 && descriptor.visibility == Visibility::Public
             {
-                index
-                    .prelude_public
+                self.prelude_public
                     .entry(descriptor.type_name.clone())
                     .or_insert(TypeAliasTarget::Descriptor(position));
             }
@@ -873,42 +918,40 @@ impl TypeAliasTargetIndex {
                 && matches!(descriptor.type_name.as_str(), "NetListener" | "NetStream")
                 && descriptor.visibility == Visibility::Public
             {
-                index
-                    .opaque_public
+                self.opaque_public
                     .entry(descriptor.type_name.clone())
                     .or_insert(position);
             }
         }
+    }
+
+    fn index_aliases(&mut self, aliases: &[&PublicAlias]) {
         for (position, alias) in aliases.iter().enumerate() {
             let key = (
                 alias.module_name.clone(),
                 alias.name.clone().expect("filtered alias has a name"),
             );
-            index.alias_first.entry(key.clone()).or_insert(position);
-            index.alias_last.insert(key.clone(), position);
+            self.alias_first.entry(key.clone()).or_insert(position);
+            self.alias_last.insert(key.clone(), position);
             if alias.module_name.as_deref() == Some("std::prelude") {
-                index
-                    .prelude_public
+                self.prelude_public
                     .entry(key.1)
                     .or_insert(TypeAliasTarget::Alias(position));
             }
         }
+    }
+
+    fn index_imports(&mut self, uses: &[UseDecl]) {
         for use_decl in uses {
             let module = use_decl.module_name.clone();
             let target = use_decl.name.clone();
-            index
-                .imports
+            self.imports
                 .entry((module.clone(), target.clone()))
                 .or_insert_with(|| target.clone());
-            if (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-                || (use_decl.package.is_none()
-                    && module
-                        .as_deref()
-                        .is_some_and(|name| name.starts_with("std::"))))
+            if is_standard_import(use_decl, module.as_deref())
                 && let Some(relative) = target.strip_prefix("std::")
             {
-                index
-                    .imports
+                self.imports
                     .entry((module.clone(), relative.to_string()))
                     .or_insert_with(|| target.clone());
             }
@@ -916,13 +959,11 @@ impl TypeAliasTargetIndex {
                 || !target.contains("::")
                 || use_decl.origin == UseOrigin::ImplicitStandardPrelude
             {
-                index
-                    .imports
+                self.imports
                     .entry((module, use_decl.alias.clone()))
                     .or_insert(target);
             }
         }
-        index
     }
 
     fn target(&self, alias: &PublicAlias) -> TypeAliasTarget {
@@ -961,6 +1002,11 @@ impl TypeAliasTargetIndex {
             .copied()
             .map_or(TypeAliasTarget::Missing, TypeAliasTarget::Alias)
     }
+}
+
+fn is_standard_import(use_decl: &UseDecl, module_name: Option<&str>) -> bool {
+    use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        || (use_decl.package.is_none() && module_name.is_some_and(|name| name.starts_with("std::")))
 }
 
 fn descriptor_for_alias_target<'a>(
