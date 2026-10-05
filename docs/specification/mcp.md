@@ -96,10 +96,12 @@ index resource with name `std-documentation-index`, title `Veln
 package documentation: std`, and media type `text/markdown; charset=utf-8`.
 The index Markdown preserves the package-documentation catalog metadata and
 ordered module links. Exact linked module resources preserve module
-documentation, source path, references, and ordered declaration links. Exact
-linked declaration resources preserve kind, signature, documentation,
-contracts, constructors, doctests, expected outputs, aliases, and references
-when those fields exist in the catalog. A failed result lists only the status
+documentation, source path, references, and ordered declaration links. Each
+declaration link records the declaration kind and name, followed by its
+canonical signature. Exact linked declaration resources preserve kind,
+signature, documentation, contracts, constructors, doctests, expected
+outputs, aliases, and references when those fields exist in the catalog. A
+failed result lists only the status
 resource with name `std-documentation-status`; its Markdown preserves the
 ordered gate, code, message, and optional source span for each diagnostic.
 The Markdown projection does not expose raw manifests, physical paths,

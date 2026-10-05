@@ -21,8 +21,8 @@ also states it.
   call-site locations:
   [observability.md](observability.md).
 - Remaining standard-library TCP system handler, typed host failures,
-  resource lifecycle, `write_all`, and duplex transport adapter, building on
-  the implemented public network effect and direct facade:
+  resource lifecycle, and duplex transport adapter, building on the
+  implemented public network effect, direct facade, and `write_all` helper:
   [standard-library-networking.md](standard-library-networking.md).
 - Remaining ADT variant-refinement support for aliases and visibility,
   collection, dictionary, and generic-payload retention and joins,

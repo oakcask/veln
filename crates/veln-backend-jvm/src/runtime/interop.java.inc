@@ -74,6 +74,9 @@
         if (isByteViewValue(value)) {
             return freezeByteView(value);
         }
+        if (value instanceof FrozenByteChunk) {
+            return value;
+        }
         if (value instanceof java.util.List) {
             return freezeBoundaryList((java.util.List<Object>) value);
         }

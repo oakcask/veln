@@ -23,6 +23,7 @@ pub fn stream_operations(stream: net::Stream, bytes: ByteChunk, deadline: Option
 	let _: Result<net::ReadOutcome, net::NetError> = net::read_with(stream, deadline, token)
 	let _: net::WriteOutcome = net::write(stream, bytes)
 	let _: net::WriteOutcome = net::write_with(stream, bytes, deadline, token)
+	let _: Result<(), net::NetError> = net::write_all(stream, bytes, deadline, token)
 	let _: Result<net::Endpoint, net::NetError> = net::local_address(stream)
 	let _: Result<net::Endpoint, net::NetError> = net::peer_address(stream)
 	let _: Result<(), net::NetError> = net::shutdown_read(stream)
