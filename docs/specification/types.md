@@ -494,11 +494,13 @@ still reports `type.mismatch`.
 An explicit aggregate component type supplies context while the aggregate is
 constructed. A constructor singleton can widen directly at that component
 boundary, so `[Ready]` can construct an explicitly expected `Vec<State>` and
-`Boxed(Ready)` can construct an explicitly expected `Box<State>`. Without that
-context, the values retain `Vec<State::Ready>` and
-`Box<State::Ready>::Boxed`. A later assignment from either inferred value to
-the corresponding base-argument aggregate is rejected. Named type arguments
-remain invariant; aggregate inference does not add nested covariance.
+`{State::Ready: 1}` can construct an explicitly expected `Dict<State, Int>`.
+The same rule lets `Boxed(Ready)` construct an explicitly expected
+`Box<State>`. Without that context, the values retain `Vec<State::Ready>`,
+`Dict<State::Ready, Int>`, and `Box<State::Ready>::Boxed`. A later assignment
+from any inferred value to the corresponding base-argument aggregate is
+rejected. Named type arguments remain invariant; aggregate inference does not
+add nested covariance.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
