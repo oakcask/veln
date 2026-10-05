@@ -3,8 +3,40 @@ type State
 	Closed
 end
 
+type First
+	Value
+	Other
+end
+
+type Second
+	Value
+	Other
+end
+
+type Pair<A>
+	Paired(A, A)
+end
+
+fn int_some() -> Option<Int>::Some
+	Some(1)
+end
+
+fn string_some() -> Option<String>::Some
+	Some("wrong")
+end
+
+fn first() -> First::Value
+	First::Value
+end
+
+fn second() -> Second::Value
+	Second::Value
+end
+
 fn main() -> ()
 	let retained = [Ready]
 	let widened: Vec<State> = retained
-	let mismatched = [Some(1), Some("wrong")]
+	let mismatched = [int_some(), string_some()]
+	let distinct = [first(), second()]
+	let paired = Paired(int_some(), string_some())
 end

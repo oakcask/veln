@@ -5,7 +5,8 @@ exit = 1
 format = "json"
 contains = [
   "expected `Vec<State>`, but found `Vec<State::Ready>`",
-  "expected `Int`, but found `String`",
+  "expected `Option<Int>::Some`, but found `Option<String>::Some`",
+  "expected `First::Value`, but found `Second::Value`",
 ]
 
 [stderr]
@@ -17,7 +18,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 4
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -27,16 +28,38 @@ message = "expected `Vec<State>`, but found `Vec<State::Ready>`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 8
+line = 38
 column = 28
 
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `Int`, but found `String`"
+message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 9
+line = 39
+column = 32
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `First::Value`, but found `Second::Value`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 40
+column = 27
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 41
 column = 34

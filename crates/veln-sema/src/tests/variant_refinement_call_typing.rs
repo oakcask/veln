@@ -694,28 +694,221 @@ fn aggregate_refinement_inference_covers_joins_context_and_projection() {
 
 #[test]
 fn retained_aggregate_refinement_rejections_are_table_driven() {
-    for (name, body, expected_mismatches) in [
+    for (name, source, rejected_expression, expected, actual, constraint) in [
         (
             "later nested widening",
-            "let inferred = [Ready]\n  let widened: Vec<State> = inferred",
-            1,
+            concat!(
+                "type State\n",
+                "  Ready\n",
+                "  Closed\n",
+                "end\n",
+                "fn main() -> ()\n",
+                "  let inferred = [Ready]\n",
+                "  let widened: Vec<State> = inferred\n",
+                "end\n",
+            ),
+            "inferred",
+            "Vec<State>",
+            "Vec<State::Ready>",
+            "assignable",
         ),
         (
             "generic argument mismatch",
-            "let values = [Some(1), Some(\"wrong\")]",
-            1,
+            concat!(
+                "fn int_some() -> Option<Int>::Some\n",
+                "  Some(1)\n",
+                "end\n",
+                "fn string_some() -> Option<String>::Some\n",
+                "  Some(\"wrong\")\n",
+                "end\n",
+                "fn main() -> ()\n",
+                "  let values = [int_some(), string_some()]\n",
+                "end\n",
+            ),
+            "string_some()",
+            "Option<Int>::Some",
+            "Option<String>::Some",
+            "list_element",
+        ),
+        (
+            "different resolved ADTs",
+            concat!(
+                "type First\n",
+                "  Value\n",
+                "  Other\n",
+                "end\n",
+                "type Second\n",
+                "  Value\n",
+                "  Other\n",
+                "end\n",
+                "fn first() -> First::Value\n",
+                "  First::Value\n",
+                "end\n",
+                "fn second() -> Second::Value\n",
+                "  Second::Value\n",
+                "end\n",
+                "fn main() -> ()\n",
+                "  let values = [first(), second()]\n",
+                "end\n",
+            ),
+            "second()",
+            "First::Value",
+            "Second::Value",
+            "list_element",
+        ),
+        (
+            "repeated generic payload mismatch",
+            concat!(
+                "type Pair<A>\n",
+                "  Paired(A, A)\n",
+                "end\n",
+                "fn int_some() -> Option<Int>::Some\n",
+                "  Some(1)\n",
+                "end\n",
+                "fn string_some() -> Option<String>::Some\n",
+                "  Some(\"wrong\")\n",
+                "end\n",
+                "fn main() -> ()\n",
+                "  let value = Paired(int_some(), string_some())\n",
+                "end\n",
+            ),
+            "string_some()",
+            "Option<Int>::Some",
+            "Option<String>::Some",
+            "call_argument",
         ),
     ] {
-        let diagnostics = diagnostics_for(&format!("{STATE_DECL}fn main() -> ()\n  {body}\nend\n"));
+        let source_file = SourceFile::new("main.veln", source);
+        let parsed = parse(&source_file);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "{name}: {:#?}",
+            parsed.diagnostics
+        );
+        let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+        assert_eq!(diagnostics.len(), 1, "{name}: {diagnostics:#?}");
+        let mismatch = &diagnostics[0];
+        assert_eq!(mismatch.id, "type.mismatch", "{name}: {diagnostics:#?}");
         assert_eq!(
-            diagnostics
-                .iter()
-                .filter(|diagnostic| diagnostic.id == "type.mismatch")
-                .count(),
-            expected_mismatches,
-            "{name}: {diagnostics:#?}",
+            mismatch.message.to_string(),
+            format!("expected `{expected}`, but found `{actual}`"),
+            "{name}: {diagnostics:#?}"
+        );
+        let span = mismatch.span.as_ref().expect("mismatch span");
+        assert_eq!(
+            &source[span.start.offset..span.end.offset],
+            rejected_expression,
+            "{name}: {span:#?}"
+        );
+        let details = mismatch.details.to_json();
+        assert!(
+            details.contains(&format!("\"expected_type\":\"{expected}\"")),
+            "{name}: {details}"
+        );
+        assert!(
+            details.contains(&format!("\"actual_type\":\"{actual}\"")),
+            "{name}: {details}"
+        );
+        assert!(
+            details.contains(&format!("\"constraint\":\"{constraint}\"")),
+            "{name}: {details}"
         );
     }
+}
+
+fn aggregate_join_scaling_source(variant_count: usize) -> String {
+    let variants = (0..variant_count)
+        .map(|index| format!("Variant{index:04}"))
+        .collect::<Vec<_>>();
+    let mut source = String::from("type State\n");
+    for variant in &variants {
+        source.push_str(&format!("  {variant}\n"));
+    }
+    source.push_str("end\ntype Repeated<A>\n  Many(");
+    source.push_str(
+        &(0..variant_count)
+            .map(|_| "A")
+            .collect::<Vec<_>>()
+            .join(", "),
+    );
+    source.push_str(")\nend\n");
+    for variant in &variants {
+        source.push_str(&format!(
+            "fn make_{variant}() -> State::{variant}\n  {variant}\nend\n"
+        ));
+    }
+    let calls = variants
+        .iter()
+        .map(|variant| format!("make_{variant}()"))
+        .collect::<Vec<_>>();
+    source.push_str(&format!("fn vector()\n  [{}]\nend\n", calls.join(", ")));
+    source.push_str(&format!(
+        "fn dictionary()\n  {{{}}}\nend\n",
+        calls
+            .iter()
+            .zip(calls.iter().rev())
+            .map(|(key, value)| format!("{key}: {value}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    ));
+    source.push_str(&format!(
+        "fn repeated()\n  Many({})\nend\n",
+        calls.join(", ")
+    ));
+    source.push_str(concat!(
+        "fn main() -> ()\n",
+        "  let items: Vec<State> = vector()\n",
+        "  let entries: Dict<State, State> = dictionary()\n",
+        "  let payloads: Repeated<State>::Many = repeated()\n",
+        "end\n",
+    ));
+    source
+}
+
+#[test]
+fn aggregate_join_work_grows_linearly_through_all_inference_paths() {
+    let work = [200, 400, 800, 1600].map(|variant_count| {
+        let source = SourceFile::new("main.veln", aggregate_join_scaling_source(variant_count));
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::aggregate_type_join::reset_work();
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        eprintln!(
+            "{variant_count}-variant aggregate analysis: {:?}",
+            started.elapsed()
+        );
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let environment = TypeEnvironment::from_module(&module);
+        assert_eq!(
+            environment.function("vector").unwrap().return_type.render(),
+            "Vec<State>"
+        );
+        assert_eq!(
+            environment
+                .function("dictionary")
+                .unwrap()
+                .return_type
+                .render(),
+            "Dict<State, State>"
+        );
+        assert_eq!(
+            environment
+                .function("repeated")
+                .unwrap()
+                .return_type
+                .render(),
+            "Repeated<State>::Many"
+        );
+        crate::aggregate_type_join::take_work()
+    });
+    eprintln!("aggregate join work units at doubled sizes: {work:?}");
+    assert!(work[0] > 0, "the metric must observe aggregate join work");
+    assert!(
+        work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64 && work[3] <= work[2] * 2 + 64,
+        "doubling aggregate input must add only linear join work: {work:?}"
+    );
 }
 
 #[test]

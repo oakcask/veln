@@ -14,7 +14,7 @@ use veln_source::SourceSpan;
 use crate::adt::descriptors::{AdtConstructor, AdtPayloadType, AdtVariantKind};
 use crate::adt::registry::ConstructorLookup;
 use crate::adt::{type_operations as adt, unification};
-use crate::aggregate_type_join::join_same_adt_types;
+use crate::aggregate_type_join::AggregateTypeJoin;
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text,
     contract_predicate_is_statically_true, is_contract_keyword, missing_contract_field,

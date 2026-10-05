@@ -115,10 +115,13 @@ impl<'a> FunctionChecker<'a> {
         let contextual_value = expected_value != Type::Unknown;
         let mut key_type = expected_key.clone();
         let mut value_type = expected_value.clone();
+        let mut joined_keys = None;
+        let mut joined_values = None;
         for entry in entries {
             key_type = self.infer_dict_member(
                 &entry.key,
                 &key_type,
+                &mut joined_keys,
                 &expected_key,
                 contextual_key,
                 expected,
@@ -129,6 +132,7 @@ impl<'a> FunctionChecker<'a> {
             value_type = self.infer_dict_member(
                 &entry.value,
                 &value_type,
+                &mut joined_values,
                 &expected_value,
                 contextual_value,
                 expected,
@@ -136,6 +140,12 @@ impl<'a> FunctionChecker<'a> {
                 "Dict value type inferred here.",
                 "dict_value",
             );
+        }
+        if let Some(joined) = joined_keys {
+            key_type = joined.result_type();
+        }
+        if let Some(joined) = joined_values {
+            value_type = joined.result_type();
         }
         let actual = Type::dict(key_type, value_type);
         if let Some(expected) = expected
@@ -154,6 +164,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         item: &Expr,
         current_type: &Type,
+        joined_type: &mut Option<AggregateTypeJoin>,
         contextual_type: &Type,
         has_contextual_type: bool,
         expected: Option<&ExpectedType>,
@@ -161,10 +172,14 @@ impl<'a> FunctionChecker<'a> {
         origin_message: &'static str,
         constraint: &'static str,
     ) -> Type {
-        let item_type = if current_type == &Type::Unknown {
+        let inferred_context = joined_type
+            .as_ref()
+            .map(AggregateTypeJoin::inference_type)
+            .unwrap_or_else(|| current_type.clone());
+        let item_type = if inferred_context == Type::Unknown {
             contextual_type.clone()
         } else {
-            current_type.clone()
+            inferred_context
         };
         let item_expected = collection_item_expected(
             item_type,
@@ -179,25 +194,37 @@ impl<'a> FunctionChecker<'a> {
         } else {
             actual.clone()
         };
-        let joined = (!has_contextual_type)
-            .then(|| join_same_adt_types(&self.environment.adts, current_type, &aggregate))
-            .flatten();
-        if !is_assignable_nested(&item_expected.ty, &aggregate)
-            && (has_contextual_type || joined.is_none())
+        if !has_contextual_type && joined_type.is_none() && current_type != &Type::Unknown {
+            *joined_type = AggregateTypeJoin::new(&self.environment.adts, current_type);
+        }
+        let joined = !has_contextual_type
+            && joined_type
+                .as_mut()
+                .is_some_and(|joined| joined.try_join(&aggregate));
+        if !is_assignable_nested(&item_expected.ty, &aggregate) && (has_contextual_type || !joined)
         {
+            let mismatch_expected = joined_type
+                .as_ref()
+                .map(AggregateTypeJoin::result_type)
+                .unwrap_or_else(|| item_expected.ty.clone());
+            let mismatch_context = ExpectedType {
+                ty: mismatch_expected,
+                ..item_expected.clone()
+            };
             self.check_assignable_nested(
                 item,
-                &item_expected.ty,
+                &mismatch_context.ty,
                 &actual,
-                &item_expected,
+                &mismatch_context,
                 constraint,
             );
         }
-        if let Some(joined) = joined {
-            return joined;
-        }
         if current_type == &Type::Unknown {
-            aggregate
+            let aggregate_type = aggregate;
+            if !has_contextual_type {
+                *joined_type = AggregateTypeJoin::new(&self.environment.adts, &aggregate_type);
+            }
+            aggregate_type
         } else {
             current_type.clone()
         }

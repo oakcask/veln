@@ -156,21 +156,38 @@ pub(crate) fn infer_private_list_type(
         .and_then(Type::vec_part)
         .cloned()
         .unwrap_or(Type::Unknown);
+    let mut joined_items = None;
     for item in items {
         let has_context = expected.and_then(Type::vec_part).is_some();
-        let actual = context.infer(item, item_type_unknown_as_none(&item_type));
+        let inferred_context = joined_items
+            .as_ref()
+            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
+            .unwrap_or_else(|| item_type.clone());
+        let actual = context.infer(item, item_type_unknown_as_none(&inferred_context));
         let actual = if has_context {
             inferred_private_aggregate_member_type(actual, &item_type)
         } else {
             actual
         };
-        if let Some(joined) =
-            crate::aggregate_type_join::join_same_adt_types(context.adts, &item_type, &actual)
-        {
-            item_type = joined;
-        } else if item_type == Type::Unknown {
-            item_type = actual;
+        if !has_context && joined_items.is_none() && item_type != Type::Unknown {
+            joined_items =
+                crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &item_type);
         }
+        let joined = !has_context
+            && joined_items
+                .as_mut()
+                .is_some_and(|joined| joined.try_join(&actual));
+        if !joined && item_type == Type::Unknown {
+            item_type = actual;
+            joined_items = (!has_context)
+                .then(|| {
+                    crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &item_type)
+                })
+                .flatten();
+        }
+    }
+    if let Some(joined) = joined_items {
+        item_type = joined.result_type();
     }
     Type::vec(item_type)
 }
@@ -185,36 +202,68 @@ pub(crate) fn infer_private_dict_type(
         .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
             (key.clone(), value.clone())
         });
+    let mut joined_keys = None;
+    let mut joined_values = None;
     for entry in entries {
         let has_key_context = expected.and_then(Type::dict_parts).is_some();
-        let key_actual = context.infer(&entry.key, item_type_unknown_as_none(&key_type));
+        let key_context = joined_keys
+            .as_ref()
+            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
+            .unwrap_or_else(|| key_type.clone());
+        let key_actual = context.infer(&entry.key, item_type_unknown_as_none(&key_context));
         let key_actual = if has_key_context {
             inferred_private_aggregate_member_type(key_actual, &key_type)
         } else {
             key_actual
         };
-        if let Some(joined) =
-            crate::aggregate_type_join::join_same_adt_types(context.adts, &key_type, &key_actual)
-        {
-            key_type = joined;
-        } else if key_type == Type::Unknown {
-            key_type = key_actual;
+        if !has_key_context && joined_keys.is_none() && key_type != Type::Unknown {
+            joined_keys =
+                crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &key_type);
         }
-        let value_actual = context.infer(&entry.value, item_type_unknown_as_none(&value_type));
+        let key_joined = !has_key_context
+            && joined_keys
+                .as_mut()
+                .is_some_and(|joined| joined.try_join(&key_actual));
+        if !key_joined && key_type == Type::Unknown {
+            key_type = key_actual;
+            joined_keys = (!has_key_context)
+                .then(|| {
+                    crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &key_type)
+                })
+                .flatten();
+        }
+        let value_context = joined_values
+            .as_ref()
+            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
+            .unwrap_or_else(|| value_type.clone());
+        let value_actual = context.infer(&entry.value, item_type_unknown_as_none(&value_context));
         let value_actual = if has_key_context {
             inferred_private_aggregate_member_type(value_actual, &value_type)
         } else {
             value_actual
         };
-        if let Some(joined) = crate::aggregate_type_join::join_same_adt_types(
-            context.adts,
-            &value_type,
-            &value_actual,
-        ) {
-            value_type = joined;
-        } else if value_type == Type::Unknown {
-            value_type = value_actual;
+        if !has_key_context && joined_values.is_none() && value_type != Type::Unknown {
+            joined_values =
+                crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &value_type);
         }
+        let value_joined = !has_key_context
+            && joined_values
+                .as_mut()
+                .is_some_and(|joined| joined.try_join(&value_actual));
+        if !value_joined && value_type == Type::Unknown {
+            value_type = value_actual;
+            joined_values = (!has_key_context)
+                .then(|| {
+                    crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &value_type)
+                })
+                .flatten();
+        }
+    }
+    if let Some(joined) = joined_keys {
+        key_type = joined.result_type();
+    }
+    if let Some(joined) = joined_values {
+        value_type = joined.result_type();
     }
     Type::dict(key_type, value_type)
 }
@@ -745,6 +794,9 @@ fn infer_private_constructor_call(
     context: &mut PrivateSignatureInferContext<'_>,
 ) -> Type {
     let mut inferred_type_args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
+    let mut joined_type_args = (0..inferred_type_args.len())
+        .map(|_| None)
+        .collect::<Vec<Option<crate::aggregate_type_join::AggregateTypeJoin>>>();
     for (index, arg) in args.iter().enumerate() {
         let payload_expected = expected
             .and_then(|expected| adt::payload_type(expected, constructor, index))
@@ -759,21 +811,27 @@ fn infer_private_constructor_call(
         } else {
             actual
         };
-        let joined = field.and_then(|field| match field.ty {
+        let joined = field.is_some_and(|field| match field.ty {
             AdtPayloadType::TypeParameter(type_index) => {
-                inferred_type_args.get(type_index).and_then(|current| {
-                    crate::aggregate_type_join::join_same_adt_types(
-                        context.adts,
-                        current,
-                        &inferred_actual,
-                    )
-                    .map(|joined| (type_index, joined))
-                })
+                let current = &inferred_type_args[type_index];
+                if joined_type_args[type_index].is_none() && current != &Type::Unknown {
+                    joined_type_args[type_index] =
+                        crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, current);
+                }
+                joined_type_args[type_index]
+                    .as_mut()
+                    .is_some_and(|joined| joined.try_join(&inferred_actual))
             }
-            AdtPayloadType::SelfType | AdtPayloadType::Concrete(_) => None,
+            AdtPayloadType::SelfType | AdtPayloadType::Concrete(_) => false,
         });
-        if let Some((type_index, joined)) = joined {
-            inferred_type_args[type_index] = joined;
+        if let Some(field) = field
+            && let AdtPayloadType::TypeParameter(type_index) = field.ty
+            && joined
+        {
+            inferred_type_args[type_index] = joined_type_args[type_index]
+                .as_ref()
+                .expect("joined private aggregate type argument")
+                .inference_type();
         } else {
             adt::merge_type_args_from_payload(
                 &mut inferred_type_args,
@@ -781,6 +839,23 @@ fn infer_private_constructor_call(
                 index,
                 &inferred_actual,
             );
+            if let Some(field) = field
+                && let AdtPayloadType::TypeParameter(type_index) = field.ty
+                && joined_type_args[type_index].is_none()
+            {
+                joined_type_args[type_index] = crate::aggregate_type_join::AggregateTypeJoin::new(
+                    context.adts,
+                    &inferred_type_args[type_index],
+                );
+                if let Some(joined) = &joined_type_args[type_index] {
+                    inferred_type_args[type_index] = joined.inference_type();
+                }
+            }
+        }
+    }
+    for (inferred, joined) in inferred_type_args.iter_mut().zip(joined_type_args) {
+        if let Some(joined) = joined {
+            *inferred = joined.result_type();
         }
     }
     if let Some(expected_args) =
