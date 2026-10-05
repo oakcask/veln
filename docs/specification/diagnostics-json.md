@@ -122,6 +122,12 @@ so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
+An unannotated `if` or `match` whose result refinements can join under the
+[type inference rules](types.md#inference-rules) emits no diagnostic. When a
+first refined result has started a join, a later branch or arm that cannot join
+retains the ordinary `type.mismatch` contract against the inferred base ADT
+rather than introducing a control-flow-specific diagnostic.
+
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
 `observed_initial`. Qualified written paths add zero-based `segment_index`.

@@ -3,6 +3,11 @@ type Box<A>
 	Box(value: A)
 end
 
+type State
+	Ready
+	Closed
+end
+
 fn accept(value: Int) -> Int
 	value
 end
@@ -41,4 +46,19 @@ end
 
 fn constructor_context(candidate: Int) -> Box<Int>
 	Box(_)
+end
+
+fn inferred_if_context(flag: Bool, candidate: State) -> ()
+	let value = if flag
+		Ready
+	else
+		_
+	end
+end
+
+fn inferred_match_context(flag: Bool, candidate: State) -> ()
+	let value = match flag
+		true => Ready
+		false => _
+	end
 end

@@ -365,18 +365,23 @@ Without an expected result, refinements of the same ADT identity and generic
 arguments join by taking the union of their variant sets. The union is
 independent of arm order and renders in ADT declaration order. A refinement
 joined with its base ADT, or a union containing every declared variant,
-produces the base ADT. Other arm-result combinations use the existing
-compatibility and mismatch rules, with the first typed arm supplying the
-initial result type.
+produces the base ADT. Once the first refinement starts such a join, later arm
+expressions receive the base ADT as inferred context. This context can resolve
+constructors and supplies an expected type to holes. Compatible refinement
+results still determine the finite joined result. A later result that cannot
+join reports the ordinary compatibility diagnostic against that base context.
+When the first typed arm cannot start an ADT-refinement join, it supplies the
+initial result type for the existing compatibility and mismatch rules.
 
 `if` and `else if` conditions are checked with expected type `Bool`. A
 non-`Bool` condition reports `type.mismatch` at the condition expression.
 Branch body expressions share the expected result type when one is available.
 Without one, branch results use the same symmetric ADT-refinement join as
-`match`; all other combinations retain the existing first-result compatibility
-behavior. Typed holes in conditions therefore receive `Bool`, while typed
-holes in branch bodies receive the enclosing expected result type when one
-exists. The checked control-flow cases are in
+`match`, including its base-ADT inference context for later branches; all other
+combinations retain the compatibility behavior described above. Typed holes in
+conditions therefore receive `Bool`. A hole in a branch receives the enclosing
+expected result type when one exists, or the inferred base ADT when an earlier
+branch started a refinement join. The checked control-flow cases are in
 [`adt-variant-refinement-control-flow-result-joins`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins/)
 and its
 [`diagnostic companion`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins-diagnostics/).

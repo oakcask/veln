@@ -14,7 +14,7 @@ equals = "partial"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 7
+equals = 9
 
 [[json_assert]]
 path = "diagnostics.0.details.expected_type"
@@ -72,6 +72,22 @@ equals = "Int"
 path = "diagnostics.6.details.expected_type_source"
 equals = "declared"
 
+[[json_assert]]
+path = "diagnostics.7.details.expected_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.7.details.expected_type_source"
+equals = "inferred"
+
+[[json_assert]]
+path = "diagnostics.8.details.expected_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.8.details.expected_type_source"
+equals = "inferred"
+
 [[diagnostics]]
 id = "hole.unfilled"
 severity = "hint"
@@ -80,5 +96,5 @@ message = "hole requires a `Int` value"
 
 [diagnostics.span]
 file = "main.veln"
-line = 11
+line = 16
 column = 2
