@@ -638,23 +638,20 @@ impl ConstructorTypeArgInference {
                 contributions.push((type_index, contribution.clone()));
             },
         );
-        let mut constraints = self
-            .inferred
-            .iter()
-            .enumerate()
-            .map(|(type_index, inferred)| {
-                self.joined[type_index]
-                    .as_ref()
-                    .map(AggregateTypeJoin::result_type)
-                    .unwrap_or_else(|| inferred.clone())
-            })
-            .collect::<Vec<_>>();
-        unification::merge_type_parameter_contributions_transactionally(
-            &mut constraints,
+        let constraints = unification::merge_type_parameter_contributions_transactionally(
             &contributions,
+            |type_index| {
+                self.inferred.get(type_index).map(|inferred| {
+                    self.joined[type_index]
+                        .as_ref()
+                        .map(AggregateTypeJoin::result_type)
+                        .unwrap_or_else(|| inferred.clone())
+                })
+            },
         )?;
-        for (type_index, _) in contributions {
-            self.inferred[type_index] = constraints[type_index].clone();
+        for (type_index, constraint) in constraints {
+            crate::aggregate_type_join::record_work(1);
+            self.inferred[type_index] = constraint;
             self.joined[type_index] = None;
             self.invariant[type_index] = true;
         }

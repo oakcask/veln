@@ -297,17 +297,29 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         let type_parameter_lookups = crate::adt::take_type_parameter_lookups();
         let environment = TypeEnvironment::from_module(&module);
-        let inferred = environment.function("inferred").expect("inferred function");
-        assert_eq!(inferred.return_type.render().matches("Int").count(), width);
+        for function in ["inferred", "declared"] {
+            let signature = environment
+                .function(function)
+                .unwrap_or_else(|| panic!("{function} function"));
+            assert_eq!(
+                signature.return_type.render().matches("Int").count(),
+                width,
+                "{function} must exercise every invariant payload"
+            );
+        }
         (
             crate::aggregate_type_join::take_work(),
             type_parameter_lookups,
         )
     });
-    eprintln!("generic constructor work at doubled widths (inference, parameter lookup): {work:?}");
+    eprintln!(
+        "generic constructor work at doubled widths (transactional inference, parameter lookup): {work:?}"
+    );
     assert!(
-        work[0].0 > 0,
-        "the metric must observe constructor inference work"
+        work.iter()
+            .zip([100, 200, 400, 800])
+            .all(|((inference_work, _), width)| *inference_work >= width * 30),
+        "the metric must include invariant contribution materialization, validation, and commit work in ordinary and private inference: {work:?}"
     );
     assert!(
         work[1].0 <= work[0].0 * 2 + 64

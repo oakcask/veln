@@ -7,6 +7,7 @@ contains = [
   "expected `Int`, but found `String`",
   "expected `Vec<State>`, but found `Vec<State::Ready>`",
   "expected `Dict<String, State>`, but found `Dict<String, State::Ready>`",
+  "expected `Dict<State, Int>`, but found `Dict<State::Ready, Int>`",
   "expected `Pair<State>`, but found `Pair<State::Ready>::Paired`",
   "expected `Option<Int>::Some`, but found `Option<String>::Some`",
   "expected `First::Value`, but found `Second::Value`",
@@ -22,7 +23,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 12
+equals = 13
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -105,34 +106,23 @@ column = 42
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `Pair<State>`, but found `Pair<State::Ready>::Paired`"
+message = "expected `Dict<State, Int>`, but found `Dict<State::Ready, Int>`"
 
 [diagnostics.span]
 file = "main.veln"
 line = 105
-column = 34
+column = 43
 
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
-
-[diagnostics.span]
-file = "main.veln"
-line = 106
-column = 32
-
-[[diagnostics]]
-id = "type.mismatch"
-severity = "error"
-kind = "type"
-message = "expected `First::Value`, but found `Second::Value`"
+message = "expected `Pair<State>`, but found `Pair<State::Ready>::Paired`"
 
 [diagnostics.span]
 file = "main.veln"
 line = 107
-column = 27
+column = 34
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -143,6 +133,28 @@ message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
 [diagnostics.span]
 file = "main.veln"
 line = 108
+column = 32
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `First::Value`, but found `Second::Value`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 109
+column = 27
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 110
 column = 34
 
 [[diagnostics]]
@@ -153,5 +165,5 @@ message = "expected `State::Ready`, but found `State::Closed`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 109
+line = 111
 column = 28

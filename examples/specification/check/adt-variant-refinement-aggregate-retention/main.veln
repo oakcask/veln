@@ -119,6 +119,7 @@ fn main() -> ()
 	let pair: Pair<State::Ready | State::Closed>::Paired = paired()
 	let reverse_pair: Pair<State::Ready | State::Closed>::Paired = paired_reverse()
 	let contextual_vec: Vec<State> = [Ready, Closed]
+	let contextual_dict_key: Dict<State, Int> = {State::Ready: 1}
 	let contextual_dict: Dict<String, State> = {"ready": Ready}
 	let contextual_pair: Pair<State> = Paired(Ready, Closed)
 	let item: State::Ready = payload()

@@ -101,6 +101,8 @@ fn main() -> ()
 	let widened: Vec<State> = retained
 	let retained_dict = {"ready": Ready}
 	let widened_dict: Dict<String, State> = retained_dict
+	let retained_dict_key = {State::Ready: 1}
+	let widened_dict_key: Dict<State, Int> = retained_dict_key
 	let retained_pair = Paired(Ready, Ready)
 	let widened_pair: Pair<State> = retained_pair
 	let mismatched = [int_some(), string_some()]
