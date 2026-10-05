@@ -110,6 +110,15 @@ impl<'a> PackageDocBuilder<'a> {
                         schema_targets,
                     ));
                 }
+                SyntaxItem::Effect(effect) if effect.visibility == Visibility::Public => {
+                    declarations.push(self.effect_declaration(
+                        source,
+                        effect,
+                        semantic_identities,
+                        declaration_locations,
+                        schema_targets,
+                    ));
+                }
                 SyntaxItem::Function(function)
                     if function.kind == FunctionKind::Function
                         && function.visibility == Visibility::Public =>
@@ -233,6 +242,52 @@ impl<'a> PackageDocBuilder<'a> {
             alias: None,
             doctests: self.doctests_for(&source.source, schema.span.start.line),
             references: self.references_for(&source.source, schema.span.start.line, schema_targets),
+        }
+    }
+
+    pub(super) fn effect_declaration(
+        &mut self,
+        source: &ParsedPackageSource,
+        effect: &EffectDecl,
+        semantic_identities: &mut BTreeMap<String, SourceSpan>,
+        declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
+        schema_targets: &SchemaDocResolver<'_>,
+    ) -> PackageDocDeclaration {
+        let name = effect.name.clone().unwrap_or_default();
+        let signature = effect_signature(effect);
+        let identity = format!("effect:{}::{name}:{signature}", source.module_name);
+        self.record_semantic_identity(&identity, &effect.span, semantic_identities);
+        let declaration_id = self.declaration_id("effect", &identity);
+        record_declaration_location(
+            &source.source,
+            &source.source_uri,
+            declaration_locations,
+            &declaration_id,
+            &effect.span,
+            effect.name.as_deref(),
+        );
+        for operation in &effect.operations {
+            record_declaration_location(
+                &source.source,
+                &source.source_uri,
+                declaration_locations,
+                &declaration_id,
+                &operation.span,
+                operation.name.as_deref(),
+            );
+        }
+        PackageDocDeclaration {
+            id: declaration_id,
+            kind: "effect".to_string(),
+            name,
+            signature,
+            uri: String::new(),
+            doc: doc_block_before(&source.source, effect.span.start.line),
+            contracts: Vec::new(),
+            constructors: Vec::new(),
+            alias: None,
+            doctests: self.doctests_for(&source.source, effect.span.start.line),
+            references: self.references_for(&source.source, effect.span.start.line, schema_targets),
         }
     }
 

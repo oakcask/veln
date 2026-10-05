@@ -13,3 +13,293 @@ handler fixed_network(label: String, chunk: ByteChunk) for host_effects::Network
 		cause: ""
 	}
 end
+
+handler facade_clock(expected_wait: Int) for host_effects::Clock
+	request(operation, milliseconds) => if operation == "now"
+		Ok(1000)
+	else if operation == "wait" and milliseconds == expected_wait
+		Ok(0)
+	else
+		Err("facade forwarded a different deadline")
+	end
+	wall_time() => Ok({ unix_seconds: 0, nanosecond: 0 })
+end
+
+fn facade_error(operation: String, message: String) -> NetError
+	NetError(operation, Some(Tcp6), Some("facade.test:8443"), PermissionDenied, message)
+end
+
+fn facade_address_matches(address: Address, port: Int) -> Bool
+	match address
+		Address(Tcp6, "facade.test", observed_port) => observed_port == port
+		_ => false
+	end
+end
+
+fn facade_listener_matches(listener: Listener, expected: String) -> Bool effects [net]
+	net::listener_local_addr(listener) == expected
+end
+
+fn facade_stream_matches(stream: Stream, expected: String) -> Bool effects [net]
+	net::stream_peer_addr(stream) == expected
+end
+
+fn facade_deadline_matches(deadline: Option<Deadline>, expected: Int) -> Bool effects [time]
+	match deadline
+		Some(value) => facade_wait_deadline(value, expected)
+		None => false
+	end
+end
+
+fn facade_wait_deadline(deadline: Deadline, expected: Int) -> Bool effects [time]
+	handle time::wait_until(deadline) with facade_clock(expected)
+	true
+end
+
+fn facade_token_matches(token: Option<CancelToken>, expected_cancelled: Bool) -> Bool effects [time]
+	match token
+		Some(value) => time::is_cancelled(value) == expected_cancelled
+		None => false
+	end
+end
+
+fn facade_token_matches_and_cancel(token: Option<CancelToken>, expected_cancelled: Bool) -> Bool effects [time]
+	match token
+		Some(value) => facade_cancel_token(value, expected_cancelled)
+		None => false
+	end
+end
+
+fn facade_cancel_token(token: CancelToken, expected_cancelled: Bool) -> Bool effects [time]
+	let matched = time::is_cancelled(token) == expected_cancelled
+	time::cancel(token)
+	matched
+end
+
+fn facade_options_absent(deadline: Option<Deadline>, token: Option<CancelToken>) -> Bool
+	match deadline
+		None => match token
+			None => true
+			Some(_) => false
+		end
+		Some(_) => false
+	end
+end
+
+fn facade_deadline_absent(deadline: Option<Deadline>) -> Bool
+	match deadline
+		None => true
+		Some(_) => false
+	end
+end
+
+fn facade_token_absent(token: Option<CancelToken>) -> Bool
+	match token
+		None => true
+		Some(_) => false
+	end
+end
+
+fn facade_bytes_match(bytes: ByteChunk, expected: String) -> Bool
+	match byte_chunk_to_visible_ascii_string(bytes)
+		Ok(value) => value == expected
+		Err(_) => false
+	end
+end
+
+fn facade_count(text: String) -> ByteCount
+	match byte_chunk_from_visible_ascii_string(text)
+		Ok(bytes) => byte_chunk_count(bytes)
+		Err(_) => byte_chunk_count(byte_chunk([]))
+	end
+end
+
+handler observing_facade(listener_short: Listener, listener_with: Listener, listener_return: Listener, stream_short: Stream, stream_with: Stream, stream_return: Stream) for IO effects [net, time]
+	resolve(address) => if facade_address_matches(address, 8001)
+		Ok(list_cons(Endpoint(Tcp4, "192.0.2.1:8001"), list_cons(Endpoint(Tcp6, "[2001:db8::1]:8001"), list_nil())))
+	else
+		Err(facade_error("resolve-input", "wrong address"))
+	end
+	listen(address) => if facade_address_matches(address, 8002)
+		Ok(listener_return)
+	else
+		Err(facade_error("listen-input", "wrong address"))
+	end
+	connect(address, deadline, token) => if facade_address_matches(address, 8003) and facade_options_absent(deadline, token)
+		Ok(stream_return)
+	else if facade_address_matches(address, 8004) and facade_deadline_matches(deadline, 37) and facade_token_matches_and_cancel(token, false)
+		Err(facade_error("connect-with", "connect return"))
+	else
+		Err(facade_error("connect-input", "wrong options"))
+	end
+	accept(listener, deadline, token) => if facade_listener_matches(listener, "listener-short") and facade_options_absent(deadline, token)
+		Ok(stream_return)
+	else if facade_listener_matches(listener, "listener-with") and facade_deadline_matches(deadline, 41) and facade_token_absent(token)
+		Err(facade_error("accept-with", "accept return"))
+	else
+		Err(facade_error("accept-input", "wrong resource or options"))
+	end
+	listener_address(listener) => if facade_listener_matches(listener, "listener-short")
+		Ok(Endpoint(Tcp4, "127.0.0.1:8101"))
+	else
+		Err(facade_error("listener-address-input", "wrong listener"))
+	end
+	close_listener(listener) => if facade_listener_matches(listener, "listener-with")
+		Err(facade_error("close-listener", "close listener return"))
+	else
+		Err(facade_error("close-listener-input", "wrong listener"))
+	end
+	read(stream, deadline, token) => if facade_stream_matches(stream, "stream-short") and facade_options_absent(deadline, token)
+		Ok(ReadChunk(byte_chunk([])))
+	else if facade_stream_matches(stream, "stream-with") and facade_deadline_absent(deadline) and facade_token_matches_and_cancel(token, false)
+		Err(facade_error("read-with", "read return"))
+	else
+		Err(facade_error("read-input", "wrong resource or options"))
+	end
+	write(stream, bytes, deadline, token) => if facade_stream_matches(stream, "stream-short") and facade_bytes_match(bytes, "short") and facade_options_absent(deadline, token)
+		Written(facade_count("short"))
+	else if facade_stream_matches(stream, "stream-with") and facade_bytes_match(bytes, "with") and facade_deadline_matches(deadline, 43) and facade_token_matches_and_cancel(token, false)
+		WriteFailed(facade_count("xx"), facade_error("write-with", "write return"))
+	else
+		WriteFailed(facade_count(""), facade_error("write-input", "wrong resource, bytes, or options"))
+	end
+	local_address(stream) => if facade_stream_matches(stream, "stream-short")
+		Ok(Endpoint(Tcp4, "127.0.0.1:8201"))
+	else
+		Err(facade_error("local-input", "wrong stream"))
+	end
+	peer_address(stream) => if facade_stream_matches(stream, "stream-with")
+		Ok(Endpoint(Tcp6, "[2001:db8::2]:8202"))
+	else
+		Err(facade_error("peer-input", "wrong stream"))
+	end
+	shutdown_read(stream) => if facade_stream_matches(stream, "stream-short")
+		Ok(())
+	else
+		Err(facade_error("shutdown-read-input", "wrong stream"))
+	end
+	shutdown_write(stream) => if facade_stream_matches(stream, "stream-with")
+		Err(facade_error("shutdown-write", "shutdown write return"))
+	else
+		Err(facade_error("shutdown-write-input", "wrong stream"))
+	end
+	close_stream(stream) => if facade_stream_matches(stream, "stream-return")
+		Err(facade_error("close-stream", "close stream return"))
+	else
+		Err(facade_error("close-stream-input", "wrong stream"))
+	end
+end
+
+fn facade_expect_error(error: NetError, operation: String, message: String) -> Result<(), String>
+	match error
+		NetError(observed, Some(Tcp6), Some("facade.test:8443"), PermissionDenied, observed_message) => if observed == operation and observed_message == message
+			Ok(())
+		else
+			Err("facade changed an ordinary failure")
+		end
+		_ => Err("facade returned the wrong result shape")
+	end
+end
+
+fn facade_expect_stream_error(result: Result<Stream, NetError>, operation: String, message: String) -> Result<(), String>
+	match result
+		Err(error) => facade_expect_error(error, operation, message)
+		Ok(_) => Err("facade unexpectedly returned a stream")
+	end
+end
+
+fn facade_expect_unit_error(result: Result<(), NetError>, operation: String, message: String) -> Result<(), String>
+	match result
+		Err(error) => facade_expect_error(error, operation, message)
+		Ok(()) => Err("facade unexpectedly returned unit")
+	end
+end
+
+fn facade_expect_read_error(result: Result<ReadOutcome, NetError>, operation: String, message: String) -> Result<(), String>
+	match result
+		Err(error) => facade_expect_error(error, operation, message)
+		Ok(_) => Err("facade unexpectedly returned a read outcome")
+	end
+end
+
+fn facade_expect(condition: Bool, message: String) -> Result<(), String>
+	if condition
+		Ok(())
+	else
+		Err(message)
+	end
+end
+
+fn execute_facade(listener_short: Listener, listener_with: Listener, stream_short: Stream, stream_with: Stream, expected_stream: Stream) -> Result<(), String> effects [IO, net, time]
+	let _ = facade_expect(match resolve(Address(Tcp6, "facade.test", 8001))
+		Ok(Cons(Endpoint(Tcp4, "192.0.2.1:8001"), Cons(Endpoint(Tcp6, "[2001:db8::1]:8001"), Nil))) => true
+		_ => false
+	end, "resolve did not preserve its result")?
+	let _ = facade_expect(match listen(Address(Tcp6, "facade.test", 8002))
+		Ok(value) => facade_listener_matches(value, "listener-return")
+		Err(_) => false
+	end, "listen did not preserve its resource")?
+	let _ = facade_expect(match connect(Address(Tcp6, "facade.test", 8003))
+		Ok(value) => facade_stream_matches(value, "stream-return")
+		Err(_) => false
+	end, "connect did not preserve its resource")?
+	let connect_deadline = handle time::deadline_after_ms(37) with facade_clock(37)
+	let connect_token = time::cancel_token()
+	let _ = facade_expect_stream_error(connect_with(Address(Tcp6, "facade.test", 8004), Some(connect_deadline), Some(connect_token)), "connect-with", "connect return")?
+	let _ = facade_expect(time::is_cancelled(connect_token), "connect_with replaced its cancellation token")?
+	let _ = facade_expect(match accept(listener_short)
+		Ok(value) => facade_stream_matches(value, "stream-return")
+		Err(_) => false
+	end, "accept did not preserve its resource")?
+	let accept_deadline = handle time::deadline_after_ms(41) with facade_clock(41)
+	let _ = facade_expect_stream_error(accept_with(listener_with, Some(accept_deadline), None), "accept-with", "accept return")?
+	let _ = facade_expect(match listener_address(listener_short)
+		Ok(Endpoint(Tcp4, "127.0.0.1:8101")) => true
+		_ => false
+	end, "listener_address did not preserve its endpoint")?
+	let _ = facade_expect_unit_error(close_listener(listener_with), "close-listener", "close listener return")?
+	let _ = facade_expect(match read(stream_short)
+		Ok(ReadChunk(bytes)) => byte_count_to_int(byte_chunk_count(bytes)) == 0
+		_ => false
+	end, "read did not preserve empty ReadChunk")?
+	let read_token = time::cancel_token()
+	let _ = facade_expect_read_error(read_with(stream_with, None, Some(read_token)), "read-with", "read return")?
+	let _ = facade_expect(time::is_cancelled(read_token), "read_with replaced its cancellation token")?
+	let _ = facade_expect(match write(stream_short, byte_chunk_from_visible_ascii_string("short")?)
+		Written(count) => byte_count_to_int(count) == 5
+		_ => false
+	end, "write did not preserve its outcome")?
+	let write_deadline = handle time::deadline_after_ms(43) with facade_clock(43)
+	let active = time::cancel_token()
+	let _ = facade_expect(match write_with(stream_with, byte_chunk_from_visible_ascii_string("with")?, Some(write_deadline), Some(active))
+		WriteFailed(count, NetError("write-with", Some(Tcp6), Some("facade.test:8443"), PermissionDenied, "write return")) => byte_count_to_int(count) == 2
+		_ => false
+	end, "write_with did not preserve its outcome")?
+	let _ = facade_expect(time::is_cancelled(active), "write_with replaced its cancellation token")?
+	let _ = facade_expect(match local_address(stream_short)
+		Ok(Endpoint(Tcp4, "127.0.0.1:8201")) => true
+		_ => false
+	end, "local_address did not preserve its endpoint")?
+	let _ = facade_expect(match peer_address(stream_with)
+		Ok(Endpoint(Tcp6, "[2001:db8::2]:8202")) => true
+		_ => false
+	end, "peer_address did not preserve its endpoint")?
+	let _ = facade_expect(match shutdown_read(stream_short)
+		Ok(()) => true
+		_ => false
+	end, "shutdown_read changed")?
+	let _ = facade_expect_unit_error(shutdown_write(stream_with), "shutdown-write", "shutdown write return")?
+	let _ = facade_expect_unit_error(close_stream(expected_stream), "close-stream", "close stream return")?
+	Ok(())
+end
+
+pub fn verify_network_facade() -> Result<(), String> effects [net, time]
+	let empty = byte_chunk([])
+	let listener_short = handle net::listen("listener-short") with fixed_network("listener-short", empty)
+	let listener_with = handle net::listen("listener-with") with fixed_network("listener-with", empty)
+	let listener_return = handle net::listen("listener-return") with fixed_network("listener-return", empty)
+	let stream_short = handle net::connect("stream-short") with fixed_network("stream-short", empty)
+	let stream_with = handle net::connect("stream-with") with fixed_network("stream-with", empty)
+	let stream_return = handle net::connect("stream-return") with fixed_network("stream-return", empty)
+	handle execute_facade(listener_short, listener_with, stream_short, stream_with, stream_return) with observing_facade(listener_short, listener_with, listener_return, stream_short, stream_with, stream_return)
+end

@@ -20,9 +20,9 @@ also states it.
   propagation, and substitutable exporters, building on canonical and retained
   call-site locations:
   [observability.md](observability.md).
-- Remaining standard-library TCP stream operations, typed host failures,
-  resource lifecycle, and a substitutable public effect with an explicit
-  system handler, building on the implemented network address values:
+- Remaining standard-library TCP system handler, typed host failures,
+  resource lifecycle, `write_all`, and duplex transport adapter, building on
+  the implemented public network effect and direct facade:
   [standard-library-networking.md](standard-library-networking.md).
 - Remaining ADT variant-refinement support for aliases and visibility,
   collection, dictionary, and generic-payload retention and joins,

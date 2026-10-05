@@ -1,10 +1,7 @@
 use super::*;
 
-pub(super) fn lower_with_clock(text: &str) -> TypedProgram {
-    let source = SourceFile::new(
-        "main.veln",
-        format!("{}\n{text}", include_str!("../../test-support/clock.veln")),
-    );
+fn lower_with_host_effects(text: String) -> TypedProgram {
+    let source = SourceFile::new("main.veln", text);
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let mut module = lower_surface_ast_with_module_identity(
@@ -35,6 +32,25 @@ pub(super) fn lower_with_clock(text: &str) -> TypedProgram {
             .collect::<Vec<_>>()
     );
     lowered.ir.expect("clock fixture should lower")
+}
+
+pub(super) fn lower_with_clock(text: &str) -> TypedProgram {
+    lower_with_host_effects(format!(
+        "{}\n{text}",
+        include_str!("../../test-support/clock.veln")
+    ))
+}
+
+fn lower_with_network_facade(text: &str) -> TypedProgram {
+    let facade = include_str!("../../../veln-stdlib/veln/net.veln")
+        .strip_prefix("use prelude\n")
+        .expect("network facade should import the standard prelude")
+        .replace("pub type ByteCount = prelude::ByteCount\n", "");
+    lower_with_host_effects(format!(
+        "use host_effects from \"std\"\n{}\n{}\n{text}",
+        facade,
+        include_str!("../../test-support/network.veln"),
+    ))
 }
 
 #[test]
@@ -262,8 +278,7 @@ end
 
 #[test]
 fn injected_network_handles_retain_their_creating_scope() {
-    let ir = lower_with_clock(concat!(
-        include_str!("../../test-support/network.veln"),
+    let ir = lower_with_network_facade(
         r#"
 pub fn main() -> Result<(), String> effects [net, stdio]
     let first_chunk = byte_chunk_from_hex("01")?
@@ -281,7 +296,7 @@ pub fn main() -> Result<(), String> effects [net, stdio]
     Ok(())
 end
 "#,
-    ));
+    );
     let program = generate_classfiles_with_entry(&ir, "main");
     let Some(output) =
         run_jvm_program_when_java_is_available("network-retained-scopes", &program, &[])
@@ -297,4 +312,27 @@ end
         String::from_utf8_lossy(&output.stdout),
         "1\n2\nfirst\nsecond\n"
     );
+}
+
+#[test]
+fn standard_network_facade_forwards_every_operation() {
+    let ir = lower_with_network_facade(
+        r#"
+pub fn main() -> Result<(), String> effects [net, time]
+    verify_network_facade()
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("standard-network-facade", &program, &[])
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
 }

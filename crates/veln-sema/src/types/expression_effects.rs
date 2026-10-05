@@ -175,7 +175,17 @@ impl ExprEffectCollector<'_, '_, '_> {
             self.collect_all(args);
             return;
         };
-        if is_stdio_call(segments) {
+        if segments.len() > 1
+            && let Some(signature) = function_signature_path(
+                segments,
+                self.context.uses,
+                self.context.functions,
+                self.context.current_module,
+                self.context.companion_access_targets,
+            )
+        {
+            self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
+        } else if is_stdio_call(segments) {
             push_unique_effect(self.inferred, "stdio");
         } else if let Some(effects) = concurrency_effects_for_call(segments, args, self.context) {
             self.push_all(&effects);

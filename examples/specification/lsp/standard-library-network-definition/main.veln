@@ -1,0 +1,7 @@
+use net from "std"
+
+# Language-service integration contract: the imported facade function resolves
+# to the std::net virtual source instead of a synthetic compiler descriptor.
+pub fn open(address: net::Address) -> Result<net::Stream, net::NetError> effects [net::IO]
+	net::connect(address)
+end

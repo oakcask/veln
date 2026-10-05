@@ -1,0 +1,40 @@
+use net from "std"
+
+# Compiler integration contract: an explicit std::net import owns these names
+# instead of the legacy compiler-known net call signatures.
+pub fn address_operations(address: net::Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> () effects [net::IO]
+	let _: Result<List<net::Endpoint>, net::NetError> = net::resolve(address)
+	let _: Result<net::Listener, net::NetError> = net::listen(address)
+	let _: Result<net::Stream, net::NetError> = net::connect(address)
+	let _: Result<net::Stream, net::NetError> = net::connect_with(address, deadline, token)
+	()
+end
+
+pub fn listener_operations(listener: net::Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> () effects [net::IO]
+	let _: Result<net::Stream, net::NetError> = net::accept(listener)
+	let _: Result<net::Stream, net::NetError> = net::accept_with(listener, deadline, token)
+	let _: Result<net::Endpoint, net::NetError> = net::listener_address(listener)
+	let _: Result<(), net::NetError> = net::close_listener(listener)
+	()
+end
+
+pub fn stream_operations(stream: net::Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> () effects [net::IO]
+	let _: Result<net::ReadOutcome, net::NetError> = net::read(stream)
+	let _: Result<net::ReadOutcome, net::NetError> = net::read_with(stream, deadline, token)
+	let _: net::WriteOutcome = net::write(stream, bytes)
+	let _: net::WriteOutcome = net::write_with(stream, bytes, deadline, token)
+	let _: Result<net::Endpoint, net::NetError> = net::local_address(stream)
+	let _: Result<net::Endpoint, net::NetError> = net::peer_address(stream)
+	let _: Result<(), net::NetError> = net::shutdown_read(stream)
+	let _: Result<(), net::NetError> = net::shutdown_write(stream)
+	let _: Result<(), net::NetError> = net::close_stream(stream)
+	()
+end
+
+pub fn outcome_types(bytes: ByteChunk, count: net::ByteCount, error: net::NetError) -> ()
+	let _: net::ReadOutcome = net::ReadChunk(bytes)
+	let _: net::ReadOutcome = net::ReadEnd
+	let _: net::WriteOutcome = net::Written(count)
+	let _: net::WriteOutcome = net::WriteFailed(count, error)
+	()
+end

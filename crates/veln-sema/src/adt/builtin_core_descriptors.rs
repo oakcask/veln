@@ -315,5 +315,21 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             propagation: None,
             visibility: Visibility::Public,
         },
+        opaque_builtin_descriptor("NetListener"),
+        opaque_builtin_descriptor("NetStream"),
     ]
+}
+
+fn opaque_builtin_descriptor(name: &str) -> AdtDescriptor {
+    AdtDescriptor {
+        type_name: name.to_string(),
+        name_class: SourceLessNameClass::Type,
+        module_name: None,
+        nominal_identity: None,
+        type_parameters: Vec::new(),
+        variants: Vec::new(),
+        diagnostic_name: name.to_ascii_lowercase(),
+        propagation: None,
+        visibility: Visibility::Public,
+    }
 }

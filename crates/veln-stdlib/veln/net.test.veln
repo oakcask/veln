@@ -1,5 +1,60 @@
 use net
 
+fn observed_failure(operation: String, message: String) -> net::NetError
+	net::NetError(operation, Some(net::Tcp4), Some("example.test:443"), net::PermissionDenied, message)
+end
+
+fn address_message(address: net::Address, operation: String) -> String
+	match address
+		net::Address(net::Tcp4, "example.test", 443) => operation
+		_ => "unexpected address"
+	end
+end
+
+fn connect_message(address: net::Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> String
+	match deadline
+		None => match token
+			None => address_message(address, "short")
+			Some(_) => "unexpected token"
+		end
+		Some(_) => match token
+			Some(_) => address_message(address, "with")
+			None => "missing token"
+		end
+	end
+end
+
+fn resource_failure(operation: String) -> net::NetError
+	observed_failure(operation, "opaque resource operation was not invoked")
+end
+
+handler observing_io() for net::IO
+	resolve(address) => Err(observed_failure("resolve", address_message(address, "resolve")))
+	listen(address) => Err(observed_failure("listen", address_message(address, "listen")))
+	connect(address, deadline, token) => Err(observed_failure("connect", connect_message(address, deadline, token)))
+	accept(listener, deadline, token) => Err(resource_failure("accept"))
+	listener_address(listener) => Err(resource_failure("listener_address"))
+	close_listener(listener) => Err(resource_failure("close_listener"))
+	read(stream, deadline, token) => Err(resource_failure("read"))
+	write(stream, bytes, deadline, token) => net::WriteFailed(net::ByteCount(0), resource_failure("write"))
+	local_address(stream) => Err(resource_failure("local_address"))
+	peer_address(stream) => Err(resource_failure("peer_address"))
+	shutdown_read(stream) => Err(resource_failure("shutdown_read"))
+	shutdown_write(stream) => Err(resource_failure("shutdown_write"))
+	close_stream(stream) => Err(resource_failure("close_stream"))
+end
+
+fn expect_observed_error(error: net::NetError, operation: String, message: String) -> Result<(), String>
+	match error
+		net::NetError(observed_operation, Some(net::Tcp4), Some("example.test:443"), net::PermissionDenied, observed_message) => if observed_operation == operation and observed_message == message
+			Ok(())
+		else
+			Err("handler failure fields did not pass through unchanged")
+		end
+		_ => Err("handler ordinary failure fields did not match")
+	end
+end
+
 fn is_invalid(result: Result<String, net::NetError>) -> Bool
 	match result
 		Ok(_) => false
@@ -25,6 +80,32 @@ test address_values_are_constructible_and_inspectable() -> Result<(), String>
 			_ => Err("endpoint fields did not match")
 		end
 		_ => Err("address fields did not match")
+	end
+end
+
+test io_outcome_values_are_constructible_and_inspectable() -> Result<(), String>
+	let bytes = byte_chunk_from_visible_ascii_string("ok")?
+	let failure = observed_failure("write", "partial")
+	let chunk = net::ReadChunk(bytes)
+	let ended = net::ReadEnd
+	let written = net::Written(net::ByteCount(2))
+	let failed = net::WriteFailed(net::ByteCount(1), failure)
+	match chunk
+		net::ReadChunk(observed_bytes) => if byte_chunk_to_visible_ascii_string(observed_bytes)? == "ok"
+			match ended
+				net::ReadEnd => match written
+					net::Written(net::ByteCount(2)) => match failed
+						net::WriteFailed(net::ByteCount(1), error) => expect_observed_error(error, "write", "partial")
+						_ => Err("write failure fields did not match")
+					end
+					_ => Err("written count did not match")
+				end
+				_ => Err("read end did not match")
+			end
+		else
+			Err("read chunk bytes did not match")
+		end
+		_ => Err("read chunk shape did not match")
 	end
 end
 
@@ -55,5 +136,40 @@ test host_port_rejection_boundaries_are_invalid_addresses() -> Result<(), String
 		Ok(())
 	else
 		Err("expected every rejected address to use InvalidAddress")
+	end
+end
+
+
+test direct_facade_forwards_address_and_ordinary_failures() -> Result<(), String>
+	let address = net::Address(net::Tcp4, "example.test", 443)
+	let resolved = handle net::resolve(address) with observing_io()
+	let listened = handle net::listen(address) with observing_io()
+	match resolved
+		Err(error) => match expect_observed_error(error, "resolve", "resolve")
+			Ok(()) => match listened
+				Err(listen_error) => expect_observed_error(listen_error, "listen", "listen")
+				Ok(_) => Err("listen unexpectedly succeeded")
+			end
+			Err(message) => Err(message)
+		end
+		Ok(_) => Err("resolve unexpectedly succeeded")
+	end
+end
+
+test short_connect_supplies_absent_deadline_and_cancellation() -> Result<(), String>
+	let address = net::Address(net::Tcp4, "example.test", 443)
+	match handle net::connect(address) with observing_io()
+		Err(error) => expect_observed_error(error, "connect", "short")
+		Ok(_) => Err("connect unexpectedly succeeded")
+	end
+end
+
+test connect_with_forwards_deadline_and_cancellation_options() -> Result<(), String> effects [time]
+	let address = net::Address(net::Tcp4, "example.test", 443)
+	let deadline = time::deadline_after_ms(1)
+	let token = time::cancel_token()
+	match handle net::connect_with(address, Some(deadline), Some(token)) with observing_io()
+		Err(error) => expect_observed_error(error, "connect", "with")
+		Ok(_) => Err("connect_with unexpectedly succeeded")
 	end
 end

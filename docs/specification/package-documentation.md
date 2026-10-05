@@ -95,22 +95,25 @@ part bytes, so the identifier is independent of target pointer width. Module
 identity is derived from the package-relative source path. It is not derived
 from a `module` declaration. Declaration identity uses declaration kind, fully
 qualified semantic name, and canonical signature. Function declaration
-signatures include effect row binders such as `<effect E>`. Declaration
-identity does not use source order or source byte offsets. A duplicate
-semantic identity fails the complete package documentation result. A detected
-module or declaration identifier collision also fails the complete package
-documentation result.
+signatures include effect row binders such as `<effect E>`. Effect declaration
+signatures include the ordered operation names, parameter names and types, and
+result types. Declaration identity does not use source order or source byte
+offsets. A duplicate semantic identity fails the complete package
+documentation result. A detected module or declaration identifier collision
+also fails the complete package documentation result.
 
 ## Published Boundary
 
 The successful catalog includes only modules listed by `[lib].exports`. For
 those modules it includes public type declarations, public type constructors,
-public schemas, public member aliases, public functions, attached
-documentation comments, public function contracts, visible doctest fences,
-expected-output fences, and resolved schema documentation references. Public
-type constructors carry their own attached documentation comments, visible
-doctest fences, expected-output fences, and resolved schema documentation
-references.
+public schemas, public effects and their operation signatures, public member
+aliases, public functions, attached documentation comments, public function
+contracts, visible doctest fences, expected-output fences, and resolved schema
+documentation references. Public type constructors carry their own attached
+documentation comments, visible doctest fences, expected-output fences, and
+resolved schema documentation references. An effect is one declaration in the
+catalog; its operations are represented in that declaration's canonical
+signature rather than as separate declarations.
 
 The catalog excludes non-exported modules, private declarations, exact test
 companions, integration-test sources, hidden doctest setup lines, ADR-lite
@@ -205,8 +208,10 @@ locations and package URIs from another snapshot do not resolve to package
 documentation URIs. Declaration-span and name-token locations resolve to the
 same declaration documentation URI. Constructor declaration-span and
 name-token locations resolve to the owning type declaration documentation
-URI. Adapters return the URI from these lookups instead of asking clients to
-construct resource identifiers or re-resolve by spelling.
+URI. Effect declaration spans, effect-name tokens, operation declaration
+spans, and operation-name tokens resolve to the owning effect declaration
+documentation URI. Adapters return the URI from these lookups instead of
+asking clients to construct resource identifiers or re-resolve by spelling.
 
 ## References
 
