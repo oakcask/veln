@@ -6,6 +6,7 @@ include!("tests/navigation_schema_references.rs");
 include!("tests/navigation_effect_references.rs");
 include!("tests/navigation_effect_operation_references.rs");
 include!("tests/navigation_handler_references.rs");
+include!("tests/navigation_source_indexing.rs");
 include!("tests/dependencies_schema_references.rs");
 include!("tests/navigation_rename_conflicts.rs");
 include!("tests/navigation_recovery_rename_conflicts.rs");
