@@ -108,11 +108,7 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
                 ..
             },
         ) if slot_name == actual_name && slot_args.len() == actual_args.len() => {
-            let mut changed = false;
-            for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
-                changed |= merge_type_slot(slot_arg, actual_arg);
-            }
-            changed
+            merge_type_arguments(slot_args, actual_args)
         }
         (
             Type::VariantRefinement {
@@ -137,23 +133,10 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
                 || (slot_name == actual_name
                     && (slot_identity == slot_name || actual_identity == actual_name))) =>
         {
-            let mut changed = false;
-            for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
-                changed |= merge_type_slot(slot_arg, actual_arg);
-            }
-            changed
+            merge_type_arguments(slot_args, actual_args)
         }
         (Type::Record(slot_fields), Type::Record(actual_fields)) => {
-            let mut changed = false;
-            for (slot_name, slot_ty) in slot_fields {
-                if let Some((_, actual_ty)) = actual_fields
-                    .iter()
-                    .find(|(actual_name, _)| actual_name == slot_name)
-                {
-                    changed |= merge_type_slot(slot_ty, actual_ty);
-                }
-            }
-            changed
+            merge_record_fields(slot_fields, actual_fields)
         }
         (
             Type::Function {
@@ -171,17 +154,56 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
         ) if slot_params.len() == actual_params.len()
             && slot_variadic.is_some() == actual_variadic.is_some() =>
         {
-            let mut changed = false;
-            for (slot_param, actual_param) in slot_params.iter_mut().zip(actual_params) {
-                changed |= merge_type_slot(slot_param, actual_param);
-            }
-            if let (Some(slot_variadic), Some(actual_variadic)) = (slot_variadic, actual_variadic) {
-                changed |= merge_type_slot(slot_variadic, actual_variadic);
-            }
-            changed | merge_type_slot(slot_return, actual_return)
+            merge_function_parts(
+                slot_params,
+                slot_variadic,
+                slot_return,
+                actual_params,
+                actual_variadic.as_deref(),
+                actual_return,
+            )
         }
         _ => false,
     }
+}
+
+fn merge_type_arguments(slots: &mut [Type], actuals: &[Type]) -> bool {
+    slots
+        .iter_mut()
+        .zip(actuals)
+        .fold(false, |changed, (slot, actual)| {
+            merge_type_slot(slot, actual) || changed
+        })
+}
+
+fn merge_record_fields(
+    slot_fields: &mut [(String, Type)],
+    actual_fields: &[(String, Type)],
+) -> bool {
+    slot_fields.iter_mut().fold(false, |changed, (name, slot)| {
+        let field_changed = actual_fields
+            .iter()
+            .find(|(actual_name, _)| actual_name == name)
+            .is_some_and(|(_, actual)| merge_type_slot(slot, actual));
+        field_changed || changed
+    })
+}
+
+fn merge_function_parts(
+    slot_params: &mut [Type],
+    slot_variadic: &mut Option<Box<Type>>,
+    slot_return: &mut Box<Type>,
+    actual_params: &[Type],
+    actual_variadic: Option<&Type>,
+    actual_return: &Type,
+) -> bool {
+    let params_changed = merge_type_arguments(slot_params, actual_params);
+    let variadic_changed = slot_variadic
+        .as_deref_mut()
+        .zip(actual_variadic)
+        .is_some_and(|(slot, actual)| merge_type_slot(slot, actual));
+    let return_changed = merge_type_slot(slot_return, actual_return);
+    params_changed || variadic_changed || return_changed
 }
 
 pub(super) fn merge_core_type_slot(slot: &mut CoreType, actual: &CoreType) {

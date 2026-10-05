@@ -172,20 +172,12 @@ impl<'a> FunctionChecker<'a> {
         origin_message: &'static str,
         constraint: &'static str,
     ) -> Type {
-        let inferred_context = joined_type
-            .as_ref()
-            .map(AggregateTypeJoin::inference_type)
-            .unwrap_or_else(|| current_type.clone());
-        let item_type = if inferred_context == Type::Unknown {
-            contextual_type.clone()
-        } else {
-            inferred_context
-        };
-        let item_expected = collection_item_expected(
-            item_type,
+        let item_expected = self.dict_member_expected(
+            current_type,
+            joined_type.as_ref(),
+            contextual_type,
             expected,
-            dict_expr.node_id,
-            dict_expr.span.clone(),
+            dict_expr,
             origin_message,
         );
         let item_diagnostic_count = self.diagnostics.len();
@@ -193,45 +185,102 @@ impl<'a> FunctionChecker<'a> {
         if self.diagnostics.len() != item_diagnostic_count {
             return current_type.clone();
         }
-        let aggregate = if has_contextual_type {
-            inferred_aggregate_member_type_with_expected(actual.clone(), contextual_type)
-        } else {
-            actual.clone()
-        };
-        if !has_contextual_type && joined_type.is_none() && current_type != &Type::Unknown {
-            *joined_type = AggregateTypeJoin::new(&self.environment.adts, current_type);
-        }
-        let joined = !has_contextual_type
-            && joined_type
-                .as_mut()
-                .is_some_and(|joined| joined.try_join(&aggregate));
-        if !is_assignable_nested(&item_expected.ty, &aggregate) && (has_contextual_type || !joined)
-        {
-            let mismatch_expected = joined_type
-                .as_ref()
-                .map(AggregateTypeJoin::result_type)
-                .unwrap_or_else(|| item_expected.ty.clone());
-            let mismatch_context = ExpectedType {
-                ty: mismatch_expected,
-                ..item_expected.clone()
-            };
-            self.check_assignable_nested(
-                item,
-                &mismatch_context.ty,
-                &actual,
-                &mismatch_context,
-                constraint,
-            );
-        }
+        let aggregate = dict_member_aggregate_type(&actual, contextual_type, has_contextual_type);
+        let joined =
+            self.join_dict_member(current_type, joined_type, &aggregate, has_contextual_type);
+        self.check_dict_member(
+            item,
+            &item_expected,
+            &actual,
+            &aggregate,
+            joined_type.as_ref(),
+            has_contextual_type,
+            joined,
+            constraint,
+        );
         if current_type == &Type::Unknown {
-            let aggregate_type = aggregate;
             if !has_contextual_type {
-                *joined_type = AggregateTypeJoin::new(&self.environment.adts, &aggregate_type);
+                *joined_type = AggregateTypeJoin::new(&self.environment.adts, &aggregate);
             }
-            aggregate_type
+            aggregate
         } else {
             current_type.clone()
         }
+    }
+
+    fn dict_member_expected(
+        &self,
+        current_type: &Type,
+        joined_type: Option<&AggregateTypeJoin>,
+        contextual_type: &Type,
+        expected: Option<&ExpectedType>,
+        dict_expr: &Expr,
+        origin_message: &'static str,
+    ) -> ExpectedType {
+        let inferred_context = joined_type
+            .map(AggregateTypeJoin::inference_type)
+            .unwrap_or_else(|| current_type.clone());
+        let item_type = if inferred_context == Type::Unknown {
+            contextual_type.clone()
+        } else {
+            inferred_context
+        };
+        collection_item_expected(
+            item_type,
+            expected,
+            dict_expr.node_id,
+            dict_expr.span.clone(),
+            origin_message,
+        )
+    }
+
+    fn join_dict_member(
+        &self,
+        current_type: &Type,
+        joined_type: &mut Option<AggregateTypeJoin>,
+        aggregate: &Type,
+        has_contextual_type: bool,
+    ) -> bool {
+        if has_contextual_type {
+            return false;
+        }
+        if joined_type.is_none() && current_type != &Type::Unknown {
+            *joined_type = AggregateTypeJoin::new(&self.environment.adts, current_type);
+        }
+        joined_type
+            .as_mut()
+            .is_some_and(|joined| joined.try_join(aggregate))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn check_dict_member(
+        &mut self,
+        item: &Expr,
+        item_expected: &ExpectedType,
+        actual: &Type,
+        aggregate: &Type,
+        joined_type: Option<&AggregateTypeJoin>,
+        has_contextual_type: bool,
+        joined: bool,
+        constraint: &'static str,
+    ) {
+        if is_assignable_nested(&item_expected.ty, aggregate) || (!has_contextual_type && joined) {
+            return;
+        }
+        let mismatch_expected = joined_type
+            .map(AggregateTypeJoin::result_type)
+            .unwrap_or_else(|| item_expected.ty.clone());
+        let mismatch_context = ExpectedType {
+            ty: mismatch_expected,
+            ..item_expected.clone()
+        };
+        self.check_assignable_nested(
+            item,
+            &mismatch_context.ty,
+            actual,
+            &mismatch_context,
+            constraint,
+        );
     }
 
     pub(super) fn infer_try(
@@ -584,6 +633,18 @@ impl<'a> FunctionChecker<'a> {
                 .map(Type::vec),
             _ => None,
         }
+    }
+}
+
+fn dict_member_aggregate_type(
+    actual: &Type,
+    contextual_type: &Type,
+    has_contextual_type: bool,
+) -> Type {
+    if has_contextual_type {
+        inferred_aggregate_member_type_with_expected(actual.clone(), contextual_type)
+    } else {
+        actual.clone()
     }
 }
 
