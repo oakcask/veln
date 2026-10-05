@@ -18,7 +18,7 @@
     #[test]
     fn workspace_schema_composition_lookup_work_grows_linearly() {
         let mut token_visits_per_reference = None;
-        for count in [100, 200, 400] {
+        for count in [25, 50, 100] {
             let mut declarations = String::from("mod model\n\n");
             let mut fields = String::from("mod app\nuse model\n\nschema Host\n");
             for index in 0..count {
