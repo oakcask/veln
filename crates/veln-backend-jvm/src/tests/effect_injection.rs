@@ -341,7 +341,7 @@ end
 fn standard_network_write_all_preserves_the_effect_boundary() {
     let ir = lower_with_network_facade(
         r#"
-pub fn main() -> Result<(), String> effects [net, time]
+pub fn main() -> Result<(), String> effects [net, time, concurrency]
     verify_write_all()
 end
 "#,
