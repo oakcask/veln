@@ -98,6 +98,11 @@ unchanged. The short `connect`, `accept`, `read`, and `write` functions supply
 `None` for both options. Each `*_with` function passes both supplied options
 unchanged.
 
+`ReadOutcome` has the `ReadChunk(ByteChunk)` and `ReadEnd` shapes. The direct
+`read` and `read_with` functions return the handler's outcome unchanged,
+including `ReadChunk` with an empty `ByteChunk`. The facade does not enforce
+the proposed system handler's non-empty read-chunk rule.
+
 A public caller declares `effects [net::IO]`, handles that effect explicitly,
 or receives a static missing-effect diagnostic. A runnable entry that retains
 `net::IO` is rejected; the runner does not install a handler implicitly. A

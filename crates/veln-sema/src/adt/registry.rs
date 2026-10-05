@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use veln_ast::{PublicAliasKind, SurfaceModule, UseDecl, Visibility};
+use veln_ast::{PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, UseOrigin, Visibility};
 use veln_core::CoreType;
 
 use crate::name_recovery::{
@@ -753,49 +753,214 @@ fn type_alias_descriptors(
     descriptors: &[AdtDescriptor],
 ) -> Vec<AdtDescriptor> {
     let uses = normal_use_decls(module);
-    let mut pending = module
+    let aliases = module
         .aliases
         .iter()
-        .filter(|alias| alias.kind == PublicAliasKind::Type)
+        .filter(|alias| {
+            alias.kind == PublicAliasKind::Type
+                && alias
+                    .name
+                    .as_deref()
+                    .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_uppercase))
+                && !public_alias_has_invalid_target_leaf(
+                    module,
+                    alias,
+                    Some(veln_ast::NameClass::Type),
+                )
+        })
         .collect::<Vec<_>>();
-    let mut targets = descriptors.to_vec();
+    let targets = TypeAliasTargetIndex::new(descriptors, &aliases, &uses);
+    let steps = aliases
+        .iter()
+        .map(|alias| targets.target(alias))
+        .collect::<Vec<_>>();
+    let mut memo: Vec<Option<Option<AdtDescriptor>>> = vec![None; aliases.len()];
     let mut resolved = Vec::new();
-    loop {
-        let before = pending.len();
-        pending.retain(|alias| {
-            let Some(name) = alias.name.clone() else {
-                return false;
-            };
-            if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
-                return false;
+    let mut visiting = vec![false; aliases.len()];
+    for start in 0..aliases.len() {
+        if memo[start].is_some() {
+            continue;
+        }
+        let mut path = Vec::new();
+        let mut current = start;
+        let terminal = loop {
+            #[cfg(test)]
+            type_alias_resolution_counters::record_work();
+            if let Some(known) = &memo[current] {
+                break known.clone();
             }
-            if public_alias_has_invalid_target_leaf(module, alias, Some(veln_ast::NameClass::Type))
-            {
-                return false;
+            if visiting[current] {
+                break None;
             }
-            let Some(target) = descriptor_for_alias_target(
-                &alias.target,
-                &uses,
-                &targets,
-                alias.module_name.as_deref(),
-            ) else {
-                return true;
-            };
-            let mut descriptor = target.clone();
-            descriptor.nominal_identity =
-                (alias.module_name.as_deref() != Some("std::prelude")).then(|| target.identity());
-            descriptor.type_name = name;
-            descriptor.module_name = alias.module_name.clone();
-            descriptor.visibility = Visibility::Public;
-            targets.push(descriptor.clone());
-            resolved.push(descriptor);
-            false
-        });
-        if pending.is_empty() || pending.len() == before {
-            break;
+            visiting[current] = true;
+            path.push(current);
+            match steps[current] {
+                TypeAliasTarget::Descriptor(index) => break Some(descriptors[index].clone()),
+                TypeAliasTarget::Alias(index) => current = index,
+                TypeAliasTarget::Missing => break None,
+            }
+        };
+        let mut target = terminal;
+        for index in path.into_iter().rev() {
+            visiting[index] = false;
+            let descriptor = target.as_ref().map(|target| {
+                let alias = aliases[index];
+                let mut descriptor = target.clone();
+                descriptor.nominal_identity = (alias.module_name.as_deref()
+                    != Some("std::prelude"))
+                .then(|| target.identity());
+                descriptor.type_name = alias.name.clone().expect("filtered alias has a name");
+                descriptor.module_name = alias.module_name.clone();
+                descriptor.visibility = Visibility::Public;
+                descriptor
+            });
+            memo[index] = Some(descriptor.clone());
+            if let Some(descriptor) = &descriptor {
+                resolved.push(descriptor.clone());
+            }
+            target = descriptor;
         }
     }
     resolved
+}
+
+#[derive(Clone, Copy)]
+enum TypeAliasTarget {
+    Descriptor(usize),
+    Alias(usize),
+    Missing,
+}
+
+type TypeAliasKey = (Option<String>, String);
+
+struct TypeAliasTargetIndex {
+    descriptor_first: HashMap<TypeAliasKey, usize>,
+    descriptor_last: HashMap<TypeAliasKey, usize>,
+    prelude_public: HashMap<String, TypeAliasTarget>,
+    opaque_public: HashMap<String, usize>,
+    alias_first: HashMap<TypeAliasKey, usize>,
+    alias_last: HashMap<TypeAliasKey, usize>,
+    imports: HashMap<TypeAliasKey, String>,
+}
+
+impl TypeAliasTargetIndex {
+    fn new(descriptors: &[AdtDescriptor], aliases: &[&PublicAlias], uses: &[UseDecl]) -> Self {
+        let mut index = Self {
+            descriptor_first: HashMap::new(),
+            descriptor_last: HashMap::new(),
+            prelude_public: HashMap::new(),
+            opaque_public: HashMap::new(),
+            alias_first: HashMap::new(),
+            alias_last: HashMap::new(),
+            imports: HashMap::new(),
+        };
+        for (position, descriptor) in descriptors.iter().enumerate() {
+            let key = descriptor_identity(descriptor);
+            index
+                .descriptor_first
+                .entry(key.clone())
+                .or_insert(position);
+            index.descriptor_last.insert(key, position);
+            if descriptor.module_name.as_deref() == Some("std::prelude")
+                && descriptor.visibility == Visibility::Public
+            {
+                index
+                    .prelude_public
+                    .entry(descriptor.type_name.clone())
+                    .or_insert(TypeAliasTarget::Descriptor(position));
+            }
+            if descriptor.module_name.is_none()
+                && matches!(descriptor.type_name.as_str(), "NetListener" | "NetStream")
+                && descriptor.visibility == Visibility::Public
+            {
+                index
+                    .opaque_public
+                    .entry(descriptor.type_name.clone())
+                    .or_insert(position);
+            }
+        }
+        for (position, alias) in aliases.iter().enumerate() {
+            let key = (
+                alias.module_name.clone(),
+                alias.name.clone().expect("filtered alias has a name"),
+            );
+            index.alias_first.entry(key.clone()).or_insert(position);
+            index.alias_last.insert(key.clone(), position);
+            if alias.module_name.as_deref() == Some("std::prelude") {
+                index
+                    .prelude_public
+                    .entry(key.1)
+                    .or_insert(TypeAliasTarget::Alias(position));
+            }
+        }
+        for use_decl in uses {
+            let module = use_decl.module_name.clone();
+            let target = use_decl.name.clone();
+            index
+                .imports
+                .entry((module.clone(), target.clone()))
+                .or_insert_with(|| target.clone());
+            if (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+                || (use_decl.package.is_none()
+                    && module
+                        .as_deref()
+                        .is_some_and(|name| name.starts_with("std::"))))
+                && let Some(relative) = target.strip_prefix("std::")
+            {
+                index
+                    .imports
+                    .entry((module.clone(), relative.to_string()))
+                    .or_insert_with(|| target.clone());
+            }
+            if use_decl.package.is_some()
+                || !target.contains("::")
+                || use_decl.origin == UseOrigin::ImplicitStandardPrelude
+            {
+                index
+                    .imports
+                    .entry((module, use_decl.alias.clone()))
+                    .or_insert(target);
+            }
+        }
+        index
+    }
+
+    fn target(&self, alias: &PublicAlias) -> TypeAliasTarget {
+        #[cfg(test)]
+        type_alias_resolution_counters::record_work();
+        let Some(name) = alias.target.last() else {
+            return TypeAliasTarget::Missing;
+        };
+        if alias.target.len() == 1 {
+            let key = (alias.module_name.clone(), name.clone());
+            if let Some(&index) = self.alias_last.get(&key) {
+                return TypeAliasTarget::Alias(index);
+            }
+            if let Some(&index) = self.descriptor_last.get(&key) {
+                return TypeAliasTarget::Descriptor(index);
+            }
+            if let Some(&target) = self.prelude_public.get(name) {
+                return target;
+            }
+            if let Some(&index) = self.opaque_public.get(name) {
+                return TypeAliasTarget::Descriptor(index);
+            }
+            return TypeAliasTarget::Missing;
+        }
+        let qualifier = alias.target[..alias.target.len() - 1].join("::");
+        let key = (alias.module_name.clone(), qualifier);
+        let Some(module) = self.imports.get(&key) else {
+            return TypeAliasTarget::Missing;
+        };
+        let key = (Some(module.clone()), name.clone());
+        if let Some(&index) = self.descriptor_first.get(&key) {
+            return TypeAliasTarget::Descriptor(index);
+        }
+        self.alias_first
+            .get(&key)
+            .copied()
+            .map_or(TypeAliasTarget::Missing, TypeAliasTarget::Alias)
+    }
 }
 
 fn descriptor_for_alias_target<'a>(
@@ -841,6 +1006,27 @@ fn descriptor_for_alias_target<'a>(
             })
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+pub(in crate::adt) mod type_alias_resolution_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static WORK: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(in crate::adt) fn reset() {
+        WORK.set(0);
+    }
+
+    pub(super) fn record_work() {
+        WORK.set(WORK.get() + 1);
+    }
+
+    pub(in crate::adt) fn work() -> usize {
+        WORK.get()
     }
 }
 

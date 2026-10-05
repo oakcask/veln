@@ -18,8 +18,8 @@ This keeps two concerns separate:
 
 - `net::IO` is the substitutable contract used by application and protocol
   code.
-- The existing host `net` and `time` effects remain the trusted runtime
-  boundary used by the system handler.
+- The existing host `net` and `time` effects will be the trusted runtime
+  boundary used by the proposed system handler.
 
 The remaining delivery covers host-backed TCP streams, resolution, deadlines,
 cancellation, cleanup, `write_all`, and the duplex transport adapter. It does
@@ -43,9 +43,9 @@ method model or mutable deadline API. The source references are the
 
 Veln also needs a visible answer to a question that Go does not have: which
 effect represents network access, and where can a program replace its
-implementation? A public effect plus a standard host handler gives library
-authors one effect to declare and gives the runtime test harness a
-deterministic interception point.
+implementation? A public effect plus a standard host handler will give library
+authors one effect to declare. The planned conformance handler will use that
+effect as its deterministic interception point.
 
 ## Goals
 
@@ -83,61 +83,64 @@ packet API must not encode datagrams as streams.
 The public resource aliases, outcome values, complete `net::IO` effect, and
 direct forwarding facade are current behavior in the
 [standard-library networking specification](../specification/standard-library-networking.md).
-The remaining work defines the system handler and the semantics that its host
-boundary must enforce. It also adds `write_all`:
+The following semantics are requirements for the planned system handler, not
+guarantees of the current direct forwarding facade. The remaining work also
+adds `write_all`:
 
 ```veln
 pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [net::IO]
 ```
-An absent deadline means that elapsed time does not end the operation. An
-absent cancellation token means that cancellation does not end the operation.
-If both are present and observable before success, the first condition observed
-by the handler determines `TimedOut` or `Cancelled`. An operation may still
-return another host failure that was already committed before either condition
-was observed.
+Under the proposed system handler, an absent deadline will mean that elapsed
+time does not end the operation. An absent cancellation token will mean that
+cancellation does not end the operation. If both are present and observable
+before success, the first condition observed by the handler must determine
+`TimedOut` or `Cancelled`. An operation may still return another host failure
+that was already committed before either condition was observed.
 
-`resolve` preserves the handler's preferred endpoint order and removes exact
-duplicates. It returns `NameNotFound` when no endpoint is available. `connect`
-may try resolved endpoints, but it returns only one stream or one error.
+The system handler's `resolve` must preserve its preferred endpoint order and
+remove exact duplicates. It must return `NameNotFound` when no endpoint is
+available. Its `connect` may try resolved endpoints, but it must return only
+one stream or one error.
 
-`read` returns `ReadEnd` only after the peer's write half has ended and all
-previously received bytes have been returned. It never uses an empty chunk as
-an end marker.
+The system handler must return `ReadEnd` only after the peer's write half has
+ended and all previously received bytes have been returned. It must not use
+an empty chunk as an end marker. The current facade forwards any handler's
+`ReadOutcome` unchanged, including an empty `ReadChunk`.
 
-`write` returns the count committed to the stream. `Written` may contain a
-count smaller than the input length. The caller may retry only the uncommitted
-suffix. `WriteFailed` reports both the committed prefix and the failure. The
-caller processes the committed count before handling the error and does not
-retry any committed bytes.
+The system handler's `write` must report the count committed to the stream.
+`Written` may contain a count smaller than the input length. The caller may
+retry only the uncommitted suffix. `WriteFailed` must report both the committed
+prefix and the failure. The caller must process the committed count before
+handling the error and must not retry any committed bytes.
 
-`write_all` repeats the write operation for the uncommitted suffix until all
-bytes are written or an error occurs. It stops after `WriteFailed`, including
-when that outcome committed a non-empty prefix. A zero-byte `Written` outcome
-before completion becomes `NetError` with kind `Other`; this prevents an
-unbounded retry loop.
+The proposed `write_all` must repeat the write operation for the uncommitted
+suffix until all bytes are written or an error occurs. It must stop after
+`WriteFailed`, including when that outcome committed a non-empty prefix. A
+zero-byte `Written` outcome before completion must become `NetError` with kind
+`Other`; this prevents an unbounded retry loop.
 
 ## Handler model
 
 ### System handler
 
-The module exports:
+The remaining implementation will export:
 
 ```veln
 pub handler system() for net::IO effects [net, time]
 ```
 
-The handler translates portable operations to private host intrinsics. The
-private intrinsics are compiler/runtime implementation details and are not
-source-resolvable package APIs. Handling `net::IO` therefore removes that
-effect and introduces only the host `net` and `time` effects.
+The handler will translate portable operations to private host intrinsics.
+Those intrinsics will be compiler/runtime implementation details, not
+source-resolvable package APIs. Handling `net::IO` with the proposed handler
+will remove that effect and introduce only the host `net` and `time` effects.
 
-The handler has one fixed effect set, so an untimed operation also introduces
-host `time`. This first contract accepts that conservative effect because
+The proposed handler has one fixed effect set, so an untimed operation will
+also introduce host `time`. This contract accepts that conservative effect because
 splitting timed and untimed operations across handlers would split ownership
 of the same resources. A later change may remove the extra host effect only if
 handler effect inference can do so without changing the `net::IO` API.
 
-Reusable code declares `net::IO`:
+With the proposed `write_all` available, reusable code could declare `net::IO`:
 
 ```veln
 use net from "std"
@@ -156,7 +159,7 @@ fn serve_once(address: net::Address) -> Result<(), net::NetError> effects [net::
 end
 ```
 
-The application chooses the host boundary:
+Once `net::system()` exists, the application could choose the host boundary:
 
 ```veln
 pub fn main() -> Result<(), net::NetError> effects [net, time]
@@ -164,19 +167,19 @@ pub fn main() -> Result<(), net::NetError> effects [net, time]
 end
 ```
 
-No system handler is inserted implicitly for an arbitrary function. The entry
-point must apply it, or a caller must propagate `net::IO`. This keeps network
-authority visible during composition and makes missing-handler behavior a
-static effect error.
+The current facade does not install any handler implicitly. Once the system
+handler exists, an entry point must apply it or a caller must propagate
+`net::IO`. This keeps network authority visible during composition and makes
+missing-handler behavior a static effect error.
 
 ### Test handlers
 
-The runtime conformance harness supplies a deterministic `net::IO` handler.
-Like the system handler, it is trusted to create opaque `Listener` and `Stream`
-references. It is test infrastructure, not an exported standard-package
-module. A source-defined handler may deny, trace, or delegate operations, but
-it cannot fabricate a successful resource reference through a public
-constructor.
+The runtime conformance harness will need a deterministic `net::IO` handler.
+Like the proposed system handler, it must be trusted to create opaque
+`Listener` and `Stream` references. This handler will be test infrastructure,
+not an exported standard-package module. A source-defined handler can deny,
+trace, or delegate operations, but it cannot fabricate a successful resource
+reference through a public constructor.
 
 A deterministic handler must be able to script:
 
@@ -187,29 +190,36 @@ A deterministic handler must be able to script:
 - deadline and cancellation outcomes;
 - the local and peer endpoints of each resource.
 
-The handler records operations in call order. The host-side test harness
-inspects that record to verify cleanup and retry behavior. Its script and trace
-formats are repository-internal test data and are not public Veln APIs.
+The planned handler must record operations in call order. The host-side
+conformance harness will inspect that record to verify cleanup and retry
+behavior. The planned script and trace formats will be repository-internal
+test data, not public Veln APIs.
 
 ### Duplex transport adapter
 
-`transport::DuplexStream` remains the narrow effect for a protocol that already
-owns one connected stream. The standard library provides an adapter handler
-that captures a `net::Stream`, performs `net::read` and `net::write_all`, and
-maps `NetError` into the transport failure type selected by the transport
-contract.
+`transport::DuplexStream` is the existing narrow effect for a protocol that
+already owns one connected stream. The existing
+`transport::net::net_stream(stream)` adapter uses the coarse host `net` effect
+through `net::read_chunk_or_end` and `net::write_chunks`. It does not provide
+the proposed `net::IO` boundary or call `net::write_all`.
 
-The adapter does not listen, accept, resolve, connect, or close the captured
-stream. The caller retains lifecycle ownership. This prevents a protocol
-handler from silently closing a stream that another layer intends to reuse.
+The standard library will add an adapter handler that captures a `net::Stream`,
+performs `net::read` and `net::write_all` through `net::IO`, and maps `NetError`
+into the transport failure type selected by the transport contract.
+
+The proposed adapter must not listen, accept, resolve, connect, or close the
+captured stream. The caller will retain lifecycle ownership. This prevents a
+protocol handler from silently closing a stream that another layer intends to
+reuse.
 
 ## Resource lifecycle
 
-The handler owns resource state. Operations on different resources may proceed
-concurrently. For one stream, at most one read and one write may be in flight;
-one read and one write may proceed concurrently. A second concurrent read or a
-second concurrent write returns `Busy` until the active operation finishes.
-This avoids an unspecified byte split between callers.
+The proposed system handler will own resource state. Its operations on
+different resources may proceed concurrently. For one stream, at most one read
+and one write may be in flight; one read and one write may proceed
+concurrently. A second concurrent read or a second concurrent write must
+return `Busy` until the active operation finishes. This avoids an unspecified
+byte split between callers.
 
 ### Listener transitions
 
@@ -224,8 +234,8 @@ This avoids an unspecified byte split between callers.
 
 ### Stream transitions
 
-A stream has a read state, a write state, and a fully closed state. A peer end
-and a local read shutdown are distinct read states.
+The planned stream state machine has a read state, a write state, and a fully
+closed state. A peer end and a local read shutdown are distinct read states.
 
 | Current state | Operation and outcome | Next state | Observable result |
 | --- | --- | --- | --- |
@@ -249,24 +259,25 @@ and a local read shutdown are distinct read states.
 | Both closed | `write` | Both closed | `WriteFailed(0, Closed)` |
 | Any | operation through another handler | Unchanged | A failure containing `InvalidResource` |
 
-A timeout or cancellation does not close a listener or stream. A caller that
-cannot safely reuse a resource after an application-level timeout must close it
-explicitly.
+Under the proposed handler, a timeout or cancellation will not close a listener
+or stream. A caller that cannot safely reuse a resource after an
+application-level timeout must close it explicitly.
 
-Dropping the last Veln reference does not define prompt cleanup. Applications
-must call the close functions. The system handler closes all resources that it
-still owns when the handled scope exits, including exits caused by a propagated
-error or runtime unwind. Scope cleanup is a safety net, not a substitute for
-explicit close when peer-visible timing matters.
+Dropping the last Veln reference will not define prompt cleanup under the
+proposed handler. Applications will need to call the close functions. The
+system handler must close all resources that it still owns when the handled
+scope exits, including exits caused by a propagated error or runtime unwind.
+Scope cleanup will be a safety net, not a substitute for explicit close when
+peer-visible timing matters.
 
-The handler-owned safety net is distinct from
+The proposed handler-owned safety net will be distinct from
 [lexical deferred cleanup](../specification/execution.md#runtime-readiness-and-host-boundaries).
-Application code can register explicit close next to resource acquisition
-without changing the handler's ownership boundary.
+Application code will be able to register explicit close next to resource
+acquisition without changing the handler's ownership boundary.
 
-A resource must not escape its owning handled scope. A returned resource is
-already closed by scope cleanup, and a later operation under another handler
-returns `InvalidResource`.
+A resource must not escape its owning handled scope. Under the proposed
+handler, a returned resource will already be closed by scope cleanup, and a
+later operation under another handler will return `InvalidResource`.
 
 ## Compatibility and migration
 
@@ -318,7 +329,7 @@ already exist or pass.
 
 Loopback cases must bind only loopback addresses and must use bounded deadlines.
 They must not require external DNS or internet access. Cases that validate
-resolver ordering use the deterministic handler.
+resolver ordering will use the planned deterministic handler.
 
 ## Specification promotion
 

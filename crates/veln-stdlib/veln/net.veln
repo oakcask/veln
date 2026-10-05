@@ -51,7 +51,9 @@ pub type Stream = NetStream
 ## A non-negative byte count shared with the standard prelude.
 pub type ByteCount = prelude::ByteCount
 
-## A stream read returns one non-empty chunk or clean end-of-stream.
+## A stream read outcome is a byte chunk or clean end-of-stream. The direct
+## facade forwards the active IO handler's outcome unchanged, including an
+## empty ReadChunk.
 pub type ReadOutcome
 	pub ReadChunk(bytes: ByteChunk)
 	pub ReadEnd
