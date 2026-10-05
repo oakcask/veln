@@ -89,6 +89,9 @@ fn keep_ready(value: State::Ready) -> Bool
 	true
 end
 
+# Compiler integration contract: retained collection element refinements must
+# reach a standard-library callback boundary. The result annotation detects
+# either erasure or widening of the projected element type.
 fn projected() -> Vec<State::Ready>
 	vec_filter([Ready], keep_ready)
 end
