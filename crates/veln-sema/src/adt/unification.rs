@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use veln_core::CoreType;
 
 use crate::semantic_model::Type;
@@ -87,12 +89,15 @@ pub(super) fn assign_core_type_arg(args: &mut [CoreType], index: usize, actual: 
     merge_core_type_slot(slot, actual);
 }
 
-pub(super) fn merge_type_slot(slot: &mut Type, actual: &Type) {
+pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
     if actual == &Type::Unknown {
-        return;
+        return false;
     }
     match (slot, actual) {
-        (slot @ Type::Unknown, _) => *slot = actual.clone(),
+        (slot @ Type::Unknown, _) => {
+            *slot = actual.clone();
+            true
+        }
         (
             Type::Named {
                 name: slot_name,
@@ -105,9 +110,7 @@ pub(super) fn merge_type_slot(slot: &mut Type, actual: &Type) {
                 ..
             },
         ) if slot_name == actual_name && slot_args.len() == actual_args.len() => {
-            for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
-                merge_type_slot(slot_arg, actual_arg);
-            }
+            merge_type_arguments(slot_args, actual_args)
         }
         (
             Type::VariantRefinement {
@@ -132,19 +135,10 @@ pub(super) fn merge_type_slot(slot: &mut Type, actual: &Type) {
                 || (slot_name == actual_name
                     && (slot_identity == slot_name || actual_identity == actual_name))) =>
         {
-            for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
-                merge_type_slot(slot_arg, actual_arg);
-            }
+            merge_type_arguments(slot_args, actual_args)
         }
         (Type::Record(slot_fields), Type::Record(actual_fields)) => {
-            for (slot_name, slot_ty) in slot_fields {
-                if let Some((_, actual_ty)) = actual_fields
-                    .iter()
-                    .find(|(actual_name, _)| actual_name == slot_name)
-                {
-                    merge_type_slot(slot_ty, actual_ty);
-                }
-            }
+            merge_record_fields(slot_fields, actual_fields)
         }
         (
             Type::Function {
@@ -162,16 +156,128 @@ pub(super) fn merge_type_slot(slot: &mut Type, actual: &Type) {
         ) if slot_params.len() == actual_params.len()
             && slot_variadic.is_some() == actual_variadic.is_some() =>
         {
-            for (slot_param, actual_param) in slot_params.iter_mut().zip(actual_params) {
-                merge_type_slot(slot_param, actual_param);
-            }
-            if let (Some(slot_variadic), Some(actual_variadic)) = (slot_variadic, actual_variadic) {
-                merge_type_slot(slot_variadic, actual_variadic);
-            }
-            merge_type_slot(slot_return, actual_return);
+            merge_function_parts(
+                slot_params,
+                slot_variadic,
+                slot_return,
+                actual_params,
+                actual_variadic.as_deref(),
+                actual_return,
+            )
         }
-        _ => {}
+        _ => false,
     }
+}
+
+#[derive(Debug)]
+pub(crate) struct TypeParameterContributionConflict {
+    pub(crate) expected: Box<Type>,
+    pub(crate) actual: Box<Type>,
+}
+
+pub(crate) fn merge_type_parameter_contributions_transactionally(
+    contributions: &[(usize, Type)],
+    mut current: impl FnMut(usize) -> Option<Type>,
+) -> Result<Vec<(usize, Type)>, TypeParameterContributionConflict> {
+    let mut trial = Vec::<(usize, Type)>::new();
+    let mut trial_positions = HashMap::<usize, usize>::new();
+    for (index, actual) in contributions {
+        crate::inference_work::record(1);
+        let trial_index = if let Some(trial_index) = trial_positions.get(index) {
+            *trial_index
+        } else {
+            let Some(expected) = current(*index) else {
+                continue;
+            };
+            crate::inference_work::record(1);
+            let trial_index = trial.len();
+            trial.push((*index, expected));
+            trial_positions.insert(*index, trial_index);
+            trial_index
+        };
+        let rollback_work = trial.len();
+        let expected = &mut trial[trial_index].1;
+        crate::inference_work::record(1);
+        if !type_parameter_contributions_compatible(expected, actual) {
+            crate::inference_work::record(rollback_work);
+            return Err(TypeParameterContributionConflict {
+                expected: Box::new(expected.clone()),
+                actual: Box::new(actual.clone()),
+            });
+        }
+        crate::inference_work::record(1);
+        merge_type_slot(expected, actual);
+    }
+    Ok(trial)
+}
+
+fn type_parameter_contributions_compatible(expected: &Type, actual: &Type) -> bool {
+    crate::type_relations::is_assignable(expected, actual)
+        && crate::type_relations::is_assignable(actual, expected)
+}
+
+pub(crate) fn is_direct_variant_carrier(expected: &Type, actual: &Type) -> bool {
+    let (
+        Type::Named {
+            name: expected_name,
+            identity: expected_identity,
+            args: expected_args,
+        },
+        Type::VariantRefinement {
+            name: actual_name,
+            identity: actual_identity,
+            args: actual_args,
+            ..
+        },
+    ) = (expected, actual)
+    else {
+        return false;
+    };
+    crate::type_relations::same_type_identity(
+        expected_name,
+        expected_identity,
+        actual_name,
+        actual_identity,
+    ) && crate::type_relations::invariant_args_match(expected_args, actual_args)
+}
+
+fn merge_type_arguments(slots: &mut [Type], actuals: &[Type]) -> bool {
+    slots
+        .iter_mut()
+        .zip(actuals)
+        .fold(false, |changed, (slot, actual)| {
+            merge_type_slot(slot, actual) || changed
+        })
+}
+
+fn merge_record_fields(
+    slot_fields: &mut [(String, Type)],
+    actual_fields: &[(String, Type)],
+) -> bool {
+    slot_fields.iter_mut().fold(false, |changed, (name, slot)| {
+        let field_changed = actual_fields
+            .iter()
+            .find(|(actual_name, _)| actual_name == name)
+            .is_some_and(|(_, actual)| merge_type_slot(slot, actual));
+        field_changed || changed
+    })
+}
+
+fn merge_function_parts(
+    slot_params: &mut [Type],
+    slot_variadic: &mut Option<Box<Type>>,
+    slot_return: &mut Box<Type>,
+    actual_params: &[Type],
+    actual_variadic: Option<&Type>,
+    actual_return: &Type,
+) -> bool {
+    let params_changed = merge_type_arguments(slot_params, actual_params);
+    let variadic_changed = slot_variadic
+        .as_deref_mut()
+        .zip(actual_variadic)
+        .is_some_and(|(slot, actual)| merge_type_slot(slot, actual));
+    let return_changed = merge_type_slot(slot_return, actual_return);
+    params_changed || variadic_changed || return_changed
 }
 
 pub(super) fn merge_core_type_slot(slot: &mut CoreType, actual: &CoreType) {
@@ -260,11 +366,7 @@ pub(super) fn unify_template(args: &mut [Type], template: &Type, actual: &Type) 
             Type::Named {
                 name, args: nested, ..
             },
-            Type::Named {
-                name: _actual_name,
-                args: _actual_args,
-                ..
-            },
+            actual,
         ) if name.starts_with("$param") && nested.is_empty() => {
             if let Ok(index) = name.trim_start_matches("$param").parse::<usize>() {
                 assign_type_arg(args, index, actual);
@@ -337,6 +439,13 @@ pub(super) fn unify_core_template(args: &mut [CoreType], template: &CoreType, ac
 }
 
 pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type {
+    substitute_type_parameters_with(template, &mut |index| args.get(index).cloned())
+}
+
+pub(super) fn substitute_type_parameters_with(
+    template: &Type,
+    resolve: &mut impl FnMut(usize) -> Option<Type>,
+) -> Type {
     match template {
         Type::Named {
             name, args: nested, ..
@@ -344,7 +453,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
             .trim_start_matches("$param")
             .parse::<usize>()
             .ok()
-            .and_then(|index| args.get(index).cloned())
+            .and_then(resolve)
             .unwrap_or(Type::Unknown),
         Type::Named {
             name,
@@ -355,7 +464,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
             identity: identity.clone(),
             args: nested
                 .iter()
-                .map(|arg| substitute_type_parameters(arg, args))
+                .map(|arg| substitute_type_parameters_with(arg, resolve))
                 .collect(),
         },
         Type::VariantRefinement {
@@ -369,7 +478,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
             identity: identity.clone(),
             args: nested
                 .iter()
-                .map(|arg| substitute_type_parameters(arg, args))
+                .map(|arg| substitute_type_parameters_with(arg, resolve))
                 .collect(),
             variants: variants.clone(),
             unresolved_alternatives: unresolved_alternatives.clone(),
@@ -377,7 +486,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
         Type::Record(fields) => Type::Record(
             fields
                 .iter()
-                .map(|(name, ty)| (name.clone(), substitute_type_parameters(ty, args)))
+                .map(|(name, ty)| (name.clone(), substitute_type_parameters_with(ty, resolve)))
                 .collect(),
         ),
         Type::Function {
@@ -388,15 +497,73 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
         } => Type::Function {
             params: params
                 .iter()
-                .map(|ty| substitute_type_parameters(ty, args))
+                .map(|ty| substitute_type_parameters_with(ty, resolve))
                 .collect(),
             variadic: variadic
                 .as_deref()
-                .map(|ty| Box::new(substitute_type_parameters(ty, args))),
-            return_type: Box::new(substitute_type_parameters(return_type, args)),
+                .map(|ty| Box::new(substitute_type_parameters_with(ty, resolve))),
+            return_type: Box::new(substitute_type_parameters_with(return_type, resolve)),
             effects: effects.clone(),
         },
         Type::Unknown => Type::Unknown,
+    }
+}
+
+pub(super) fn visit_type_parameter_contributions(
+    template: &Type,
+    actual: &Type,
+    visit: &mut impl FnMut(usize, &Type),
+) {
+    match (template, actual) {
+        (
+            Type::Named {
+                name, args: nested, ..
+            },
+            actual,
+        ) if name.starts_with("$param") && nested.is_empty() => {
+            if let Ok(index) = name.trim_start_matches("$param").parse::<usize>() {
+                visit(index, actual);
+            }
+        }
+        (
+            Type::Named {
+                name,
+                identity,
+                args: nested,
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            }
+            | Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            },
+        ) if crate::type_relations::same_type_identity(
+            name,
+            identity,
+            actual_name,
+            actual_identity,
+        ) && nested.len() == actual_args.len() =>
+        {
+            for (nested, actual) in nested.iter().zip(actual_args) {
+                visit_type_parameter_contributions(nested, actual, visit);
+            }
+        }
+        (Type::Record(fields), Type::Record(actual_fields)) => {
+            for (name, field) in fields {
+                if let Some((_, actual_field)) = actual_fields
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == name)
+                {
+                    visit_type_parameter_contributions(field, actual_field, visit);
+                }
+            }
+        }
+        _ => {}
     }
 }
 

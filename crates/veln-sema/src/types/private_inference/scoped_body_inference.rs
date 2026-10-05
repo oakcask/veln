@@ -118,86 +118,132 @@ pub(crate) fn infer_private_function_tail_type(
     private_inference_counters::record_body_return_scan();
 
     let mut bindings = private_function_body_bindings(function, signatures_by_path);
+    let mut failures = 0;
     infer_private_body_type(
         &function.body,
         None,
         function.module_name.as_deref(),
         uses,
         &mut bindings,
+        Some(signatures_by_path),
         returns_by_path,
         adts,
+        &mut failures,
     )
+    .ty
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn infer_private_body_type(
     body: &[BodyLine],
     expected: Option<&Type>,
     current_module: Option<&str>,
     uses: &[UseDecl],
     bindings: &mut PrivateBindings,
+    signatures_by_path: Option<&FunctionSignatureMap>,
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
-) -> Type {
-    let mut tail = Type::unit();
+    failures: &mut usize,
+) -> PrivateExprInference {
+    let mut context = PrivateSignatureInferContext {
+        current_module,
+        uses,
+        bindings,
+        signatures_by_path,
+        returns_by_path,
+        adts,
+        failures,
+    };
+    infer_private_body_lines(body, expected, &mut context)
+}
+
+fn infer_private_body_lines(
+    body: &[BodyLine],
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+) -> PrivateExprInference {
+    let mut tail = PrivateExprInference::successful(Type::unit());
+    let mut body_may_contribute = true;
     for (index, line) in body.iter().enumerate() {
-        match &line.kind {
-            BodyLineKind::Let {
-                pattern,
-                annotation,
-                expr,
-                ..
-            } => {
-                let annotation_type = annotation.as_deref().map(|annotation| {
-                    canonicalize_private_annotation_type(
-                        parse_type_or_unknown(Some(annotation)),
-                        uses,
-                        current_module,
-                        adts,
-                    )
-                });
-                let ty = annotation_type.unwrap_or_else(|| {
-                    infer_private_signature_expr_type(
-                        expr,
-                        None,
-                        current_module,
-                        uses,
-                        bindings,
-                        returns_by_path,
-                        adts,
-                    )
-                });
-                collect_pattern_bindings(pattern, &ty, bindings);
-                tail = Type::unit();
-            }
-            BodyLineKind::Expr { expr } => {
-                tail = infer_private_signature_expr_type(
-                    expr,
-                    (index + 1 == body.len()).then_some(expected).flatten(),
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
-            }
-            BodyLineKind::Defer { body, .. } => {
-                let binding_count = bindings.len();
-                record_scoped_binding_count(bindings);
-                infer_private_body_type(
-                    body,
-                    Some(&Type::unit()),
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
-                bindings.truncate(binding_count);
-                tail = Type::unit();
-            }
+        let line_expected = (index + 1 == body.len()).then_some(expected).flatten();
+        let (line_tail, line_may_contribute) =
+            infer_private_body_line(line, line_expected, context);
+        tail = line_tail;
+        body_may_contribute &= line_may_contribute;
+    }
+    tail.may_contribute &= body_may_contribute;
+    tail
+}
+
+fn infer_private_body_line(
+    line: &BodyLine,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+) -> (PrivateExprInference, bool) {
+    match &line.kind {
+        BodyLineKind::Let {
+            pattern,
+            annotation,
+            expr,
+            ..
+        } => infer_private_let_line(pattern, annotation.as_deref(), expr, context),
+        BodyLineKind::Expr { expr } => (infer_private_body_expr(expr, expected, context), true),
+        BodyLineKind::Defer { body, .. } => {
+            context.infer_body(body, Some(&Type::unit()));
+            (PrivateExprInference::successful(Type::unit()), true)
         }
     }
-    tail
+}
+
+fn infer_private_let_line(
+    pattern: &Pattern,
+    annotation: Option<&str>,
+    expr: &Expr,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+) -> (PrivateExprInference, bool) {
+    let annotation_type = annotation.map(|annotation| {
+        canonicalize_private_annotation_type(
+            parse_type_or_unknown(Some(annotation)),
+            context.uses,
+            context.current_module,
+            context.adts,
+        )
+    });
+    let (ty, may_contribute) = match annotation_type {
+        Some(annotation_type) => {
+            let actual = infer_private_body_expr(expr, Some(&annotation_type), context);
+            let may_contribute =
+                crate::type_relations::is_assignable_nested(&annotation_type, &actual.ty);
+            if !may_contribute {
+                *context.failures += 1;
+            }
+            (annotation_type, may_contribute)
+        }
+        None => (infer_private_body_expr(expr, None, context).ty, true),
+    };
+    collect_pattern_bindings(pattern, &ty, context.bindings);
+    (
+        PrivateExprInference::successful(Type::unit()),
+        may_contribute,
+    )
+}
+
+fn infer_private_body_expr(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+) -> PrivateExprInference {
+    infer_private_signature_expr_type_with_failures(
+        expr,
+        expected,
+        context.current_module,
+        context.uses,
+        context.bindings,
+        context.signatures_by_path,
+        context.returns_by_path,
+        context.adts,
+        context.failures,
+    )
 }
 
 fn canonicalize_private_annotation_type(

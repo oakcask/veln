@@ -1,0 +1,117 @@
+type State
+	Ready
+	Closed
+end
+
+type First
+	Value
+	Other
+end
+
+type Second
+	Value
+	Other
+end
+
+type Pair<A>
+	Paired(A, A)
+end
+
+type Container<A>
+	Built(A, Vec<A>)
+end
+
+type Triple<A>
+	Made(A, A, A)
+end
+
+type FailureState
+	Pending
+	Rejected(Int)
+	Broken
+end
+
+fn int_some() -> Option<Int>::Some
+	Some(1)
+end
+
+fn string_some() -> Option<String>::Some
+	Some("wrong")
+end
+
+fn first() -> First::Value
+	First::Value
+end
+
+fn second() -> Second::Value
+	Second::Value
+end
+
+fn recovered()
+	Triple::Made(Ready, begin
+		let bad: Int = "bad"
+		Closed
+	end, Ready)
+end
+
+fn recovered_vector()
+	[Ready, begin
+		let bad: Int = "bad"
+		Closed
+	end, Ready]
+end
+
+fn recovered_dict_values()
+	{1: Ready, 2: begin
+		let bad: Int = "bad"
+		Closed
+	end, 3: Ready}
+end
+
+fn takes_int(value: Int) -> FailureState::Rejected
+	FailureState::Rejected(value)
+end
+
+fn recovered_call_failure()
+	[FailureState::Pending, takes_int("bad"), FailureState::Broken]
+end
+
+fn recovered_constructor_failure()
+	[FailureState::Pending, FailureState::Rejected("bad"), FailureState::Broken]
+end
+
+fn accept_triple(value: Triple<State::Ready>::Made) -> ()
+	()
+end
+
+fn accept_vector(value: Vec<State::Ready>) -> ()
+	()
+end
+
+fn accept_dict_values(value: Dict<Int, State::Ready>) -> ()
+	()
+end
+
+fn accept_failure_recovery(value: Vec<FailureState::Pending | FailureState::Broken>) -> ()
+	()
+end
+
+fn main() -> ()
+	let retained = [Ready]
+	let widened: Vec<State> = retained
+	let retained_dict = {"ready": Ready}
+	let widened_dict: Dict<String, State> = retained_dict
+	let retained_dict_key = {State::Ready: 1}
+	let widened_dict_key: Dict<State, Int> = retained_dict_key
+	let retained_pair = Paired(Ready, Ready)
+	let widened_pair: Pair<State> = retained_pair
+	let mismatched = [int_some(), string_some()]
+	let distinct = [first(), second()]
+	let paired = Paired(int_some(), string_some())
+	let mixed = Built(Ready, [Closed])
+	accept_triple(recovered())
+	accept_vector(recovered_vector())
+	accept_dict_values(recovered_dict_values())
+	accept_failure_recovery(recovered_call_failure())
+	accept_failure_recovery(recovered_constructor_failure())
+end

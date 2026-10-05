@@ -100,9 +100,26 @@ note identifies the declaration or local annotation that supplied the
 expectation. When a compiler-known helper infers a parameter expectation from
 the call, the note instead identifies that helper at the call site. A nested
 aggregate invariance failure with no truthful finite variant exclusion reports
-ordinary `type.mismatch`. This includes assigning an inferred record with a
-singleton-refined field to a record type whose corresponding field uses the
-base ADT. If an earlier error leaves the value untyped,
+ordinary `type.mismatch`. Its actual type preserves the inferred nested
+refinement. This includes assigning an inferred record with a singleton-refined
+field, or an inferred named aggregate with a refined type argument, to the
+corresponding type that uses the base ADT. During aggregate inference, an
+incompatible later contribution reports the aggregate position's accumulated
+type as expected and preserves the later contribution's constructor refinement
+as actual. The accumulated expected type contains only successfully typed
+contributions. A contribution that already produced a diagnostic leaves that
+type unchanged, does not produce a derivative aggregate mismatch, and cannot
+change the expected type reported for a later contribution. A rejected call or
+constructor expression follows this rule even when recovery can determine its
+refined result type from the resolved declaration. The same rule applies when
+one constructor payload uses a type parameter directly and another uses it
+inside an invariant named type: the diagnostic reports the exact constraint
+established by the other payload rather than widening the nested type. When one
+payload contributes the same type parameter more than once, a conflict reports
+the earlier occurrence's type as expected and the conflicting occurrence's
+type as actual. None of that payload's occurrences update the accumulated type,
+so a later payload is checked against only the constraints that were complete
+before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,

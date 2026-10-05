@@ -71,7 +71,7 @@ fn accept_wrapped(value: Envelope<Int>::Wrapped) -> ()
 	()
 end
 
-fn accept_state_list(value: Vec<State>) -> ()
+fn accept_state_list(value: Vec<State::Ready>) -> ()
 	()
 end
 
@@ -79,11 +79,11 @@ fn accept_state_record(value: {state: State}) -> ()
 	()
 end
 
-fn accept_state_dict(value: Dict<String, State>) -> ()
+fn accept_state_dict(value: Dict<String, State::Ready>) -> ()
 	()
 end
 
-fn accept_state_envelope(value: Envelope<State>::Wrapped) -> ()
+fn accept_state_envelope(value: Envelope<State::Ready>::Wrapped) -> ()
 	()
 end
 
@@ -148,9 +148,9 @@ fn main() -> State
 	let record = {state: Ready}
 	accept_one(record.state)
 	let states = [Ready, Closed]
-	let states_base: Vec<State> = states
+	let states_exact: Vec<State::Ready | State::Closed> = states
 	let envelope = Wrapped(Ready)
-	let envelope_base: Envelope<State> = envelope
+	let envelope_exact: Envelope<State::Ready> = envelope
 	let chain: Chain<Int>::More = wrap_chain()
 	widened
 end

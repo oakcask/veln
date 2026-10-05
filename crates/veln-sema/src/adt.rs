@@ -5,6 +5,8 @@ mod builtin_codec_descriptors;
 mod builtin_core_descriptors;
 pub(crate) mod builtin_descriptors;
 mod lookup_validation;
+#[cfg(test)]
+pub(crate) use lookup_validation::{reset_type_parameter_lookups, take_type_parameter_lookups};
 mod runtime_base_variants;
 mod runtime_connection_variants;
 mod runtime_hpack_variants;

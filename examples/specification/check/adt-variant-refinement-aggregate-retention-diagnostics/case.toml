@@ -1,0 +1,169 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "expected `Int`, but found `String`",
+  "expected `Vec<State>`, but found `Vec<State::Ready>`",
+  "expected `Dict<String, State>`, but found `Dict<String, State::Ready>`",
+  "expected `Dict<State, Int>`, but found `Dict<State::Ready, Int>`",
+  "expected `Pair<State>`, but found `Pair<State::Ready>::Paired`",
+  "expected `Option<Int>::Some`, but found `Option<String>::Some`",
+  "expected `First::Value`, but found `Second::Value`",
+  "expected `State::Ready`, but found `State::Closed`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 13
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 52
+column = 18
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 59
+column = 18
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 66
+column = 18
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 76
+column = 36
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 80
+column = 49
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Vec<State>`, but found `Vec<State::Ready>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 101
+column = 28
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Dict<String, State>`, but found `Dict<String, State::Ready>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 103
+column = 42
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Dict<State, Int>`, but found `Dict<State::Ready, Int>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 105
+column = 43
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Pair<State>`, but found `Pair<State::Ready>::Paired`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 107
+column = 34
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 108
+column = 32
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `First::Value`, but found `Second::Value`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 109
+column = 27
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 110
+column = 34
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Ready`, but found `State::Closed`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 111
+column = 28

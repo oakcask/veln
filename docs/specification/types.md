@@ -198,13 +198,17 @@ generic constructors, use the existing ambiguity diagnostics until a concrete
 same-function expected type fixes the binding. The JSON details identify the
 local binding slot and include the current inferred type.
 
-Non-empty `Vec<T>` literal initializers infer an omitted local binding as
-`Vec<T>` from the first element when all later elements are assignable to the
-same concrete element type. Non-empty `Dict<K, V>` literal initializers infer
-`Dict<K, V>` from the first key and value when later keys and values are
-assignable to the same concrete key and value types. Conflicting later facts
-remain focused `type.mismatch` diagnostics at the incompatible element, key,
-or value rather than widening the binding type.
+Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
+value positions from every successfully typed contribution. Constructor
+refinements of the same resolved ADT and compatible generic arguments join
+into a declaration-ordered variant set, independent of source order. An
+unresolved generic argument can become concrete from another contribution;
+after it is concrete, later contributions must have the same argument. A join
+containing every declared variant, or a join of a refinement and its base ADT,
+becomes the base ADT. A contribution that produces its own diagnostic does not
+change the accumulated type, so a later successful contribution joins with
+only the preceding successful facts. Other conflicting facts remain focused
+`type.mismatch` diagnostics at the incompatible element, key, or value.
 
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
@@ -254,9 +258,10 @@ payloads use the same concrete context they would receive at the top level.
 Payload-carrying ADT constructors infer omitted type arguments from payload
 expressions when there is no surrounding expected ADT type. The constructor
 name must resolve to one visible variant, and every type argument must become
-concrete from the payloads. Repeated uses of the same type parameter must agree;
-an incompatible later payload reports `type.mismatch` at that payload
-expression. If payloads leave a constructor type argument as `unknown`, the
+concrete from the payloads. Repeated uses of the same type parameter join
+same-ADT constructor refinements by the aggregate join rule. Other incompatible
+later payloads report `type.mismatch` at that payload expression. If payloads
+leave a constructor type argument as `unknown`, the
 constructor reports `type.inference_ambiguous` with a constructor slot kind,
 current inferred type, and constructor type-context constraint. Bare,
 type-qualified,
@@ -450,13 +455,52 @@ Without that expected record type, the inferred value is
 `{state: State}` is rejected because direct refinement widening does not
 recurse through records.
 
-Other unannotated aggregates do not retain nested constructor refinements in
-this slice. A constructor used as a collection element, dictionary key or
-value, or inferred generic ADT payload contributes its base ADT type to that
-aggregate position. Private omitted-return inference applies the same member
-erasure for those aggregates, so its inferred signature agrees with the body
-type. The outer constructor expression still has its singleton type.
-Explicitly refined nested types remain invariant.
+Unannotated collection elements, dictionary keys and values, and inferred
+generic ADT payload positions retain constructor refinements. Several values
+contributing to one position use the same declaration-ordered join rule as
+collection inference. Constructor payload patterns and collection helpers
+observe the retained type argument after substitution. Private omitted-result
+inference applies these rules too, so its inferred signature agrees with
+ordinary body inference. If an element, entry, or payload expression fails to
+type-check, its recovered type does not contribute to the aggregate join. The
+failed expression leaves the previously accumulated join unchanged for later
+successful contributions and for an inferred private result. This exclusion
+also applies when a call argument or constructor payload fails but recovery can
+still identify the call or constructor's refined result type.
+
+The join applies when repeated constructor payloads use a type parameter
+directly. If the same parameter also occurs inside an invariant named payload,
+that nested occurrence instead establishes an exact constraint. Every direct
+or nested contribution must then match that constraint; the checker does not
+widen across the nested named type. For example, given `Built(A, Vec<A>)`,
+`Built(Ready, [Ready])` infers `Container<State::Ready>::Built`, while
+`Built(Ready, [Closed])` reports `type.mismatch`. Reversing the two payload
+positions does not change either result.
+
+All occurrences contributed by one payload are accepted or rejected together.
+If one occurrence conflicts, no occurrence from that payload constrains the
+constructor type argument. A later valid payload therefore continues from the
+last successfully inferred type instead of from a partial result of the failed
+payload. This rule also applies when the rejected payload contains repeated
+occurrences inside one invariant named type.
+
+When a concrete payload has the form `Box<A>`, a matching refined carrier such
+as `Box<State::Ready>::Boxed` can supply `State::Ready` for `A`. This direct
+carrier inference allows `Carried(Boxed(Ready))` to infer
+`Carrier<State::Ready>::Carried`. It does not make named type arguments
+covariant: a later use of `Box<State::Ready>` where `Box<State>` is required
+still reports `type.mismatch`.
+
+An explicit aggregate component type supplies context while the aggregate is
+constructed. A constructor singleton can widen directly at that component
+boundary, so `[Ready]` can construct an explicitly expected `Vec<State>` and
+`{State::Ready: 1}` can construct an explicitly expected `Dict<State, Int>`.
+The same rule lets `Boxed(Ready)` construct an explicitly expected
+`Box<State>`. Without that context, the values retain `Vec<State::Ready>`,
+`Dict<State::Ready, Int>`, and `Box<State::Ready>::Boxed`. A later assignment
+from any inferred value to the corresponding base-argument aggregate is
+rejected. Named type arguments remain invariant; aggregate inference does not
+add nested covariance.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
@@ -507,10 +551,14 @@ accepted source and compiler-known cases in
 in `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-json/`,
 and human diagnostics in
 `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-human/`.
+Aggregate retention, joins, contextual widening, projection, and omitted
+private results are checked in
+`examples/specification/check/adt-variant-refinement-aggregate-retention/`;
+rejected nested widening and generic argument mismatch are checked in its
+`-diagnostics` companion.
 
-Alias spelling and provenance, public/private exposure paths, refinement
-retention and joins for collections, dictionaries, and inferred generic ADT
-payloads, pattern-based control-flow refinement, schema boundaries,
+Alias spelling and provenance, public/private exposure paths, pattern-based
+control-flow refinement, `if` and `match` result joins, schema boundaries,
 package-documentation signatures, command-wide coverage, LSP, MCP, and
 language-reference publication remain proposal work. This slice also does not
 add recursive generic or function variance.
@@ -518,8 +566,10 @@ add recursive generic or function variance.
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
 record and be assignable. Named types with the same constructor are compatible
-when their arguments are pairwise assignable, so `Vec<unknown>` accepts
-`Vec<Int>`. `Path` and `String` are distinct named types at assignment
+when their arguments are pairwise compatible at a nested boundary. A nested
+boundary accepts `unknown`, so `Vec<unknown>` accepts `Vec<Int>`, but it does
+not apply direct refinement widening: `Vec<State::Ready>` does not satisfy
+`Vec<State>`. `Path` and `String` are distinct named types at assignment
 boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
 shape, return type, and effects. Variadic and fixed-arity function types are
@@ -540,9 +590,11 @@ field type.
 Dictionary literals infer `Dict<K, V>` from their expected type when available.
 An empty `{}` expression becomes an empty dictionary only when the expected type
 is `Dict<K, V>`. Without an expected dictionary type, the first entry supplies
-the initial key and value types. Later entries are checked against the same key
-and value expectations. A dictionary key may be any implemented expression; the
-parser only reserves a first bare `name: value` entry for record literals.
+the initial key and value contributions. Each later entry contributes to the
+same positions. Compatible same-ADT refinements join as described above;
+otherwise, an incompatible key or value reports `type.mismatch`. A dictionary
+key may be any implemented expression; the parser only reserves a first bare
+`name: value` entry for record literals.
 
 Record field access `expr.name` requires the base expression to have a record
 type containing `name`. The access has the declared field type. Accessing a

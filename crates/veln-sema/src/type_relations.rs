@@ -184,7 +184,7 @@ fn variadics_are_assignable(expected: &Option<Box<Type>>, actual: &Option<Box<Ty
     }
 }
 
-fn same_type_identity(
+pub(crate) fn same_type_identity(
     expected_name: &str,
     expected_identity: &str,
     actual_name: &str,
@@ -195,7 +195,7 @@ fn same_type_identity(
             && (expected_identity == expected_name || actual_identity == actual_name))
 }
 
-fn invariant_args_match(expected: &[Type], actual: &[Type]) -> bool {
+pub(crate) fn invariant_args_match(expected: &[Type], actual: &[Type]) -> bool {
     expected.len() == actual.len()
         && expected
             .iter()
