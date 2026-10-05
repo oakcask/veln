@@ -199,14 +199,16 @@ same-function expected type fixes the binding. The JSON details identify the
 local binding slot and include the current inferred type.
 
 Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
-value positions from every contribution. Constructor refinements of the same
-resolved ADT and compatible generic arguments join into a declaration-ordered
-variant set, independent of source order. An unresolved generic argument can
-become concrete from another contribution; after it is concrete, later
-contributions must have the same argument. A join containing every declared
-variant, or a join of a refinement and its base ADT, becomes the base ADT.
-Other conflicting facts remain focused `type.mismatch` diagnostics at the
-incompatible element, key, or value.
+value positions from every successfully typed contribution. Constructor
+refinements of the same resolved ADT and compatible generic arguments join
+into a declaration-ordered variant set, independent of source order. An
+unresolved generic argument can become concrete from another contribution;
+after it is concrete, later contributions must have the same argument. A join
+containing every declared variant, or a join of a refinement and its base ADT,
+becomes the base ADT. A contribution that produces its own diagnostic does not
+change the accumulated type, so a later successful contribution joins with
+only the preceding successful facts. Other conflicting facts remain focused
+`type.mismatch` diagnostics at the incompatible element, key, or value.
 
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
@@ -459,7 +461,10 @@ contributing to one position use the same declaration-ordered join rule as
 collection inference. Constructor payload patterns and collection helpers
 observe the retained type argument after substitution. Private omitted-result
 inference applies these rules too, so its inferred signature agrees with
-ordinary body inference.
+ordinary body inference. If an element, entry, or payload expression fails to
+type-check, its recovered type does not contribute to the aggregate join. The
+failed expression leaves the previously accumulated join unchanged for later
+successful contributions and for an inferred private result.
 
 The join applies when repeated constructor payloads use a type parameter
 directly. If the same parameter also occurs inside an invariant named payload,
