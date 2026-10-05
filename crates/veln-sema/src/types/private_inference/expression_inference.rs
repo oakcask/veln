@@ -17,10 +17,18 @@ pub(crate) fn infer_private_signature_expr_type(
         current_module,
         uses,
         bindings,
+        None,
         returns_by_path,
         adts,
         &mut failures,
     )
+    .ty
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct PrivateExprInference {
+    pub(super) ty: Type,
+    pub(super) may_contribute: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -30,39 +38,50 @@ pub(super) fn infer_private_signature_expr_type_with_failures(
     current_module: Option<&str>,
     uses: &[UseDecl],
     bindings: &mut PrivateBindings,
+    signatures_by_path: Option<&FunctionSignatureMap>,
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
     failures: &mut usize,
-) -> Type {
+) -> PrivateExprInference {
     let mut context = PrivateSignatureInferContext {
         current_module,
         uses,
         bindings,
+        signatures_by_path,
         returns_by_path,
         adts,
         failures,
     };
     if let Some(ty) = infer_private_leaf_type(expr) {
-        return ty;
+        return PrivateExprInference::successful(ty);
     }
     if let Some(ty) = infer_private_branch_type(expr, expected, &mut context) {
-        return ty;
+        return PrivateExprInference::successful(ty);
     }
     if let Some(ty) = infer_private_value_type(expr, expected, &mut context) {
-        return ty;
+        return PrivateExprInference::successful(ty);
     }
     if let Some(ty) = infer_private_schema_type(expr, expected, &mut context) {
-        return ty;
+        return PrivateExprInference::successful(ty);
     }
     match &expr.kind {
         ExprKind::Prefix { expr, .. } => {
             context.infer(expr, expected);
-            Type::Unknown
+            PrivateExprInference::successful(Type::Unknown)
         }
-        ExprKind::Binary { op, left, right } => {
-            infer_private_binary_type(*op, left, right, expected, &mut context)
-        }
+        ExprKind::Binary { op, left, right } => PrivateExprInference::successful(
+            infer_private_binary_type(*op, left, right, expected, &mut context),
+        ),
         _ => unreachable!("delegated expressions return before operator inference"),
+    }
+}
+
+impl PrivateExprInference {
+    pub(super) fn successful(ty: Type) -> Self {
+        Self {
+            ty,
+            may_contribute: true,
+        }
     }
 }
 
@@ -189,11 +208,11 @@ pub(crate) fn infer_private_list_type(
             .as_ref()
             .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
             .unwrap_or_else(|| item_type.clone());
-        let failure_count = context.failure_count();
-        let actual = context.infer(item, item_type_unknown_as_none(&inferred_context));
-        if context.failure_count() != failure_count {
+        let actual = context.infer_outcome(item, item_type_unknown_as_none(&inferred_context));
+        if !actual.may_contribute {
             continue;
         }
+        let actual = actual.ty;
         let actual = if has_context {
             inferred_private_aggregate_member_type(actual, &item_type)
         } else {
@@ -271,11 +290,11 @@ fn infer_private_dict_component(
         .as_ref()
         .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
         .unwrap_or_else(|| component_type.clone());
-    let failure_count = context.failure_count();
-    let actual = context.infer(expr, item_type_unknown_as_none(&inferred_context));
-    if context.failure_count() != failure_count {
+    let actual = context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context));
+    if !actual.may_contribute {
         return;
     }
+    let actual = actual.ty;
     let actual = if has_context {
         inferred_private_aggregate_member_type(actual, component_type)
     } else {
@@ -749,6 +768,7 @@ pub(crate) struct PrivateSignatureInferContext<'a, 'f> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
     pub(crate) bindings: &'a mut PrivateBindings,
+    pub(crate) signatures_by_path: Option<&'a FunctionSignatureMap>,
     pub(crate) returns_by_path: &'a BTreeMap<(Option<String>, String), Type>,
     pub(crate) adts: &'a AdtRegistry,
     pub(crate) failures: &'f mut usize,
@@ -756,37 +776,68 @@ pub(crate) struct PrivateSignatureInferContext<'a, 'f> {
 
 impl PrivateSignatureInferContext<'_, '_> {
     pub(crate) fn infer(&mut self, expr: &Expr, expected: Option<&Type>) -> Type {
-        infer_private_signature_expr_type_with_failures(
+        self.infer_outcome(expr, expected).ty
+    }
+
+    fn infer_outcome(&mut self, expr: &Expr, expected: Option<&Type>) -> PrivateExprInference {
+        let failure_count = *self.failures;
+        let mut outcome = infer_private_signature_expr_type_with_failures(
             expr,
             expected,
             self.current_module,
             self.uses,
             self.bindings,
+            self.signatures_by_path,
             self.returns_by_path,
             self.adts,
             self.failures,
-        )
+        );
+        outcome.may_contribute = *self.failures == failure_count;
+        outcome
     }
 
-    fn failure_count(&self) -> usize {
-        *self.failures
+    fn infer_expected_outcome(&mut self, expr: &Expr, expected: &Type) -> PrivateExprInference {
+        let mut outcome = self.infer_outcome(expr, Some(expected));
+        let rejected_here = outcome.ty != Type::Unknown
+            && !crate::type_relations::is_assignable(expected, &outcome.ty);
+        if rejected_here && outcome.may_contribute {
+            *self.failures += 1;
+        }
+        outcome.may_contribute &= !rejected_here;
+        outcome
+    }
+
+    fn infer_nested_expected_outcome(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+    ) -> PrivateExprInference {
+        let mut outcome = self.infer_outcome(expr, Some(expected));
+        let rejected_here = outcome.ty != Type::Unknown
+            && !crate::type_relations::is_assignable_nested(expected, &outcome.ty);
+        if rejected_here && outcome.may_contribute {
+            *self.failures += 1;
+        }
+        outcome.may_contribute &= !rejected_here;
+        outcome
     }
 
     fn infer_body(&mut self, body: &[BodyLine], expected: Option<&Type>) -> Type {
         let binding_count = self.bindings.len();
         record_scoped_binding_count(self.bindings);
-        let ty = infer_private_body_type(
+        let outcome = infer_private_body_type(
             body,
             expected,
             self.current_module,
             self.uses,
             self.bindings,
+            self.signatures_by_path,
             self.returns_by_path,
             self.adts,
             self.failures,
         );
         self.bindings.truncate(binding_count);
-        ty
+        outcome.ty
     }
 }
 
@@ -802,18 +853,61 @@ pub(crate) fn infer_private_signature_call_type(
     if let Some(constructor) = private_payload_constructor(segments, expected, context) {
         return infer_private_constructor_call(constructor, args, expected, context);
     }
+    if let Some(signature) = private_declared_call_signature(segments, context).cloned() {
+        let arity_matches = args.len() >= signature.params.len()
+            && (signature.variadic.is_some() || args.len() == signature.params.len());
+        if !arity_matches {
+            *context.failures += 1;
+        }
+        for (arg, param) in args.iter().zip(&signature.params) {
+            context.infer_expected_outcome(arg, param);
+        }
+        if let Some(variadic) = &signature.variadic {
+            for arg in args.iter().skip(signature.params.len()) {
+                context.infer_expected_outcome(arg, variadic);
+            }
+        } else {
+            for arg in args.iter().skip(signature.params.len()) {
+                context.infer_outcome(arg, None);
+            }
+        }
+        return signature.return_type;
+    }
     if let Some(return_type) = private_declared_call_return(segments, context) {
         return return_type.clone();
     }
     if let Some(name) = segments.last()
         && let Some((params, return_type)) = crate::prelude::prelude_signature(name, expected)
     {
+        if args.len() != params.len() {
+            *context.failures += 1;
+        }
         for (arg, param) in args.iter().zip(params.iter()) {
-            context.infer(arg, Some(param));
+            context.infer_expected_outcome(arg, param);
+        }
+        for arg in args.iter().skip(params.len()) {
+            context.infer_outcome(arg, None);
         }
         return return_type;
     }
     Type::Unknown
+}
+
+fn private_declared_call_signature<'a>(
+    segments: &[String],
+    context: &'a PrivateSignatureInferContext<'_, '_>,
+) -> Option<&'a FunctionSignature> {
+    let signatures = context.signatures_by_path?;
+    match segments {
+        [name] => signatures.get(&(context.current_module.map(str::to_string), name.clone())),
+        [_, .., name] => imported_use_for_path(
+            context.uses,
+            &segments[..segments.len() - 1],
+            context.current_module,
+        )
+        .and_then(|use_decl| signatures.get(&(Some(use_decl.name.clone()), name.clone()))),
+        _ => None,
+    }
 }
 
 fn private_payload_constructor<'a>(
@@ -855,6 +949,9 @@ fn infer_private_constructor_call(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
+    if args.len() != constructor.variant.payload_fields.len() {
+        *context.failures += 1;
+    }
     let mut type_args = PrivateConstructorTypeArgInference::new(constructor);
     for (index, arg) in args.iter().enumerate() {
         let field = constructor.variant.payload_fields.get(index);
@@ -862,9 +959,15 @@ fn infer_private_constructor_call(
         let widens_aggregate_member = expected.is_some()
             || (field.is_some_and(|field| !matches!(field.ty, AdtPayloadType::TypeParameter(_)))
                 && !private_type_contains_unknown(&payload_expected));
-        let payload_failure_count = context.failure_count();
-        let actual = context.infer(arg, item_type_unknown_as_none(&payload_expected));
-        let payload_succeeded = context.failure_count() == payload_failure_count;
+        let direct_joining_parameter =
+            field.is_some_and(|field| matches!(field.ty, AdtPayloadType::TypeParameter(_)));
+        let actual = if direct_joining_parameter || payload_expected == Type::Unknown {
+            context.infer_outcome(arg, item_type_unknown_as_none(&payload_expected))
+        } else {
+            context.infer_nested_expected_outcome(arg, &payload_expected)
+        };
+        let payload_succeeded = actual.may_contribute;
+        let actual = actual.ty;
         let inferred_actual = if widens_aggregate_member {
             inferred_private_aggregate_member_type(actual, &payload_expected)
         } else {
@@ -899,6 +1002,7 @@ struct PrivateConstructorTypeArgInference {
 impl PrivateConstructorTypeArgInference {
     fn new(constructor: AdtConstructor<'_>) -> Self {
         let parameter_count = constructor.descriptor.type_parameters.len();
+        crate::aggregate_type_join::record_work(parameter_count);
         Self {
             inferred: vec![Type::Unknown; parameter_count],
             joined: (0..parameter_count).map(|_| None).collect(),
@@ -913,18 +1017,24 @@ impl PrivateConstructorTypeArgInference {
         index: usize,
         field: Option<&AdtPayloadField>,
     ) -> Type {
-        let mut constraints = self.inferred.clone();
-        if !field.is_some_and(|field| matches!(field.ty, AdtPayloadType::TypeParameter(_))) {
-            for (constraint, joined) in constraints.iter_mut().zip(&self.joined) {
-                if let Some(joined) = joined {
-                    *constraint = joined.result_type();
-                }
-            }
-        }
         expected
-            .and_then(|expected| adt::payload_type(expected, constructor, index))
+            .and_then(|expected| {
+                let expected_args = unification::adt_args(expected, constructor.descriptor)?;
+                adt::payload_type_with_resolved_args(constructor, index, |type_index| {
+                    crate::aggregate_type_join::record_work(1);
+                    expected_args[type_index].clone()
+                })
+            })
             .or_else(|| field.and_then(|field| self.direct_payload_context(field)))
-            .or_else(|| adt::payload_type_with_args(constructor, &constraints, index))
+            .or_else(|| {
+                adt::payload_type_with_resolved_args(constructor, index, |type_index| {
+                    crate::aggregate_type_join::record_work(1);
+                    self.joined[type_index]
+                        .as_ref()
+                        .map(crate::aggregate_type_join::AggregateTypeJoin::result_type)
+                        .unwrap_or_else(|| self.inferred[type_index].clone())
+                })
+            })
             .unwrap_or(Type::Unknown)
     }
 
@@ -994,6 +1104,7 @@ impl PrivateConstructorTypeArgInference {
             }
             return;
         }
+        crate::aggregate_type_join::record_work(1);
         adt::merge_type_args_from_payload(&mut self.inferred, constructor, index, actual);
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
             return;
@@ -1015,24 +1126,26 @@ impl PrivateConstructorTypeArgInference {
         index: usize,
         actual: &Type,
     ) {
-        let mut contributions = vec![Type::Unknown; self.inferred.len()];
-        adt::merge_type_args_from_payload(&mut contributions, constructor, index, actual);
-        for (type_index, contribution) in contributions.iter().enumerate() {
-            if contribution == &Type::Unknown {
-                continue;
-            }
-            let mut constraint = self.joined[type_index]
-                .as_ref()
-                .map(crate::aggregate_type_join::AggregateTypeJoin::result_type)
-                .unwrap_or_else(|| self.inferred[type_index].clone());
-            unification::merge_type_slot(&mut constraint, contribution);
-            self.inferred[type_index] = constraint;
-            self.joined[type_index] = None;
-            self.invariant[type_index] = true;
-        }
+        adt::visit_type_arg_contributions_from_payload(
+            constructor,
+            index,
+            actual,
+            |type_index, contribution| {
+                crate::aggregate_type_join::record_work(1);
+                let mut constraint = self.joined[type_index]
+                    .as_ref()
+                    .map(crate::aggregate_type_join::AggregateTypeJoin::result_type)
+                    .unwrap_or_else(|| self.inferred[type_index].clone());
+                unification::merge_type_slot(&mut constraint, contribution);
+                self.inferred[type_index] = constraint;
+                self.joined[type_index] = None;
+                self.invariant[type_index] = true;
+            },
+        );
     }
 
     fn finish(mut self, expected: Option<&Type>, constructor: AdtConstructor<'_>) -> Vec<Type> {
+        crate::aggregate_type_join::record_work(self.inferred.len());
         for (inferred, joined) in self.inferred.iter_mut().zip(self.joined) {
             if let Some(joined) = joined {
                 *inferred = joined.result_type();

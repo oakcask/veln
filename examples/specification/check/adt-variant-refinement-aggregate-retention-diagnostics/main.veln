@@ -25,6 +25,12 @@ type Triple<A>
 	Made(A, A, A)
 end
 
+type FailureState
+	Pending
+	Rejected(Int)
+	Broken
+end
+
 fn int_some() -> Option<Int>::Some
 	Some(1)
 end
@@ -62,6 +68,18 @@ fn recovered_dict_values()
 	end, 3: Ready}
 end
 
+fn takes_int(value: Int) -> FailureState::Rejected
+	FailureState::Rejected(value)
+end
+
+fn recovered_call_failure()
+	[FailureState::Pending, takes_int("bad"), FailureState::Broken]
+end
+
+fn recovered_constructor_failure()
+	[FailureState::Pending, FailureState::Rejected("bad"), FailureState::Broken]
+end
+
 fn accept_triple(value: Triple<State::Ready>::Made) -> ()
 	()
 end
@@ -71,6 +89,10 @@ fn accept_vector(value: Vec<State::Ready>) -> ()
 end
 
 fn accept_dict_values(value: Dict<Int, State::Ready>) -> ()
+	()
+end
+
+fn accept_failure_recovery(value: Vec<FailureState::Pending | FailureState::Broken>) -> ()
 	()
 end
 
@@ -88,4 +110,6 @@ fn main() -> ()
 	accept_triple(recovered())
 	accept_vector(recovered_vector())
 	accept_dict_values(recovered_dict_values())
+	accept_failure_recovery(recovered_call_failure())
+	accept_failure_recovery(recovered_constructor_failure())
 end

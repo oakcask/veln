@@ -343,6 +343,13 @@ pub(super) fn unify_core_template(args: &mut [CoreType], template: &CoreType, ac
 }
 
 pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type {
+    substitute_type_parameters_with(template, &mut |index| args.get(index).cloned())
+}
+
+pub(super) fn substitute_type_parameters_with(
+    template: &Type,
+    resolve: &mut impl FnMut(usize) -> Option<Type>,
+) -> Type {
     match template {
         Type::Named {
             name, args: nested, ..
@@ -350,7 +357,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
             .trim_start_matches("$param")
             .parse::<usize>()
             .ok()
-            .and_then(|index| args.get(index).cloned())
+            .and_then(resolve)
             .unwrap_or(Type::Unknown),
         Type::Named {
             name,
@@ -361,7 +368,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
             identity: identity.clone(),
             args: nested
                 .iter()
-                .map(|arg| substitute_type_parameters(arg, args))
+                .map(|arg| substitute_type_parameters_with(arg, resolve))
                 .collect(),
         },
         Type::VariantRefinement {
@@ -375,7 +382,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
             identity: identity.clone(),
             args: nested
                 .iter()
-                .map(|arg| substitute_type_parameters(arg, args))
+                .map(|arg| substitute_type_parameters_with(arg, resolve))
                 .collect(),
             variants: variants.clone(),
             unresolved_alternatives: unresolved_alternatives.clone(),
@@ -383,7 +390,7 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
         Type::Record(fields) => Type::Record(
             fields
                 .iter()
-                .map(|(name, ty)| (name.clone(), substitute_type_parameters(ty, args)))
+                .map(|(name, ty)| (name.clone(), substitute_type_parameters_with(ty, resolve)))
                 .collect(),
         ),
         Type::Function {
@@ -394,15 +401,59 @@ pub(super) fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type
         } => Type::Function {
             params: params
                 .iter()
-                .map(|ty| substitute_type_parameters(ty, args))
+                .map(|ty| substitute_type_parameters_with(ty, resolve))
                 .collect(),
             variadic: variadic
                 .as_deref()
-                .map(|ty| Box::new(substitute_type_parameters(ty, args))),
-            return_type: Box::new(substitute_type_parameters(return_type, args)),
+                .map(|ty| Box::new(substitute_type_parameters_with(ty, resolve))),
+            return_type: Box::new(substitute_type_parameters_with(return_type, resolve)),
             effects: effects.clone(),
         },
         Type::Unknown => Type::Unknown,
+    }
+}
+
+pub(super) fn visit_type_parameter_contributions(
+    template: &Type,
+    actual: &Type,
+    visit: &mut impl FnMut(usize, &Type),
+) {
+    match (template, actual) {
+        (
+            Type::Named {
+                name, args: nested, ..
+            },
+            actual,
+        ) if name.starts_with("$param") && nested.is_empty() => {
+            if let Ok(index) = name.trim_start_matches("$param").parse::<usize>() {
+                visit(index, actual);
+            }
+        }
+        (
+            Type::Named {
+                name, args: nested, ..
+            },
+            Type::Named {
+                name: actual_name,
+                args: actual_args,
+                ..
+            },
+        ) if name == actual_name && nested.len() == actual_args.len() => {
+            for (nested, actual) in nested.iter().zip(actual_args) {
+                visit_type_parameter_contributions(nested, actual, visit);
+            }
+        }
+        (Type::Record(fields), Type::Record(actual_fields)) => {
+            for (name, field) in fields {
+                if let Some((_, actual_field)) = actual_fields
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == name)
+                {
+                    visit_type_parameter_contributions(field, actual_field, visit);
+                }
+            }
+        }
+        _ => {}
     }
 }
 

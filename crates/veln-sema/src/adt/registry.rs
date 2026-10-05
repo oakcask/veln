@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::Arc;
 
 use veln_ast::{PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, UseOrigin, Visibility};
 use veln_core::CoreType;
@@ -18,12 +19,33 @@ use super::lookup_validation::{
 #[derive(Clone, Debug)]
 pub(crate) struct AdtRegistry {
     descriptors: Vec<AdtDescriptor>,
+    variant_declaration_orders: Vec<Arc<VariantDeclarationOrder>>,
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<(Option<String>, String)>,
+}
+
+#[derive(Debug)]
+pub(crate) struct VariantDeclarationOrder {
+    names: Vec<String>,
+    ranks: HashMap<String, usize>,
+}
+
+impl VariantDeclarationOrder {
+    pub(crate) fn len(&self) -> usize {
+        self.names.len()
+    }
+
+    pub(crate) fn rank(&self, name: &str) -> Option<usize> {
+        self.ranks.get(name).copied()
+    }
+
+    pub(crate) fn name(&self, rank: usize) -> Option<&str> {
+        self.names.get(rank).map(String::as_str)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,6 +86,22 @@ impl AdtRegistry {
         companion_access_targets: BTreeMap<String, String>,
         annotation_types: BTreeMap<(Option<String>, String), Type>,
     ) -> Self {
+        let variant_declaration_orders = descriptors
+            .iter()
+            .map(|descriptor| {
+                let names = descriptor
+                    .variants
+                    .iter()
+                    .map(|variant| variant.name.clone())
+                    .collect::<Vec<_>>();
+                let ranks = names
+                    .iter()
+                    .enumerate()
+                    .map(|(rank, name)| (name.clone(), rank))
+                    .collect();
+                Arc::new(VariantDeclarationOrder { names, ranks })
+            })
+            .collect();
         let mut descriptors_by_type_name = HashMap::<String, Vec<usize>>::new();
         let mut descriptors_by_identity = HashMap::<String, Vec<usize>>::new();
         let mut variants_by_name = HashMap::<String, Vec<(usize, usize)>>::new();
@@ -88,6 +126,7 @@ impl AdtRegistry {
         }
         Self {
             descriptors,
+            variant_declaration_orders,
             descriptors_by_type_name,
             descriptors_by_identity,
             variants_by_name,
@@ -273,6 +312,25 @@ impl AdtRegistry {
                 &self.descriptors[*index]
             })
             .find(|descriptor| descriptor.type_parameters.len() == args.len())
+    }
+
+    pub(crate) fn variant_declaration_order_for_type(
+        &self,
+        ty: &Type,
+    ) -> Option<Arc<VariantDeclarationOrder>> {
+        let (identity, args) = match ty {
+            Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+                (identity, args)
+            }
+            _ => return None,
+        };
+        self.descriptors_by_identity
+            .get(identity)
+            .into_iter()
+            .flatten()
+            .copied()
+            .find(|index| self.descriptors[*index].type_parameters.len() == args.len())
+            .map(|index| Arc::clone(&self.variant_declaration_orders[index]))
     }
 
     pub(crate) fn descriptor_for_type_in_module(

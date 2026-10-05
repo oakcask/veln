@@ -78,13 +78,27 @@ pub(crate) fn core_constructed_type_from_args(
     CoreType::named(&constructor.descriptor.type_name, args.to_vec())
 }
 
-pub(crate) fn payload_type_with_args(
+pub(crate) fn payload_type_with_resolved_args(
     constructor: AdtConstructor<'_>,
-    args: &[Type],
     payload_index: usize,
+    mut resolve: impl FnMut(usize) -> Type,
 ) -> Option<Type> {
-    let ty = constructed_type_from_args(constructor, args);
-    payload_type(&ty, constructor, payload_index)
+    let field = constructor.variant.payload_fields.get(payload_index)?;
+    match &field.ty {
+        super::descriptors::AdtPayloadType::TypeParameter(index) => Some(resolve(*index)),
+        super::descriptors::AdtPayloadType::SelfType => Some(Type::resolved_named(
+            &constructor.descriptor.type_name,
+            constructor.descriptor.identity(),
+            (0..constructor.descriptor.type_parameters.len())
+                .map(resolve)
+                .collect(),
+        )),
+        super::descriptors::AdtPayloadType::Concrete(template) => Some(
+            super::unification::substitute_type_parameters_with(template, &mut |index| {
+                Some(resolve(index))
+            }),
+        ),
+    }
 }
 
 pub(crate) fn core_payload_type_with_args(
@@ -104,6 +118,32 @@ pub(crate) fn merge_type_args_from_payload(
 ) {
     if let Some(field) = constructor.variant.payload_fields.get(payload_index) {
         fill_type_parameters(args, constructor.descriptor, &field.ty, actual);
+    }
+}
+
+pub(crate) fn visit_type_arg_contributions_from_payload(
+    constructor: AdtConstructor<'_>,
+    payload_index: usize,
+    actual: &Type,
+    mut visit: impl FnMut(usize, &Type),
+) {
+    let Some(field) = constructor.variant.payload_fields.get(payload_index) else {
+        return;
+    };
+    match &field.ty {
+        super::descriptors::AdtPayloadType::TypeParameter(index) => visit(*index, actual),
+        super::descriptors::AdtPayloadType::SelfType => {
+            let Some(actual_args) = super::unification::adt_args(actual, constructor.descriptor)
+            else {
+                return;
+            };
+            for (index, actual) in actual_args.iter().enumerate() {
+                visit(index, actual);
+            }
+        }
+        super::descriptors::AdtPayloadType::Concrete(template) => {
+            super::unification::visit_type_parameter_contributions(template, actual, &mut visit);
+        }
     }
 }
 

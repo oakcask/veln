@@ -503,6 +503,7 @@ struct ConstructorTypeArgInference {
 impl ConstructorTypeArgInference {
     fn new(constructor: AdtConstructor<'_>) -> Self {
         let parameter_count = constructor.descriptor.type_parameters.len();
+        crate::aggregate_type_join::record_work(parameter_count);
         Self {
             inferred: vec![Type::Unknown; parameter_count],
             joined: (0..parameter_count).map(|_| None).collect(),
@@ -517,18 +518,24 @@ impl ConstructorTypeArgInference {
         index: usize,
         field: &AdtPayloadField,
     ) -> Type {
-        let mut constraints = self.inferred.clone();
-        if !matches!(field.ty, AdtPayloadType::TypeParameter(_)) {
-            for (constraint, joined) in constraints.iter_mut().zip(&self.joined) {
-                if let Some(joined) = joined {
-                    *constraint = joined.result_type();
-                }
-            }
-        }
         expected
-            .and_then(|expected| adt::payload_type(&expected.ty, constructor, index))
+            .and_then(|expected| {
+                let expected_args = unification::adt_args(&expected.ty, constructor.descriptor)?;
+                adt::payload_type_with_resolved_args(constructor, index, |type_index| {
+                    crate::aggregate_type_join::record_work(1);
+                    expected_args[type_index].clone()
+                })
+            })
             .or_else(|| self.direct_payload_context(field))
-            .or_else(|| adt::payload_type_with_args(constructor, &constraints, index))
+            .or_else(|| {
+                adt::payload_type_with_resolved_args(constructor, index, |type_index| {
+                    crate::aggregate_type_join::record_work(1);
+                    self.joined[type_index]
+                        .as_ref()
+                        .map(AggregateTypeJoin::result_type)
+                        .unwrap_or_else(|| self.inferred[type_index].clone())
+                })
+            })
             .unwrap_or(Type::Unknown)
     }
 
@@ -589,6 +596,7 @@ impl ConstructorTypeArgInference {
             self.commit_invariant_payload(constructor, index, actual);
             return;
         }
+        crate::aggregate_type_join::record_work(1);
         adt::merge_type_args_from_payload(&mut self.inferred, constructor, index, actual);
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
             return;
@@ -607,24 +615,26 @@ impl ConstructorTypeArgInference {
         index: usize,
         actual: &Type,
     ) {
-        let mut contributions = vec![Type::Unknown; self.inferred.len()];
-        adt::merge_type_args_from_payload(&mut contributions, constructor, index, actual);
-        for (type_index, contribution) in contributions.iter().enumerate() {
-            if contribution == &Type::Unknown {
-                continue;
-            }
-            let mut constraint = self.joined[type_index]
-                .as_ref()
-                .map(AggregateTypeJoin::result_type)
-                .unwrap_or_else(|| self.inferred[type_index].clone());
-            unification::merge_type_slot(&mut constraint, contribution);
-            self.inferred[type_index] = constraint;
-            self.joined[type_index] = None;
-            self.invariant[type_index] = true;
-        }
+        adt::visit_type_arg_contributions_from_payload(
+            constructor,
+            index,
+            actual,
+            |type_index, contribution| {
+                crate::aggregate_type_join::record_work(1);
+                let mut constraint = self.joined[type_index]
+                    .as_ref()
+                    .map(AggregateTypeJoin::result_type)
+                    .unwrap_or_else(|| self.inferred[type_index].clone());
+                unification::merge_type_slot(&mut constraint, contribution);
+                self.inferred[type_index] = constraint;
+                self.joined[type_index] = None;
+                self.invariant[type_index] = true;
+            },
+        );
     }
 
     fn finish(mut self) -> Vec<Type> {
+        crate::aggregate_type_join::record_work(self.inferred.len());
         for (inferred, joined) in self.inferred.iter_mut().zip(self.joined) {
             if let Some(joined) = joined {
                 *inferred = joined.result_type();

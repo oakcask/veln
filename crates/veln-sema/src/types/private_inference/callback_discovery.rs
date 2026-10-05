@@ -607,6 +607,7 @@ pub(crate) fn private_prelude_callback_call_references_slot(
             current_module: context.current_module,
             uses: context.uses,
             bindings: context.bindings,
+            signatures_by_path: None,
             returns_by_path: context.returns_by_path,
             adts: context.adts,
             failures: &mut failures,

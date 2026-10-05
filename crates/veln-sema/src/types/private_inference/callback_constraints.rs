@@ -247,6 +247,7 @@ pub(crate) fn collect_private_prelude_callback_call_constraints(
             current_module: context.current_module,
             uses: context.uses,
             bindings: context.bindings,
+            signatures_by_path: None,
             returns_by_path: &*context.returns_by_path,
             adts: context.adts,
             failures: &mut failures,

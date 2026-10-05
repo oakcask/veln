@@ -982,6 +982,23 @@ fn aggregate_join_scaling_source(variant_count: usize) -> String {
     source
 }
 
+fn independent_aggregate_site_scaling_source(variant_count: usize) -> String {
+    let mut source = String::from("type State\n");
+    for index in 0..variant_count {
+        source.push_str(&format!("  Variant{index:04}\n"));
+    }
+    source.push_str("end\ntype Boxed<A>\n  One(A)\nend\n");
+    for index in 0..variant_count {
+        let variant = format!("State::Variant{index:04}");
+        source.push_str(&format!(
+            "fn vector_{index:04}()\n  [{variant}]\nend\n\
+             fn dictionary_{index:04}()\n  {{{variant}: {variant}}}\nend\n\
+             fn boxed_{index:04}()\n  Boxed::One({variant})\nend\n"
+        ));
+    }
+    source
+}
+
 fn aggregate_rejection_scaling_source(variant_count: usize) -> String {
     let mut source = String::from("type State\n");
     for index in 0..variant_count {
@@ -1015,6 +1032,23 @@ fn aggregate_rejection_scaling_source(variant_count: usize) -> String {
     ));
     source.push_str("end\n");
     source
+}
+
+fn wide_generic_constructor_scaling_source(width: usize) -> String {
+    let parameters = (0..width)
+        .map(|index| format!("A{index}"))
+        .collect::<Vec<_>>();
+    let payloads = parameters
+        .iter()
+        .map(|parameter| format!("Vec<{parameter}>"))
+        .collect::<Vec<_>>();
+    let arguments = (0..width).map(|_| "[1]").collect::<Vec<_>>().join(", ");
+    let result_args = (0..width).map(|_| "Int").collect::<Vec<_>>().join(", ");
+    format!(
+        "type Wide<{}>\n  Made({})\nend\nfn inferred()\n  Made({arguments})\nend\npub fn declared() -> Wide<{result_args}>::Made\n  Made({arguments})\nend\n",
+        parameters.join(", "),
+        payloads.join(", "),
+    )
 }
 
 #[test]
@@ -1060,6 +1094,38 @@ fn aggregate_join_work_grows_linearly_through_all_inference_paths() {
     assert!(
         work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64 && work[3] <= work[2] * 2 + 64,
         "doubling aggregate input must add only linear join work: {work:?}"
+    );
+}
+
+#[test]
+fn aggregate_join_initialization_and_materialization_scale_with_independent_sites() {
+    let work = [50, 100, 200, 400].map(|variant_count| {
+        let source = SourceFile::new(
+            "main.veln",
+            independent_aggregate_site_scaling_source(variant_count),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::aggregate_type_join::reset_work();
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        eprintln!(
+            "{variant_count} variants and {} independent aggregate sites: {:?}",
+            variant_count * 3,
+            started.elapsed()
+        );
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        crate::aggregate_type_join::take_work()
+    });
+    eprintln!("independent aggregate-site work units at doubled sizes: {work:?}");
+    assert!(
+        work[0] >= 50 * 3,
+        "the metric must include initialization and materialization at each site: {work:?}"
+    );
+    assert!(
+        work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64 && work[3] <= work[2] * 2 + 64,
+        "doubling variants and independent sites must add only linear aggregate work: {work:?}"
     );
 }
 
@@ -1120,6 +1186,37 @@ fn unchanged_aggregate_join_work_grows_linearly_for_rejected_contributions() {
     assert!(
         work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64 && work[3] <= work[2] * 2 + 64,
         "doubling rejected aggregate input must add only linear join work: {work:?}"
+    );
+}
+
+#[test]
+fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payloads() {
+    let work = [100, 200, 400, 800].map(|width| {
+        let source = SourceFile::new("main.veln", wide_generic_constructor_scaling_source(width));
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::aggregate_type_join::reset_work();
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        eprintln!(
+            "{width}-parameter generic constructor analysis: {:?}",
+            started.elapsed()
+        );
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let environment = TypeEnvironment::from_module(&module);
+        let inferred = environment.function("inferred").expect("inferred function");
+        assert_eq!(inferred.return_type.render().matches("Int").count(), width);
+        crate::aggregate_type_join::take_work()
+    });
+    eprintln!("generic constructor inference work units at doubled widths: {work:?}");
+    assert!(
+        work[0] > 0,
+        "the metric must observe constructor inference work"
+    );
+    assert!(
+        work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64 && work[3] <= work[2] * 2 + 64,
+        "doubling generic constructor width must add only linear inference work: {work:?}"
     );
 }
 
@@ -1241,6 +1338,112 @@ fn failed_payloads_do_not_contribute_to_private_or_body_recovery_joins() {
                 .render(),
             expected
         );
+    }
+}
+
+#[test]
+fn rejected_expressions_never_contribute_to_private_aggregate_results() {
+    let failures = [
+        (
+            "annotated local",
+            concat!(
+                "keep_closed(begin\n",
+                "    let bad: Int = \"bad\"\n",
+                "    Closed(1)\n",
+                "  end)"
+            ),
+        ),
+        ("declared call argument", "takes_int(\"bad\")"),
+        ("constructor payload", "Closed(\"bad\")"),
+    ];
+    let aggregates = [
+        (
+            "vector element",
+            "[Ready, {bad}, Failed]",
+            "Vec<State::Ready | State::Failed>",
+        ),
+        (
+            "dictionary key",
+            "{{State::Ready: 1, {bad}: 2, State::Failed: 3}}",
+            "Dict<State::Ready | State::Failed, Int>",
+        ),
+        (
+            "dictionary value",
+            "{{1: Ready, 2: {bad}, 3: Failed}}",
+            "Dict<Int, State::Ready | State::Failed>",
+        ),
+        (
+            "generic payload",
+            "Triple::Made(Ready, {bad}, Failed)",
+            "Triple<State::Ready | State::Failed>::Made",
+        ),
+    ];
+
+    for (failure_name, rejected) in failures {
+        for (aggregate_name, template, expected) in aggregates {
+            if failure_name == "annotated local" && aggregate_name == "dictionary key" {
+                continue;
+            }
+            let expression = template.replace("{bad}", rejected);
+            let source = SourceFile::new(
+                "main.veln",
+                format!(
+                    concat!(
+                        "type State\n",
+                        "  Ready\n",
+                        "  Closed(Int)\n",
+                        "  Failed\n",
+                        "end\n",
+                        "type Triple<A>\n",
+                        "  Made(A, A, A)\n",
+                        "end\n",
+                        "fn takes_int(value: Int) -> State::Closed\n",
+                        "  Closed(value)\n",
+                        "end\n",
+                        "fn keep_closed(value: State::Closed) -> State::Closed\n",
+                        "  value\n",
+                        "end\n",
+                        "fn recovered()\n",
+                        "  {}\n",
+                        "end\n",
+                        "fn accept(value: {}) -> ()\n",
+                        "  ()\n",
+                        "end\n",
+                        "fn main() -> ()\n",
+                        "  accept(recovered())\n",
+                        "end\n",
+                    ),
+                    expression, expected,
+                ),
+            );
+            let parsed = parse(&source);
+            assert!(
+                parsed.diagnostics.is_empty(),
+                "{failure_name}, {aggregate_name}: {:#?}",
+                parsed.diagnostics
+            );
+            let module = lower_surface_ast(&parsed.tree);
+            let diagnostics = analyze_surface_module(&module);
+            assert_eq!(
+                diagnostics.len(),
+                1,
+                "{failure_name}, {aggregate_name}: {diagnostics:#?}"
+            );
+            assert_eq!(
+                diagnostics[0].message.to_string(),
+                "expected `Int`, but found `String`",
+                "{failure_name}, {aggregate_name}: {diagnostics:#?}"
+            );
+            assert_eq!(
+                TypeEnvironment::from_module(&module)
+                    .function("recovered")
+                    .expect("private omitted result should be published")
+                    .return_type
+                    .render(),
+                expected,
+                "{failure_name}, {aggregate_name}"
+            );
+        }
     }
 }
 

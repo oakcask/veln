@@ -22,7 +22,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 10
+equals = 12
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -32,7 +32,7 @@ message = "expected `Int`, but found `String`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 46
+line = 52
 column = 18
 
 [[diagnostics]]
@@ -43,7 +43,7 @@ message = "expected `Int`, but found `String`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 53
+line = 59
 column = 18
 
 [[diagnostics]]
@@ -54,8 +54,30 @@ message = "expected `Int`, but found `String`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 60
+line = 66
 column = 18
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 76
+column = 36
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 80
+column = 49
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -65,7 +87,7 @@ message = "expected `Vec<State>`, but found `Vec<State::Ready>`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 79
+line = 101
 column = 28
 
 [[diagnostics]]
@@ -76,7 +98,7 @@ message = "expected `Dict<String, State>`, but found `Dict<String, State::Ready>
 
 [diagnostics.span]
 file = "main.veln"
-line = 81
+line = 103
 column = 42
 
 [[diagnostics]]
@@ -87,7 +109,7 @@ message = "expected `Pair<State>`, but found `Pair<State::Ready>::Paired`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 83
+line = 105
 column = 34
 
 [[diagnostics]]
@@ -98,7 +120,7 @@ message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 84
+line = 106
 column = 32
 
 [[diagnostics]]
@@ -109,7 +131,7 @@ message = "expected `First::Value`, but found `Second::Value`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 85
+line = 107
 column = 27
 
 [[diagnostics]]
@@ -120,7 +142,7 @@ message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 86
+line = 108
 column = 34
 
 [[diagnostics]]
@@ -131,5 +153,5 @@ message = "expected `State::Ready`, but found `State::Closed`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 87
+line = 109
 column = 28

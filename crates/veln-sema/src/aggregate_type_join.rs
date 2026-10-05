@@ -1,7 +1,8 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::sync::Arc;
 
-use crate::adt::registry::AdtRegistry;
+use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
 use crate::adt::unification;
 use crate::semantic_model::Type;
 use crate::type_relations::{invariant_args_match, same_type_identity};
@@ -10,28 +11,28 @@ pub(crate) struct AggregateTypeJoin {
     name: String,
     identity: String,
     args: Vec<Type>,
-    declaration_order: Vec<String>,
-    variants: Option<HashSet<String>>,
+    declaration_order: Option<Arc<VariantDeclarationOrder>>,
+    variants: Option<HashSet<usize>>,
     materialized: RefCell<Option<Type>>,
 }
 
 impl AggregateTypeJoin {
     pub(crate) fn new(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
         let initial = adt_type_parts(initial)?;
-        let declaration_order = if initial.variants.is_some() {
-            adts.descriptor_for_type(initial.ty)?
-                .variants
-                .iter()
-                .map(|variant| variant.name.clone())
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
+        let (declaration_order, variants) = match initial.variants {
+            None => (None, None),
+            Some(variants) => {
+                let declaration_order = adts.variant_declaration_order_for_type(initial.ty)?;
+                record_work(variants.len());
+                let variants = Some(
+                    variants
+                        .iter()
+                        .map(|variant| declaration_order.rank(variant))
+                        .collect::<Option<HashSet<_>>>()?,
+                );
+                (Some(declaration_order), variants)
+            }
         };
-        record_work(declaration_order.len());
-        let variants = initial.variants.map(|variants| {
-            record_work(variants.len());
-            variants.iter().cloned().collect()
-        });
         Some(Self {
             name: initial.name.to_string(),
             identity: initial.identity.to_string(),
@@ -58,8 +59,15 @@ impl AggregateTypeJoin {
         match (&mut self.variants, right.variants) {
             (Some(joined), Some(right)) => {
                 record_work(right.len());
+                let declaration_order = self
+                    .declaration_order
+                    .as_ref()
+                    .expect("a refinement join retains declaration order");
                 for variant in right {
-                    changed |= joined.insert(variant.clone());
+                    let Some(rank) = declaration_order.rank(variant) else {
+                        return false;
+                    };
+                    changed |= joined.insert(rank);
                 }
             }
             (variants @ Some(_), None) => {
@@ -86,16 +94,28 @@ impl AggregateTypeJoin {
         let Some(variants) = &self.variants else {
             return self.inference_type();
         };
-        record_work(self.declaration_order.len());
-        let variants = self
+        let declaration_order = self
             .declaration_order
-            .iter()
-            .filter(|variant| variants.contains(*variant))
-            .cloned()
-            .collect::<Vec<_>>();
-        let materialized = if variants.len() == self.declaration_order.len() {
+            .as_ref()
+            .expect("a refinement join retains declaration order");
+        let materialized = if variants.len() == declaration_order.len() {
             self.inference_type()
         } else {
+            record_work(variants.len());
+            let mut ranks = variants.iter().copied().collect::<Vec<_>>();
+            ranks.sort_unstable_by(|left, right| {
+                record_work(1);
+                left.cmp(right)
+            });
+            let variants = ranks
+                .into_iter()
+                .map(|rank| {
+                    declaration_order
+                        .name(rank)
+                        .expect("joined variant rank belongs to its declaration")
+                        .to_string()
+                })
+                .collect();
             Type::resolved_variant_refinement(
                 self.name.clone(),
                 self.identity.clone(),
@@ -152,12 +172,12 @@ thread_local! {
 }
 
 #[cfg(test)]
-fn record_work(units: usize) {
+pub(crate) fn record_work(units: usize) {
     AGGREGATE_JOIN_WORK.with(|work| work.set(work.get() + units));
 }
 
 #[cfg(not(test))]
-fn record_work(_units: usize) {}
+pub(crate) fn record_work(_units: usize) {}
 
 #[cfg(test)]
 pub(crate) fn reset_work() {
