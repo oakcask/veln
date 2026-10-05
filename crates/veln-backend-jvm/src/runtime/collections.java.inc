@@ -1,7 +1,4 @@
-    private static final java.util.concurrent.atomic.AtomicLong byteChunkMaterializedElementWork =
-        new java.util.concurrent.atomic.AtomicLong();
-    private static final java.util.concurrent.atomic.AtomicLong byteChunkSliceWork =
-        new java.util.concurrent.atomic.AtomicLong();
+    private static final int byteChunkMaximumRetainedCapacityRatio = 4;
 
     private static final class FrozenByteChunk {
         private final java.util.List<Object> storage;
@@ -54,36 +51,29 @@
     }
 
     private static Object byteChunkObject(java.util.List<Object> bytes) {
-        byteChunkMaterializedElementWork.addAndGet(bytes.size());
         java.util.List<Object> storage = freezeList(bytes);
         return new FrozenByteChunk(storage, 0, storage.size());
     }
 
     private static Object byteChunkDerivedObject(Object chunk, int relativeOffset, int count) {
-        byteChunkSliceWork.incrementAndGet();
         if (chunk instanceof FrozenByteChunk) {
             FrozenByteChunk frozen = (FrozenByteChunk) chunk;
+            int offset = frozen.offset + relativeOffset;
+            if (count == 0) {
+                return byteChunkObject(java.util.Collections.emptyList());
+            }
+            if ((long) frozen.storage.size()
+                > (long) byteChunkMaximumRetainedCapacityRatio * count) {
+                return byteChunkObject(frozen.storage.subList(offset, offset + count));
+            }
             return new FrozenByteChunk(
                 frozen.storage,
-                frozen.offset + relativeOffset,
+                offset,
                 count
             );
         }
-        java.util.List<Object> storage = byteChunkBytes(chunk);
-        return new FrozenByteChunk(storage, relativeOffset, count);
-    }
-
-    public static void resetByteChunkWorkForTest() {
-        byteChunkMaterializedElementWork.set(0L);
-        byteChunkSliceWork.set(0L);
-    }
-
-    public static long byteChunkMaterializedElementWorkForTest() {
-        return byteChunkMaterializedElementWork.get();
-    }
-
-    public static long byteChunkSliceWorkForTest() {
-        return byteChunkSliceWork.get();
+        java.util.List<Object> bytes = byteChunkBytes(chunk);
+        return byteChunkObject(bytes.subList(relativeOffset, relativeOffset + count));
     }
 
     public static boolean byteChunksShareStorageForTest(Object left, Object right) {
@@ -94,6 +84,10 @@
 
     public static long byteChunkStorageOffsetForTest(Object chunk) {
         return chunk instanceof FrozenByteChunk ? ((FrozenByteChunk) chunk).offset : -1L;
+    }
+
+    public static long byteChunkStorageCapacityForTest(Object chunk) {
+        return chunk instanceof FrozenByteChunk ? ((FrozenByteChunk) chunk).storage.size() : -1L;
     }
 
     private static Object byteCountObject(long value) {

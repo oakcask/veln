@@ -490,7 +490,7 @@ fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
 }
 
 #[test]
-fn jvm_runtime_byte_chunk_suffix_work_grows_linearly_when_java_is_available() {
+fn jvm_runtime_byte_chunk_slicing_has_linear_work_and_bounded_retention_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
     {
@@ -511,7 +511,7 @@ fn jvm_runtime_byte_chunk_suffix_work_grows_linearly_when_java_is_available() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "byte chunk suffix work remained linear\n"
+        "byte chunk slicing remained linear and retention stayed bounded\n"
     );
 }
 
