@@ -147,6 +147,9 @@ id = 8
 path = "/result/contents/0/text"
 contains = "fn split_host_port(address: String)"
 
+# Integration contract: the MCP package-documentation resource for the `net`
+# module lists the public `write_all` signature. This response 8 text assertion
+# detects when that signature is absent from the generated resource.
 [[mcp_assert]]
 id = 8
 path = "/result/contents/0/text"
