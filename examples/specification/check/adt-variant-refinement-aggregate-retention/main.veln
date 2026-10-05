@@ -8,6 +8,15 @@ type Pair<A>
 	Paired(A, A)
 end
 
+type Container<A>
+	Built(A, Vec<A>)
+end
+
+type First<A>
+	Some(A)
+	Empty
+end
+
 fn ready() -> State::Ready
 	Ready
 end
@@ -33,7 +42,7 @@ fn with_base(value: State)
 end
 
 fn optional()
-	[Some(1), None]
+	[Option::Some(1), None]
 end
 
 fn table()
@@ -54,6 +63,20 @@ end
 
 fn retained_pair()
 	Paired(Ready, Ready)
+end
+
+fn mixed_occurrence()
+	Built(Ready, [Ready])
+end
+
+fn mixed_payload() -> Vec<State::Ready>
+	match mixed_occurrence()
+		Built(_, items) => items
+	end
+end
+
+fn ambiguous_private_result()
+	Paired(First::Some(1), Empty)
 end
 
 fn payload() -> State::Ready
@@ -85,4 +108,6 @@ fn main() -> ()
 	let contextual_pair: Pair<State> = Paired(Ready, Closed)
 	let item: State::Ready = payload()
 	let items: Vec<State::Ready> = projected()
+	let nested_items: Vec<State::Ready> = mixed_payload()
+	let inferred_private: Pair<First<Int>>::Paired = ambiguous_private_result()
 end

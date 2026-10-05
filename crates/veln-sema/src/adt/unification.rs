@@ -260,11 +260,7 @@ pub(super) fn unify_template(args: &mut [Type], template: &Type, actual: &Type) 
             Type::Named {
                 name, args: nested, ..
             },
-            Type::Named {
-                name: _actual_name,
-                args: _actual_args,
-                ..
-            },
+            actual,
         ) if name.starts_with("$param") && nested.is_empty() => {
             if let Ok(index) = name.trim_start_matches("$param").parse::<usize>() {
                 assign_type_arg(args, index, actual);

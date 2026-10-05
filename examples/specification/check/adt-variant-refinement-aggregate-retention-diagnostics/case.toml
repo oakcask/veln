@@ -9,6 +9,7 @@ contains = [
   "expected `Pair<State>`, but found `Pair<State::Ready>::Paired`",
   "expected `Option<Int>::Some`, but found `Option<String>::Some`",
   "expected `First::Value`, but found `Second::Value`",
+  "expected `State::Ready`, but found `State::Closed`",
 ]
 
 [stderr]
@@ -20,7 +21,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 6
+equals = 7
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -30,7 +31,7 @@ message = "expected `Vec<State>`, but found `Vec<State::Ready>`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 38
+line = 42
 column = 28
 
 [[diagnostics]]
@@ -41,7 +42,7 @@ message = "expected `Dict<String, State>`, but found `Dict<String, State::Ready>
 
 [diagnostics.span]
 file = "main.veln"
-line = 40
+line = 44
 column = 42
 
 [[diagnostics]]
@@ -52,7 +53,7 @@ message = "expected `Pair<State>`, but found `Pair<State::Ready>::Paired`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 42
+line = 46
 column = 34
 
 [[diagnostics]]
@@ -63,7 +64,7 @@ message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 43
+line = 47
 column = 32
 
 [[diagnostics]]
@@ -74,7 +75,7 @@ message = "expected `First::Value`, but found `Second::Value`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 44
+line = 48
 column = 27
 
 [[diagnostics]]
@@ -85,5 +86,16 @@ message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 45
+line = 49
 column = 34
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Ready`, but found `State::Closed`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 50
+column = 28

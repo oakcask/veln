@@ -52,17 +52,39 @@ impl<'a> FunctionChecker<'a> {
         let mut joined_type_args = (0..inferred_type_args.len())
             .map(|_| None)
             .collect::<Vec<Option<AggregateTypeJoin>>>();
+        let mut invariant_type_args = vec![false; inferred_type_args.len()];
         for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
+            let mut constraint_type_args = inferred_type_args.clone();
+            if !matches!(field.ty, AdtPayloadType::TypeParameter(_)) {
+                for (constraint, joined) in constraint_type_args.iter_mut().zip(&joined_type_args) {
+                    if let Some(joined) = joined {
+                        *constraint = joined.result_type();
+                    }
+                }
+            }
             arg_expected.ty = expected
                 .and_then(|expected| adt::payload_type(&expected.ty, constructor, index))
-                .or_else(|| adt::payload_type_with_args(constructor, &inferred_type_args, index))
+                .or_else(|| match field.ty {
+                    AdtPayloadType::TypeParameter(type_index)
+                        if !invariant_type_args[type_index] =>
+                    {
+                        joined_type_args[type_index]
+                            .as_ref()
+                            .map(AggregateTypeJoin::inference_type)
+                    }
+                    AdtPayloadType::SelfType | AdtPayloadType::Concrete(_) => None,
+                    AdtPayloadType::TypeParameter(_) => None,
+                })
+                .or_else(|| adt::payload_type_with_args(constructor, &constraint_type_args, index))
                 .unwrap_or(Type::Unknown);
             let Some(arg) = args.get(index) else {
                 continue;
             };
+            let payload_diagnostic_count = self.diagnostics.len();
             let actual_arg = self.infer_expr(arg, Some(&arg_expected));
-            let has_context =
-                expected.is_some() || !matches!(field.ty, AdtPayloadType::TypeParameter(_));
+            let has_context = expected.is_some()
+                || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
+                    && !type_contains_unknown(&arg_expected.ty));
             let inferred_arg = if has_context {
                 inferred_aggregate_member_type_with_expected(actual_arg.clone(), &arg_expected.ty)
             } else {
@@ -70,14 +92,18 @@ impl<'a> FunctionChecker<'a> {
             };
             let joined_arg = match &field.ty {
                 AdtPayloadType::TypeParameter(type_index) => {
-                    let current = &inferred_type_args[*type_index];
-                    if joined_type_args[*type_index].is_none() && current != &Type::Unknown {
-                        joined_type_args[*type_index] =
-                            AggregateTypeJoin::new(&self.environment.adts, current);
+                    if invariant_type_args[*type_index] {
+                        false
+                    } else {
+                        let current = &inferred_type_args[*type_index];
+                        if joined_type_args[*type_index].is_none() && current != &Type::Unknown {
+                            joined_type_args[*type_index] =
+                                AggregateTypeJoin::new(&self.environment.adts, current);
+                        }
+                        joined_type_args[*type_index]
+                            .as_mut()
+                            .is_some_and(|joined| joined.try_join(&inferred_arg))
                     }
-                    joined_type_args[*type_index]
-                        .as_mut()
-                        .is_some_and(|joined| joined.try_join(&inferred_arg))
                 }
                 AdtPayloadType::SelfType | AdtPayloadType::Concrete(_) => false,
             };
@@ -123,6 +149,9 @@ impl<'a> FunctionChecker<'a> {
                 }
                 AdtPayloadType::TypeParameter(_) => {}
             }
+            if self.diagnostics.len() != payload_diagnostic_count {
+                continue;
+            }
             if let AdtPayloadType::TypeParameter(type_index) = &field.ty
                 && joined_arg
             {
@@ -130,6 +159,27 @@ impl<'a> FunctionChecker<'a> {
                     .as_ref()
                     .expect("joined aggregate type argument")
                     .inference_type();
+            } else if !matches!(field.ty, AdtPayloadType::TypeParameter(_)) {
+                let mut contributed_type_args = vec![Type::Unknown; inferred_type_args.len()];
+                adt::merge_type_args_from_payload(
+                    &mut contributed_type_args,
+                    constructor,
+                    index,
+                    &inferred_arg,
+                );
+                for (type_index, contribution) in contributed_type_args.iter().enumerate() {
+                    if contribution == &Type::Unknown {
+                        continue;
+                    }
+                    let mut constraint = joined_type_args[type_index]
+                        .as_ref()
+                        .map(AggregateTypeJoin::result_type)
+                        .unwrap_or_else(|| inferred_type_args[type_index].clone());
+                    unification::merge_type_slot(&mut constraint, contribution);
+                    inferred_type_args[type_index] = constraint;
+                    joined_type_args[type_index] = None;
+                    invariant_type_args[type_index] = true;
+                }
             } else {
                 adt::merge_type_args_from_payload(
                     &mut inferred_type_args,

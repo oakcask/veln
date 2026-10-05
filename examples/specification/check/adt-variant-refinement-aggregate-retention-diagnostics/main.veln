@@ -17,6 +17,10 @@ type Pair<A>
 	Paired(A, A)
 end
 
+type Container<A>
+	Built(A, Vec<A>)
+end
+
 fn int_some() -> Option<Int>::Some
 	Some(1)
 end
@@ -43,4 +47,5 @@ fn main() -> ()
 	let mismatched = [int_some(), string_some()]
 	let distinct = [first(), second()]
 	let paired = Paired(int_some(), string_some())
+	let mixed = Built(Ready, [Closed])
 end
