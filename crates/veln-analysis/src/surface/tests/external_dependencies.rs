@@ -154,6 +154,43 @@ fn external_git_dependency_loads_materialized_subdir_package_root() {
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
+#[test]
+fn captured_dependencies_do_not_fall_back_to_direct_sources() {
+    let temp = TempProject::new("captured-dependencies-no-direct-fallback");
+    temp.write(
+        "veln.toml",
+        "[dependencies.\"github.com/oakcask/foo\"]\npath = \"vendor/foo\"\n",
+    );
+    temp.write(
+        "main.veln",
+        "use foo from \"github.com/oakcask/foo\"\n\npub fn main() -> Int\n  add_one(1)\nend\n",
+    );
+    temp.write(
+        "vendor/foo/veln.toml",
+        "[package]\nname = \"github.com/oakcask/foo\"\n\n[lib]\nexports = [\"foo.veln\"]\n",
+    );
+    temp.write(
+        "vendor/foo/foo.veln",
+        "pub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
+    );
+
+    let project =
+        Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
+    let (modules, diagnostics) = load_surface_modules_with_captured_dependencies(&project, &[]);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "module.unavailable_package");
+    assert!(
+        modules
+            .application
+            .functions
+            .iter()
+            .all(|function| function.name.as_deref() != Some("add_one")),
+        "{:#?}",
+        modules.application
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn external_path_dependency_without_direct_manifest_does_not_read_sources() {
