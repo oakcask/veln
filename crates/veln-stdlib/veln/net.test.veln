@@ -138,6 +138,14 @@ test write_all_zero_progress_is_an_other_error() -> Result<(), String>
 	end
 end
 
+test write_all_rejects_a_committed_count_larger_than_the_input() -> Result<(), String>
+	let bytes = byte_chunk_from_visible_ascii_string("short")?
+	match net::write_all_next(bytes, net::Written(net::ByteCount(6)))
+		Err(net::NetError("write_all", None, None, net::Other, _)) => Ok(())
+		_ => Err("write_all accepted a committed count larger than its input")
+	end
+end
+
 test host_port_success_boundaries_round_trip() -> Result<(), String>
 	match net::join_host_port("127.0.0.1", 0)
 		Ok(ipv4) => match net::split_host_port(ipv4)

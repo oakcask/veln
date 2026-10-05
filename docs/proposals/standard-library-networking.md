@@ -167,26 +167,27 @@ missing-handler behavior a static effect error.
 
 ### Test handlers
 
-The runtime conformance harness will need a deterministic `net::IO` handler.
-Like the proposed system handler, it must be trusted to create opaque
-`Listener` and `Stream` references. This handler will be test infrastructure,
-not an exported standard-package module. A source-defined handler can deny,
-trace, or delegate operations, but it cannot fabricate a successful resource
-reference through a public constructor.
+Separate JVM test support already provides a deterministic `net::IO` handler
+for the direct facade and `write_all`. It is trusted to create opaque
+`Listener` and `Stream` references and remains test infrastructure rather than
+an exported standard-package module. The current
+[`write_all` contract](../specification/standard-library-networking.md#network-operation-boundary)
+is checked with scripted partial writes and failures through that handler.
 
-A deterministic handler must be able to script:
+The remaining runtime conformance work must extend deterministic support for:
 
 - resolution results and failures;
 - incoming connections and accepted stream identities;
 - read chunks, end-of-stream, and read failures;
-- partial writes and write failures;
 - deadline and cancellation outcomes;
-- the local and peer endpoints of each resource.
+- the local and peer endpoints of each resource;
+- system-handler resource ownership and cleanup transitions.
 
-The planned handler must record operations in call order. The host-side
-conformance harness will inspect that record to verify cleanup and retry
-behavior. The planned script and trace formats will be repository-internal
-test data, not public Veln APIs.
+That support must record operations in call order so the host-side conformance
+harness can verify cleanup behavior. Its script and trace formats will remain
+repository-internal test data, not public Veln APIs. A source-defined handler
+can deny, trace, or delegate operations, but it cannot fabricate a successful
+resource reference through a public constructor.
 
 ### Duplex transport adapter
 
