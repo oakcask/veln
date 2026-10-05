@@ -45,7 +45,7 @@ Veln also needs a visible answer to a question that Go does not have: which
 effect represents network access, and where can a program replace its
 implementation? The current public `net::IO` effect gives library authors one
 effect to declare and supplies the substitution boundary. The remaining work
-will add the standard host handler and deterministic conformance
+will add the standard host handler and extend deterministic conformance
 infrastructure at that boundary.
 
 ## Goals
