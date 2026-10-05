@@ -18393,7 +18393,7 @@ case_digest	"b44b972ffd8d3d5432f6725bc2d3f1e981654043b7586be116e1d2b6503154c3"
 case	"examples/specification/lsp/standard-library-network-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/net.veln\""
+field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/net.veln\""
 field	expectations.stdout.contains[1]	"\"range\":{\"start\":{\"line\":97,\"character\":7},\"end\":{\"line\":97,\"character\":14}"
 field	expectations.stdout.not_contains[0]	"crates/veln-stdlib"
 field	expectations.stdout.not_contains[1]	"target/debug"
@@ -18401,29 +18401,29 @@ field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":424,"sha256":"5c1ba7366029d7862d14d29fc89950ff86cbf6e20df48e299375fc83249497b6"}
 field	source_errors	"forbidden"
-case_digest	"73c17f47b52b5c99a1dc8166ffdb01d8ced54f8c6b23c4c0b5156a7c516c43e9"
+case_digest	"3b20401bf5630a2f213b5fa3d3128c7f46e1c469a5235c2173545ff36b14bcce"
 case	"examples/specification/lsp/standard-library-virtual-document"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"
+field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"
 field	expectations.stdout.contains[10]	"\"id\":9,\"error\":{\"code\":-32602"
 field	expectations.stdout.contains[11]	"\"id\":10,\"result\":null"
 field	expectations.stdout.contains[1]	"\"id\":3,\"result\":\"use bytes\\nuse diagnostic\\n"
 field	expectations.stdout.contains[2]	"prelude_builtin::int_to_string(value)\\nend\\n\""
-field	expectations.stdout.contains[3]	"\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln\""
+field	expectations.stdout.contains[3]	"\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/prelude.veln\""
 field	expectations.stdout.contains[4]	"\"id\":5,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[5]	"\"range\":{\"start\":{\"line\":10,\"character\":24}"
 field	expectations.stdout.contains[6]	"\"id\":6,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[7]	"\"range\":{\"start\":{\"line\":15,\"character\":6}"
-field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/http2/diagnostic.veln\""
+field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/http2/diagnostic.veln\""
 field	expectations.stdout.contains[9]	"\"id\":8,\"result\":null"
 field	expectations.stdout.not_contains[0]	"crates/veln-stdlib"
 field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1699,"sha256":"8009ea2bed36367461d6c1953f0e4637da1165881e719c9cac7805c2bf2c360e"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1699,"sha256":"b2b2bc3fd52f0860b324cbb6b9631cf889e4a8e2d8bb0042eb951933c17550d7"}
 field	source_errors	"expected"
-case_digest	"2003cbe6b3014590ad1c6ba98f1a08e159b62635de221f36cab51c5cac7262a9"
+case_digest	"cce33d51107b61936f98b5a7f80885b4656670b37fd219c04cc0a01a7d20a8c8"
 case	"examples/specification/lsp/unopened-missing-file"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -19710,7 +19710,7 @@ field	expectations.mcp_assertions[83].path	"/result/resources/12/mimeType"
 field	expectations.mcp_assertions[84].id	2
 field	expectations.mcp_assertions[84].operation	"missing"
 field	expectations.mcp_assertions[84].path	"/result/resources/12/description"
-field	expectations.mcp_assertions[85].equals	"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/bytes.veln"
+field	expectations.mcp_assertions[85].equals	"veln-pkg:///std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/bytes.veln"
 field	expectations.mcp_assertions[85].id	21
 field	expectations.mcp_assertions[85].operation	"equals"
 field	expectations.mcp_assertions[85].path	"/result/contents/0/uri"
@@ -19722,7 +19722,7 @@ field	expectations.mcp_assertions[87].contains	"type ByteView"
 field	expectations.mcp_assertions[87].id	21
 field	expectations.mcp_assertions[87].operation	"contains"
 field	expectations.mcp_assertions[87].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[88].equals	"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln"
+field	expectations.mcp_assertions[88].equals	"veln-pkg:///std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/prelude.veln"
 field	expectations.mcp_assertions[88].id	22
 field	expectations.mcp_assertions[88].operation	"equals"
 field	expectations.mcp_assertions[88].path	"/result/contents/0/uri"
@@ -19789,9 +19789,9 @@ field	expectations.stdout.contains[8]	"\"name\":\"read_doc\""
 field	expectations.stdout.contains[9]	"\"scope\":\"language\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"c85dac0a721a6d2e45b786e5eb9fa45580586b0a78d3720827d8fda529fa7cf9"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"5353886aede1cc9e64bdace0c75d4d0e17c2205ffa0b01d2d3d388795121cc08"}
 field	source_errors	"forbidden"
-case_digest	"18a8c32d33c569a3845fa8562de037394a24e10d5471cf44c12c303022a5a5cd"
+case_digest	"1e558aa842d2e914043e42e088bed7ffc4ff1dbed0637e3e550f45095d09d94d"
 case	"examples/specification/mcp/references-dependency-function"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -22121,7 +22121,7 @@ field	expectations.mcp_assertions[26].id	8
 field	expectations.mcp_assertions[26].length	4
 field	expectations.mcp_assertions[26].operation	"length"
 field	expectations.mcp_assertions[26].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[27].equals	"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln"
+field	expectations.mcp_assertions[27].equals	"veln-pkg:///std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/prelude.veln"
 field	expectations.mcp_assertions[27].id	8
 field	expectations.mcp_assertions[27].operation	"equals"
 field	expectations.mcp_assertions[27].path	"/result/structuredContent/references/3/uri"
@@ -22168,7 +22168,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1118,"sha256":"68702724fade9cf3d93e642f4ce83f9189fb7fed5bf95bfb66c6c33209e6bf25"}
 field	source_errors	"forbidden"
-case_digest	"a33c092d4fba63a78380d408d7795af1171db99ffafa18bf8ac0cdd0e993a87e"
+case_digest	"7a6545c05ac079c1a935a5492f8f5948a9b1e5fc6c89d76e3b60cb60ff1877be"
 case	"examples/specification/mcp/references-standard-library-type-alias"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -22231,7 +22231,7 @@ field	expectations.mcp_assertions[22].id	8
 field	expectations.mcp_assertions[22].length	10
 field	expectations.mcp_assertions[22].operation	"length"
 field	expectations.mcp_assertions[22].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[23].equals	"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln"
+field	expectations.mcp_assertions[23].equals	"veln-pkg:///std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/prelude.veln"
 field	expectations.mcp_assertions[23].id	8
 field	expectations.mcp_assertions[23].operation	"equals"
 field	expectations.mcp_assertions[23].path	"/result/structuredContent/references/9/uri"
@@ -22278,7 +22278,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1116,"sha256":"c057191b59a1f0a1f20e623389b66deab09e4ef96381add88d0a43d2d7e7d777"}
 field	source_errors	"forbidden"
-case_digest	"1b9163d91e9fc095f3fcbe64295aa14666e0a16cf2baa9d93eabce20659e0fc3"
+case_digest	"376d5d1cc0aa14a50a705f50ec8e843ea50cf118085172a60a4509b760c3664b"
 case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	3
@@ -24740,11 +24740,11 @@ field	expectations.mcp_assertions[11].contains	"- Package identity: std"
 field	expectations.mcp_assertions[11].id	4
 field	expectations.mcp_assertions[11].operation	"contains"
 field	expectations.mcp_assertions[11].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[12].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+field	expectations.mcp_assertions[12].contains	"veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 field	expectations.mcp_assertions[12].id	4
 field	expectations.mcp_assertions[12].operation	"contains"
 field	expectations.mcp_assertions[12].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[13].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+field	expectations.mcp_assertions[13].contains	"veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 field	expectations.mcp_assertions[13].id	4
 field	expectations.mcp_assertions[13].operation	"contains"
 field	expectations.mcp_assertions[13].path	"/result/contents/0/text"
@@ -24752,15 +24752,15 @@ field	expectations.mcp_assertions[14].contains	"- Source path: prelude.veln"
 field	expectations.mcp_assertions[14].id	5
 field	expectations.mcp_assertions[14].operation	"contains"
 field	expectations.mcp_assertions[14].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[15].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+field	expectations.mcp_assertions[15].contains	"veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 field	expectations.mcp_assertions[15].id	5
 field	expectations.mcp_assertions[15].operation	"contains"
 field	expectations.mcp_assertions[15].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[16].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+field	expectations.mcp_assertions[16].contains	"veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 field	expectations.mcp_assertions[16].id	5
 field	expectations.mcp_assertions[16].operation	"contains"
 field	expectations.mcp_assertions[16].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[17].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+field	expectations.mcp_assertions[17].contains	"veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 field	expectations.mcp_assertions[17].id	5
 field	expectations.mcp_assertions[17].operation	"contains"
 field	expectations.mcp_assertions[17].path	"/result/contents/0/text"
@@ -24927,9 +24927,9 @@ field	expectations.stdout.contains[8]	"# Function join_host_port"
 field	expectations.stdout.contains[9]	"# Effect IO"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4378,"sha256":"b190e45e770184a32f3a90656270a6702fa2dcaebcb4cf82830e5f78b2afad4a"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4378,"sha256":"cf871c160e6c59d8e003fd1cd072335db4ee95a300f8603f4e092f2c6f5edc0a"}
 field	source_errors	"forbidden"
-case_digest	"4aef868a29eb4a78788970b60bd5b4120847adeb669fa56c9ce9c78e6bcf1501"
+case_digest	"5a5f1f49607e2d80c963eb81105e58449d260a92f487eebfa8452ebc71d5bd1e"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	{"code":-32602,"message":"Server not initialized"}
@@ -62613,4 +62613,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b02442a464eb38a9e720635e965528734a2a72a447274ae438fd389d7f0064df"
+aggregate_digest	"76d840959c1fccb0eee05771f643afe53131d20a424478e8b3bbd89f2ec55001"
