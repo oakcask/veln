@@ -336,3 +336,26 @@ end
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "");
 }
+
+#[test]
+fn standard_network_write_all_preserves_the_effect_boundary() {
+    let ir = lower_with_network_facade(
+        r#"
+pub fn main() -> Result<(), String> effects [net, time]
+    verify_write_all()
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("standard-network-write-all", &program, &[])
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+}

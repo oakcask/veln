@@ -190,6 +190,54 @@ handler observing_facade(listener_short: Listener, listener_with: Listener, list
 	end
 end
 
+handler scripted_write_all(stream: Stream, deadline: Deadline, token: CancelToken) for IO effects [net, time]
+	resolve(address) => Err(facade_error("write-all-unexpected", "resolve"))
+	listen(address) => Err(facade_error("write-all-unexpected", "listen"))
+	connect(address, observed_deadline, observed_token) => Err(facade_error("write-all-unexpected", "connect"))
+	accept(listener, observed_deadline, observed_token) => Err(facade_error("write-all-unexpected", "accept"))
+	listener_address(listener) => Err(facade_error("write-all-unexpected", "listener_address"))
+	close_listener(listener) => Err(facade_error("write-all-unexpected", "close_listener"))
+	read(observed_stream, observed_deadline, observed_token) => Err(facade_error("write-all-unexpected", "read"))
+	write(observed_stream, bytes, observed_deadline, observed_token) => if facade_stream_matches(observed_stream, "write-all") and facade_deadline_matches(observed_deadline, 47)
+		match byte_chunk_to_visible_ascii_string(bytes)
+			Ok("abcdef") => if facade_token_matches_and_cancel(observed_token, false)
+				Written(facade_count("ab"))
+			else
+				WriteFailed(facade_count(""), facade_error("write-all-input", "initial token state changed"))
+			end
+			Ok("cdef") => if facade_token_matches(observed_token, true)
+				Written(facade_count("c"))
+			else
+				WriteFailed(facade_count(""), facade_error("write-all-input", "cancellation token was replaced"))
+			end
+			Ok("def") => if facade_token_matches(observed_token, true)
+				Written(facade_count("def"))
+			else
+				WriteFailed(facade_count(""), facade_error("write-all-input", "cancellation token was replaced"))
+			end
+			Ok("failure") => if facade_token_matches(observed_token, false)
+				WriteFailed(facade_count("fai"), facade_error("scripted-write", "failed after prefix"))
+			else
+				WriteFailed(facade_count(""), facade_error("write-all-input", "failure token state changed"))
+			end
+			Ok("zero") => if facade_token_matches(observed_token, false)
+				Written(facade_count(""))
+			else
+				WriteFailed(facade_count(""), facade_error("write-all-input", "zero-progress token state changed"))
+			end
+			Ok(_) => WriteFailed(facade_count(""), facade_error("write-all-unexpected", "unexpected suffix"))
+			Err(message) => WriteFailed(facade_count(""), facade_error("write-all-decode", message))
+		end
+	else
+		WriteFailed(facade_count(""), facade_error("write-all-input", "resource or options changed"))
+	end
+	local_address(observed_stream) => Err(facade_error("write-all-unexpected", "local_address"))
+	peer_address(observed_stream) => Err(facade_error("write-all-unexpected", "peer_address"))
+	shutdown_read(observed_stream) => Err(facade_error("write-all-unexpected", "shutdown_read"))
+	shutdown_write(observed_stream) => Err(facade_error("write-all-unexpected", "shutdown_write"))
+	close_stream(observed_stream) => Err(facade_error("write-all-unexpected", "close_stream"))
+end
+
 fn facade_expect_error(error: NetError, operation: String, message: String) -> Result<(), String>
 	match error
 		NetError(observed, Some(Tcp6), Some("facade.test:8443"), PermissionDenied, observed_message) => if observed == operation and observed_message == message
@@ -302,4 +350,34 @@ pub fn verify_network_facade() -> Result<(), String> effects [net, time]
 	let stream_with = handle net::connect("stream-with") with fixed_network("stream-with", empty)
 	let stream_return = handle net::connect("stream-return") with fixed_network("stream-return", empty)
 	handle execute_facade(listener_short, listener_with, stream_short, stream_with, stream_return) with observing_facade(listener_short, listener_with, listener_return, stream_short, stream_with, stream_return)
+end
+
+pub fn verify_write_all() -> Result<(), String> effects [net, time]
+	let empty = byte_chunk([])
+	let stream = handle net::connect("write-all") with fixed_network("write-all", empty)
+	let deadline = handle time::deadline_after_ms(47) with facade_clock(47)
+	let partial_token = time::cancel_token()
+	let partial = handle write_all(stream, byte_chunk_from_visible_ascii_string("abcdef")?, Some(deadline), Some(partial_token)) with scripted_write_all(stream, deadline, partial_token)
+	let _ = facade_expect(match partial
+		Ok(()) => true
+		Err(_) => false
+	end, "write_all did not finish scripted partial writes")?
+	let failure_token = time::cancel_token()
+	let failed = handle write_all(stream, byte_chunk_from_visible_ascii_string("failure")?, Some(deadline), Some(failure_token)) with scripted_write_all(stream, deadline, failure_token)
+	let _ = match failed
+		Err(error) => facade_expect_error(error, "scripted-write", "failed after prefix")
+		Ok(()) => Err("write_all ignored a failed partial write")
+	end?
+	let zero_token = time::cancel_token()
+	let zero = handle write_all(stream, byte_chunk_from_visible_ascii_string("zero")?, Some(deadline), Some(zero_token)) with scripted_write_all(stream, deadline, zero_token)
+	let _ = facade_expect(match zero
+		Err(NetError("write_all", None, None, Other, _)) => true
+		_ => false
+	end, "write_all did not reject zero progress")?
+	let empty_token = time::cancel_token()
+	let no_write = handle write_all(stream, empty, Some(deadline), Some(empty_token)) with scripted_write_all(stream, deadline, empty_token)
+	facade_expect(match no_write
+		Ok(()) => true
+		Err(_) => false
+	end, "write_all did not accept an empty input")
 end

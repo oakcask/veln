@@ -144,6 +144,52 @@ pub fn write_with(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, 
 	perform IO::write(stream, bytes, deadline, token)
 end
 
+## Write the complete byte chunk through the active IO handler. Partial
+## successes retry only the uncommitted suffix with the same deadline and
+## cancellation token. A write failure stops the operation immediately.
+pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [IO]
+	write_all_remaining(stream, bytes, deadline, token)
+end
+
+fn write_all_remaining(stream: Stream, remaining: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [IO]
+	if byte_count_to_int(byte_chunk_count(remaining)) == 0
+		Ok(())
+	else
+		match write_all_next(remaining, perform IO::write(stream, remaining, deadline, token))
+			Ok(None) => Ok(())
+			Ok(Some(suffix)) => write_all_remaining(stream, suffix, deadline, token)
+			Err(error) => Err(error)
+		end
+	end
+end
+
+fn write_all_next(remaining: ByteChunk, outcome: WriteOutcome) -> Result<Option<ByteChunk>, NetError>
+	match outcome
+		Written(count) => write_all_next_after_success(remaining, byte_count_to_int(byte_chunk_count(remaining)), count)
+		WriteFailed(_, error) => Err(error)
+	end
+end
+
+fn write_all_next_after_success(remaining: ByteChunk, remaining_count: Int, count: ByteCount) -> Result<Option<ByteChunk>, NetError>
+	let committed = byte_count_to_int(count)
+	if committed == remaining_count
+		Ok(None)
+	else if committed == 0
+		Err(write_all_progress_error("write returned zero before the input was complete"))
+	else if committed > remaining_count
+		Err(write_all_progress_error("write returned a count larger than its input"))
+	else
+		match byte_drop(remaining, count)
+			Ok(suffix) => Ok(Some(suffix))
+			Err(message) => Err(write_all_progress_error(message))
+		end
+	end
+end
+
+fn write_all_progress_error(message: String) -> NetError
+	NetError("write_all", None, None, Other, message)
+end
+
 ## Return the local stream endpoint through the active IO handler.
 pub fn local_address(stream: Stream) -> Result<Endpoint, NetError> effects [IO]
 	perform IO::local_address(stream)

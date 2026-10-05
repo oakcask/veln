@@ -100,6 +100,20 @@ unchanged. The short `connect`, `accept`, `read`, and `write` functions supply
 `None` for both options. Each `*_with` function passes both supplied options
 unchanged.
 
+`write_all(stream, bytes, deadline, token)` writes the complete `ByteChunk`.
+It returns `Ok(())` without performing `IO::write` when the input is empty.
+After `Written(count)` commits a proper prefix, it performs another write with
+only the uncommitted suffix. Every attempt receives the original deadline and
+cancellation token.
+
+`write_all` returns the reported `NetError` immediately after `WriteFailed`,
+including an outcome with a non-zero committed count. It performs no later
+write after that failure. If `Written(0)` occurs while input remains,
+`write_all` returns a `NetError` whose operation is `write_all` and whose kind
+is `Other`; this prevents an unbounded retry. A `Written` count larger than the
+attempted chunk is also an `Other` failure because it violates the handler
+contract.
+
 `ReadOutcome` has the `ReadChunk(ByteChunk)` and `ReadEnd` shapes. The direct
 `read` and `read_with` functions return the handler's outcome unchanged,
 including `ReadChunk` with an empty `ByteChunk`. The facade does not enforce
@@ -125,21 +139,22 @@ The helpers do not validate DNS spelling or the internal syntax of an IP
 literal. `Listener` and `Stream` are opaque; source code cannot construct a
 successful resource reference for a fake handler.
 
-The module does not yet export `net::system()` or `write_all`. It does not yet
-translate host failures, implement runtime resource lifecycle rules, or adapt
-a stream to `transport::DuplexStream`. Those behaviors remain in the
-standard-library networking proposal. Until a handler is supplied by the
-application or test boundary, the direct facade describes authority and
-composition but cannot perform host networking.
+The module does not yet export `net::system()`. It does not yet translate host
+failures, implement runtime resource lifecycle rules, or adapt a stream to
+`transport::DuplexStream`. Those behaviors remain in the standard-library
+networking proposal. Until a handler is supplied by the application or test
+boundary, the facade and `write_all` describe authority and composition but
+cannot perform host networking.
 
 ## References
 
 The exported implementation and companion tests are in
 `crates/veln-stdlib/veln/net.veln` and
 `crates/veln-stdlib/veln/net.test.veln`. The companion tests cover the values
-that source code can construct. The JVM backend effect-injection tests use
-separate Veln test support to exercise every forwarding function with opaque
-listener and stream resources and to check resource, option, byte, and result
-preservation. Checked command-level examples under `examples/specification/check/`
-and `examples/specification/run/` cover the explicit standard-module identity,
-nominal effect requirement, and unhandled runner boundary.
+that source code can construct and the `write_all` retry and failure decisions.
+The JVM backend effect-injection tests use separate Veln test support to
+exercise the facade with opaque listener and stream resources and to check
+resource, option, byte, and result preservation. Checked command-level examples
+under `examples/specification/check/` and `examples/specification/run/` cover
+the explicit standard-module identity, nominal effect requirement, and
+unhandled runner boundary.

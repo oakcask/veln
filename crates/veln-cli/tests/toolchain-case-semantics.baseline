@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"49859a23db78fb7f0548143888491028040999ab"
+source_git_tree	"39e4c8716b6c2599de8b42b0af2a271981154b86"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1773
@@ -18393,7 +18393,7 @@ case_digest	"b44b972ffd8d3d5432f6725bc2d3f1e981654043b7586be116e1d2b6503154c3"
 case	"examples/specification/lsp/standard-library-network-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/net.veln\""
+field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/net.veln\""
 field	expectations.stdout.contains[1]	"\"range\":{\"start\":{\"line\":97,\"character\":7},\"end\":{\"line\":97,\"character\":14}"
 field	expectations.stdout.not_contains[0]	"crates/veln-stdlib"
 field	expectations.stdout.not_contains[1]	"target/debug"
@@ -18401,29 +18401,29 @@ field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":424,"sha256":"5c1ba7366029d7862d14d29fc89950ff86cbf6e20df48e299375fc83249497b6"}
 field	source_errors	"forbidden"
-case_digest	"be6d215f7902a1e83db572a7ab3e08e933a79f486a22bc1cf21dd6dc8a55662d"
+case_digest	"73c17f47b52b5c99a1dc8166ffdb01d8ced54f8c6b23c4c0b5156a7c516c43e9"
 case	"examples/specification/lsp/standard-library-virtual-document"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
-field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"
+field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"
 field	expectations.stdout.contains[10]	"\"id\":9,\"error\":{\"code\":-32602"
 field	expectations.stdout.contains[11]	"\"id\":10,\"result\":null"
 field	expectations.stdout.contains[1]	"\"id\":3,\"result\":\"use bytes\\nuse diagnostic\\n"
 field	expectations.stdout.contains[2]	"prelude_builtin::int_to_string(value)\\nend\\n\""
-field	expectations.stdout.contains[3]	"\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/prelude.veln\""
+field	expectations.stdout.contains[3]	"\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln\""
 field	expectations.stdout.contains[4]	"\"id\":5,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[5]	"\"range\":{\"start\":{\"line\":10,\"character\":24}"
 field	expectations.stdout.contains[6]	"\"id\":6,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[7]	"\"range\":{\"start\":{\"line\":15,\"character\":6}"
-field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/http2/diagnostic.veln\""
+field	expectations.stdout.contains[8]	"\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/http2/diagnostic.veln\""
 field	expectations.stdout.contains[9]	"\"id\":8,\"result\":null"
 field	expectations.stdout.not_contains[0]	"crates/veln-stdlib"
 field	expectations.stdout.not_contains[1]	"target/debug"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1699,"sha256":"510c13057c350e03f3376b8eaaa1d1c61a5271561c16cf5952ab54c21211b8fd"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1699,"sha256":"8009ea2bed36367461d6c1953f0e4637da1165881e719c9cac7805c2bf2c360e"}
 field	source_errors	"expected"
-case_digest	"d81e47c555dd106f98ba1913271105bd15f7ffb93e095f98aede71ab5283e970"
+case_digest	"2003cbe6b3014590ad1c6ba98f1a08e159b62635de221f36cab51c5cac7262a9"
 case	"examples/specification/lsp/unopened-missing-file"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -19710,7 +19710,7 @@ field	expectations.mcp_assertions[83].path	"/result/resources/12/mimeType"
 field	expectations.mcp_assertions[84].id	2
 field	expectations.mcp_assertions[84].operation	"missing"
 field	expectations.mcp_assertions[84].path	"/result/resources/12/description"
-field	expectations.mcp_assertions[85].equals	"veln-pkg:///std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/bytes.veln"
+field	expectations.mcp_assertions[85].equals	"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/bytes.veln"
 field	expectations.mcp_assertions[85].id	21
 field	expectations.mcp_assertions[85].operation	"equals"
 field	expectations.mcp_assertions[85].path	"/result/contents/0/uri"
@@ -19722,7 +19722,7 @@ field	expectations.mcp_assertions[87].contains	"type ByteView"
 field	expectations.mcp_assertions[87].id	21
 field	expectations.mcp_assertions[87].operation	"contains"
 field	expectations.mcp_assertions[87].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[88].equals	"veln-pkg:///std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/prelude.veln"
+field	expectations.mcp_assertions[88].equals	"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln"
 field	expectations.mcp_assertions[88].id	22
 field	expectations.mcp_assertions[88].operation	"equals"
 field	expectations.mcp_assertions[88].path	"/result/contents/0/uri"
@@ -19789,9 +19789,9 @@ field	expectations.stdout.contains[8]	"\"name\":\"read_doc\""
 field	expectations.stdout.contains[9]	"\"scope\":\"language\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"581c21c6a4ef0106750635e6df5f6e46fd68abf4c2063e75d205bda4f7ef17b9"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3877,"sha256":"c85dac0a721a6d2e45b786e5eb9fa45580586b0a78d3720827d8fda529fa7cf9"}
 field	source_errors	"forbidden"
-case_digest	"166590782978e931f76a9dcc14f7fb7be155f65bd22c01b6e68024ea94911605"
+case_digest	"18a8c32d33c569a3845fa8562de037394a24e10d5471cf44c12c303022a5a5cd"
 case	"examples/specification/mcp/references-dependency-function"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -22121,7 +22121,7 @@ field	expectations.mcp_assertions[26].id	8
 field	expectations.mcp_assertions[26].length	4
 field	expectations.mcp_assertions[26].operation	"length"
 field	expectations.mcp_assertions[26].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[27].equals	"veln-pkg:///std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/prelude.veln"
+field	expectations.mcp_assertions[27].equals	"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln"
 field	expectations.mcp_assertions[27].id	8
 field	expectations.mcp_assertions[27].operation	"equals"
 field	expectations.mcp_assertions[27].path	"/result/structuredContent/references/3/uri"
@@ -22168,7 +22168,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1118,"sha256":"68702724fade9cf3d93e642f4ce83f9189fb7fed5bf95bfb66c6c33209e6bf25"}
 field	source_errors	"forbidden"
-case_digest	"83fd392c991276900d11922481a9b55f95cb1cbac41b1c7b520960d48e0415c9"
+case_digest	"a33c092d4fba63a78380d408d7795af1171db99ffafa18bf8ac0cdd0e993a87e"
 case	"examples/specification/mcp/references-standard-library-type-alias"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -22231,7 +22231,7 @@ field	expectations.mcp_assertions[22].id	8
 field	expectations.mcp_assertions[22].length	10
 field	expectations.mcp_assertions[22].operation	"length"
 field	expectations.mcp_assertions[22].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[23].equals	"veln-pkg:///std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/prelude.veln"
+field	expectations.mcp_assertions[23].equals	"veln-pkg:///std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/prelude.veln"
 field	expectations.mcp_assertions[23].id	8
 field	expectations.mcp_assertions[23].operation	"equals"
 field	expectations.mcp_assertions[23].path	"/result/structuredContent/references/9/uri"
@@ -22278,7 +22278,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1116,"sha256":"c057191b59a1f0a1f20e623389b66deab09e4ef96381add88d0a43d2d7e7d777"}
 field	source_errors	"forbidden"
-case_digest	"2aa5bda204e2e14b1d32796dd4e6c89a484456e7a2440b80fed89c4031603ad2"
+case_digest	"1b9163d91e9fc095f3fcbe64295aa14666e0a16cf2baa9d93eabce20659e0fc3"
 case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	3
@@ -24740,11 +24740,11 @@ field	expectations.mcp_assertions[11].contains	"- Package identity: std"
 field	expectations.mcp_assertions[11].id	4
 field	expectations.mcp_assertions[11].operation	"contains"
 field	expectations.mcp_assertions[11].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[12].contains	"veln-doc:///package/std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/documentation/da8cc5b43588a08d8076d57455e94613100ebae79683797117b98589661b2546/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+field	expectations.mcp_assertions[12].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 field	expectations.mcp_assertions[12].id	4
 field	expectations.mcp_assertions[12].operation	"contains"
 field	expectations.mcp_assertions[12].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[13].contains	"veln-doc:///package/std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/documentation/da8cc5b43588a08d8076d57455e94613100ebae79683797117b98589661b2546/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+field	expectations.mcp_assertions[13].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 field	expectations.mcp_assertions[13].id	4
 field	expectations.mcp_assertions[13].operation	"contains"
 field	expectations.mcp_assertions[13].path	"/result/contents/0/text"
@@ -24752,15 +24752,15 @@ field	expectations.mcp_assertions[14].contains	"- Source path: prelude.veln"
 field	expectations.mcp_assertions[14].id	5
 field	expectations.mcp_assertions[14].operation	"contains"
 field	expectations.mcp_assertions[14].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[15].contains	"veln-doc:///package/std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/documentation/da8cc5b43588a08d8076d57455e94613100ebae79683797117b98589661b2546/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+field	expectations.mcp_assertions[15].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 field	expectations.mcp_assertions[15].id	5
 field	expectations.mcp_assertions[15].operation	"contains"
 field	expectations.mcp_assertions[15].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[16].contains	"veln-doc:///package/std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/documentation/da8cc5b43588a08d8076d57455e94613100ebae79683797117b98589661b2546/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+field	expectations.mcp_assertions[16].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 field	expectations.mcp_assertions[16].id	5
 field	expectations.mcp_assertions[16].operation	"contains"
 field	expectations.mcp_assertions[16].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[17].contains	"veln-doc:///package/std/snapshot/bc444677a70c579a8a817658b84688086490ee89b0894aa6a31dfae814a1d35f/documentation/da8cc5b43588a08d8076d57455e94613100ebae79683797117b98589661b2546/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+field	expectations.mcp_assertions[17].contains	"veln-doc:///package/std/snapshot/87946b6f6e2246d7d6207840397875527dd426aaf117c6d4154b4bad875deb48/documentation/1cb0f48ceee27bfdf9bf244b95e3c656f9d437c337183de03158fdd3850ff8fa/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 field	expectations.mcp_assertions[17].id	5
 field	expectations.mcp_assertions[17].operation	"contains"
 field	expectations.mcp_assertions[17].path	"/result/contents/0/text"
@@ -24792,27 +24792,27 @@ field	expectations.mcp_assertions[23].contains	"fn split_host_port(address: Stri
 field	expectations.mcp_assertions[23].id	8
 field	expectations.mcp_assertions[23].operation	"contains"
 field	expectations.mcp_assertions[23].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[24].contains	"type Address"
+field	expectations.mcp_assertions[24].contains	"fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>)"
 field	expectations.mcp_assertions[24].id	8
 field	expectations.mcp_assertions[24].operation	"contains"
 field	expectations.mcp_assertions[24].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[25].contains	"type Endpoint"
+field	expectations.mcp_assertions[25].contains	"type Address"
 field	expectations.mcp_assertions[25].id	8
 field	expectations.mcp_assertions[25].operation	"contains"
 field	expectations.mcp_assertions[25].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[26].contains	"type NetErrorKind"
+field	expectations.mcp_assertions[26].contains	"type Endpoint"
 field	expectations.mcp_assertions[26].id	8
 field	expectations.mcp_assertions[26].operation	"contains"
 field	expectations.mcp_assertions[26].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[27].contains	"type NetError"
+field	expectations.mcp_assertions[27].contains	"type NetErrorKind"
 field	expectations.mcp_assertions[27].id	8
 field	expectations.mcp_assertions[27].operation	"contains"
 field	expectations.mcp_assertions[27].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[28].contains	"# Type Network"
-field	expectations.mcp_assertions[28].id	9
+field	expectations.mcp_assertions[28].contains	"type NetError"
+field	expectations.mcp_assertions[28].id	8
 field	expectations.mcp_assertions[28].operation	"contains"
 field	expectations.mcp_assertions[28].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[29].contains	"### Tcp6"
+field	expectations.mcp_assertions[29].contains	"# Type Network"
 field	expectations.mcp_assertions[29].id	9
 field	expectations.mcp_assertions[29].operation	"contains"
 field	expectations.mcp_assertions[29].path	"/result/contents/0/text"
@@ -24820,65 +24820,69 @@ field	expectations.mcp_assertions[2].equals	"text/markdown; charset=utf-8"
 field	expectations.mcp_assertions[2].id	2
 field	expectations.mcp_assertions[2].operation	"equals"
 field	expectations.mcp_assertions[2].path	"/result/resources/11/mimeType"
-field	expectations.mcp_assertions[30].contains	"- Signature: type Network"
+field	expectations.mcp_assertions[30].contains	"### Tcp6"
 field	expectations.mcp_assertions[30].id	9
 field	expectations.mcp_assertions[30].operation	"contains"
 field	expectations.mcp_assertions[30].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[31].contains	"### Tcp4"
+field	expectations.mcp_assertions[31].contains	"- Signature: type Network"
 field	expectations.mcp_assertions[31].id	9
 field	expectations.mcp_assertions[31].operation	"contains"
 field	expectations.mcp_assertions[31].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[32].contains	"# Function join_host_port"
-field	expectations.mcp_assertions[32].id	10
+field	expectations.mcp_assertions[32].contains	"### Tcp4"
+field	expectations.mcp_assertions[32].id	9
 field	expectations.mcp_assertions[32].operation	"contains"
 field	expectations.mcp_assertions[32].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[33].contains	"fn join_host_port(host: String, port: Int) -> Result<String, NetError>"
+field	expectations.mcp_assertions[33].contains	"# Function join_host_port"
 field	expectations.mcp_assertions[33].id	10
 field	expectations.mcp_assertions[33].operation	"contains"
 field	expectations.mcp_assertions[33].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[34].contains	"Address { network: Network, host: String, port: Int }"
-field	expectations.mcp_assertions[34].id	11
+field	expectations.mcp_assertions[34].contains	"fn join_host_port(host: String, port: Int) -> Result<String, NetError>"
+field	expectations.mcp_assertions[34].id	10
 field	expectations.mcp_assertions[34].operation	"contains"
 field	expectations.mcp_assertions[34].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[35].contains	"Endpoint { network: Network, address: String }"
-field	expectations.mcp_assertions[35].id	12
+field	expectations.mcp_assertions[35].contains	"Address { network: Network, host: String, port: Int }"
+field	expectations.mcp_assertions[35].id	11
 field	expectations.mcp_assertions[35].operation	"contains"
 field	expectations.mcp_assertions[35].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[36].contains	"InvalidAddress"
-field	expectations.mcp_assertions[36].id	13
+field	expectations.mcp_assertions[36].contains	"Endpoint { network: Network, address: String }"
+field	expectations.mcp_assertions[36].id	12
 field	expectations.mcp_assertions[36].operation	"contains"
 field	expectations.mcp_assertions[36].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[37].contains	"InvalidResource"
+field	expectations.mcp_assertions[37].contains	"InvalidAddress"
 field	expectations.mcp_assertions[37].id	13
 field	expectations.mcp_assertions[37].operation	"contains"
 field	expectations.mcp_assertions[37].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[38].contains	"NetError { operation: String, network: Option<Network>, address: Option<String>, kind: NetErrorKind, message: String }"
-field	expectations.mcp_assertions[38].id	14
+field	expectations.mcp_assertions[38].contains	"InvalidResource"
+field	expectations.mcp_assertions[38].id	13
 field	expectations.mcp_assertions[38].operation	"contains"
 field	expectations.mcp_assertions[38].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[39].contains	"fn split_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>"
-field	expectations.mcp_assertions[39].id	15
+field	expectations.mcp_assertions[39].contains	"NetError { operation: String, network: Option<Network>, address: Option<String>, kind: NetErrorKind, message: String }"
+field	expectations.mcp_assertions[39].id	14
 field	expectations.mcp_assertions[39].operation	"contains"
 field	expectations.mcp_assertions[39].path	"/result/contents/0/text"
 field	expectations.mcp_assertions[3].id	2
 field	expectations.mcp_assertions[3].operation	"missing"
 field	expectations.mcp_assertions[3].path	"/result/resources/11/description"
-field	expectations.mcp_assertions[40].contains	"fn connect_with(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [IO]"
-field	expectations.mcp_assertions[40].id	8
+field	expectations.mcp_assertions[40].contains	"fn split_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>"
+field	expectations.mcp_assertions[40].id	15
 field	expectations.mcp_assertions[40].operation	"contains"
 field	expectations.mcp_assertions[40].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[41].contains	"# Effect IO"
-field	expectations.mcp_assertions[41].id	16
+field	expectations.mcp_assertions[41].contains	"fn connect_with(address: Address, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError> effects [IO]"
+field	expectations.mcp_assertions[41].id	8
 field	expectations.mcp_assertions[41].operation	"contains"
 field	expectations.mcp_assertions[41].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[42].contains	"resolve(address: Address) -> Result<List<Endpoint>, NetError>"
+field	expectations.mcp_assertions[42].contains	"# Effect IO"
 field	expectations.mcp_assertions[42].id	16
 field	expectations.mcp_assertions[42].operation	"contains"
 field	expectations.mcp_assertions[42].path	"/result/contents/0/text"
-field	expectations.mcp_assertions[43].contains	"close_stream(stream: Stream) -> Result<(), NetError>"
+field	expectations.mcp_assertions[43].contains	"resolve(address: Address) -> Result<List<Endpoint>, NetError>"
 field	expectations.mcp_assertions[43].id	16
 field	expectations.mcp_assertions[43].operation	"contains"
 field	expectations.mcp_assertions[43].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[44].contains	"close_stream(stream: Stream) -> Result<(), NetError>"
+field	expectations.mcp_assertions[44].id	16
+field	expectations.mcp_assertions[44].operation	"contains"
+field	expectations.mcp_assertions[44].path	"/result/contents/0/text"
 field	expectations.mcp_assertions[4].id	2
 field	expectations.mcp_assertions[4].operation	"missing"
 field	expectations.mcp_assertions[4].path	"/result/nextCursor"
@@ -24923,9 +24927,9 @@ field	expectations.stdout.contains[8]	"# Function join_host_port"
 field	expectations.stdout.contains[9]	"# Effect IO"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4378,"sha256":"f7cdb988fda88461a5efcbb4977fd87253dcc01d56c98b28d269845c72226b8a"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4378,"sha256":"b190e45e770184a32f3a90656270a6702fa2dcaebcb4cf82830e5f78b2afad4a"}
 field	source_errors	"forbidden"
-case_digest	"5df396c336e901e90934bb92ac484b60e0e68289c6fa49b13438ddea0c12a1d8"
+case_digest	"4aef868a29eb4a78788970b60bd5b4120847adeb669fa56c9ce9c78e6bcf1501"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	{"code":-32602,"message":"Server not initialized"}
@@ -64124,4 +64128,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"a4d84133f167eeca8f5802af5152897f3bd038ab9ed1947caad46694bccb8412"
+aggregate_digest	"22a7f5645428953ff71c179205a270d035a0968c1726b0028d4e907ada473ff5"
