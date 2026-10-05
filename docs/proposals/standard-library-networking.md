@@ -43,14 +43,15 @@ method model or mutable deadline API. The source references are the
 
 Veln also needs a visible answer to a question that Go does not have: which
 effect represents network access, and where can a program replace its
-implementation? A public effect plus a standard host handler will give library
-authors one effect to declare. The planned conformance handler will use that
-effect as its deterministic interception point.
+implementation? The current public `net::IO` effect gives library authors one
+effect to declare and supplies the substitution boundary. The remaining work
+will add the standard host handler and deterministic conformance
+infrastructure at that boundary.
 
 ## Goals
 
-- Give stream client and server code one portable API for TCP, TCP over IPv4,
-  and TCP over IPv6.
+- Back the current portable stream API with system handling for TCP, TCP over
+  IPv4, and TCP over IPv6.
 - Return typed ordinary failures instead of turning expected operating-system
   outcomes into runtime diagnostics.
 - Supply the explicit system handler for the replaceable DNS and socket
@@ -200,12 +201,13 @@ test data, not public Veln APIs.
 `transport::DuplexStream` is the existing narrow effect for a protocol that
 already owns one connected stream. The existing
 `transport::net::net_stream(stream)` adapter uses the coarse host `net` effect
-through `net::read_chunk_or_end` and `net::write_chunks`. It does not provide
-the proposed `net::IO` boundary or call `net::write_all`.
+through `net::read_chunk_or_end` and `net::write_chunks`. It does not use the
+current `net::IO` boundary or the proposed `net::write_all` helper.
 
 The standard library will add an adapter handler that captures a `net::Stream`,
-performs `net::read` and `net::write_all` through `net::IO`, and maps `NetError`
-into the transport failure type selected by the transport contract.
+performs `net::read` through the current `net::IO` boundary, uses the proposed
+`net::write_all` helper, and maps `NetError` into the transport failure type
+selected by the transport contract.
 
 The proposed adapter must not listen, accept, resolve, connect, or close the
 captured stream. The caller will retain lifecycle ownership. This prevents a
@@ -298,9 +300,7 @@ network API.
    package sources use the exported module.
 
 An explicit `use net from "std"` always selects the standard module. The
-compatibility lowering must not shadow that import. Package documentation,
-definition, references, completion, hover, and rename must resolve public
-network symbols to `std::net`, not to synthetic compiler descriptors.
+compatibility lowering must not shadow that import.
 
 ## Acceptance model
 
@@ -311,12 +311,13 @@ already exist or pass.
 | Concern | Input or event | Required observation | Intended evidence |
 | --- | --- | --- | --- |
 | System handling | A `net::IO` block is handled with `net::system()` | The remaining effects are host `net` and `time` | check cases and semantic tests |
+| Host failure translation | A system operation receives an expected operating-system network failure | The operation returns a `NetError` with the applicable portable kind instead of producing a runtime diagnostic | table-driven host translation tests and loopback cases |
 | Resolution | A name maps to repeated endpoints | Order is preserved and exact duplicates are removed | runtime conformance test |
 | Listen and accept | The system handler listens on loopback port zero and a client connects | Reported listener address has an assigned port and accept returns a fresh stream | loopback run case |
 | Connect failure | No server listens at a selected loopback address | `ConnectionRefused` or a documented portable fallback classification | loopback run case |
 | Read end | Peer writes bytes and shuts down its write half | Bytes arrive before `ReadEnd`; later reads remain `ReadEnd` | loopback run case |
-| Partial write | Scripted handler commits only a prefix | `write_all` retries only the remaining suffix | runtime conformance test |
-| Failed partial write | Scripted handler commits a prefix and reports a failure | `WriteFailed` preserves the count and `write_all` does not retry it | runtime conformance test |
+| Partial write | Scripted handler commits only a prefix | The write trace shows that `write_all` retries only the remaining suffix | runtime conformance test |
+| Failed partial write | Scripted handler commits a prefix and reports a failure | `write_all` returns the reported `NetError` and performs no further write after `WriteFailed`, including when the outcome reports a non-zero committed count | runtime conformance test |
 | Deadline | A scripted or loopback operation exceeds its deadline | `TimedOut`; the resource remains usable | run case |
 | Cancellation | A token is cancelled while an operation is blocked | `Cancelled`; the resource remains usable | run case |
 | Concurrent same-direction I/O | A second read or write starts before the first finishes | The second operation reports `Busy`; the first is unchanged | runtime conformance test |
@@ -325,7 +326,9 @@ already exist or pass.
 | Handler ownership | A resource from one handler is passed to another | `InvalidResource`; both handlers' states remain unchanged | runtime conformance test |
 | Scope cleanup | A handled block exits with owned resources open | Host resources close and a peer observes closure | loopback run case |
 | Escaped resource | A resource is returned from its owning handled scope | Scope cleanup closes it and another handler rejects it | runtime conformance test |
-| Package docs | Standard package documentation is generated after the system handler is added | The system handler and its effectful examples join the current effect, resource, outcome, and stream-operation declarations | package-documentation gate |
+| Duplex adapter | A captured `Stream` is handled as `transport::DuplexStream` and protocol code reads and writes | The adapter uses `net::IO` and `write_all`, maps failures through the transport contract, and does not close or take lifecycle ownership of the stream | deterministic handler conformance test |
+| Compatibility removal | Source uses a legacy compiler-known `net::...` spelling without `use net from "std"` after migration | The compatibility lowering no longer resolves the spelling, and the migration diagnostic identifies the current import, effect, and handler boundary | check and diagnostic cases |
+| Package docs | Standard package documentation is generated after `net::system` and `write_all` are implemented | The newly implemented handler, helper, and their effectful examples appear alongside the existing `net` declarations | package-documentation gate |
 
 Loopback cases must bind only loopback addresses and must use bounded deadlines.
 They must not require external DNS or internet access. Cases that validate
@@ -342,7 +345,8 @@ specification pages for:
 - listener and stream lifecycle transitions;
 - the `transport::DuplexStream` adapter boundary.
 
-Update package documentation and the language-service standard-library symbol
-evidence in the same change. Remove this proposal and its catalog entry only
-after the current specification and executable cases cover every acceptance
-row.
+Update package documentation and language-service standard-library symbol
+evidence when a newly implemented remaining API, such as `system` or
+`write_all`, requires that evidence. Remove this proposal and its catalog entry
+only after the current specification and executable cases cover every
+acceptance row.
