@@ -167,6 +167,63 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct TypeParameterContributionConflict {
+    pub(crate) expected: Type,
+    pub(crate) actual: Type,
+}
+
+pub(crate) fn merge_type_parameter_contributions_transactionally(
+    slots: &mut [Type],
+    contributions: &[(usize, Type)],
+) -> Result<(), TypeParameterContributionConflict> {
+    let mut trial = slots.to_vec();
+    for (index, actual) in contributions {
+        let Some(expected) = trial.get_mut(*index) else {
+            continue;
+        };
+        if !type_parameter_contributions_compatible(expected, actual) {
+            return Err(TypeParameterContributionConflict {
+                expected: expected.clone(),
+                actual: actual.clone(),
+            });
+        }
+        merge_type_slot(expected, actual);
+    }
+    slots.clone_from_slice(&trial);
+    Ok(())
+}
+
+fn type_parameter_contributions_compatible(expected: &Type, actual: &Type) -> bool {
+    crate::type_relations::is_assignable(expected, actual)
+        && crate::type_relations::is_assignable(actual, expected)
+}
+
+pub(crate) fn is_direct_variant_carrier(expected: &Type, actual: &Type) -> bool {
+    let (
+        Type::Named {
+            name: expected_name,
+            identity: expected_identity,
+            args: expected_args,
+        },
+        Type::VariantRefinement {
+            name: actual_name,
+            identity: actual_identity,
+            args: actual_args,
+            ..
+        },
+    ) = (expected, actual)
+    else {
+        return false;
+    };
+    crate::type_relations::same_type_identity(
+        expected_name,
+        expected_identity,
+        actual_name,
+        actual_identity,
+    ) && crate::type_relations::invariant_args_match(expected_args, actual_args)
+}
+
 fn merge_type_arguments(slots: &mut [Type], actuals: &[Type]) -> bool {
     slots
         .iter_mut()
@@ -453,14 +510,28 @@ pub(super) fn visit_type_parameter_contributions(
         }
         (
             Type::Named {
-                name, args: nested, ..
+                name,
+                identity,
+                args: nested,
             },
             Type::Named {
                 name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            }
+            | Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
                 args: actual_args,
                 ..
             },
-        ) if name == actual_name && nested.len() == actual_args.len() => {
+        ) if crate::type_relations::same_type_identity(
+            name,
+            identity,
+            actual_name,
+            actual_identity,
+        ) && nested.len() == actual_args.len() =>
+        {
             for (nested, actual) in nested.iter().zip(actual_args) {
                 visit_type_parameter_contributions(nested, actual, visit);
             }

@@ -12,6 +12,14 @@ type Container<A>
 	Built(A, Vec<A>)
 end
 
+type Box<A>
+	Boxed(A)
+end
+
+type Carrier<A>
+	Carried(Box<A>)
+end
+
 type First<A>
 	Some(A)
 	Empty
@@ -69,6 +77,10 @@ fn mixed_occurrence()
 	Built(Ready, [Ready])
 end
 
+fn refined_direct_carrier()
+	Carried(Boxed(Ready))
+end
+
 fn mixed_payload() -> Vec<State::Ready>
 	match mixed_occurrence()
 		Built(_, items) => items
@@ -112,5 +124,6 @@ fn main() -> ()
 	let item: State::Ready = payload()
 	let items: Vec<State::Ready> = projected()
 	let nested_items: Vec<State::Ready> = mixed_payload()
+	let carrier: Carrier<State::Ready>::Carried = refined_direct_carrier()
 	let inferred_private: Pair<First<Int>>::Paired = ambiguous_private_result()
 end

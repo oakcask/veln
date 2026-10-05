@@ -36,3 +36,4 @@ mod variant_refinement_annotations_and_private_results;
 mod variant_refinement_call_typing;
 mod variant_refinement_diagnostics_and_control_flow;
 mod variant_refinement_function_value_provenance;
+mod variant_refinement_private_aggregate_failures;

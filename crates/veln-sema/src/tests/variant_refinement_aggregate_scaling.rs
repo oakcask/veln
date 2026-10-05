@@ -134,6 +134,7 @@ fn aggregate_join_work_grows_linearly_through_all_inference_paths() {
         assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
         let module = lower_surface_ast(&parsed.tree);
         crate::aggregate_type_join::reset_work();
+        crate::types::reset_variant_canonicalization_lookups();
         let started = std::time::Instant::now();
         let diagnostics = analyze_surface_module(&module);
         eprintln!(
@@ -141,6 +142,8 @@ fn aggregate_join_work_grows_linearly_through_all_inference_paths() {
             started.elapsed()
         );
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let variant_canonicalization_lookups =
+            crate::types::take_variant_canonicalization_lookups();
         let environment = TypeEnvironment::from_module(&module);
         assert_eq!(
             environment.function("vector").unwrap().return_type.render(),
@@ -162,13 +165,25 @@ fn aggregate_join_work_grows_linearly_through_all_inference_paths() {
                 .render(),
             "Repeated<State>::Many"
         );
-        crate::aggregate_type_join::take_work()
+        (
+            crate::aggregate_type_join::take_work(),
+            variant_canonicalization_lookups,
+        )
     });
-    eprintln!("aggregate join work units at doubled sizes: {work:?}");
-    assert!(work[0] > 0, "the metric must observe aggregate join work");
+    eprintln!("aggregate analysis work at doubled sizes (join, variant lookup): {work:?}");
+    assert!(work[0].0 > 0, "the metric must observe aggregate join work");
     assert!(
-        work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64 && work[3] <= work[2] * 2 + 64,
+        work[1].0 <= work[0].0 * 2 + 64
+            && work[2].0 <= work[1].0 * 2 + 64
+            && work[3].0 <= work[2].0 * 2 + 64,
         "doubling aggregate input must add only linear join work: {work:?}"
+    );
+    assert!(
+        work[0].1 > 0
+            && work[1].1 <= work[0].1 * 2 + 64
+            && work[2].1 <= work[1].1 * 2 + 64
+            && work[3].1 <= work[2].1 * 2 + 64,
+        "doubling aggregate input must add only linear variant canonicalization lookups: {work:?}"
     );
 }
 
@@ -272,6 +287,7 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
         assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
         let module = lower_surface_ast(&parsed.tree);
         crate::aggregate_type_join::reset_work();
+        crate::adt::reset_type_parameter_lookups();
         let started = std::time::Instant::now();
         let diagnostics = analyze_surface_module(&module);
         eprintln!(
@@ -279,19 +295,32 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
             started.elapsed()
         );
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let type_parameter_lookups = crate::adt::take_type_parameter_lookups();
         let environment = TypeEnvironment::from_module(&module);
         let inferred = environment.function("inferred").expect("inferred function");
         assert_eq!(inferred.return_type.render().matches("Int").count(), width);
-        crate::aggregate_type_join::take_work()
+        (
+            crate::aggregate_type_join::take_work(),
+            type_parameter_lookups,
+        )
     });
-    eprintln!("generic constructor inference work units at doubled widths: {work:?}");
+    eprintln!("generic constructor work at doubled widths (inference, parameter lookup): {work:?}");
     assert!(
-        work[0] > 0,
+        work[0].0 > 0,
         "the metric must observe constructor inference work"
     );
     assert!(
-        work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64 && work[3] <= work[2] * 2 + 64,
+        work[1].0 <= work[0].0 * 2 + 64
+            && work[2].0 <= work[1].0 * 2 + 64
+            && work[3].0 <= work[2].0 * 2 + 64,
         "doubling generic constructor width must add only linear inference work: {work:?}"
+    );
+    assert!(
+        work[0].1 > 0
+            && work[1].1 <= work[0].1 * 2 + 64
+            && work[2].1 <= work[1].1 * 2 + 64
+            && work[3].1 <= work[2].1 * 2 + 64,
+        "doubling generic constructor width must add only linear type-parameter lookups: {work:?}"
     );
 }
 

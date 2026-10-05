@@ -21,6 +21,7 @@ use super::symbols::imported_use_for_path;
 #[cfg(test)]
 thread_local! {
     static TYPE_CANONICALIZATION_VISITS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_CANONICALIZATION_LOOKUPS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -33,9 +34,24 @@ pub(crate) fn take_type_canonicalization_visits() -> usize {
     TYPE_CANONICALIZATION_VISITS.with(|visits| visits.replace(0))
 }
 
+#[cfg(test)]
+pub(crate) fn reset_variant_canonicalization_lookups() {
+    VARIANT_CANONICALIZATION_LOOKUPS.with(|lookups| lookups.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_variant_canonicalization_lookups() -> usize {
+    VARIANT_CANONICALIZATION_LOOKUPS.with(|lookups| lookups.replace(0))
+}
+
 fn record_type_canonicalization_visit() {
     #[cfg(test)]
     TYPE_CANONICALIZATION_VISITS.with(|visits| visits.set(visits.get() + 1));
+}
+
+fn record_variant_canonicalization_lookup() {
+    #[cfg(test)]
+    VARIANT_CANONICALIZATION_LOOKUPS.with(|lookups| lookups.set(lookups.get() + 1));
 }
 
 pub(super) fn ordinary_function_signatures(
@@ -233,17 +249,25 @@ impl TypeCanonicalizer<'_> {
             self.current_module,
             self.uses,
         )?;
-        descriptor
-            .variants
-            .iter()
-            .any(|candidate| candidate.name == variant)
-            .then(|| {
-                canonical_variant_refinement(
-                    descriptor,
-                    self.canonicalize_args(args.to_vec()),
-                    vec![variant.to_string()],
-                )
-            })
+        let declaration_order = self
+            .adts
+            .variant_declaration_order_for_descriptor(descriptor)?;
+        record_variant_canonicalization_lookup();
+        declaration_order.rank(variant)?;
+        let canonical_args = self.canonicalize_args(args.to_vec());
+        if declaration_order.len() == 1 {
+            return Some(Type::resolved_named(
+                &descriptor.type_name,
+                descriptor.identity(),
+                canonical_args,
+            ));
+        }
+        Some(Type::resolved_variant_refinement(
+            &descriptor.type_name,
+            descriptor.identity(),
+            canonical_args,
+            vec![variant.to_string()],
+        ))
     }
 
     fn canonicalize_refinement(
@@ -259,14 +283,16 @@ impl TypeCanonicalizer<'_> {
         else {
             return Type::Unknown;
         };
-        let declared_variants = descriptor
-            .variants
-            .iter()
-            .map(|candidate| candidate.name.as_str())
-            .collect::<HashSet<_>>();
+        let Some(declaration_order) = self
+            .adts
+            .variant_declaration_order_for_descriptor(descriptor)
+        else {
+            return Type::Unknown;
+        };
         if variants.iter().any(|variant| {
             crate::type_relations::record_variant_set_lookup();
-            !declared_variants.contains(variant.as_str())
+            record_variant_canonicalization_lookup();
+            declaration_order.rank(variant).is_none()
         }) {
             return Type::Unknown;
         }
@@ -276,11 +302,11 @@ impl TypeCanonicalizer<'_> {
             canonical_args.as_slice(),
             variants,
             unresolved_alternatives,
-            &declared_variants,
+            &declaration_order,
         ) else {
             return Type::Unknown;
         };
-        canonical_variant_refinement(descriptor, canonical_args, variants)
+        canonical_variant_refinement(descriptor, &declaration_order, canonical_args, variants)
     }
 
     fn resolve_refinement_alternatives(
@@ -289,7 +315,7 @@ impl TypeCanonicalizer<'_> {
         canonical_args: &[Type],
         mut variants: Vec<String>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
-        declared_variants: &HashSet<&str>,
+        declaration_order: &crate::adt::registry::VariantDeclarationOrder,
     ) -> Option<Vec<String>> {
         let mut selected_variants = variants.iter().cloned().collect::<HashSet<_>>();
         for (name, args, variant) in unresolved_alternatives {
@@ -300,9 +326,10 @@ impl TypeCanonicalizer<'_> {
                 self.uses,
             )?;
             crate::type_relations::record_variant_set_lookup();
+            record_variant_canonicalization_lookup();
             if alternative_descriptor.identity() != descriptor.identity()
                 || self.canonicalize_args(args) != canonical_args
-                || !declared_variants.contains(variant.as_str())
+                || declaration_order.rank(&variant).is_none()
             {
                 return None;
             }
@@ -344,27 +371,34 @@ impl TypeCanonicalizer<'_> {
 #[allow(clippy::too_many_arguments)]
 fn canonical_variant_refinement(
     descriptor: &crate::adt::descriptors::AdtDescriptor,
+    declaration_order: &crate::adt::registry::VariantDeclarationOrder,
     args: Vec<Type>,
     variants: Vec<String>,
 ) -> Type {
-    let requested = variants.iter().map(String::as_str).collect::<HashSet<_>>();
-    let variants = descriptor
-        .variants
-        .iter()
-        .filter(|candidate| {
+    let mut requested = HashSet::with_capacity(variants.len());
+    let mut ranked_variants = variants
+        .into_iter()
+        .filter_map(|variant| {
+            if !requested.insert(variant.clone()) {
+                return None;
+            }
             crate::type_relations::record_variant_set_lookup();
-            requested.contains(candidate.name.as_str())
+            record_variant_canonicalization_lookup();
+            declaration_order.rank(&variant).map(|rank| (rank, variant))
         })
-        .map(|candidate| candidate.name.clone())
         .collect::<Vec<_>>();
-    if variants.len() == descriptor.variants.len() {
+    ranked_variants.sort_unstable_by_key(|(rank, _)| *rank);
+    if ranked_variants.len() == declaration_order.len() {
         Type::resolved_named(&descriptor.type_name, descriptor.identity(), args)
     } else {
         Type::resolved_variant_refinement(
             &descriptor.type_name,
             descriptor.identity(),
             args,
-            variants,
+            ranked_variants
+                .into_iter()
+                .map(|(_, variant)| variant)
+                .collect(),
         )
     }
 }

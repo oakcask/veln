@@ -8,7 +8,8 @@ mod signature_collection;
 pub(crate) use signature_collection::canonicalize_type_effects;
 #[cfg(test)]
 pub(crate) use signature_collection::{
-    reset_type_canonicalization_visits, take_type_canonicalization_visits,
+    reset_type_canonicalization_visits, reset_variant_canonicalization_lookups,
+    take_type_canonicalization_visits, take_variant_canonicalization_lookups,
 };
 pub(crate) mod signatures;
 mod standard_environment;

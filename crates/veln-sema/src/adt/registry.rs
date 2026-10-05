@@ -112,6 +112,21 @@ impl AdtRegistry {
             .map(|index| Arc::clone(&self.variant_declaration_orders[index]))
     }
 
+    pub(crate) fn variant_declaration_order_for_descriptor(
+        &self,
+        descriptor: &AdtDescriptor,
+    ) -> Option<Arc<VariantDeclarationOrder>> {
+        self.descriptors_by_identity
+            .get(&descriptor.identity())
+            .into_iter()
+            .flatten()
+            .copied()
+            .find(|index| {
+                self.descriptors[*index].type_parameters.len() == descriptor.type_parameters.len()
+            })
+            .map(|index| Arc::clone(&self.variant_declaration_orders[index]))
+    }
+
     pub(crate) fn descriptor_for_type_in_module(
         &self,
         ty: &Type,

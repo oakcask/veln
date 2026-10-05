@@ -1,4 +1,6 @@
-use std::collections::{BTreeMap, BTreeSet};
+#[cfg(test)]
+use std::cell::Cell;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use veln_ast::{SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_project::companion_access_target;
@@ -16,6 +18,27 @@ use crate::type_annotation_parser::parse_type_annotation_with_arity;
 use super::descriptors::{
     AdtDescriptor, AdtPayloadField, AdtPayloadType, AdtVariantDescriptor, AdtVariantKind,
 };
+
+#[cfg(test)]
+thread_local! {
+    static TYPE_PARAMETER_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_type_parameter_lookups() {
+    TYPE_PARAMETER_LOOKUPS.with(|lookups| lookups.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_type_parameter_lookups() -> usize {
+    TYPE_PARAMETER_LOOKUPS.with(|lookups| lookups.replace(0))
+}
+
+fn type_parameter_index(indices: &HashMap<&str, usize>, name: &str) -> Option<usize> {
+    #[cfg(test)]
+    TYPE_PARAMETER_LOOKUPS.with(|lookups| lookups.set(lookups.get() + 1));
+    indices.get(name).copied()
+}
 
 pub(crate) fn validate_adt_lookup_descriptors(
     provider: &'static str,
@@ -111,6 +134,12 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
     if matches!(name.as_str(), "Option" | "Result" | "List") {
         return None;
     }
+    let type_parameter_indices = decl
+        .params
+        .iter()
+        .enumerate()
+        .map(|(index, parameter)| (parameter.as_str(), index))
+        .collect::<HashMap<_, _>>();
     let variants = decl
         .variants
         .iter()
@@ -124,7 +153,11 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
                 .iter()
                 .map(|field| AdtPayloadField {
                     name: field.name.clone(),
-                    ty: payload_descriptor_type(&field.ty, decl),
+                    ty: payload_descriptor_type_with_indices(
+                        &field.ty,
+                        decl,
+                        &type_parameter_indices,
+                    ),
                 })
                 .collect::<Vec<_>>();
             let coverage_case = if payload_fields.is_empty() {
@@ -161,15 +194,22 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
     })
 }
 
-pub(super) fn payload_descriptor_type(text: &str, decl: &TypeDecl) -> AdtPayloadType {
-    if let Some(index) = decl.params.iter().position(|param| param == text) {
+fn payload_descriptor_type_with_indices(
+    text: &str,
+    decl: &TypeDecl,
+    type_parameter_indices: &HashMap<&str, usize>,
+) -> AdtPayloadType {
+    if let Some(index) = type_parameter_index(type_parameter_indices, text) {
         return AdtPayloadType::TypeParameter(index);
     }
     let ty = parse_adt_payload_type_or_unknown(text);
     if is_self_type(&ty, decl) {
         AdtPayloadType::SelfType
     } else {
-        AdtPayloadType::Concrete(type_parameters_to_placeholders(ty, &decl.params))
+        AdtPayloadType::Concrete(type_parameters_to_placeholders_with_indices(
+            ty,
+            type_parameter_indices,
+        ))
     }
 }
 
@@ -204,13 +244,16 @@ pub(super) fn is_self_type(ty: &Type, decl: &TypeDecl) -> bool {
         })
 }
 
-pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Type {
+fn type_parameters_to_placeholders_with_indices(
+    ty: Type,
+    type_parameter_indices: &HashMap<&str, usize>,
+) -> Type {
     match ty {
         Type::Named {
             name,
             identity,
             args,
-        } if args.is_empty() => params.iter().position(|param| param == &name).map_or(
+        } if args.is_empty() => type_parameter_index(type_parameter_indices, &name).map_or(
             Type::Named {
                 name,
                 identity,
@@ -227,7 +270,9 @@ pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Ty
             identity,
             args: args
                 .into_iter()
-                .map(|arg| type_parameters_to_placeholders(arg, params))
+                .map(|arg| {
+                    type_parameters_to_placeholders_with_indices(arg, type_parameter_indices)
+                })
                 .collect(),
         },
         Type::VariantRefinement {
@@ -241,7 +286,9 @@ pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Ty
             identity,
             args: args
                 .into_iter()
-                .map(|arg| type_parameters_to_placeholders(arg, params))
+                .map(|arg| {
+                    type_parameters_to_placeholders_with_indices(arg, type_parameter_indices)
+                })
                 .collect(),
             variants,
             unresolved_alternatives,
@@ -249,7 +296,12 @@ pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Ty
         Type::Record(fields) => Type::Record(
             fields
                 .into_iter()
-                .map(|(name, ty)| (name, type_parameters_to_placeholders(ty, params)))
+                .map(|(name, ty)| {
+                    (
+                        name,
+                        type_parameters_to_placeholders_with_indices(ty, type_parameter_indices),
+                    )
+                })
                 .collect(),
         ),
         Type::Function {
@@ -260,10 +312,18 @@ pub(super) fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Ty
         } => Type::Function {
             params: fn_params
                 .into_iter()
-                .map(|ty| type_parameters_to_placeholders(ty, params))
+                .map(|ty| type_parameters_to_placeholders_with_indices(ty, type_parameter_indices))
                 .collect(),
-            variadic: variadic.map(|ty| Box::new(type_parameters_to_placeholders(*ty, params))),
-            return_type: Box::new(type_parameters_to_placeholders(*return_type, params)),
+            variadic: variadic.map(|ty| {
+                Box::new(type_parameters_to_placeholders_with_indices(
+                    *ty,
+                    type_parameter_indices,
+                ))
+            }),
+            return_type: Box::new(type_parameters_to_placeholders_with_indices(
+                *return_type,
+                type_parameter_indices,
+            )),
             effects,
         },
         Type::Unknown => Type::Unknown,

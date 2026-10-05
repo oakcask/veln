@@ -338,3 +338,177 @@ fn retained_aggregate_refinement_rejections_are_table_driven() {
         );
     }
 }
+
+#[test]
+fn repeated_invariant_payload_contributions_reject_both_source_orders_transactionally() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "type Duo<A, B>\n",
+            "  Paired(A, B)\n",
+            "end\n",
+            "type Wrap<A>\n",
+            "  Wrapped(Duo<A, A>)\n",
+            "  Empty\n",
+            "end\n",
+            "type Recover<A>\n",
+            "  Recovered(Duo<A, A>, A)\n",
+            "end\n",
+            "fn forward(value: Duo<State::Ready, State::Closed>)\n",
+            "  Recovered(value, Failed)\n",
+            "end\n",
+            "fn reverse(value: Duo<State::Closed, State::Ready>)\n",
+            "  Recovered(value, Failed)\n",
+            "end\n",
+            "fn isolated_forward(value: Duo<State::Ready, State::Closed>) -> ()\n",
+            "  let rejected = Wrapped(value)\n",
+            "end\n",
+            "fn isolated_reverse(value: Duo<State::Closed, State::Ready>) -> ()\n",
+            "  let rejected = Wrapped(value)\n",
+            "end\n",
+            "fn nested_recovery(rejected: Duo<State::Ready, State::Closed>, retained: Duo<State::Failed, State::Failed>)\n",
+            "  [Wrapped(rejected), Wrapped(retained)]\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 7, "{diagnostics:#?}");
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 5, "{diagnostics:#?}");
+    for expected_message in [
+        "expected `Duo<State::Failed, State::Failed>`, but found `Duo<State::Ready, State::Closed>`",
+        "expected `Duo<State::Failed, State::Failed>`, but found `Duo<State::Closed, State::Ready>`",
+        "expected `State::Ready`, but found `State::Closed`",
+        "expected `State::Closed`, but found `State::Ready`",
+    ] {
+        assert!(
+            mismatches
+                .iter()
+                .any(|diagnostic| diagnostic.message == expected_message),
+            "{diagnostics:#?}"
+        );
+    }
+    assert!(mismatches.iter().all(|diagnostic| {
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"constraint\":\"call_argument\"")
+    }));
+    let mismatch_spans = mismatches
+        .iter()
+        .map(|diagnostic| {
+            let span = diagnostic.span.as_ref().expect("mismatch span");
+            &source.text()[span.start.offset..span.end.offset]
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        mismatch_spans
+            .iter()
+            .filter(|span| **span == "value")
+            .count(),
+        4,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        mismatch_spans
+            .iter()
+            .filter(|span| **span == "rejected")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.inference_ambiguous")
+            .count(),
+        2,
+        "a rejected repeated contribution must leave the isolated result uninferred"
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["forward", "reverse"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .expect("private omitted result should be published")
+                .return_type
+                .render(),
+            "Recover<State::Failed>::Recovered",
+            "{function} must not retain the first conflicting contribution"
+        );
+    }
+    assert_eq!(
+        environment
+            .function("nested_recovery")
+            .expect("private omitted aggregate result should be published")
+            .return_type
+            .render(),
+        "Vec<Wrap<State::Failed>::Wrapped>",
+        "the failed constructor must not contribute its recovered type to the outer aggregate"
+    );
+}
+
+#[test]
+fn refined_direct_carriers_infer_invariant_arguments_without_nested_covariance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "end\n",
+            "type Container<A>\n",
+            "  Built(Box<A>)\n",
+            "end\n",
+            "fn nested()\n",
+            "  Built(Boxed(Ready))\n",
+            "end\n",
+            "fn carrier(boxed: Box<State::Ready>::Boxed)\n",
+            "  Built(boxed)\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  let exact_nested = nested()\n",
+            "  let exact_carrier = carrier(Boxed(Ready))\n",
+            "  let retained = Boxed(Ready)\n",
+            "  let rejected: Box<State> = retained\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics[0].message.to_string(),
+        "expected `Box<State>`, but found `Box<State::Ready>::Boxed`"
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["nested", "carrier"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .expect("private omitted result should be published")
+                .return_type
+                .render(),
+            "Container<State::Ready>::Built"
+        );
+    }
+}

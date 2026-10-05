@@ -477,6 +477,13 @@ widen across the nested named type. For example, given `Built(A, Vec<A>)`,
 `Built(Ready, [Closed])` reports `type.mismatch`. Reversing the two payload
 positions does not change either result.
 
+When a concrete payload has the form `Box<A>`, a matching refined carrier such
+as `Box<State::Ready>::Boxed` can supply `State::Ready` for `A`. This direct
+carrier inference allows `Carried(Boxed(Ready))` to infer
+`Carrier<State::Ready>::Carried`. It does not make named type arguments
+covariant: a later use of `Box<State::Ready>` where `Box<State>` is required
+still reports `type.mismatch`.
+
 An explicit aggregate component type supplies context while the aggregate is
 constructed. A constructor singleton can widen directly at that component
 boundary, so `[Ready]` can construct an explicitly expected `Vec<State>` and

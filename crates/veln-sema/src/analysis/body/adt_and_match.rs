@@ -97,14 +97,22 @@ impl<'a> FunctionChecker<'a> {
         };
         let joined = type_args.try_join(field, &inferred, &self.environment.adts);
         self.check_constructor_payload(arg, field, &arg_expected, &inferred, joined, type_args);
-        if self.diagnostics.len() == diagnostic_count {
-            type_args.commit(
+        if self.diagnostics.len() == diagnostic_count
+            && let Err(conflict) = type_args.commit(
                 field,
                 constructor,
                 index,
                 &inferred,
                 joined,
                 &self.environment.adts,
+            )
+        {
+            self.check_assignable_nested(
+                arg,
+                &conflict.expected,
+                &conflict.actual,
+                &arg_expected,
+                "call_argument",
             );
         }
     }
@@ -122,6 +130,11 @@ impl<'a> FunctionChecker<'a> {
             field.ty,
             AdtPayloadType::SelfType | AdtPayloadType::Concrete(_)
         ) {
+            if matches!(field.ty, AdtPayloadType::Concrete(_))
+                && unification::is_direct_variant_carrier(&expected.ty, actual)
+            {
+                return;
+            }
             self.check_assignable_nested(arg, &expected.ty, actual, expected, "call_argument");
             return;
         }
@@ -582,7 +595,7 @@ impl ConstructorTypeArgInference {
         actual: &Type,
         joined: bool,
         adts: &AdtRegistry,
-    ) {
+    ) -> Result<(), unification::TypeParameterContributionConflict> {
         if let AdtPayloadType::TypeParameter(type_index) = field.ty
             && joined
         {
@@ -590,16 +603,15 @@ impl ConstructorTypeArgInference {
                 .as_ref()
                 .expect("joined aggregate type argument")
                 .inference_type();
-            return;
+            return Ok(());
         }
         if !matches!(field.ty, AdtPayloadType::TypeParameter(_)) {
-            self.commit_invariant_payload(constructor, index, actual);
-            return;
+            return self.commit_invariant_payload(constructor, index, actual);
         }
         crate::aggregate_type_join::record_work(1);
         adt::merge_type_args_from_payload(&mut self.inferred, constructor, index, actual);
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
-            return;
+            return Ok(());
         };
         if self.joined[type_index].is_none() {
             self.joined[type_index] = AggregateTypeJoin::new(adts, &self.inferred[type_index]);
@@ -607,6 +619,7 @@ impl ConstructorTypeArgInference {
                 self.inferred[type_index] = joined.inference_type();
             }
         }
+        Ok(())
     }
 
     fn commit_invariant_payload(
@@ -614,23 +627,38 @@ impl ConstructorTypeArgInference {
         constructor: AdtConstructor<'_>,
         index: usize,
         actual: &Type,
-    ) {
+    ) -> Result<(), unification::TypeParameterContributionConflict> {
+        let mut contributions = Vec::new();
         adt::visit_type_arg_contributions_from_payload(
             constructor,
             index,
             actual,
             |type_index, contribution| {
                 crate::aggregate_type_join::record_work(1);
-                let mut constraint = self.joined[type_index]
-                    .as_ref()
-                    .map(AggregateTypeJoin::result_type)
-                    .unwrap_or_else(|| self.inferred[type_index].clone());
-                unification::merge_type_slot(&mut constraint, contribution);
-                self.inferred[type_index] = constraint;
-                self.joined[type_index] = None;
-                self.invariant[type_index] = true;
+                contributions.push((type_index, contribution.clone()));
             },
         );
+        let mut constraints = self
+            .inferred
+            .iter()
+            .enumerate()
+            .map(|(type_index, inferred)| {
+                self.joined[type_index]
+                    .as_ref()
+                    .map(AggregateTypeJoin::result_type)
+                    .unwrap_or_else(|| inferred.clone())
+            })
+            .collect::<Vec<_>>();
+        unification::merge_type_parameter_contributions_transactionally(
+            &mut constraints,
+            &contributions,
+        )?;
+        for (type_index, _) in contributions {
+            self.inferred[type_index] = constraints[type_index].clone();
+            self.joined[type_index] = None;
+            self.invariant[type_index] = true;
+        }
+        Ok(())
     }
 
     fn finish(mut self) -> Vec<Type> {

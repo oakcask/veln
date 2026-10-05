@@ -57,8 +57,8 @@ pub(super) fn infer_private_signature_expr_type_with_failures(
     if let Some(ty) = infer_private_branch_type(expr, expected, &mut context) {
         return PrivateExprInference::successful(ty);
     }
-    if let Some(ty) = infer_private_value_type(expr, expected, &mut context) {
-        return PrivateExprInference::successful(ty);
+    if let Some(outcome) = infer_private_value_type(expr, expected, &mut context) {
+        return outcome;
     }
     if let Some(ty) = infer_private_schema_type(expr, expected, &mut context) {
         return PrivateExprInference::successful(ty);
@@ -128,34 +128,40 @@ fn infer_private_value_type(
     expr: &Expr,
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
-) -> Option<Type> {
+) -> Option<PrivateExprInference> {
     match &expr.kind {
-        ExprKind::NamePath { segments, .. } => Some(infer_private_signature_name_type(
-            segments,
-            expected,
-            context.current_module,
-            context.uses,
-            context.bindings,
-            context.returns_by_path,
-            context.adts,
+        ExprKind::NamePath { segments, .. } => Some(PrivateExprInference::successful(
+            infer_private_signature_name_type(
+                segments,
+                expected,
+                context.current_module,
+                context.uses,
+                context.bindings,
+                context.returns_by_path,
+                context.adts,
+            ),
         )),
         ExprKind::List(items) => Some(infer_private_list_type(items, expected, context)),
         ExprKind::Dict(entries) => Some(infer_private_dict_type(entries, expected, context)),
-        ExprKind::Record(fields) => Some(infer_private_record_type(fields, expected, context)),
-        ExprKind::Call { callee, args } => Some(infer_private_signature_call_type(
-            callee, args, expected, context,
+        ExprKind::Record(fields) => Some(PrivateExprInference::successful(
+            infer_private_record_type(fields, expected, context),
+        )),
+        ExprKind::Call { callee, args } => Some(PrivateExprInference::successful(
+            infer_private_signature_call_type(callee, args, expected, context),
         )),
         ExprKind::Perform { args, .. } => {
             for arg in args {
                 context.infer(arg, None);
             }
-            Some(Type::Unknown)
+            Some(PrivateExprInference::successful(Type::Unknown))
         }
         ExprKind::Handle { body, args, .. } => {
             for arg in args {
                 context.infer(arg, None);
             }
-            Some(context.infer(body, expected))
+            Some(PrivateExprInference::successful(
+                context.infer(body, expected),
+            ))
         }
         _ => None,
     }
@@ -191,11 +197,12 @@ fn infer_private_schema_type(
     }
 }
 
-pub(crate) fn infer_private_list_type(
+pub(super) fn infer_private_list_type(
     items: &[Expr],
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
-) -> Type {
+) -> PrivateExprInference {
+    let failure_count = *context.failures;
     let mut item_type = expected
         .and_then(Type::vec_part)
         .cloned()
@@ -225,6 +232,13 @@ pub(crate) fn infer_private_list_type(
             && joined_items
                 .as_mut()
                 .is_some_and(|joined| joined.try_join(&actual));
+        let rejected_here = inferred_context != Type::Unknown
+            && !crate::type_relations::is_assignable_nested(&inferred_context, &actual)
+            && (has_context || !joined);
+        if rejected_here {
+            *context.failures += 1;
+            continue;
+        }
         if !joined && item_type == Type::Unknown {
             item_type = actual;
             joined_items = (!has_context)
@@ -237,14 +251,18 @@ pub(crate) fn infer_private_list_type(
     if let Some(joined) = joined_items {
         item_type = joined.result_type();
     }
-    Type::vec(item_type)
+    PrivateExprInference {
+        ty: Type::vec(item_type),
+        may_contribute: *context.failures == failure_count,
+    }
 }
 
-pub(crate) fn infer_private_dict_type(
+pub(super) fn infer_private_dict_type(
     entries: &[DictEntry],
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
-) -> Type {
+) -> PrivateExprInference {
+    let failure_count = *context.failures;
     let (mut key_type, mut value_type) = expected
         .and_then(Type::dict_parts)
         .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
@@ -275,7 +293,10 @@ pub(crate) fn infer_private_dict_type(
     if let Some(joined) = joined_values {
         value_type = joined.result_type();
     }
-    Type::dict(key_type, value_type)
+    PrivateExprInference {
+        ty: Type::dict(key_type, value_type),
+        may_contribute: *context.failures == failure_count,
+    }
 }
 
 fn infer_private_dict_component(
@@ -307,6 +328,13 @@ fn infer_private_dict_component(
         && joined_components
             .as_mut()
             .is_some_and(|joined| joined.try_join(&actual));
+    let rejected_here = inferred_context != Type::Unknown
+        && !crate::type_relations::is_assignable_nested(&inferred_context, &actual)
+        && (has_context || !joined);
+    if rejected_here {
+        *context.failures += 1;
+        return;
+    }
     if !joined && *component_type == Type::Unknown {
         *component_type = actual;
         *joined_components = (!has_context)
