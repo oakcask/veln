@@ -17,7 +17,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 18
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -66,3 +66,59 @@ equals = "String"
 [[json_assert]]
 path = "diagnostics.3.details.actual_type"
 equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.4.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.5.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.6.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.7.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.8.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.9.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.10.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.11.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.12.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.13.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.14.details.actual_type"
+equals = "Box<Int>::Filled | Box<Int>::Deferred"
+
+[[json_assert]]
+path = "diagnostics.15.details.actual_type"
+equals = "Box<Int>::Filled | Box<Int>::Deferred"
+
+[[json_assert]]
+path = "diagnostics.16.details.actual_type"
+equals = "Box<Int>::Filled | Box<Int>::Deferred"
+
+[[json_assert]]
+path = "diagnostics.17.details.actual_type"
+equals = "Box<Int>::Filled | Box<Int>::Deferred"

@@ -44,12 +44,11 @@ diagnostic and `details.expected_type` use the same rendered type. A hole with
 no concrete context retains `expected_type: "unknown"` and the unknown-type
 message.
 
-In an unannotated `if` or `match`, a first successfully typed ADT refinement
-starts the [control-flow result join](types.md#inference-rules). Later branches
-or arms receive the base ADT as inferred context. A hole in one of those
-positions reports that base ADT as `expected_type`, and its candidate queries
-use the same type. The accumulated expression result can still retain a finite
-refinement when every successfully typed result contributes one.
+The [control-flow result join](types.md#inference-rules) does not supply type
+context from one sibling branch or arm to another. A hole receives an
+independently available enclosing or declared expectation. Without one, it
+retains `expected_type: "unknown"` and uses the existing unknown-context
+candidate behavior.
 
 ## Candidate records and ranking
 

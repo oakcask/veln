@@ -71,6 +71,18 @@ fn type_contains_variant_refinement(ty: &Type) -> bool {
     }
 }
 
+fn inferred_control_flow_recovery_type(ty: &Type) -> Type {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Type::resolved_named(name, identity, args.clone()),
+        ty => ty.clone(),
+    }
+}
+
 fn inferred_aggregate_member_type_with_expected(ty: Type, expected: &Type) -> Type {
     if expected != &Type::Unknown && is_assignable(expected, &ty) {
         expected.clone()

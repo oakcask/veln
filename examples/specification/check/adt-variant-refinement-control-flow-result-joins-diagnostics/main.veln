@@ -1,6 +1,14 @@
 type State
 	Ready
 	Closed
+	Failed
+	Pending
+end
+
+type Box<A>
+	Empty
+	Filled(A)
+	Deferred(A)
 end
 
 fn if_refinement_first(flag: Bool) -> ()
@@ -31,4 +39,90 @@ fn match_refinement_second(flag: Bool) -> ()
 		true => "wrong"
 		false => Ready
 	end
+end
+
+fn exact_result_boundaries(flag: Bool, base: State, filled: Box<Int>::Filled, deferred: Box<Int>::Deferred) -> ()
+	let finite_if_forward = if flag
+		Ready
+	else
+		Closed
+	end
+	let finite_if_forward_exact: State::Ready = finite_if_forward
+	let finite_if_reverse = if flag
+		Closed
+	else
+		Ready
+	end
+	let finite_if_reverse_exact: State::Ready = finite_if_reverse
+	let finite_match_forward = match flag
+		true => Ready
+		false => Closed
+	end
+	let finite_match_forward_exact: State::Ready = finite_match_forward
+	let finite_match_reverse = match flag
+		true => Closed
+		false => Ready
+	end
+	let finite_match_reverse_exact: State::Ready = finite_match_reverse
+	let base_if_forward = if flag
+		Ready
+	else
+		base
+	end
+	let base_if_forward_exact: State::Ready = base_if_forward
+	let base_if_reverse = if flag
+		base
+	else
+		Ready
+	end
+	let base_if_reverse_exact: State::Ready = base_if_reverse
+	let base_match_forward = match flag
+		true => Ready
+		false => base
+	end
+	let base_match_forward_exact: State::Ready = base_match_forward
+	let base_match_reverse = match flag
+		true => base
+		false => Ready
+	end
+	let base_match_reverse_exact: State::Ready = base_match_reverse
+	let full_if = if flag
+		Ready
+	else if false
+		Closed
+	else if true
+		Failed
+	else
+		Pending
+	end
+	let full_if_exact: State::Ready = full_if
+	let full_match = match base
+		Ready => Ready
+		Closed => Closed
+		Failed => Failed
+		Pending => Pending
+	end
+	let full_match_exact: State::Ready = full_match
+	let generic_if_forward = if flag
+		filled
+	else
+		deferred
+	end
+	let generic_if_forward_exact: Box<Int>::Filled = generic_if_forward
+	let generic_if_reverse = if flag
+		deferred
+	else
+		filled
+	end
+	let generic_if_reverse_exact: Box<Int>::Filled = generic_if_reverse
+	let generic_match_forward = match flag
+		true => filled
+		false => deferred
+	end
+	let generic_match_forward_exact: Box<Int>::Filled = generic_match_forward
+	let generic_match_reverse = match flag
+		true => deferred
+		false => filled
+	end
+	let generic_match_reverse_exact: Box<Int>::Filled = generic_match_reverse
 end

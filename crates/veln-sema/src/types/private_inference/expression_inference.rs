@@ -370,21 +370,23 @@ pub(crate) fn infer_private_match_type(
     context.infer(scrutinee, scrutinee_expected.as_ref());
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     let mut joined_result = None;
+    let mut join_failed = false;
     for arm in arms {
-        let inferred_context = joined_result
-            .as_ref()
-            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
-            .unwrap_or_else(|| result.clone());
-        let actual = context.infer(&arm.expr, item_type_unknown_as_none(&inferred_context));
+        let recovery_expected = joined_result.is_none().then_some(&result);
+        let actual = context.infer(
+            &arm.expr,
+            expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
+        );
         merge_private_control_flow_result(
             &mut result,
             &mut joined_result,
+            &mut join_failed,
             actual,
             context.adts,
             expected.is_none(),
         );
     }
-    result
+    materialize_private_control_flow_result(result, joined_result, join_failed)
 }
 
 pub(crate) fn infer_private_if_result_type(
@@ -396,52 +398,87 @@ pub(crate) fn infer_private_if_result_type(
 ) -> Type {
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     let mut joined_result = None;
+    let mut join_failed = false;
     for branch_expr in std::iter::once(then_branch)
         .chain(else_if_branches.iter().map(|branch| &branch.expr))
         .chain(std::iter::once(else_branch))
     {
-        let inferred_context = joined_result
-            .as_ref()
-            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
-            .unwrap_or_else(|| result.clone());
-        let actual = context.infer(branch_expr, item_type_unknown_as_none(&inferred_context));
+        let recovery_expected = joined_result.is_none().then_some(&result);
+        let actual = context.infer(
+            branch_expr,
+            expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
+        );
         merge_private_control_flow_result(
             &mut result,
             &mut joined_result,
+            &mut join_failed,
             actual,
             context.adts,
             expected.is_none(),
         );
     }
-    result
+    materialize_private_control_flow_result(result, joined_result, join_failed)
 }
 
 fn merge_private_control_flow_result(
     result: &mut Type,
     joined_result: &mut Option<crate::aggregate_type_join::AggregateTypeJoin>,
+    join_failed: &mut bool,
     actual: Type,
     adts: &AdtRegistry,
     allow_join: bool,
 ) {
     if *result == Type::Unknown {
-        *result = actual;
-        *joined_result = crate::aggregate_type_join::AggregateTypeJoin::new(adts, result);
+        *joined_result = crate::aggregate_type_join::AggregateTypeJoin::new_resolved(adts, &actual);
+        *result = private_control_flow_recovery_type(&actual);
         return;
     }
-    if *result == actual || actual == Type::Unknown {
+    if actual == Type::Unknown {
         return;
     }
     if !allow_join {
         merge_expected_private_control_flow_result(result, &actual);
         return;
     }
-    if joined_result.is_none() {
-        *joined_result = crate::aggregate_type_join::AggregateTypeJoin::new(adts, result);
+    if *join_failed {
+        return;
+    }
+    if joined_result.is_none() && *result == actual {
+        return;
     }
     if let Some(joined) = joined_result.as_mut()
-        && joined.try_join(&actual)
+        && joined.try_join_resolved(&actual)
     {
-        *result = joined.result_type();
+        return;
+    }
+    *join_failed = true;
+    *joined_result = None;
+}
+
+fn private_control_flow_recovery_type(ty: &Type) -> Type {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Type::resolved_named(name, identity, args.clone()),
+        ty => ty.clone(),
+    }
+}
+
+fn materialize_private_control_flow_result(
+    recovery_type: Type,
+    joined_result: Option<crate::aggregate_type_join::AggregateTypeJoin>,
+    join_failed: bool,
+) -> Type {
+    if join_failed {
+        recovery_type
+    } else {
+        joined_result
+            .as_ref()
+            .map(crate::aggregate_type_join::AggregateTypeJoin::result_type)
+            .unwrap_or(recovery_type)
     }
 }
 

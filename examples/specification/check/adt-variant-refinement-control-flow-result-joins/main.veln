@@ -5,6 +5,12 @@ type State
 	Pending
 end
 
+type Box<A>
+	Empty
+	Filled(A)
+	Deferred(A)
+end
+
 fn if_forward(flag: Bool)
 	if flag
 		Closed
@@ -32,6 +38,36 @@ fn match_reverse(flag: Bool)
 	match flag
 		true => Ready
 		false => Closed
+	end
+end
+
+fn generic_if_forward(flag: Bool, first: Box<Int>::Filled, second: Box<Int>::Deferred)
+	if flag
+		first
+	else
+		second
+	end
+end
+
+fn generic_if_reverse(flag: Bool, first: Box<Int>::Filled, second: Box<Int>::Deferred)
+	if flag
+		second
+	else
+		first
+	end
+end
+
+fn generic_match_forward(flag: Bool, first: Box<Int>::Filled, second: Box<Int>::Deferred)
+	match flag
+		true => first
+		false => second
+	end
+end
+
+fn generic_match_reverse(flag: Bool, first: Box<Int>::Filled, second: Box<Int>::Deferred)
+	match flag
+		true => second
+		false => first
 	end
 end
 
@@ -135,6 +171,10 @@ fn main() -> ()
 	let if_two: State::Ready | State::Closed = if_reverse(true)
 	let match_one: State::Ready | State::Closed = match_forward(true)
 	let match_two: State::Ready | State::Closed = match_reverse(true)
+	let generic_if_one: Box<Int>::Filled | Box<Int>::Deferred = generic_if_forward(true, Box::Filled(1), Box::Deferred(2))
+	let generic_if_two: Box<Int>::Filled | Box<Int>::Deferred = generic_if_reverse(true, Box::Filled(1), Box::Deferred(2))
+	let generic_match_one: Box<Int>::Filled | Box<Int>::Deferred = generic_match_forward(true, Box::Filled(1), Box::Deferred(2))
+	let generic_match_two: Box<Int>::Filled | Box<Int>::Deferred = generic_match_reverse(true, Box::Filled(1), Box::Deferred(2))
 	let if_set_one: State::Ready | State::Closed | State::Failed = if_finite_forward(true, first, second)
 	let if_set_two: State::Ready | State::Closed | State::Failed = if_finite_reverse(true, first, second)
 	let match_set_one: State::Ready | State::Closed | State::Failed = match_finite_forward(true, first, second)

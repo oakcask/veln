@@ -312,23 +312,17 @@ impl<'a> FunctionChecker<'a> {
                 .unwrap_or(Type::Unknown);
         }
 
-        let mut result_type = expected
-            .map(|expected| expected.ty.clone())
-            .unwrap_or(Type::Unknown);
-        let mut joined_result = None;
+        let mut result = ControlFlowResultJoin::new(
+            expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or(Type::Unknown),
+        );
         for arm in arms {
-            self.infer_match_arm(
-                expr,
-                arm,
-                &scrutinee_type,
-                expected,
-                &mut result_type,
-                &mut joined_result,
-            );
+            self.infer_match_arm(expr, arm, &scrutinee_type, expected, &mut result);
         }
 
         self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
-        result_type
+        result.materialize()
     }
 
     pub(super) fn infer_match_scrutinee(
@@ -371,21 +365,20 @@ impl<'a> FunctionChecker<'a> {
             .unwrap_or_else(|| self.infer_expr(scrutinee, scrutinee_expected.as_ref()))
     }
 
-    pub(super) fn infer_match_arm(
+    fn infer_match_arm(
         &mut self,
         match_expr: &Expr,
         arm: &MatchArm,
         scrutinee_type: &Type,
         expected: Option<&ExpectedType>,
-        result_type: &mut Type,
-        joined_result: &mut Option<AggregateTypeJoin>,
+        result: &mut ControlFlowResultJoin,
     ) {
         let saved_bindings = self.bindings.len();
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         self.local_name_scopes.push(Vec::new());
 
         self.declare_match_pattern_bindings(&arm.pattern, scrutinee_type);
-        self.infer_match_arm_result(match_expr, arm, expected, result_type, joined_result);
+        self.infer_match_arm_result(match_expr, arm, expected, result);
 
         self.bindings.truncate(saved_bindings);
         self.invalid_binding_recoveries
@@ -422,22 +415,19 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    pub(super) fn infer_match_arm_result(
+    fn infer_match_arm_result(
         &mut self,
         match_expr: &Expr,
         arm: &MatchArm,
         expected: Option<&ExpectedType>,
-        result_type: &mut Type,
-        joined_result: &mut Option<AggregateTypeJoin>,
+        result: &mut ControlFlowResultJoin,
     ) {
-        let arm_expected = if let Some(expected) = expected {
-            Some(expected.clone())
-        } else if *result_type != Type::Unknown {
+        let recovery_expected = if expected.is_none()
+            && result.joined.is_none()
+            && result.recovery_type != Type::Unknown
+        {
             Some(ExpectedType {
-                ty: joined_result
-                    .as_ref()
-                    .map(AggregateTypeJoin::inference_type)
-                    .unwrap_or_else(|| result_type.clone()),
+                ty: result.recovery_type.clone(),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: match_expr.node_id,
                 origin_span: Some(match_expr.span.clone()),
@@ -446,16 +436,26 @@ impl<'a> FunctionChecker<'a> {
         } else {
             None
         };
-        let actual = self.infer_expr(&arm.expr, arm_expected.as_ref());
-        let joined = expected.is_none()
-            && join_control_flow_result(
-                &self.environment.adts,
-                result_type,
-                joined_result,
-                &actual,
-            );
-        if !joined && let Some(expected) = &arm_expected {
+        let actual = self.infer_expr(&arm.expr, expected.or(recovery_expected.as_ref()));
+        if let Some(expected) = expected {
             self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
+            return;
+        }
+        if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
+            let mismatch_expected = ExpectedType {
+                ty: result.recovery_type.clone(),
+                source: ExpectedTypeSource::Inferred,
+                origin_node_id: match_expr.node_id,
+                origin_span: Some(match_expr.span.clone()),
+                origin_message: "Match result type inferred here.",
+            };
+            self.check_assignable(
+                &arm.expr,
+                &mismatch_expected.ty,
+                &actual,
+                &mismatch_expected,
+                "match_arm",
+            );
         }
     }
 
@@ -470,35 +470,18 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         self.check_if_condition(expr, condition);
 
-        let mut result_type = expected
-            .map(|expected| expected.ty.clone())
-            .unwrap_or(Type::Unknown);
-        let mut joined_result = None;
-        self.infer_if_branch(
-            expr,
-            then_branch,
-            expected,
-            &mut result_type,
-            &mut joined_result,
+        let mut result = ControlFlowResultJoin::new(
+            expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or(Type::Unknown),
         );
+        self.infer_if_branch(expr, then_branch, expected, &mut result);
         for branch in else_if_branches {
             self.check_if_condition(expr, &branch.condition);
-            self.infer_if_branch(
-                expr,
-                &branch.expr,
-                expected,
-                &mut result_type,
-                &mut joined_result,
-            );
+            self.infer_if_branch(expr, &branch.expr, expected, &mut result);
         }
-        self.infer_if_branch(
-            expr,
-            else_branch,
-            expected,
-            &mut result_type,
-            &mut joined_result,
-        );
-        result_type
+        self.infer_if_branch(expr, else_branch, expected, &mut result);
+        result.materialize()
     }
 
     pub(super) fn check_if_condition(&mut self, if_expr: &Expr, condition: &Expr) {
@@ -513,22 +496,19 @@ impl<'a> FunctionChecker<'a> {
         self.check_assignable(condition, &expected.ty, &actual, &expected, "if_condition");
     }
 
-    pub(super) fn infer_if_branch(
+    fn infer_if_branch(
         &mut self,
         if_expr: &Expr,
         branch_expr: &Expr,
         expected: Option<&ExpectedType>,
-        result_type: &mut Type,
-        joined_result: &mut Option<AggregateTypeJoin>,
+        result: &mut ControlFlowResultJoin,
     ) {
-        let branch_expected = if let Some(expected) = expected {
-            Some(expected.clone())
-        } else if *result_type != Type::Unknown {
+        let recovery_expected = if expected.is_none()
+            && result.joined.is_none()
+            && result.recovery_type != Type::Unknown
+        {
             Some(ExpectedType {
-                ty: joined_result
-                    .as_ref()
-                    .map(AggregateTypeJoin::inference_type)
-                    .unwrap_or_else(|| result_type.clone()),
+                ty: result.recovery_type.clone(),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: if_expr.node_id,
                 origin_span: Some(if_expr.span.clone()),
@@ -537,47 +517,85 @@ impl<'a> FunctionChecker<'a> {
         } else {
             None
         };
-        let actual = self.infer_expr(branch_expr, branch_expected.as_ref());
-        let joined = expected.is_none()
-            && join_control_flow_result(
-                &self.environment.adts,
-                result_type,
-                joined_result,
-                &actual,
-            );
-        if !joined && let Some(expected) = &branch_expected {
+        let actual = self.infer_expr(branch_expr, expected.or(recovery_expected.as_ref()));
+        if let Some(expected) = expected {
             self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
+            return;
+        }
+        if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
+            let mismatch_expected = ExpectedType {
+                ty: result.recovery_type.clone(),
+                source: ExpectedTypeSource::Inferred,
+                origin_node_id: if_expr.node_id,
+                origin_span: Some(if_expr.span.clone()),
+                origin_message: "If result type inferred here.",
+            };
+            self.check_assignable(
+                branch_expr,
+                &mismatch_expected.ty,
+                &actual,
+                &mismatch_expected,
+                "if_branch",
+            );
         }
     }
 }
 
-fn join_control_flow_result(
+fn contribute_control_flow_result(
     adts: &crate::adt::registry::AdtRegistry,
-    result_type: &mut Type,
-    joined_result: &mut Option<AggregateTypeJoin>,
+    result: &mut ControlFlowResultJoin,
     actual: &Type,
 ) -> bool {
     if actual == &Type::Unknown {
         return true;
     }
-    if result_type == &Type::Unknown {
-        *result_type = actual.clone();
-        *joined_result = AggregateTypeJoin::new(adts, actual);
+    if result.recovery_type == Type::Unknown {
+        result.recovery_type = inferred_control_flow_recovery_type(actual);
+        result.joined = AggregateTypeJoin::new_resolved(adts, actual);
         return true;
     }
-    if joined_result.is_none() {
-        *joined_result = AggregateTypeJoin::new(adts, result_type);
+    if result.failed {
+        return actual == &result.recovery_type;
     }
-    let joined = joined_result
+    if result.joined.is_none() && actual == &result.recovery_type {
+        return true;
+    }
+    let joined = result
+        .joined
         .as_mut()
-        .is_some_and(|joined| joined.try_join(actual));
-    if joined {
-        *result_type = joined_result
-            .as_ref()
-            .expect("joined control-flow result")
-            .result_type();
+        .is_some_and(|joined| joined.try_join_resolved(actual));
+    if !joined {
+        result.failed = true;
+        result.joined = None;
     }
     joined
+}
+
+struct ControlFlowResultJoin {
+    recovery_type: Type,
+    joined: Option<AggregateTypeJoin>,
+    failed: bool,
+}
+
+impl ControlFlowResultJoin {
+    fn new(recovery_type: Type) -> Self {
+        Self {
+            recovery_type,
+            joined: None,
+            failed: false,
+        }
+    }
+
+    fn materialize(self) -> Type {
+        if self.failed {
+            self.recovery_type
+        } else {
+            self.joined
+                .as_ref()
+                .map(AggregateTypeJoin::result_type)
+                .unwrap_or(self.recovery_type)
+        }
+    }
 }
 
 struct ConstructorTypeArgInference {

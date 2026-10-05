@@ -74,43 +74,19 @@ equals = "declared"
 
 [[json_assert]]
 path = "diagnostics.7.details.expected_type"
-equals = "State"
+equals = "unknown"
 
 [[json_assert]]
 path = "diagnostics.7.details.expected_type_source"
-equals = "inferred"
-
-[[json_assert]]
-path = "diagnostics.7.details.candidate_queries.0.query"
-equals = "fn(Bool, State) -> State"
-
-[[json_assert]]
-path = "diagnostics.7.details.candidate_queries.0.candidates.0.name"
-equals = "candidate"
-
-[[json_assert]]
-path = "diagnostics.7.details.candidate_queries.0.candidates.0.type"
-equals = "State"
+equals = "unknown"
 
 [[json_assert]]
 path = "diagnostics.8.details.expected_type"
-equals = "State"
+equals = "unknown"
 
 [[json_assert]]
 path = "diagnostics.8.details.expected_type_source"
-equals = "inferred"
-
-[[json_assert]]
-path = "diagnostics.8.details.candidate_queries.0.query"
-equals = "fn(Bool, State) -> State"
-
-[[json_assert]]
-path = "diagnostics.8.details.candidate_queries.0.candidates.0.name"
-equals = "candidate"
-
-[[json_assert]]
-path = "diagnostics.8.details.candidate_queries.0.candidates.0.type"
-equals = "State"
+equals = "unknown"
 
 [[diagnostics]]
 id = "hole.unfilled"
