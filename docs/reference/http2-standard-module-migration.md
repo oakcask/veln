@@ -44,9 +44,8 @@ callers move.
 
 `http2::hpack::encode_huffman` and `decode_huffman` replace the label facade
 with a stateless arbitrary-octet codec. The private standard implementation
-owns the complete HPACK static Huffman table. Adjacent standard tests check
-canonical encodings, every input octet, recursive multi-octet round trips,
-padding boundaries, EOS, malformed padding, truncated codes, and atomic
-failure. The focused
-`../../examples/specification/run/hpack-huffman-codec/` case records public
-encoded bytes, decoded non-visible octets, and representative failures.
+owns the complete HPACK static Huffman table. The adjacent
+[`hpack.test.veln`](../../crates/veln-stdlib/veln/http2/hpack.test.veln)
+tests check canonical encodings, every input octet, recursive multi-octet round
+trips, padding boundaries, EOS, malformed padding, truncated codes, and atomic
+failure.

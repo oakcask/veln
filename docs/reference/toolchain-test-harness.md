@@ -60,8 +60,7 @@ checks the underlying API rejection.
 
 When relocating existing API behavior checks, establish equivalent direct
 stdlib assertions before removing the toolchain assertions. Preserve any
-independent integration coverage and follow the semantic baseline procedure
-below for deliberate case changes. Existing cases are not precedents for new
+independent integration coverage. Existing cases are not precedents for new
 API-only toolchain coverage.
 
 This semantic placement rule is enforced by author and reviewer inspection.
@@ -176,8 +175,8 @@ The table-driven `manifest_*` tests in `toolchain_harness.rs` are the
 executable evidence for string forms, escapes, folding, quote runs,
 indentation and closing delimiters, physical-newline equivalence, schema
 selected string arrays, field-directed containers, trailing tokens, and exact
-error lines. The checked semantic baseline and the complete harness target
-protect existing single-line case meaning.
+error lines. The complete harness target checks existing cases against their
+manifest expectations.
 
 The manifest policy scanner uses the same lexer provenance. It examines every
 TOML string token and every string token inside JSON-valued manifest fields,
@@ -345,8 +344,7 @@ raw stdout, raw stderr, decoded LSP assertions, and decoded MCP assertions run
 as independent checks within one invocation, so one failed command result does
 not hide later command-result failures for the same run. Repeated invocations
 decode and assert their own streams; failures are reported by run and manifest
-assertion order. The semantic baseline records each LSP assertion selector,
-path, operation, and operand so migrated cases stay reviewable. The
+assertion order. The
 `decoded_lsp_*`, `raw_stdout_and_decoded_lsp_*`, and
 `repeated_run_failures_*` tests in `toolchain_harness.rs` cover the transport,
 selector, pointer, operation, independence, and aggregation boundaries.
@@ -527,8 +525,7 @@ workspace-relative regular file. The selected value must be a JSON string
 equal to the canonical `file:` URI for that file in the copied case workspace.
 The operand rejects absolute and empty paths, `.`, `..`, empty segments,
 backslashes, links and link-like components, non-file entries, and canonical
-paths outside the workspace. The semantic baseline records the relative
-operand and does not record the temporary workspace URI.
+paths outside the workspace.
 
 The shared JSON parser stores parsed JSON numbers with their complete source
 spelling. Veln-produced integer values remain integer JSON values when command
@@ -622,54 +619,6 @@ mechanics are not Veln command behavior.
 JSON output should be parsed and checked semantically by default. Full JSON
 equality is reserved for schema smoke tests where exact envelope shape is the
 behavior under test.
-
-## Pre-Migration Semantic Baseline
-
-`toolchain-case-semantics.baseline` is the schema-versioned contract inventory
-for every parsed `case.toml` under `crates/veln-cli/tests/toolchain_cases/` and
-`examples/specification/`. It records ordered invocation and assertion fields,
-typed values, source-error expectations, execution gates, case digests, and
-an aggregate digest. Large text values, including nested strings inside typed
-JSON assertions, record an explicit logical field, byte length, and SHA-256
-digest. Binary values record their byte length and SHA-256 digest. JSON
-object members are key-sorted
-because object member order is not part of an assertion value; arrays and all
-manifest assertion sequences retain their order. JSON number tokens retain
-their complete spelling, including integer, decimal, exponent, and negative
-zero forms. The baseline records file-backed JSON assertion operands under the
-operation that supplied them, so `equals_file` and `equals_json_file` remain
-reviewable as distinct assertion contracts. It records each `contains`
-operand under its JSON, result-value, LSP, or MCP assertion. The baseline
-includes MCP stdio specification cases that use `stdin_file` JSON lines and
-stream fragments to pin advertised tool declarations and representative tool
-results.
-
-The normal `toolchain_harness` target runs
-`checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the
-baseline and current manifests from the shared discovery inventory without
-writing either one. A mismatch reports added or removed cases before reporting
-case-qualified field differences.
-File assertions record their operation in the baseline. `equals` and
-`equals_file` record an `equals` operation plus the expected text.
-Run the focused non-mutating check with:
-
-```sh
-cargo test -p veln-cli --test toolchain_harness \
-  toolchain_semantic_baseline::tests::checked_in_semantic_baseline_matches_authoritative_cases \
-  -- --exact
-```
-
-Candidate generation is an explicit ignored test. Generate a candidate only
-for deliberate contract review. Do not replace the checked-in baseline merely
-to accept an unexplained difference.
-
-```sh
-VELN_TOOLCHAIN_SOURCE_GIT_TREE="$(git rev-parse HEAD^{tree})" \
-VELN_TOOLCHAIN_BASELINE_CANDIDATE=target/toolchain-case-semantics.candidate \
-cargo test -p veln-cli --test toolchain_harness \
-  toolchain_semantic_baseline::tests::generate_toolchain_semantic_baseline_candidate \
-  -- --ignored --exact
-```
 
 ## Scoped effect fixtures
 
