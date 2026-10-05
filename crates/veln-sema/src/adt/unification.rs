@@ -169,8 +169,8 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
 
 #[derive(Debug)]
 pub(crate) struct TypeParameterContributionConflict {
-    pub(crate) expected: Type,
-    pub(crate) actual: Type,
+    pub(crate) expected: Box<Type>,
+    pub(crate) actual: Box<Type>,
 }
 
 pub(crate) fn merge_type_parameter_contributions_transactionally(
@@ -184,8 +184,8 @@ pub(crate) fn merge_type_parameter_contributions_transactionally(
         };
         if !type_parameter_contributions_compatible(expected, actual) {
             return Err(TypeParameterContributionConflict {
-                expected: expected.clone(),
-                actual: actual.clone(),
+                expected: Box::new(expected.clone()),
+                actual: Box::new(actual.clone()),
             });
         }
         merge_type_slot(expected, actual);
