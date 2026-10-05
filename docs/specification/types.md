@@ -477,6 +477,13 @@ widen across the nested named type. For example, given `Built(A, Vec<A>)`,
 `Built(Ready, [Closed])` reports `type.mismatch`. Reversing the two payload
 positions does not change either result.
 
+All occurrences contributed by one payload are accepted or rejected together.
+If one occurrence conflicts, no occurrence from that payload constrains the
+constructor type argument. A later valid payload therefore continues from the
+last successfully inferred type instead of from a partial result of the failed
+payload. This rule also applies when the rejected payload contains repeated
+occurrences inside one invariant named type.
+
 When a concrete payload has the form `Box<A>`, a matching refined carrier such
 as `Box<State::Ready>::Boxed` can supply `State::Ready` for `A`. This direct
 carrier inference allows `Carried(Boxed(Ready))` to infer

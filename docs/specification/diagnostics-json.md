@@ -114,8 +114,12 @@ constructor expression follows this rule even when recovery can determine its
 refined result type from the resolved declaration. The same rule applies when
 one constructor payload uses a type parameter directly and another uses it
 inside an invariant named type: the diagnostic reports the exact constraint
-established by the other payload rather than widening the nested type. If an
-earlier error leaves the value untyped,
+established by the other payload rather than widening the nested type. When one
+payload contributes the same type parameter more than once, a conflict reports
+the earlier occurrence's type as expected and the conflicting occurrence's
+type as actual. None of that payload's occurrences update the accumulated type,
+so a later payload is checked against only the constraints that were complete
+before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
