@@ -100,10 +100,11 @@ note identifies the declaration or local annotation that supplied the
 expectation. When a compiler-known helper infers a parameter expectation from
 the call, the note instead identifies that helper at the call site. A nested
 aggregate invariance failure with no truthful finite variant exclusion reports
-ordinary `type.mismatch`. This includes assigning an inferred record with a
-singleton-refined field to a record type whose corresponding field uses the
-base ADT. If an earlier error leaves the value untyped,
-`type.variant_mismatch` is omitted.
+ordinary `type.mismatch`. Its actual type preserves the inferred nested
+refinement. This includes assigning an inferred record with a singleton-refined
+field, or an inferred named aggregate with a refined type argument, to the
+corresponding type that uses the base ADT. If an earlier error leaves the value
+untyped, `type.variant_mismatch` is omitted.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and

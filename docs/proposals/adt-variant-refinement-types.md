@@ -133,8 +133,9 @@ checking, and runtime erasure. The sections below define only the remaining
 semantic extensions.
 
 The examples below use this illustrative API. Its direct call and result
-typing and record-literal retention are current behavior; only the remaining
-aggregate and control-flow rules described after it remain proposed.
+typing, record-literal retention, and aggregate refinement retention are
+current behavior. Only the control-flow rules described after it remain
+proposed.
 
 ```veln
 pub type Connection
