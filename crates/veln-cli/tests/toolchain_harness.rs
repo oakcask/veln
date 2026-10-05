@@ -31,7 +31,7 @@ mod manifest_preflight;
 #[path = "toolchain_harness/result_value.rs"]
 mod result_value;
 
-use assertion_json::{JsonValue, escape_json_string, parse_json};
+use assertion_json::{JsonValue, parse_json};
 use manifest_syntax::{Statement as ManifestStatement, Value as ManifestValue};
 use result_value::{parse_result_value, parse_veln_value};
 

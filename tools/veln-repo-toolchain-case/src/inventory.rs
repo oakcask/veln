@@ -133,9 +133,7 @@ pub fn generated_toolchain_tests_from_preflight(
 
 pub fn generated_toolchain_tests(cases: &[PathBuf]) -> String {
     let mut names = BTreeSet::new();
-    let mut out = String::from(
-        "mod toolchain_semantic_baseline {\n    include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/tests/toolchain_semantic_baseline/mod.rs\"));\n}\n\nconst GENERATED_TOOLCHAIN_CASES: &[&str] = &[\n",
-    );
+    let mut out = String::from("const GENERATED_TOOLCHAIN_CASES: &[&str] = &[\n");
     for case in cases {
         let case = slash_path(case);
         out.push_str(&format!("    {case:?},\n"));
