@@ -20,7 +20,7 @@ Import the module explicitly:
 use net from "std"
 ```
 
-The module exports these algebraic values:
+The module exports these public values and aliases:
 
 | Value | Public shape |
 | --- | --- |
@@ -35,9 +35,11 @@ The module exports these algebraic values:
 | `ReadOutcome` | `ReadChunk(bytes: ByteChunk)` and `ReadEnd` variants |
 | `WriteOutcome` | `Written(count: ByteCount)` and `WriteFailed(committed: ByteCount, error: NetError)` variants |
 
-The constructors and fields can be matched as ordinary public algebraic data
-values. Constructing an `Address` or `Endpoint` does not resolve a name, open a
-socket, or validate the contained port or address text.
+The algebraic value constructors and fields can be matched as ordinary public
+data. `Listener` and `Stream` are the opaque aliases described under
+[Limits And Errors](#limits-and-errors), so they do not expose constructors.
+Constructing an `Address` or `Endpoint` does not resolve a name, open a socket,
+or validate the contained port or address text.
 
 Code compares a `NetError` kind rather than its explanatory message. The pure
 host-port helpers produce `InvalidAddress`. An `IO` handler can return the

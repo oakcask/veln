@@ -83,6 +83,32 @@ test address_values_are_constructible_and_inspectable() -> Result<(), String>
 	end
 end
 
+test io_outcome_values_are_constructible_and_inspectable() -> Result<(), String>
+	let bytes = byte_chunk_from_visible_ascii_string("ok")?
+	let failure = observed_failure("write", "partial")
+	let chunk = net::ReadChunk(bytes)
+	let ended = net::ReadEnd
+	let written = net::Written(net::ByteCount(2))
+	let failed = net::WriteFailed(net::ByteCount(1), failure)
+	match chunk
+		net::ReadChunk(observed_bytes) => if byte_chunk_to_visible_ascii_string(observed_bytes)? == "ok"
+			match ended
+				net::ReadEnd => match written
+					net::Written(net::ByteCount(2)) => match failed
+						net::WriteFailed(net::ByteCount(1), error) => expect_observed_error(error, "write", "partial")
+						_ => Err("write failure fields did not match")
+					end
+					_ => Err("written count did not match")
+				end
+				_ => Err("read end did not match")
+			end
+		else
+			Err("read chunk bytes did not match")
+		end
+		_ => Err("read chunk shape did not match")
+	end
+end
+
 test host_port_success_boundaries_round_trip() -> Result<(), String>
 	match net::join_host_port("127.0.0.1", 0)
 		Ok(ipv4) => match net::split_host_port(ipv4)

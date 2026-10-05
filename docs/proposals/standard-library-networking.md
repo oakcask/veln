@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The planned standard-library network API, network effect boundary, host handler, stream-resource lifecycle, or lexical-cleanup prerequisite changes.
+update-when: The planned standard-library network system handler, host-error translation, stream-resource lifecycle, write-all helper, duplex transport adapter, or lexical-cleanup prerequisite changes.
 ---
 
 # Standard-library networking and its effect boundary
