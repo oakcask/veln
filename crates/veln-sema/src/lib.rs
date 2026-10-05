@@ -2,6 +2,7 @@
 
 mod adt;
 mod adt_source_less;
+mod aggregate_type_join;
 mod analysis;
 mod builtin_type_syntax;
 mod call_resolution;

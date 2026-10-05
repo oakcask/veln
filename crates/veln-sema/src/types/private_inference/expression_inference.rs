@@ -165,7 +165,7 @@ pub(crate) fn infer_private_list_type(
             actual
         };
         if let Some(joined) =
-            crate::type_relations::join_same_adt_types(context.adts, &item_type, &actual)
+            crate::aggregate_type_join::join_same_adt_types(context.adts, &item_type, &actual)
         {
             item_type = joined;
         } else if item_type == Type::Unknown {
@@ -194,7 +194,7 @@ pub(crate) fn infer_private_dict_type(
             key_actual
         };
         if let Some(joined) =
-            crate::type_relations::join_same_adt_types(context.adts, &key_type, &key_actual)
+            crate::aggregate_type_join::join_same_adt_types(context.adts, &key_type, &key_actual)
         {
             key_type = joined;
         } else if key_type == Type::Unknown {
@@ -206,9 +206,11 @@ pub(crate) fn infer_private_dict_type(
         } else {
             value_actual
         };
-        if let Some(joined) =
-            crate::type_relations::join_same_adt_types(context.adts, &value_type, &value_actual)
-        {
+        if let Some(joined) = crate::aggregate_type_join::join_same_adt_types(
+            context.adts,
+            &value_type,
+            &value_actual,
+        ) {
             value_type = joined;
         } else if value_type == Type::Unknown {
             value_type = value_actual;
@@ -760,7 +762,7 @@ fn infer_private_constructor_call(
         let joined = field.and_then(|field| match field.ty {
             AdtPayloadType::TypeParameter(type_index) => {
                 inferred_type_args.get(type_index).and_then(|current| {
-                    crate::type_relations::join_same_adt_types(
+                    crate::aggregate_type_join::join_same_adt_types(
                         context.adts,
                         current,
                         &inferred_actual,
