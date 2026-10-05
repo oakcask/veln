@@ -94,8 +94,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
   [package-virtual-sources.md](package-virtual-sources.md).
 - Explicit HTTP/2 frame, diagnostic, HPACK, and core modules:
   [http2.md](http2.md).
-- Exported standard-library network values, pure host-port helpers, and the
-  nominal network-operation boundary and direct facade:
+- Exported standard-library network values, pure host-port helpers, the nominal
+  network-operation boundary and direct facade, and the complete-write helper:
   [standard-library-networking.md](standard-library-networking.md).
 - JVM execution behavior, values, calls, control flow, and host boundaries:
   [execution.md](execution.md).
