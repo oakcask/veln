@@ -94,6 +94,9 @@
 
     public static boolean isAdt(Object value, String name) {
         value = diagnosticResultValue(value);
+        if (value instanceof FrozenByteChunk) {
+            return name.equals("ByteChunk") || name.endsWith("::ByteChunk");
+        }
         if (value instanceof FrozenByteView) {
             return name.equals("ByteView") || name.endsWith("::ByteView");
         }
@@ -105,6 +108,12 @@
 
     public static Object adtPayload(Object value, int index) {
         value = diagnosticResultValue(value);
+        if (value instanceof FrozenByteChunk) {
+            if (index == 0) {
+                return ((FrozenByteChunk) value).bytes();
+            }
+            throw new IndexOutOfBoundsException("ByteChunk payload index " + index);
+        }
         if (value instanceof FrozenByteView) {
             FrozenByteView view = (FrozenByteView) value;
             if (index == 0) {
