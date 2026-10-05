@@ -25,8 +25,7 @@ also states it.
   implemented public network effect, direct facade, and `write_all` helper:
   [standard-library-networking.md](standard-library-networking.md).
 - Remaining ADT variant-refinement support for aliases and visibility,
-  collection, dictionary, and generic-payload retention and joins,
-  control-flow refinement, schema boundaries, package
+  control-flow refinement and result joins, schema boundaries, package
   documentation, command-wide enforcement, LSP, MCP, and publication:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 

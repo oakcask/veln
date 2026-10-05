@@ -7,7 +7,7 @@ use veln_ast::{
     Pattern, PatternKind, PublicAliasKind, RecordField, SurfaceModule, UseDecl, Visibility,
 };
 
-use crate::adt::descriptors::AdtConstructor;
+use crate::adt::descriptors::{AdtConstructor, AdtPayloadType};
 use crate::adt::registry::{AdtRegistry, ConstructorLookup};
 use crate::adt::{type_operations as adt, unification};
 use crate::name_recovery::{normal_use_decls, public_alias_has_invalid_target_leaf};

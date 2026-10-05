@@ -87,7 +87,7 @@ pub(super) fn assign_core_type_arg(args: &mut [CoreType], index: usize, actual: 
     merge_core_type_slot(slot, actual);
 }
 
-pub(super) fn merge_type_slot(slot: &mut Type, actual: &Type) {
+pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) {
     if actual == &Type::Unknown {
         return;
     }

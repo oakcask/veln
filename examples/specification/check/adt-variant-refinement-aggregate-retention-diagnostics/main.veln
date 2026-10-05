@@ -1,0 +1,10 @@
+type State
+	Ready
+	Closed
+end
+
+fn main() -> ()
+	let retained = [Ready]
+	let widened: Vec<State> = retained
+	let mismatched = [Some(1), Some("wrong")]
+end

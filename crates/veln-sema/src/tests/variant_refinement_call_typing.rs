@@ -515,7 +515,7 @@ fn aggregate_construction_retains_record_fields_and_rejects_excluded_variants() 
         )
     ));
 
-    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 8, "{diagnostics:#?}");
     assert_eq!(
         diagnostics
             .iter()
@@ -529,13 +529,13 @@ fn aggregate_construction_retains_record_fields_and_rejects_excluded_variants() 
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.mismatch")
             .count(),
-        6,
+        8,
         "{diagnostics:#?}"
     );
 }
 
 #[test]
-fn non_record_aggregate_inference_uses_base_types_for_mixed_variants() {
+fn non_record_aggregate_inference_retains_and_joins_variant_refinements() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -546,9 +546,12 @@ fn non_record_aggregate_inference_uses_base_types_for_mixed_variants() {
             "  let states = [Ready, Closed]\n",
             "  let table = {\"ready\": Ready, \"closed\": Closed}\n",
             "  let boxed = Boxed(Ready)\n",
-            "  let states_base: Vec<State> = states\n",
-            "  let table_base: Dict<String, State> = table\n",
-            "  let boxed_base: Box<State> = boxed\n",
+            "  let states_exact: Vec<State::Ready | State::Closed> = states\n",
+            "  let table_exact: Dict<String, State::Ready | State::Closed> = table\n",
+            "  let boxed_exact: Box<State::Ready> = boxed\n",
+            "  let contextual_states: Vec<State> = [Ready, Closed]\n",
+            "  let contextual_table: Dict<String, State> = {\"ready\": Ready, \"closed\": Closed}\n",
+            "  let contextual_box: Box<State> = Boxed(Ready)\n",
             "end\n",
         )
     ));
@@ -575,7 +578,7 @@ fn record_fields_report_ordinary_nested_type_mismatches() {
 }
 
 #[test]
-fn inferred_generic_payload_uses_its_base_type() {
+fn inferred_generic_payload_retains_its_refinement() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -584,12 +587,135 @@ fn inferred_generic_payload_uses_its_base_type() {
             "end\n",
             "fn main() -> ()\n",
             "  let retained = Boxed(Ready)\n",
-            "  let widened: Box<State> = retained\n",
+            "  let exact: Box<State::Ready> = retained\n",
             "end\n",
         )
     ));
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn aggregate_refinement_inference_covers_joins_context_and_projection() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "fn ready() -> State::Ready\n",
+            "  Ready\n",
+            "end\n",
+            "fn closed() -> State::Closed\n",
+            "  Closed\n",
+            "end\n",
+            "type Pair<A>\n",
+            "  Paired(A, A)\n",
+            "end\n",
+            "fn forward()\n",
+            "  [Ready, Closed]\n",
+            "end\n",
+            "fn reverse()\n",
+            "  [Closed, Ready]\n",
+            "end\n",
+            "fn complete()\n",
+            "  [Failed, Ready, Closed]\n",
+            "end\n",
+            "fn with_base(value: State)\n",
+            "  [Ready, value]\n",
+            "end\n",
+            "fn optional()\n",
+            "  [Some(1), None]\n",
+            "end\n",
+            "fn table()\n",
+            "  {ready(): Closed, closed(): Ready}\n",
+            "end\n",
+            "fn paired()\n",
+            "  Paired(Closed, Ready)\n",
+            "end\n",
+            "fn payload(value: Pair<State::Ready>::Paired) -> State::Ready\n",
+            "  match value\n",
+            "    Paired(item, _) => item\n",
+            "  end\n",
+            "end\n",
+            "fn accept_ready(value: State::Ready) -> Bool\n",
+            "  true\n",
+            "end\n",
+            "fn projected() -> Vec<State::Ready>\n",
+            "  vec_filter([Ready], accept_ready)\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  let first: Vec<State::Ready | State::Closed> = forward()\n",
+            "  let second: Vec<State::Ready | State::Closed> = reverse()\n",
+            "  let all: Vec<State> = complete()\n",
+            "  let base_join: Vec<State> = with_base(Closed)\n",
+            "  let optional_values: Vec<Option<Int>> = optional()\n",
+            "  let entries: Dict<State::Ready | State::Closed, State::Ready | State::Closed> = table()\n",
+            "  let pair: Pair<State::Ready | State::Closed>::Paired = paired()\n",
+            "  let contextual_vec: Vec<State> = [Ready, Closed]\n",
+            "  let contextual_dict: Dict<String, State> = {\"ready\": Ready}\n",
+            "  let contextual_pair: Pair<State> = Paired(Ready, Closed)\n",
+            "  let item: State::Ready = payload(Paired(Ready, Ready))\n",
+            "  let items: Vec<State::Ready> = projected()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in [
+        ("forward", "Vec<State::Ready | State::Closed>"),
+        ("reverse", "Vec<State::Ready | State::Closed>"),
+        ("complete", "Vec<State>"),
+        ("with_base", "Vec<State>"),
+        ("optional", "Vec<Option<Int>>"),
+        (
+            "table",
+            "Dict<State::Ready | State::Closed, State::Ready | State::Closed>",
+        ),
+        ("paired", "Pair<State::Ready | State::Closed>::Paired"),
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("{function} should be present"))
+                .return_type
+                .render(),
+            expected,
+        );
+    }
+}
+
+#[test]
+fn retained_aggregate_refinement_rejections_are_table_driven() {
+    for (name, body, expected_mismatches) in [
+        (
+            "later nested widening",
+            "let inferred = [Ready]\n  let widened: Vec<State> = inferred",
+            1,
+        ),
+        (
+            "generic argument mismatch",
+            "let values = [Some(1), Some(\"wrong\")]",
+            1,
+        ),
+    ] {
+        let diagnostics = diagnostics_for(&format!("{STATE_DECL}fn main() -> ()\n  {body}\nend\n"));
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.mismatch")
+                .count(),
+            expected_mismatches,
+            "{name}: {diagnostics:#?}",
+        );
+    }
 }
 
 #[test]
@@ -914,6 +1040,7 @@ fn private_constructor_results_retain_singleton_refinements() {
         concat!(
             "type State\n",
             "  Ready\n",
+            "  Closed\n",
             "end\n",
             "type GenericState<A>\n",
             "  Ready(A)\n",
@@ -962,12 +1089,13 @@ fn private_constructor_results_retain_singleton_refinements() {
 }
 
 #[test]
-fn private_record_results_retain_fields_while_other_aggregates_erase_members() {
+fn private_results_retain_refinements_in_aggregate_positions() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "type State\n",
             "  Ready\n",
+            "  Closed\n",
             "end\n",
             "type Box<A>\n",
             "  Boxed(A)\n",
@@ -984,16 +1112,16 @@ fn private_record_results_retain_fields_while_other_aggregates_erase_members() {
             "fn boxed_state()\n",
             "  Box::Boxed(State::Ready)\n",
             "end\n",
-            "fn accept_states(value: Vec<State>) -> ()\n",
+            "fn accept_states(value: Vec<State::Ready>) -> ()\n",
             "  ()\n",
             "end\n",
             "fn accept_ready(value: State::Ready) -> ()\n",
             "  ()\n",
             "end\n",
-            "fn accept_dict(value: Dict<String, State>) -> ()\n",
+            "fn accept_dict(value: Dict<String, State::Ready>) -> ()\n",
             "  ()\n",
             "end\n",
-            "fn accept_box(value: Box<State>) -> ()\n",
+            "fn accept_box(value: Box<State::Ready>) -> ()\n",
             "  ()\n",
             "end\n",
             "fn main() -> ()\n",
@@ -1012,10 +1140,10 @@ fn private_record_results_retain_fields_while_other_aggregates_erase_members() {
 
     let environment = TypeEnvironment::from_module(&module);
     for (function, expected) in [
-        ("states", "Vec<State>"),
+        ("states", "Vec<State::Ready>"),
         ("state_record", "{state: State::Ready}"),
-        ("state_dict", "Dict<String, State>"),
-        ("boxed_state", "Box<State>::Boxed"),
+        ("state_dict", "Dict<String, State::Ready>"),
+        ("boxed_state", "Box<State::Ready>::Boxed"),
     ] {
         assert_eq!(
             environment

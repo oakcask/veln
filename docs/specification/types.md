@@ -198,13 +198,13 @@ generic constructors, use the existing ambiguity diagnostics until a concrete
 same-function expected type fixes the binding. The JSON details identify the
 local binding slot and include the current inferred type.
 
-Non-empty `Vec<T>` literal initializers infer an omitted local binding as
-`Vec<T>` from the first element when all later elements are assignable to the
-same concrete element type. Non-empty `Dict<K, V>` literal initializers infer
-`Dict<K, V>` from the first key and value when later keys and values are
-assignable to the same concrete key and value types. Conflicting later facts
-remain focused `type.mismatch` diagnostics at the incompatible element, key,
-or value rather than widening the binding type.
+Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
+value positions from every contribution. Constructor refinements of the same
+resolved ADT and identical generic arguments join into a declaration-ordered
+variant set, independent of source order. A join containing every declared
+variant, or a join of a refinement and its base ADT, becomes the base ADT.
+Other conflicting facts remain focused `type.mismatch` diagnostics at the
+incompatible element, key, or value.
 
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
@@ -450,13 +450,22 @@ Without that expected record type, the inferred value is
 `{state: State}` is rejected because direct refinement widening does not
 recurse through records.
 
-Other unannotated aggregates do not retain nested constructor refinements in
-this slice. A constructor used as a collection element, dictionary key or
-value, or inferred generic ADT payload contributes its base ADT type to that
-aggregate position. Private omitted-return inference applies the same member
-erasure for those aggregates, so its inferred signature agrees with the body
-type. The outer constructor expression still has its singleton type.
-Explicitly refined nested types remain invariant.
+Unannotated collection elements, dictionary keys and values, and inferred
+generic ADT payload positions retain constructor refinements. Several values
+contributing to one position use the same declaration-ordered join rule as
+collection inference. Constructor payload patterns and collection helpers
+observe the retained type argument after substitution. Private omitted-result
+inference applies these rules too, so its inferred signature agrees with
+ordinary body inference.
+
+An explicit aggregate component type supplies context while the aggregate is
+constructed. A constructor singleton can widen directly at that component
+boundary, so `[Ready]` can construct an explicitly expected `Vec<State>` and
+`Boxed(Ready)` can construct an explicitly expected `Box<State>`. Without that
+context, the values retain `Vec<State::Ready>` and
+`Box<State::Ready>::Boxed`. A later assignment from either inferred value to
+the corresponding base-argument aggregate is rejected. Named type arguments
+remain invariant; aggregate inference does not add nested covariance.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
@@ -507,10 +516,14 @@ accepted source and compiler-known cases in
 in `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-json/`,
 and human diagnostics in
 `examples/specification/check/adt-variant-refinement-call-typing-diagnostics-human/`.
+Aggregate retention, joins, contextual widening, projection, and omitted
+private results are checked in
+`examples/specification/check/adt-variant-refinement-aggregate-retention/`;
+rejected nested widening and generic argument mismatch are checked in its
+`-diagnostics` companion.
 
-Alias spelling and provenance, public/private exposure paths, refinement
-retention and joins for collections, dictionaries, and inferred generic ADT
-payloads, pattern-based control-flow refinement, schema boundaries,
+Alias spelling and provenance, public/private exposure paths, pattern-based
+control-flow refinement, `if` and `match` result joins, schema boundaries,
 package-documentation signatures, command-wide coverage, LSP, MCP, and
 language-reference publication remain proposal work. This slice also does not
 add recursive generic or function variance.

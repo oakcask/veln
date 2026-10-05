@@ -295,12 +295,12 @@ fn descriptor_routed_qualified_list_constructor_checks_expected_tail_type() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(
         diagnostics[0].message,
-        "expected `List<Int>`, but found `Option<unknown>`"
+        "expected `List<Int>`, but found `Option<unknown>::None`"
     );
     assert_diagnostic_span(&diagnostics[0], 6, 17, 6, 21);
     let details = diagnostics[0].details.to_json();
     assert!(details.contains("\"expected_type\":\"List<Int>\""));
-    assert!(details.contains("\"actual_type\":\"Option<unknown>\""));
+    assert!(details.contains("\"actual_type\":\"Option<unknown>::None\""));
     assert!(details.contains("\"constraint\":\"call_argument\""));
 }
 

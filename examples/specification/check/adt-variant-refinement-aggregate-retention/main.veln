@@ -1,0 +1,74 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+type Pair<A>
+	Paired(A, A)
+end
+
+fn ready() -> State::Ready
+	Ready
+end
+
+fn closed() -> State::Closed
+	Closed
+end
+
+fn forward()
+	[Ready, Closed]
+end
+
+fn reverse()
+	[Closed, Ready]
+end
+
+fn complete()
+	[Failed, Ready, Closed]
+end
+
+fn with_base(value: State)
+	[Ready, value]
+end
+
+fn optional()
+	[Some(1), None]
+end
+
+fn table()
+	{ready(): Closed, closed(): Ready}
+end
+
+fn paired()
+	Paired(Closed, Ready)
+end
+
+fn payload(value: Pair<State::Ready>::Paired) -> State::Ready
+	match value
+		Paired(item, _) => item
+	end
+end
+
+fn keep_ready(value: State::Ready) -> Bool
+	true
+end
+
+fn projected() -> Vec<State::Ready>
+	vec_filter([Ready], keep_ready)
+end
+
+fn main() -> ()
+	let first: Vec<State::Ready | State::Closed> = forward()
+	let second: Vec<State::Ready | State::Closed> = reverse()
+	let all: Vec<State> = complete()
+	let base_join: Vec<State> = with_base(Closed)
+	let optional_values: Vec<Option<Int>> = optional()
+	let entries: Dict<State::Ready | State::Closed, State::Ready | State::Closed> = table()
+	let pair: Pair<State::Ready | State::Closed>::Paired = paired()
+	let contextual_vec: Vec<State> = [Ready, Closed]
+	let contextual_dict: Dict<String, State> = {"ready": Ready}
+	let contextual_pair: Pair<State> = Paired(Ready, Closed)
+	let item: State::Ready = payload(Paired(Ready, Ready))
+	let items: Vec<State::Ready> = projected()
+end

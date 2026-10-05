@@ -58,8 +58,21 @@ impl<'a> FunctionChecker<'a> {
                 continue;
             };
             let actual_arg = self.infer_expr(arg, Some(&arg_expected));
-            let inferred_arg =
-                inferred_aggregate_member_type_with_expected(actual_arg.clone(), &arg_expected.ty);
+            let has_context =
+                expected.is_some() || !matches!(field.ty, AdtPayloadType::TypeParameter(_));
+            let inferred_arg = if has_context {
+                inferred_aggregate_member_type_with_expected(actual_arg.clone(), &arg_expected.ty)
+            } else {
+                actual_arg.clone()
+            };
+            let joined_arg = match &field.ty {
+                AdtPayloadType::TypeParameter(index) => {
+                    inferred_type_args.get(*index).and_then(|current| {
+                        join_same_adt_types(&self.environment.adts, current, &inferred_arg)
+                    })
+                }
+                AdtPayloadType::SelfType | AdtPayloadType::Concrete(_) => None,
+            };
             match &field.ty {
                 AdtPayloadType::SelfType => self.check_assignable_nested(
                     arg,
@@ -75,6 +88,7 @@ impl<'a> FunctionChecker<'a> {
                     &arg_expected,
                     "call_argument",
                 ),
+                AdtPayloadType::TypeParameter(_) if joined_arg.is_some() => {}
                 AdtPayloadType::TypeParameter(_)
                     if !is_assignable_nested(&arg_expected.ty, &inferred_arg) =>
                 {
@@ -88,12 +102,18 @@ impl<'a> FunctionChecker<'a> {
                 }
                 AdtPayloadType::TypeParameter(_) => {}
             }
-            adt::merge_type_args_from_payload(
-                &mut inferred_type_args,
-                constructor,
-                index,
-                &inferred_arg,
-            );
+            if let (AdtPayloadType::TypeParameter(type_index), Some(joined)) =
+                (&field.ty, joined_arg)
+            {
+                inferred_type_args[*type_index] = joined;
+            } else {
+                adt::merge_type_args_from_payload(
+                    &mut inferred_type_args,
+                    constructor,
+                    index,
+                    &inferred_arg,
+                );
+            }
         }
         for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
@@ -139,14 +159,16 @@ impl<'a> FunctionChecker<'a> {
                 "Vec element type inferred here.",
             );
             let actual = self.infer_expr(item, Some(&item_expected));
-            let aggregate_actual =
-                inferred_aggregate_member_type_with_expected(actual.clone(), &item_expected.ty);
-            let common_base = common_variant_base(&item_expected.ty, &aggregate_actual);
-            if !contextual_item && let Some(base) = &common_base {
-                item_type = base.clone();
-            }
+            let aggregate_actual = if contextual_item {
+                inferred_aggregate_member_type_with_expected(actual.clone(), &expected_item)
+            } else {
+                actual.clone()
+            };
+            let joined = (!contextual_item)
+                .then(|| join_same_adt_types(&self.environment.adts, &item_type, &aggregate_actual))
+                .flatten();
             if !is_assignable_nested(&item_expected.ty, &aggregate_actual)
-                && (contextual_item || common_base.is_none())
+                && (contextual_item || joined.is_none())
             {
                 self.check_assignable_nested(
                     item,
@@ -156,7 +178,9 @@ impl<'a> FunctionChecker<'a> {
                     "list_element",
                 );
             }
-            if item_type == Type::Unknown {
+            if let Some(joined) = joined {
+                item_type = joined;
+            } else if item_type == Type::Unknown {
                 item_type = aggregate_actual;
             }
         }

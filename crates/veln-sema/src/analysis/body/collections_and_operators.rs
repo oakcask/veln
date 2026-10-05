@@ -174,11 +174,16 @@ impl<'a> FunctionChecker<'a> {
             origin_message,
         );
         let actual = self.infer_expr(item, Some(&item_expected));
-        let aggregate =
-            inferred_aggregate_member_type_with_expected(actual.clone(), &item_expected.ty);
-        let common_base = common_variant_base(&item_expected.ty, &aggregate);
+        let aggregate = if has_contextual_type {
+            inferred_aggregate_member_type_with_expected(actual.clone(), contextual_type)
+        } else {
+            actual.clone()
+        };
+        let joined = (!has_contextual_type)
+            .then(|| join_same_adt_types(&self.environment.adts, current_type, &aggregate))
+            .flatten();
         if !is_assignable_nested(&item_expected.ty, &aggregate)
-            && (has_contextual_type || common_base.is_none())
+            && (has_contextual_type || joined.is_none())
         {
             self.check_assignable_nested(
                 item,
@@ -188,8 +193,8 @@ impl<'a> FunctionChecker<'a> {
                 constraint,
             );
         }
-        if !has_contextual_type && let Some(base) = common_base {
-            return base;
+        if let Some(joined) = joined {
+            return joined;
         }
         if current_type == &Type::Unknown {
             aggregate
