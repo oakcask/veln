@@ -188,7 +188,11 @@ impl<'a> FunctionChecker<'a> {
             dict_expr.span.clone(),
             origin_message,
         );
+        let item_diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(item, Some(&item_expected));
+        if self.diagnostics.len() != item_diagnostic_count {
+            return current_type.clone();
+        }
         let aggregate = if has_contextual_type {
             inferred_aggregate_member_type_with_expected(actual.clone(), contextual_type)
         } else {

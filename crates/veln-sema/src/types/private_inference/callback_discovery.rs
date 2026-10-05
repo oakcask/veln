@@ -598,6 +598,7 @@ pub(crate) fn private_prelude_callback_call_references_slot(
     expected: Option<&Type>,
     context: &mut PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
+    let mut failures = 0;
     let Some(params) = private_prelude_callback_call_params(
         callee,
         args,
@@ -608,6 +609,7 @@ pub(crate) fn private_prelude_callback_call_references_slot(
             bindings: context.bindings,
             returns_by_path: context.returns_by_path,
             adts: context.adts,
+            failures: &mut failures,
         },
         context.function_by_path,
     ) else {

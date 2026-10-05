@@ -87,12 +87,15 @@ pub(super) fn assign_core_type_arg(args: &mut [CoreType], index: usize, actual: 
     merge_core_type_slot(slot, actual);
 }
 
-pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) {
+pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
     if actual == &Type::Unknown {
-        return;
+        return false;
     }
     match (slot, actual) {
-        (slot @ Type::Unknown, _) => *slot = actual.clone(),
+        (slot @ Type::Unknown, _) => {
+            *slot = actual.clone();
+            true
+        }
         (
             Type::Named {
                 name: slot_name,
@@ -105,9 +108,11 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) {
                 ..
             },
         ) if slot_name == actual_name && slot_args.len() == actual_args.len() => {
+            let mut changed = false;
             for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
-                merge_type_slot(slot_arg, actual_arg);
+                changed |= merge_type_slot(slot_arg, actual_arg);
             }
+            changed
         }
         (
             Type::VariantRefinement {
@@ -132,19 +137,23 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) {
                 || (slot_name == actual_name
                     && (slot_identity == slot_name || actual_identity == actual_name))) =>
         {
+            let mut changed = false;
             for (slot_arg, actual_arg) in slot_args.iter_mut().zip(actual_args) {
-                merge_type_slot(slot_arg, actual_arg);
+                changed |= merge_type_slot(slot_arg, actual_arg);
             }
+            changed
         }
         (Type::Record(slot_fields), Type::Record(actual_fields)) => {
+            let mut changed = false;
             for (slot_name, slot_ty) in slot_fields {
                 if let Some((_, actual_ty)) = actual_fields
                     .iter()
                     .find(|(actual_name, _)| actual_name == slot_name)
                 {
-                    merge_type_slot(slot_ty, actual_ty);
+                    changed |= merge_type_slot(slot_ty, actual_ty);
                 }
             }
+            changed
         }
         (
             Type::Function {
@@ -162,15 +171,16 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) {
         ) if slot_params.len() == actual_params.len()
             && slot_variadic.is_some() == actual_variadic.is_some() =>
         {
+            let mut changed = false;
             for (slot_param, actual_param) in slot_params.iter_mut().zip(actual_params) {
-                merge_type_slot(slot_param, actual_param);
+                changed |= merge_type_slot(slot_param, actual_param);
             }
             if let (Some(slot_variadic), Some(actual_variadic)) = (slot_variadic, actual_variadic) {
-                merge_type_slot(slot_variadic, actual_variadic);
+                changed |= merge_type_slot(slot_variadic, actual_variadic);
             }
-            merge_type_slot(slot_return, actual_return);
+            changed | merge_type_slot(slot_return, actual_return)
         }
-        _ => {}
+        _ => false,
     }
 }
 

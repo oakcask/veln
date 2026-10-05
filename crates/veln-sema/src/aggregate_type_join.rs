@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 
 use crate::adt::registry::AdtRegistry;
@@ -11,6 +12,7 @@ pub(crate) struct AggregateTypeJoin {
     args: Vec<Type>,
     declaration_order: Vec<String>,
     variants: Option<HashSet<String>>,
+    materialized: RefCell<Option<Type>>,
 }
 
 impl AggregateTypeJoin {
@@ -36,6 +38,7 @@ impl AggregateTypeJoin {
             args: initial.args.to_vec(),
             declaration_order,
             variants,
+            materialized: RefCell::new(None),
         })
     }
 
@@ -48,16 +51,26 @@ impl AggregateTypeJoin {
         {
             return false;
         }
+        let mut changed = false;
         for (joined, right) in self.args.iter_mut().zip(right.args) {
-            unification::merge_type_slot(joined, right);
+            changed |= unification::merge_type_slot(joined, right);
         }
         match (&mut self.variants, right.variants) {
             (Some(joined), Some(right)) => {
                 record_work(right.len());
-                joined.extend(right.iter().cloned());
+                for variant in right {
+                    changed |= joined.insert(variant.clone());
+                }
             }
-            (variants, None) => *variants = None,
+            (variants @ Some(_), None) => {
+                *variants = None;
+                changed = true;
+            }
             (None, Some(_)) => {}
+            (None, None) => {}
+        }
+        if changed {
+            *self.materialized.borrow_mut() = None;
         }
         true
     }
@@ -67,6 +80,9 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn result_type(&self) -> Type {
+        if let Some(materialized) = self.materialized.borrow().clone() {
+            return materialized;
+        }
         let Some(variants) = &self.variants else {
             return self.inference_type();
         };
@@ -77,7 +93,7 @@ impl AggregateTypeJoin {
             .filter(|variant| variants.contains(*variant))
             .cloned()
             .collect::<Vec<_>>();
-        if variants.len() == self.declaration_order.len() {
+        let materialized = if variants.len() == self.declaration_order.len() {
             self.inference_type()
         } else {
             Type::resolved_variant_refinement(
@@ -86,7 +102,9 @@ impl AggregateTypeJoin {
                 self.args.clone(),
                 variants,
             )
-        }
+        };
+        *self.materialized.borrow_mut() = Some(materialized.clone());
+        materialized
     }
 }
 

@@ -118,6 +118,7 @@ pub(crate) fn infer_private_function_tail_type(
     private_inference_counters::record_body_return_scan();
 
     let mut bindings = private_function_body_bindings(function, signatures_by_path);
+    let mut failures = 0;
     infer_private_body_type(
         &function.body,
         None,
@@ -126,9 +127,11 @@ pub(crate) fn infer_private_function_tail_type(
         &mut bindings,
         returns_by_path,
         adts,
+        &mut failures,
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn infer_private_body_type(
     body: &[BodyLine],
     expected: Option<&Type>,
@@ -137,6 +140,7 @@ pub(super) fn infer_private_body_type(
     bindings: &mut PrivateBindings,
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
+    failures: &mut usize,
 ) -> Type {
     let mut tail = Type::unit();
     for (index, line) in body.iter().enumerate() {
@@ -155,8 +159,23 @@ pub(super) fn infer_private_body_type(
                         adts,
                     )
                 });
-                let ty = annotation_type.unwrap_or_else(|| {
-                    infer_private_signature_expr_type(
+                let ty = if let Some(annotation_type) = annotation_type {
+                    let actual = infer_private_signature_expr_type_with_failures(
+                        expr,
+                        Some(&annotation_type),
+                        current_module,
+                        uses,
+                        bindings,
+                        returns_by_path,
+                        adts,
+                        failures,
+                    );
+                    if !crate::type_relations::is_assignable_nested(&annotation_type, &actual) {
+                        *failures += 1;
+                    }
+                    annotation_type
+                } else {
+                    infer_private_signature_expr_type_with_failures(
                         expr,
                         None,
                         current_module,
@@ -164,13 +183,14 @@ pub(super) fn infer_private_body_type(
                         bindings,
                         returns_by_path,
                         adts,
+                        failures,
                     )
-                });
+                };
                 collect_pattern_bindings(pattern, &ty, bindings);
                 tail = Type::unit();
             }
             BodyLineKind::Expr { expr } => {
-                tail = infer_private_signature_expr_type(
+                tail = infer_private_signature_expr_type_with_failures(
                     expr,
                     (index + 1 == body.len()).then_some(expected).flatten(),
                     current_module,
@@ -178,6 +198,7 @@ pub(super) fn infer_private_body_type(
                     bindings,
                     returns_by_path,
                     adts,
+                    failures,
                 );
             }
             BodyLineKind::Defer { body, .. } => {
@@ -191,6 +212,7 @@ pub(super) fn infer_private_body_type(
                     bindings,
                     returns_by_path,
                     adts,
+                    failures,
                 );
                 bindings.truncate(binding_count);
                 tail = Type::unit();

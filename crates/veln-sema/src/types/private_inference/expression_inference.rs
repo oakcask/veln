@@ -9,12 +9,37 @@ pub(crate) fn infer_private_signature_expr_type(
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
+    let mut failures = 0;
+    infer_private_signature_expr_type_with_failures(
+        expr,
+        expected,
+        current_module,
+        uses,
+        bindings,
+        returns_by_path,
+        adts,
+        &mut failures,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn infer_private_signature_expr_type_with_failures(
+    expr: &Expr,
+    expected: Option<&Type>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &mut PrivateBindings,
+    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    adts: &AdtRegistry,
+    failures: &mut usize,
+) -> Type {
     let mut context = PrivateSignatureInferContext {
         current_module,
         uses,
         bindings,
         returns_by_path,
         adts,
+        failures,
     };
     if let Some(ty) = infer_private_leaf_type(expr) {
         return ty;
@@ -57,7 +82,7 @@ fn infer_private_leaf_type(expr: &Expr) -> Option<Type> {
 fn infer_private_branch_type(
     expr: &Expr,
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Option<Type> {
     match &expr.kind {
         ExprKind::Match { scrutinee, arms } => {
@@ -83,7 +108,7 @@ fn infer_private_branch_type(
 fn infer_private_value_type(
     expr: &Expr,
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Option<Type> {
     match &expr.kind {
         ExprKind::NamePath { segments, .. } => Some(infer_private_signature_name_type(
@@ -120,7 +145,7 @@ fn infer_private_value_type(
 fn infer_private_schema_type(
     expr: &Expr,
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Option<Type> {
     match &expr.kind {
         ExprKind::SchemaDecode { input, base, .. } => {
@@ -150,7 +175,7 @@ fn infer_private_schema_type(
 pub(crate) fn infer_private_list_type(
     items: &[Expr],
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     let mut item_type = expected
         .and_then(Type::vec_part)
@@ -163,7 +188,11 @@ pub(crate) fn infer_private_list_type(
             .as_ref()
             .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
             .unwrap_or_else(|| item_type.clone());
+        let failure_count = context.failure_count();
         let actual = context.infer(item, item_type_unknown_as_none(&inferred_context));
+        if context.failure_count() != failure_count {
+            continue;
+        }
         let actual = if has_context {
             inferred_private_aggregate_member_type(actual, &item_type)
         } else {
@@ -195,7 +224,7 @@ pub(crate) fn infer_private_list_type(
 pub(crate) fn infer_private_dict_type(
     entries: &[DictEntry],
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     let (mut key_type, mut value_type) = expected
         .and_then(Type::dict_parts)
@@ -210,21 +239,24 @@ pub(crate) fn infer_private_dict_type(
             .as_ref()
             .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
             .unwrap_or_else(|| key_type.clone());
+        let key_failure_count = context.failure_count();
         let key_actual = context.infer(&entry.key, item_type_unknown_as_none(&key_context));
+        let key_succeeded = context.failure_count() == key_failure_count;
         let key_actual = if has_key_context {
             inferred_private_aggregate_member_type(key_actual, &key_type)
         } else {
             key_actual
         };
-        if !has_key_context && joined_keys.is_none() && key_type != Type::Unknown {
+        if key_succeeded && !has_key_context && joined_keys.is_none() && key_type != Type::Unknown {
             joined_keys =
                 crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &key_type);
         }
-        let key_joined = !has_key_context
+        let key_joined = key_succeeded
+            && !has_key_context
             && joined_keys
                 .as_mut()
                 .is_some_and(|joined| joined.try_join(&key_actual));
-        if !key_joined && key_type == Type::Unknown {
+        if key_succeeded && !key_joined && key_type == Type::Unknown {
             key_type = key_actual;
             joined_keys = (!has_key_context)
                 .then(|| {
@@ -236,21 +268,28 @@ pub(crate) fn infer_private_dict_type(
             .as_ref()
             .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
             .unwrap_or_else(|| value_type.clone());
+        let value_failure_count = context.failure_count();
         let value_actual = context.infer(&entry.value, item_type_unknown_as_none(&value_context));
+        let value_succeeded = context.failure_count() == value_failure_count;
         let value_actual = if has_key_context {
             inferred_private_aggregate_member_type(value_actual, &value_type)
         } else {
             value_actual
         };
-        if !has_key_context && joined_values.is_none() && value_type != Type::Unknown {
+        if value_succeeded
+            && !has_key_context
+            && joined_values.is_none()
+            && value_type != Type::Unknown
+        {
             joined_values =
                 crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &value_type);
         }
-        let value_joined = !has_key_context
+        let value_joined = value_succeeded
+            && !has_key_context
             && joined_values
                 .as_mut()
                 .is_some_and(|joined| joined.try_join(&value_actual));
-        if !value_joined && value_type == Type::Unknown {
+        if value_succeeded && !value_joined && value_type == Type::Unknown {
             value_type = value_actual;
             joined_values = (!has_key_context)
                 .then(|| {
@@ -271,7 +310,7 @@ pub(crate) fn infer_private_dict_type(
 pub(crate) fn infer_private_record_type(
     fields: &[RecordField],
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     if fields.is_empty()
         && let Some(expected) = expected
@@ -308,7 +347,7 @@ pub(crate) fn infer_private_match_type(
     scrutinee: &Expr,
     arms: &[MatchArm],
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     let scrutinee_expected = match infer_match_scrutinee_type_from_constructor_patterns(
         arms,
@@ -334,7 +373,7 @@ pub(crate) fn infer_private_if_result_type(
     else_if_branches: &[IfBranch],
     else_branch: &Expr,
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     for branch_expr in std::iter::once(then_branch)
@@ -402,7 +441,7 @@ pub(crate) fn infer_private_binary_type(
     left: &Expr,
     right: &Expr,
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     match op {
         veln_ast::BinaryOp::Equal
@@ -714,17 +753,18 @@ fn private_name_value_type(
     }
 }
 
-pub(crate) struct PrivateSignatureInferContext<'a> {
+pub(crate) struct PrivateSignatureInferContext<'a, 'f> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
     pub(crate) bindings: &'a mut PrivateBindings,
     pub(crate) returns_by_path: &'a BTreeMap<(Option<String>, String), Type>,
     pub(crate) adts: &'a AdtRegistry,
+    pub(crate) failures: &'f mut usize,
 }
 
-impl PrivateSignatureInferContext<'_> {
+impl PrivateSignatureInferContext<'_, '_> {
     pub(crate) fn infer(&mut self, expr: &Expr, expected: Option<&Type>) -> Type {
-        infer_private_signature_expr_type(
+        infer_private_signature_expr_type_with_failures(
             expr,
             expected,
             self.current_module,
@@ -732,7 +772,12 @@ impl PrivateSignatureInferContext<'_> {
             self.bindings,
             self.returns_by_path,
             self.adts,
+            self.failures,
         )
+    }
+
+    fn failure_count(&self) -> usize {
+        *self.failures
     }
 
     fn infer_body(&mut self, body: &[BodyLine], expected: Option<&Type>) -> Type {
@@ -746,6 +791,7 @@ impl PrivateSignatureInferContext<'_> {
             self.bindings,
             self.returns_by_path,
             self.adts,
+            self.failures,
         );
         self.bindings.truncate(binding_count);
         ty
@@ -756,7 +802,7 @@ pub(crate) fn infer_private_signature_call_type(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return Type::Unknown;
@@ -781,7 +827,7 @@ pub(crate) fn infer_private_signature_call_type(
 fn private_payload_constructor<'a>(
     segments: &[String],
     expected: Option<&Type>,
-    context: &PrivateSignatureInferContext<'a>,
+    context: &PrivateSignatureInferContext<'a, '_>,
 ) -> Option<AdtConstructor<'a>> {
     let expected_constructor = (segments.len() == 1)
         .then_some(expected)
@@ -815,7 +861,7 @@ fn infer_private_constructor_call(
     constructor: AdtConstructor<'_>,
     args: &[Expr],
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     let mut inferred_type_args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
     let mut joined_type_args = (0..inferred_type_args.len())
@@ -853,12 +899,17 @@ fn infer_private_constructor_call(
         let widens_aggregate_member = expected.is_some()
             || (field.is_some_and(|field| !matches!(field.ty, AdtPayloadType::TypeParameter(_)))
                 && !private_type_contains_unknown(&payload_expected));
+        let payload_failure_count = context.failure_count();
         let actual = context.infer(arg, item_type_unknown_as_none(&payload_expected));
+        let payload_succeeded = context.failure_count() == payload_failure_count;
         let inferred_actual = if widens_aggregate_member {
             inferred_private_aggregate_member_type(actual, &payload_expected)
         } else {
             actual
         };
+        if !payload_succeeded {
+            continue;
+        }
         let joined = field.is_some_and(|field| match field.ty {
             AdtPayloadType::TypeParameter(type_index) => {
                 if invariant_type_args[type_index] {
@@ -948,7 +999,7 @@ fn infer_private_constructor_call(
 
 fn private_declared_call_return<'a>(
     segments: &[String],
-    context: &'a PrivateSignatureInferContext<'_>,
+    context: &'a PrivateSignatureInferContext<'_, '_>,
 ) -> Option<&'a Type> {
     match segments {
         [name] => context

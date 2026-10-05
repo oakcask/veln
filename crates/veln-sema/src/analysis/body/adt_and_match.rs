@@ -82,6 +82,9 @@ impl<'a> FunctionChecker<'a> {
             };
             let payload_diagnostic_count = self.diagnostics.len();
             let actual_arg = self.infer_expr(arg, Some(&arg_expected));
+            if self.diagnostics.len() != payload_diagnostic_count {
+                continue;
+            }
             let has_context = expected.is_some()
                 || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
                     && !type_contains_unknown(&arg_expected.ty));
@@ -238,6 +241,7 @@ impl<'a> FunctionChecker<'a> {
         let mut item_type = expected_item.clone();
         let mut joined_items = None;
         for item in items {
+            let item_diagnostic_count = self.diagnostics.len();
             let inferred_context = joined_items
                 .as_ref()
                 .map(AggregateTypeJoin::inference_type)
@@ -254,6 +258,9 @@ impl<'a> FunctionChecker<'a> {
                 "Vec element type inferred here.",
             );
             let actual = self.infer_expr(item, Some(&item_expected));
+            if self.diagnostics.len() != item_diagnostic_count {
+                continue;
+            }
             let aggregate_actual = if contextual_item {
                 inferred_aggregate_member_type_with_expected(actual.clone(), &expected_item)
             } else {

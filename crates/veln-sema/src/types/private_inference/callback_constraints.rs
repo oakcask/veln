@@ -238,6 +238,7 @@ pub(crate) fn collect_private_prelude_callback_call_constraints(
     expected: Option<&Type>,
     context: &mut PrivatePreludeCallbackConstraintContext<'_>,
 ) {
+    let mut failures = 0;
     let Some(params) = private_prelude_callback_call_params(
         callee,
         args,
@@ -248,6 +249,7 @@ pub(crate) fn collect_private_prelude_callback_call_constraints(
             bindings: context.bindings,
             returns_by_path: &*context.returns_by_path,
             adts: context.adts,
+            failures: &mut failures,
         },
         context.function_by_path,
     ) else {
@@ -263,7 +265,7 @@ pub(crate) fn private_prelude_callback_call_params(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    context: &mut PrivateSignatureInferContext<'_>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
     function_by_path: &FunctionAstMap<'_>,
 ) -> Option<Vec<Type>> {
     let ExprKind::NamePath { segments, .. } = &callee.kind else {

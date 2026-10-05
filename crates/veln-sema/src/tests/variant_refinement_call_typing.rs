@@ -982,6 +982,41 @@ fn aggregate_join_scaling_source(variant_count: usize) -> String {
     source
 }
 
+fn aggregate_rejection_scaling_source(variant_count: usize) -> String {
+    let mut source = String::from("type State\n");
+    for index in 0..variant_count {
+        source.push_str(&format!("  Variant{index:04}\n"));
+    }
+    source.push_str("end\ntype Foreign\n  Other\nend\ntype Repeated<A>\n  Many(");
+    source.push_str(
+        &(0..=variant_count)
+            .map(|_| "A")
+            .collect::<Vec<_>>()
+            .join(", "),
+    );
+    source.push_str(")\nend\nfn main() -> ()\n");
+    let rejected = (0..variant_count)
+        .map(|_| "Foreign::Other")
+        .collect::<Vec<_>>();
+    source.push_str(&format!(
+        "  let vector = [State::Variant0000, {}]\n",
+        rejected.join(", ")
+    ));
+    source.push_str(&format!(
+        "  let dictionary = {{State::Variant0000: State::Variant0000, {}}}\n",
+        (0..variant_count)
+            .map(|_| "Foreign::Other: Foreign::Other")
+            .collect::<Vec<_>>()
+            .join(", ")
+    ));
+    source.push_str(&format!(
+        "  let repeated = Repeated::Many(State::Variant0000, {})\n",
+        rejected.join(", ")
+    ));
+    source.push_str("end\n");
+    source
+}
+
 #[test]
 fn aggregate_join_work_grows_linearly_through_all_inference_paths() {
     let work = [200, 400, 800, 1600].map(|variant_count| {
@@ -1026,6 +1061,187 @@ fn aggregate_join_work_grows_linearly_through_all_inference_paths() {
         work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64 && work[3] <= work[2] * 2 + 64,
         "doubling aggregate input must add only linear join work: {work:?}"
     );
+}
+
+#[test]
+fn unchanged_aggregate_join_work_grows_linearly_for_rejected_contributions() {
+    let work = [50, 100, 200, 400].map(|variant_count| {
+        let source = SourceFile::new(
+            "main.veln",
+            aggregate_rejection_scaling_source(variant_count),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::aggregate_type_join::reset_work();
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        eprintln!(
+            "{variant_count}-variant rejected aggregate analysis: {:?}",
+            started.elapsed()
+        );
+        assert_eq!(diagnostics.len(), variant_count * 4, "{diagnostics:#?}");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id == "type.mismatch"),
+            "{diagnostics:#?}"
+        );
+        let details = diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.details.to_json())
+            .collect::<Vec<_>>();
+        assert!(
+            details.iter().all(|details| {
+                details.contains("\"expected_type\":\"State::Variant0000\"")
+                    && details.contains("\"actual_type\":\"Foreign::Other\"")
+            }),
+            "{details:#?}"
+        );
+        for (constraint, expected_count) in [
+            ("list_element", variant_count),
+            ("dict_key", variant_count),
+            ("dict_value", variant_count),
+            ("call_argument", variant_count),
+        ] {
+            assert_eq!(
+                details
+                    .iter()
+                    .filter(|details| details.contains(&format!("\"constraint\":\"{constraint}\"")))
+                    .count(),
+                expected_count,
+                "{constraint}: {details:#?}"
+            );
+        }
+        crate::aggregate_type_join::take_work()
+    });
+    eprintln!("aggregate rejection join work units at doubled sizes: {work:?}");
+    assert!(work[0] > 0, "the metric must observe aggregate join work");
+    assert!(
+        work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64 && work[3] <= work[2] * 2 + 64,
+        "doubling rejected aggregate input must add only linear join work: {work:?}"
+    );
+}
+
+#[test]
+fn aggregate_join_cache_invalidates_after_a_successful_variant_change() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  First\n",
+        "  Second\n",
+        "  Third\n",
+        "end\n",
+        "type Foreign\n",
+        "  Other\n",
+        "end\n",
+        "fn foreign() -> Foreign::Other\n",
+        "  Other\n",
+        "end\n",
+        "fn main() -> ()\n",
+        "  let values = [Second, foreign(), First, foreign()]\n",
+        "end\n",
+    ));
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics[0].message.to_string(),
+        "expected `State::Second`, but found `Foreign`"
+    );
+    assert_eq!(
+        diagnostics[1].message.to_string(),
+        "expected `State::First | State::Second`, but found `Foreign`"
+    );
+}
+
+#[test]
+fn failed_payloads_do_not_contribute_to_private_or_body_recovery_joins() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "type Triple<A>\n",
+            "  Made(A, A, A)\n",
+            "end\n",
+            "fn recovered()\n",
+            "  Triple::Made(Ready, begin\n",
+            "    let bad: Int = \"bad\"\n",
+            "    Closed\n",
+            "  end, Failed)\n",
+            "end\n",
+            "fn recovered_vector()\n",
+            "  [Ready, begin\n",
+            "    let bad: Int = \"bad\"\n",
+            "    Closed\n",
+            "  end, Failed]\n",
+            "end\n",
+            "fn recovered_dict_values()\n",
+            "  {1: Ready, 2: begin\n",
+            "    let bad: Int = \"bad\"\n",
+            "    Closed\n",
+            "  end, 3: Failed}\n",
+            "end\n",
+            "fn accept_triple(value: Triple<State::Ready | State::Failed>::Made) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn accept_vector(value: Vec<State::Ready | State::Failed>) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn accept_dict_values(value: Dict<Int, State::Ready | State::Failed>) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  accept_triple(recovered())\n",
+            "  accept_vector(recovered_vector())\n",
+            "  accept_dict_values(recovered_dict_values())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    for diagnostic in &diagnostics {
+        assert_eq!(diagnostic.id, "type.mismatch", "{diagnostics:#?}");
+        assert_eq!(
+            diagnostic.message.to_string(),
+            "expected `Int`, but found `String`"
+        );
+        let span = diagnostic.span.as_ref().expect("initializer mismatch span");
+        assert_eq!(
+            &source.text()[span.start.offset..span.end.offset],
+            "\"bad\""
+        );
+    }
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("recovered")
+            .expect("private omitted result should be published")
+            .return_type
+            .render(),
+        "Triple<State::Ready | State::Failed>::Made"
+    );
+    for (function, expected) in [
+        ("recovered_vector", "Vec<State::Ready | State::Failed>"),
+        (
+            "recovered_dict_values",
+            "Dict<Int, State::Ready | State::Failed>",
+        ),
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("{function} should be present"))
+                .return_type
+                .render(),
+            expected
+        );
+    }
 }
 
 #[test]
