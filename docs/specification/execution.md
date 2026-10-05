@@ -90,6 +90,14 @@ malformed compact hex, out-of-range counts or ranges, truncated fixed-width
 reads, schema mismatches, and conversion overflow return typed failures while
 preserving their inputs.
 
+On the JVM, `byte_take`, `byte_drop`, and `byte_view_to_chunk` can share an
+immutable backing range. Repeatedly dropping one-byte prefixes performs work
+linear in the original chunk length. A non-empty derived chunk retains backing
+capacity no greater than four times its logical byte count, and an empty
+derived chunk retains no backing elements. The deterministic byte-chunk slice
+harness counts created ranges and copied elements and inspects retained
+capacity; it does not use wall-clock timing.
+
 `byte_chunks_produce(chunks, budget)` emits only whole chunks that fit the
 `ByteCount` budget, preserves order, reports the produced count, and returns
 the unproduced suffix. It does not mutate the input list or chunks.
