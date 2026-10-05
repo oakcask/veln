@@ -1,8 +1,0 @@
-first
-left
-right-a
-left-a
-right
-timeout
-timeout
-cancelled

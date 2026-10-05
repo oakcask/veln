@@ -12,9 +12,14 @@ trap cleanup EXIT HUP INT TERM
 export VELN_CACHE_DIR="$cache_root"
 
 cd "$standard_root"
-bash ../../../scripts/agent-run \
-  cargo run \
-  --manifest-path ../../../Cargo.toml \
-  --locked \
-  -p veln-cli \
-  -- test
+# Keep each generated JVM test entry bounded as companion coverage grows.
+shopt -s globstar nullglob
+companions=(**/*.test.veln)
+for companion in "${companions[@]}"; do
+  bash ../../../scripts/agent-run \
+    cargo run \
+    --manifest-path ../../../Cargo.toml \
+    --locked \
+    -p veln-cli \
+    -- test "$companion"
+done

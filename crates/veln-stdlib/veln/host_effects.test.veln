@@ -1,0 +1,73 @@
+use prelude
+use test_clock
+
+fn expect_clock(condition: Bool) -> Result<(), String>
+	if condition
+		Ok(())
+	else
+		Err("clock API observation changed")
+	end
+end
+
+fn wall_and_deadline() -> Result<(), String> effects [time]
+	let before = time::wall_time()
+	let deadline = time::deadline_after_ms(5)
+	let after = time::wall_time()
+	time::wait_until(deadline)
+	expect_clock(before.unix_seconds == 1234 and before.nanosecond == 567 and before == after)
+end
+
+test wall_time_preserves_epoch_pre_epoch_and_structural_records() -> Result<(), String> effects [time]
+	let unchecked: WallTime = { unix_seconds: 0, nanosecond: -1 }
+	let epoch = handle time::wall_time() with test_clock::clock(7, 0, 0, 0, 0)
+	let pre_epoch = handle time::wall_time() with test_clock::clock(7, 0, 0, 0, -1)
+	expect_clock(unchecked.nanosecond == -1 and epoch.unix_seconds == 0 and epoch.nanosecond == 0 and pre_epoch.unix_seconds == -1 and pre_epoch.nanosecond == 999999999)
+end
+
+test wall_time_can_move_backwards_without_affecting_deadlines() -> Result<(), String> effects [time, concurrency]
+	let sequence = channel::bounded<Int>(2)
+	let _ = channel::send(sequence.tx, 2)
+	let _ = channel::send(sequence.tx, 1)
+	channel::close(sequence.tx)
+	let first = handle time::wall_time() with test_clock::backwards(sequence)
+	let second = handle time::wall_time() with test_clock::backwards(sequence)
+	let _ = expect_clock(first.unix_seconds == 2 and first.nanosecond == 0 and second.unix_seconds == 1 and second.nanosecond == 0)?
+	handle wall_and_deadline() with test_clock::clock(700, 0, 5, 1234, 567)
+end
+
+fn wait_outcome() -> CancellableWaitOutcome effects [time]
+	let deadline = time::deadline_after_ms(5)
+	let token = time::cancel_token()
+	time::wait_until_cancellable_outcome(deadline, token)
+end
+
+test cancellable_wait_distinguishes_completion_deadline_and_cancellation() -> Result<(), String> effects [time]
+	let completed = match handle wait_outcome() with test_clock::clock(0, 0, 0, 0, 0)
+		WaitCompleted => true
+		_ => false
+	end
+	let expired = match handle wait_outcome() with test_clock::clock(0, 1, 0, 0, 0)
+		WaitDeadlineExpired => true
+		_ => false
+	end
+	let cancelled = match handle wait_outcome() with test_clock::clock(0, 2, 0, 0, 0)
+		WaitCancelled => true
+		_ => false
+	end
+	expect_clock(completed and expired and cancelled)
+end
+
+fn forced_cancel_selection() -> Bool effects [time, concurrency]
+	let first = channel::bounded<Int>(1)
+	let second = channel::bounded<Int>(1)
+	let receivers: List<Receiver<Int>> = list_cons(first.rx, list_cons(second.rx, list_nil()))
+	let token = time::cancel_token()
+	match channel::select_many_timeout_cancellable(receivers, 25, token)
+		Err(_) => true
+		_ => false
+	end
+end
+
+test receiver_list_selection_preserves_forced_wait_cancellation() -> Result<(), String> effects [time, concurrency]
+	expect_clock(handle forced_cancel_selection() with test_clock::clock(0, 2, 0, 0, 0))
+end
