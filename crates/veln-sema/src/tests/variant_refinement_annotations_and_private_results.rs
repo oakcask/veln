@@ -680,10 +680,23 @@ fn private_control_flow_result_joins_are_symmetric_and_canonical() {
             "    base\n",
             "  end\n",
             "end\n",
+            "fn if_base_reverse(flag: Bool, refined: State::Ready, base: State)\n",
+            "  if flag\n",
+            "    base\n",
+            "  else\n",
+            "    refined\n",
+            "  end\n",
+            "end\n",
             "fn match_base(flag: Bool, refined: State::Ready, base: State)\n",
             "  match flag\n",
             "    true => base\n",
             "    false => refined\n",
+            "  end\n",
+            "end\n",
+            "fn match_base_reverse(flag: Bool, refined: State::Ready, base: State)\n",
+            "  match flag\n",
+            "    true => refined\n",
+            "    false => base\n",
             "  end\n",
             "end\n",
             "fn if_full(first: Bool, second: Bool, third: Bool)\n",
@@ -751,7 +764,9 @@ fn private_control_flow_result_joins_are_symmetric_and_canonical() {
             "State::Ready | State::Closed | State::Failed",
         ),
         ("if_base", "State"),
+        ("if_base_reverse", "State"),
         ("match_base", "State"),
+        ("match_base_reverse", "State"),
         ("if_full", "State"),
         ("match_full", "State"),
     ] {
@@ -763,6 +778,63 @@ fn private_control_flow_result_joins_are_symmetric_and_canonical() {
                 .render(),
             expected,
             "unexpected inferred result for {function}",
+        );
+    }
+}
+
+#[test]
+fn private_control_flow_result_joins_preserve_incompatible_mismatches() {
+    for (name, expression, expected, actual) in [
+        (
+            "if refinement first",
+            "if flag\n    ready\n  else\n    text\n  end",
+            "State",
+            "String",
+        ),
+        (
+            "if refinement second",
+            "if flag\n    text\n  else\n    ready\n  end",
+            "String",
+            "State::Ready",
+        ),
+        (
+            "match refinement first",
+            "match flag\n    true => ready\n    false => text\n  end",
+            "State",
+            "String",
+        ),
+        (
+            "match refinement second",
+            "match flag\n    true => text\n    false => ready\n  end",
+            "String",
+            "State::Ready",
+        ),
+        (
+            "if different generic arguments",
+            "if flag\n    int_box\n  else\n    string_box\n  end",
+            "Box<Int>",
+            "Box<String>::Boxed",
+        ),
+        (
+            "match different generic arguments",
+            "match flag\n    true => int_box\n    false => string_box\n  end",
+            "Box<Int>",
+            "Box<String>::Boxed",
+        ),
+    ] {
+        let diagnostics = diagnostics_for(&format!(
+            "type State\n  Ready\n  Closed\nend\n\
+             type Box<A>\n  Boxed(A)\n  Empty\nend\n\
+             fn selected(flag: Bool, ready: State::Ready, text: String, int_box: Box<Int>::Boxed, string_box: Box<String>::Boxed) -> ()\n  let value = {expression}\nend\n"
+        ));
+
+        assert_eq!(diagnostics.len(), 1, "{name}: {diagnostics:#?}");
+        let diagnostic = &diagnostics[0];
+        assert_eq!(diagnostic.id, "type.mismatch", "{name}: {diagnostics:#?}");
+        assert_eq!(
+            diagnostic.message,
+            format!("expected `{expected}`, but found `{actual}`"),
+            "{name}: {diagnostics:#?}",
         );
     }
 }

@@ -1,29 +1,34 @@
-fn if_forward(flag: Bool)
-	if flag
-		1
+type State
+	Ready
+	Closed
+end
+
+fn if_refinement_first(flag: Bool) -> ()
+	let value = if flag
+		Ready
 	else
 		"wrong"
 	end
 end
 
-fn if_reverse(flag: Bool)
-	if flag
+fn if_refinement_second(flag: Bool) -> ()
+	let value = if flag
 		"wrong"
 	else
-		1
+		Ready
 	end
 end
 
-fn match_forward(flag: Bool)
-	match flag
-		true => 1
+fn match_refinement_first(flag: Bool) -> ()
+	let value = match flag
+		true => Ready
 		false => "wrong"
 	end
 end
 
-fn match_reverse(flag: Bool)
-	match flag
+fn match_refinement_second(flag: Bool) -> ()
+	let value = match flag
 		true => "wrong"
-		false => 1
+		false => Ready
 	end
 end
