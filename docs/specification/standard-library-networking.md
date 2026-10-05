@@ -109,8 +109,8 @@ pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, t
 `write_all(stream, bytes, deadline, token)` writes the complete `ByteChunk`.
 It returns `Ok(())` without performing `IO::write` when the input is empty.
 After `Written(count)` commits a proper prefix, it performs another write with
-only the uncommitted suffix. Every attempt receives the original deadline and
-cancellation token.
+only the uncommitted suffix. Every attempt receives the original stream,
+deadline, and cancellation token.
 
 `write_all` returns the reported `NetError` immediately after `WriteFailed`,
 including an outcome with a non-zero committed count. It performs no later
