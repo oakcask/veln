@@ -103,8 +103,11 @@ aggregate invariance failure with no truthful finite variant exclusion reports
 ordinary `type.mismatch`. Its actual type preserves the inferred nested
 refinement. This includes assigning an inferred record with a singleton-refined
 field, or an inferred named aggregate with a refined type argument, to the
-corresponding type that uses the base ADT. If an earlier error leaves the value
-untyped, `type.variant_mismatch` is omitted.
+corresponding type that uses the base ADT. During aggregate inference, an
+incompatible later contribution reports the aggregate position's accumulated
+type as expected and preserves the later contribution's constructor refinement
+as actual. If an earlier error leaves the value untyped,
+`type.variant_mismatch` is omitted.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and

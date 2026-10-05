@@ -10,8 +10,9 @@ update-when: ADT variant-refinement typing, diagnostics, schema or runtime behav
 Complete the remaining semantic and tooling support for implemented ADT variant
 refinement types. The current [type specification](../specification/types.md)
 owns singleton and finite-set resolution, constructor singleton inference,
-direct assignability and widening, refined calls and results, stable mismatch
-diagnostics, and runtime erasure.
+direct assignability and widening, aggregate retention and joins, contextual
+aggregate construction, refined calls and results, stable mismatch diagnostics,
+and runtime erasure.
 
 This proposal retains only the unfinished work: alias presentation and
 visibility, control-flow refinement and result joins, schema boundaries, package
@@ -128,9 +129,10 @@ snapshot under the existing language-service rules.
 
 The current [type specification](../specification/types.md#compatibility-and-limits)
 owns refinement identity, finite-set subset assignment, direct widening,
-function-value invariance, constructor singleton inference, call and result
-checking, and runtime erasure. The sections below define only the remaining
-semantic extensions.
+function-value invariance, constructor singleton inference, aggregate retention
+and joins, contextual aggregate construction, call and result checking, and
+runtime erasure. The sections below define only the remaining semantic
+extensions.
 
 The examples below use this illustrative API. Its direct call and result
 typing, record-literal retention, and aggregate refinement retention are

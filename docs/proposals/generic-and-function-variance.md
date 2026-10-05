@@ -16,10 +16,12 @@ variance modifiers such as `in`, `out`, `+`, or `-`.
 
 This proposal is separate from the current
 [ADT variant-refinement contract](../specification/types.md#compatibility-and-limits).
-That contract permits refinements in nested annotations but widens a
-refinement to its base ADT only at a direct value boundary. This proposal owns
-any future rule that allows `Container<A::V>` to widen to `Container<A>` or
-relates function types whose parameter or result refinements differ.
+That contract permits refinements in nested annotations and retains them in
+inferred aggregate positions. Context can widen a component while its aggregate
+is constructed, but a constructed value widens a refinement to its base ADT
+only at a direct value boundary. This proposal owns any future rule that allows
+`Container<A::V>` to widen to `Container<A>` or relates function types whose
+parameter or result refinements differ.
 
 ## Motivation And Safety Boundary
 

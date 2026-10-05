@@ -200,8 +200,10 @@ local binding slot and include the current inferred type.
 
 Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
 value positions from every contribution. Constructor refinements of the same
-resolved ADT and identical generic arguments join into a declaration-ordered
-variant set, independent of source order. A join containing every declared
+resolved ADT and compatible generic arguments join into a declaration-ordered
+variant set, independent of source order. An unresolved generic argument can
+become concrete from another contribution; after it is concrete, later
+contributions must have the same argument. A join containing every declared
 variant, or a join of a refinement and its base ADT, becomes the base ADT.
 Other conflicting facts remain focused `type.mismatch` diagnostics at the
 incompatible element, key, or value.
