@@ -359,3 +359,30 @@ end
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "");
 }
+
+#[test]
+fn standard_network_write_all_handles_long_one_byte_progress_in_linear_ranges() {
+    let byte_count = 512;
+    let input = "a".repeat(byte_count);
+    let ir = lower_with_network_facade(&format!(
+        r#"
+pub fn main() -> Result<(), String> effects [net, time, concurrency]
+    verify_write_all_one_byte_progress(byte_chunk_from_visible_ascii_string("{input}")?, {byte_count})
+end
+"#,
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "standard-network-write-all-one-byte-progress",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+}

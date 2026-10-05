@@ -1,3 +1,29 @@
+    private static final java.util.concurrent.atomic.AtomicLong byteChunkMaterializedElementWork =
+        new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong byteChunkSliceWork =
+        new java.util.concurrent.atomic.AtomicLong();
+
+    private static final class FrozenByteChunk {
+        private final java.util.List<Object> storage;
+        private final int offset;
+        private final int count;
+
+        private FrozenByteChunk(java.util.List<Object> storage, int offset, int count) {
+            this.storage = storage;
+            this.offset = offset;
+            this.count = count;
+        }
+
+        private java.util.List<Object> bytes() {
+            return storage.subList(offset, offset + count);
+        }
+
+        @Override
+        public String toString() {
+            return "ByteChunk(" + bytes() + ")";
+        }
+    }
+
     private static final class FrozenByteView {
         private final Object chunk;
         private final long storageOffset;
@@ -28,7 +54,46 @@
     }
 
     private static Object byteChunkObject(java.util.List<Object> bytes) {
-        return adt("ByteChunk", new Object[] { freezeList(bytes) });
+        byteChunkMaterializedElementWork.addAndGet(bytes.size());
+        java.util.List<Object> storage = freezeList(bytes);
+        return new FrozenByteChunk(storage, 0, storage.size());
+    }
+
+    private static Object byteChunkDerivedObject(Object chunk, int relativeOffset, int count) {
+        byteChunkSliceWork.incrementAndGet();
+        if (chunk instanceof FrozenByteChunk) {
+            FrozenByteChunk frozen = (FrozenByteChunk) chunk;
+            return new FrozenByteChunk(
+                frozen.storage,
+                frozen.offset + relativeOffset,
+                count
+            );
+        }
+        java.util.List<Object> storage = byteChunkBytes(chunk);
+        return new FrozenByteChunk(storage, relativeOffset, count);
+    }
+
+    public static void resetByteChunkWorkForTest() {
+        byteChunkMaterializedElementWork.set(0L);
+        byteChunkSliceWork.set(0L);
+    }
+
+    public static long byteChunkMaterializedElementWorkForTest() {
+        return byteChunkMaterializedElementWork.get();
+    }
+
+    public static long byteChunkSliceWorkForTest() {
+        return byteChunkSliceWork.get();
+    }
+
+    public static boolean byteChunksShareStorageForTest(Object left, Object right) {
+        return left instanceof FrozenByteChunk
+            && right instanceof FrozenByteChunk
+            && ((FrozenByteChunk) left).storage == ((FrozenByteChunk) right).storage;
+    }
+
+    public static long byteChunkStorageOffsetForTest(Object chunk) {
+        return chunk instanceof FrozenByteChunk ? ((FrozenByteChunk) chunk).offset : -1L;
     }
 
     private static Object byteCountObject(long value) {
@@ -64,6 +129,9 @@
     }
 
     private static java.util.List<Object> byteChunkBytes(Object chunk) {
+        if (chunk instanceof FrozenByteChunk) {
+            return ((FrozenByteChunk) chunk).bytes();
+        }
         return asList(asAdt(chunk, "ByteChunk").payloads[0]);
     }
 
@@ -1515,7 +1583,7 @@
         if (requested > bytes.size()) {
             return err("byte count exceeds chunk length");
         }
-        return ok(byteChunkObject(bytes.subList(0, (int) requested)));
+        return ok(byteChunkDerivedObject(chunk, 0, (int) requested));
     }
 
     public static Object byteDrop(Object chunk, Object count) {
@@ -1527,7 +1595,11 @@
         if (requested > bytes.size()) {
             return err("byte count exceeds chunk length");
         }
-        return ok(byteChunkObject(bytes.subList((int) requested, bytes.size())));
+        return ok(byteChunkDerivedObject(
+            chunk,
+            (int) requested,
+            bytes.size() - (int) requested
+        ));
     }
 
     public static Object byteView(Object chunk, Object offset, Object count) {
@@ -1564,7 +1636,11 @@
         if (offset < 0 || count < 0 || offset > bytes.size() || count > bytes.size() - offset) {
             return byteChunkObject(java.util.Collections.emptyList());
         }
-        return byteChunkObject(bytes.subList((int) offset, (int) (offset + count)));
+        return byteChunkDerivedObject(
+            byteViewChunk(view),
+            (int) offset,
+            (int) count
+        );
     }
 
     public static Object byteViewCount(Object view) {
