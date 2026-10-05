@@ -369,9 +369,20 @@ pub(crate) fn infer_private_match_type(
     };
     context.infer(scrutinee, scrutinee_expected.as_ref());
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
+    let mut joined_result = None;
     for arm in arms {
-        let actual = context.infer(&arm.expr, item_type_unknown_as_none(&result));
-        merge_private_control_flow_result(&mut result, actual);
+        let inferred_context = joined_result
+            .as_ref()
+            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
+            .unwrap_or_else(|| result.clone());
+        let actual = context.infer(&arm.expr, item_type_unknown_as_none(&inferred_context));
+        merge_private_control_flow_result(
+            &mut result,
+            &mut joined_result,
+            actual,
+            context.adts,
+            expected.is_none(),
+        );
     }
     result
 }
@@ -384,25 +395,58 @@ pub(crate) fn infer_private_if_result_type(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
+    let mut joined_result = None;
     for branch_expr in std::iter::once(then_branch)
         .chain(else_if_branches.iter().map(|branch| &branch.expr))
         .chain(std::iter::once(else_branch))
     {
-        let actual = context.infer(branch_expr, item_type_unknown_as_none(&result));
-        merge_private_control_flow_result(&mut result, actual);
+        let inferred_context = joined_result
+            .as_ref()
+            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
+            .unwrap_or_else(|| result.clone());
+        let actual = context.infer(branch_expr, item_type_unknown_as_none(&inferred_context));
+        merge_private_control_flow_result(
+            &mut result,
+            &mut joined_result,
+            actual,
+            context.adts,
+            expected.is_none(),
+        );
     }
     result
 }
 
-fn merge_private_control_flow_result(result: &mut Type, actual: Type) {
+fn merge_private_control_flow_result(
+    result: &mut Type,
+    joined_result: &mut Option<crate::aggregate_type_join::AggregateTypeJoin>,
+    actual: Type,
+    adts: &AdtRegistry,
+    allow_join: bool,
+) {
     if *result == Type::Unknown {
         *result = actual;
+        *joined_result = crate::aggregate_type_join::AggregateTypeJoin::new(adts, result);
         return;
     }
     if *result == actual || actual == Type::Unknown {
         return;
     }
-    let common_base = match (&*result, &actual) {
+    if !allow_join {
+        merge_expected_private_control_flow_result(result, &actual);
+        return;
+    }
+    if joined_result.is_none() {
+        *joined_result = crate::aggregate_type_join::AggregateTypeJoin::new(adts, result);
+    }
+    if let Some(joined) = joined_result.as_mut()
+        && joined.try_join(&actual)
+    {
+        *result = joined.result_type();
+    }
+}
+
+fn merge_expected_private_control_flow_result(result: &mut Type, actual: &Type) {
+    let common_base = match (&*result, actual) {
         (
             Type::VariantRefinement {
                 name,

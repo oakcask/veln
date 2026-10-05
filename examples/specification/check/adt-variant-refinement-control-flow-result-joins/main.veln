@@ -1,0 +1,148 @@
+type State
+	Ready
+	Closed
+	Failed
+	Pending
+end
+
+fn if_forward(flag: Bool)
+	if flag
+		Closed
+	else
+		Ready
+	end
+end
+
+fn if_reverse(flag: Bool)
+	if flag
+		Ready
+	else
+		Closed
+	end
+end
+
+fn match_forward(flag: Bool)
+	match flag
+		true => Closed
+		false => Ready
+	end
+end
+
+fn match_reverse(flag: Bool)
+	match flag
+		true => Ready
+		false => Closed
+	end
+end
+
+fn if_finite_forward(flag: Bool, first: State::Failed | State::Ready, second: State::Closed)
+	if flag
+		first
+	else
+		second
+	end
+end
+
+fn if_finite_reverse(flag: Bool, first: State::Failed | State::Ready, second: State::Closed)
+	if flag
+		second
+	else
+		first
+	end
+end
+
+fn match_finite_forward(flag: Bool, first: State::Failed | State::Ready, second: State::Closed)
+	match flag
+		true => first
+		false => second
+	end
+end
+
+fn match_finite_reverse(flag: Bool, first: State::Failed | State::Ready, second: State::Closed)
+	match flag
+		true => second
+		false => first
+	end
+end
+
+fn if_base_forward(flag: Bool, refined: State::Ready, base: State)
+	if flag
+		refined
+	else
+		base
+	end
+end
+
+fn if_base_reverse(flag: Bool, refined: State::Ready, base: State)
+	if flag
+		base
+	else
+		refined
+	end
+end
+
+fn match_base_forward(flag: Bool, refined: State::Ready, base: State)
+	match flag
+		true => refined
+		false => base
+	end
+end
+
+fn match_base_reverse(flag: Bool, refined: State::Ready, base: State)
+	match flag
+		true => base
+		false => refined
+	end
+end
+
+fn if_full(first: Bool, second: Bool, third: Bool)
+	if first
+		Failed
+	else if second
+		Ready
+	else if third
+		Pending
+	else
+		Closed
+	end
+end
+
+fn match_full(state: State)
+	match state
+		Ready => Pending
+		Closed => Ready
+		Failed => Closed
+		Pending => Failed
+	end
+end
+
+fn main() -> ()
+	let direct_if = if true
+		Ready
+	else
+		Closed
+	end
+	let direct_match = match false
+		true => Closed
+		false => Ready
+	end
+	let direct_if_exact: State::Ready | State::Closed = direct_if
+	let direct_match_exact: State::Ready | State::Closed = direct_match
+	let first: State::Ready | State::Failed = Ready
+	let second: State::Closed = Closed
+	let base: State = Pending
+	let if_one: State::Ready | State::Closed = if_forward(true)
+	let if_two: State::Ready | State::Closed = if_reverse(true)
+	let match_one: State::Ready | State::Closed = match_forward(true)
+	let match_two: State::Ready | State::Closed = match_reverse(true)
+	let if_set_one: State::Ready | State::Closed | State::Failed = if_finite_forward(true, first, second)
+	let if_set_two: State::Ready | State::Closed | State::Failed = if_finite_reverse(true, first, second)
+	let match_set_one: State::Ready | State::Closed | State::Failed = match_finite_forward(true, first, second)
+	let match_set_two: State::Ready | State::Closed | State::Failed = match_finite_reverse(true, first, second)
+	let if_wide_one: State = if_base_forward(true, Ready, base)
+	let if_wide_two: State = if_base_reverse(true, Ready, base)
+	let match_wide_one: State = match_base_forward(true, Ready, base)
+	let match_wide_two: State = match_base_reverse(true, Ready, base)
+	let if_complete: State = if_full(true, false, false)
+	let match_complete: State = match_full(Ready)
+end

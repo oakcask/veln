@@ -231,10 +231,11 @@ When the tail is a local with an explicit refinement annotation, an omitted
 private result retains the resolved refinement. This applies to local and
 imported ADTs; the inferred result uses the resolved ADT's canonical display
 name rather than preserving a module qualifier from the local annotation.
-For an omitted private result whose final expression is `if` or `match`, equal
-constructor singletons in every typed branch retain that singleton. Different
-singletons of the same instantiated ADT infer the base ADT instead of selecting
-the first branch's refinement.
+For an omitted private result whose final expression is `if` or `match`, typed
+branches with refinements of the same instantiated ADT use the control-flow
+result join described below. Equal constructor singletons retain that
+singleton. Different singletons can retain a finite refinement set instead of
+widening immediately to the base ADT.
 
 Empty `Vec<T>` literals, `Nil` for `List<T>`, and empty dictionary literals
 accept concrete expected collection types from local annotations, return
@@ -359,16 +360,26 @@ arm expression still receive checking. For `List<A>`,
 `head` binds as `A` and `tail` binds as `List<A>`. A record pattern field binds
 nested patterns to the corresponding record field type when the scrutinee type
 is known. Unknown or non-record scrutinee types leave nested pattern bindings
-unknown. Arm expressions share the expected result type when one is available;
-otherwise the first arm supplies the initial result type for later arms.
+unknown. Arm expressions share the expected result type when one is available.
+Without an expected result, refinements of the same ADT identity and generic
+arguments join by taking the union of their variant sets. The union is
+independent of arm order and renders in ADT declaration order. A refinement
+joined with its base ADT, or a union containing every declared variant,
+produces the base ADT. Other arm-result combinations use the existing
+compatibility and mismatch rules, with the first typed arm supplying the
+initial result type.
 
 `if` and `else if` conditions are checked with expected type `Bool`. A
 non-`Bool` condition reports `type.mismatch` at the condition expression.
-Branch body expressions share the expected result type when one is available;
-otherwise the first branch supplies the initial result type for later branches,
-matching the result-unification behavior of equivalent `match Bool` arms.
-Typed holes in conditions therefore receive `Bool`, while typed holes in
-branch bodies receive the enclosing expected result type when one exists.
+Branch body expressions share the expected result type when one is available.
+Without one, branch results use the same symmetric ADT-refinement join as
+`match`; all other combinations retain the existing first-result compatibility
+behavior. Typed holes in conditions therefore receive `Bool`, while typed
+holes in branch bodies receive the enclosing expected result type when one
+exists. The checked control-flow cases are in
+[`adt-variant-refinement-control-flow-result-joins`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins/)
+and its
+[`diagnostic companion`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins-diagnostics/).
 
 After scrutinee type inference and arm expression checking, `match` expressions
 over finite domains must be exhaustive. `Bool` scrutinees require coverage for
@@ -558,10 +569,10 @@ rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
 Alias spelling and provenance, public/private exposure paths, pattern-based
-control-flow refinement, `if` and `match` result joins, schema boundaries,
-package-documentation signatures, command-wide coverage, LSP, MCP, and
-language-reference publication remain proposal work. This slice also does not
-add recursive generic or function variance.
+control-flow refinement, schema boundaries, package-documentation signatures,
+command-wide coverage, LSP, MCP, and language-reference publication remain
+proposal work. This slice also does not add recursive generic or function
+variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual

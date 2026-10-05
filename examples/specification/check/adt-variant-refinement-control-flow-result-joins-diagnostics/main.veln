@@ -1,0 +1,29 @@
+fn if_forward(flag: Bool)
+	if flag
+		1
+	else
+		"wrong"
+	end
+end
+
+fn if_reverse(flag: Bool)
+	if flag
+		"wrong"
+	else
+		1
+	end
+end
+
+fn match_forward(flag: Bool)
+	match flag
+		true => 1
+		false => "wrong"
+	end
+end
+
+fn match_reverse(flag: Bool)
+	match flag
+		true => "wrong"
+		false => 1
+	end
+end
