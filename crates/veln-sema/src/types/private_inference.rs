@@ -18,22 +18,26 @@ use crate::types::signatures::{FunctionSignature, MatchScrutineePatternInference
 use crate::types::symbols::imported_use_for_path;
 
 mod aliases_and_bindings;
+mod call_inference;
 mod call_site_resolution;
 mod call_site_traversal;
 mod callback_constraints;
 mod callback_discovery;
 mod expression_inference;
 mod orchestration;
+mod pattern_inference;
 mod reference_discovery;
 mod scoped_body_inference;
 
 pub(crate) use aliases_and_bindings::*;
+pub(crate) use call_inference::*;
 pub(crate) use call_site_resolution::*;
 pub(crate) use call_site_traversal::*;
 pub(crate) use callback_constraints::*;
 pub(crate) use callback_discovery::*;
 pub(crate) use expression_inference::*;
 pub(crate) use orchestration::*;
+pub(crate) use pattern_inference::*;
 pub(crate) use reference_discovery::*;
 pub(crate) use scoped_body_inference::*;
 
