@@ -548,8 +548,10 @@ add recursive generic or function variance.
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
 record and be assignable. Named types with the same constructor are compatible
-when their arguments are pairwise assignable, so `Vec<unknown>` accepts
-`Vec<Int>`. `Path` and `String` are distinct named types at assignment
+when their arguments are pairwise compatible at a nested boundary. A nested
+boundary accepts `unknown`, so `Vec<unknown>` accepts `Vec<Int>`, but it does
+not apply direct refinement widening: `Vec<State::Ready>` does not satisfy
+`Vec<State>`. `Path` and `String` are distinct named types at assignment
 boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
 shape, return type, and effects. Variadic and fixed-arity function types are
