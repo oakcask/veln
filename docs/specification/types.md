@@ -254,9 +254,10 @@ payloads use the same concrete context they would receive at the top level.
 Payload-carrying ADT constructors infer omitted type arguments from payload
 expressions when there is no surrounding expected ADT type. The constructor
 name must resolve to one visible variant, and every type argument must become
-concrete from the payloads. Repeated uses of the same type parameter must agree;
-an incompatible later payload reports `type.mismatch` at that payload
-expression. If payloads leave a constructor type argument as `unknown`, the
+concrete from the payloads. Repeated uses of the same type parameter join
+same-ADT constructor refinements by the aggregate join rule. Other incompatible
+later payloads report `type.mismatch` at that payload expression. If payloads
+leave a constructor type argument as `unknown`, the
 constructor reports `type.inference_ambiguous` with a constructor slot kind,
 current inferred type, and constructor type-context constraint. Bare,
 type-qualified,
