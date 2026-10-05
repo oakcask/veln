@@ -10,6 +10,7 @@ mod contracts;
 mod diagnostics;
 mod effect_rows;
 mod effects;
+mod inference_work;
 mod lowering;
 mod name_recovery;
 mod navigation;

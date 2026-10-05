@@ -182,14 +182,14 @@ pub(crate) fn merge_type_parameter_contributions_transactionally(
     let mut trial = Vec::<(usize, Type)>::new();
     let mut trial_positions = HashMap::<usize, usize>::new();
     for (index, actual) in contributions {
-        crate::aggregate_type_join::record_work(1);
+        crate::inference_work::record(1);
         let trial_index = if let Some(trial_index) = trial_positions.get(index) {
             *trial_index
         } else {
             let Some(expected) = current(*index) else {
                 continue;
             };
-            crate::aggregate_type_join::record_work(1);
+            crate::inference_work::record(1);
             let trial_index = trial.len();
             trial.push((*index, expected));
             trial_positions.insert(*index, trial_index);
@@ -197,15 +197,15 @@ pub(crate) fn merge_type_parameter_contributions_transactionally(
         };
         let rollback_work = trial.len();
         let expected = &mut trial[trial_index].1;
-        crate::aggregate_type_join::record_work(1);
+        crate::inference_work::record(1);
         if !type_parameter_contributions_compatible(expected, actual) {
-            crate::aggregate_type_join::record_work(rollback_work);
+            crate::inference_work::record(rollback_work);
             return Err(TypeParameterContributionConflict {
                 expected: Box::new(expected.clone()),
                 actual: Box::new(actual.clone()),
             });
         }
-        crate::aggregate_type_join::record_work(1);
+        crate::inference_work::record(1);
         merge_type_slot(expected, actual);
     }
     Ok(trial)

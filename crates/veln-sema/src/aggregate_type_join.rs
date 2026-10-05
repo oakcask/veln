@@ -167,13 +167,8 @@ fn adt_type_parts(ty: &Type) -> Option<AdtTypeParts<'_>> {
 }
 
 #[cfg(test)]
-thread_local! {
-    static AGGREGATE_JOIN_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-}
-
-#[cfg(test)]
 pub(crate) fn record_work(units: usize) {
-    AGGREGATE_JOIN_WORK.with(|work| work.set(work.get() + units));
+    crate::inference_work::record(units);
 }
 
 #[cfg(not(test))]
@@ -181,10 +176,10 @@ pub(crate) fn record_work(_units: usize) {}
 
 #[cfg(test)]
 pub(crate) fn reset_work() {
-    AGGREGATE_JOIN_WORK.with(|work| work.set(0));
+    crate::inference_work::reset();
 }
 
 #[cfg(test)]
 pub(crate) fn take_work() -> usize {
-    AGGREGATE_JOIN_WORK.with(|work| work.replace(0))
+    crate::inference_work::take()
 }

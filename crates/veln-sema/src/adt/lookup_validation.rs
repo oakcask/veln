@@ -2,7 +2,7 @@
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use veln_ast::{SurfaceModule, TypeDecl, UseDecl, Visibility};
+use veln_ast::{SurfaceModule, TypeDecl, TypeVariantDecl, UseDecl, Visibility};
 use veln_project::companion_access_target;
 
 use crate::builtin_type_syntax::{BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxRegistry};
@@ -143,43 +143,7 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
     let variants = decl
         .variants
         .iter()
-        .filter_map(|variant| {
-            let name = variant.name.clone()?;
-            if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
-                return None;
-            }
-            let payload_fields = variant
-                .fields
-                .iter()
-                .map(|field| AdtPayloadField {
-                    name: field.name.clone(),
-                    ty: payload_descriptor_type_with_indices(
-                        &field.ty,
-                        decl,
-                        &type_parameter_indices,
-                    ),
-                })
-                .collect::<Vec<_>>();
-            let coverage_case = if payload_fields.is_empty() {
-                name.clone()
-            } else {
-                format!("{name}(_)")
-            };
-            Some(AdtVariantDescriptor {
-                name,
-                name_class: SourceLessNameClass::Constructor,
-                kind: AdtVariantKind::Source,
-                payload_fields,
-                coverage_case,
-                visibility: if decl.module_name.as_deref() == Some("std::prelude")
-                    && decl.visibility == Visibility::Public
-                {
-                    Visibility::Public
-                } else {
-                    variant.visibility
-                },
-            })
-        })
+        .filter_map(|variant| source_variant_descriptor(variant, decl, &type_parameter_indices))
         .collect::<Vec<_>>();
     Some(AdtDescriptor {
         type_name: name.clone(),
@@ -192,6 +156,47 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
         propagation: None,
         visibility: decl.visibility,
     })
+}
+
+fn source_variant_descriptor(
+    variant: &TypeVariantDecl,
+    decl: &TypeDecl,
+    type_parameter_indices: &HashMap<&str, usize>,
+) -> Option<AdtVariantDescriptor> {
+    let name = variant.name.clone()?;
+    if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+        return None;
+    }
+    let payload_fields = variant
+        .fields
+        .iter()
+        .map(|field| AdtPayloadField {
+            name: field.name.clone(),
+            ty: payload_descriptor_type_with_indices(&field.ty, decl, type_parameter_indices),
+        })
+        .collect::<Vec<_>>();
+    let coverage_case = if payload_fields.is_empty() {
+        name.clone()
+    } else {
+        format!("{name}(_)")
+    };
+    Some(AdtVariantDescriptor {
+        name,
+        name_class: SourceLessNameClass::Constructor,
+        kind: AdtVariantKind::Source,
+        payload_fields,
+        coverage_case,
+        visibility: source_variant_visibility(variant, decl),
+    })
+}
+
+fn source_variant_visibility(variant: &TypeVariantDecl, decl: &TypeDecl) -> Visibility {
+    if decl.module_name.as_deref() == Some("std::prelude") && decl.visibility == Visibility::Public
+    {
+        Visibility::Public
+    } else {
+        variant.visibility
+    }
 }
 
 fn payload_descriptor_type_with_indices(

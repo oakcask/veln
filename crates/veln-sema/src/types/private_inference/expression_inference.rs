@@ -210,43 +210,13 @@ pub(super) fn infer_private_list_type(
     let mut joined_items = None;
     for item in items {
         let has_context = expected.and_then(Type::vec_part).is_some();
-        let inferred_context = joined_items
-            .as_ref()
-            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
-            .unwrap_or_else(|| item_type.clone());
-        let actual = context.infer_outcome(item, item_type_unknown_as_none(&inferred_context));
-        if !actual.may_contribute {
-            continue;
-        }
-        let actual = actual.ty;
-        let actual = if has_context {
-            inferred_private_aggregate_member_type(actual, &item_type)
-        } else {
-            actual
-        };
-        if !has_context && joined_items.is_none() && item_type != Type::Unknown {
-            joined_items =
-                crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &item_type);
-        }
-        let joined = !has_context
-            && joined_items
-                .as_mut()
-                .is_some_and(|joined| joined.try_join(&actual));
-        let rejected_here = inferred_context != Type::Unknown
-            && !crate::type_relations::is_assignable_nested(&inferred_context, &actual)
-            && (has_context || !joined);
-        if rejected_here {
-            *context.failures += 1;
-            continue;
-        }
-        if !joined && item_type == Type::Unknown {
-            item_type = actual;
-            joined_items = (!has_context)
-                .then(|| {
-                    crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &item_type)
-                })
-                .flatten();
-        }
+        infer_private_aggregate_component(
+            item,
+            has_context,
+            &mut item_type,
+            &mut joined_items,
+            context,
+        );
     }
     if let Some(joined) = joined_items {
         item_type = joined.result_type();
@@ -272,14 +242,14 @@ pub(super) fn infer_private_dict_type(
     let mut joined_values = None;
     for entry in entries {
         let has_key_context = expected.and_then(Type::dict_parts).is_some();
-        infer_private_dict_component(
+        infer_private_aggregate_component(
             &entry.key,
             has_key_context,
             &mut key_type,
             &mut joined_keys,
             context,
         );
-        infer_private_dict_component(
+        infer_private_aggregate_component(
             &entry.value,
             has_key_context,
             &mut value_type,
@@ -299,7 +269,7 @@ pub(super) fn infer_private_dict_type(
     }
 }
 
-fn infer_private_dict_component(
+fn infer_private_aggregate_component(
     expr: &Expr,
     has_context: bool,
     component_type: &mut Type,
