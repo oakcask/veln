@@ -14,9 +14,13 @@ use veln_syntax::{
 
 include!("navigation/model.rs");
 include!("navigation/source_indexing.rs");
+include!("navigation/effect_source_indexing.rs");
+include!("navigation/handler_source_indexing.rs");
+include!("navigation/schema_source_indexing.rs");
 include!("navigation/workspace_source_index.rs");
 include!("navigation/workspace_schema_composition.rs");
 include!("navigation/package_schemas.rs");
+include!("navigation/schema_navigation_indexing.rs");
 include!("navigation/index.rs");
 include!("navigation/selection.rs");
 include!("navigation/recovery.rs");
