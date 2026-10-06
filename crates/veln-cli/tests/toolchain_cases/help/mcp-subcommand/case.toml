@@ -1,0 +1,13 @@
+command = ["mcp", "--help"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Run the MCP server on stdio"
+usage = "veln mcp"
+options = ["--help"]

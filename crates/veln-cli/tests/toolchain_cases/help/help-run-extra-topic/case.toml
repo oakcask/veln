@@ -1,0 +1,9 @@
+command = ["help", "run", "extra"]
+exit = 2
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["extra", "Usage:"]

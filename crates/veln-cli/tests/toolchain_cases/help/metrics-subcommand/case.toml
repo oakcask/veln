@@ -1,0 +1,13 @@
+command = ["metrics", "--help"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Report source dependency metrics"
+usage = "veln metrics [OPTIONS] [INPUTS]..."
+options = ["--json", "--check", "--baseline <PATH>", "--write-baseline <PATH>", "--help"]
