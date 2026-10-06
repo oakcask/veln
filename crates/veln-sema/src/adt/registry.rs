@@ -323,6 +323,30 @@ impl AdtRegistry {
         }
     }
 
+    pub(crate) fn constructor_is_inaccessible_for_descriptor(
+        &self,
+        segments: &[String],
+        descriptor: &AdtDescriptor,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        descriptor
+            .variants
+            .iter()
+            .find(|variant| segments.last() == Some(&variant.name))
+            .is_some_and(|variant| {
+                self.descriptor_visible(descriptor, segments, current_module, uses, true)
+                    && constructor_matches_visible_path(
+                        descriptor,
+                        variant,
+                        segments,
+                        uses,
+                        current_module,
+                    )
+                    && !self.variant_visible(descriptor, variant, current_module, uses, segments)
+            })
+    }
+
     fn lookup_constructor(
         &self,
         segments: &[String],

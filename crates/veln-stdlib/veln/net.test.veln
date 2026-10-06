@@ -77,9 +77,7 @@ test address_values_are_constructible_and_inspectable() -> Result<(), String>
 	match address
 		net::Address(net::Tcp4, "127.0.0.1", 8080) => match endpoint
 			net::Endpoint(net::Tcp6, "[::1]:443") => Ok(())
-			_ => Err("endpoint fields did not match")
 		end
-		_ => Err("address fields did not match")
 	end
 end
 
@@ -96,16 +94,12 @@ test io_outcome_values_are_constructible_and_inspectable() -> Result<(), String>
 				net::ReadEnd => match written
 					net::Written(net::ByteCount(2)) => match failed
 						net::WriteFailed(net::ByteCount(1), error) => expect_observed_error(error, "write", "partial")
-						_ => Err("write failure fields did not match")
 					end
-					_ => Err("written count did not match")
 				end
-				_ => Err("read end did not match")
 			end
 		else
 			Err("read chunk bytes did not match")
 		end
-		_ => Err("read chunk shape did not match")
 	end
 end
 

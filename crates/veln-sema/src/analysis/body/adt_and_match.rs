@@ -382,12 +382,15 @@ impl<'a> FunctionChecker<'a> {
                 .map(|expected| expected.ty.clone())
                 .unwrap_or(Type::Unknown),
         );
+        let domain = RefinedMatchDomain {
+            scrutinee,
+            ty: &scrutinee_type,
+        };
         for arm in arms {
             self.infer_match_arm(
                 expr,
-                scrutinee,
+                &domain,
                 arm,
-                &scrutinee_type,
                 expected,
                 &mut result,
                 refined_coverage.as_mut(),
@@ -796,9 +799,8 @@ impl<'a> FunctionChecker<'a> {
     fn infer_match_arm(
         &mut self,
         match_expr: &Expr,
-        scrutinee: &Expr,
+        domain: &RefinedMatchDomain<'_>,
         arm: &MatchArm,
-        scrutinee_type: &Type,
         expected: Option<&ExpectedType>,
         result: &mut ControlFlowResultJoin,
         refined_coverage: Option<&mut RefinedMatchCoverage>,
@@ -807,25 +809,29 @@ impl<'a> FunctionChecker<'a> {
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         self.local_name_scopes.push(Vec::new());
 
-        let arm_plan = refined_coverage.as_deref().and_then(|coverage| {
-            self.refined_match_arm_plan(&arm.pattern, scrutinee_type, coverage)
-        });
-        let pattern_type = arm_plan
-            .as_ref()
-            .map_or(scrutinee_type, |plan| &plan.arm_type);
+        let arm_plan = refined_coverage
+            .as_deref()
+            .and_then(|coverage| self.refined_match_arm_plan(&arm.pattern, domain.ty, coverage));
+        let pattern_type = arm_plan.as_ref().map_or(domain.ty, |plan| &plan.arm_type);
         let pattern_bindings_admitted =
             self.declare_match_pattern_bindings(&arm.pattern, pattern_type);
         if pattern_bindings_admitted
             && let (Some(coverage), Some(plan)) = (refined_coverage, arm_plan.as_ref())
         {
-            self.commit_refined_match_arm(scrutinee, &arm.pattern, scrutinee_type, coverage, plan);
+            self.commit_refined_match_arm(
+                domain.scrutinee,
+                &arm.pattern,
+                domain.ty,
+                coverage,
+                plan,
+            );
         }
         let direct_binding_refinement = self.direct_match_binding_refinement(
-            scrutinee,
+            domain.scrutinee,
             &arm.pattern,
-            scrutinee_type,
+            domain.ty,
             pattern_bindings_admitted
-                .then(|| arm_plan.as_ref())
+                .then_some(arm_plan.as_ref())
                 .flatten()
                 .map(|plan| &plan.arm_type),
         );
@@ -1070,6 +1076,11 @@ impl<'a> FunctionChecker<'a> {
         self.infer_if_branch(expr, else_branch, expected, &mut result);
         result.materialize()
     }
+}
+
+struct RefinedMatchDomain<'a> {
+    scrutinee: &'a Expr,
+    ty: &'a Type,
 }
 
 fn refined_base_name(ty: &Type) -> &str {

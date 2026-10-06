@@ -204,6 +204,58 @@ fn invalid_heads_keep_intrinsic_diagnostics_and_do_not_consume_coverage() {
 }
 
 #[test]
+fn inaccessible_heads_report_lookup_failure_without_consuming_refined_coverage() {
+    let states = SourceFile::new(
+        "states.veln",
+        concat!(
+            "mod states\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "  pub Ready\n",
+            "end\n",
+        ),
+    );
+    let app = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use states\n",
+            "fn check(value: State::Ready) -> ()\n",
+            "  match value\n",
+            "    states::Hidden => ()\n",
+            "    states::Ready => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let states = lower_surface_ast(&parse(&states).tree);
+    let app = lower_surface_ast(&parse(&app).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: states.types,
+        functions: app.functions,
+        invalid_names: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved constructor `states::Hidden`"
+    }));
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.match_impossible_variant"
+            && diagnostic.id != "type.match_redundant_arm"
+            && diagnostic.id != "type.match_non_exhaustive"
+    }));
+}
+
+#[test]
 fn unreachable_arms_still_check_payloads_bodies_and_expected_results() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",

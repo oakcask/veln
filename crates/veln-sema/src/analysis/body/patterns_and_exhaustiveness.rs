@@ -350,7 +350,17 @@ impl<'a> FunctionChecker<'a> {
                 .iter()
                 .any(|variant| variant.name == *selected)
         });
-        if !selected_variant_exists
+        let selected_variant_is_inaccessible = self
+            .environment
+            .adts
+            .constructor_is_inaccessible_for_descriptor(
+                name,
+                descriptor,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            );
+        if matches!(scrutinee_type, Type::VariantRefinement { .. })
+            && (!selected_variant_exists || selected_variant_is_inaccessible)
             && !invalid_qualified_constructor_pattern(name)
             && matches!(
                 self.environment.adts.constructor(
