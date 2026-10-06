@@ -444,6 +444,12 @@ impl<'a> FunctionChecker<'a> {
         if args.len() != constructor.variant.payload_fields.len() {
             return None;
         }
+        if !args.iter().enumerate().all(|(index, pattern)| {
+            adt::payload_type(scrutinee_type, constructor, index)
+                .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
+        }) {
+            return None;
+        }
         let (type_name, identity, type_args) = match scrutinee_type {
             Type::Named {
                 name,
@@ -467,6 +473,50 @@ impl<'a> FunctionChecker<'a> {
                 vec![constructor.variant.name.clone()],
             ),
         ))
+    }
+
+    fn match_pattern_is_valid_for_type(&self, pattern: &Pattern, expected: &Type) -> bool {
+        match &pattern.kind {
+            PatternKind::Constructor { name, args, .. } => {
+                if invalid_qualified_constructor_pattern(name) {
+                    return false;
+                }
+                let Some(descriptor) = self.environment.adts.descriptor_for_type_prefer_module(
+                    expected,
+                    self.function.module_name.as_deref(),
+                ) else {
+                    return false;
+                };
+                let Some(constructor) = self.environment.adts.constructor_for_descriptor(
+                    name,
+                    descriptor,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                ) else {
+                    return false;
+                };
+                args.len() == constructor.variant.payload_fields.len()
+                    && args.iter().enumerate().all(|(index, pattern)| {
+                        adt::payload_type(expected, constructor, index)
+                            .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
+                    })
+            }
+            PatternKind::Record(fields) => fields.iter().enumerate().all(|(index, field)| {
+                !fields[..index]
+                    .iter()
+                    .any(|previous| previous.name == field.name)
+                    && expected
+                        .record_field(&field.name)
+                        .is_some_and(|ty| self.match_pattern_is_valid_for_type(&field.pattern, ty))
+            }),
+            PatternKind::Wildcard
+            | PatternKind::Binding(_)
+            | PatternKind::StringLiteral(_)
+            | PatternKind::IntLiteral(_)
+            | PatternKind::FloatLiteral(_)
+            | PatternKind::BoolLiteral(_)
+            | PatternKind::Unit => true,
+        }
     }
 
     pub(super) fn declare_match_pattern_bindings(

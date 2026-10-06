@@ -531,3 +531,136 @@ fn unsupported_or_invalid_match_scrutinees_and_patterns_do_not_refine_bindings()
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn invalid_nested_constructor_patterns_do_not_refine_direct_bindings() {
+    let cases = [
+        (
+            "invalid_case",
+            "Wrapper::Wrapped(Inner::good(payload))",
+            "accept_wrapped",
+            "name.invalid_case",
+            1,
+        ),
+        (
+            "invalid_shape",
+            "Wrapper::Wrapped(Inner::Shape({missing: payload}))",
+            "accept_wrapped",
+            "type.field_missing",
+            1,
+        ),
+        (
+            "wrong_adt_payload",
+            "Wrapper::Wrapped(Other::Foreign(payload))",
+            "accept_wrapped",
+            "type.mismatch",
+            2,
+        ),
+        (
+            "wrong_primitive_payload",
+            "Wrapper::Number(Other::Foreign(payload))",
+            "accept_number",
+            "type.mismatch",
+            2,
+        ),
+    ];
+
+    for (name, pattern, accept, intrinsic_diagnostic, mismatch_count) in cases {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                concat!(
+                    "type Inner\n",
+                    "  Good(Int)\n",
+                    "  Shape({{count: Int}})\n",
+                    "end\n",
+                    "type Other\n",
+                    "  Foreign(Int)\n",
+                    "end\n",
+                    "type Wrapper\n",
+                    "  Wrapped(Inner)\n",
+                    "  Number(Int)\n",
+                    "end\n",
+                    "fn accept_wrapped(value: Wrapper::Wrapped) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn accept_number(value: Wrapper::Number) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn accept_int(value: Int) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn pair(first: (), second: (), third: ()) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn {name}(value: Wrapper) -> ()\n",
+                    "  match value\n",
+                    "    {pattern} => pair({accept}(value), accept_int(payload), accept_int(\"bad\"))\n",
+                    "    _ => ()\n",
+                    "  end\n",
+                    "end\n",
+                ),
+                name = name,
+                pattern = pattern,
+                accept = accept,
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        let diagnostics = lower_checked_surface_module(&module).diagnostics;
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == intrinsic_diagnostic),
+            "{name}: {diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.mismatch")
+                .count(),
+            mismatch_count,
+            "{name}: {diagnostics:#?}"
+        );
+        let refinement_mismatches = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .collect::<Vec<_>>();
+        assert_eq!(refinement_mismatches.len(), 1, "{name}: {diagnostics:#?}");
+        assert_eq!(
+            detail_field(refinement_mismatches[0], "actual_type").as_text(),
+            Some("Wrapper"),
+            "{name}: {diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.unresolved"),
+            "{name}: recovered payload bindings must remain available: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn valid_nested_constructor_pattern_refines_direct_binding() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Inner\n",
+        "  Good(Int)\n",
+        "end\n",
+        "type Wrapper\n",
+        "  Wrapped(Inner)\n",
+        "end\n",
+        "fn accept_wrapped(value: Wrapper::Wrapped) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn check(value: Wrapper) -> ()\n",
+        "  match value\n",
+        "    Wrapper::Wrapped(Inner::Good(payload)) => accept_wrapped(value)\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}

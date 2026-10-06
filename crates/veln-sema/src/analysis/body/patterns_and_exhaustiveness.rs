@@ -314,6 +314,9 @@ impl<'a> FunctionChecker<'a> {
             scrutinee_type,
             self.function.module_name.as_deref(),
         ) else {
+            if scrutinee_type != &Type::Unknown {
+                self.report_constructor_pattern_mismatch(pattern, name, scrutinee_type);
+            }
             return self.unknown_pattern_bindings(args);
         };
         if let Some(constructor) = self.environment.adts.constructor_for_descriptor(
