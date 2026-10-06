@@ -39,7 +39,7 @@ pub fn main() -> Result<(), String> effects [stdio, concurrency]
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(retained))))
 
 	let task = task::spawn<Result<ByteView, String>>(task_view)
-	let task_result = match task::join(task)
+	let task_result: Result<ByteView, String> = match task::join(task)
 		Ok(value) => value
 		Err(_) => Err("task join failed")
 	end
