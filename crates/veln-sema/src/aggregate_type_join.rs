@@ -43,9 +43,11 @@ impl AggregateTypeJoin {
         })
     }
 
-    pub(crate) fn new_resolved(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
-        let parts = adt_type_parts(initial)?;
-        if parts.args.iter().any(type_contains_unknown) {
+    pub(crate) fn new_resolved_refinement(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
+        let Type::VariantRefinement { args, .. } = initial else {
+            return None;
+        };
+        if args.iter().any(type_contains_unknown) {
             return None;
         }
         Self::new(adts, initial)

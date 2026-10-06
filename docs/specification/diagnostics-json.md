@@ -123,11 +123,14 @@ before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
 An unannotated `if` or `match` whose result refinements can join under the
-[type inference rules](types.md#inference-rules) emits no diagnostic. When a
-resolved branch or arm result cannot join, it retains the ordinary
-`type.mismatch` contract against the base ADT rather than introducing a
-control-flow-specific diagnostic. Recovery abandons the partial finite join
-and remains at the base ADT; later compatible refinements do not resume it.
+[type inference rules](types.md#inference-rules) emits no diagnostic. After a
+finite refinement join has started, a resolved branch or arm result that cannot
+join retains the ordinary `type.mismatch` contract against the base ADT rather
+than introducing a control-flow-specific diagnostic. Recovery abandons the
+partial finite join and remains at the base ADT; later compatible refinements
+do not resume it. When the first typed result cannot start a finite refinement
+join, later results retain the existing first-result expectation, mismatch,
+and recovery behavior.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and

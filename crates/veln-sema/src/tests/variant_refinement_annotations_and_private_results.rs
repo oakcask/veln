@@ -1105,6 +1105,59 @@ fn private_control_flow_join_does_not_infer_sibling_constructor_context() {
 }
 
 #[test]
+fn base_first_control_flow_results_retain_generic_constructor_context() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn private_if(flag: Bool, base: Result<(), String>)\n",
+            "  if flag\n",
+            "    base\n",
+            "  else\n",
+            "    Ok(())\n",
+            "  end\n",
+            "end\n",
+            "fn private_match(flag: Bool, base: Result<(), String>)\n",
+            "  match flag\n",
+            "    true => base\n",
+            "    false => Ok(())\n",
+            "  end\n",
+            "end\n",
+            "fn ordinary(flag: Bool, base: Result<(), String>) -> ()\n",
+            "  let from_if = if flag\n",
+            "    base\n",
+            "  else\n",
+            "    Ok(())\n",
+            "  end\n",
+            "  let from_match = match flag\n",
+            "    true => base\n",
+            "    false => Ok(())\n",
+            "  end\n",
+            "  let exact_if: Result<(), String> = from_if\n",
+            "  let exact_match: Result<(), String> = from_match\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+
+    for function in ["private_if", "private_match"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .expect("private function")
+                .return_type
+                .render(),
+            "Result<(), String>",
+            "{function}"
+        );
+    }
+}
+
+#[test]
 fn ordinary_nested_control_flow_joins_are_symmetric_and_exact() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",

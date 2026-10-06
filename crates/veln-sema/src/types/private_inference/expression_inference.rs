@@ -429,7 +429,8 @@ fn merge_private_control_flow_result(
     allow_join: bool,
 ) {
     if *result == Type::Unknown {
-        *joined_result = crate::aggregate_type_join::AggregateTypeJoin::new_resolved(adts, &actual);
+        *joined_result =
+            crate::aggregate_type_join::AggregateTypeJoin::new_resolved_refinement(adts, &actual);
         *result = private_control_flow_recovery_type(&actual);
         return;
     }

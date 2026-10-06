@@ -41,7 +41,7 @@ fn match_refinement_second(flag: Bool) -> ()
 	end
 end
 
-fn exact_result_boundaries(flag: Bool, base: State, filled: Box<Int>::Filled, deferred: Box<Int>::Deferred) -> ()
+fn exact_result_boundaries(flag: Bool, base: State, first: State::Failed | State::Ready, second: State::Closed, filled: Box<Int>::Filled, deferred: Box<Int>::Deferred) -> ()
 	let finite_if_forward = if flag
 		Ready
 	else
@@ -125,4 +125,43 @@ fn exact_result_boundaries(flag: Bool, base: State, filled: Box<Int>::Filled, de
 		false => filled
 	end
 	let generic_match_reverse_exact: Box<Int>::Filled = generic_match_reverse
+	let if_finite_forward = if flag
+		first
+	else
+		second
+	end
+	let if_finite_forward_exact: State::Ready = if_finite_forward
+	let if_finite_reverse = if flag
+		second
+	else
+		first
+	end
+	let if_finite_reverse_exact: State::Ready = if_finite_reverse
+	let match_finite_forward = match flag
+		true => first
+		false => second
+	end
+	let match_finite_forward_exact: State::Ready = match_finite_forward
+	let match_finite_reverse = match flag
+		true => second
+		false => first
+	end
+	let match_finite_reverse_exact: State::Ready = match_finite_reverse
+	let if_full_reverse = if flag
+		Closed
+	else if false
+		Pending
+	else if true
+		Ready
+	else
+		Failed
+	end
+	let if_full_reverse_exact: State::Ready = if_full_reverse
+	let match_full_reverse = match base
+		Pending => Closed
+		Failed => Pending
+		Closed => Failed
+		Ready => Ready
+	end
+	let match_full_reverse_exact: State::Ready = match_full_reverse
 end

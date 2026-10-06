@@ -17,7 +17,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 18
+equals = 24
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -122,3 +122,27 @@ equals = "Box<Int>::Filled | Box<Int>::Deferred"
 [[json_assert]]
 path = "diagnostics.17.details.actual_type"
 equals = "Box<Int>::Filled | Box<Int>::Deferred"
+
+[[json_assert]]
+path = "diagnostics.18.details.actual_type"
+equals = "State::Ready | State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.19.details.actual_type"
+equals = "State::Ready | State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.20.details.actual_type"
+equals = "State::Ready | State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.21.details.actual_type"
+equals = "State::Ready | State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.22.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.23.details.actual_type"
+equals = "State"

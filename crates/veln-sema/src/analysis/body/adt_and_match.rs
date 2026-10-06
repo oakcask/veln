@@ -551,7 +551,7 @@ fn contribute_control_flow_result(
     }
     if result.recovery_type == Type::Unknown {
         result.recovery_type = inferred_control_flow_recovery_type(actual);
-        result.joined = AggregateTypeJoin::new_resolved(adts, actual);
+        result.joined = AggregateTypeJoin::new_resolved_refinement(adts, actual);
         return true;
     }
     if result.failed {
