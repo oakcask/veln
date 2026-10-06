@@ -122,6 +122,16 @@ so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
+A valid constructor arm for a bare immutable match-scrutinee binding refines
+that binding to the constructor singleton while checking the arm. Passing the
+binding to a parameter that requires that singleton emits no
+`type.variant_mismatch`. An invalid-cased, unresolved, inaccessible,
+wrong-ADT, or payload-arity-mismatched constructor pattern does not establish
+the refinement, so an incompatible use of the binding retains the ordinary
+`type.variant_mismatch` behavior. The [type inference
+rules](types.md#inference-rules) define the refinement scope and unsupported
+scrutinee forms.
+
 An unannotated `if` or `match` whose result refinements can join under the
 [type inference rules](types.md#inference-rules) emits no diagnostic. After a
 finite refinement join has started, a resolved branch or arm result that cannot

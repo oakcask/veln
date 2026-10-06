@@ -15,16 +15,17 @@ result joins, contextual aggregate construction, refined calls and results,
 stable mismatch diagnostics, and runtime erasure.
 
 This proposal retains only the unfinished work: alias presentation and
-visibility, control-flow refinement, schema boundaries, package
-documentation, command-wide enforcement, LSP, MCP, and language-reference
-publication.
+visibility, control-flow refinement beyond direct bare match bindings, schema
+boundaries, package documentation, command-wide enforcement, LSP, MCP, and
+language-reference publication.
 
 ## Outcomes And Boundaries
 
 The remaining proposal has three intended outcomes:
 
-- Pattern matching can convert an ordinary ADT value into the required
-  variant refinement without a cast or runtime assertion.
+- Pattern matching can extend the implemented bare-binding refinement to
+  stable value paths and transparent aliases without a cast or runtime
+  assertion.
 - Compiler, package-documentation, LSP, and MCP views agree on the
   spelling and identity of a refined variant.
 - `run`, `test`, and `doc` enforce refinements at their existing analysis and
