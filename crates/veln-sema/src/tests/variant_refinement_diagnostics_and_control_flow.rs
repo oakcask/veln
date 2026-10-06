@@ -664,3 +664,34 @@ fn valid_nested_constructor_pattern_refines_direct_binding() {
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
+
+#[test]
+fn wide_nested_record_pattern_refines_direct_binding() {
+    let fields = (0..512)
+        .map(|index| format!("field{index:04}: Int"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let patterns = (0..512)
+        .map(|index| format!("field{index:04}: value{index:04}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let source = format!(
+        concat!(
+            "type Wrapper\n",
+            "  Wrapped({{{fields}}})\n",
+            "end\n",
+            "fn accept_wrapped(value: Wrapper::Wrapped) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn check(value: Wrapper) -> ()\n",
+            "  match value\n",
+            "    Wrapper::Wrapped({{{patterns}}}) => accept_wrapped(value)\n",
+            "  end\n",
+            "end\n",
+        ),
+        fields = fields,
+        patterns = patterns,
+    );
+    let diagnostics = diagnostics_for(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}

@@ -501,14 +501,22 @@ impl<'a> FunctionChecker<'a> {
                             .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
                     })
             }
-            PatternKind::Record(fields) => fields.iter().enumerate().all(|(index, field)| {
-                !fields[..index]
-                    .iter()
-                    .any(|previous| previous.name == field.name)
-                    && expected
-                        .record_field(&field.name)
-                        .is_some_and(|ty| self.match_pattern_is_valid_for_type(&field.pattern, ty))
-            }),
+            PatternKind::Record(fields) => {
+                let Type::Record(expected_fields) = expected else {
+                    return false;
+                };
+                let mut expected_by_name = HashMap::with_capacity(expected_fields.len());
+                for (name, ty) in expected_fields {
+                    expected_by_name.entry(name.as_str()).or_insert(ty);
+                }
+                let mut seen_fields = BTreeSet::new();
+                fields.iter().all(|field| {
+                    seen_fields.insert(field.name.as_str())
+                        && expected_by_name.get(field.name.as_str()).is_some_and(|ty| {
+                            self.match_pattern_is_valid_for_type(&field.pattern, ty)
+                        })
+                })
+            }
             PatternKind::Wildcard
             | PatternKind::Binding(_)
             | PatternKind::StringLiteral(_)
