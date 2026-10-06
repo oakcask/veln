@@ -332,6 +332,7 @@ mod annotations_and_effects;
 mod body_lines;
 mod collections_and_operators;
 mod contract_validation;
+mod control_flow_results;
 mod diagnostics_and_repairs;
 pub(crate) use diagnostics_and_repairs::VariantDiagnosticInterner;
 #[cfg(test)]

@@ -34,6 +34,8 @@ mod variant_refinement_aggregate_inference;
 mod variant_refinement_aggregate_scaling;
 mod variant_refinement_annotations_and_private_results;
 mod variant_refinement_call_typing;
+mod variant_refinement_control_flow_context;
+mod variant_refinement_control_flow_joins;
 mod variant_refinement_diagnostics_and_control_flow;
 mod variant_refinement_function_value_provenance;
 mod variant_refinement_private_aggregate_failures;
