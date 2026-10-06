@@ -44,6 +44,12 @@ diagnostic and `details.expected_type` use the same rendered type. A hole with
 no concrete context retains `expected_type: "unknown"` and the unknown-type
 message.
 
+The [control-flow result join](types.md#inference-rules) does not supply type
+context from one sibling branch or arm to another. A hole receives an
+independently available enclosing or declared expectation. Without one, it
+retains `expected_type: "unknown"` and uses the existing unknown-context
+candidate behavior.
+
 ## Candidate records and ranking
 
 Every candidate query is advisory and has `candidate_status: "query_only"`.

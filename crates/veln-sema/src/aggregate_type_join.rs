@@ -43,6 +43,16 @@ impl AggregateTypeJoin {
         })
     }
 
+    pub(crate) fn new_resolved_refinement(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
+        let Type::VariantRefinement { args, .. } = initial else {
+            return None;
+        };
+        if args.iter().any(type_contains_unknown) {
+            return None;
+        }
+        Self::new(adts, initial)
+    }
+
     pub(crate) fn try_join(&mut self, right: &Type) -> bool {
         let Some(right) = adt_type_parts(right) else {
             return false;
@@ -81,6 +91,18 @@ impl AggregateTypeJoin {
             *self.materialized.borrow_mut() = None;
         }
         true
+    }
+
+    pub(crate) fn try_join_resolved(&mut self, right: &Type) -> bool {
+        let Some(right_parts) = adt_type_parts(right) else {
+            return false;
+        };
+        if right_parts.args.iter().any(type_contains_unknown)
+            || !invariant_args_match(&self.args, right_parts.args)
+        {
+            return false;
+        }
+        self.try_join(right)
     }
 
     pub(crate) fn inference_type(&self) -> Type {
@@ -125,6 +147,26 @@ impl AggregateTypeJoin {
         };
         *self.materialized.borrow_mut() = Some(materialized.clone());
         materialized
+    }
+}
+
+fn type_contains_unknown(ty: &Type) -> bool {
+    match ty {
+        Type::Unknown => true,
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            args.iter().any(type_contains_unknown)
+        }
+        Type::Record(fields) => fields.iter().any(|(_, field)| type_contains_unknown(field)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(type_contains_unknown)
+                || variadic.as_deref().is_some_and(type_contains_unknown)
+                || type_contains_unknown(return_type)
+        }
     }
 }
 

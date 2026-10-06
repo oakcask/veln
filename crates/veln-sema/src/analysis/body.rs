@@ -71,15 +71,15 @@ fn type_contains_variant_refinement(ty: &Type) -> bool {
     }
 }
 
-fn inferred_control_flow_result_type(ty: Type) -> Type {
+fn inferred_control_flow_recovery_type(ty: &Type) -> Type {
     match ty {
         Type::VariantRefinement {
             name,
             identity,
             args,
             ..
-        } => Type::resolved_named(name, identity, args),
-        ty => ty,
+        } => Type::resolved_named(name, identity, args.clone()),
+        ty => ty.clone(),
     }
 }
 
@@ -332,6 +332,7 @@ mod annotations_and_effects;
 mod body_lines;
 mod collections_and_operators;
 mod contract_validation;
+mod control_flow_results;
 mod diagnostics_and_repairs;
 pub(crate) use diagnostics_and_repairs::VariantDiagnosticInterner;
 #[cfg(test)]

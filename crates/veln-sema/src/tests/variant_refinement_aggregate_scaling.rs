@@ -126,6 +126,103 @@ fn wide_generic_constructor_scaling_source(width: usize) -> String {
     )
 }
 
+fn control_flow_join_scaling_source(variant_count: usize) -> String {
+    let variants = (0..variant_count)
+        .map(|index| format!("Variant{index:04}"))
+        .collect::<Vec<_>>();
+    let arms = variants
+        .iter()
+        .map(|variant| format!("    {variant} => State::{variant}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut source = String::from("type State\n");
+    for variant in &variants {
+        source.push_str(&format!("  {variant}\n"));
+    }
+    source.push_str("end\n");
+    source.push_str(&format!(
+        "fn private_join(state: State)\n  match state\n{arms}\n  end\nend\n"
+    ));
+    source.push_str(&format!(
+        "fn ordinary_join(state: State) -> ()\n  let joined = match state\n{arms}\n  end\n  let exact: State = joined\nend\n"
+    ));
+    source
+}
+
+fn measure_private_control_flow_join_work(
+    module: &veln_ast::SurfaceModule,
+) -> (TypeEnvironment, usize, std::time::Duration) {
+    crate::aggregate_type_join::reset_work();
+    let started = std::time::Instant::now();
+    let environment = TypeEnvironment::from_module(module);
+    let elapsed = started.elapsed();
+    let work = crate::aggregate_type_join::take_work();
+    assert_eq!(
+        environment
+            .function("private_join")
+            .expect("private join")
+            .return_type
+            .render(),
+        "State"
+    );
+    (environment, work, elapsed)
+}
+
+fn measure_ordinary_control_flow_join_work(
+    module: &veln_ast::SurfaceModule,
+    environment: &TypeEnvironment,
+) -> (usize, std::time::Duration) {
+    let ordinary = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("ordinary_join"))
+        .expect("ordinary join");
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    crate::aggregate_type_join::reset_work();
+    let started = std::time::Instant::now();
+    let diagnostics =
+        crate::analysis::check_function_body(ordinary, environment, &mut variant_diagnostics);
+    let elapsed = started.elapsed();
+    let work = crate::aggregate_type_join::take_work();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    (work, elapsed)
+}
+
+fn measure_control_flow_join_work(variant_count: usize) -> (usize, usize) {
+    let source = SourceFile::new("main.veln", control_flow_join_scaling_source(variant_count));
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let (environment, private_work, private_elapsed) =
+        measure_private_control_flow_join_work(&module);
+    let (ordinary_work, ordinary_elapsed) =
+        measure_ordinary_control_flow_join_work(&module, &environment);
+    eprintln!(
+        "{variant_count}-variant control-flow join: private {private_elapsed:?} ({private_work} units), ordinary {ordinary_elapsed:?} ({ordinary_work} units)"
+    );
+    (private_work, ordinary_work)
+}
+
+#[test]
+fn control_flow_join_work_grows_linearly_in_private_and_ordinary_analysis() {
+    let work = [500, 1000, 2000, 4000].map(measure_control_flow_join_work);
+
+    assert!(
+        work[0].0 > 0 && work[0].1 > 0,
+        "the metric must observe both control-flow join paths: {work:?}"
+    );
+    for adjacent in work.windows(2) {
+        assert!(
+            adjacent[1].0 <= adjacent[0].0 * 2 + 64,
+            "doubling arms must add only linear private join work: {work:?}"
+        );
+        assert!(
+            adjacent[1].1 <= adjacent[0].1 * 2 + 64,
+            "doubling arms must add only linear ordinary join work: {work:?}"
+        );
+    }
+}
+
 #[test]
 fn aggregate_join_work_grows_linearly_through_all_inference_paths() {
     let work = [200, 400, 800, 1600].map(|variant_count| {

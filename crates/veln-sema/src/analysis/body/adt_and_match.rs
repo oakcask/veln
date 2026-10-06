@@ -1,3 +1,4 @@
+use super::control_flow_results::{ControlFlowResultJoin, contribute_control_flow_result};
 use super::*;
 use crate::adt::descriptors::AdtPayloadField;
 use crate::adt::registry::AdtRegistry;
@@ -312,15 +313,17 @@ impl<'a> FunctionChecker<'a> {
                 .unwrap_or(Type::Unknown);
         }
 
-        let mut result_type = expected
-            .map(|expected| expected.ty.clone())
-            .unwrap_or(Type::Unknown);
+        let mut result = ControlFlowResultJoin::new(
+            expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or(Type::Unknown),
+        );
         for arm in arms {
-            self.infer_match_arm(expr, arm, &scrutinee_type, expected, &mut result_type);
+            self.infer_match_arm(expr, arm, &scrutinee_type, expected, &mut result);
         }
 
         self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
-        result_type
+        result.materialize()
     }
 
     pub(super) fn infer_match_scrutinee(
@@ -363,20 +366,20 @@ impl<'a> FunctionChecker<'a> {
             .unwrap_or_else(|| self.infer_expr(scrutinee, scrutinee_expected.as_ref()))
     }
 
-    pub(super) fn infer_match_arm(
+    fn infer_match_arm(
         &mut self,
         match_expr: &Expr,
         arm: &MatchArm,
         scrutinee_type: &Type,
         expected: Option<&ExpectedType>,
-        result_type: &mut Type,
+        result: &mut ControlFlowResultJoin,
     ) {
         let saved_bindings = self.bindings.len();
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         self.local_name_scopes.push(Vec::new());
 
         self.declare_match_pattern_bindings(&arm.pattern, scrutinee_type);
-        self.infer_match_arm_result(match_expr, arm, expected, result_type);
+        self.infer_match_arm_result(match_expr, arm, expected, result);
 
         self.bindings.truncate(saved_bindings);
         self.invalid_binding_recoveries
@@ -413,18 +416,19 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    pub(super) fn infer_match_arm_result(
+    fn infer_match_arm_result(
         &mut self,
         match_expr: &Expr,
         arm: &MatchArm,
         expected: Option<&ExpectedType>,
-        result_type: &mut Type,
+        result: &mut ControlFlowResultJoin,
     ) {
-        let arm_expected = if let Some(expected) = expected {
-            Some(expected.clone())
-        } else if *result_type != Type::Unknown {
+        let recovery_expected = if expected.is_none()
+            && result.joined.is_none()
+            && result.recovery_type != Type::Unknown
+        {
             Some(ExpectedType {
-                ty: result_type.clone(),
+                ty: result.recovery_type.clone(),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: match_expr.node_id,
                 origin_span: Some(match_expr.span.clone()),
@@ -433,12 +437,26 @@ impl<'a> FunctionChecker<'a> {
         } else {
             None
         };
-        let actual = self.infer_expr(&arm.expr, arm_expected.as_ref());
-        if let Some(expected) = &arm_expected {
+        let actual = self.infer_expr(&arm.expr, expected.or(recovery_expected.as_ref()));
+        if let Some(expected) = expected {
             self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
+            return;
         }
-        if *result_type == Type::Unknown {
-            *result_type = inferred_control_flow_result_type(actual);
+        if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
+            let mismatch_expected = ExpectedType {
+                ty: result.recovery_type.clone(),
+                source: ExpectedTypeSource::Inferred,
+                origin_node_id: match_expr.node_id,
+                origin_span: Some(match_expr.span.clone()),
+                origin_message: "Match result type inferred here.",
+            };
+            self.check_assignable(
+                &arm.expr,
+                &mismatch_expected.ty,
+                &actual,
+                &mismatch_expected,
+                "match_arm",
+            );
         }
     }
 
@@ -453,57 +471,18 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         self.check_if_condition(expr, condition);
 
-        let mut result_type = expected
-            .map(|expected| expected.ty.clone())
-            .unwrap_or(Type::Unknown);
-        self.infer_if_branch(expr, then_branch, expected, &mut result_type);
+        let mut result = ControlFlowResultJoin::new(
+            expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or(Type::Unknown),
+        );
+        self.infer_if_branch(expr, then_branch, expected, &mut result);
         for branch in else_if_branches {
             self.check_if_condition(expr, &branch.condition);
-            self.infer_if_branch(expr, &branch.expr, expected, &mut result_type);
+            self.infer_if_branch(expr, &branch.expr, expected, &mut result);
         }
-        self.infer_if_branch(expr, else_branch, expected, &mut result_type);
-        result_type
-    }
-
-    pub(super) fn check_if_condition(&mut self, if_expr: &Expr, condition: &Expr) {
-        let expected = ExpectedType {
-            ty: Type::bool(),
-            source: ExpectedTypeSource::Inferred,
-            origin_node_id: if_expr.node_id,
-            origin_span: Some(if_expr.span.clone()),
-            origin_message: "If condition expected `Bool` here.",
-        };
-        let actual = self.infer_expr(condition, Some(&expected));
-        self.check_assignable(condition, &expected.ty, &actual, &expected, "if_condition");
-    }
-
-    pub(super) fn infer_if_branch(
-        &mut self,
-        if_expr: &Expr,
-        branch_expr: &Expr,
-        expected: Option<&ExpectedType>,
-        result_type: &mut Type,
-    ) {
-        let branch_expected = if let Some(expected) = expected {
-            Some(expected.clone())
-        } else if *result_type != Type::Unknown {
-            Some(ExpectedType {
-                ty: result_type.clone(),
-                source: ExpectedTypeSource::Inferred,
-                origin_node_id: if_expr.node_id,
-                origin_span: Some(if_expr.span.clone()),
-                origin_message: "If result type inferred here.",
-            })
-        } else {
-            None
-        };
-        let actual = self.infer_expr(branch_expr, branch_expected.as_ref());
-        if let Some(expected) = &branch_expected {
-            self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
-        }
-        if *result_type == Type::Unknown {
-            *result_type = inferred_control_flow_result_type(actual);
-        }
+        self.infer_if_branch(expr, else_branch, expected, &mut result);
+        result.materialize()
     }
 }
 
