@@ -60,6 +60,16 @@ fn refined_domains_drive_constructor_and_residual_catch_all_refinement() {
         "    Empty => accept_empty(value)\n",
         "  end\n",
         "end\n",
+        "fn refined_local(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()\n",
+        "  let current: Boxed<Int>::Filled | Boxed<Int>::Empty = value\n",
+        "  match current\n",
+        "    Filled(_) => accept_filled(current)\n",
+        "    remaining => begin\n",
+        "      accept_empty(remaining)\n",
+        "      accept_empty(current)\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
     ));
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
@@ -647,6 +657,9 @@ fn inaccessible_heads_report_lookup_failure_without_consuming_refined_coverage()
         "states.veln",
         concat!(
             "mod states\n",
+            "type Secret\n",
+            "  pub HiddenByType\n",
+            "end\n",
             "pub type State\n",
             "  Hidden\n",
             "  pub Ready\n",
@@ -661,6 +674,7 @@ fn inaccessible_heads_report_lookup_failure_without_consuming_refined_coverage()
             "fn check(value: State::Ready) -> ()\n",
             "  match value\n",
             "    states::Hidden => ()\n",
+            "    states::Secret::HiddenByType => ()\n",
             "    states::Ready => ()\n",
             "  end\n",
             "end\n",
@@ -685,6 +699,10 @@ fn inaccessible_heads_report_lookup_failure_without_consuming_refined_coverage()
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.unresolved"
             && diagnostic.message == "unresolved constructor `states::Hidden`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved constructor `states::Secret::HiddenByType`"
     }));
     assert!(diagnostics.iter().all(|diagnostic| {
         diagnostic.id != "type.match_impossible_variant"
