@@ -179,20 +179,69 @@ fn invalid_heads_keep_intrinsic_diagnostics_and_do_not_consume_coverage() {
         )
     ));
 
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "name.invalid_case")
+    let invalid_case = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.invalid_case")
+        .expect("invalid-cased arm should retain its intrinsic diagnostic");
+    assert_eq!(
+        invalid_case.message,
+        "constructor name `ready` must start with an ASCII uppercase letter"
     );
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "type.mismatch")
+
+    let wrong_arity = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.constructor_pattern_arity")
+        .expect("wrong-arity arm should retain its intrinsic diagnostic");
+    assert_eq!(
+        wrong_arity.message,
+        "constructor pattern expects 0 payload(s), but got 1"
     );
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "name.unresolved")
+    assert_eq!(
+        wrong_arity.details,
+        JsonValue::object([
+            ("constructor", JsonValue::string("State::Ready")),
+            ("expected_payload_count", JsonValue::Number(0)),
+            ("actual_payload_count", JsonValue::Number(1)),
+        ])
+    );
+    assert!(wrong_arity.related.is_empty());
+    let wrong_arity_span = wrong_arity.span.as_ref().expect("wrong-arity span");
+    assert_eq!(
+        (
+            wrong_arity_span.start.line,
+            wrong_arity_span.start.column,
+            wrong_arity_span.end.line,
+            wrong_arity_span.end.column,
+        ),
+        (12, 5, 12, 13)
+    );
+
+    let wrong_adt = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.start.line == 13)
+        })
+        .expect("wrong-ADT arm should retain its intrinsic diagnostic");
+    assert_eq!(
+        wrong_adt.message,
+        "expected `State::Ready | State::Closed`, but found `Other`"
+    );
+
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        unresolved,
+        [
+            "unresolved constructor `missing::Missing`",
+            "unresolved constructor `missing::Ready`",
+        ]
     );
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.unresolved"
@@ -206,6 +255,45 @@ fn invalid_heads_keep_intrinsic_diagnostics_and_do_not_consume_coverage() {
         }),
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn wrong_arity_does_not_consume_refined_coverage_and_keeps_payload_and_body_checks() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    Ready(BadBinding) => missing_body\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    let ids = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ids,
+        [
+            "name.invalid_case",
+            "type.constructor_pattern_arity",
+            "name.unresolved",
+            "type.match_non_exhaustive",
+        ],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics[0].message,
+        "binding name `BadBinding` must start with an ASCII lowercase letter"
+    );
+    assert_eq!(diagnostics[2].message, "unresolved value `missing_body`");
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.match_impossible_variant"
+            && diagnostic.id != "type.match_redundant_arm"
+    }));
 }
 
 #[test]

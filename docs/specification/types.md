@@ -405,8 +405,10 @@ scrutinee binding both receive the one-variant residual type.
 Arm classification first validates the constructor name, visibility, owning
 ADT, payload arity, nested patterns, and admitted payload bindings. An invalid
 arm keeps its intrinsic diagnostic, consumes no coverage, and produces no
-derived impossible or redundant diagnostic. A valid same-ADT constructor
-outside the original refined domain reports
+derived impossible or redundant diagnostic. A wrong payload arity reports
+`type.constructor_pattern_arity` at the complete constructor pattern while
+still checking supplied payload patterns and the arm body. A valid same-ADT
+constructor outside the original refined domain reports
 `type.match_impossible_variant`. A valid constructor or catch-all with an empty
 residual reports `type.match_redundant_arm`. An impossible or redundant arm
 does not consume coverage.

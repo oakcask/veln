@@ -334,6 +334,36 @@ impl<'a> FunctionChecker<'a> {
             self.function.module_name.as_deref(),
             &self.environment.uses,
         ) {
+            let expected_payload_count = constructor.variant.payload_fields.len();
+            if args.len() != expected_payload_count {
+                self.diagnostics.push(Diagnostic::new(
+                    "type.constructor_pattern_arity",
+                    Severity::Error,
+                    DiagnosticKind::Type,
+                    format!(
+                        "constructor pattern expects {expected_payload_count} payload(s), but got {}",
+                        args.len()
+                    ),
+                    Some(pattern.span.clone()),
+                    JsonValue::object([
+                        (
+                            "constructor",
+                            JsonValue::string(format!(
+                                "{}::{}",
+                                constructor.descriptor.type_name, constructor.variant.name
+                            )),
+                        ),
+                        (
+                            "expected_payload_count",
+                            JsonValue::Number(expected_payload_count as i64),
+                        ),
+                        (
+                            "actual_payload_count",
+                            JsonValue::Number(args.len() as i64),
+                        ),
+                    ]),
+                ));
+            }
             return args
                 .iter()
                 .enumerate()

@@ -1,0 +1,36 @@
+main.veln:27:12: error[name.invalid_case]: constructor name `ready` must start with an ASCII uppercase letter
+main.veln:34:11: error[name.invalid_case]: binding name `BadBinding` must start with an ASCII lowercase letter
+main.veln:26:3: error[type.match_non_exhaustive]: match is missing case Ready(_)
+  note: main.veln:26:9: Scrutinee has type `State::Ready | State::Closed`.
+  note: main.veln:28:5: This arm covers Closed(_).
+main.veln:34:5: error[type.constructor_pattern_arity]: constructor pattern expects 1 payload(s), but got 2
+main.veln:34:33: error[name.unresolved]: unresolved value `missing_arity_body`
+main.veln:33:3: error[type.match_non_exhaustive]: match is missing case Ready(_)
+  note: main.veln:33:9: Scrutinee has type `State::Ready | State::Closed`.
+  note: main.veln:35:5: This arm covers Closed(_).
+main.veln:41:5: error[type.mismatch]: expected `State::Ready | State::Closed`, but found `Other`
+main.veln:40:3: error[type.match_non_exhaustive]: match is missing case Ready(_)
+  note: main.veln:40:9: Scrutinee has type `State::Ready | State::Closed`.
+  note: main.veln:42:5: This arm covers Closed(_).
+main.veln:48:14: error[name.unresolved]: unresolved constructor `missing::Ready`
+main.veln:47:3: error[type.match_non_exhaustive]: match is missing case Ready(_)
+  note: main.veln:47:9: Scrutinee has type `State::Ready | State::Closed`.
+  note: main.veln:49:5: This arm covers Closed(_).
+main.veln:55:15: error[type.field_missing]: type `{present: Int}` has no field `absent`
+main.veln:54:3: error[type.match_non_exhaustive]: match is missing case Wrapped(_)
+  note: main.veln:54:9: Scrutinee has type `Boxed::Wrapped | Boxed::Done`.
+  note: main.veln:56:5: This arm covers Done.
+main.veln:62:5: error[type.match_impossible_variant]: variant `Closed` is excluded by the refined match domain
+  note: main.veln:61:9: This match scrutinee has refined type `State::Ready`.
+  note: main.veln:1:1: The selected ADT is `State`.
+main.veln:63:18: error[type.mismatch]: expected `Int`, but found `String`
+main.veln:64:7: error[name.unresolved]: unresolved value `missing_impossible_body`
+main.veln:62:23: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`
+  note: main.veln:62:23: Excluded variants: Closed.
+  note: main.veln:60:1: Return type declared here.
+main.veln:74:5: error[type.match_redundant_arm]: match arm has no remaining variant to cover
+  note: main.veln:73:5: This preceding arm first covered `Ready`.
+main.veln:75:21: error[type.mismatch]: expected `String`, but found `Int`
+main.veln:74:23: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`
+  note: main.veln:74:23: Excluded variants: Closed.
+  note: main.veln:71:1: Return type declared here.

@@ -1,0 +1,79 @@
+type State
+  Ready(Int)
+  Closed(String)
+  Failed
+end
+
+type Other
+  Foreign
+end
+
+type Boxed
+  Wrapped({ present: Int })
+  Done
+  Skipped
+end
+
+fn accept_int(value: Int) -> ()
+  ()
+end
+
+fn accept_string(value: String) -> ()
+  ()
+end
+
+fn recovered_casing(value: State::Ready | State::Closed) -> ()
+  match value
+    State::ready(_) => ()
+    Closed(_) => ()
+  end
+end
+
+fn wrong_arity(value: State::Ready | State::Closed) -> ()
+  match value
+    Ready(BadBinding, extra) => missing_arity_body
+    Closed(_) => ()
+  end
+end
+
+fn wrong_adt(value: State::Ready | State::Closed) -> ()
+  match value
+    Other::Foreign => ()
+    Closed(_) => ()
+  end
+end
+
+fn unresolved_head(value: State::Ready | State::Closed) -> ()
+  match value
+    missing::Ready(_) => ()
+    Closed(_) => ()
+  end
+end
+
+fn malformed_nested(value: Boxed::Wrapped | Boxed::Done) -> ()
+  match value
+    Wrapped({ absent: _ }) => ()
+    Done => ()
+  end
+end
+
+fn impossible_recovery(value: State::Ready) -> State::Ready
+  match value
+    Closed(reason) => begin
+      accept_int(reason)
+      missing_impossible_body
+      Closed("late")
+    end
+    Ready(_) => Ready(1)
+  end
+end
+
+fn redundant_recovery(value: State::Ready) -> State::Ready
+  match value
+    Ready(_) => Ready(1)
+    Ready(payload) => begin
+      accept_string(payload)
+      Closed("late")
+    end
+  end
+end

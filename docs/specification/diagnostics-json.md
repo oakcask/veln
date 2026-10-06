@@ -151,6 +151,11 @@ and
 Arm validation precedes both classifications. An invalid-cased, unresolved,
 inaccessible, wrong-ADT, wrong-arity, or malformed arm retains its intrinsic
 diagnostic, contributes no coverage, and emits neither derived classification.
+The intrinsic wrong-arity diagnostic is `type.constructor_pattern_arity` at
+the complete constructor pattern. Its closed details contain only
+`constructor`, `expected_payload_count`, and `actual_payload_count`, and it has
+no related entries. The primary message states the expected and actual payload
+counts.
 The same rule applies when a nested constructor does not resolve against its
 expected payload ADT or has the wrong arity, and when a nested record pattern
 names a missing or duplicate field. A literal or unit payload pattern whose
@@ -170,7 +175,10 @@ redundant constructors use their original-domain singleton; redundant binding
 catch-alls use the original scrutinee type. An incompatible use retains the
 ordinary `type.variant_mismatch` behavior. The [type inference
 rules](types.md#inference-rules) define the refinement scope and unsupported
-scrutinee forms.
+scrutinee forms. The checked precedence and recovery cases are
+[`adt-variant-refinement-match-precedence-human`](../../examples/specification/check/adt-variant-refinement-match-precedence-human/)
+and
+[`adt-variant-refinement-match-precedence-json`](../../examples/specification/check/adt-variant-refinement-match-precedence-json/).
 
 An unannotated `if` or `match` whose result refinements can join under the
 [type inference rules](types.md#inference-rules) emits no diagnostic. After a

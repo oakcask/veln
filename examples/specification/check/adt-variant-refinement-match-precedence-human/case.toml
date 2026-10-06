@@ -1,0 +1,11 @@
+# Integration contract: human output preserves invalid-arm precedence, primary
+# and related locations, and source order across recovery.
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+equals_file = "case-text/stdout-1.txt"
+
+[stderr]
+format = "empty"
