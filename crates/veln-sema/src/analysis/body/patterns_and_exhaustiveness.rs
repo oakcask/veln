@@ -336,33 +336,7 @@ impl<'a> FunctionChecker<'a> {
         ) {
             let expected_payload_count = constructor.variant.payload_fields.len();
             if args.len() != expected_payload_count {
-                self.diagnostics.push(Diagnostic::new(
-                    "type.constructor_pattern_arity",
-                    Severity::Error,
-                    DiagnosticKind::Type,
-                    format!(
-                        "constructor pattern expects {expected_payload_count} payload(s), but got {}",
-                        args.len()
-                    ),
-                    Some(pattern.span.clone()),
-                    JsonValue::object([
-                        (
-                            "constructor",
-                            JsonValue::string(format!(
-                                "{}::{}",
-                                constructor.descriptor.type_name, constructor.variant.name
-                            )),
-                        ),
-                        (
-                            "expected_payload_count",
-                            JsonValue::Number(expected_payload_count as i64),
-                        ),
-                        (
-                            "actual_payload_count",
-                            JsonValue::Number(args.len() as i64),
-                        ),
-                    ]),
-                ));
+                self.report_constructor_pattern_arity(pattern, constructor, args.len());
             }
             return args
                 .iter()
@@ -374,9 +348,55 @@ impl<'a> FunctionChecker<'a> {
                 })
                 .collect();
         }
-        if matches!(scrutinee_type, Type::VariantRefinement { .. })
-            && !invalid_qualified_constructor_pattern(name)
-            && matches!(
+        self.report_unresolved_refined_constructor(pattern, name, scrutinee_type);
+        self.report_constructor_pattern_mismatch(pattern, name, scrutinee_type);
+        self.unknown_pattern_bindings(args)
+    }
+
+    fn report_constructor_pattern_arity(
+        &mut self,
+        pattern: &Pattern,
+        constructor: crate::adt::descriptors::AdtConstructor<'_>,
+        actual_payload_count: usize,
+    ) {
+        let expected_payload_count = constructor.variant.payload_fields.len();
+        self.diagnostics.push(Diagnostic::new(
+            "type.constructor_pattern_arity",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "constructor pattern expects {expected_payload_count} payload(s), but got {actual_payload_count}"
+            ),
+            Some(pattern.span.clone()),
+            JsonValue::object([
+                (
+                    "constructor",
+                    JsonValue::string(format!(
+                        "{}::{}",
+                        constructor.descriptor.type_name, constructor.variant.name
+                    )),
+                ),
+                (
+                    "expected_payload_count",
+                    JsonValue::Number(expected_payload_count as i64),
+                ),
+                (
+                    "actual_payload_count",
+                    JsonValue::Number(actual_payload_count as i64),
+                ),
+            ]),
+        ));
+    }
+
+    fn report_unresolved_refined_constructor(
+        &mut self,
+        pattern: &Pattern,
+        name: &[String],
+        scrutinee_type: &Type,
+    ) {
+        if !matches!(scrutinee_type, Type::VariantRefinement { .. })
+            || invalid_qualified_constructor_pattern(name)
+            || !matches!(
                 self.environment.adts.constructor(
                     name,
                     self.function.module_name.as_deref(),
@@ -384,18 +404,21 @@ impl<'a> FunctionChecker<'a> {
                 ),
                 ConstructorLookup::Missing
             )
-            && let PatternKind::Constructor { name_spans, .. } = &pattern.kind
-            && let Some(span) = name_spans.last()
         {
-            self.push_unresolved_name(
-                pattern.node_id,
-                span.clone(),
-                &name.join("::"),
-                "constructor",
-            );
+            return;
         }
-        self.report_constructor_pattern_mismatch(pattern, name, scrutinee_type);
-        self.unknown_pattern_bindings(args)
+        let PatternKind::Constructor { name_spans, .. } = &pattern.kind else {
+            return;
+        };
+        let Some(span) = name_spans.last() else {
+            return;
+        };
+        self.push_unresolved_name(
+            pattern.node_id,
+            span.clone(),
+            &name.join("::"),
+            "constructor",
+        );
     }
 
     pub(super) fn unknown_pattern_bindings(&mut self, patterns: &[Pattern]) -> Vec<PatternBinding> {
