@@ -358,7 +358,7 @@ fn retained_aggregate_refinement_rejections_are_table_driven() {
 }
 
 #[test]
-fn repeated_invariant_payload_contributions_reject_both_source_orders_transactionally() {
+fn ordinary_and_private_invariant_payload_contributions_merge_transactionally() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -376,6 +376,9 @@ fn repeated_invariant_payload_contributions_reject_both_source_orders_transactio
             "end\n",
             "type Recover<A>\n",
             "  Recovered(Duo<A, A>, A)\n",
+            "end\n",
+            "fn ordinary(value: Duo<State::Ready, State::Ready>) -> Wrap<State::Ready>\n",
+            "  Wrapped(value)\n",
             "end\n",
             "fn forward(value: Duo<State::Ready, State::Closed>)\n",
             "  Recovered(value, Failed)\n",
@@ -456,6 +459,14 @@ fn repeated_invariant_payload_contributions_reject_both_source_orders_transactio
     );
 
     let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("ordinary")
+            .expect("ordinary helper should be present")
+            .return_type
+            .render(),
+        "Wrap<State::Ready>"
+    );
     for function in ["forward", "reverse"] {
         assert_eq!(
             environment
