@@ -108,7 +108,7 @@ impl<'a> FunctionChecker<'a> {
             .cloned()
     }
 
-    fn report_match_non_exhaustive(
+    pub(super) fn report_match_non_exhaustive(
         &mut self,
         expr: &Expr,
         scrutinee: &Expr,
@@ -343,6 +343,32 @@ impl<'a> FunctionChecker<'a> {
                     self.pattern_bindings_with_recovery(pattern, &ty, false, true)
                 })
                 .collect();
+        }
+        let selected_variant_exists = name.last().is_some_and(|selected| {
+            descriptor
+                .variants
+                .iter()
+                .any(|variant| variant.name == *selected)
+        });
+        if !selected_variant_exists
+            && !invalid_qualified_constructor_pattern(name)
+            && matches!(
+                self.environment.adts.constructor(
+                    name,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                ),
+                ConstructorLookup::Missing
+            )
+            && let PatternKind::Constructor { name_spans, .. } = &pattern.kind
+            && let Some(span) = name_spans.last()
+        {
+            self.push_unresolved_name(
+                pattern.node_id,
+                span.clone(),
+                &name.join("::"),
+                "constructor",
+            );
         }
         self.report_constructor_pattern_mismatch(pattern, name, scrutinee_type);
         self.unknown_pattern_bindings(args)

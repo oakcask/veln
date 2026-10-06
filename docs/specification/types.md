@@ -362,14 +362,20 @@ nested patterns to the corresponding record field type when the scrutinee type
 is known. Unknown or non-record scrutinee types leave nested pattern bindings
 unknown. Arm expressions share the expected result type when one is available.
 
-When the scrutinee is a bare immutable parameter or local binding whose current
-type is an unrefined base ADT, a valid constructor arm gives that same binding
-the constructor's singleton refinement while checking the arm expression. The
-refinement retains the resolved ADT identity and its instantiated generic
-arguments. A nested `match` observes a refinement established by its enclosing
-arm but does not refine that already refined scrutinee again. Leaving an inner
-arm preserves the enclosing refinement, and leaving the outer arm restores the
-binding's original type.
+When the scrutinee is a bare immutable parameter or local binding, a valid
+constructor arm gives that same binding the constructor's singleton refinement
+while checking the arm expression. The binding's current type can be the base
+ADT, one singleton refinement, or a finite refinement union. The refinement
+retains the resolved ADT identity and its instantiated generic arguments.
+
+A singleton or finite-union scrutinee restricts the match domain to its written
+variant set. Each valid constructor arm removes its variant from the residual
+set. A binding catch-all receives the complete residual refinement, and a
+non-binding `_` catch-all gives the existing scrutinee binding that same
+refinement. Complete constructor coverage or one catch-all makes the match
+exhaustive. A nested `match` observes and can refine the current arm's finite
+domain. Leaving an inner arm preserves the enclosing refinement, and leaving
+the outer arm restores the binding's original type.
 
 ```veln
 type Boxed<A>
@@ -391,7 +397,27 @@ end
 
 The call in the `Filled` arm is accepted because `value` has type
 `Boxed<Int>::Filled` in that arm. After the `match`, `value` again has type
-`Boxed<Int>`.
+`Boxed<Int>`. The checked
+[`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
+also demonstrates a generic refined union whose binding catch-all and original
+scrutinee binding both receive the one-variant residual type.
+
+Arm classification first validates the constructor name, visibility, owning
+ADT, payload arity, nested patterns, and admitted payload bindings. An invalid
+arm keeps its intrinsic diagnostic, consumes no coverage, and produces no
+derived impossible or redundant diagnostic. A valid same-ADT constructor
+outside the original refined domain reports
+`type.match_impossible_variant`. A valid constructor or catch-all with an empty
+residual reports `type.match_redundant_arm`. An impossible or redundant arm
+does not consume coverage.
+
+Impossible and redundant arms still check payload bindings, their body, and an
+expected result inherited from the enclosing expression. A redundant
+constructor recovers with its original-domain singleton. An impossible
+constructor retains the original scrutinee type. A binding catch-all reached
+after complete coverage also uses the original scrutinee type because there is
+no empty refinement union. The diagnostic specification defines the stable
+classification details and related locations.
 
 Every nested constructor must resolve in its expected payload ADT and have the
 expected payload arity. Every nested record field must be unique and present in
@@ -407,10 +433,10 @@ type while the arm expression is checked. The checked
 demonstrates parameter, local, generic, nested-arm, and literal-payload use.
 
 This direct refinement requires the scrutinee source to consist only of the
-bare binding name. Parenthesized or qualified values, record-field paths,
-transparent aliases, catch-all residual refinement, direct re-refinement of an
-already refined scrutinee, refined-union match domains, and impossible or
-redundant arm analysis are not part of the current behavior.
+bare binding name. Parenthesized or qualified values, record-field paths, and
+transparent aliases do not receive this refinement or refined-domain arm
+classification. Calls, constructor expressions, and other computed
+scrutinees likewise retain the ordinary base-ADT match behavior.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
@@ -451,7 +477,10 @@ importing module, private source-declared constructors still require coverage,
 so arms for every public constructor are not exhaustive by themselves. Use `_`
 or a binding catch-all arm because the private constructors cannot be named
 there. `_` and binding patterns are catch-all arms. A
-non-exhaustive finite-domain match reports
+direct bare binding whose current type is a singleton or finite refinement
+union instead requires only that restricted original domain. A valid
+out-of-domain constructor is impossible and does not satisfy or expand the
+domain. A non-exhaustive finite-domain match reports
 `type.match_non_exhaustive` at the `match` expression. The missing case is the
 unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and

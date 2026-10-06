@@ -3,6 +3,54 @@ use super::*;
 use crate::adt::descriptors::AdtPayloadField;
 use crate::adt::registry::AdtRegistry;
 
+struct RefinedMatchCoverage {
+    original: Vec<String>,
+    remaining: Vec<String>,
+    first_covering_arms: Vec<(String, SourceSpan)>,
+    preceding_catch_all: Option<SourceSpan>,
+}
+
+struct RefinedMatchArmPlan {
+    arm_type: Type,
+    coverage: RefinedMatchArmCoverage,
+}
+
+enum RefinedMatchArmCoverage {
+    Constructor {
+        variant: String,
+        variant_span: SourceSpan,
+        classification: RefinedConstructorClassification,
+    },
+    CatchAll {
+        classification: RefinedCatchAllClassification,
+    },
+}
+
+enum RefinedConstructorClassification {
+    Covering,
+    Impossible,
+    Redundant,
+}
+
+enum RefinedCatchAllClassification {
+    Covering,
+    Redundant,
+}
+
+impl RefinedMatchCoverage {
+    fn new(scrutinee_type: &Type) -> Option<Self> {
+        let Type::VariantRefinement { variants, .. } = scrutinee_type else {
+            return None;
+        };
+        Some(Self {
+            original: variants.clone(),
+            remaining: variants.clone(),
+            first_covering_arms: Vec::new(),
+            preceding_catch_all: None,
+        })
+    }
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_adt_constructor(
         &mut self,
@@ -306,8 +354,24 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Type {
         let scrutinee_type = self.infer_match_scrutinee(expr, scrutinee, arms);
+        let mut refined_coverage = self
+            .is_direct_match_binding(scrutinee)
+            .then(|| RefinedMatchCoverage::new(&scrutinee_type))
+            .flatten();
         if arms.is_empty() {
-            self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
+            if let Some(coverage) = &refined_coverage {
+                if let Some(missing_variant) = coverage.remaining.first() {
+                    self.report_refined_match_non_exhaustive(
+                        expr,
+                        scrutinee,
+                        &scrutinee_type,
+                        missing_variant,
+                        Vec::new(),
+                    );
+                }
+            } else {
+                self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
+            }
             return expected
                 .map(|expected| expected.ty.clone())
                 .unwrap_or(Type::Unknown);
@@ -319,11 +383,90 @@ impl<'a> FunctionChecker<'a> {
                 .unwrap_or(Type::Unknown),
         );
         for arm in arms {
-            self.infer_match_arm(expr, scrutinee, arm, &scrutinee_type, expected, &mut result);
+            self.infer_match_arm(
+                expr,
+                scrutinee,
+                arm,
+                &scrutinee_type,
+                expected,
+                &mut result,
+                refined_coverage.as_mut(),
+            );
         }
 
-        self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
+        if let Some(coverage) = refined_coverage {
+            if let Some(missing_variant) = coverage.remaining.first() {
+                self.report_refined_match_non_exhaustive(
+                    expr,
+                    scrutinee,
+                    &scrutinee_type,
+                    missing_variant,
+                    coverage.first_covering_arms,
+                );
+            }
+        } else {
+            self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
+        }
         result.materialize()
+    }
+
+    fn is_direct_match_binding(&self, scrutinee: &Expr) -> bool {
+        let ExprKind::NamePath {
+            segments,
+            segment_spans,
+        } = &scrutinee.kind
+        else {
+            return false;
+        };
+        let ([binding_name], [binding_span]) = (segments.as_slice(), segment_spans.as_slice())
+        else {
+            return false;
+        };
+        binding_span == &scrutinee.span
+            && self
+                .bindings
+                .iter()
+                .any(|binding| binding.name == *binding_name)
+    }
+
+    fn report_refined_match_non_exhaustive(
+        &mut self,
+        expr: &Expr,
+        scrutinee: &Expr,
+        scrutinee_type: &Type,
+        missing_variant: &str,
+        proving_arms: Vec<(String, SourceSpan)>,
+    ) {
+        let coverage_case = |variant: &str| {
+            self.environment
+                .adts
+                .descriptor_for_type_prefer_module(
+                    scrutinee_type,
+                    self.function.module_name.as_deref(),
+                )
+                .and_then(|descriptor| {
+                    descriptor
+                        .variants
+                        .iter()
+                        .find(|candidate| candidate.name == variant)
+                })
+                .map_or_else(
+                    || variant.to_string(),
+                    |variant| variant.coverage_case.clone(),
+                )
+        };
+        let missing_case = coverage_case(missing_variant);
+        let proving_arms = proving_arms
+            .into_iter()
+            .map(|(variant, span)| (coverage_case(&variant), span))
+            .collect();
+        self.report_match_non_exhaustive(
+            expr,
+            scrutinee,
+            scrutinee_type,
+            missing_case,
+            proving_arms,
+        );
     }
 
     pub(super) fn infer_match_scrutinee(
@@ -366,6 +509,290 @@ impl<'a> FunctionChecker<'a> {
             .unwrap_or_else(|| self.infer_expr(scrutinee, scrutinee_expected.as_ref()))
     }
 
+    fn refined_match_arm_plan(
+        &self,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+        coverage: &RefinedMatchCoverage,
+    ) -> Option<RefinedMatchArmPlan> {
+        let Type::VariantRefinement {
+            name,
+            identity,
+            args: type_args,
+            ..
+        } = scrutinee_type
+        else {
+            return None;
+        };
+        match &pattern.kind {
+            PatternKind::Constructor {
+                name: constructor_name,
+                name_spans,
+                ..
+            } => {
+                if !self.match_pattern_is_valid_for_type(pattern, scrutinee_type) {
+                    return None;
+                }
+                let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
+                    scrutinee_type,
+                    self.function.module_name.as_deref(),
+                )?;
+                let constructor = self.environment.adts.constructor_for_descriptor(
+                    constructor_name,
+                    descriptor,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                )?;
+                let variant = constructor.variant.name.clone();
+                let classification = if !coverage.original.contains(&variant) {
+                    RefinedConstructorClassification::Impossible
+                } else if !coverage.remaining.contains(&variant) {
+                    RefinedConstructorClassification::Redundant
+                } else {
+                    RefinedConstructorClassification::Covering
+                };
+                let arm_type =
+                    if matches!(classification, RefinedConstructorClassification::Impossible) {
+                        scrutinee_type.clone()
+                    } else {
+                        Type::resolved_variant_refinement(
+                            name,
+                            identity,
+                            type_args.clone(),
+                            vec![variant.clone()],
+                        )
+                    };
+                Some(RefinedMatchArmPlan {
+                    arm_type,
+                    coverage: RefinedMatchArmCoverage::Constructor {
+                        variant,
+                        variant_span: name_spans.last()?.clone(),
+                        classification,
+                    },
+                })
+            }
+            PatternKind::Wildcard | PatternKind::Binding(_) => {
+                let classification = if coverage.remaining.is_empty() {
+                    RefinedCatchAllClassification::Redundant
+                } else {
+                    RefinedCatchAllClassification::Covering
+                };
+                let arm_type = if coverage.remaining.is_empty() {
+                    scrutinee_type.clone()
+                } else {
+                    Type::resolved_variant_refinement(
+                        name,
+                        identity,
+                        type_args.clone(),
+                        coverage.remaining.clone(),
+                    )
+                };
+                Some(RefinedMatchArmPlan {
+                    arm_type,
+                    coverage: RefinedMatchArmCoverage::CatchAll { classification },
+                })
+            }
+            _ => None,
+        }
+    }
+
+    fn commit_refined_match_arm(
+        &mut self,
+        scrutinee: &Expr,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+        coverage: &mut RefinedMatchCoverage,
+        plan: &RefinedMatchArmPlan,
+    ) {
+        match &plan.coverage {
+            RefinedMatchArmCoverage::Constructor {
+                variant,
+                classification: RefinedConstructorClassification::Covering,
+                ..
+            } => {
+                coverage.remaining.retain(|remaining| remaining != variant);
+                coverage
+                    .first_covering_arms
+                    .push((variant.clone(), pattern.span.clone()));
+            }
+            RefinedMatchArmCoverage::Constructor {
+                variant,
+                variant_span,
+                classification: RefinedConstructorClassification::Impossible,
+            } => {
+                self.push_match_impossible_variant(scrutinee, scrutinee_type, variant, variant_span)
+            }
+            RefinedMatchArmCoverage::Constructor {
+                variant,
+                classification: RefinedConstructorClassification::Redundant,
+                ..
+            } => {
+                let (reason, related_span, related_message) = if let Some(span) =
+                    &coverage.preceding_catch_all
+                {
+                    (
+                        "preceding_catch_all",
+                        span,
+                        "This preceding catch-all arm consumed the remaining variants.".to_string(),
+                    )
+                } else {
+                    let span = coverage
+                        .first_covering_arms
+                        .iter()
+                        .find_map(|(covered, span)| (covered == variant).then_some(span))
+                        .expect("redundant variant must have a covering arm");
+                    (
+                        "duplicate_variant",
+                        span,
+                        format!("This preceding arm first covered `{variant}`."),
+                    )
+                };
+                self.push_match_redundant_arm(
+                    pattern,
+                    scrutinee_type,
+                    Some(variant),
+                    reason,
+                    [(related_span, related_message)],
+                );
+            }
+            RefinedMatchArmCoverage::CatchAll {
+                classification: RefinedCatchAllClassification::Covering,
+            } => {
+                let consumed = std::mem::take(&mut coverage.remaining);
+                coverage.first_covering_arms.extend(
+                    consumed
+                        .into_iter()
+                        .map(|variant| (variant, pattern.span.clone())),
+                );
+                coverage.preceding_catch_all = Some(pattern.span.clone());
+            }
+            RefinedMatchArmCoverage::CatchAll {
+                classification: RefinedCatchAllClassification::Redundant,
+            } => {
+                if let Some(span) = &coverage.preceding_catch_all {
+                    self.push_match_redundant_arm(
+                        pattern,
+                        scrutinee_type,
+                        None,
+                        "preceding_catch_all",
+                        [(
+                            span,
+                            "This preceding catch-all arm consumed the remaining variants."
+                                .to_string(),
+                        )],
+                    );
+                } else {
+                    let related = coverage
+                        .original
+                        .iter()
+                        .filter_map(|variant| {
+                            coverage
+                                .first_covering_arms
+                                .iter()
+                                .find_map(|(covered, span)| {
+                                    (covered == variant).then(|| {
+                                        (span, format!("This preceding arm covered `{variant}`."))
+                                    })
+                                })
+                        })
+                        .collect::<Vec<_>>();
+                    self.push_match_redundant_arm(
+                        pattern,
+                        scrutinee_type,
+                        None,
+                        "complete_prior_coverage",
+                        related,
+                    );
+                }
+            }
+        }
+    }
+
+    fn push_match_impossible_variant(
+        &mut self,
+        scrutinee: &Expr,
+        scrutinee_type: &Type,
+        variant: &str,
+        variant_span: &SourceSpan,
+    ) {
+        let mut diagnostic = Diagnostic::new(
+            "type.match_impossible_variant",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("variant `{variant}` is excluded by the refined match domain"),
+            Some(variant_span.clone()),
+            JsonValue::object([
+                ("scrutinee_type", JsonValue::string(scrutinee_type.render())),
+                ("arm_variant", JsonValue::string(variant)),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("refinement_source")),
+            (
+                "message",
+                JsonValue::string(format!(
+                    "This match scrutinee has refined type `{}`.",
+                    scrutinee_type.render()
+                )),
+            ),
+            ("span", span_json(&scrutinee.span)),
+        ]));
+        let mut adt_declaration = vec![
+            ("kind", JsonValue::string("adt_declaration")),
+            (
+                "message",
+                JsonValue::string(format!(
+                    "The selected ADT is `{}`.",
+                    refined_base_name(scrutinee_type)
+                )),
+            ),
+        ];
+        if let Some(span) = self
+            .environment
+            .adts
+            .declaration_span_for_type(scrutinee_type)
+        {
+            adt_declaration.push(("span", span_json(span)));
+        }
+        diagnostic.related.push(JsonValue::object(adt_declaration));
+        self.diagnostics.push(diagnostic);
+    }
+
+    fn push_match_redundant_arm<'b>(
+        &mut self,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+        variant: Option<&str>,
+        reason: &'static str,
+        related: impl IntoIterator<Item = (&'b SourceSpan, String)>,
+    ) {
+        let arm_pattern = render_match_pattern(pattern);
+        let mut diagnostic = Diagnostic::new(
+            "type.match_redundant_arm",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "match arm has no remaining variant to cover",
+            Some(pattern.span.clone()),
+            JsonValue::object([
+                ("scrutinee_type", JsonValue::string(scrutinee_type.render())),
+                ("arm_pattern", JsonValue::string(arm_pattern)),
+                (
+                    "arm_variant",
+                    variant.map_or(JsonValue::Null, JsonValue::string),
+                ),
+                ("reason", JsonValue::string(reason)),
+            ]),
+        );
+        for (span, message) in related {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("preceding_arm")),
+                ("message", JsonValue::string(message)),
+                ("span", span_json(span)),
+            ]));
+        }
+        self.diagnostics.push(diagnostic);
+    }
+
     fn infer_match_arm(
         &mut self,
         match_expr: &Expr,
@@ -374,15 +801,34 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         expected: Option<&ExpectedType>,
         result: &mut ControlFlowResultJoin,
+        refined_coverage: Option<&mut RefinedMatchCoverage>,
     ) {
         let saved_bindings = self.bindings.len();
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         self.local_name_scopes.push(Vec::new());
 
-        let direct_binding_refinement =
-            self.direct_match_binding_refinement(scrutinee, &arm.pattern, scrutinee_type);
+        let arm_plan = refined_coverage.as_deref().and_then(|coverage| {
+            self.refined_match_arm_plan(&arm.pattern, scrutinee_type, coverage)
+        });
+        let pattern_type = arm_plan
+            .as_ref()
+            .map_or(scrutinee_type, |plan| &plan.arm_type);
         let pattern_bindings_admitted =
-            self.declare_match_pattern_bindings(&arm.pattern, scrutinee_type);
+            self.declare_match_pattern_bindings(&arm.pattern, pattern_type);
+        if pattern_bindings_admitted
+            && let (Some(coverage), Some(plan)) = (refined_coverage, arm_plan.as_ref())
+        {
+            self.commit_refined_match_arm(scrutinee, &arm.pattern, scrutinee_type, coverage, plan);
+        }
+        let direct_binding_refinement = self.direct_match_binding_refinement(
+            scrutinee,
+            &arm.pattern,
+            scrutinee_type,
+            pattern_bindings_admitted
+                .then(|| arm_plan.as_ref())
+                .flatten()
+                .map(|plan| &plan.arm_type),
+        );
         if pattern_bindings_admitted && let Some(binding) = direct_binding_refinement {
             self.bindings.push(binding);
         }
@@ -405,6 +851,7 @@ impl<'a> FunctionChecker<'a> {
         scrutinee: &Expr,
         pattern: &Pattern,
         scrutinee_type: &Type,
+        planned_refinement: Option<&Type>,
     ) -> Option<Binding> {
         let ExprKind::NamePath {
             segments,
@@ -425,6 +872,10 @@ impl<'a> FunctionChecker<'a> {
         self.bindings
             .iter()
             .rfind(|binding| binding.name == *binding_name)?;
+
+        if let Some(refinement) = planned_refinement {
+            return Some(Binding::new(binding_name.clone(), refinement.clone()));
+        }
 
         let Type::Named {
             name: type_name,
@@ -618,6 +1069,45 @@ impl<'a> FunctionChecker<'a> {
         }
         self.infer_if_branch(expr, else_branch, expected, &mut result);
         result.materialize()
+    }
+}
+
+fn refined_base_name(ty: &Type) -> &str {
+    match ty {
+        Type::VariantRefinement { name, .. } => name,
+        _ => "unknown",
+    }
+}
+
+fn render_match_pattern(pattern: &Pattern) -> String {
+    match &pattern.kind {
+        PatternKind::Wildcard => "_".to_string(),
+        PatternKind::Binding(name) => name.clone(),
+        PatternKind::StringLiteral(value) => format!("{value:?}"),
+        PatternKind::IntLiteral(value) | PatternKind::FloatLiteral(value) => value.clone(),
+        PatternKind::BoolLiteral(value) => value.to_string(),
+        PatternKind::Unit => "()".to_string(),
+        PatternKind::Record(fields) => {
+            let fields = fields
+                .iter()
+                .map(|field| format!("{}: {}", field.name, render_match_pattern(&field.pattern)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{{{fields}}}")
+        }
+        PatternKind::Constructor { name, args, .. } => {
+            let name = name.join("::");
+            if args.is_empty() {
+                name
+            } else {
+                let args = args
+                    .iter()
+                    .map(render_match_pattern)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{name}({args})")
+            }
+        }
     }
 }
 

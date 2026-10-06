@@ -125,6 +125,7 @@ impl AdtRegistry {
             companion_access_targets,
             annotation_types,
             type_alias_identities: BTreeSet::new(),
+            declaration_spans: HashMap::new(),
         }
     }
 
@@ -174,6 +175,22 @@ impl AdtRegistry {
             annotation_types,
         );
         registry.type_alias_identities = type_alias_identities;
+        registry.declaration_spans = base.declaration_spans.clone();
+        registry
+            .declaration_spans
+            .extend(module.types.iter().filter_map(|decl| {
+                let name = decl.name.as_ref()?;
+                name.as_bytes()
+                    .first()
+                    .is_some_and(u8::is_ascii_uppercase)
+                    .then(|| {
+                        let identity = decl
+                            .module_name
+                            .as_ref()
+                            .map_or_else(|| name.clone(), |module| format!("{module}::{name}"));
+                        (identity, decl.span.clone())
+                    })
+            }));
         registry.canonicalize_source_payload_types(module, source_descriptor_start);
         registry
     }
@@ -264,6 +281,16 @@ impl AdtRegistry {
                     .is_none_or(|module_name| module_names.contains(module_name))
             })
             .cloned()
+            .collect();
+        registry.declaration_spans = self
+            .declaration_spans
+            .iter()
+            .filter(|(identity, _)| {
+                registry
+                    .descriptors_by_identity
+                    .contains_key(identity.as_str())
+            })
+            .map(|(identity, span)| (identity.clone(), span.clone()))
             .collect();
         registry
     }

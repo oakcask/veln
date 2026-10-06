@@ -1,0 +1,332 @@
+use super::*;
+use veln_diagnostics::JsonValue;
+
+fn diagnostics_for(source: &str) -> Vec<Diagnostic> {
+    let source = SourceFile::new("main.veln", source);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    analyze_surface_module(&lower_surface_ast(&parsed.tree))
+}
+
+fn detail<'a>(diagnostic: &'a Diagnostic, name: &str) -> &'a JsonValue {
+    let JsonValue::Object(entries) = &diagnostic.details else {
+        panic!("diagnostic details must be an object")
+    };
+    entries
+        .iter()
+        .find_map(|(field, value)| (field == name).then_some(value))
+        .unwrap_or_else(|| panic!("missing diagnostic detail `{name}`"))
+}
+
+const STATE_DECL: &str = concat!(
+    "type State\n",
+    "  Ready\n",
+    "  Closed\n",
+    "  Failed\n",
+    "end\n",
+);
+
+#[test]
+fn refined_domains_drive_constructor_and_residual_catch_all_refinement() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Boxed<A>\n",
+        "  Filled(A)\n",
+        "  Empty\n",
+        "  Failed\n",
+        "end\n",
+        "fn accept_filled(value: Boxed<Int>::Filled) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_empty(value: Boxed<Int>::Empty) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn constructor_then_binding(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()\n",
+        "  match value\n",
+        "    Filled(_) => accept_filled(value)\n",
+        "    remaining => begin\n",
+        "      accept_empty(remaining)\n",
+        "      accept_empty(value)\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+        "fn constructor_then_wildcard(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()\n",
+        "  match value\n",
+        "    Filled(_) => accept_filled(value)\n",
+        "    _ => accept_empty(value)\n",
+        "  end\n",
+        "end\n",
+        "fn singleton(value: Boxed<Int>::Empty) -> ()\n",
+        "  match value\n",
+        "    Empty => accept_empty(value)\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn refined_domain_classification_is_deterministic_and_preserves_related_arms() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn classify(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    Failed => ()\n",
+            "    Ready => ()\n",
+            "    Ready => ()\n",
+            "    Closed => ()\n",
+            "    _ => ()\n",
+            "    remaining => ()\n",
+            "    Failed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    let classified = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "type.match_impossible_variant" | "type.match_redundant_arm"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(classified.len(), 5, "{diagnostics:#?}");
+    assert_eq!(classified[0].id, "type.match_impossible_variant");
+    assert_eq!(
+        detail(classified[0], "scrutinee_type").as_text(),
+        Some("State::Ready | State::Closed")
+    );
+    assert_eq!(
+        detail(classified[0], "arm_variant").as_text(),
+        Some("Failed")
+    );
+
+    assert_eq!(classified[1].id, "type.match_redundant_arm");
+    assert_eq!(
+        detail(classified[1], "reason").as_text(),
+        Some("duplicate_variant")
+    );
+    assert_eq!(
+        detail(classified[1], "arm_variant").as_text(),
+        Some("Ready")
+    );
+    assert_eq!(classified[1].related.len(), 1);
+
+    assert_eq!(
+        detail(classified[2], "reason").as_text(),
+        Some("complete_prior_coverage")
+    );
+    assert_eq!(detail(classified[2], "arm_variant"), &JsonValue::Null);
+    assert_eq!(classified[2].related.len(), 2);
+
+    assert_eq!(
+        detail(classified[3], "reason").as_text(),
+        Some("complete_prior_coverage")
+    );
+    assert_eq!(classified[3].related.len(), 2);
+
+    assert_eq!(classified[4].id, "type.match_impossible_variant");
+}
+
+#[test]
+fn preceding_catch_all_reason_wins_for_later_constructor_and_catch_all() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn classify(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    _ => ()\n",
+            "    Ready => ()\n",
+            "    remaining => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    let redundant = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.match_redundant_arm")
+        .collect::<Vec<_>>();
+    assert_eq!(redundant.len(), 2, "{diagnostics:#?}");
+    assert!(redundant.iter().all(|diagnostic| {
+        detail(diagnostic, "reason").as_text() == Some("preceding_catch_all")
+            && diagnostic.related.len() == 1
+    }));
+}
+
+#[test]
+fn invalid_heads_keep_intrinsic_diagnostics_and_do_not_consume_coverage() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Other\n",
+            "  Foreign\n",
+            "end\n",
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    State::ready => ()\n",
+            "    Ready(_) => ()\n",
+            "    Other::Foreign => ()\n",
+            "    missing::Missing => ()\n",
+            "    Ready => ()\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case")
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch")
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.unresolved")
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "type.match_impossible_variant"
+                && diagnostic.id != "type.match_redundant_arm"
+                && diagnostic.id != "type.match_non_exhaustive"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn unreachable_arms_still_check_payloads_bodies_and_expected_results() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready(Int)\n",
+        "  Closed(String)\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_closed(value: State::Closed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_string(value: String) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn impossible(value: State::Ready) -> State::Ready\n",
+        "  match value\n",
+        "    Ready(_) => Ready(1)\n",
+        "    Closed(reason) => begin\n",
+        "      accept_string(reason)\n",
+        "      accept_closed(value)\n",
+        "      Closed(reason)\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+        "fn redundant(value: State::Ready) -> ()\n",
+        "  match value\n",
+        "    Ready(_) => ()\n",
+        "    Ready(_) => accept_ready(value)\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.match_impossible_variant")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.match_redundant_arm")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn nested_refined_matches_restore_each_enclosing_scope() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn accept_closed(value: State::Closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    Ready => accept_ready(value)\n",
+            "    _ => begin\n",
+            "      match value\n",
+            "        Closed => accept_closed(value)\n",
+            "      end\n",
+            "      accept_closed(value)\n",
+            "    end\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn non_bare_refined_scrutinees_keep_the_existing_match_behavior() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn make() -> State::Ready\n",
+            "  Ready\n",
+            "end\n",
+            "fn check(value: State::Ready) -> ()\n",
+            "  match (value)\n",
+            "    Failed => ()\n",
+            "    _ => ()\n",
+            "  end\n",
+            "  match make()\n",
+            "    Ready => ()\n",
+            "    _ => ()\n",
+            "  end\n",
+            "  match Ready\n",
+            "    Ready => ()\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "type.match_impossible_variant"
+                && diagnostic.id != "type.match_redundant_arm"
+        }),
+        "{diagnostics:#?}"
+    );
+}

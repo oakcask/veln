@@ -1,6 +1,7 @@
 # Compiler integration contract: checking a constructor arm exposes the matched
-# bare parameter or local at its singleton refinement without losing generic
-# arguments, and nested matches restore the enclosing arm refinement.
+# bare parameter or local at its singleton or residual refinement without
+# losing generic arguments, and nested matches restore the enclosing arm
+# refinement.
 type State
 	Ready
 	Closed
@@ -9,6 +10,7 @@ end
 type Boxed<A>
 	Filled(A)
 	Empty
+	Failed
 end
 
 type LiteralPayload
@@ -20,6 +22,10 @@ fn accept_ready(value: State::Ready) -> ()
 end
 
 fn accept_filled(value: Boxed<Int>::Filled) -> ()
+	()
+end
+
+fn accept_empty(value: Boxed<Int>::Empty) -> ()
 	()
 end
 
@@ -35,6 +41,7 @@ fn parameter(value: Boxed<Int>) -> ()
 	match value
 		Filled(_) => accept_filled(value)
 		Empty => ()
+		Failed => ()
 	end
 end
 
@@ -43,6 +50,17 @@ fn local(value: Boxed<Int>) -> ()
 	match current
 		Filled(_) => accept_filled(current)
 		Empty => ()
+		Failed => ()
+	end
+end
+
+fn residual(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()
+	match value
+		Filled(_) => accept_filled(value)
+		remaining => begin
+			accept_empty(remaining)
+			accept_empty(value)
+		end
 	end
 end
 
@@ -50,7 +68,6 @@ fn nested(state: State) -> ()
 	match state
 		Ready => pair(match state
 			Ready => accept_ready(state)
-			_ => ()
 		end, accept_ready(state))
 		Closed => ()
 	end
