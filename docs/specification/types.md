@@ -368,8 +368,11 @@ while checking the arm expression. The refinement retains the resolved ADT
 identity and its instantiated generic arguments. A nested `match` can refine
 the current arm type again; leaving the nested arm restores the enclosing
 refinement, and leaving the outer arm restores the binding's original type.
-Invalid-cased, unresolved, inaccessible, wrong-ADT, or payload-arity-mismatched
-constructor patterns do not refine the binding. The checked
+Every nested constructor must resolve in its expected payload ADT and have the
+expected payload arity. Every nested record field must be unique and present in
+its expected record type. A failure at the arm head or at either kind of nested
+pattern leaves the matched binding at its pre-arm type while the arm expression
+is checked. The checked
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
 demonstrates parameter, local, generic, and nested-arm use.
 

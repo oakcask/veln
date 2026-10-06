@@ -125,9 +125,13 @@ before the rejected payload. If an earlier error leaves the value untyped,
 A valid constructor arm for a bare immutable match-scrutinee binding refines
 that binding to the constructor singleton while checking the arm. Passing the
 binding to a parameter that requires that singleton emits no
-`type.variant_mismatch`. An invalid-cased, unresolved, inaccessible,
-wrong-ADT, or payload-arity-mismatched constructor pattern does not establish
-the refinement, so an incompatible use of the binding retains the ordinary
+`type.variant_mismatch`. The arm does not establish the refinement when its
+head is invalid-cased, unresolved, inaccessible, from the wrong ADT, or has the
+wrong payload arity. The same rule applies when a nested constructor does not
+resolve against its expected payload ADT or has the wrong arity, and when a
+nested record pattern names a missing or duplicate field. The invalid pattern
+keeps its intrinsic casing, resolution, field, arity, or type diagnostic. An
+incompatible use of the unrefined binding in the arm also retains the ordinary
 `type.variant_mismatch` behavior. The [type inference
 rules](types.md#inference-rules) define the refinement scope and unsupported
 scrutinee forms.
