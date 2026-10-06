@@ -374,7 +374,9 @@ result that cannot join reports the ordinary compatibility diagnostic against
 the base ADT. That failure abandons the finite join: recovery uses the base ADT,
 and a later compatible refinement does not resume the partial join.
 When the first typed arm cannot start an ADT-refinement join, it supplies the
-initial result type for the existing compatibility and mismatch rules.
+initial result type for the existing compatibility and mismatch rules. When
+that type is a concrete base ADT, it supplies context to later arms, including
+an otherwise ambiguous generic constructor. The result remains the base ADT.
 
 `if` and `else if` conditions are checked with expected type `Bool`. A
 non-`Bool` condition reports `type.mismatch` at the condition expression.
