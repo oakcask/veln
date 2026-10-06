@@ -426,6 +426,15 @@ impl<'a> FunctionChecker<'a> {
             .iter()
             .rfind(|binding| binding.name == *binding_name)?;
 
+        let Type::Named {
+            name: type_name,
+            identity,
+            args: type_args,
+        } = scrutinee_type
+        else {
+            return None;
+        };
+
         let PatternKind::Constructor { name, args, .. } = &pattern.kind else {
             return None;
         };
@@ -451,20 +460,6 @@ impl<'a> FunctionChecker<'a> {
         }) {
             return None;
         }
-        let (type_name, identity, type_args) = match scrutinee_type {
-            Type::Named {
-                name,
-                identity,
-                args,
-            }
-            | Type::VariantRefinement {
-                name,
-                identity,
-                args,
-                ..
-            } => (name, identity, args),
-            _ => return None,
-        };
         Some(Binding::new(
             binding_name.clone(),
             Type::resolved_variant_refinement(

@@ -422,6 +422,46 @@ fn constructor_match_arms_refine_direct_parameters_and_locals() {
 }
 
 #[test]
+fn refined_scrutinees_do_not_use_direct_binding_refinement() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn accept_failed(value: State::Failed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn singleton(value: State::Ready) -> ()\n",
+            "  match value\n",
+            "    Failed => accept_failed(value)\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+            "fn union(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    Failed => accept_failed(value)\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        detail_field(mismatches[0], "actual_type").as_text(),
+        Some("State::Ready"),
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        detail_field(mismatches[1], "actual_type").as_text(),
+        Some("State::Ready | State::Closed"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn nested_match_refinement_composes_and_restores_each_scope() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -674,6 +714,8 @@ fn rejected_payload_binding_names_do_not_refine_direct_bindings() {
             "accept_pair(value)",
             "value",
             "",
+            "",
+            "name.duplicate",
         ),
         (
             "scrutinee_parameter_collision",
@@ -681,6 +723,8 @@ fn rejected_payload_binding_names_do_not_refine_direct_bindings() {
             "accept_wrapped(value)",
             "value",
             "",
+            "",
+            "name.duplicate",
         ),
         (
             "visible_local_collision",
@@ -688,10 +732,21 @@ fn rejected_payload_binding_names_do_not_refine_direct_bindings() {
             "accept_wrapped(current)",
             "current",
             "  let current: Wrapper = value\n  let occupied = 1\n",
+            "",
+            "name.duplicate",
+        ),
+        (
+            "callsite_shadow",
+            "Wrapper::Wrapped(callsite)",
+            "accept_wrapped(value)",
+            "value",
+            "",
+            " callsite",
+            "name.callsite_shadow",
         ),
     ];
 
-    for (name, pattern, call, scrutinee, setup) in cases {
+    for (name, pattern, call, scrutinee, setup, modifier, binding_diagnostic) in cases {
         let diagnostics = diagnostics_for(&format!(
             concat!(
                 "type Wrapper\n",
@@ -704,7 +759,7 @@ fn rejected_payload_binding_names_do_not_refine_direct_bindings() {
                 "fn accept_wrapped(value: Wrapper::Wrapped) -> ()\n",
                 "  ()\n",
                 "end\n",
-                "fn {name}(value: Wrapper) -> ()\n",
+                "fn {name}(value: Wrapper) -> (){modifier}\n",
                 "{setup}",
                 "  match {scrutinee}\n",
                 "    {pattern} => {call}\n",
@@ -717,15 +772,14 @@ fn rejected_payload_binding_names_do_not_refine_direct_bindings() {
             call = call,
             scrutinee = scrutinee,
             setup = setup,
+            modifier = modifier,
         ));
 
         assert_eq!(diagnostics.len(), 2, "{name}: {diagnostics:#?}");
-        assert_eq!(
+        assert!(
             diagnostics
                 .iter()
-                .filter(|diagnostic| diagnostic.id == "name.duplicate")
-                .count(),
-            1,
+                .any(|diagnostic| diagnostic.id == binding_diagnostic),
             "{name}: {diagnostics:#?}"
         );
         let refinement_mismatches = diagnostics
