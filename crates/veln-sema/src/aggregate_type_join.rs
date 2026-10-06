@@ -2,8 +2,9 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::adt::descriptors::AdtConstructor;
 use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
-use crate::adt::unification;
+use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
 use crate::type_relations::{invariant_args_match, same_type_identity};
 
@@ -148,6 +149,44 @@ impl AggregateTypeJoin {
         *self.materialized.borrow_mut() = Some(materialized.clone());
         materialized
     }
+}
+
+pub(crate) fn merge_invariant_payload_type_args(
+    inferred: &mut [Type],
+    joined: &mut [Option<AggregateTypeJoin>],
+    invariant: &mut [bool],
+    constructor: AdtConstructor<'_>,
+    index: usize,
+    actual: &Type,
+) -> Result<(), unification::TypeParameterContributionConflict> {
+    let mut contributions = Vec::new();
+    adt::visit_type_arg_contributions_from_payload(
+        constructor,
+        index,
+        actual,
+        |type_index, contribution| {
+            record_work(1);
+            contributions.push((type_index, contribution.clone()));
+        },
+    );
+    let constraints = unification::merge_type_parameter_contributions_transactionally(
+        &contributions,
+        |type_index| {
+            inferred.get(type_index).map(|inferred| {
+                joined[type_index]
+                    .as_ref()
+                    .map(AggregateTypeJoin::result_type)
+                    .unwrap_or_else(|| inferred.clone())
+            })
+        },
+    )?;
+    for (type_index, constraint) in constraints {
+        record_work(1);
+        inferred[type_index] = constraint;
+        joined[type_index] = None;
+        invariant[type_index] = true;
+    }
+    Ok(())
 }
 
 fn type_contains_unknown(ty: &Type) -> bool {

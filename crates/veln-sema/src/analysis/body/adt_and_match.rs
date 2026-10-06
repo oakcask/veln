@@ -720,7 +720,14 @@ impl ConstructorTypeArgInference {
             return Ok(());
         }
         if !matches!(field.ty, AdtPayloadType::TypeParameter(_)) {
-            return self.commit_invariant_payload(constructor, index, actual);
+            return crate::aggregate_type_join::merge_invariant_payload_type_args(
+                &mut self.inferred,
+                &mut self.joined,
+                &mut self.invariant,
+                constructor,
+                index,
+                actual,
+            );
         }
         crate::aggregate_type_join::record_work(1);
         adt::merge_type_args_from_payload(&mut self.inferred, constructor, index, actual);
@@ -732,42 +739,6 @@ impl ConstructorTypeArgInference {
             if let Some(joined) = &self.joined[type_index] {
                 self.inferred[type_index] = joined.inference_type();
             }
-        }
-        Ok(())
-    }
-
-    fn commit_invariant_payload(
-        &mut self,
-        constructor: AdtConstructor<'_>,
-        index: usize,
-        actual: &Type,
-    ) -> Result<(), unification::TypeParameterContributionConflict> {
-        let mut contributions = Vec::new();
-        adt::visit_type_arg_contributions_from_payload(
-            constructor,
-            index,
-            actual,
-            |type_index, contribution| {
-                crate::aggregate_type_join::record_work(1);
-                contributions.push((type_index, contribution.clone()));
-            },
-        );
-        let constraints = unification::merge_type_parameter_contributions_transactionally(
-            &contributions,
-            |type_index| {
-                self.inferred.get(type_index).map(|inferred| {
-                    self.joined[type_index]
-                        .as_ref()
-                        .map(AggregateTypeJoin::result_type)
-                        .unwrap_or_else(|| inferred.clone())
-                })
-            },
-        )?;
-        for (type_index, constraint) in constraints {
-            crate::aggregate_type_join::record_work(1);
-            self.inferred[type_index] = constraint;
-            self.joined[type_index] = None;
-            self.invariant[type_index] = true;
         }
         Ok(())
     }
