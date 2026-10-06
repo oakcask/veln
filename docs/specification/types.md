@@ -501,9 +501,19 @@ the arms that prove partial coverage.
 Coverage classification for a direct refined domain has linear analysis work
 when the domain size and the number of arms grow together. This bound covers
 complete and incomplete coverage, duplicate and impossible constructor arms,
-and a catch-all after complete constructor coverage. Final serialized JSON can
-still grow quadratically when a linear number of diagnostics must each expose
-the complete refined domain.
+and a catch-all after complete constructor coverage. For a fixed singleton
+domain, widening the base ADT does not increase coverage setup work or retained
+match-local slots. Increasing the number of sequential singleton matches
+increases setup work linearly while retaining one match state at a time.
+Increasing singleton-match nesting depth increases peak retained slots
+linearly, independently of the base ADT width.
+
+Deterministic test counters measure coverage work, initialized slots, peak
+retained slots, and copied diagnostic labels across adjacent generated input
+sizes. These counters, rather than elapsed time, define the regression checks;
+reported wall-clock timings are observational. Final serialized JSON can still
+grow quadratically when a linear number of diagnostics must each expose the
+complete refined domain.
 
 ### Result propagation
 
