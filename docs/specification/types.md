@@ -486,6 +486,16 @@ unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
 the arms that prove partial coverage.
 
+Coverage bookkeeping for a direct refined domain grows linearly when the
+domain size and the number of arms grow together. This bound covers complete
+coverage, duplicate constructor arms, incomplete coverage, and a catch-all
+after complete constructor coverage. The deterministic regression check counts
+coverage operations for 100, 200, and 400 variants. When the input doubles,
+the count must not exceed twice the preceding count plus 64 fixed operations.
+Elapsed time is reported for observation but is not a test threshold because
+runner load is uncontrolled. The checked workload is in
+`crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
+
 ### Result propagation
 
 Postfix `?` unwraps the success type `T` from an operand whose type is
