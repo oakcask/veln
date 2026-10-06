@@ -81,6 +81,13 @@ fn residual(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()
 	end
 end
 
+fn residual_wildcard(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()
+	match value
+		Filled(_) => accept_filled(value)
+		_ => accept_empty(value)
+	end
+end
+
 fn nested(state: State) -> ()
 	match state
 		Ready => pair(match state

@@ -368,7 +368,7 @@ while checking the arm expression. The binding's current type can be the base
 ADT, one singleton refinement, or a finite refinement union. The refinement
 retains the resolved ADT identity and its instantiated generic arguments.
 
-A singleton or finite-union scrutinee restricts the match domain to its written
+A singleton or finite-union scrutinee restricts the match domain to its current
 variant set. Each valid constructor arm removes its variant from the residual
 set. A binding catch-all receives the complete residual refinement, and a
 non-binding `_` catch-all gives the existing scrutinee binding that same
@@ -493,24 +493,12 @@ unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
 the arms that prove partial coverage.
 
-Semantic analysis for a direct refined domain grows linearly when the domain
-size and the number of arms grow together. This bound covers complete and
-incomplete coverage, duplicate and impossible constructor arms, and a
-catch-all after complete constructor coverage. One match renders its original
-refined domain once and shares that diagnostic text and JSON value across its
-classification diagnostics. Cloning the original refinement shares its stored
-variant set; singleton and residual refinements materialize only their own
-variants.
-
-The deterministic regression check measures coverage operations, rendered
-domain count, retained diagnostic text, and materialized refinement variants
-for 100, 200, and 400 variants. Adjacent measurements must remain linear.
-Elapsed time is reported for observation but is not a test threshold because
-runner load is uncontrolled. Final serialized JSON can be quadratic when a
-linear number of diagnostics must each expose the complete refined domain;
-the analysis avoids only repeated internal rendering and storage. The checked
-workload is in
-`crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
+Coverage classification for a direct refined domain has linear analysis work
+when the domain size and the number of arms grow together. This bound covers
+complete and incomplete coverage, duplicate and impossible constructor arms,
+and a catch-all after complete constructor coverage. Final serialized JSON can
+still grow quadratically when a linear number of diagnostics must each expose
+the complete refined domain.
 
 ### Result propagation
 
@@ -779,5 +767,7 @@ inventing an arithmetic rewrite.
 - Type inference and compatibility: `crates/veln-sema/src/types.rs` and
   `crates/veln-sema/src/type_annotation_parser.rs`.
 - Effect-row typing: `crates/veln-sema/src/effect_rows.rs`.
+- Refined-match coverage scaling:
+  `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.
