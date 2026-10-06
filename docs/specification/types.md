@@ -361,18 +361,18 @@ arm expression still receive checking. For `List<A>`,
 nested patterns to the corresponding record field type when the scrutinee type
 is known. Unknown or non-record scrutinee types leave nested pattern bindings
 unknown. Arm expressions share the expected result type when one is available.
-Without an expected result, refinements of the same ADT identity and generic
-arguments join by taking the union of their variant sets. The union is
-independent of arm order and renders in ADT declaration order. A refinement
-joined with its base ADT, or a union containing every declared variant,
-produces the base ADT. Once the first refinement starts such a join, later arm
-results are resolved independently before they contribute to it. The join does
-not resolve an ambiguous constructor, infer missing generic arguments, or
-supply an expected type to a sibling arm. An explicit enclosing expected type
-continues to flow to every arm. A later result that cannot join reports the
-ordinary compatibility diagnostic against the base ADT. That failure abandons
-the finite join: recovery uses the base ADT, and a later compatible refinement
-does not resume the partial join.
+Without an expected result, refinements of the same ADT identity join by taking
+the union of their variant sets when every generic argument is fully resolved
+and identical. The union is independent of arm order and renders in ADT
+declaration order. A refinement joined with its base ADT, or a union containing
+every declared variant, produces the base ADT. Once the first refinement starts
+such a join, later arm results are resolved independently before they contribute
+to it. The join does not resolve an ambiguous constructor, infer a missing or
+nested unknown generic argument, or supply an expected type to a sibling arm.
+An explicit enclosing expected type continues to flow to every arm. A later
+result that cannot join reports the ordinary compatibility diagnostic against
+the base ADT. That failure abandons the finite join: recovery uses the base ADT,
+and a later compatible refinement does not resume the partial join.
 When the first typed arm cannot start an ADT-refinement join, it supplies the
 initial result type for the existing compatibility and mismatch rules.
 
