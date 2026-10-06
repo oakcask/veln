@@ -92,61 +92,46 @@ fn cli_reports_parser_errors_before_project_discovery() {
 
     assert_eq!(unknown_command.status.code(), Some(2));
     assert_eq!(stdout(&unknown_command), "");
-    assert_eq!(stderr(&unknown_command), "veln: unknown command `wat`\n");
+    assert!(stderr(&unknown_command).contains("wat"));
+    assert!(stderr(&unknown_command).contains("Usage:"));
 
     assert_eq!(unknown_doc_flag.status.code(), Some(2));
     assert_eq!(stdout(&unknown_doc_flag), "");
-    assert_eq!(
-        stderr(&unknown_doc_flag),
-        "veln: unknown doc flag `--wat`\n"
-    );
+    assert!(stderr(&unknown_doc_flag).contains("--wat"));
+    assert!(stderr(&unknown_doc_flag).contains("Usage:"));
 
     assert_eq!(unknown_repair_flag.status.code(), Some(2));
     assert_eq!(stdout(&unknown_repair_flag), "");
-    assert_eq!(
-        stderr(&unknown_repair_flag),
-        "veln: unknown repair flag `--wat`\n"
-    );
+    assert!(stderr(&unknown_repair_flag).contains("--wat"));
+    assert!(stderr(&unknown_repair_flag).contains("Usage:"));
 
     assert_eq!(unknown_check_flag.status.code(), Some(2));
     assert_eq!(stdout(&unknown_check_flag), "");
-    assert_eq!(
-        stderr(&unknown_check_flag),
-        "veln: unknown check flag `--wat`\n"
-    );
+    assert!(stderr(&unknown_check_flag).contains("--wat"));
+    assert!(stderr(&unknown_check_flag).contains("Usage:"));
 
     assert_eq!(unknown_run_flag.status.code(), Some(2));
     assert_eq!(stdout(&unknown_run_flag), "");
-    assert_eq!(
-        stderr(&unknown_run_flag),
-        "veln: unknown run flag `--wat`\n"
-    );
+    assert!(stderr(&unknown_run_flag).contains("--wat"));
+    assert!(stderr(&unknown_run_flag).contains("Usage:"));
 
     assert_eq!(unknown_test_flag.status.code(), Some(2));
     assert_eq!(stdout(&unknown_test_flag), "");
-    assert_eq!(
-        stderr(&unknown_test_flag),
-        "veln: unknown test flag `--wat`\n"
-    );
+    assert!(stderr(&unknown_test_flag).contains("--wat"));
+    assert!(stderr(&unknown_test_flag).contains("Usage:"));
 
     assert_eq!(unknown_explain_flag.status.code(), Some(2));
     assert_eq!(stdout(&unknown_explain_flag), "");
-    assert_eq!(
-        stderr(&unknown_explain_flag),
-        "veln: unknown explain flag `--wat`\n"
-    );
+    assert!(stderr(&unknown_explain_flag).contains("--wat"));
+    assert!(stderr(&unknown_explain_flag).contains("Usage:"));
 
     assert_eq!(unexpected_explain_argument.status.code(), Some(2));
     assert_eq!(stdout(&unexpected_explain_argument), "");
-    assert_eq!(
-        stderr(&unexpected_explain_argument),
-        "veln: unexpected explain argument `extra`\n"
-    );
+    assert!(stderr(&unexpected_explain_argument).contains("extra"));
+    assert!(stderr(&unexpected_explain_argument).contains("Usage:"));
 
     assert_eq!(missing_run_entry.status.code(), Some(2));
     assert_eq!(stdout(&missing_run_entry), "");
-    assert_eq!(
-        stderr(&missing_run_entry),
-        "veln: run requires an entry function name\n"
-    );
+    assert!(stderr(&missing_run_entry).contains("<ENTRY>"));
+    assert!(stderr(&missing_run_entry).contains("Usage:"));
 }

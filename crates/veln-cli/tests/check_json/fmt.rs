@@ -346,7 +346,8 @@ fn fmt_rejects_unknown_flags_before_writing_files() {
 
     assert_eq!(output.status.code(), Some(2));
     assert_eq!(stdout(&output), "");
-    assert_eq!(stderr(&output), "veln: unknown fmt flag `--json`\n");
+    assert!(stderr(&output).contains("--json"));
+    assert!(stderr(&output).contains("Usage:"));
     assert_eq!(project.read("main.veln"), text);
 }
 

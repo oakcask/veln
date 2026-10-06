@@ -6,7 +6,7 @@ mod java;
 use std::env;
 use std::process::ExitCode;
 
-use cli::Command;
+use cli::{Command, PackageCommand};
 
 fn main() -> ExitCode {
     match run(env::args().skip(1).collect()) {
@@ -45,7 +45,7 @@ fn analysis_command(command: &Command) -> bool {
             | Command::Run { .. }
             | Command::Test { .. }
             | Command::Repair { .. }
-            | Command::PackageLock
+            | Command::Package { .. }
     )
 }
 
@@ -99,6 +99,7 @@ fn run_analysis_command(
             confirm_id,
             override_requested,
             inputs,
+            ..
         } => commands::repair::repair(
             analysis_start(),
             json,
@@ -112,7 +113,9 @@ fn run_analysis_command(
             list,
             diagnostic_id,
         } => commands::explain::explain(list, diagnostic_id),
-        Command::PackageLock => commands::package::lock(analysis_start()),
+        Command::Package {
+            command: PackageCommand::Lock,
+        } => commands::package::lock(analysis_start()),
         _ => unreachable!("analysis command predicate should only route analysis commands"),
     }
 }
