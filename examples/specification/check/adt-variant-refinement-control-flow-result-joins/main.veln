@@ -143,12 +143,33 @@ fn if_full(first: Bool, second: Bool, third: Bool)
 	end
 end
 
+fn if_full_reverse(first: Bool, second: Bool, third: Bool)
+	if first
+		Closed
+	else if second
+		Pending
+	else if third
+		Ready
+	else
+		Failed
+	end
+end
+
 fn match_full(state: State)
 	match state
 		Ready => Pending
 		Closed => Ready
 		Failed => Closed
 		Pending => Failed
+	end
+end
+
+fn match_full_reverse(state: State)
+	match state
+		Pending => Closed
+		Failed => Pending
+		Closed => Failed
+		Ready => Ready
 	end
 end
 
@@ -184,5 +205,7 @@ fn main() -> ()
 	let match_wide_one: State = match_base_forward(true, Ready, base)
 	let match_wide_two: State = match_base_reverse(true, Ready, base)
 	let if_complete: State = if_full(true, false, false)
+	let if_complete_reverse: State = if_full_reverse(true, false, false)
 	let match_complete: State = match_full(Ready)
+	let match_complete_reverse: State = match_full_reverse(Ready)
 end
