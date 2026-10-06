@@ -403,15 +403,17 @@ also demonstrates a generic refined union whose binding catch-all and original
 scrutinee binding both receive the one-variant residual type.
 
 Arm classification first validates the constructor name, visibility, owning
-ADT, payload arity, nested patterns, and admitted payload bindings. An invalid
-arm keeps its intrinsic diagnostic, consumes no coverage, and produces no
-derived impossible or redundant diagnostic. An unresolved constructor path
-reports `name.unresolved` for the complete written path at its final segment.
-A wrong payload arity reports `type.constructor_pattern_arity` at the complete
-constructor pattern while still checking supplied payload patterns and the arm
-body. Either failure can leave the match non-exhaustive because the rejected
-arm covers no variant. A valid same-ADT constructor outside the original
-refined domain reports
+ADT, substituted generic payload types, payload arity, nested patterns, and
+admitted payload bindings. An invalid arm keeps its intrinsic diagnostic,
+consumes no coverage, and produces no derived impossible or redundant
+diagnostic. An unresolved constructor path reports `name.unresolved` for the
+complete written path at its final segment. A payload pattern incompatible
+with the constructor's substituted generic payload type reports the ordinary
+`type.mismatch`. A wrong payload arity reports
+`type.constructor_pattern_arity` at the complete constructor pattern while
+still checking supplied payload patterns and the arm body. Either failure can
+leave the match non-exhaustive because the rejected arm covers no variant. A
+valid same-ADT constructor outside the original refined domain reports
 `type.match_impossible_variant`. A valid constructor or catch-all with an empty
 residual reports `type.match_redundant_arm`. An impossible or redundant arm
 does not consume coverage.

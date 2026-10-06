@@ -34,3 +34,5 @@ main.veln:75:21: error[type.mismatch]: expected `String`, but found `Int`
 main.veln:74:23: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`
   note: main.veln:74:23: Excluded variants: Closed.
   note: main.veln:71:1: Return type declared here.
+main.veln:88:12: error[type.mismatch]: expected `Int`, but found `String`
+main.veln:88:24: error[name.unresolved]: unresolved value `missing_generic_body`

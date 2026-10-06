@@ -77,3 +77,16 @@ fn redundant_recovery(value: State::Ready) -> State::Ready
     end
   end
 end
+
+type GenericBox<A>
+  Filled(A)
+  Empty
+end
+
+fn wrong_generic_payload(value: GenericBox<Int>::Filled | GenericBox<Int>::Empty) -> ()
+  match value
+    Filled("wrong") => missing_generic_body
+    Filled(_) => ()
+    Empty => ()
+  end
+end

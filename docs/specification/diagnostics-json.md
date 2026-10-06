@@ -149,13 +149,14 @@ and
 [`adt-variant-refinement-match-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-json/).
 
 Arm validation precedes both classifications. An invalid-cased, unresolved,
-inaccessible, wrong-ADT, wrong-arity, or malformed arm retains its intrinsic
-diagnostic, contributes no coverage, and emits neither derived classification.
-An unresolved constructor path reports `name.unresolved` at its final name
-segment with `namespace: "constructor"`; the diagnostic symbol retains the
-complete written path. If the rejected arm was the only arm for a remaining
-variant, the match also reports the ordinary `type.match_non_exhaustive`
-diagnostic.
+inaccessible, wrong-ADT, wrong-generic-payload, wrong-arity, or malformed arm
+retains its intrinsic diagnostic, contributes no coverage, and emits neither
+derived classification. A pattern incompatible with a substituted generic
+payload reports the ordinary `type.mismatch` at that payload pattern. An
+unresolved constructor path reports `name.unresolved` at its final name segment
+with `namespace: "constructor"`; the diagnostic symbol retains the complete
+written path. If the rejected arm was the only arm for a remaining variant,
+the match also reports the ordinary `type.match_non_exhaustive` diagnostic.
 
 The intrinsic wrong-arity diagnostic is `type.constructor_pattern_arity` at
 the complete constructor pattern. Its closed details contain only

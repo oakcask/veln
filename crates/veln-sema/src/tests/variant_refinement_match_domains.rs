@@ -297,6 +297,43 @@ fn wrong_arity_does_not_consume_refined_coverage_and_keeps_payload_and_body_chec
 }
 
 #[test]
+fn wrong_generic_payload_does_not_consume_refined_coverage_and_keeps_body_checks() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Boxed<A>\n",
+        "  Filled(A)\n",
+        "  Empty\n",
+        "end\n",
+        "fn check(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()\n",
+        "  match value\n",
+        "    Filled(\"wrong\") => missing_generic_body\n",
+        "    Filled(_) => ()\n",
+        "    Empty => ()\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let ids = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ids,
+        ["type.mismatch", "name.unresolved"],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
+    assert_eq!(
+        diagnostics[1].message,
+        "unresolved value `missing_generic_body`"
+    );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.match_impossible_variant"
+            && diagnostic.id != "type.match_redundant_arm"
+            && diagnostic.id != "type.match_non_exhaustive"
+    }));
+}
+
+#[test]
 fn inaccessible_heads_report_lookup_failure_without_consuming_refined_coverage() {
     let states = SourceFile::new(
         "states.veln",
