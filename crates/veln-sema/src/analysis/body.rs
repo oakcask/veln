@@ -344,6 +344,10 @@ impl<'a> FunctionChecker<'a> {
 }
 
 mod adt_and_match;
+#[cfg(test)]
+pub(crate) use adt_and_match::{
+    reset_refined_match_coverage_work, take_refined_match_coverage_work,
+};
 mod annotations_and_effects;
 mod body_lines;
 mod collections_and_operators;

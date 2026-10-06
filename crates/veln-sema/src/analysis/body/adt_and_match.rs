@@ -1,13 +1,41 @@
 use super::control_flow_results::{ControlFlowResultJoin, contribute_control_flow_result};
 use super::*;
 use crate::adt::descriptors::AdtPayloadField;
-use crate::adt::registry::AdtRegistry;
+use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
+use std::sync::Arc;
+
+#[cfg(test)]
+fn record_refined_match_coverage_work(units: usize) {
+    refined_match_coverage_work::record(units);
+}
+
+#[cfg(not(test))]
+fn record_refined_match_coverage_work(_units: usize) {}
+
+#[cfg(test)]
+pub(crate) fn reset_refined_match_coverage_work() {
+    refined_match_coverage_work::reset();
+}
+
+#[cfg(test)]
+pub(crate) fn take_refined_match_coverage_work() -> usize {
+    refined_match_coverage_work::take()
+}
 
 struct RefinedMatchCoverage {
-    original: Vec<String>,
-    remaining: Vec<String>,
-    first_covering_arms: Vec<(String, SourceSpan)>,
+    declaration_order: Arc<VariantDeclarationOrder>,
+    coverage_cases: Vec<String>,
+    domain_ranks: Vec<usize>,
+    slots: Vec<RefinedMatchCoverageSlot>,
+    covered_order: Vec<usize>,
+    remaining_count: usize,
     preceding_catch_all: Option<SourceSpan>,
+}
+
+enum RefinedMatchCoverageSlot {
+    Outside,
+    Remaining,
+    Covered(SourceSpan),
 }
 
 struct RefinedMatchArmPlan {
@@ -18,11 +46,13 @@ struct RefinedMatchArmPlan {
 enum RefinedMatchArmCoverage {
     Constructor {
         variant: String,
+        variant_rank: usize,
         variant_span: SourceSpan,
         classification: RefinedConstructorClassification,
     },
     CatchAll {
         classification: RefinedCatchAllClassification,
+        remaining_ranks: Vec<usize>,
     },
 }
 
@@ -38,16 +68,95 @@ enum RefinedCatchAllClassification {
 }
 
 impl RefinedMatchCoverage {
-    fn new(scrutinee_type: &Type) -> Option<Self> {
+    fn new(
+        scrutinee_type: &Type,
+        adts: &AdtRegistry,
+        current_module: Option<&str>,
+    ) -> Option<Self> {
         let Type::VariantRefinement { variants, .. } = scrutinee_type else {
             return None;
         };
+        let declaration_order = adts.variant_declaration_order_for_type(scrutinee_type)?;
+        let descriptor = adts.descriptor_for_type_prefer_module(scrutinee_type, current_module)?;
+        let coverage_cases = descriptor
+            .variants
+            .iter()
+            .map(|variant| variant.coverage_case.clone())
+            .collect::<Vec<_>>();
+        let mut slots = (0..declaration_order.len())
+            .map(|_| RefinedMatchCoverageSlot::Outside)
+            .collect::<Vec<_>>();
+        let mut domain_ranks = Vec::with_capacity(variants.len());
+        for variant in variants {
+            record_refined_match_coverage_work(1);
+            let rank = declaration_order.rank(variant)?;
+            slots[rank] = RefinedMatchCoverageSlot::Remaining;
+            domain_ranks.push(rank);
+        }
         Some(Self {
-            original: variants.clone(),
-            remaining: variants.clone(),
-            first_covering_arms: Vec::new(),
+            declaration_order,
+            coverage_cases,
+            domain_ranks,
+            slots,
+            covered_order: Vec::new(),
+            remaining_count: variants.len(),
             preceding_catch_all: None,
         })
+    }
+
+    fn rank(&self, variant: &str) -> Option<usize> {
+        record_refined_match_coverage_work(1);
+        self.declaration_order.rank(variant)
+    }
+
+    fn slot(&self, rank: usize) -> &RefinedMatchCoverageSlot {
+        record_refined_match_coverage_work(1);
+        &self.slots[rank]
+    }
+
+    fn remaining_ranks(&self) -> Vec<usize> {
+        self.domain_ranks
+            .iter()
+            .copied()
+            .filter(|rank| {
+                record_refined_match_coverage_work(1);
+                matches!(self.slots[*rank], RefinedMatchCoverageSlot::Remaining)
+            })
+            .collect()
+    }
+
+    fn variants_for_ranks(&self, ranks: &[usize]) -> Vec<String> {
+        ranks
+            .iter()
+            .map(|rank| {
+                record_refined_match_coverage_work(1);
+                self.declaration_order
+                    .name(*rank)
+                    .expect("refined match rank belongs to its ADT")
+                    .to_string()
+            })
+            .collect()
+    }
+
+    fn first_missing_case(&self) -> Option<String> {
+        self.domain_ranks.iter().find_map(|rank| {
+            record_refined_match_coverage_work(1);
+            matches!(self.slots[*rank], RefinedMatchCoverageSlot::Remaining)
+                .then(|| self.coverage_cases[*rank].clone())
+        })
+    }
+
+    fn proving_arms(&self) -> Vec<(String, SourceSpan)> {
+        self.covered_order
+            .iter()
+            .map(|rank| {
+                record_refined_match_coverage_work(1);
+                let RefinedMatchCoverageSlot::Covered(span) = &self.slots[*rank] else {
+                    unreachable!("covered order contains only covered refined variants")
+                };
+                (self.coverage_cases[*rank].clone(), span.clone())
+            })
+            .collect()
     }
 }
 
@@ -356,16 +465,22 @@ impl<'a> FunctionChecker<'a> {
         let scrutinee_type = self.infer_match_scrutinee(expr, scrutinee, arms);
         let mut refined_coverage = self
             .is_direct_match_binding(scrutinee)
-            .then(|| RefinedMatchCoverage::new(&scrutinee_type))
+            .then(|| {
+                RefinedMatchCoverage::new(
+                    &scrutinee_type,
+                    &self.environment.adts,
+                    self.function.module_name.as_deref(),
+                )
+            })
             .flatten();
         if arms.is_empty() {
             if let Some(coverage) = &refined_coverage {
-                if let Some(missing_variant) = coverage.remaining.first() {
+                if let Some(missing_case) = coverage.first_missing_case() {
                     self.report_refined_match_non_exhaustive(
                         expr,
                         scrutinee,
                         &scrutinee_type,
-                        missing_variant,
+                        missing_case,
                         Vec::new(),
                     );
                 }
@@ -398,13 +513,14 @@ impl<'a> FunctionChecker<'a> {
         }
 
         if let Some(coverage) = refined_coverage {
-            if let Some(missing_variant) = coverage.remaining.first() {
+            if let Some(missing_case) = coverage.first_missing_case() {
+                let proving_arms = coverage.proving_arms();
                 self.report_refined_match_non_exhaustive(
                     expr,
                     scrutinee,
                     &scrutinee_type,
-                    missing_variant,
-                    coverage.first_covering_arms,
+                    missing_case,
+                    proving_arms,
                 );
             }
         } else {
@@ -437,32 +553,9 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         scrutinee: &Expr,
         scrutinee_type: &Type,
-        missing_variant: &str,
+        missing_case: String,
         proving_arms: Vec<(String, SourceSpan)>,
     ) {
-        let coverage_case = |variant: &str| {
-            self.environment
-                .adts
-                .descriptor_for_type_prefer_module(
-                    scrutinee_type,
-                    self.function.module_name.as_deref(),
-                )
-                .and_then(|descriptor| {
-                    descriptor
-                        .variants
-                        .iter()
-                        .find(|candidate| candidate.name == variant)
-                })
-                .map_or_else(
-                    || variant.to_string(),
-                    |variant| variant.coverage_case.clone(),
-                )
-        };
-        let missing_case = coverage_case(missing_variant);
-        let proving_arms = proving_arms
-            .into_iter()
-            .map(|(variant, span)| (coverage_case(&variant), span))
-            .collect();
         self.report_match_non_exhaustive(
             expr,
             scrutinee,
@@ -547,12 +640,17 @@ impl<'a> FunctionChecker<'a> {
                     &self.environment.uses,
                 )?;
                 let variant = constructor.variant.name.clone();
-                let classification = if !coverage.original.contains(&variant) {
-                    RefinedConstructorClassification::Impossible
-                } else if !coverage.remaining.contains(&variant) {
-                    RefinedConstructorClassification::Redundant
-                } else {
-                    RefinedConstructorClassification::Covering
+                let variant_rank = coverage.rank(&variant)?;
+                let classification = match coverage.slot(variant_rank) {
+                    RefinedMatchCoverageSlot::Outside => {
+                        RefinedConstructorClassification::Impossible
+                    }
+                    RefinedMatchCoverageSlot::Remaining => {
+                        RefinedConstructorClassification::Covering
+                    }
+                    RefinedMatchCoverageSlot::Covered(_) => {
+                        RefinedConstructorClassification::Redundant
+                    }
                 };
                 let arm_type =
                     if matches!(classification, RefinedConstructorClassification::Impossible) {
@@ -569,30 +667,39 @@ impl<'a> FunctionChecker<'a> {
                     arm_type,
                     coverage: RefinedMatchArmCoverage::Constructor {
                         variant,
+                        variant_rank,
                         variant_span: name_spans.last()?.clone(),
                         classification,
                     },
                 })
             }
             PatternKind::Wildcard | PatternKind::Binding(_) => {
-                let classification = if coverage.remaining.is_empty() {
+                let classification = if coverage.remaining_count == 0 {
                     RefinedCatchAllClassification::Redundant
                 } else {
                     RefinedCatchAllClassification::Covering
                 };
-                let arm_type = if coverage.remaining.is_empty() {
+                let remaining_ranks = if coverage.remaining_count == 0 {
+                    Vec::new()
+                } else {
+                    coverage.remaining_ranks()
+                };
+                let arm_type = if remaining_ranks.is_empty() {
                     scrutinee_type.clone()
                 } else {
                     Type::resolved_variant_refinement(
                         name,
                         identity,
                         type_args.clone(),
-                        coverage.remaining.clone(),
+                        coverage.variants_for_ranks(&remaining_ranks),
                     )
                 };
                 Some(RefinedMatchArmPlan {
                     arm_type,
-                    coverage: RefinedMatchArmCoverage::CatchAll { classification },
+                    coverage: RefinedMatchArmCoverage::CatchAll {
+                        classification,
+                        remaining_ranks,
+                    },
                 })
             }
             _ => None,
@@ -609,24 +716,27 @@ impl<'a> FunctionChecker<'a> {
     ) {
         match &plan.coverage {
             RefinedMatchArmCoverage::Constructor {
-                variant,
+                variant_rank,
                 classification: RefinedConstructorClassification::Covering,
                 ..
             } => {
-                coverage.remaining.retain(|remaining| remaining != variant);
-                coverage
-                    .first_covering_arms
-                    .push((variant.clone(), pattern.span.clone()));
+                record_refined_match_coverage_work(1);
+                coverage.slots[*variant_rank] =
+                    RefinedMatchCoverageSlot::Covered(pattern.span.clone());
+                coverage.covered_order.push(*variant_rank);
+                coverage.remaining_count -= 1;
             }
             RefinedMatchArmCoverage::Constructor {
                 variant,
                 variant_span,
                 classification: RefinedConstructorClassification::Impossible,
+                ..
             } => {
                 self.push_match_impossible_variant(scrutinee, scrutinee_type, variant, variant_span)
             }
             RefinedMatchArmCoverage::Constructor {
                 variant,
+                variant_rank,
                 classification: RefinedConstructorClassification::Redundant,
                 ..
             } => {
@@ -639,11 +749,11 @@ impl<'a> FunctionChecker<'a> {
                         "This preceding catch-all arm consumed the remaining variants.".to_string(),
                     )
                 } else {
-                    let span = coverage
-                        .first_covering_arms
-                        .iter()
-                        .find_map(|(covered, span)| (covered == variant).then_some(span))
-                        .expect("redundant variant must have a covering arm");
+                    record_refined_match_coverage_work(1);
+                    let RefinedMatchCoverageSlot::Covered(span) = &coverage.slots[*variant_rank]
+                    else {
+                        unreachable!("redundant variant must have a covering arm")
+                    };
                     (
                         "duplicate_variant",
                         span,
@@ -660,17 +770,19 @@ impl<'a> FunctionChecker<'a> {
             }
             RefinedMatchArmCoverage::CatchAll {
                 classification: RefinedCatchAllClassification::Covering,
+                remaining_ranks,
             } => {
-                let consumed = std::mem::take(&mut coverage.remaining);
-                coverage.first_covering_arms.extend(
-                    consumed
-                        .into_iter()
-                        .map(|variant| (variant, pattern.span.clone())),
-                );
+                for rank in remaining_ranks {
+                    record_refined_match_coverage_work(1);
+                    coverage.slots[*rank] = RefinedMatchCoverageSlot::Covered(pattern.span.clone());
+                    coverage.covered_order.push(*rank);
+                }
+                coverage.remaining_count = 0;
                 coverage.preceding_catch_all = Some(pattern.span.clone());
             }
             RefinedMatchArmCoverage::CatchAll {
                 classification: RefinedCatchAllClassification::Redundant,
+                ..
             } => {
                 if let Some(span) = &coverage.preceding_catch_all {
                     self.push_match_redundant_arm(
@@ -686,17 +798,19 @@ impl<'a> FunctionChecker<'a> {
                     );
                 } else {
                     let related = coverage
-                        .original
+                        .domain_ranks
                         .iter()
-                        .filter_map(|variant| {
-                            coverage
-                                .first_covering_arms
-                                .iter()
-                                .find_map(|(covered, span)| {
-                                    (covered == variant).then(|| {
-                                        (span, format!("This preceding arm covered `{variant}`."))
-                                    })
-                                })
+                        .filter_map(|rank| {
+                            record_refined_match_coverage_work(1);
+                            let RefinedMatchCoverageSlot::Covered(span) = &coverage.slots[*rank]
+                            else {
+                                return None;
+                            };
+                            let variant = coverage
+                                .declaration_order
+                                .name(*rank)
+                                .expect("refined match rank belongs to its ADT");
+                            Some((span, format!("This preceding arm covered `{variant}`.")))
                         })
                         .collect::<Vec<_>>();
                     self.push_match_redundant_arm(
@@ -1269,5 +1383,26 @@ fn fill_unknown_constructor_type_args(
         if *inferred == Type::Unknown {
             *inferred = expected.clone();
         }
+    }
+}
+
+#[cfg(test)]
+mod refined_match_coverage_work {
+    use std::cell::Cell;
+
+    thread_local! {
+        static WORK: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(super) fn record(units: usize) {
+        WORK.set(WORK.get() + units);
+    }
+
+    pub(super) fn reset() {
+        WORK.set(0);
+    }
+
+    pub(super) fn take() -> usize {
+        WORK.replace(0)
     }
 }

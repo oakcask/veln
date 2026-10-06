@@ -60,7 +60,8 @@ pub(in crate::analysis) use body::FunctionChecker;
 pub(crate) use body::{VariantDiagnosticInterner, check_function_body};
 #[cfg(test)]
 pub(crate) use body::{
-    reset_retained_variant_diagnostic_key_variants, take_retained_variant_diagnostic_key_variants,
+    reset_refined_match_coverage_work, reset_retained_variant_diagnostic_key_variants,
+    take_refined_match_coverage_work, take_retained_variant_diagnostic_key_variants,
 };
 pub(crate) use boundary::{
     check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
