@@ -11,11 +11,19 @@ type Boxed<A>
 	Empty
 end
 
+type LiteralPayload
+	Number(Int)
+end
+
 fn accept_ready(value: State::Ready) -> ()
 	()
 end
 
 fn accept_filled(value: Boxed<Int>::Filled) -> ()
+	()
+end
+
+fn accept_number(value: LiteralPayload::Number) -> ()
 	()
 end
 
@@ -45,6 +53,13 @@ fn nested(state: State) -> ()
 			_ => ()
 		end, accept_ready(state))
 		Closed => ()
+	end
+end
+
+fn literal_payload(value: LiteralPayload) -> ()
+	match value
+		Number(1) => accept_number(value)
+		_ => ()
 	end
 end
 

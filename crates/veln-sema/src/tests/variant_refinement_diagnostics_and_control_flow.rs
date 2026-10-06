@@ -706,6 +706,77 @@ fn valid_nested_constructor_pattern_refines_direct_binding() {
 }
 
 #[test]
+fn incompatible_literal_payload_does_not_refine_direct_binding() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Wrapper\n",
+        "  Number(Int)\n",
+        "  Empty\n",
+        "end\n",
+        "fn accept_number(value: Wrapper::Number) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn check(value: Wrapper) -> ()\n",
+        "  match value\n",
+        "    Number(\"not an Int\") => accept_number(value)\n",
+        "    _ => ()\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let literal_mismatch = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.mismatch")
+        .unwrap_or_else(|| panic!("missing literal payload mismatch: {diagnostics:#?}"));
+    assert_eq!(
+        detail_field(literal_mismatch, "expected_type").as_text(),
+        Some("Int")
+    );
+    assert_eq!(
+        detail_field(literal_mismatch, "actual_type").as_text(),
+        Some("String")
+    );
+    let refinement_mismatch = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .unwrap_or_else(|| panic!("missing refinement mismatch: {diagnostics:#?}"));
+    assert_eq!(
+        detail_field(refinement_mismatch, "actual_type").as_text(),
+        Some("Wrapper")
+    );
+}
+
+#[test]
+fn compatible_literal_and_unit_payloads_refine_direct_bindings() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Wrapper\n",
+        "  Text(String)\n",
+        "  Number(Int)\n",
+        "  Decimal(Float)\n",
+        "  Flag(Bool)\n",
+        "  Empty(())\n",
+        "end\n",
+        "fn accept_text(value: Wrapper::Text) -> ()\n  ()\nend\n",
+        "fn accept_number(value: Wrapper::Number) -> ()\n  ()\nend\n",
+        "fn accept_decimal(value: Wrapper::Decimal) -> ()\n  ()\nend\n",
+        "fn accept_flag(value: Wrapper::Flag) -> ()\n  ()\nend\n",
+        "fn accept_empty(value: Wrapper::Empty) -> ()\n  ()\nend\n",
+        "fn check(value: Wrapper) -> ()\n",
+        "  match value\n",
+        "    Text(\"ready\") => accept_text(value)\n",
+        "    Number(1) => accept_number(value)\n",
+        "    Decimal(1.5) => accept_decimal(value)\n",
+        "    Flag(true) => accept_flag(value)\n",
+        "    Empty(()) => accept_empty(value)\n",
+        "    _ => ()\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn rejected_payload_binding_names_do_not_refine_direct_bindings() {
     let cases = [
         (

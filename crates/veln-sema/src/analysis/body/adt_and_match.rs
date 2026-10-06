@@ -513,13 +513,14 @@ impl<'a> FunctionChecker<'a> {
                         })
                 })
             }
-            PatternKind::Wildcard
-            | PatternKind::Binding(_)
-            | PatternKind::StringLiteral(_)
+            PatternKind::Wildcard | PatternKind::Binding(_) => true,
+            PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
             | PatternKind::FloatLiteral(_)
             | PatternKind::BoolLiteral(_)
-            | PatternKind::Unit => true,
+            | PatternKind::Unit => {
+                literal_or_unit_pattern_is_compatible(pattern, expected).unwrap_or(false)
+            }
         }
     }
 

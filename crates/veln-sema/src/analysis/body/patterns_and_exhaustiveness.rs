@@ -156,7 +156,7 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         scrutinee_type: &Type,
     ) -> Vec<PatternBinding> {
-        self.pattern_bindings_with_recovery(pattern, scrutinee_type, false)
+        self.pattern_bindings_with_recovery(pattern, scrutinee_type, false, false)
     }
 
     pub(super) fn let_pattern_bindings(
@@ -164,7 +164,7 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         scrutinee_type: &Type,
     ) -> Vec<PatternBinding> {
-        self.pattern_bindings_with_recovery(pattern, scrutinee_type, true)
+        self.pattern_bindings_with_recovery(pattern, scrutinee_type, true, false)
     }
 
     pub(super) fn pattern_bindings_with_recovery(
@@ -172,14 +172,20 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         scrutinee_type: &Type,
         recover_unknown_bare_constructor: bool,
+        check_literal_type: bool,
     ) -> Vec<PatternBinding> {
         match &pattern.kind {
-            PatternKind::Wildcard
-            | PatternKind::StringLiteral(_)
+            PatternKind::Wildcard => Vec::new(),
+            PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
             | PatternKind::FloatLiteral(_)
             | PatternKind::BoolLiteral(_)
-            | PatternKind::Unit => Vec::new(),
+            | PatternKind::Unit => {
+                if check_literal_type {
+                    self.check_literal_or_unit_pattern_type(pattern, scrutinee_type);
+                }
+                Vec::new()
+            }
             PatternKind::Binding(name) => vec![PatternBinding {
                 name: name.clone(),
                 ty: scrutinee_type.clone(),
@@ -191,6 +197,7 @@ impl<'a> FunctionChecker<'a> {
                 fields,
                 scrutinee_type,
                 recover_unknown_bare_constructor,
+                check_literal_type,
             ),
             PatternKind::Constructor { name, args, .. } => {
                 if invalid_qualified_constructor_pattern(name) {
@@ -225,6 +232,7 @@ impl<'a> FunctionChecker<'a> {
         fields: &[PatternField],
         scrutinee_type: &Type,
         recover_unknown_bare_constructor: bool,
+        check_literal_type: bool,
     ) -> Vec<PatternBinding> {
         let mut bindings = Vec::new();
         let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
@@ -250,6 +258,7 @@ impl<'a> FunctionChecker<'a> {
                 &field.pattern,
                 &field_type,
                 recover_unknown_bare_constructor,
+                check_literal_type,
             ));
         }
         bindings
@@ -331,7 +340,7 @@ impl<'a> FunctionChecker<'a> {
                 .flat_map(|(index, pattern)| {
                     let ty = adt::payload_type(scrutinee_type, constructor, index)
                         .unwrap_or(Type::Unknown);
-                    self.pattern_bindings(pattern, &ty)
+                    self.pattern_bindings_with_recovery(pattern, &ty, false, true)
                 })
                 .collect();
         }
@@ -344,6 +353,40 @@ impl<'a> FunctionChecker<'a> {
             .iter()
             .flat_map(|pattern| self.pattern_bindings(pattern, &Type::Unknown))
             .collect()
+    }
+
+    fn check_literal_or_unit_pattern_type(&mut self, pattern: &Pattern, expected: &Type) {
+        if expected == &Type::Unknown
+            || literal_or_unit_pattern_is_compatible(pattern, expected) != Some(false)
+        {
+            return;
+        }
+        let Some(actual) = literal_or_unit_pattern_type(pattern) else {
+            return;
+        };
+        self.diagnostics.push(Diagnostic::new(
+            "type.mismatch",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "expected `{}`, but found `{}`",
+                expected.render(),
+                actual.render()
+            ),
+            Some(pattern.span.clone()),
+            type_details(
+                pattern.node_id.display("pattern"),
+                expected.render(),
+                actual.render(),
+                "constructor_payload",
+                "literal_pattern",
+                "constructor_payload_pattern",
+                [
+                    self.function.node_id.display("fn"),
+                    pattern.node_id.display("pattern"),
+                ],
+            ),
+        ));
     }
 
     pub(super) fn report_constructor_pattern_mismatch(

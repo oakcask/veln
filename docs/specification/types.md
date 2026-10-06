@@ -370,13 +370,14 @@ the current arm type again; leaving the nested arm restores the enclosing
 refinement, and leaving the outer arm restores the binding's original type.
 Every nested constructor must resolve in its expected payload ADT and have the
 expected payload arity. Every nested record field must be unique and present in
-its expected record type. Every payload binding introduced by the pattern must
-be admitted to the arm scope. Admission rejects invalid value-name casing,
+its expected record type. Every literal and unit payload pattern must match its
+expected payload type. Every payload binding introduced by the pattern must be
+admitted to the arm scope. Admission rejects invalid value-name casing,
 duplicates of another payload binding, parameter, or visible local, and a
 `callsite` binding that would shadow the built-in call-site location. A failure
-at the arm head, at either kind of nested pattern, or while admitting a payload
-binding leaves the matched binding at its pre-arm type while the arm expression
-is checked. The checked
+at the arm head, at either kind of nested pattern, at a literal or unit payload,
+or while admitting a payload binding leaves the matched binding at its pre-arm
+type while the arm expression is checked. The checked
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
 demonstrates parameter, local, generic, and nested-arm use.
 

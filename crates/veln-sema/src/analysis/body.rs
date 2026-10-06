@@ -91,6 +91,22 @@ fn inferred_aggregate_member_type_with_expected(ty: Type, expected: &Type) -> Ty
     }
 }
 
+fn literal_or_unit_pattern_type(pattern: &Pattern) -> Option<Type> {
+    match &pattern.kind {
+        PatternKind::StringLiteral(_) => Some(Type::string()),
+        PatternKind::IntLiteral(_) => Some(Type::int()),
+        PatternKind::FloatLiteral(_) => Some(Type::float()),
+        PatternKind::BoolLiteral(_) => Some(Type::bool()),
+        PatternKind::Unit => Some(Type::unit()),
+        _ => None,
+    }
+}
+
+fn literal_or_unit_pattern_is_compatible(pattern: &Pattern, expected: &Type) -> Option<bool> {
+    let actual = literal_or_unit_pattern_type(pattern)?;
+    Some(expected != &Type::Unknown && is_assignable(expected, &actual))
+}
+
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
