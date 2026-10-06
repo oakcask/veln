@@ -1,4 +1,4 @@
-use super::Command;
+use super::{Command, PackageCommand};
 use std::path::PathBuf;
 
 fn parse(args: &[&str]) -> Result<Command, String> {
@@ -36,7 +36,8 @@ fn top_level_parser_reports_unknown_commands() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown command `build`");
+    assert!(error.contains("build"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -46,7 +47,8 @@ fn help_parser_reports_unknown_topics() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown command `build`");
+    assert!(error.contains("build"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -83,7 +85,8 @@ fn check_parser_reports_unknown_flags() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown check flag `--strict`");
+    assert!(error.contains("--strict"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -107,7 +110,8 @@ fn doc_parser_reports_unknown_flags() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown doc flag `--json`");
+    assert!(error.contains("--json"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -179,7 +183,8 @@ fn metrics_parser_reports_unknown_flags() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown metrics flag `--strict`");
+    assert!(error.contains("--strict"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -207,7 +212,8 @@ fn fmt_parser_reports_unknown_flags() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown fmt flag `--check`");
+    assert!(error.contains("--check"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -257,7 +263,8 @@ fn run_parser_reports_flags_before_separator_as_run_flags() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown run flag `--name`");
+    assert!(error.contains("--name"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -267,7 +274,7 @@ fn run_parser_requires_entry_before_separator() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "run requires an entry function name");
+    assert!(error.contains("<ENTRY>"), "{error}");
 }
 
 #[test]
@@ -378,7 +385,8 @@ fn test_parser_reports_unknown_flags() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown test flag `--filter`");
+    assert!(error.contains("--filter"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -400,6 +408,7 @@ fn repair_parser_accepts_apply_candidate_json_and_inputs() {
         confirm_id,
         override_requested,
         inputs,
+        ..
     } = command
     else {
         panic!("expected repair command");
@@ -451,7 +460,8 @@ fn repair_parser_reports_unknown_flags() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown repair flag `--force`");
+    assert!(error.contains("--force"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -478,7 +488,8 @@ fn explain_parser_rejects_extra_diagnostic_ids() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unexpected explain argument `type.mismatch`");
+    assert!(error.contains("type.mismatch"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -488,14 +499,17 @@ fn explain_parser_reports_unknown_flags() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown explain flag `--json`");
+    assert!(error.contains("--json"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
 fn package_parser_accepts_lock_subcommand() {
     assert!(matches!(
         parse(&["package", "lock"]).unwrap(),
-        Command::PackageLock
+        Command::Package {
+            command: PackageCommand::Lock
+        }
     ));
 }
 
@@ -506,7 +520,8 @@ fn package_parser_reports_unknown_lock_flags() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown package lock flag `--json`");
+    assert!(error.contains("--json"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -516,7 +531,8 @@ fn package_parser_reports_unknown_subcommands() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unknown package subcommand `fetch`");
+    assert!(error.contains("fetch"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -531,7 +547,8 @@ fn lsp_parser_rejects_arguments() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unexpected lsp argument `main.veln`");
+    assert!(error.contains("main.veln"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
 }
 
 #[test]
@@ -546,5 +563,64 @@ fn mcp_parser_rejects_arguments() {
         Err(error) => error,
     };
 
-    assert_eq!(error, "unexpected mcp argument `main.veln`");
+    assert!(error.contains("main.veln"), "{error}");
+    assert!(error.contains("Usage:"), "{error}");
+}
+
+#[test]
+fn derived_command_definitions_are_consistent() {
+    use clap::CommandFactory;
+    super::Cli::command().debug_assert();
+}
+
+#[test]
+fn nested_help_uses_the_requested_command() {
+    for (args, usage) in [
+        (vec!["package", "help"], "Usage: veln package <COMMAND>"),
+        (vec!["package", "help", "lock"], "Usage: veln package lock"),
+        (vec!["help", "package", "lock"], "Usage: veln package lock"),
+    ] {
+        let Command::Help { text } = parse(&args).expect("nested help should succeed") else {
+            panic!("expected help for {args:?}");
+        };
+        assert!(text.contains(usage), "{text}");
+        assert!(!text.contains("error:"), "{text}");
+    }
+}
+
+#[test]
+fn help_rejects_unknown_and_extra_nested_topics() {
+    for args in [
+        vec!["package", "help", "fetch"],
+        vec!["help", "package", "fetch"],
+        vec!["help", "check", "extra"],
+        vec!["package", "help", "lock", "extra"],
+    ] {
+        assert!(parse(&args).is_err(), "{args:?}");
+    }
+}
+
+#[test]
+fn separators_preserve_help_like_source_paths() {
+    for command in ["check", "doc", "fmt", "metrics", "test", "repair"] {
+        assert!(!matches!(
+            parse(&[command, "--", "--help"]).unwrap(),
+            Command::Help { .. }
+        ));
+    }
+}
+
+#[test]
+fn declared_option_constraints_are_enforced() {
+    for args in [
+        vec!["metrics", "--baseline", "baseline.json"],
+        vec!["metrics", "--write-baseline", "baseline.json", "--check"],
+        vec!["metrics", "--write-baseline", "baseline.json", "--json"],
+        vec!["repair", "--apply", "--dry-run"],
+        vec!["repair", "--confirm", "repair-1"],
+        vec!["repair", "--apply", "--override"],
+        vec!["version", "extra"],
+    ] {
+        assert!(parse(&args).is_err(), "{args:?}");
+    }
 }

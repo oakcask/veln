@@ -1,0 +1,17 @@
+command = ["package", "help", "lock"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Write veln.lock for path, git, vendor, and mirror dependencies"
+usage = "veln package lock"
+options = ["  -h, --help  Print help"]
+
+[[file_assert]]
+path = "veln.lock"
+missing = true

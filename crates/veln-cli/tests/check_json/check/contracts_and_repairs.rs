@@ -338,18 +338,14 @@ fn check_rejects_repair_options_without_applying_candidate_edits() {
 
     assert_eq!(repair_output.status.code(), Some(2));
     assert_eq!(stdout(&repair_output), "");
-    assert_eq!(
-        stderr(&repair_output),
-        "veln: unknown check flag `--repair`\n"
-    );
+    assert!(stderr(&repair_output).contains("--repair"));
+    assert!(stderr(&repair_output).contains("Usage:"));
     assert_eq!(project.read("main.veln"), source);
 
     assert_eq!(apply_output.status.code(), Some(2));
     assert_eq!(stdout(&apply_output), "");
-    assert_eq!(
-        stderr(&apply_output),
-        "veln: unknown check flag `--apply`\n"
-    );
+    assert!(stderr(&apply_output).contains("--apply"));
+    assert!(stderr(&apply_output).contains("Usage:"));
     assert_eq!(project.read("main.veln"), source);
 }
 
