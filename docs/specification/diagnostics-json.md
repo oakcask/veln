@@ -166,8 +166,9 @@ The invalid-casing recovery used by the ordinary exhaustiveness path when this
 direct refined-coverage path is inactive can suppress its sole derivative
 missing-case diagnostic; it does not validate the rejected arm.
 
-The intrinsic wrong-arity diagnostic is `type.constructor_pattern_arity` at
-the complete constructor pattern. Its closed details contain only
+On this direct refined-coverage path, the intrinsic wrong-arity diagnostic is
+`type.constructor_pattern_arity` at the complete constructor pattern. Its
+closed details contain only
 `constructor`, `expected_payload_count`, and `actual_payload_count`, and it has
 no related entries. The primary message states the expected and actual payload
 counts. Supplied payload patterns and the arm body are still checked, but the
@@ -181,6 +182,11 @@ that payload pattern. Its details use
 `actual_type_source: "literal_pattern"`, and
 `constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
 refine the scrutinee unless every payload binding is admitted to the arm scope.
+When direct refined coverage is inactive, including for a base-ADT scrutinee or
+a parenthesized refined scrutinee, match arms retain the ordinary constructor
+path, payload-arity, and exhaustiveness behavior. They do not gain the
+refined-coverage `name.unresolved` or `type.constructor_pattern_arity`
+diagnostic.
 Invalid value-name casing, a duplicate payload binding,
 parameter, or visible local, and a `callsite` binding that would shadow the
 built-in call-site location keep their intrinsic casing, resolution, field,
