@@ -53,4 +53,51 @@ mod navigation_source_indexing_tests {
             ));
         }
     }
+
+    #[test]
+    fn mixed_workspace_dependency_and_standard_library_functions_share_one_index() {
+        let dependency = dependency_snapshot(
+            "example/dependency",
+            &[(
+                "dep.veln",
+                "pub fn remote(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["dep.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[("lib.veln", "pub fn base() -> Int\n  1\nend\n")],
+            ["lib.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dependency\"\n",
+                    "use lib from \"std\"\n\n",
+                    "fn local(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "fn main() -> Int\n",
+                    "  local(dep::remote(lib::base()))\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        let local = query_snapshot(&snapshot, "main.veln", 9, 4).unwrap();
+        assert_eq!(local.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&local.definition, "main.veln", 4, 4);
+
+        for (column, path) in [(15, "dep.veln"), (27, "lib.veln")] {
+            let package = query_snapshot(&snapshot, "main.veln", 9, column).unwrap();
+            assert_eq!(package.selected_symbol.kind, SymbolKind::Function);
+            assert_eq!(package.definition.span.file.as_str(), path);
+            assert!(matches!(
+                package.definition.source,
+                NavigationSource::Package { .. }
+            ));
+        }
+    }
 }
