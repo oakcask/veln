@@ -171,6 +171,7 @@ fn invalid_heads_keep_intrinsic_diagnostics_and_do_not_consume_coverage() {
             "    Ready(_) => ()\n",
             "    Other::Foreign => ()\n",
             "    missing::Missing => ()\n",
+            "    missing::Ready => ()\n",
             "    Ready => ()\n",
             "    Closed => ()\n",
             "  end\n",
@@ -193,6 +194,10 @@ fn invalid_heads_keep_intrinsic_diagnostics_and_do_not_consume_coverage() {
             .iter()
             .any(|diagnostic| diagnostic.id == "name.unresolved")
     );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved constructor `missing::Ready`"
+    }));
     assert!(
         diagnostics.iter().all(|diagnostic| {
             diagnostic.id != "type.match_impossible_variant"

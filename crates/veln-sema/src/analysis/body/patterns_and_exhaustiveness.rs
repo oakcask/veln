@@ -344,23 +344,7 @@ impl<'a> FunctionChecker<'a> {
                 })
                 .collect();
         }
-        let selected_variant_exists = name.last().is_some_and(|selected| {
-            descriptor
-                .variants
-                .iter()
-                .any(|variant| variant.name == *selected)
-        });
-        let selected_variant_is_inaccessible = self
-            .environment
-            .adts
-            .constructor_is_inaccessible_for_descriptor(
-                name,
-                descriptor,
-                self.function.module_name.as_deref(),
-                &self.environment.uses,
-            );
         if matches!(scrutinee_type, Type::VariantRefinement { .. })
-            && (!selected_variant_exists || selected_variant_is_inaccessible)
             && !invalid_qualified_constructor_pattern(name)
             && matches!(
                 self.environment.adts.constructor(
