@@ -379,7 +379,7 @@ at the arm head, at either kind of nested pattern, at a literal or unit payload,
 or while admitting a payload binding leaves the matched binding at its pre-arm
 type while the arm expression is checked. The checked
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
-demonstrates parameter, local, generic, and nested-arm use.
+demonstrates parameter, local, generic, nested-arm, and literal-payload use.
 
 This direct refinement requires the scrutinee source to consist only of the
 bare binding name. Parenthesized or qualified values, record-field paths,

@@ -129,9 +129,14 @@ binding to a parameter that requires that singleton emits no
 head is invalid-cased, unresolved, inaccessible, from the wrong ADT, or has the
 wrong payload arity. The same rule applies when a nested constructor does not
 resolve against its expected payload ADT or has the wrong arity, and when a
-nested record pattern names a missing or duplicate field. The invalid pattern
-also cannot refine the scrutinee unless every payload binding is admitted to
-the arm scope. Invalid value-name casing, a duplicate payload binding,
+nested record pattern names a missing or duplicate field. A literal or unit
+payload pattern whose type differs from the expected constructor payload emits
+`type.mismatch` at that payload pattern. Its details use
+`expected_type_source: "constructor_payload"`,
+`actual_type_source: "literal_pattern"`, and
+`constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
+refine the scrutinee unless every payload binding is admitted to the arm scope.
+Invalid value-name casing, a duplicate payload binding,
 parameter, or visible local, and a `callsite` binding that would shadow the
 built-in call-site location keep their intrinsic casing, resolution, field,
 arity, type, `name.duplicate`, or `name.callsite_shadow` diagnostic. An
