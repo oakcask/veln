@@ -531,7 +531,7 @@ fn capture_stream_writes(next: Dict<String, String>, state: Dict<String, String>
 	let count = number(state, "capture_count") + 1
 	let captured = dict_insert(dict_insert(next, "capture_count", int_to_string(count)), join(["capture:", int_to_string(number(state, join(["stream_index:", subject])))]), get(state, join(["writes:", subject])))
 	let path = get(state, "production_client_writes")
-	let _ = if path != "" and enabled(state, join(["connected:", subject]))
+	let _: Result<(), FsError> = if path != "" and enabled(state, join(["connected:", subject]))
 		fs::write_string(fs::path(path), get(state, join(["writes:", subject])))
 	else if path != "" and count == stream_count(state)
 		fs::write_string(fs::path(path), capture_contents(captured, 0))
