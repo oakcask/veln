@@ -66,6 +66,44 @@ fn refined_domains_drive_constructor_and_residual_catch_all_refinement() {
 }
 
 #[test]
+fn catch_alls_preserve_the_complete_multi_variant_residual() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "  Excluded\n",
+        "end\n",
+        "fn binding(value: State::Ready | State::Closed | State::Failed) -> ()\n",
+        "  match value\n",
+        "    Ready => ()\n",
+        "    remaining => begin\n",
+        "      match remaining\n",
+        "        Closed => ()\n",
+        "        Failed => ()\n",
+        "      end\n",
+        "      match value\n",
+        "        Closed => ()\n",
+        "        Failed => ()\n",
+        "      end\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+        "fn wildcard(value: State::Ready | State::Closed | State::Failed) -> ()\n",
+        "  match value\n",
+        "    Ready => ()\n",
+        "    _ => match value\n",
+        "      Closed => ()\n",
+        "      Failed => ()\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn refined_domain_classification_is_deterministic_and_preserves_related_arms() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -350,6 +388,54 @@ fn invalid_heads_keep_intrinsic_diagnostics_and_do_not_consume_coverage() {
                 && diagnostic.id != "type.match_non_exhaustive"
         }),
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_casing_recovery_distinguishes_ordinary_and_refined_coverage() {
+    let ordinary = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match (value)\n",
+            "    State::ready => ()\n",
+            "    Closed => ()\n",
+            "    Failed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+    assert_eq!(
+        ordinary
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case"],
+        "{ordinary:#?}"
+    );
+
+    let refined = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    State::ready => ()\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+    assert_eq!(
+        refined
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "type.match_non_exhaustive"],
+        "{refined:#?}"
+    );
+    assert_eq!(
+        refined[1].message, "match is missing case Ready",
+        "{refined:#?}"
     );
 }
 

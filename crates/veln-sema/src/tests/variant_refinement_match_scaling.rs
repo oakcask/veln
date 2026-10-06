@@ -194,14 +194,14 @@ fn measure_refined_match_coverage_work(
     let diagnostics =
         crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
     let elapsed = started.elapsed();
-    let work = crate::analysis::take_refined_match_coverage_work();
+    let coverage_work = crate::analysis::take_refined_match_coverage_work();
     let diagnostic_work = crate::analysis::take_refined_match_diagnostic_work();
     assert_refined_match_diagnostics(path, variant_count, &diagnostics);
     eprintln!(
         "{variant_count}-variant {path:?} refined match: {elapsed:?} \
-         ({work} coverage units, {diagnostic_work:?})"
+         ({coverage_work:?}, {diagnostic_work:?})"
     );
-    (work, diagnostic_work, elapsed)
+    (coverage_work.units, diagnostic_work, elapsed)
 }
 
 #[test]
@@ -240,5 +240,148 @@ fn refined_match_coverage_work_grows_linearly() {
                  {diagnostic_work:?}"
             );
         }
+    }
+}
+
+fn singleton_matches_source(variant_count: usize, match_count: usize) -> String {
+    let mut source = String::from("type State\n");
+    for index in 0..variant_count {
+        source.push_str(&format!("  V{index:04}\n"));
+    }
+    source.push_str("end\nfn classify(state: State::V0000) -> ()\n");
+    for _ in 0..match_count {
+        source.push_str("  match state\n    V0000 => ()\n  end\n");
+    }
+    source.push_str("end\n");
+    source
+}
+
+fn nested_singleton_matches_source(variant_count: usize, depth: usize) -> String {
+    let mut source = String::from("type State\n");
+    for index in 0..variant_count {
+        source.push_str(&format!("  V{index:04}\n"));
+    }
+    source.push_str("end\nfn classify(state: State::V0000) -> ()\n");
+    source.push_str("  match state\n");
+    for level in 0..depth {
+        if level + 1 == depth {
+            source.push_str("    V0000 => ()\n");
+        } else {
+            source.push_str("    V0000 => match state\n");
+        }
+    }
+    for _ in 0..depth {
+        source.push_str("  end\n");
+    }
+    source.push_str("end\n");
+    source
+}
+
+fn measure_generated_coverage(
+    source: String,
+) -> (
+    crate::analysis::RefinedMatchCoverageWork,
+    std::time::Duration,
+) {
+    let source = SourceFile::new("main.veln", source);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let function = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("classify"))
+        .expect("classify declaration");
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    crate::analysis::reset_refined_match_coverage_work();
+    let started = std::time::Instant::now();
+    let diagnostics =
+        crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
+    let elapsed = started.elapsed();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    (crate::analysis::take_refined_match_coverage_work(), elapsed)
+}
+
+#[test]
+fn singleton_match_state_is_independent_of_base_adt_width() {
+    let measurements = [100, 200, 400].map(|variant_count| {
+        let (work, elapsed) =
+            measure_generated_coverage(singleton_matches_source(variant_count, 64));
+        eprintln!("{variant_count}-variant ADT with 64 singleton matches: {elapsed:?} ({work:?})");
+        work
+    });
+
+    assert!(
+        measurements
+            .windows(2)
+            .all(
+                |adjacent| adjacent[0].initialized_slots == adjacent[1].initialized_slots
+                    && adjacent[0].units == adjacent[1].units
+                    && adjacent[0].peak_retained_slots == adjacent[1].peak_retained_slots
+                    && adjacent[0].cloned_labels == adjacent[1].cloned_labels
+            ),
+        "base ADT width must not change narrow-match state: {measurements:?}"
+    );
+    assert!(
+        measurements.iter().all(|work| work.cloned_labels == 0),
+        "complete singleton matches must share coverage labels: {measurements:?}"
+    );
+}
+
+#[test]
+fn singleton_match_setup_grows_with_match_count_not_base_width() {
+    let measurements = [100, 200, 400, 800].map(|size| {
+        let (work, elapsed) = measure_generated_coverage(singleton_matches_source(size, size));
+        eprintln!("{size}-variant ADT with {size} singleton matches: {elapsed:?} ({work:?})");
+        work
+    });
+
+    for adjacent in measurements.windows(2) {
+        assert!(
+            adjacent[1].initialized_slots <= adjacent[0].initialized_slots * 2 + 8,
+            "doubling match count must add only linear slot initialization: {measurements:?}"
+        );
+        assert!(
+            adjacent[1].units <= adjacent[0].units * 2 + 8,
+            "doubling match count must add only linear coverage work: {measurements:?}"
+        );
+    }
+    assert!(
+        measurements
+            .iter()
+            .all(|work| work.peak_retained_slots == measurements[0].peak_retained_slots),
+        "sequential singleton matches retain one narrow coverage state: {measurements:?}"
+    );
+}
+
+#[test]
+fn nested_singleton_match_retention_grows_with_depth_not_base_width() {
+    let widths = [100, 200, 400].map(|variant_count| {
+        let (work, elapsed) =
+            measure_generated_coverage(nested_singleton_matches_source(variant_count, 12));
+        eprintln!(
+            "{variant_count}-variant ADT with depth-12 singleton matches: {elapsed:?} ({work:?})"
+        );
+        work
+    });
+    assert!(
+        widths
+            .windows(2)
+            .all(|adjacent| adjacent[0].peak_retained_slots == adjacent[1].peak_retained_slots),
+        "base width must not change retained nested coverage state: {widths:?}"
+    );
+
+    let depths = [8, 16, 32].map(|depth| {
+        let (work, elapsed) =
+            measure_generated_coverage(nested_singleton_matches_source(400, depth));
+        eprintln!("400-variant ADT with depth-{depth} singleton matches: {elapsed:?} ({work:?})");
+        work
+    });
+    for adjacent in depths.windows(2) {
+        assert!(
+            adjacent[1].peak_retained_slots <= adjacent[0].peak_retained_slots * 2 + 8,
+            "doubling nesting depth must add only linear retained slots: {depths:?}"
+        );
     }
 }

@@ -346,7 +346,7 @@ impl<'a> FunctionChecker<'a> {
 mod adt_and_match;
 #[cfg(test)]
 pub(crate) use adt_and_match::{
-    RefinedMatchDiagnosticWork, reset_refined_match_coverage_work,
+    RefinedMatchCoverageWork, RefinedMatchDiagnosticWork, reset_refined_match_coverage_work,
     reset_refined_match_diagnostic_work, take_refined_match_coverage_work,
     take_refined_match_diagnostic_work,
 };

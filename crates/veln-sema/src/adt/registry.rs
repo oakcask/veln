@@ -31,6 +31,7 @@ pub(crate) struct AdtRegistry {
 #[derive(Debug)]
 pub(crate) struct VariantDeclarationOrder {
     names: Vec<String>,
+    coverage_cases: Vec<String>,
     ranks: HashMap<String, usize>,
 }
 
@@ -45,6 +46,10 @@ impl VariantDeclarationOrder {
 
     pub(crate) fn name(&self, rank: usize) -> Option<&str> {
         self.names.get(rank).map(String::as_str)
+    }
+
+    pub(crate) fn coverage_case(&self, rank: usize) -> Option<&str> {
+        self.coverage_cases.get(rank).map(String::as_str)
     }
 }
 

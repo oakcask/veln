@@ -13,6 +13,30 @@ fn record_refined_match_coverage_work(units: usize) {
 fn record_refined_match_coverage_work(_units: usize) {}
 
 #[cfg(test)]
+fn record_refined_match_slots_allocated(slots: usize) {
+    refined_match_coverage_work::record_slots_allocated(slots);
+}
+
+#[cfg(not(test))]
+fn record_refined_match_slots_allocated(_slots: usize) {}
+
+#[cfg(test)]
+fn record_refined_match_slots_released(slots: usize) {
+    refined_match_coverage_work::record_slots_released(slots);
+}
+
+#[cfg(not(test))]
+fn record_refined_match_slots_released(_slots: usize) {}
+
+#[cfg(test)]
+fn record_refined_match_label_clone() {
+    refined_match_coverage_work::record_label_clone();
+}
+
+#[cfg(not(test))]
+fn record_refined_match_label_clone() {}
+
+#[cfg(test)]
 fn record_refined_match_diagnostic_render() {
     refined_match_diagnostic_work::record_render();
 }
@@ -42,8 +66,17 @@ pub(crate) fn reset_refined_match_coverage_work() {
 }
 
 #[cfg(test)]
-pub(crate) fn take_refined_match_coverage_work() -> usize {
+pub(crate) fn take_refined_match_coverage_work() -> RefinedMatchCoverageWork {
     refined_match_coverage_work::take()
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct RefinedMatchCoverageWork {
+    pub(crate) units: usize,
+    pub(crate) initialized_slots: usize,
+    pub(crate) peak_retained_slots: usize,
+    pub(crate) cloned_labels: usize,
 }
 
 #[cfg(test)]
@@ -66,9 +99,8 @@ pub(crate) struct RefinedMatchDiagnosticWork {
 
 struct RefinedMatchCoverage {
     declaration_order: Arc<VariantDeclarationOrder>,
-    coverage_cases: Vec<String>,
     domain_ranks: Vec<usize>,
-    slots: Vec<RefinedMatchCoverageSlot>,
+    slots: HashMap<usize, RefinedMatchCoverageSlot>,
     covered_order: Vec<usize>,
     remaining_count: usize,
     preceding_catch_all: Option<SourceSpan>,
@@ -84,7 +116,6 @@ struct RefinedMatchDiagnosticFacts {
 }
 
 enum RefinedMatchCoverageSlot {
-    Outside,
     Remaining,
     Covered(SourceSpan),
 }
@@ -129,25 +160,18 @@ impl RefinedMatchCoverage {
             return None;
         };
         let declaration_order = adts.variant_declaration_order_for_type(scrutinee_type)?;
-        let descriptor = adts.descriptor_for_type_prefer_module(scrutinee_type, current_module)?;
-        let coverage_cases = descriptor
-            .variants
-            .iter()
-            .map(|variant| variant.coverage_case.clone())
-            .collect::<Vec<_>>();
-        let mut slots = (0..declaration_order.len())
-            .map(|_| RefinedMatchCoverageSlot::Outside)
-            .collect::<Vec<_>>();
+        adts.descriptor_for_type_prefer_module(scrutinee_type, current_module)?;
+        let mut slots = HashMap::with_capacity(variants.len());
         let mut domain_ranks = Vec::with_capacity(variants.len());
         for variant in variants.iter() {
             record_refined_match_coverage_work(1);
             let rank = declaration_order.rank(variant)?;
-            slots[rank] = RefinedMatchCoverageSlot::Remaining;
+            slots.insert(rank, RefinedMatchCoverageSlot::Remaining);
             domain_ranks.push(rank);
         }
+        record_refined_match_slots_allocated(slots.capacity());
         Some(Self {
             declaration_order,
-            coverage_cases,
             domain_ranks,
             slots,
             covered_order: Vec::new(),
@@ -162,9 +186,9 @@ impl RefinedMatchCoverage {
         self.declaration_order.rank(variant)
     }
 
-    fn slot(&self, rank: usize) -> &RefinedMatchCoverageSlot {
+    fn slot(&self, rank: usize) -> Option<&RefinedMatchCoverageSlot> {
         record_refined_match_coverage_work(1);
-        &self.slots[rank]
+        self.slots.get(&rank)
     }
 
     fn remaining_ranks(&self) -> Vec<usize> {
@@ -173,7 +197,10 @@ impl RefinedMatchCoverage {
             .copied()
             .filter(|rank| {
                 record_refined_match_coverage_work(1);
-                matches!(self.slots[*rank], RefinedMatchCoverageSlot::Remaining)
+                matches!(
+                    self.slots.get(rank),
+                    Some(RefinedMatchCoverageSlot::Remaining)
+                )
             })
             .collect()
     }
@@ -194,8 +221,17 @@ impl RefinedMatchCoverage {
     fn first_missing_case(&self) -> Option<String> {
         self.domain_ranks.iter().find_map(|rank| {
             record_refined_match_coverage_work(1);
-            matches!(self.slots[*rank], RefinedMatchCoverageSlot::Remaining)
-                .then(|| self.coverage_cases[*rank].clone())
+            matches!(
+                self.slots.get(rank),
+                Some(RefinedMatchCoverageSlot::Remaining)
+            )
+            .then(|| {
+                record_refined_match_label_clone();
+                self.declaration_order
+                    .coverage_case(*rank)
+                    .expect("refined match rank belongs to its ADT")
+                    .to_string()
+            })
         })
     }
 
@@ -204,12 +240,25 @@ impl RefinedMatchCoverage {
             .iter()
             .map(|rank| {
                 record_refined_match_coverage_work(1);
-                let RefinedMatchCoverageSlot::Covered(span) = &self.slots[*rank] else {
+                let Some(RefinedMatchCoverageSlot::Covered(span)) = self.slots.get(rank) else {
                     unreachable!("covered order contains only covered refined variants")
                 };
-                (self.coverage_cases[*rank].clone(), span.clone())
+                record_refined_match_label_clone();
+                (
+                    self.declaration_order
+                        .coverage_case(*rank)
+                        .expect("refined match rank belongs to its ADT")
+                        .to_string(),
+                    span.clone(),
+                )
             })
             .collect()
+    }
+}
+
+impl Drop for RefinedMatchCoverage {
+    fn drop(&mut self) {
+        record_refined_match_slots_released(self.slots.capacity());
     }
 }
 
@@ -741,9 +790,11 @@ impl<'a> FunctionChecker<'a> {
         let variant = constructor.variant.name.clone();
         let variant_rank = coverage.rank(&variant)?;
         let classification = match coverage.slot(variant_rank) {
-            RefinedMatchCoverageSlot::Outside => RefinedConstructorClassification::Impossible,
-            RefinedMatchCoverageSlot::Remaining => RefinedConstructorClassification::Covering,
-            RefinedMatchCoverageSlot::Covered(_) => RefinedConstructorClassification::Redundant,
+            None => RefinedConstructorClassification::Impossible,
+            Some(RefinedMatchCoverageSlot::Remaining) => RefinedConstructorClassification::Covering,
+            Some(RefinedMatchCoverageSlot::Covered(_)) => {
+                RefinedConstructorClassification::Redundant
+            }
         };
         let arm_type = if matches!(classification, RefinedConstructorClassification::Impossible) {
             scrutinee_type.clone()
@@ -855,7 +906,10 @@ impl<'a> FunctionChecker<'a> {
         match classification {
             RefinedConstructorClassification::Covering => {
                 record_refined_match_coverage_work(1);
-                coverage.slots[variant_rank] =
+                *coverage
+                    .slots
+                    .get_mut(&variant_rank)
+                    .expect("covering variant belongs to the refined domain") =
                     RefinedMatchCoverageSlot::Covered(pattern.span.clone());
                 coverage.covered_order.push(variant_rank);
                 coverage.remaining_count -= 1;
@@ -873,7 +927,8 @@ impl<'a> FunctionChecker<'a> {
                         )
                     } else {
                         record_refined_match_coverage_work(1);
-                        let RefinedMatchCoverageSlot::Covered(span) = &coverage.slots[variant_rank]
+                        let Some(RefinedMatchCoverageSlot::Covered(span)) =
+                            coverage.slots.get(&variant_rank)
                         else {
                             unreachable!("redundant variant must have a covering arm")
                         };
@@ -904,7 +959,11 @@ impl<'a> FunctionChecker<'a> {
         if matches!(classification, RefinedCatchAllClassification::Covering) {
             for rank in remaining_ranks {
                 record_refined_match_coverage_work(1);
-                coverage.slots[*rank] = RefinedMatchCoverageSlot::Covered(pattern.span.clone());
+                *coverage
+                    .slots
+                    .get_mut(rank)
+                    .expect("catch-all residual belongs to the refined domain") =
+                    RefinedMatchCoverageSlot::Covered(pattern.span.clone());
                 coverage.covered_order.push(*rank);
             }
             coverage.remaining_count = 0;
@@ -940,7 +999,7 @@ impl<'a> FunctionChecker<'a> {
             .iter()
             .filter_map(|rank| {
                 record_refined_match_coverage_work(1);
-                let RefinedMatchCoverageSlot::Covered(span) = &coverage.slots[*rank] else {
+                let Some(RefinedMatchCoverageSlot::Covered(span)) = coverage.slots.get(rank) else {
                     return None;
                 };
                 let variant = coverage
@@ -1511,20 +1570,51 @@ fn fill_unknown_constructor_type_args(
 mod refined_match_coverage_work {
     use std::cell::Cell;
 
+    use super::RefinedMatchCoverageWork;
+
     thread_local! {
         static WORK: Cell<usize> = const { Cell::new(0) };
+        static INITIALIZED_SLOTS: Cell<usize> = const { Cell::new(0) };
+        static RETAINED_SLOTS: Cell<usize> = const { Cell::new(0) };
+        static PEAK_RETAINED_SLOTS: Cell<usize> = const { Cell::new(0) };
+        static CLONED_LABELS: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(super) fn record(units: usize) {
         WORK.set(WORK.get() + units);
     }
 
-    pub(super) fn reset() {
-        WORK.set(0);
+    pub(super) fn record_slots_allocated(slots: usize) {
+        INITIALIZED_SLOTS.set(INITIALIZED_SLOTS.get() + slots);
+        let retained = RETAINED_SLOTS.get() + slots;
+        RETAINED_SLOTS.set(retained);
+        PEAK_RETAINED_SLOTS.set(PEAK_RETAINED_SLOTS.get().max(retained));
     }
 
-    pub(super) fn take() -> usize {
-        WORK.replace(0)
+    pub(super) fn record_slots_released(slots: usize) {
+        RETAINED_SLOTS.set(RETAINED_SLOTS.get() - slots);
+    }
+
+    pub(super) fn record_label_clone() {
+        CLONED_LABELS.set(CLONED_LABELS.get() + 1);
+    }
+
+    pub(super) fn reset() {
+        WORK.set(0);
+        INITIALIZED_SLOTS.set(0);
+        RETAINED_SLOTS.set(0);
+        PEAK_RETAINED_SLOTS.set(0);
+        CLONED_LABELS.set(0);
+    }
+
+    pub(super) fn take() -> RefinedMatchCoverageWork {
+        assert_eq!(RETAINED_SLOTS.get(), 0, "refined match slots leaked");
+        RefinedMatchCoverageWork {
+            units: WORK.replace(0),
+            initialized_slots: INITIALIZED_SLOTS.replace(0),
+            peak_retained_slots: PEAK_RETAINED_SLOTS.replace(0),
+            cloned_labels: CLONED_LABELS.replace(0),
+        }
     }
 }
 

@@ -75,7 +75,16 @@ fn variant_declaration_orders(descriptors: &[AdtDescriptor]) -> Vec<Arc<VariantD
                 .enumerate()
                 .map(|(rank, name)| (name.clone(), rank))
                 .collect();
-            Arc::new(VariantDeclarationOrder { names, ranks })
+            let coverage_cases = descriptor
+                .variants
+                .iter()
+                .map(|variant| variant.coverage_case.clone())
+                .collect();
+            Arc::new(VariantDeclarationOrder {
+                names,
+                coverage_cases,
+                ranks,
+            })
         })
         .collect()
 }

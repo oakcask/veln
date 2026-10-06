@@ -348,15 +348,17 @@ lowercase is rejected by the source identifier casing rule and is not an
 accepted constructor case. It is not used for constructor payload typing or
 ordinary exhaustiveness coverage. A constructor-pattern type mismatch is still
 reported when initial-only repair of the final segment resolves a constructor
-for a different ADT descriptor. For recovery-only cascade suppression, the
-checker also computes the constructor found by changing only the invalid final
-segment's first ASCII lowercase letter to uppercase and resolving the
-resulting path through ordinary case-sensitive lookup. If that constructor is
-in the matched ADT descriptor, a missing-case diagnostic is suppressed only for
-that recovered case and only when the invalid head is the sole cause of the
-missing case. Constructor spellings that still differ after that initial-only
-repair remain missing cases. The invalid pattern's nested binding patterns and
-arm expression still receive checking. For `List<A>`,
+for a different ADT descriptor. When direct-bare-binding refined coverage is
+not active, the ordinary exhaustiveness path also computes the constructor
+found by changing only the invalid final segment's first ASCII lowercase
+letter to uppercase and resolving the resulting path through ordinary
+case-sensitive lookup. If that constructor is in the matched ADT descriptor,
+the ordinary path suppresses a missing-case diagnostic only for that recovered
+case and only when the invalid head is the sole cause of the missing case.
+This suppression does not make the invalid arm valid. Constructor spellings
+that still differ after that initial-only repair remain missing cases. The
+invalid pattern's nested binding patterns and arm expression still receive
+checking. For `List<A>`,
 `head` binds as `A` and `tail` binds as `List<A>`. A record pattern field binds
 nested patterns to the corresponding record field type when the scrutinee type
 is known. Unknown or non-record scrutinee types leave nested pattern bindings
@@ -399,10 +401,13 @@ The call in the `Filled` arm is accepted because `value` has type
 `Boxed<Int>::Filled` in that arm. After the `match`, `value` again has type
 `Boxed<Int>`. The checked
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
-also demonstrates a generic refined union whose binding catch-all and original
-scrutinee binding both receive the one-variant residual type.
+also demonstrates a generic three-variant refined domain whose binding
+catch-all, wildcard catch-all, and original scrutinee binding receive the
+complete two-variant residual type. Nested matches distinguish that residual
+from either singleton narrowing or widening to the base ADT.
 
-Arm classification first validates the constructor name, visibility, owning
+For direct bare bindings with a refined domain, arm classification first
+validates the constructor name, visibility, owning
 ADT, substituted generic payload types, payload arity, nested patterns, and
 admitted payload bindings. An invalid arm keeps its intrinsic diagnostic,
 consumes no coverage, and produces no derived impossible or redundant
