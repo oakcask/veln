@@ -370,6 +370,29 @@ arguments. A nested `match` observes a refinement established by its enclosing
 arm but does not refine that already refined scrutinee again. Leaving an inner
 arm preserves the enclosing refinement, and leaving the outer arm restores the
 binding's original type.
+
+```veln
+type Boxed<A>
+	Filled(A)
+	Empty
+end
+
+fn use_filled(value: Boxed<Int>::Filled) -> Int
+	1
+end
+
+fn inspect(value: Boxed<Int>) -> Int
+	match value
+		Filled(_) => use_filled(value)
+		Empty => 0
+	end
+end
+```
+
+The call in the `Filled` arm is accepted because `value` has type
+`Boxed<Int>::Filled` in that arm. After the `match`, `value` again has type
+`Boxed<Int>`.
+
 Every nested constructor must resolve in its expected payload ADT and have the
 expected payload arity. Every nested record field must be unique and present in
 its expected record type. Every literal and unit payload pattern must match its

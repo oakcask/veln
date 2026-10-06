@@ -167,7 +167,7 @@ pub fn reset(
 end
 ```
 
-### Pattern Refinement
+### Remaining Pattern Refinement
 
 The current [type specification](../specification/types.md#inference-rules)
 owns constructor-arm refinement when the scrutinee is a bare immutable
