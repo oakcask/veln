@@ -479,6 +479,132 @@ fn wrong_arity_does_not_consume_refined_coverage_and_keeps_payload_and_body_chec
 }
 
 #[test]
+fn direct_refined_validation_does_not_change_other_match_boundaries() {
+    let declaration = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+    );
+    let ordinary_wrong_arity = diagnostics_for(&format!(
+        "{declaration}{}",
+        concat!(
+            "fn check(value: State) -> ()\n",
+            "  match value\n",
+            "    Ready(extra) => ()\n",
+            "    Closed => ()\n",
+            "    Failed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+    assert!(ordinary_wrong_arity.is_empty(), "{ordinary_wrong_arity:#?}");
+
+    let direct_wrong_arity = diagnostics_for(&format!(
+        "{declaration}{}",
+        concat!(
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    Ready(extra) => ()\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+    assert_eq!(
+        direct_wrong_arity
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.constructor_pattern_arity",
+            "type.match_non_exhaustive"
+        ],
+        "{direct_wrong_arity:#?}"
+    );
+
+    let parenthesized_wrong_arity = diagnostics_for(&format!(
+        "{declaration}{}",
+        concat!(
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match (value)\n",
+            "    Ready(extra) => ()\n",
+            "    Closed => ()\n",
+            "    Failed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+    assert!(
+        parenthesized_wrong_arity.is_empty(),
+        "{parenthesized_wrong_arity:#?}"
+    );
+
+    let ordinary_unresolved = diagnostics_for(&format!(
+        "{declaration}{}",
+        concat!(
+            "fn check(value: State) -> ()\n",
+            "  match value\n",
+            "    missing::Ready => ()\n",
+            "    Closed => ()\n",
+            "    Failed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+    assert_eq!(
+        ordinary_unresolved
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.match_non_exhaustive"],
+        "{ordinary_unresolved:#?}"
+    );
+
+    let direct_unresolved = diagnostics_for(&format!(
+        "{declaration}{}",
+        concat!(
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    missing::Ready => ()\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+    assert_eq!(
+        direct_unresolved
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.unresolved", "type.match_non_exhaustive"],
+        "{direct_unresolved:#?}"
+    );
+
+    let parenthesized_unresolved = diagnostics_for(&format!(
+        "{declaration}{}",
+        concat!(
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match (value)\n",
+            "    missing::Ready => ()\n",
+            "    Closed => ()\n",
+            "    Failed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+    assert_eq!(
+        parenthesized_unresolved
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.match_non_exhaustive"],
+        "{parenthesized_unresolved:#?}"
+    );
+}
+
+#[test]
 fn wrong_generic_payload_does_not_consume_refined_coverage_and_keeps_body_checks() {
     let diagnostics = diagnostics_for(concat!(
         "type Boxed<A>\n",

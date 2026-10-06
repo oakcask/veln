@@ -277,6 +277,26 @@ fn nested_singleton_matches_source(variant_count: usize, depth: usize) -> String
     source
 }
 
+fn residual_catch_all_source(variant_count: usize) -> String {
+    let variants = (0..variant_count)
+        .map(|index| format!("V{index:04}"))
+        .collect::<Vec<_>>();
+    let mut source = String::from("type State\n");
+    for variant in &variants {
+        source.push_str(&format!("  {variant}\n"));
+    }
+    source.push_str("  Outside\nend\nfn classify(state: ");
+    source.push_str(
+        &variants
+            .iter()
+            .map(|variant| format!("State::{variant}"))
+            .collect::<Vec<_>>()
+            .join(" | "),
+    );
+    source.push_str(") -> ()\n  match state\n    _ => ()\n  end\nend\n");
+    source
+}
+
 fn measure_generated_coverage(
     source: String,
 ) -> (
@@ -327,20 +347,35 @@ fn singleton_match_state_is_independent_of_base_adt_width() {
         measurements.iter().all(|work| work.cloned_labels == 0),
         "complete singleton matches must share coverage labels: {measurements:?}"
     );
+    assert!(
+        measurements.iter().all(|work| {
+            work.initialized_slots > 0 && work.peak_retained_slots > 0 && work.units > 0
+        }),
+        "coverage counters must observe singleton match state: {measurements:?}"
+    );
 }
 
 #[test]
 fn singleton_match_setup_grows_with_match_count_not_base_width() {
-    let measurements = [100, 200, 400, 800].map(|size| {
-        let (work, elapsed) = measure_generated_coverage(singleton_matches_source(size, size));
-        eprintln!("{size}-variant ADT with {size} singleton matches: {elapsed:?} ({work:?})");
+    let measurements = [100, 200, 400, 800].map(|match_count| {
+        let (work, elapsed) =
+            measure_generated_coverage(singleton_matches_source(400, match_count));
+        eprintln!("400-variant ADT with {match_count} singleton matches: {elapsed:?} ({work:?})");
         work
     });
 
     for adjacent in measurements.windows(2) {
         assert!(
+            adjacent[1].initialized_slots > adjacent[0].initialized_slots,
+            "more matches must initialize more coverage slots: {measurements:?}"
+        );
+        assert!(
             adjacent[1].initialized_slots <= adjacent[0].initialized_slots * 2 + 8,
             "doubling match count must add only linear slot initialization: {measurements:?}"
+        );
+        assert!(
+            adjacent[1].units > adjacent[0].units,
+            "more matches must perform more coverage work: {measurements:?}"
         );
         assert!(
             adjacent[1].units <= adjacent[0].units * 2 + 8,
@@ -380,8 +415,36 @@ fn nested_singleton_match_retention_grows_with_depth_not_base_width() {
     });
     for adjacent in depths.windows(2) {
         assert!(
+            adjacent[1].peak_retained_slots > adjacent[0].peak_retained_slots,
+            "deeper nesting must retain more coverage slots: {depths:?}"
+        );
+        assert!(
             adjacent[1].peak_retained_slots <= adjacent[0].peak_retained_slots * 2 + 8,
             "doubling nesting depth must add only linear retained slots: {depths:?}"
+        );
+    }
+}
+
+#[test]
+fn residual_catch_all_rank_storage_contributes_to_peak_retention() {
+    for variant_count in [100, 200, 400] {
+        let (constructor_work, _) = measure_generated_coverage(refined_match_scaling_source(
+            variant_count,
+            CoveragePath::Complete,
+        ));
+        let (catch_all_work, elapsed) =
+            measure_generated_coverage(residual_catch_all_source(variant_count));
+        eprintln!("{variant_count}-variant residual catch-all: {elapsed:?} ({catch_all_work:?})");
+        assert!(
+            catch_all_work.peak_retained_slots
+                >= constructor_work.peak_retained_slots + variant_count,
+            "residual ranks must contribute to simultaneous retained state: \
+             constructor={constructor_work:?}, catch_all={catch_all_work:?}"
+        );
+        assert!(
+            catch_all_work.initialized_slots >= constructor_work.initialized_slots + variant_count,
+            "residual ranks must contribute to initialized collection slots: \
+             constructor={constructor_work:?}, catch_all={catch_all_work:?}"
         );
     }
 }

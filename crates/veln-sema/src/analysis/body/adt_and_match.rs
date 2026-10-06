@@ -169,12 +169,15 @@ impl RefinedMatchCoverage {
             slots.insert(rank, RefinedMatchCoverageSlot::Remaining);
             domain_ranks.push(rank);
         }
-        record_refined_match_slots_allocated(slots.capacity());
+        let covered_order = Vec::with_capacity(variants.len());
+        record_refined_match_slots_allocated(
+            domain_ranks.capacity() + slots.capacity() + covered_order.capacity(),
+        );
         Some(Self {
             declaration_order,
             domain_ranks,
             slots,
-            covered_order: Vec::new(),
+            covered_order,
             remaining_count: variants.len(),
             preceding_catch_all: None,
             diagnostic_facts: RefinedMatchDiagnosticFacts::new(scrutinee, scrutinee_type, adts),
@@ -254,11 +257,34 @@ impl RefinedMatchCoverage {
             })
             .collect()
     }
+
+    fn push_covered_rank(&mut self, rank: usize) {
+        let previous_capacity = self.covered_order.capacity();
+        self.covered_order.push(rank);
+        record_refined_match_slots_allocated(
+            self.covered_order
+                .capacity()
+                .saturating_sub(previous_capacity),
+        );
+    }
 }
 
 impl Drop for RefinedMatchCoverage {
     fn drop(&mut self) {
-        record_refined_match_slots_released(self.slots.capacity());
+        record_refined_match_slots_released(
+            self.domain_ranks.capacity() + self.slots.capacity() + self.covered_order.capacity(),
+        );
+    }
+}
+
+impl Drop for RefinedMatchArmPlan {
+    fn drop(&mut self) {
+        if let RefinedMatchArmCoverage::CatchAll {
+            remaining_ranks, ..
+        } = &self.coverage
+        {
+            record_refined_match_slots_released(remaining_ranks.capacity());
+        }
     }
 }
 
@@ -842,6 +868,7 @@ impl<'a> FunctionChecker<'a> {
         } else {
             coverage.remaining_ranks()
         };
+        record_refined_match_slots_allocated(remaining_ranks.capacity());
         let arm_type = if remaining_ranks.is_empty() {
             scrutinee_type.clone()
         } else {
@@ -911,7 +938,7 @@ impl<'a> FunctionChecker<'a> {
                     .get_mut(&variant_rank)
                     .expect("covering variant belongs to the refined domain") =
                     RefinedMatchCoverageSlot::Covered(pattern.span.clone());
-                coverage.covered_order.push(variant_rank);
+                coverage.push_covered_rank(variant_rank);
                 coverage.remaining_count -= 1;
             }
             RefinedConstructorClassification::Impossible => {
@@ -964,7 +991,7 @@ impl<'a> FunctionChecker<'a> {
                     .get_mut(rank)
                     .expect("catch-all residual belongs to the refined domain") =
                     RefinedMatchCoverageSlot::Covered(pattern.span.clone());
-                coverage.covered_order.push(*rank);
+                coverage.push_covered_rank(*rank);
             }
             coverage.remaining_count = 0;
             coverage.preceding_catch_all = Some(pattern.span.clone());
@@ -1109,12 +1136,16 @@ impl<'a> FunctionChecker<'a> {
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         self.local_name_scopes.push(Vec::new());
 
+        let direct_refined_match_validation = refined_coverage.is_some();
         let arm_plan = refined_coverage
             .as_deref()
             .and_then(|coverage| self.refined_match_arm_plan(&arm.pattern, domain.ty, coverage));
         let pattern_type = arm_plan.as_ref().map_or(domain.ty, |plan| &plan.arm_type);
-        let pattern_bindings_admitted =
-            self.declare_match_pattern_bindings(&arm.pattern, pattern_type);
+        let pattern_bindings_admitted = self.declare_match_pattern_bindings(
+            &arm.pattern,
+            pattern_type,
+            direct_refined_match_validation,
+        );
         if pattern_bindings_admitted
             && let (Some(coverage), Some(plan)) = (refined_coverage, arm_plan.as_ref())
         {
@@ -1279,9 +1310,16 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         pattern: &Pattern,
         scrutinee_type: &Type,
+        direct_refined_match_validation: bool,
     ) -> bool {
         let mut all_admitted = true;
-        for binding in self.pattern_bindings(pattern, scrutinee_type) {
+        for binding in self.pattern_bindings_with_recovery(
+            pattern,
+            scrutinee_type,
+            false,
+            false,
+            direct_refined_match_validation,
+        ) {
             if !valid_value_binding_name(&binding.name) {
                 self.push_invalid_binding_recovery(binding);
                 all_admitted = false;

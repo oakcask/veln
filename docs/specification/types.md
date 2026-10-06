@@ -508,12 +508,15 @@ increases setup work linearly while retaining one match state at a time.
 Increasing singleton-match nesting depth increases peak retained slots
 linearly, independently of the base ADT width.
 
-Deterministic test counters measure coverage work, initialized slots, peak
-retained slots, and copied diagnostic labels across adjacent generated input
-sizes. These counters, rather than elapsed time, define the regression checks;
-reported wall-clock timings are observational. Final serialized JSON can still
-grow quadratically when a linear number of diagnostics must each expose the
-complete refined domain.
+Deterministic test counters measure coverage work, initialized collection
+slots, peak retained collection slots, and copied diagnostic labels across
+adjacent generated input sizes. The collection counts include domain ranks,
+lookup slots, covered-arm order, and a catch-all arm's temporary residual
+ranks. Allocation growth and release contribute symmetrically, and retained
+slots return to zero after analysis. These counters, rather than elapsed time,
+define the regression checks; reported wall-clock timings are observational.
+Final serialized JSON can still grow quadratically when a linear number of
+diagnostics must each expose the complete refined domain.
 
 ### Result propagation
 
