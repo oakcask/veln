@@ -666,6 +666,82 @@ fn valid_nested_constructor_pattern_refines_direct_binding() {
 }
 
 #[test]
+fn rejected_payload_binding_names_do_not_refine_direct_bindings() {
+    let cases = [
+        (
+            "duplicate_payload",
+            "Wrapper::Pair(item, item)",
+            "accept_pair(value)",
+            "value",
+            "",
+        ),
+        (
+            "scrutinee_parameter_collision",
+            "Wrapper::Wrapped(value)",
+            "accept_wrapped(value)",
+            "value",
+            "",
+        ),
+        (
+            "visible_local_collision",
+            "Wrapper::Wrapped(occupied)",
+            "accept_wrapped(current)",
+            "current",
+            "  let current: Wrapper = value\n  let occupied = 1\n",
+        ),
+    ];
+
+    for (name, pattern, call, scrutinee, setup) in cases {
+        let diagnostics = diagnostics_for(&format!(
+            concat!(
+                "type Wrapper\n",
+                "  Pair(Int, Int)\n",
+                "  Wrapped(Int)\n",
+                "end\n",
+                "fn accept_pair(value: Wrapper::Pair) -> ()\n",
+                "  ()\n",
+                "end\n",
+                "fn accept_wrapped(value: Wrapper::Wrapped) -> ()\n",
+                "  ()\n",
+                "end\n",
+                "fn {name}(value: Wrapper) -> ()\n",
+                "{setup}",
+                "  match {scrutinee}\n",
+                "    {pattern} => {call}\n",
+                "    _ => ()\n",
+                "  end\n",
+                "end\n",
+            ),
+            name = name,
+            pattern = pattern,
+            call = call,
+            scrutinee = scrutinee,
+            setup = setup,
+        ));
+
+        assert_eq!(diagnostics.len(), 2, "{name}: {diagnostics:#?}");
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.duplicate")
+                .count(),
+            1,
+            "{name}: {diagnostics:#?}"
+        );
+        let refinement_mismatches = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .collect::<Vec<_>>();
+        assert_eq!(refinement_mismatches.len(), 1, "{name}: {diagnostics:#?}");
+        assert_eq!(
+            detail_field(refinement_mismatches[0], "actual_type").as_text(),
+            Some("Wrapper"),
+            "{name}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn wide_nested_record_pattern_refines_direct_binding() {
     let fields = (0..512)
         .map(|index| format!("field{index:04}: Int"))

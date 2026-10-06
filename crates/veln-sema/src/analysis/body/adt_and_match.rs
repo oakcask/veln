@@ -379,12 +379,13 @@ impl<'a> FunctionChecker<'a> {
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         self.local_name_scopes.push(Vec::new());
 
-        if let Some(binding) =
-            self.direct_match_binding_refinement(scrutinee, &arm.pattern, scrutinee_type)
-        {
+        let direct_binding_refinement =
+            self.direct_match_binding_refinement(scrutinee, &arm.pattern, scrutinee_type);
+        let pattern_bindings_admitted =
+            self.declare_match_pattern_bindings(&arm.pattern, scrutinee_type);
+        if pattern_bindings_admitted && let Some(binding) = direct_binding_refinement {
             self.bindings.push(binding);
         }
-        self.declare_match_pattern_bindings(&arm.pattern, scrutinee_type);
         self.infer_match_arm_result(match_expr, arm, expected, result);
 
         self.bindings.truncate(saved_bindings);
@@ -531,10 +532,12 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         pattern: &Pattern,
         scrutinee_type: &Type,
-    ) {
+    ) -> bool {
+        let mut all_admitted = true;
         for binding in self.pattern_bindings(pattern, scrutinee_type) {
             if !valid_value_binding_name(&binding.name) {
                 self.push_invalid_binding_recovery(binding);
+                all_admitted = false;
                 continue;
             }
             if !self.declare_local_name(
@@ -544,10 +547,12 @@ impl<'a> FunctionChecker<'a> {
                 "pattern binding",
                 false,
             ) {
+                all_admitted = false;
                 continue;
             }
             self.bindings.push(Binding::new(binding.name, binding.ty));
         }
+        all_admitted
     }
 
     fn infer_match_arm_result(
