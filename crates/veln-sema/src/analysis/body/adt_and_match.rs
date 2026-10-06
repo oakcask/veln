@@ -319,7 +319,7 @@ impl<'a> FunctionChecker<'a> {
                 .unwrap_or(Type::Unknown),
         );
         for arm in arms {
-            self.infer_match_arm(expr, arm, &scrutinee_type, expected, &mut result);
+            self.infer_match_arm(expr, scrutinee, arm, &scrutinee_type, expected, &mut result);
         }
 
         self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
@@ -369,6 +369,7 @@ impl<'a> FunctionChecker<'a> {
     fn infer_match_arm(
         &mut self,
         match_expr: &Expr,
+        scrutinee: &Expr,
         arm: &MatchArm,
         scrutinee_type: &Type,
         expected: Option<&ExpectedType>,
@@ -378,7 +379,13 @@ impl<'a> FunctionChecker<'a> {
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         self.local_name_scopes.push(Vec::new());
 
-        self.declare_match_pattern_bindings(&arm.pattern, scrutinee_type);
+        let direct_binding_refinement =
+            self.direct_match_binding_refinement(scrutinee, &arm.pattern, scrutinee_type);
+        let pattern_bindings_admitted =
+            self.declare_match_pattern_bindings(&arm.pattern, scrutinee_type);
+        if pattern_bindings_admitted && let Some(binding) = direct_binding_refinement {
+            self.bindings.push(binding);
+        }
         self.infer_match_arm_result(match_expr, arm, expected, result);
 
         self.bindings.truncate(saved_bindings);
@@ -393,14 +400,140 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
+    fn direct_match_binding_refinement(
+        &self,
+        scrutinee: &Expr,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+    ) -> Option<Binding> {
+        let ExprKind::NamePath {
+            segments,
+            segment_spans,
+        } = &scrutinee.kind
+        else {
+            return None;
+        };
+        let [binding_name] = segments.as_slice() else {
+            return None;
+        };
+        let [binding_span] = segment_spans.as_slice() else {
+            return None;
+        };
+        if binding_span != &scrutinee.span {
+            return None;
+        }
+        self.bindings
+            .iter()
+            .rfind(|binding| binding.name == *binding_name)?;
+
+        let Type::Named {
+            name: type_name,
+            identity,
+            args: type_args,
+        } = scrutinee_type
+        else {
+            return None;
+        };
+
+        let PatternKind::Constructor { name, args, .. } = &pattern.kind else {
+            return None;
+        };
+        if invalid_qualified_constructor_pattern(name) {
+            return None;
+        }
+        let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
+            scrutinee_type,
+            self.function.module_name.as_deref(),
+        )?;
+        let constructor = self.environment.adts.constructor_for_descriptor(
+            name,
+            descriptor,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        )?;
+        if args.len() != constructor.variant.payload_fields.len() {
+            return None;
+        }
+        if !args.iter().enumerate().all(|(index, pattern)| {
+            adt::payload_type(scrutinee_type, constructor, index)
+                .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
+        }) {
+            return None;
+        }
+        Some(Binding::new(
+            binding_name.clone(),
+            Type::resolved_variant_refinement(
+                type_name,
+                identity,
+                type_args.clone(),
+                vec![constructor.variant.name.clone()],
+            ),
+        ))
+    }
+
+    fn match_pattern_is_valid_for_type(&self, pattern: &Pattern, expected: &Type) -> bool {
+        match &pattern.kind {
+            PatternKind::Constructor { name, args, .. } => {
+                if invalid_qualified_constructor_pattern(name) {
+                    return false;
+                }
+                let Some(descriptor) = self.environment.adts.descriptor_for_type_prefer_module(
+                    expected,
+                    self.function.module_name.as_deref(),
+                ) else {
+                    return false;
+                };
+                let Some(constructor) = self.environment.adts.constructor_for_descriptor(
+                    name,
+                    descriptor,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                ) else {
+                    return false;
+                };
+                args.len() == constructor.variant.payload_fields.len()
+                    && args.iter().enumerate().all(|(index, pattern)| {
+                        adt::payload_type(expected, constructor, index)
+                            .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
+                    })
+            }
+            PatternKind::Record(fields) => {
+                let Type::Record(expected_fields) = expected else {
+                    return false;
+                };
+                let mut expected_by_name = HashMap::with_capacity(expected_fields.len());
+                for (name, ty) in expected_fields {
+                    expected_by_name.entry(name.as_str()).or_insert(ty);
+                }
+                let mut seen_fields = BTreeSet::new();
+                fields.iter().all(|field| {
+                    seen_fields.insert(field.name.as_str())
+                        && expected_by_name.get(field.name.as_str()).is_some_and(|ty| {
+                            self.match_pattern_is_valid_for_type(&field.pattern, ty)
+                        })
+                })
+            }
+            PatternKind::Wildcard | PatternKind::Binding(_) => true,
+            PatternKind::StringLiteral(_)
+            | PatternKind::IntLiteral(_)
+            | PatternKind::FloatLiteral(_)
+            | PatternKind::BoolLiteral(_)
+            | PatternKind::Unit => {
+                literal_or_unit_pattern_is_compatible(pattern, expected).unwrap_or(false)
+            }
+        }
+    }
+
     pub(super) fn declare_match_pattern_bindings(
         &mut self,
         pattern: &Pattern,
         scrutinee_type: &Type,
-    ) {
+    ) -> bool {
+        let mut all_admitted = true;
         for binding in self.pattern_bindings(pattern, scrutinee_type) {
             if !valid_value_binding_name(&binding.name) {
                 self.push_invalid_binding_recovery(binding);
+                all_admitted = false;
                 continue;
             }
             if !self.declare_local_name(
@@ -410,10 +543,12 @@ impl<'a> FunctionChecker<'a> {
                 "pattern binding",
                 false,
             ) {
+                all_admitted = false;
                 continue;
             }
             self.bindings.push(Binding::new(binding.name, binding.ty));
         }
+        all_admitted
     }
 
     fn infer_match_arm_result(

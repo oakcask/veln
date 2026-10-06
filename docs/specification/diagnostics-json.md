@@ -122,6 +122,29 @@ so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
+A valid constructor arm for a bare immutable match-scrutinee binding refines
+that binding to the constructor singleton while checking the arm. Passing the
+binding to a parameter that requires that singleton emits no
+`type.variant_mismatch`. The arm does not establish the refinement when its
+head is invalid-cased, unresolved, inaccessible, from the wrong ADT, or has the
+wrong payload arity. The same rule applies when a nested constructor does not
+resolve against its expected payload ADT or has the wrong arity, and when a
+nested record pattern names a missing or duplicate field. A literal or unit
+payload pattern whose type differs from the expected constructor payload emits
+`type.mismatch` at that payload pattern. Its details use
+`expected_type_source: "constructor_payload"`,
+`actual_type_source: "literal_pattern"`, and
+`constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
+refine the scrutinee unless every payload binding is admitted to the arm scope.
+Invalid value-name casing, a duplicate payload binding,
+parameter, or visible local, and a `callsite` binding that would shadow the
+built-in call-site location keep their intrinsic casing, resolution, field,
+arity, type, `name.duplicate`, or `name.callsite_shadow` diagnostic. An
+incompatible use of the unrefined binding in the arm also retains the ordinary
+`type.variant_mismatch` behavior. The [type inference
+rules](types.md#inference-rules) define the refinement scope and unsupported
+scrutinee forms.
+
 An unannotated `if` or `match` whose result refinements can join under the
 [type inference rules](types.md#inference-rules) emits no diagnostic. After a
 finite refinement join has started, a resolved branch or arm result that cannot
