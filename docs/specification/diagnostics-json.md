@@ -151,12 +151,19 @@ and
 Arm validation precedes both classifications. An invalid-cased, unresolved,
 inaccessible, wrong-ADT, wrong-arity, or malformed arm retains its intrinsic
 diagnostic, contributes no coverage, and emits neither derived classification.
+An unresolved constructor path reports `name.unresolved` at its final name
+segment with `namespace: "constructor"`; the diagnostic symbol retains the
+complete written path. If the rejected arm was the only arm for a remaining
+variant, the match also reports the ordinary `type.match_non_exhaustive`
+diagnostic.
+
 The intrinsic wrong-arity diagnostic is `type.constructor_pattern_arity` at
 the complete constructor pattern. Its closed details contain only
 `constructor`, `expected_payload_count`, and `actual_payload_count`, and it has
 no related entries. The primary message states the expected and actual payload
-counts.
-The same rule applies when a nested constructor does not resolve against its
+counts. Supplied payload patterns and the arm body are still checked, but the
+arm cannot satisfy exhaustiveness. The same rule applies when a nested
+constructor does not resolve against its
 expected payload ADT or has the wrong arity, and when a nested record pattern
 names a missing or duplicate field. A literal or unit payload pattern whose
 type differs from the expected constructor payload emits `type.mismatch` at
