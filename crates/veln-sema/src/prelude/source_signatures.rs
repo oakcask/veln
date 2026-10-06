@@ -119,7 +119,7 @@ pub(super) fn source_prelude_concrete_type(ty: &Type, known_types: &BTreeSet<Str
                 args.iter()
                     .map(|arg| source_prelude_concrete_type(arg, known_types))
                     .collect(),
-                variants.clone(),
+                variants.to_vec(),
             )
         }
         Type::VariantRefinement { .. } => Type::Unknown,

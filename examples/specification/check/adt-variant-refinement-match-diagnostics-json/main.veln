@@ -14,6 +14,8 @@ fn complete(value: State::Ready | State::Closed) -> ()
 		Ready => ()
 		Closed => ()
 		_ => ()
+		remaining => ()
+		Ready => ()
 	end
 end
 

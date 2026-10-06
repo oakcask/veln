@@ -124,11 +124,107 @@ fn refined_domain_classification_is_deterministic_and_preserves_related_arms() {
 
     assert_eq!(
         detail(classified[3], "reason").as_text(),
-        Some("complete_prior_coverage")
+        Some("preceding_catch_all")
     );
-    assert_eq!(classified[3].related.len(), 2);
+    assert_eq!(classified[3].related.len(), 1);
 
     assert_eq!(classified[4].id, "type.match_impossible_variant");
+}
+
+#[test]
+fn first_valid_catch_all_controls_later_redundancy_after_constructor_coverage() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn classify(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    Ready => ()\n",
+            "    Closed => ()\n",
+            "    _ => ()\n",
+            "    remaining => ()\n",
+            "    Ready => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    let redundant = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.match_redundant_arm")
+        .collect::<Vec<_>>();
+    assert_eq!(redundant.len(), 3, "{diagnostics:#?}");
+    assert_eq!(
+        detail(redundant[0], "reason").as_text(),
+        Some("complete_prior_coverage")
+    );
+    assert_eq!(redundant[0].related.len(), 2);
+    for diagnostic in &redundant[1..] {
+        assert_eq!(
+            detail(diagnostic, "reason").as_text(),
+            Some("preceding_catch_all")
+        );
+        assert_eq!(diagnostic.related.len(), 1);
+        let span = diagnostic.related[0]
+            .as_object()
+            .expect("related context object")
+            .iter()
+            .find_map(|(field, value)| (field == "span").then_some(value))
+            .and_then(JsonValue::as_object)
+            .expect("related span object");
+        let start = span
+            .iter()
+            .find_map(|(field, value)| (field == "start").then_some(value))
+            .and_then(JsonValue::as_object)
+            .expect("related start object");
+        assert_eq!(
+            start
+                .iter()
+                .find_map(|(field, value)| (field == "line").then_some(value)),
+            Some(&JsonValue::Number(10))
+        );
+    }
+}
+
+#[test]
+fn invalid_catch_all_head_does_not_change_redundancy_precedence() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn classify(value: State::Ready | State::Closed) -> ()\n",
+            "  match value\n",
+            "    Ready => ()\n",
+            "    Closed => ()\n",
+            "    BadBinding => ()\n",
+            "    Ready => ()\n",
+            "    _ => ()\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message
+                == "binding name `BadBinding` must start with an ASCII lowercase letter"
+    }));
+    let redundant = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.match_redundant_arm")
+        .collect::<Vec<_>>();
+    assert_eq!(redundant.len(), 3, "{diagnostics:#?}");
+    assert_eq!(
+        detail(redundant[0], "reason").as_text(),
+        Some("duplicate_variant")
+    );
+    assert_eq!(
+        detail(redundant[1], "reason").as_text(),
+        Some("complete_prior_coverage")
+    );
+    assert_eq!(
+        detail(redundant[2], "reason").as_text(),
+        Some("preceding_catch_all")
+    );
 }
 
 #[test]
@@ -452,6 +548,66 @@ fn unreachable_arms_still_check_payloads_bodies_and_expected_results() {
 }
 
 #[test]
+fn unreachable_arm_recovery_types_are_observable() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready(Int)\n",
+        "  Closed(String)\n",
+        "  Failed\n",
+        "end\n",
+        "fn accept_union(value: State::Ready | State::Closed) -> ()\n  ()\nend\n",
+        "fn accept_ready(value: State::Ready) -> ()\n  ()\nend\n",
+        "fn accept_closed(value: State::Closed) -> ()\n  ()\nend\n",
+        "fn accept_int(value: Int) -> ()\n  ()\nend\n",
+        "fn accept_string(value: String) -> ()\n  ()\nend\n",
+        "fn duplicate(value: State::Ready | State::Closed) -> ()\n",
+        "  match value\n",
+        "    Ready(_) => ()\n",
+        "    Ready(payload) => begin\n",
+        "      accept_ready(value)\n",
+        "      accept_int(payload)\n",
+        "      accept_closed(value)\n",
+        "      accept_string(payload)\n",
+        "    end\n",
+        "    Closed(_) => ()\n",
+        "  end\n",
+        "end\n",
+        "fn empty_residual(value: State::Ready | State::Closed) -> ()\n",
+        "  match value\n",
+        "    Ready(_) => ()\n",
+        "    Closed(_) => ()\n",
+        "    remaining => begin\n",
+        "      accept_union(remaining)\n",
+        "      accept_union(value)\n",
+        "      accept_ready(remaining)\n",
+        "      accept_closed(value)\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let variant_mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(variant_mismatches.len(), 3, "{diagnostics:#?}");
+    assert_eq!(
+        detail(variant_mismatches[0], "actual_type").as_text(),
+        Some("State::Ready")
+    );
+    assert!(
+        variant_mismatches[1..].iter().all(|diagnostic| {
+            detail(diagnostic, "actual_type").as_text() == Some("State::Ready | State::Closed")
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch"
+            && diagnostic.message == "expected `String`, but found `Int`"
+    }));
+}
+
+#[test]
 fn nested_refined_matches_restore_each_enclosing_scope() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -460,6 +616,9 @@ fn nested_refined_matches_restore_each_enclosing_scope() {
             "  ()\n",
             "end\n",
             "fn accept_closed(value: State::Closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn accept_union(value: State::Ready | State::Closed) -> ()\n",
             "  ()\n",
             "end\n",
             "fn check(value: State::Ready | State::Closed) -> ()\n",
@@ -472,11 +631,21 @@ fn nested_refined_matches_restore_each_enclosing_scope() {
             "      accept_closed(value)\n",
             "    end\n",
             "  end\n",
+            "  accept_union(value)\n",
+            "  accept_ready(value)\n",
             "end\n",
         )
     ));
 
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        detail(mismatches[0], "actual_type").as_text(),
+        Some("State::Ready | State::Closed")
+    );
 }
 
 #[test]

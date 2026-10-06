@@ -493,14 +493,23 @@ unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
 the arms that prove partial coverage.
 
-Coverage bookkeeping for a direct refined domain grows linearly when the
-domain size and the number of arms grow together. This bound covers complete
-coverage, duplicate constructor arms, incomplete coverage, and a catch-all
-after complete constructor coverage. The deterministic regression check counts
-coverage operations for 100, 200, and 400 variants. When the input doubles,
-the count must not exceed twice the preceding count plus 64 fixed operations.
+Semantic analysis for a direct refined domain grows linearly when the domain
+size and the number of arms grow together. This bound covers complete and
+incomplete coverage, duplicate and impossible constructor arms, and a
+catch-all after complete constructor coverage. One match renders its original
+refined domain once and shares that diagnostic text and JSON value across its
+classification diagnostics. Cloning the original refinement shares its stored
+variant set; singleton and residual refinements materialize only their own
+variants.
+
+The deterministic regression check measures coverage operations, rendered
+domain count, retained diagnostic text, and materialized refinement variants
+for 100, 200, and 400 variants. Adjacent measurements must remain linear.
 Elapsed time is reported for observation but is not a test threshold because
-runner load is uncontrolled. The checked workload is in
+runner load is uncontrolled. Final serialized JSON can be quadratic when a
+linear number of diagnostics must each expose the complete refined domain;
+the analysis avoids only repeated internal rendering and storage. The checked
+workload is in
 `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
 
 ### Result propagation

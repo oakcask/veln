@@ -13,6 +13,30 @@ fn record_refined_match_coverage_work(units: usize) {
 fn record_refined_match_coverage_work(_units: usize) {}
 
 #[cfg(test)]
+fn record_refined_match_diagnostic_render() {
+    refined_match_diagnostic_work::record_render();
+}
+
+#[cfg(not(test))]
+fn record_refined_match_diagnostic_render() {}
+
+#[cfg(test)]
+fn record_refined_match_diagnostic_retained_bytes(bytes: usize) {
+    refined_match_diagnostic_work::record_retained_bytes(bytes);
+}
+
+#[cfg(not(test))]
+fn record_refined_match_diagnostic_retained_bytes(_bytes: usize) {}
+
+#[cfg(test)]
+fn record_refined_match_refinement_variants(variants: usize) {
+    refined_match_diagnostic_work::record_refinement_variants(variants);
+}
+
+#[cfg(not(test))]
+fn record_refined_match_refinement_variants(_variants: usize) {}
+
+#[cfg(test)]
 pub(crate) fn reset_refined_match_coverage_work() {
     refined_match_coverage_work::reset();
 }
@@ -20,6 +44,24 @@ pub(crate) fn reset_refined_match_coverage_work() {
 #[cfg(test)]
 pub(crate) fn take_refined_match_coverage_work() -> usize {
     refined_match_coverage_work::take()
+}
+
+#[cfg(test)]
+pub(crate) fn reset_refined_match_diagnostic_work() {
+    refined_match_diagnostic_work::reset();
+}
+
+#[cfg(test)]
+pub(crate) fn take_refined_match_diagnostic_work() -> RefinedMatchDiagnosticWork {
+    refined_match_diagnostic_work::take()
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct RefinedMatchDiagnosticWork {
+    pub(crate) renders: usize,
+    pub(crate) retained_bytes: usize,
+    pub(crate) refinement_variants: usize,
 }
 
 struct RefinedMatchCoverage {
@@ -30,6 +72,15 @@ struct RefinedMatchCoverage {
     covered_order: Vec<usize>,
     remaining_count: usize,
     preceding_catch_all: Option<SourceSpan>,
+    diagnostic_facts: RefinedMatchDiagnosticFacts,
+}
+
+struct RefinedMatchDiagnosticFacts {
+    scrutinee_type: JsonValue,
+    refinement_source_message: DiagnosticText,
+    scrutinee_span: SourceSpan,
+    adt_declaration_message: DiagnosticText,
+    adt_declaration_span: Option<SourceSpan>,
 }
 
 enum RefinedMatchCoverageSlot {
@@ -69,6 +120,7 @@ enum RefinedCatchAllClassification {
 
 impl RefinedMatchCoverage {
     fn new(
+        scrutinee: &Expr,
         scrutinee_type: &Type,
         adts: &AdtRegistry,
         current_module: Option<&str>,
@@ -87,7 +139,7 @@ impl RefinedMatchCoverage {
             .map(|_| RefinedMatchCoverageSlot::Outside)
             .collect::<Vec<_>>();
         let mut domain_ranks = Vec::with_capacity(variants.len());
-        for variant in variants {
+        for variant in variants.iter() {
             record_refined_match_coverage_work(1);
             let rank = declaration_order.rank(variant)?;
             slots[rank] = RefinedMatchCoverageSlot::Remaining;
@@ -101,6 +153,7 @@ impl RefinedMatchCoverage {
             covered_order: Vec::new(),
             remaining_count: variants.len(),
             preceding_catch_all: None,
+            diagnostic_facts: RefinedMatchDiagnosticFacts::new(scrutinee, scrutinee_type, adts),
         })
     }
 
@@ -157,6 +210,30 @@ impl RefinedMatchCoverage {
                 (self.coverage_cases[*rank].clone(), span.clone())
             })
             .collect()
+    }
+}
+
+impl RefinedMatchDiagnosticFacts {
+    fn new(scrutinee: &Expr, scrutinee_type: &Type, adts: &AdtRegistry) -> Self {
+        record_refined_match_diagnostic_render();
+        let rendered_type = DiagnosticText::from(scrutinee_type.render());
+        record_refined_match_diagnostic_retained_bytes(rendered_type.as_str().len());
+        let base_name = refined_base_name(scrutinee_type).to_string();
+        let declaration_span = adts.declaration_span_for_type(scrutinee_type).cloned();
+        let scrutinee_type = JsonValue::shared(JsonValue::text(rendered_type.clone()));
+        Self {
+            scrutinee_type,
+            refinement_source_message: DiagnosticText::parts([
+                DiagnosticText::from("This match scrutinee has refined type `"),
+                rendered_type,
+                DiagnosticText::from("`."),
+            ]),
+            scrutinee_span: scrutinee.span.clone(),
+            adt_declaration_message: DiagnosticText::from(format!(
+                "The selected ADT is `{base_name}`."
+            )),
+            adt_declaration_span: declaration_span,
+        }
     }
 }
 
@@ -467,6 +544,7 @@ impl<'a> FunctionChecker<'a> {
             .is_direct_match_binding(scrutinee)
             .then(|| {
                 RefinedMatchCoverage::new(
+                    scrutinee,
                     &scrutinee_type,
                     &self.environment.adts,
                     self.function.module_name.as_deref(),
@@ -656,6 +734,7 @@ impl<'a> FunctionChecker<'a> {
                     if matches!(classification, RefinedConstructorClassification::Impossible) {
                         scrutinee_type.clone()
                     } else {
+                        record_refined_match_refinement_variants(1);
                         Type::resolved_variant_refinement(
                             name,
                             identity,
@@ -687,6 +766,7 @@ impl<'a> FunctionChecker<'a> {
                 let arm_type = if remaining_ranks.is_empty() {
                     scrutinee_type.clone()
                 } else {
+                    record_refined_match_refinement_variants(remaining_ranks.len());
                     Type::resolved_variant_refinement(
                         name,
                         identity,
@@ -708,9 +788,7 @@ impl<'a> FunctionChecker<'a> {
 
     fn commit_refined_match_arm(
         &mut self,
-        scrutinee: &Expr,
         pattern: &Pattern,
-        scrutinee_type: &Type,
         coverage: &mut RefinedMatchCoverage,
         plan: &RefinedMatchArmPlan,
     ) {
@@ -731,9 +809,7 @@ impl<'a> FunctionChecker<'a> {
                 variant_span,
                 classification: RefinedConstructorClassification::Impossible,
                 ..
-            } => {
-                self.push_match_impossible_variant(scrutinee, scrutinee_type, variant, variant_span)
-            }
+            } => self.push_match_impossible_variant(coverage, variant, variant_span),
             RefinedMatchArmCoverage::Constructor {
                 variant,
                 variant_rank,
@@ -746,7 +822,7 @@ impl<'a> FunctionChecker<'a> {
                     (
                         "preceding_catch_all",
                         span,
-                        "This preceding catch-all arm consumed the remaining variants.".to_string(),
+                        "This preceding valid catch-all arm takes precedence.".to_string(),
                     )
                 } else {
                     record_refined_match_coverage_work(1);
@@ -762,7 +838,7 @@ impl<'a> FunctionChecker<'a> {
                 };
                 self.push_match_redundant_arm(
                     pattern,
-                    scrutinee_type,
+                    coverage,
                     Some(variant),
                     reason,
                     [(related_span, related_message)],
@@ -787,13 +863,12 @@ impl<'a> FunctionChecker<'a> {
                 if let Some(span) = &coverage.preceding_catch_all {
                     self.push_match_redundant_arm(
                         pattern,
-                        scrutinee_type,
+                        coverage,
                         None,
                         "preceding_catch_all",
                         [(
                             span,
-                            "This preceding catch-all arm consumed the remaining variants."
-                                .to_string(),
+                            "This preceding valid catch-all arm takes precedence.".to_string(),
                         )],
                     );
                 } else {
@@ -815,11 +890,14 @@ impl<'a> FunctionChecker<'a> {
                         .collect::<Vec<_>>();
                     self.push_match_redundant_arm(
                         pattern,
-                        scrutinee_type,
+                        coverage,
                         None,
                         "complete_prior_coverage",
                         related,
                     );
+                }
+                if coverage.preceding_catch_all.is_none() {
+                    coverage.preceding_catch_all = Some(pattern.span.clone());
                 }
             }
         }
@@ -827,11 +905,11 @@ impl<'a> FunctionChecker<'a> {
 
     fn push_match_impossible_variant(
         &mut self,
-        scrutinee: &Expr,
-        scrutinee_type: &Type,
+        coverage: &RefinedMatchCoverage,
         variant: &str,
         variant_span: &SourceSpan,
     ) {
+        record_refined_match_diagnostic_retained_bytes(variant.len());
         let mut diagnostic = Diagnostic::new(
             "type.match_impossible_variant",
             Severity::Error,
@@ -839,7 +917,10 @@ impl<'a> FunctionChecker<'a> {
             format!("variant `{variant}` is excluded by the refined match domain"),
             Some(variant_span.clone()),
             JsonValue::object([
-                ("scrutinee_type", JsonValue::string(scrutinee_type.render())),
+                (
+                    "scrutinee_type",
+                    coverage.diagnostic_facts.scrutinee_type.clone(),
+                ),
                 ("arm_variant", JsonValue::string(variant)),
             ]),
         );
@@ -847,28 +928,18 @@ impl<'a> FunctionChecker<'a> {
             ("kind", JsonValue::string("refinement_source")),
             (
                 "message",
-                JsonValue::string(format!(
-                    "This match scrutinee has refined type `{}`.",
-                    scrutinee_type.render()
-                )),
+                JsonValue::text(coverage.diagnostic_facts.refinement_source_message.clone()),
             ),
-            ("span", span_json(&scrutinee.span)),
+            ("span", span_json(&coverage.diagnostic_facts.scrutinee_span)),
         ]));
         let mut adt_declaration = vec![
             ("kind", JsonValue::string("adt_declaration")),
             (
                 "message",
-                JsonValue::string(format!(
-                    "The selected ADT is `{}`.",
-                    refined_base_name(scrutinee_type)
-                )),
+                JsonValue::text(coverage.diagnostic_facts.adt_declaration_message.clone()),
             ),
         ];
-        if let Some(span) = self
-            .environment
-            .adts
-            .declaration_span_for_type(scrutinee_type)
-        {
+        if let Some(span) = &coverage.diagnostic_facts.adt_declaration_span {
             adt_declaration.push(("span", span_json(span)));
         }
         diagnostic.related.push(JsonValue::object(adt_declaration));
@@ -878,12 +949,15 @@ impl<'a> FunctionChecker<'a> {
     fn push_match_redundant_arm<'b>(
         &mut self,
         pattern: &Pattern,
-        scrutinee_type: &Type,
+        coverage: &RefinedMatchCoverage,
         variant: Option<&str>,
         reason: &'static str,
         related: impl IntoIterator<Item = (&'b SourceSpan, String)>,
     ) {
         let arm_pattern = render_match_pattern(pattern);
+        record_refined_match_diagnostic_retained_bytes(
+            arm_pattern.len() + variant.map_or(0, str::len),
+        );
         let mut diagnostic = Diagnostic::new(
             "type.match_redundant_arm",
             Severity::Error,
@@ -891,7 +965,10 @@ impl<'a> FunctionChecker<'a> {
             "match arm has no remaining variant to cover",
             Some(pattern.span.clone()),
             JsonValue::object([
-                ("scrutinee_type", JsonValue::string(scrutinee_type.render())),
+                (
+                    "scrutinee_type",
+                    coverage.diagnostic_facts.scrutinee_type.clone(),
+                ),
                 ("arm_pattern", JsonValue::string(arm_pattern)),
                 (
                     "arm_variant",
@@ -932,13 +1009,7 @@ impl<'a> FunctionChecker<'a> {
         if pattern_bindings_admitted
             && let (Some(coverage), Some(plan)) = (refined_coverage, arm_plan.as_ref())
         {
-            self.commit_refined_match_arm(
-                domain.scrutinee,
-                &arm.pattern,
-                domain.ty,
-                coverage,
-                plan,
-            );
+            self.commit_refined_match_arm(&arm.pattern, coverage, plan);
         }
         let direct_binding_refinement = self.direct_match_binding_refinement(
             domain.scrutinee,
@@ -1404,5 +1475,44 @@ mod refined_match_coverage_work {
 
     pub(super) fn take() -> usize {
         WORK.replace(0)
+    }
+}
+
+#[cfg(test)]
+mod refined_match_diagnostic_work {
+    use std::cell::Cell;
+
+    use super::RefinedMatchDiagnosticWork;
+
+    thread_local! {
+        static RENDERS: Cell<usize> = const { Cell::new(0) };
+        static RETAINED_BYTES: Cell<usize> = const { Cell::new(0) };
+        static REFINEMENT_VARIANTS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(super) fn record_render() {
+        RENDERS.set(RENDERS.get() + 1);
+    }
+
+    pub(super) fn record_retained_bytes(bytes: usize) {
+        RETAINED_BYTES.set(RETAINED_BYTES.get() + bytes);
+    }
+
+    pub(super) fn record_refinement_variants(variants: usize) {
+        REFINEMENT_VARIANTS.set(REFINEMENT_VARIANTS.get() + variants);
+    }
+
+    pub(super) fn reset() {
+        RENDERS.set(0);
+        RETAINED_BYTES.set(0);
+        REFINEMENT_VARIANTS.set(0);
+    }
+
+    pub(super) fn take() -> RefinedMatchDiagnosticWork {
+        RefinedMatchDiagnosticWork {
+            renders: RENDERS.replace(0),
+            retained_bytes: RETAINED_BYTES.replace(0),
+            refinement_variants: REFINEMENT_VARIANTS.replace(0),
+        }
     }
 }

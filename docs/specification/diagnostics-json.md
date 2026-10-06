@@ -138,11 +138,15 @@ identify the refined scrutinee occurrence and selected ADT declaration.
 A valid constructor or catch-all with no residual variant reports
 `type.match_redundant_arm` at the complete arm pattern. Its closed details are
 `scrutinee_type`, rendered `arm_pattern`, nullable `arm_variant`, and `reason`.
-The reason is `preceding_catch_all` when an earlier catch-all consumed the
-residual set, `duplicate_variant` when an earlier constructor first covered the
-same variant, and `complete_prior_coverage` when constructor arms completed the
-domain before a catch-all. Ordered `preceding_arm` related entries select the
-applicable catch-all, first duplicate arm, or domain-completing arms. The
+The reason is `preceding_catch_all` when any earlier valid catch-all exists,
+including a catch-all that was itself redundant after constructor coverage.
+The first valid catch-all takes precedence for every later redundant
+constructor or catch-all. The reason is `duplicate_variant` when an earlier
+constructor first covered the same variant and no valid catch-all intervened.
+The reason is `complete_prior_coverage` only for a catch-all reached after
+constructors completed the domain and before any earlier valid catch-all.
+Ordered `preceding_arm` related entries select the first valid catch-all, first
+duplicate arm, or domain-completing arms. The
 checked human and JSON cases are
 [`adt-variant-refinement-match-diagnostics-human`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-human/)
 and

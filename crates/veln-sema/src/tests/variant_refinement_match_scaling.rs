@@ -1,12 +1,42 @@
 use super::*;
 use crate::types::TypeEnvironment;
+use veln_diagnostics::JsonValue;
 
 #[derive(Clone, Copy, Debug)]
 enum CoveragePath {
     Complete,
     RedundantCatchAll,
     Duplicates,
+    Impossible,
     Incomplete,
+}
+
+fn shared_scrutinee_type(diagnostic: &Diagnostic) -> &std::sync::Arc<JsonValue> {
+    let JsonValue::Object(details) = &diagnostic.details else {
+        panic!("diagnostic details must be an object")
+    };
+    let value = details
+        .iter()
+        .find_map(|(field, value)| (field == "scrutinee_type").then_some(value))
+        .expect("scrutinee type detail");
+    let JsonValue::Shared(value) = value else {
+        panic!("scrutinee type detail must use shared storage")
+    };
+    value
+}
+
+fn refinement_source_message(diagnostic: &Diagnostic) -> &veln_diagnostics::DiagnosticText {
+    let JsonValue::Object(entries) = &diagnostic.related[0] else {
+        panic!("refinement source must be an object")
+    };
+    let value = entries
+        .iter()
+        .find_map(|(field, value)| (field == "message").then_some(value))
+        .expect("refinement source message");
+    let JsonValue::Text(message) = value else {
+        panic!("refinement source message must use shared diagnostic text")
+    };
+    message
 }
 
 fn refined_match_scaling_source(variant_count: usize, path: CoveragePath) -> String {
@@ -40,6 +70,11 @@ fn refined_match_scaling_source(variant_count: usize, path: CoveragePath) -> Str
             source.push_str(&format!("    {variant} => ()\n"));
         }
     }
+    if matches!(path, CoveragePath::Impossible) {
+        for _ in &variants {
+            source.push_str("    Outside => ()\n");
+        }
+    }
     if matches!(path, CoveragePath::RedundantCatchAll) {
         source.push_str("    _ => ()\n");
     }
@@ -50,7 +85,11 @@ fn refined_match_scaling_source(variant_count: usize, path: CoveragePath) -> Str
 fn measure_refined_match_coverage_work(
     variant_count: usize,
     path: CoveragePath,
-) -> (usize, std::time::Duration) {
+) -> (
+    usize,
+    crate::analysis::RefinedMatchDiagnosticWork,
+    std::time::Duration,
+) {
     let source = SourceFile::new(
         "main.veln",
         refined_match_scaling_source(variant_count, path),
@@ -69,6 +108,21 @@ fn measure_refined_match_coverage_work(
         "generated match must retain its refined domain: {}",
         classify.params[0].render()
     );
+    let cloned_parameter = classify.params[0].clone();
+    let (
+        crate::semantic_model::Type::VariantRefinement {
+            variants: original_variants,
+            ..
+        },
+        crate::semantic_model::Type::VariantRefinement {
+            variants: cloned_variants,
+            ..
+        },
+    ) = (&classify.params[0], &cloned_parameter)
+    else {
+        unreachable!("generated parameter is a refined domain")
+    };
+    assert!(std::sync::Arc::ptr_eq(original_variants, cloned_variants));
     let function = module
         .functions
         .iter()
@@ -76,11 +130,13 @@ fn measure_refined_match_coverage_work(
         .expect("classify declaration");
     let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
     crate::analysis::reset_refined_match_coverage_work();
+    crate::analysis::reset_refined_match_diagnostic_work();
     let started = std::time::Instant::now();
     let diagnostics =
         crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
     let elapsed = started.elapsed();
     let work = crate::analysis::take_refined_match_coverage_work();
+    let diagnostic_work = crate::analysis::take_refined_match_diagnostic_work();
     match path {
         CoveragePath::Complete => assert!(diagnostics.is_empty(), "{diagnostics:#?}"),
         CoveragePath::RedundantCatchAll => {
@@ -106,14 +162,34 @@ fn measure_refined_match_coverage_work(
                     && diagnostic.related.len() == 1
             }));
         }
+        CoveragePath::Impossible => {
+            assert_eq!(diagnostics.len(), variant_count, "{diagnostics:#?}");
+            assert!(
+                diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.id == "type.match_impossible_variant")
+            );
+            assert!(std::sync::Arc::ptr_eq(
+                shared_scrutinee_type(&diagnostics[0]),
+                shared_scrutinee_type(&diagnostics[variant_count - 1]),
+            ));
+            assert!(
+                refinement_source_message(&diagnostics[0]).shares_storage_with(
+                    refinement_source_message(&diagnostics[variant_count - 1])
+                )
+            );
+        }
         CoveragePath::Incomplete => {
             assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
             assert_eq!(diagnostics[0].id, "type.match_non_exhaustive");
             assert_eq!(diagnostics[0].related.len(), variant_count);
         }
     }
-    eprintln!("{variant_count}-variant {path:?} refined match: {elapsed:?} ({work} units)");
-    (work, elapsed)
+    eprintln!(
+        "{variant_count}-variant {path:?} refined match: {elapsed:?} \
+         ({work} coverage units, {diagnostic_work:?})"
+    );
+    (work, diagnostic_work, elapsed)
 }
 
 #[test]
@@ -122,16 +198,34 @@ fn refined_match_coverage_work_grows_linearly() {
         CoveragePath::Complete,
         CoveragePath::RedundantCatchAll,
         CoveragePath::Duplicates,
+        CoveragePath::Impossible,
         CoveragePath::Incomplete,
     ] {
         let measurements = [100, 200, 400]
             .map(|variant_count| measure_refined_match_coverage_work(variant_count, path));
-        let work = measurements.map(|(work, _)| work);
+        let work = measurements.map(|(work, _, _)| work);
         assert!(work[0] > 0, "the metric must observe {path:?} work");
         for adjacent in work.windows(2) {
             assert!(
                 adjacent[1] <= adjacent[0] * 2 + 64,
                 "doubling the refined domain must add only linear {path:?} work: {work:?}"
+            );
+        }
+        let diagnostic_work = measurements.map(|(_, work, _)| work);
+        assert!(
+            diagnostic_work.iter().all(|work| work.renders == 1),
+            "each refined match must render its domain once: {diagnostic_work:?}"
+        );
+        for adjacent in diagnostic_work.windows(2) {
+            assert!(
+                adjacent[1].retained_bytes <= adjacent[0].retained_bytes * 2 + 64,
+                "doubling the refined domain must retain only linear diagnostic text: \
+                 {diagnostic_work:?}"
+            );
+            assert!(
+                adjacent[1].refinement_variants <= adjacent[0].refinement_variants * 2 + 2,
+                "doubling the refined domain must materialize only linear refinement variants: \
+                 {diagnostic_work:?}"
             );
         }
     }

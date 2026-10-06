@@ -406,7 +406,7 @@ fn unresolved_refinement_parts(ty: Type) -> Result<(String, Vec<Type>, Vec<Strin
             args,
             variants,
             ..
-        } => Ok((name, args, variants)),
+        } => Ok((name, args, variants.to_vec())),
         Type::Named { name, args, .. } => {
             let Some((base, variant)) = name.rsplit_once("::") else {
                 return Err("variant union alternatives must name ADT variants".to_string());
