@@ -130,7 +130,11 @@ head is invalid-cased, unresolved, inaccessible, from the wrong ADT, or has the
 wrong payload arity. The same rule applies when a nested constructor does not
 resolve against its expected payload ADT or has the wrong arity, and when a
 nested record pattern names a missing or duplicate field. The invalid pattern
-keeps its intrinsic casing, resolution, field, arity, or type diagnostic. An
+also cannot refine the scrutinee unless every payload binding is admitted to
+the arm scope. Invalid value-name casing, a duplicate payload binding,
+parameter, or visible local, and a `callsite` binding that would shadow the
+built-in call-site location keep their intrinsic casing, resolution, field,
+arity, type, `name.duplicate`, or `name.callsite_shadow` diagnostic. An
 incompatible use of the unrefined binding in the arm also retains the ordinary
 `type.variant_mismatch` behavior. The [type inference
 rules](types.md#inference-rules) define the refinement scope and unsupported
