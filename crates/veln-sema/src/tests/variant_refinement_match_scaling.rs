@@ -82,61 +82,11 @@ fn refined_match_scaling_source(variant_count: usize, path: CoveragePath) -> Str
     source
 }
 
-fn measure_refined_match_coverage_work(
-    variant_count: usize,
+fn assert_refined_match_diagnostics(
     path: CoveragePath,
-) -> (
-    usize,
-    crate::analysis::RefinedMatchDiagnosticWork,
-    std::time::Duration,
+    variant_count: usize,
+    diagnostics: &[Diagnostic],
 ) {
-    let source = SourceFile::new(
-        "main.veln",
-        refined_match_scaling_source(variant_count, path),
-    );
-    let parsed = parse(&source);
-    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-    let module = lower_surface_ast(&parsed.tree);
-    let environment = TypeEnvironment::from_module(&module);
-    let classify = environment.function("classify").expect("classify function");
-    assert!(
-        matches!(
-            &classify.params[0],
-            crate::semantic_model::Type::VariantRefinement { variants, .. }
-                if variants.len() == variant_count
-        ),
-        "generated match must retain its refined domain: {}",
-        classify.params[0].render()
-    );
-    let cloned_parameter = classify.params[0].clone();
-    let (
-        crate::semantic_model::Type::VariantRefinement {
-            variants: original_variants,
-            ..
-        },
-        crate::semantic_model::Type::VariantRefinement {
-            variants: cloned_variants,
-            ..
-        },
-    ) = (&classify.params[0], &cloned_parameter)
-    else {
-        unreachable!("generated parameter is a refined domain")
-    };
-    assert!(std::sync::Arc::ptr_eq(original_variants, cloned_variants));
-    let function = module
-        .functions
-        .iter()
-        .find(|function| function.name.as_deref() == Some("classify"))
-        .expect("classify declaration");
-    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
-    crate::analysis::reset_refined_match_coverage_work();
-    crate::analysis::reset_refined_match_diagnostic_work();
-    let started = std::time::Instant::now();
-    let diagnostics =
-        crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
-    let elapsed = started.elapsed();
-    let work = crate::analysis::take_refined_match_coverage_work();
-    let diagnostic_work = crate::analysis::take_refined_match_diagnostic_work();
     match path {
         CoveragePath::Complete => assert!(diagnostics.is_empty(), "{diagnostics:#?}"),
         CoveragePath::RedundantCatchAll => {
@@ -185,6 +135,68 @@ fn measure_refined_match_coverage_work(
             assert_eq!(diagnostics[0].related.len(), variant_count);
         }
     }
+}
+
+fn assert_shared_refined_parameter(parameter: &crate::semantic_model::Type, variant_count: usize) {
+    assert!(
+        matches!(
+            parameter,
+            crate::semantic_model::Type::VariantRefinement { variants, .. }
+                if variants.len() == variant_count
+        ),
+        "generated match must retain its refined domain: {}",
+        parameter.render()
+    );
+    let cloned_parameter = parameter.clone();
+    let (
+        crate::semantic_model::Type::VariantRefinement {
+            variants: original_variants,
+            ..
+        },
+        crate::semantic_model::Type::VariantRefinement {
+            variants: cloned_variants,
+            ..
+        },
+    ) = (parameter, &cloned_parameter)
+    else {
+        unreachable!("generated parameter is a refined domain")
+    };
+    assert!(std::sync::Arc::ptr_eq(original_variants, cloned_variants));
+}
+
+fn measure_refined_match_coverage_work(
+    variant_count: usize,
+    path: CoveragePath,
+) -> (
+    usize,
+    crate::analysis::RefinedMatchDiagnosticWork,
+    std::time::Duration,
+) {
+    let source = SourceFile::new(
+        "main.veln",
+        refined_match_scaling_source(variant_count, path),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let classify = environment.function("classify").expect("classify function");
+    assert_shared_refined_parameter(&classify.params[0], variant_count);
+    let function = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("classify"))
+        .expect("classify declaration");
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    crate::analysis::reset_refined_match_coverage_work();
+    crate::analysis::reset_refined_match_diagnostic_work();
+    let started = std::time::Instant::now();
+    let diagnostics =
+        crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
+    let elapsed = started.elapsed();
+    let work = crate::analysis::take_refined_match_coverage_work();
+    let diagnostic_work = crate::analysis::take_refined_match_diagnostic_work();
+    assert_refined_match_diagnostics(path, variant_count, &diagnostics);
     eprintln!(
         "{variant_count}-variant {path:?} refined match: {elapsed:?} \
          ({work} coverage units, {diagnostic_work:?})"
