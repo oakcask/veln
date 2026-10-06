@@ -362,12 +362,14 @@ nested patterns to the corresponding record field type when the scrutinee type
 is known. Unknown or non-record scrutinee types leave nested pattern bindings
 unknown. Arm expressions share the expected result type when one is available.
 
-When the scrutinee is a bare immutable parameter or local binding, a valid
-constructor arm gives that same binding the constructor's singleton refinement
-while checking the arm expression. The refinement retains the resolved ADT
-identity and its instantiated generic arguments. A nested `match` can refine
-the current arm type again; leaving the nested arm restores the enclosing
-refinement, and leaving the outer arm restores the binding's original type.
+When the scrutinee is a bare immutable parameter or local binding whose current
+type is an unrefined base ADT, a valid constructor arm gives that same binding
+the constructor's singleton refinement while checking the arm expression. The
+refinement retains the resolved ADT identity and its instantiated generic
+arguments. A nested `match` observes a refinement established by its enclosing
+arm but does not refine that already refined scrutinee again. Leaving an inner
+arm preserves the enclosing refinement, and leaving the outer arm restores the
+binding's original type.
 Every nested constructor must resolve in its expected payload ADT and have the
 expected payload arity. Every nested record field must be unique and present in
 its expected record type. Every literal and unit payload pattern must match its
@@ -383,9 +385,9 @@ demonstrates parameter, local, generic, nested-arm, and literal-payload use.
 
 This direct refinement requires the scrutinee source to consist only of the
 bare binding name. Parenthesized or qualified values, record-field paths,
-transparent aliases, catch-all residual refinement, refined-union match
-domains, and impossible or redundant arm analysis are not part of the current
-behavior.
+transparent aliases, catch-all residual refinement, direct re-refinement of an
+already refined scrutinee, refined-union match domains, and impossible or
+redundant arm analysis are not part of the current behavior.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
