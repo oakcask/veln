@@ -392,3 +392,142 @@ fn untyped_final_match_arm_does_not_report_a_variant_mismatch() {
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
     assert_eq!(diagnostics[0].id, "name.unresolved", "{diagnostics:#?}");
 }
+
+#[test]
+fn constructor_match_arms_refine_direct_parameters_and_locals() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Boxed<A>\n",
+        "  Filled(A)\n",
+        "  Empty\n",
+        "end\n",
+        "fn accept_filled(value: Boxed<Int>::Filled) -> Int\n",
+        "  1\n",
+        "end\n",
+        "fn parameter(value: Boxed<Int>) -> Int\n",
+        "  match value\n",
+        "    Filled(_) => accept_filled(value)\n",
+        "    Empty => 0\n",
+        "  end\n",
+        "end\n",
+        "fn local(value: Boxed<Int>) -> Int\n",
+        "  let current: Boxed<Int> = value\n",
+        "  match current\n",
+        "    Filled(_) => accept_filled(current)\n",
+        "    Empty => 0\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn nested_match_refinement_composes_and_restores_each_scope() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn pair(first: (), second: ()) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn check(state: State) -> ()\n",
+            "  let matched = match state\n",
+            "    Ready => pair(match state\n",
+            "      Ready => accept_ready(state)\n",
+            "      _ => ()\n",
+            "    end, accept_ready(state))\n",
+            "    _ => ()\n",
+            "  end\n",
+            "  accept_ready(state)\n",
+            "end\n",
+        )
+    ));
+
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        detail_field(mismatches[0], "actual_type").as_text(),
+        Some("State")
+    );
+}
+
+#[test]
+fn unsupported_or_invalid_match_scrutinees_and_patterns_do_not_refine_bindings() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Other\n",
+            "  Foreign\n",
+            "end\n",
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn parenthesized(state: State) -> ()\n",
+            "  match (state)\n",
+            "    Ready => accept_ready(state)\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+            "fn transparent_alias(state: State) -> ()\n",
+            "  let current: State = state\n",
+            "  match current\n",
+            "    Ready => accept_ready(state)\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+            "fn invalid_case(state: State) -> ()\n",
+            "  match state\n",
+            "    State::ready => accept_ready(state)\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+            "fn unresolved(state: State) -> ()\n",
+            "  match state\n",
+            "    missing::Missing => accept_ready(state)\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+            "fn malformed(state: State) -> ()\n",
+            "  match state\n",
+            "    Ready(_) => accept_ready(state)\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+            "fn wrong_adt(state: State) -> ()\n",
+            "  match state\n",
+            "    Other::Foreign => accept_ready(state)\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 6, "{diagnostics:#?}");
+    assert!(
+        mismatches.iter().all(|diagnostic| {
+            detail_field(diagnostic, "actual_type").as_text() == Some("State")
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}

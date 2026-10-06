@@ -361,6 +361,24 @@ arm expression still receive checking. For `List<A>`,
 nested patterns to the corresponding record field type when the scrutinee type
 is known. Unknown or non-record scrutinee types leave nested pattern bindings
 unknown. Arm expressions share the expected result type when one is available.
+
+When the scrutinee is a bare immutable parameter or local binding, a valid
+constructor arm gives that same binding the constructor's singleton refinement
+while checking the arm expression. The refinement retains the resolved ADT
+identity and its instantiated generic arguments. A nested `match` can refine
+the current arm type again; leaving the nested arm restores the enclosing
+refinement, and leaving the outer arm restores the binding's original type.
+Invalid-cased, unresolved, inaccessible, wrong-ADT, or payload-arity-mismatched
+constructor patterns do not refine the binding. The checked
+[`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
+demonstrates parameter, local, generic, and nested-arm use.
+
+This direct refinement requires the scrutinee source to consist only of the
+bare binding name. Parenthesized or qualified values, record-field paths,
+transparent aliases, catch-all residual refinement, refined-union match
+domains, and impossible or redundant arm analysis are not part of the current
+behavior.
+
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
 and identical. The union is independent of arm order and renders in ADT
@@ -578,10 +596,10 @@ rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
 Alias spelling and provenance, public/private exposure paths, pattern-based
-control-flow refinement, schema boundaries, package-documentation signatures,
-command-wide coverage, LSP, MCP, and language-reference publication remain
-proposal work. This slice also does not add recursive generic or function
-variance.
+control-flow refinement beyond direct bare immutable bindings, schema
+boundaries, package-documentation signatures, command-wide coverage, LSP, MCP,
+and language-reference publication remain proposal work. This slice also does
+not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual

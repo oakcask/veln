@@ -155,9 +155,12 @@ fn private_source_adt_constructor_pattern_does_not_satisfy_imported_exhaustivene
         concat!(
             "mod app\n",
             "use shapes\n",
+            "fn accept_shown(value: Shape::Shown) -> String\n",
+            "  \"shown\"\n",
+            "end\n",
             "fn label(value: Shape) -> String\n",
             "  match value\n",
-            "    shapes::Hidden => \"hidden\"\n",
+            "    shapes::Hidden => accept_shown(value)\n",
             "    shapes::Shown => \"shown\"\n",
             "  end\n",
             "end\n",
@@ -182,6 +185,11 @@ fn private_source_adt_constructor_pattern_does_not_satisfy_imported_exhaustivene
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "type.match_non_exhaustive"
             && diagnostic.message == "match is missing case Hidden"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.variant_mismatch"
+            && diagnostic.message
+                == "value of type `Shape` is not assignable to variant type `Shape::Shown`"
     }));
 }
 
