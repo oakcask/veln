@@ -387,10 +387,13 @@ fn invalid_heads_keep_intrinsic_diagnostics_and_do_not_consume_coverage() {
             "unresolved constructor `missing::Ready`",
         ]
     );
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "name.unresolved"
-            && diagnostic.message == "unresolved constructor `missing::Ready`"
-    }));
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved constructor `missing::Ready`"
+        }),
+        "{diagnostics:#?}"
+    );
     assert!(
         diagnostics.iter().all(|diagnostic| {
             diagnostic.id != "type.match_impossible_variant"
@@ -482,6 +485,63 @@ fn wrong_arity_does_not_consume_refined_coverage_and_keeps_payload_and_body_chec
         "binding name `BadBinding` must start with an ASCII lowercase letter"
     );
     assert_eq!(diagnostics[2].message, "unresolved value `missing_body`");
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.match_impossible_variant"
+            && diagnostic.id != "type.match_redundant_arm"
+    }));
+}
+
+#[test]
+fn unresolved_head_does_not_consume_coverage_and_keeps_recovery_checks() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready(Int)\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+        "fn check(value: State::Ready | State::Closed) -> State::Ready\n",
+        "  match value\n",
+        "    missing::Ready(BadBinding) => begin\n",
+        "      missing_body\n",
+        "      Closed\n",
+        "    end\n",
+        "    Closed => Ready(1)\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved constructor `missing::Ready`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message
+                == "binding name `BadBinding` must start with an ASCII lowercase letter"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved value `missing_body`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.variant_mismatch"
+            && diagnostic.message
+                == "value of type `State::Closed` is not assignable to variant type `State::Ready`"
+    }));
+    let non_exhaustive = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "type.match_non_exhaustive"
+                && diagnostic.message == "match is missing case Ready(_)"
+        })
+        .unwrap_or_else(|| panic!("missing refined exhaustiveness diagnostic: {diagnostics:#?}"));
+    assert_eq!(
+        detail(non_exhaustive, "scrutinee_type").as_text(),
+        Some("State::Ready | State::Closed")
+    );
     assert!(diagnostics.iter().all(|diagnostic| {
         diagnostic.id != "type.match_impossible_variant"
             && diagnostic.id != "type.match_redundant_arm"
