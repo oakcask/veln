@@ -1,0 +1,32 @@
+# Compiler integration contract: human diagnostics classify impossible and
+# redundant arms against a direct refined bare-binding domain and identify the
+# preceding coverage that made each redundant arm unreachable.
+type State
+	Ready
+	Closed
+	Failed
+end
+
+fn complete(value: State::Ready | State::Closed) -> ()
+	match value
+		Failed => ()
+		Ready => ()
+		Ready => ()
+		Closed => ()
+		_ => ()
+		remaining => ()
+		Ready => ()
+	end
+end
+
+fn caught(value: State::Ready | State::Closed) -> ()
+	match value
+		_ => ()
+		Ready => ()
+		remaining => ()
+	end
+end
+
+fn main() -> ()
+	()
+end

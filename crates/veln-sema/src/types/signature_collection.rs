@@ -180,7 +180,9 @@ impl TypeCanonicalizer<'_> {
                 variants,
                 unresolved_alternatives,
                 ..
-            } => self.canonicalize_refinement(name, args, variants, unresolved_alternatives),
+            } => {
+                self.canonicalize_refinement(name, args, variants.to_vec(), unresolved_alternatives)
+            }
             Type::Record(fields) => Type::Record(
                 fields
                     .into_iter()

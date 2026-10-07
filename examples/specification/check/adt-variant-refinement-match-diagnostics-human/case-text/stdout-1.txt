@@ -1,0 +1,16 @@
+main.veln:12:3: error[type.match_impossible_variant]: variant `Failed` is excluded by the refined match domain
+  note: main.veln:11:8: This match scrutinee has refined type `State::Ready | State::Closed`.
+  note: main.veln:4:1: The selected ADT is `State`.
+main.veln:14:3: error[type.match_redundant_arm]: match arm has no remaining variant to cover
+  note: main.veln:13:3: This preceding arm first covered `Ready`.
+main.veln:16:3: error[type.match_redundant_arm]: match arm has no remaining variant to cover
+  note: main.veln:13:3: This preceding arm covered `Ready`.
+  note: main.veln:15:3: This preceding arm covered `Closed`.
+main.veln:17:3: error[type.match_redundant_arm]: match arm has no remaining variant to cover
+  note: main.veln:16:3: This preceding valid catch-all arm takes precedence.
+main.veln:18:3: error[type.match_redundant_arm]: match arm has no remaining variant to cover
+  note: main.veln:16:3: This preceding valid catch-all arm takes precedence.
+main.veln:25:3: error[type.match_redundant_arm]: match arm has no remaining variant to cover
+  note: main.veln:24:3: This preceding valid catch-all arm takes precedence.
+main.veln:26:3: error[type.match_redundant_arm]: match arm has no remaining variant to cover
+  note: main.veln:24:3: This preceding valid catch-all arm takes precedence.

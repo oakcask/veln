@@ -1,0 +1,11 @@
+# Integration contract: JSON output preserves invalid-arm precedence, closed
+# diagnostic details, related locations, and source order across recovery.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"

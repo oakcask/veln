@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
 use veln_ast::{PublicAliasKind, SurfaceModule};
+use veln_source::SourceSpan;
 
 use crate::name_recovery::normal_use_decls;
 use crate::semantic_model::Type;
@@ -74,7 +75,16 @@ fn variant_declaration_orders(descriptors: &[AdtDescriptor]) -> Vec<Arc<VariantD
                 .enumerate()
                 .map(|(rank, name)| (name.clone(), rank))
                 .collect();
-            Arc::new(VariantDeclarationOrder { names, ranks })
+            let coverage_cases = descriptor
+                .variants
+                .iter()
+                .map(|variant| variant.coverage_case.clone())
+                .collect();
+            Arc::new(VariantDeclarationOrder {
+                names,
+                coverage_cases,
+                ranks,
+            })
         })
         .collect()
 }
@@ -125,6 +135,7 @@ impl AdtRegistry {
             companion_access_targets,
             annotation_types,
             type_alias_identities: BTreeSet::new(),
+            declaration_spans: HashMap::new(),
         }
     }
 
@@ -174,6 +185,10 @@ impl AdtRegistry {
             annotation_types,
         );
         registry.type_alias_identities = type_alias_identities;
+        registry.declaration_spans = base.declaration_spans.clone();
+        registry
+            .declaration_spans
+            .extend(source_declaration_spans(module));
         registry.canonicalize_source_payload_types(module, source_descriptor_start);
         registry
     }
@@ -232,14 +247,7 @@ impl AdtRegistry {
             })
             .cloned()
             .collect();
-        let companion_access_targets = self
-            .companion_access_targets
-            .iter()
-            .filter(|(module, target)| {
-                module_names.contains(module.as_str()) && module_names.contains(target.as_str())
-            })
-            .map(|(module, target)| (module.clone(), target.clone()))
-            .collect();
+        let companion_access_targets = retained_companion_access_targets(self, module_names);
         let annotation_types = self
             .annotation_types
             .iter()
@@ -255,18 +263,76 @@ impl AdtRegistry {
             companion_access_targets,
             annotation_types,
         );
-        registry.type_alias_identities = self
-            .type_alias_identities
-            .iter()
-            .filter(|(module_name, _)| {
-                module_name
-                    .as_ref()
-                    .is_none_or(|module_name| module_names.contains(module_name))
-            })
-            .cloned()
-            .collect();
+        registry.type_alias_identities = retained_type_alias_identities(self, module_names);
+        registry.declaration_spans = retained_declaration_spans(self, &registry);
         registry
     }
+}
+
+fn source_declaration_spans(module: &SurfaceModule) -> HashMap<String, SourceSpan> {
+    module
+        .types
+        .iter()
+        .filter_map(|decl| {
+            let name = decl.name.as_ref()?;
+            name.as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_uppercase)
+                .then(|| {
+                    let identity = decl
+                        .module_name
+                        .as_ref()
+                        .map_or_else(|| name.clone(), |module| format!("{module}::{name}"));
+                    (identity, decl.span.clone())
+                })
+        })
+        .collect()
+}
+
+fn retained_declaration_spans(
+    source: &AdtRegistry,
+    subset: &AdtRegistry,
+) -> HashMap<String, SourceSpan> {
+    source
+        .declaration_spans
+        .iter()
+        .filter(|(identity, _)| {
+            subset
+                .descriptors_by_identity
+                .contains_key(identity.as_str())
+        })
+        .map(|(identity, span)| (identity.clone(), span.clone()))
+        .collect()
+}
+
+fn retained_companion_access_targets(
+    registry: &AdtRegistry,
+    module_names: &BTreeSet<String>,
+) -> BTreeMap<String, String> {
+    registry
+        .companion_access_targets
+        .iter()
+        .filter(|(module, target)| {
+            module_names.contains(module.as_str()) && module_names.contains(target.as_str())
+        })
+        .map(|(module, target)| (module.clone(), target.clone()))
+        .collect()
+}
+
+fn retained_type_alias_identities(
+    registry: &AdtRegistry,
+    module_names: &BTreeSet<String>,
+) -> BTreeSet<(Option<String>, String)> {
+    registry
+        .type_alias_identities
+        .iter()
+        .filter(|(module_name, _)| {
+            module_name
+                .as_ref()
+                .is_none_or(|module_name| module_names.contains(module_name))
+        })
+        .cloned()
+        .collect()
 }
 
 fn remove_replaced_standard_descriptors(

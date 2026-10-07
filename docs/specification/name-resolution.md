@@ -161,6 +161,16 @@ compiler-known call target.
 Unresolved values and call targets produce `name.unresolved` diagnostics. A
 qualified call does not fall back to a bare function with the same final
 segment when no matching import alias exists.
+In a match whose scrutinee is a direct bare immutable binding with a singleton
+or finite variant-refinement type, an unresolved constructor path also
+produces `name.unresolved`. The primary span selects the final path segment,
+the namespace is `constructor`, and the diagnostic symbol retains the complete
+written path. The unresolved path does not select a constructor identity, and
+the arm covers no variant. Other match scrutinee forms retain their existing
+constructor-path and exhaustiveness behavior. The
+[type inference rules](types.md#inference-rules) define the resulting match coverage, and the
+[diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
+machine-readable projection.
 When more than one import provides the same bare function name, including a
 conflict between a written import and the implicit prelude import, the checker
 reports `name.ambiguous` at the bare name and lists qualified spellings in

@@ -1,14 +1,23 @@
 # Compiler integration contract: checking a constructor arm exposes the matched
-# bare parameter or local at its singleton refinement without losing generic
-# arguments, and nested matches restore the enclosing arm refinement.
+# bare parameter or local at its singleton or complete multi-variant residual
+# refinement without losing generic arguments, and nested matches restore the
+# enclosing arm refinement.
 type State
 	Ready
 	Closed
 end
 
+type Connection
+	Disconnected
+	Connected(socket: Int)
+	Closed(reason: String)
+end
+
 type Boxed<A>
 	Filled(A)
 	Empty
+	Failed
+	Skipped
 end
 
 type LiteralPayload
@@ -23,8 +32,27 @@ fn accept_filled(value: Boxed<Int>::Filled) -> ()
 	()
 end
 
+fn accept_empty(value: Boxed<Int>::Empty) -> ()
+	()
+end
+
+fn accept_failed(value: Boxed<Int>::Failed) -> ()
+	()
+end
+
 fn accept_number(value: LiteralPayload::Number) -> ()
 	()
+end
+
+fn reset_closed(state: Connection::Closed) -> Connection::Disconnected
+	Disconnected
+end
+
+fn recover(state: Connection::Connected | Connection::Closed) -> Connection::Disconnected
+	match state
+		Connected(_) => Disconnected
+		remaining => reset_closed(remaining)
+	end
 end
 
 fn pair(first: (), second: ()) -> ()
@@ -35,6 +63,8 @@ fn parameter(value: Boxed<Int>) -> ()
 	match value
 		Filled(_) => accept_filled(value)
 		Empty => ()
+		Failed => ()
+		Skipped => ()
 	end
 end
 
@@ -43,6 +73,34 @@ fn local(value: Boxed<Int>) -> ()
 	match current
 		Filled(_) => accept_filled(current)
 		Empty => ()
+		Failed => ()
+		Skipped => ()
+	end
+end
+
+fn residual(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	match value
+		Filled(_) => accept_filled(value)
+		remaining => begin
+			match remaining
+				Empty => accept_empty(remaining)
+				Failed => accept_failed(remaining)
+			end
+			match value
+				Empty => accept_empty(value)
+				Failed => accept_failed(value)
+			end
+		end
+	end
+end
+
+fn residual_wildcard(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	match value
+		Filled(_) => accept_filled(value)
+		_ => match value
+			Empty => accept_empty(value)
+			Failed => accept_failed(value)
+		end
 	end
 end
 
@@ -50,7 +108,6 @@ fn nested(state: State) -> ()
 	match state
 		Ready => pair(match state
 			Ready => accept_ready(state)
-			_ => ()
 		end, accept_ready(state))
 		Closed => ()
 	end

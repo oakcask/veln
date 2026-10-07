@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use veln_ast::{UseDecl, Visibility};
 use veln_core::CoreType;
+use veln_source::SourceSpan;
 
 use crate::semantic_model::Type;
 
@@ -24,11 +25,13 @@ pub(crate) struct AdtRegistry {
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<(Option<String>, String)>,
+    declaration_spans: HashMap<String, SourceSpan>,
 }
 
 #[derive(Debug)]
 pub(crate) struct VariantDeclarationOrder {
     names: Vec<String>,
+    coverage_cases: Vec<String>,
     ranks: HashMap<String, usize>,
 }
 
@@ -43,6 +46,10 @@ impl VariantDeclarationOrder {
 
     pub(crate) fn name(&self, rank: usize) -> Option<&str> {
         self.names.get(rank).map(String::as_str)
+    }
+
+    pub(crate) fn coverage_case(&self, rank: usize) -> Option<&str> {
+        self.coverage_cases.get(rank).map(String::as_str)
     }
 }
 
@@ -91,6 +98,11 @@ impl AdtRegistry {
                 &self.descriptors[*index]
             })
             .find(|descriptor| descriptor.type_parameters.len() == args.len())
+    }
+
+    pub(crate) fn declaration_span_for_type(&self, ty: &Type) -> Option<&SourceSpan> {
+        let descriptor = self.descriptor_for_type(ty)?;
+        self.declaration_spans.get(&descriptor.identity())
     }
 
     pub(crate) fn variant_declaration_order_for_type(

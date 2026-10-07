@@ -108,7 +108,7 @@ impl<'a> FunctionChecker<'a> {
             .cloned()
     }
 
-    fn report_match_non_exhaustive(
+    pub(super) fn report_match_non_exhaustive(
         &mut self,
         expr: &Expr,
         scrutinee: &Expr,
@@ -151,20 +151,12 @@ impl<'a> FunctionChecker<'a> {
         self.diagnostics.push(diagnostic);
     }
 
-    pub(super) fn pattern_bindings(
-        &mut self,
-        pattern: &Pattern,
-        scrutinee_type: &Type,
-    ) -> Vec<PatternBinding> {
-        self.pattern_bindings_with_recovery(pattern, scrutinee_type, false, false)
-    }
-
     pub(super) fn let_pattern_bindings(
         &mut self,
         pattern: &Pattern,
         scrutinee_type: &Type,
     ) -> Vec<PatternBinding> {
-        self.pattern_bindings_with_recovery(pattern, scrutinee_type, true, false)
+        self.pattern_bindings_with_recovery(pattern, scrutinee_type, true, false, false)
     }
 
     pub(super) fn pattern_bindings_with_recovery(
@@ -173,6 +165,7 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         recover_unknown_bare_constructor: bool,
         check_literal_type: bool,
+        direct_refined_match_validation: bool,
     ) -> Vec<PatternBinding> {
         match &pattern.kind {
             PatternKind::Wildcard => Vec::new(),
@@ -198,6 +191,7 @@ impl<'a> FunctionChecker<'a> {
                 scrutinee_type,
                 recover_unknown_bare_constructor,
                 check_literal_type,
+                direct_refined_match_validation,
             ),
             PatternKind::Constructor { name, args, .. } => {
                 if invalid_qualified_constructor_pattern(name) {
@@ -206,7 +200,7 @@ impl<'a> FunctionChecker<'a> {
                         name,
                         scrutinee_type,
                     );
-                    return self.unknown_pattern_bindings(args);
+                    return self.unknown_pattern_bindings(args, direct_refined_match_validation);
                 }
                 if recover_unknown_bare_constructor
                     && let [binding] = name.as_slice()
@@ -221,7 +215,13 @@ impl<'a> FunctionChecker<'a> {
                         span: pattern.span.clone(),
                     }];
                 }
-                self.constructor_pattern_bindings(pattern, name, args, scrutinee_type)
+                self.constructor_pattern_bindings(
+                    pattern,
+                    name,
+                    args,
+                    scrutinee_type,
+                    direct_refined_match_validation,
+                )
             }
         }
     }
@@ -233,6 +233,7 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         recover_unknown_bare_constructor: bool,
         check_literal_type: bool,
+        direct_refined_match_validation: bool,
     ) -> Vec<PatternBinding> {
         let mut bindings = Vec::new();
         let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
@@ -259,6 +260,7 @@ impl<'a> FunctionChecker<'a> {
                 &field_type,
                 recover_unknown_bare_constructor,
                 check_literal_type,
+                direct_refined_match_validation,
             ));
         }
         bindings
@@ -318,6 +320,7 @@ impl<'a> FunctionChecker<'a> {
         name: &[String],
         args: &[Pattern],
         scrutinee_type: &Type,
+        direct_refined_match_validation: bool,
     ) -> Vec<PatternBinding> {
         let Some(descriptor) = self.environment.adts.descriptor_for_type_prefer_module(
             scrutinee_type,
@@ -326,7 +329,7 @@ impl<'a> FunctionChecker<'a> {
             if scrutinee_type != &Type::Unknown {
                 self.report_constructor_pattern_mismatch(pattern, name, scrutinee_type);
             }
-            return self.unknown_pattern_bindings(args);
+            return self.unknown_pattern_bindings(args, direct_refined_match_validation);
         };
         if let Some(constructor) = self.environment.adts.constructor_for_descriptor(
             name,
@@ -334,24 +337,117 @@ impl<'a> FunctionChecker<'a> {
             self.function.module_name.as_deref(),
             &self.environment.uses,
         ) {
+            let expected_payload_count = constructor.variant.payload_fields.len();
+            if direct_refined_match_validation && args.len() != expected_payload_count {
+                self.report_constructor_pattern_arity(pattern, constructor, args.len());
+            }
             return args
                 .iter()
                 .enumerate()
                 .flat_map(|(index, pattern)| {
                     let ty = adt::payload_type(scrutinee_type, constructor, index)
                         .unwrap_or(Type::Unknown);
-                    self.pattern_bindings_with_recovery(pattern, &ty, false, true)
+                    self.pattern_bindings_with_recovery(
+                        pattern,
+                        &ty,
+                        false,
+                        true,
+                        direct_refined_match_validation,
+                    )
                 })
                 .collect();
         }
+        if direct_refined_match_validation {
+            self.report_unresolved_refined_constructor(pattern, name, scrutinee_type);
+        }
         self.report_constructor_pattern_mismatch(pattern, name, scrutinee_type);
-        self.unknown_pattern_bindings(args)
+        self.unknown_pattern_bindings(args, direct_refined_match_validation)
     }
 
-    pub(super) fn unknown_pattern_bindings(&mut self, patterns: &[Pattern]) -> Vec<PatternBinding> {
+    fn report_constructor_pattern_arity(
+        &mut self,
+        pattern: &Pattern,
+        constructor: crate::adt::descriptors::AdtConstructor<'_>,
+        actual_payload_count: usize,
+    ) {
+        let expected_payload_count = constructor.variant.payload_fields.len();
+        self.diagnostics.push(Diagnostic::new(
+            "type.constructor_pattern_arity",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "constructor pattern expects {expected_payload_count} payload(s), but got {actual_payload_count}"
+            ),
+            Some(pattern.span.clone()),
+            JsonValue::object([
+                (
+                    "constructor",
+                    JsonValue::string(format!(
+                        "{}::{}",
+                        constructor.descriptor.type_name, constructor.variant.name
+                    )),
+                ),
+                (
+                    "expected_payload_count",
+                    JsonValue::Number(expected_payload_count as i64),
+                ),
+                (
+                    "actual_payload_count",
+                    JsonValue::Number(actual_payload_count as i64),
+                ),
+            ]),
+        ));
+    }
+
+    fn report_unresolved_refined_constructor(
+        &mut self,
+        pattern: &Pattern,
+        name: &[String],
+        scrutinee_type: &Type,
+    ) {
+        if !matches!(scrutinee_type, Type::VariantRefinement { .. })
+            || invalid_qualified_constructor_pattern(name)
+            || !matches!(
+                self.environment.adts.constructor(
+                    name,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                ),
+                ConstructorLookup::Missing
+            )
+        {
+            return;
+        }
+        let PatternKind::Constructor { name_spans, .. } = &pattern.kind else {
+            return;
+        };
+        let Some(span) = name_spans.last() else {
+            return;
+        };
+        self.push_unresolved_name(
+            pattern.node_id,
+            span.clone(),
+            &name.join("::"),
+            "constructor",
+        );
+    }
+
+    pub(super) fn unknown_pattern_bindings(
+        &mut self,
+        patterns: &[Pattern],
+        direct_refined_match_validation: bool,
+    ) -> Vec<PatternBinding> {
         patterns
             .iter()
-            .flat_map(|pattern| self.pattern_bindings(pattern, &Type::Unknown))
+            .flat_map(|pattern| {
+                self.pattern_bindings_with_recovery(
+                    pattern,
+                    &Type::Unknown,
+                    false,
+                    false,
+                    direct_refined_match_validation,
+                )
+            })
             .collect()
     }
 

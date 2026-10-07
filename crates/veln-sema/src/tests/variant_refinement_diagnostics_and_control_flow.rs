@@ -372,6 +372,14 @@ fn final_match_checks_every_typed_arm_even_for_a_refined_scrutinee() {
         1,
         "{diagnostics:#?}"
     );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.match_impossible_variant")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
@@ -422,7 +430,7 @@ fn constructor_match_arms_refine_direct_parameters_and_locals() {
 }
 
 #[test]
-fn refined_scrutinees_do_not_use_direct_binding_refinement() {
+fn impossible_arms_keep_refined_scrutinee_bindings_at_the_original_type() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -459,6 +467,14 @@ fn refined_scrutinees_do_not_use_direct_binding_refinement() {
         Some("State::Ready | State::Closed"),
         "{diagnostics:#?}"
     );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.match_impossible_variant")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
@@ -476,7 +492,6 @@ fn nested_match_refinement_composes_and_restores_each_scope() {
             "  let matched = match state\n",
             "    Ready => pair(match state\n",
             "      Ready => accept_ready(state)\n",
-            "      _ => ()\n",
             "    end, accept_ready(state))\n",
             "    _ => ()\n",
             "  end\n",

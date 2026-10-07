@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use veln_ast::NodeId;
 use veln_source::SourceSpan;
 
@@ -169,7 +170,7 @@ pub(crate) enum Type {
         name: String,
         identity: String,
         args: Vec<Type>,
-        variants: Vec<String>,
+        variants: Arc<[String]>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
     },
     Record(Vec<(String, Type)>),
@@ -213,7 +214,7 @@ impl Type {
             identity: name.clone(),
             name,
             args,
-            variants,
+            variants: variants.into(),
             unresolved_alternatives: Vec::new(),
         }
     }
@@ -228,7 +229,7 @@ impl Type {
             name: name.into(),
             identity: identity.into(),
             args,
-            variants,
+            variants: variants.into(),
             unresolved_alternatives: Vec::new(),
         }
     }
@@ -243,7 +244,7 @@ impl Type {
             identity: name.clone(),
             name,
             args,
-            variants,
+            variants: variants.into(),
             unresolved_alternatives,
         }
     }

@@ -1,0 +1,32 @@
+# Compiler integration contract: JSON diagnostics expose closed match-domain
+# classification details, source spans, reason values, related locations, and
+# deterministic source order.
+type State
+	Ready
+	Closed
+	Failed
+end
+
+fn complete(value: State::Ready | State::Closed) -> ()
+	match value
+		Failed => ()
+		Ready => ()
+		Ready => ()
+		Closed => ()
+		_ => ()
+		remaining => ()
+		Ready => ()
+	end
+end
+
+fn caught(value: State::Ready | State::Closed) -> ()
+	match value
+		_ => ()
+		Ready => ()
+		remaining => ()
+	end
+end
+
+fn main() -> ()
+	()
+end

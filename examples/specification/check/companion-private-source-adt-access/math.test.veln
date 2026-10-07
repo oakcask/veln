@@ -8,6 +8,5 @@ test companion_can_use_private_target_source_adts() -> ()
 	end
 	match token
 		math::Token::HiddenToken(_) => ()
-		math::Token::ShownToken => ()
 	end
 end

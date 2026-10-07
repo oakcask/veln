@@ -123,27 +123,84 @@ before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
 A valid constructor arm for a bare immutable match-scrutinee binding refines
-that binding to the constructor singleton while checking the arm. Passing the
-binding to a parameter that requires that singleton emits no
-`type.variant_mismatch`. The arm does not establish the refinement when its
-head is invalid-cased, unresolved, inaccessible, from the wrong ADT, or has the
-wrong payload arity. The same rule applies when a nested constructor does not
-resolve against its expected payload ADT or has the wrong arity, and when a
-nested record pattern names a missing or duplicate field. A literal or unit
-payload pattern whose type differs from the expected constructor payload emits
-`type.mismatch` at that payload pattern. Its details use
+that binding to the constructor singleton while checking the arm. A direct
+binding already typed as a singleton or finite refinement union uses that set
+as its match domain. Valid constructor arms consume one residual variant;
+binding and `_` catch-alls consume and refine the binding to the complete
+residual set. Passing the binding to a parameter that requires its arm
+refinement emits no `type.variant_mismatch`.
+
+A valid same-ADT constructor excluded by the original refined domain reports
+`type.match_impossible_variant` at the constructor's final name segment. Its
+closed details contain only `scrutinee_type` and `arm_variant`. Related entries
+identify the refined scrutinee occurrence and selected ADT declaration.
+
+A valid constructor or catch-all with no residual variant reports
+`type.match_redundant_arm` at the complete arm pattern. Its closed details are
+`scrutinee_type`, rendered `arm_pattern`, nullable `arm_variant`, and `reason`.
+The reason is `preceding_catch_all` when any earlier valid catch-all exists,
+including a catch-all that was itself redundant after constructor coverage.
+The first valid catch-all takes precedence for every later redundant
+constructor or catch-all. The reason is `duplicate_variant` when an earlier
+constructor first covered the same variant and no valid catch-all intervened.
+The reason is `complete_prior_coverage` only for a catch-all reached after
+constructors completed the domain and before any earlier valid catch-all.
+Ordered `preceding_arm` related entries select the first valid catch-all, first
+duplicate arm, or domain-completing arms. The
+checked human and JSON cases are
+[`adt-variant-refinement-match-diagnostics-human`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-human/)
+and
+[`adt-variant-refinement-match-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-json/).
+
+For direct bare bindings with a refined match domain, arm validation precedes
+both classifications. An invalid-cased, unresolved,
+inaccessible, wrong-ADT, wrong-generic-payload, wrong-arity, or malformed arm
+retains its intrinsic diagnostic, contributes no coverage, and emits neither
+derived classification. A pattern incompatible with a substituted generic
+payload reports the ordinary `type.mismatch` at that payload pattern. An
+unresolved constructor path reports `name.unresolved` at its final name segment
+with `namespace: "constructor"`; the diagnostic symbol retains the complete
+written path. If the rejected arm was the only arm for a remaining variant,
+the match also reports the ordinary `type.match_non_exhaustive` diagnostic.
+The invalid-casing recovery used by the ordinary exhaustiveness path when this
+direct refined-coverage path is inactive can suppress its sole derivative
+missing-case diagnostic; it does not validate the rejected arm.
+
+On this direct refined-coverage path, the intrinsic wrong-arity diagnostic is
+`type.constructor_pattern_arity` at the complete constructor pattern. Its
+closed details contain only
+`constructor`, `expected_payload_count`, and `actual_payload_count`, and it has
+no related entries. The primary message states the expected and actual payload
+counts. Supplied payload patterns and the arm body are still checked, but the
+arm cannot satisfy exhaustiveness. The same rule applies when a nested
+constructor does not resolve against its
+expected payload ADT or has the wrong arity, and when a nested record pattern
+names a missing or duplicate field. A literal or unit payload pattern whose
+type differs from the expected constructor payload emits `type.mismatch` at
+that payload pattern. Its details use
 `expected_type_source: "constructor_payload"`,
 `actual_type_source: "literal_pattern"`, and
 `constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
 refine the scrutinee unless every payload binding is admitted to the arm scope.
+When direct refined coverage is inactive, including for a base-ADT scrutinee or
+a parenthesized refined scrutinee, match arms retain the ordinary constructor
+path, payload-arity, and exhaustiveness behavior. They do not gain the
+refined-coverage `name.unresolved` or `type.constructor_pattern_arity`
+diagnostic.
 Invalid value-name casing, a duplicate payload binding,
 parameter, or visible local, and a `callsite` binding that would shadow the
 built-in call-site location keep their intrinsic casing, resolution, field,
 arity, type, `name.duplicate`, or `name.callsite_shadow` diagnostic. An
-incompatible use of the unrefined binding in the arm also retains the ordinary
-`type.variant_mismatch` behavior. The [type inference
+impossible or redundant arm still checks its payload bindings, body, and
+inherited expected result. Impossible arms retain the original scrutinee type;
+redundant constructors use their original-domain singleton; redundant binding
+catch-alls use the original scrutinee type. An incompatible use retains the
+ordinary `type.variant_mismatch` behavior. The [type inference
 rules](types.md#inference-rules) define the refinement scope and unsupported
-scrutinee forms.
+scrutinee forms. The checked precedence and recovery cases are
+[`adt-variant-refinement-match-precedence-human`](../../examples/specification/check/adt-variant-refinement-match-precedence-human/)
+and
+[`adt-variant-refinement-match-precedence-json`](../../examples/specification/check/adt-variant-refinement-match-precedence-json/).
 
 An unannotated `if` or `match` whose result refinements can join under the
 [type inference rules](types.md#inference-rules) emits no diagnostic. After a
