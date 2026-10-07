@@ -387,7 +387,9 @@ existing scrutinee and its transparent aliases that same refinement. Complete
 constructor coverage or one catch-all makes the match exhaustive. A nested
 `match` observes and can refine the current arm's shared finite domain. Leaving
 an inner arm preserves the enclosing refinement. Leaving the outer arm restores
-every participating binding's own declared or inferred type.
+the preceding shared feasible domain. Each participating binding resumes its
+own declared or inferred presentation constrained by that domain; a wider
+annotation does not introduce new feasible variants after the arm ends.
 
 ```veln
 type Boxed<A>
