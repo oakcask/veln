@@ -280,6 +280,7 @@ thread_local! {
     static HANDLER_CLAUSE_BINDING_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static TYPE_REFERENCE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static CONSTRUCTOR_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
@@ -895,9 +896,18 @@ fn record_type_reference_token_visit() {
 fn record_type_reference_token_visit() {}
 
 #[cfg(test)]
+fn record_type_reference_candidate_visit() {
+    TYPE_REFERENCE_CANDIDATE_VISITS.set(TYPE_REFERENCE_CANDIDATE_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_type_reference_candidate_visit() {}
+
+#[cfg(test)]
 pub(crate) fn reset_type_reference_collections() {
     TYPE_REFERENCE_COLLECTIONS.set(0);
     TYPE_REFERENCE_TOKEN_VISITS.set(0);
+    TYPE_REFERENCE_CANDIDATE_VISITS.set(0);
 }
 
 #[cfg(test)]
@@ -908,6 +918,11 @@ pub(crate) fn type_reference_collections() -> usize {
 #[cfg(test)]
 pub(crate) fn type_reference_token_visits() -> usize {
     TYPE_REFERENCE_TOKEN_VISITS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn type_reference_candidate_visits() -> usize {
+    TYPE_REFERENCE_CANDIDATE_VISITS.get()
 }
 
 #[cfg(test)]

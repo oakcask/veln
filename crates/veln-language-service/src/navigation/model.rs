@@ -852,7 +852,7 @@ struct IndexedFile {
     effect_operation_ranges: BTreeSet<(usize, usize)>,
     generic_effect_binders: Vec<GenericEffectBinder>,
     classified_path_segments: Vec<QualifiedPathSegment>,
-    type_reference_locations: OnceLock<TypeReferenceLocations>,
+    type_reference_locations: OnceLock<TypeReferenceIndex>,
     navigation_isolated: bool,
     origin: IndexedOrigin,
 }
@@ -1056,6 +1056,7 @@ struct FunctionRenameIndex {
 }
 
 type TypeReferenceLocations = Vec<(String, usize, SourceSpan)>;
+type TypeReferenceIndex = BTreeMap<String, Vec<(usize, SourceSpan)>>;
 
 #[derive(Debug)]
 struct FunctionScope {

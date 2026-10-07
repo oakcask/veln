@@ -17,7 +17,7 @@ use crate::navigation::{
     reset_local_binding_scope_token_visits, reset_local_reference_binding_candidate_comparisons,
     reset_local_reference_scope_candidate_visits,
     reset_schema_alias_import_work, reset_type_reference_collections, schema_alias_import_work,
-    type_reference_collections, type_reference_token_visits,
+    type_reference_candidate_visits, type_reference_collections, type_reference_token_visits,
 };
 use veln_ast::{NameClass, NameOccurrence, QualifiedPathSegmentEvidence};
 use veln_project::{capture_package_snapshot, parse_manifest_text};

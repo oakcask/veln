@@ -153,6 +153,26 @@
     }
 
     #[test]
+    fn named_type_reference_lookup_skips_unrelated_type_references() {
+        let mut source_text = String::from("type Item\n  Value\nend\n");
+        for index in 0..128 {
+            source_text.push_str(&format!(
+                "\nfn use_other_{index}(input: Other{index}) -> Other{index}\n  input\nend\n"
+            ));
+        }
+        source_text.push_str("\nfn use_item(input: Item) -> Item\n  input\nend\n");
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+        reset_type_reference_collections();
+
+        let result = query_snapshot(&snapshot, "main.veln", 1, 6)
+            .expect("declared type should resolve");
+
+        assert_eq!(result.references.len(), 2);
+        assert_eq!(type_reference_collections(), 1);
+        assert_eq!(type_reference_candidate_visits(), 2);
+    }
+
+    #[test]
     fn cleanup_annotation_type_reference_token_work_is_adjacent_linear() {
         fn token_visits(annotation_count: usize) -> usize {
             let mut source_text = String::from("type Item\n  Value\nend\n\nfn main(input: Item) -> Item\n  let region: Item = begin\n");

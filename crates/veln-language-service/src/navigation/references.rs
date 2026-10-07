@@ -43,13 +43,17 @@ impl IndexedFile {
 
     fn type_reference_spans_named(&self, name: &str) -> Vec<(usize, SourceSpan)> {
         self.type_reference_locations()
-            .iter()
-            .filter(|(candidate, _, _)| candidate == name)
-            .map(|(_, token_index, span)| (*token_index, span.clone()))
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|location| {
+                record_type_reference_candidate_visit();
+                location.clone()
+            })
             .collect()
     }
 
-    fn type_reference_locations(&self) -> &TypeReferenceLocations {
+    fn type_reference_locations(&self) -> &TypeReferenceIndex {
         self.type_reference_locations.get_or_init(|| {
             #[cfg(test)]
             record_type_reference_collection();
@@ -61,7 +65,7 @@ impl IndexedFile {
 fn collect_type_reference_locations(
     source: &SourceFile,
     tokens: &[Token],
-) -> TypeReferenceLocations {
+) -> TypeReferenceIndex {
     let parsed = parse(source);
     let mut spans: TypeReferenceLocations = parsed
         .tree
@@ -70,7 +74,14 @@ fn collect_type_reference_locations(
         .flat_map(|item| type_reference_locations_in_item(source, tokens, item))
         .collect();
     normalize_type_reference_locations(&mut spans);
-    spans
+    let mut locations_by_name = BTreeMap::new();
+    for (name, token_index, span) in spans {
+        locations_by_name
+            .entry(name)
+            .or_insert_with(Vec::new)
+            .push((token_index, span));
+    }
+    locations_by_name
 }
 
 fn type_reference_locations_in_item(
