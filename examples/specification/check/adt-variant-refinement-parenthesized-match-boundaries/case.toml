@@ -1,5 +1,5 @@
 # Compiler integration contract: only the parenthesized direct binding gains
-# refinement; source bindings, qualified values, paths, indexed lookup calls,
+# refinement; source bindings, qualified values, paths, collection lookups,
 # and other computed scrutinees retain ordinary typing.
 command = ["check", "--json", "main.veln", "states.veln"]
 exit = 1

@@ -1,6 +1,6 @@
 # Parenthesized bindings refine directly, but refinement does not propagate to
-# bindings that supplied their values. Qualified values, field paths, indexed
-# lookup calls, and other computed expressions remain outside that rule.
+# bindings that supplied their values. Qualified values, field paths,
+# collection lookups, and other computed expressions remain outside that rule.
 use states
 
 type State
@@ -46,15 +46,11 @@ fn computed_call(value: State::Ready | State::Closed) -> ()
 	end
 end
 
-fn indexed_lookup(value: State::Ready | State::Closed) -> State::Ready | State::Closed
-	value
-end
-
-fn indexed(value: State::Ready | State::Closed) -> ()
-	match ((indexed_lookup(value)))
-		Ready => accept_ready(indexed_lookup(value))
-		Closed => ()
-		Failed => ()
+fn collection_lookup(value: State::Ready | State::Closed) -> ()
+	match ((dict_get({"state": value}, "state")))
+		Some(Ready) => accept_ready(value)
+		Some(Closed) => ()
+		None => ()
 	end
 end
 

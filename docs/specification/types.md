@@ -459,8 +459,9 @@ related refined-scrutinee context in match-coverage diagnostics selects the
 complete scrutinee expression, including every parenthesis. Qualified values,
 record-field paths, and other bindings that are transparent or transitive
 aliases of the matched binding do not receive refinement or refined-domain arm
-classification. Calls, indexing, operators, constructor expressions, and
-other computed scrutinees likewise retain the ordinary base-ADT match behavior.
+classification. Calls, including collection lookup calls, operators,
+constructor expressions, and other computed scrutinees likewise retain the
+ordinary base-ADT match behavior.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved

@@ -183,9 +183,9 @@ or parameter, or a record-field path rooted at a direct or qualified immutable
 binding. Bare or parenthesized direct bindings already receive match
 refinement; they remain stable-value sources for the planned transparent-alias
 extension. A qualified name is stable only when name resolution identifies an
-immutable value binding. Calls, indexing, operators, and other computed
-expressions are not stable values, even when the same source text occurs more
-than once.
+immutable value binding. Calls, including collection lookup calls, operators,
+and other computed expressions are not stable values, even when the same
+source text occurs more than once.
 
 A local initialized directly from a stable value is a transparent alias of
 that value. A field path through a transparent alias denotes the same stable

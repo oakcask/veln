@@ -422,7 +422,7 @@ fn nested_refined_matches_restore_each_enclosing_scope() {
 }
 
 #[test]
-fn computed_and_index_lookup_scrutinees_keep_the_existing_match_behavior() {
+fn computed_and_collection_lookup_scrutinees_keep_the_existing_match_behavior() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -437,18 +437,15 @@ fn computed_and_index_lookup_scrutinees_keep_the_existing_match_behavior() {
             "    Ready => ()\n",
             "    _ => ()\n",
             "  end\n",
-            "  match ((indexed_lookup(value)))\n",
-            "    Ready => accept_ready(indexed_lookup(value))\n",
-            "    Closed => ()\n",
-            "    Failed => ()\n",
+            "  match ((dict_get({\"state\": value}, \"state\")))\n",
+            "    Some(Ready) => accept_ready(value)\n",
+            "    Some(Closed) => ()\n",
+            "    None => ()\n",
             "  end\n",
             "  match Ready\n",
             "    Ready => ()\n",
             "    _ => ()\n",
             "  end\n",
-            "end\n",
-            "fn indexed_lookup(value: State::Ready | State::Closed) -> State::Ready | State::Closed\n",
-            "  value\n",
             "end\n",
         )
     ));
