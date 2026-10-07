@@ -154,7 +154,8 @@ and
 [`adt-variant-refinement-match-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-json/).
 The checked
 [`parenthesized diagnostic case`](../../examples/specification/check/adt-variant-refinement-parenthesized-match-diagnostics-json/)
-also preserves complete parenthesized scrutinee locations.
+shows that related refined-scrutinee context selects the complete
+parenthesized expression.
 
 For direct bindings, with or without surrounding parentheses, refined-domain
 arm validation precedes both classifications. An invalid-cased, unresolved,
