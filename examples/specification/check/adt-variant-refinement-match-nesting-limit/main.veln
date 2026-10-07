@@ -1,0 +1,198 @@
+fn classify(flag: Bool) -> ()
+  match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => match flag
+    false => ()
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+    true => ()
+  end
+end

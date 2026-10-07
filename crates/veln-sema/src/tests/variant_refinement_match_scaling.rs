@@ -224,9 +224,15 @@ fn refined_match_coverage_work_grows_linearly() {
             );
         }
         let diagnostic_work = measurements.map(|(_, work, _)| work);
+        let renders_domain = matches!(
+            path,
+            CoveragePath::RedundantCatchAll | CoveragePath::Duplicates | CoveragePath::Impossible
+        );
         assert!(
-            diagnostic_work.iter().all(|work| work.renders == 1),
-            "each refined match must render its domain once: {diagnostic_work:?}"
+            diagnostic_work
+                .iter()
+                .all(|work| { work.renders == usize::from(renders_domain) }),
+            "only a refined match that emits a diagnostic renders its domain: {diagnostic_work:?}"
         );
         for adjacent in diagnostic_work.windows(2) {
             assert!(
@@ -301,6 +307,7 @@ fn measure_generated_coverage(
     source: String,
 ) -> (
     crate::analysis::RefinedMatchCoverageWork,
+    crate::analysis::RefinedMatchDiagnosticWork,
     std::time::Duration,
 ) {
     let source = SourceFile::new("main.veln", source);
@@ -308,6 +315,15 @@ fn measure_generated_coverage(
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let environment = TypeEnvironment::from_module(&module);
+    let classify = environment.function("classify").expect("classify function");
+    assert!(
+        matches!(
+            &classify.params[0],
+            crate::semantic_model::Type::VariantRefinement { .. }
+        ),
+        "generated parameter must stay refined: {}",
+        classify.params[0].render()
+    );
     let function = module
         .functions
         .iter()
@@ -315,18 +331,23 @@ fn measure_generated_coverage(
         .expect("classify declaration");
     let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
     crate::analysis::reset_refined_match_coverage_work();
+    crate::analysis::reset_refined_match_diagnostic_work();
     let started = std::time::Instant::now();
     let diagnostics =
         crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
     let elapsed = started.elapsed();
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    (crate::analysis::take_refined_match_coverage_work(), elapsed)
+    (
+        crate::analysis::take_refined_match_coverage_work(),
+        crate::analysis::take_refined_match_diagnostic_work(),
+        elapsed,
+    )
 }
 
 #[test]
 fn singleton_match_state_is_independent_of_base_adt_width() {
     let measurements = [100, 200, 400].map(|variant_count| {
-        let (work, elapsed) =
+        let (work, _, elapsed) =
             measure_generated_coverage(singleton_matches_source(variant_count, 64));
         eprintln!("{variant_count}-variant ADT with 64 singleton matches: {elapsed:?} ({work:?})");
         work
@@ -358,7 +379,7 @@ fn singleton_match_state_is_independent_of_base_adt_width() {
 #[test]
 fn singleton_match_setup_grows_with_match_count_not_base_width() {
     let measurements = [100, 200, 400, 800].map(|match_count| {
-        let (work, elapsed) =
+        let (work, _, elapsed) =
             measure_generated_coverage(singleton_matches_source(400, match_count));
         eprintln!("400-variant ADT with {match_count} singleton matches: {elapsed:?} ({work:?})");
         work
@@ -393,7 +414,7 @@ fn singleton_match_setup_grows_with_match_count_not_base_width() {
 #[test]
 fn nested_singleton_match_retention_grows_with_depth_not_base_width() {
     let widths = [100, 200, 400].map(|variant_count| {
-        let (work, elapsed) =
+        let (work, _, elapsed) =
             measure_generated_coverage(nested_singleton_matches_source(variant_count, 12));
         eprintln!(
             "{variant_count}-variant ADT with depth-12 singleton matches: {elapsed:?} ({work:?})"
@@ -408,7 +429,7 @@ fn nested_singleton_match_retention_grows_with_depth_not_base_width() {
     );
 
     let depths = [8, 16, 32].map(|depth| {
-        let (work, elapsed) =
+        let (work, _, elapsed) =
             measure_generated_coverage(nested_singleton_matches_source(400, depth));
         eprintln!("400-variant ADT with depth-{depth} singleton matches: {elapsed:?} ({work:?})");
         work
@@ -426,25 +447,160 @@ fn nested_singleton_match_retention_grows_with_depth_not_base_width() {
 }
 
 #[test]
-fn residual_catch_all_rank_storage_contributes_to_peak_retention() {
+fn unchanged_residual_catch_all_shares_domain_storage() {
     for variant_count in [100, 200, 400] {
-        let (constructor_work, _) = measure_generated_coverage(refined_match_scaling_source(
+        let (constructor_work, _, _) = measure_generated_coverage(refined_match_scaling_source(
             variant_count,
             CoveragePath::Complete,
         ));
-        let (catch_all_work, elapsed) =
+        let (catch_all_work, diagnostic_work, elapsed) =
             measure_generated_coverage(residual_catch_all_source(variant_count));
         eprintln!("{variant_count}-variant residual catch-all: {elapsed:?} ({catch_all_work:?})");
         assert!(
-            catch_all_work.peak_retained_slots
-                >= constructor_work.peak_retained_slots + variant_count,
-            "residual ranks must contribute to simultaneous retained state: \
+            catch_all_work.peak_retained_slots < constructor_work.peak_retained_slots,
+            "an unchanged residual must share the original refinement instead of retaining ranks: \
              constructor={constructor_work:?}, catch_all={catch_all_work:?}"
         );
         assert!(
-            catch_all_work.initialized_slots >= constructor_work.initialized_slots + variant_count,
-            "residual ranks must contribute to initialized collection slots: \
+            catch_all_work.initialized_slots < constructor_work.initialized_slots,
+            "an unchanged residual must not initialize full-width collections: \
              constructor={constructor_work:?}, catch_all={catch_all_work:?}"
         );
+        assert_eq!(
+            diagnostic_work.renders, 0,
+            "accepted catch-all renders no diagnostic"
+        );
+        assert_eq!(diagnostic_work.refinement_variants, 0);
     }
+}
+
+fn nested_residual_catch_all_source(variant_count: usize, depth: usize) -> String {
+    let variants = (0..variant_count)
+        .map(|index| format!("V{index:04}"))
+        .collect::<Vec<_>>();
+    let mut source = String::from("type State\n");
+    for variant in &variants {
+        source.push_str(&format!("  {variant}\n"));
+    }
+    source.push_str("  Outside\nend\nfn classify(state: ");
+    source.push_str(
+        &variants
+            .iter()
+            .map(|variant| format!("State::{variant}"))
+            .collect::<Vec<_>>()
+            .join(" | "),
+    );
+    source.push_str(") -> ()\n");
+    let mut scrutinee = "state".to_string();
+    for level in 0..depth {
+        let binding = format!("remaining{level}");
+        source.push_str(&format!("  match {scrutinee}\n    {binding} => "));
+        scrutinee = binding;
+    }
+    source.push_str("()\n");
+    for _ in 0..depth {
+        source.push_str("  end\n");
+    }
+    source.push_str("end\n");
+    source
+}
+
+#[test]
+fn nested_wide_residual_matches_have_additive_state_and_work() {
+    let measurements = [(100, 8), (200, 16), (400, 32)].map(|(width, depth)| {
+        let (coverage, diagnostics, elapsed) =
+            measure_generated_coverage(nested_residual_catch_all_source(width, depth));
+        eprintln!(
+            "{width}-variant refined domain with depth-{depth} residual matches: \
+             {elapsed:?} ({coverage:?}, {diagnostics:?})"
+        );
+        assert_eq!(diagnostics.renders, 0);
+        assert_eq!(diagnostics.retained_bytes, 0);
+        assert_eq!(diagnostics.refinement_variants, 0);
+        assert_eq!(diagnostics.peak_cached_diagnostic_bytes, 0);
+        assert_eq!(diagnostics.peak_retained_refinement_variants, 0);
+        assert_eq!(diagnostics.peak_shared_domain_handles, depth + 1);
+        (coverage, diagnostics)
+    });
+
+    for adjacent in measurements.windows(2) {
+        let (smaller, _) = adjacent[0];
+        let (larger, _) = adjacent[1];
+        assert!(
+            larger.units <= smaller.units * 2 + 8,
+            "doubling width and depth must not multiply setup work: {measurements:?}"
+        );
+        assert!(
+            larger.peak_retained_slots <= smaller.peak_retained_slots * 2 + 8,
+            "doubling width and depth must retain only additive match-local state: \
+             {measurements:?}"
+        );
+        assert!(
+            larger.initialized_slots <= smaller.initialized_slots * 2 + 8,
+            "doubling width and depth must initialize only additive match-local state: \
+             {measurements:?}"
+        );
+    }
+}
+
+fn nested_bool_matches_source(depth: usize) -> String {
+    let mut source = String::from("fn classify(flag: Bool) -> ()\n  match flag\n");
+    for level in 0..depth {
+        if level + 1 == depth {
+            source.push_str("    false => ()\n");
+        } else {
+            source.push_str("    false => match flag\n");
+        }
+    }
+    for _ in 0..depth {
+        source.push_str("    true => ()\n  end\n");
+    }
+    source.push_str("end\n");
+    source
+}
+
+#[test]
+fn refined_match_nesting_limit_has_an_exact_boundary() {
+    let accepted = SourceFile::new(
+        "main.veln",
+        nested_bool_matches_source(crate::analysis::MAX_MATCH_NESTING),
+    );
+    let parsed = parse(&accepted);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let function = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("classify"))
+        .expect("classify declaration");
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    let diagnostics =
+        crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let source = SourceFile::new(
+        "main.veln",
+        nested_bool_matches_source(crate::analysis::MAX_MATCH_NESTING + 1),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let function = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("classify"))
+        .expect("classify declaration");
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    let diagnostics =
+        crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.match_nesting_limit");
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"max_depth\":64")
+    );
 }

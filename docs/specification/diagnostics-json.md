@@ -152,6 +152,13 @@ checked human and JSON cases are
 and
 [`adt-variant-refinement-match-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-json/).
 
+The 65th nested `match` on one expression path reports
+`type.match_nesting_limit` at that complete match expression. Its closed
+details contain only `max_depth`, whose value is `64`; it has no related
+entries. The checker does not descend into the rejected match. The checked JSON
+case is
+[`adt-variant-refinement-match-nesting-limit`](../../examples/specification/check/adt-variant-refinement-match-nesting-limit/).
+
 For direct bare bindings with a refined match domain, arm validation precedes
 both classifications. An invalid-cased, unresolved,
 inaccessible, wrong-ADT, wrong-generic-payload, wrong-arity, or malformed arm

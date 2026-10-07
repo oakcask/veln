@@ -501,25 +501,27 @@ unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
 the arms that prove partial coverage.
 
-Coverage classification for a direct refined domain has linear analysis work
-when the domain size and the number of arms grow together. This bound covers
+Coverage classification for one direct refined match has linear instrumented
+work when the domain size and arm count grow together. This bound covers
 complete and incomplete coverage, duplicate and impossible constructor arms,
 and a catch-all after complete constructor coverage. For a fixed singleton
-domain, widening the base ADT does not increase coverage setup work or retained
-match-local slots. Increasing the number of sequential singleton matches
-increases setup work linearly while retaining one match state at a time.
-Increasing singleton-match nesting depth increases peak retained slots
-linearly, independently of the base ADT width.
+domain, widening the base ADT does not increase match-local setup or retained
+state. Sequential singleton matches increase setup linearly while retaining
+one match state at a time.
 
-Deterministic test counters measure coverage work, initialized collection
-slots, peak retained collection slots, and copied diagnostic labels across
-adjacent generated input sizes. The collection counts include domain ranks,
-lookup slots, covered-arm order, and a catch-all arm's temporary residual
-ranks. Allocation growth and release contribute symmetrically, and retained
-slots return to zero after analysis. These counters, rather than elapsed time,
-define the regression checks; reported wall-clock timings are observational.
-Final serialized JSON can still grow quadratically when a linear number of
-diagnostics must each expose the complete refined domain.
+An accepted source can declare one refined union of width `N` and nest `D`
+direct catch-all matches. Its match-local setup and peak retained or
+materialized state grow additively with `N + D`, not multiplicatively with
+`N * D`. The unchanged residual reuses the input refinement and does not render
+diagnostic text. Deterministic counters cover initialized and peak match-local
+collections including the shared-domain cache, shared domain handles,
+cumulative residual and refinement materialization, refinements retained while
+an arm body is checked, and cached dynamically rendered diagnostic text. Every
+instrumented match-local owner returns to zero after analysis. These counters,
+rather than elapsed time, define the regression checks; reported wall-clock
+timings are observational. Final serialized JSON can still grow quadratically
+when a linear number of diagnostics must each expose the complete refined
+domain.
 
 ### Result propagation
 
@@ -551,6 +553,12 @@ diagnostic cases, and the
 [`JVM execution case`](../../examples/specification/run/adt-variant-refined-result-propagation/).
 
 ## Compatibility and limits
+
+Semantic analysis supports at most 64 nested `match` expressions in one
+expression path. The next nested match reports `type.match_nesting_limit` at
+that match expression and does not descend into it. This limit is independent
+of parser cleanup and type-structure limits. The checked JSON case is
+[`adt-variant-refinement-match-nesting-limit`](../../examples/specification/check/adt-variant-refinement-match-nesting-limit/).
 
 The type checker resolves a structurally valid `A<T>::V` annotation to the
 singleton variant type for `V` of the finite ADT `A<T>`. A union of alternatives

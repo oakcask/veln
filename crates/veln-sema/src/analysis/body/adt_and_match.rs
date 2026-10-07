@@ -2,7 +2,10 @@ use super::control_flow_results::{ControlFlowResultJoin, contribute_control_flow
 use super::*;
 use crate::adt::descriptors::AdtPayloadField;
 use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
+use std::collections::HashSet;
 use std::sync::Arc;
+
+pub(crate) const MAX_MATCH_NESTING: usize = 64;
 
 #[cfg(test)]
 fn record_refined_match_coverage_work(units: usize) {
@@ -61,6 +64,54 @@ fn record_refined_match_refinement_variants(variants: usize) {
 fn record_refined_match_refinement_variants(_variants: usize) {}
 
 #[cfg(test)]
+fn retain_refined_match_refinement_variants(variants: usize) {
+    refined_match_diagnostic_work::retain_refinement_variants(variants);
+}
+
+#[cfg(not(test))]
+fn retain_refined_match_refinement_variants(_variants: usize) {}
+
+#[cfg(test)]
+fn release_refined_match_refinement_variants(variants: usize) {
+    refined_match_diagnostic_work::release_refinement_variants(variants);
+}
+
+#[cfg(not(test))]
+fn release_refined_match_refinement_variants(_variants: usize) {}
+
+#[cfg(test)]
+fn retain_refined_match_domain_handle() {
+    refined_match_diagnostic_work::retain_domain_handle();
+}
+
+#[cfg(not(test))]
+fn retain_refined_match_domain_handle() {}
+
+#[cfg(test)]
+fn release_refined_match_domain_handle() {
+    refined_match_diagnostic_work::release_domain_handle();
+}
+
+#[cfg(not(test))]
+fn release_refined_match_domain_handle() {}
+
+#[cfg(test)]
+fn retain_refined_match_diagnostic_bytes(bytes: usize) {
+    refined_match_diagnostic_work::retain_diagnostic_bytes(bytes);
+}
+
+#[cfg(not(test))]
+fn retain_refined_match_diagnostic_bytes(_bytes: usize) {}
+
+#[cfg(test)]
+fn release_refined_match_diagnostic_bytes(bytes: usize) {
+    refined_match_diagnostic_work::release_diagnostic_bytes(bytes);
+}
+
+#[cfg(not(test))]
+fn release_refined_match_diagnostic_bytes(_bytes: usize) {}
+
+#[cfg(test)]
 pub(crate) fn reset_refined_match_coverage_work() {
     refined_match_coverage_work::reset();
 }
@@ -95,16 +146,56 @@ pub(crate) struct RefinedMatchDiagnosticWork {
     pub(crate) renders: usize,
     pub(crate) retained_bytes: usize,
     pub(crate) refinement_variants: usize,
+    pub(crate) peak_cached_diagnostic_bytes: usize,
+    pub(crate) peak_retained_refinement_variants: usize,
+    pub(crate) peak_shared_domain_handles: usize,
 }
 
 struct RefinedMatchCoverage {
-    declaration_order: Arc<VariantDeclarationOrder>,
-    domain_ranks: Vec<usize>,
-    slots: HashMap<usize, RefinedMatchCoverageSlot>,
+    domain: Arc<RefinedMatchDomainFacts>,
+    covered: HashMap<usize, SourceSpan>,
     covered_order: Vec<usize>,
     remaining_count: usize,
     preceding_catch_all: Option<SourceSpan>,
-    diagnostic_facts: RefinedMatchDiagnosticFacts,
+    diagnostic_source: RefinedMatchDiagnosticSource,
+    diagnostic_facts: std::sync::OnceLock<RefinedMatchDiagnosticFacts>,
+}
+
+pub(super) struct RefinedMatchDomainFacts {
+    declaration_order: Arc<VariantDeclarationOrder>,
+    variants: Arc<[String]>,
+    ranks: HashSet<usize>,
+}
+
+#[derive(Default)]
+pub(super) struct RefinedMatchDomainCache {
+    entries: HashMap<usize, Arc<RefinedMatchDomainFacts>>,
+}
+
+impl RefinedMatchDomainCache {
+    fn get(&self, key: usize) -> Option<&Arc<RefinedMatchDomainFacts>> {
+        self.entries.get(&key)
+    }
+
+    fn insert(&mut self, key: usize, domain: Arc<RefinedMatchDomainFacts>) {
+        let previous_capacity = self.entries.capacity();
+        self.entries.insert(key, domain);
+        record_refined_match_slots_allocated(
+            self.entries.capacity().saturating_sub(previous_capacity),
+        );
+    }
+}
+
+impl Drop for RefinedMatchDomainCache {
+    fn drop(&mut self) {
+        record_refined_match_slots_released(self.entries.capacity());
+    }
+}
+
+struct RefinedMatchDiagnosticSource {
+    scrutinee_type: Type,
+    scrutinee_span: SourceSpan,
+    adt_declaration_span: Option<SourceSpan>,
 }
 
 struct RefinedMatchDiagnosticFacts {
@@ -113,15 +204,17 @@ struct RefinedMatchDiagnosticFacts {
     scrutinee_span: SourceSpan,
     adt_declaration_message: DiagnosticText,
     adt_declaration_span: Option<SourceSpan>,
+    cached_bytes: usize,
 }
 
 enum RefinedMatchCoverageSlot {
     Remaining,
-    Covered(SourceSpan),
+    Covered,
 }
 
 struct RefinedMatchArmPlan {
     arm_type: Type,
+    materialized_refinement_variants: usize,
     coverage: RefinedMatchArmCoverage,
 }
 
@@ -134,7 +227,6 @@ enum RefinedMatchArmCoverage {
     },
     CatchAll {
         classification: RefinedCatchAllClassification,
-        remaining_ranks: Vec<usize>,
     },
 }
 
@@ -153,85 +245,80 @@ impl RefinedMatchCoverage {
     fn new(
         scrutinee: &Expr,
         scrutinee_type: &Type,
+        domain: Arc<RefinedMatchDomainFacts>,
         adts: &AdtRegistry,
-        current_module: Option<&str>,
     ) -> Option<Self> {
         let Type::VariantRefinement { variants, .. } = scrutinee_type else {
             return None;
         };
-        let declaration_order = adts.variant_declaration_order_for_type(scrutinee_type)?;
-        adts.descriptor_for_type_prefer_module(scrutinee_type, current_module)?;
-        let mut slots = HashMap::with_capacity(variants.len());
-        let mut domain_ranks = Vec::with_capacity(variants.len());
-        for variant in variants.iter() {
-            record_refined_match_coverage_work(1);
-            let rank = declaration_order.rank(variant)?;
-            slots.insert(rank, RefinedMatchCoverageSlot::Remaining);
-            domain_ranks.push(rank);
-        }
-        let covered_order = Vec::with_capacity(variants.len());
-        record_refined_match_slots_allocated(
-            domain_ranks.capacity() + slots.capacity() + covered_order.capacity(),
-        );
+        retain_refined_match_domain_handle();
         Some(Self {
-            declaration_order,
-            domain_ranks,
-            slots,
-            covered_order,
+            domain,
+            covered: HashMap::new(),
+            covered_order: Vec::new(),
             remaining_count: variants.len(),
             preceding_catch_all: None,
-            diagnostic_facts: RefinedMatchDiagnosticFacts::new(scrutinee, scrutinee_type, adts),
+            diagnostic_source: RefinedMatchDiagnosticSource {
+                scrutinee_type: scrutinee_type.clone(),
+                scrutinee_span: scrutinee.span.clone(),
+                adt_declaration_span: adts.declaration_span_for_type(scrutinee_type).cloned(),
+            },
+            diagnostic_facts: std::sync::OnceLock::new(),
         })
     }
 
     fn rank(&self, variant: &str) -> Option<usize> {
         record_refined_match_coverage_work(1);
-        self.declaration_order.rank(variant)
+        self.domain.declaration_order.rank(variant)
     }
 
     fn slot(&self, rank: usize) -> Option<&RefinedMatchCoverageSlot> {
         record_refined_match_coverage_work(1);
-        self.slots.get(&rank)
+        if !self.domain.ranks.contains(&rank) {
+            return None;
+        }
+        Some(
+            if self.preceding_catch_all.is_some() || self.covered.contains_key(&rank) {
+                &RefinedMatchCoverageSlot::Covered
+            } else {
+                &RefinedMatchCoverageSlot::Remaining
+            },
+        )
     }
 
-    fn remaining_ranks(&self) -> Vec<usize> {
-        self.domain_ranks
+    fn remaining_variants(&self) -> Vec<String> {
+        self.domain
+            .variants
             .iter()
-            .copied()
-            .filter(|rank| {
+            .filter(|variant| {
                 record_refined_match_coverage_work(1);
-                matches!(
-                    self.slots.get(rank),
-                    Some(RefinedMatchCoverageSlot::Remaining)
-                )
+                let rank = self
+                    .domain
+                    .declaration_order
+                    .rank(variant)
+                    .expect("domain variant rank");
+                !self.covered.contains_key(&rank)
             })
-            .collect()
-    }
-
-    fn variants_for_ranks(&self, ranks: &[usize]) -> Vec<String> {
-        ranks
-            .iter()
-            .map(|rank| {
-                record_refined_match_coverage_work(1);
-                self.declaration_order
-                    .name(*rank)
-                    .expect("refined match rank belongs to its ADT")
-                    .to_string()
-            })
+            .cloned()
             .collect()
     }
 
     fn first_missing_case(&self) -> Option<String> {
-        self.domain_ranks.iter().find_map(|rank| {
+        if self.preceding_catch_all.is_some() {
+            return None;
+        }
+        self.domain.variants.iter().find_map(|variant| {
             record_refined_match_coverage_work(1);
-            matches!(
-                self.slots.get(rank),
-                Some(RefinedMatchCoverageSlot::Remaining)
-            )
-            .then(|| {
+            let rank = self
+                .domain
+                .declaration_order
+                .rank(variant)
+                .expect("domain variant rank");
+            (!self.covered.contains_key(&rank)).then(|| {
                 record_refined_match_label_clone();
-                self.declaration_order
-                    .coverage_case(*rank)
+                self.domain
+                    .declaration_order
+                    .coverage_case(rank)
                     .expect("refined match rank belongs to its ADT")
                     .to_string()
             })
@@ -243,12 +330,14 @@ impl RefinedMatchCoverage {
             .iter()
             .map(|rank| {
                 record_refined_match_coverage_work(1);
-                let Some(RefinedMatchCoverageSlot::Covered(span)) = self.slots.get(rank) else {
-                    unreachable!("covered order contains only covered refined variants")
-                };
+                let span = self
+                    .covered
+                    .get(rank)
+                    .expect("covered order contains only covered refined variants");
                 record_refined_match_label_clone();
                 (
-                    self.declaration_order
+                    self.domain
+                        .declaration_order
                         .coverage_case(*rank)
                         .expect("refined match rank belongs to its ADT")
                         .to_string(),
@@ -258,7 +347,14 @@ impl RefinedMatchCoverage {
             .collect()
     }
 
-    fn push_covered_rank(&mut self, rank: usize) {
+    fn cover_rank(&mut self, rank: usize, span: SourceSpan) {
+        let previous_map_capacity = self.covered.capacity();
+        self.covered.insert(rank, span);
+        record_refined_match_slots_allocated(
+            self.covered
+                .capacity()
+                .saturating_sub(previous_map_capacity),
+        );
         let previous_capacity = self.covered_order.capacity();
         self.covered_order.push(rank);
         record_refined_match_slots_allocated(
@@ -267,34 +363,43 @@ impl RefinedMatchCoverage {
                 .saturating_sub(previous_capacity),
         );
     }
+
+    fn diagnostic_facts(&self) -> &RefinedMatchDiagnosticFacts {
+        self.diagnostic_facts
+            .get_or_init(|| RefinedMatchDiagnosticFacts::new(&self.diagnostic_source))
+    }
 }
 
 impl Drop for RefinedMatchCoverage {
     fn drop(&mut self) {
         record_refined_match_slots_released(
-            self.domain_ranks.capacity() + self.slots.capacity() + self.covered_order.capacity(),
+            self.covered.capacity() + self.covered_order.capacity(),
         );
+        release_refined_match_domain_handle();
     }
 }
 
-impl Drop for RefinedMatchArmPlan {
+impl Drop for RefinedMatchDomainFacts {
     fn drop(&mut self) {
-        if let RefinedMatchArmCoverage::CatchAll {
-            remaining_ranks, ..
-        } = &self.coverage
-        {
-            record_refined_match_slots_released(remaining_ranks.capacity());
-        }
+        record_refined_match_slots_released(self.ranks.capacity());
+        release_refined_match_domain_handle();
+    }
+}
+
+impl Drop for RefinedMatchDiagnosticFacts {
+    fn drop(&mut self) {
+        release_refined_match_diagnostic_bytes(self.cached_bytes);
     }
 }
 
 impl RefinedMatchDiagnosticFacts {
-    fn new(scrutinee: &Expr, scrutinee_type: &Type, adts: &AdtRegistry) -> Self {
+    fn new(source: &RefinedMatchDiagnosticSource) -> Self {
         record_refined_match_diagnostic_render();
-        let rendered_type = DiagnosticText::from(scrutinee_type.render());
+        let rendered_type = DiagnosticText::from(source.scrutinee_type.render());
         record_refined_match_diagnostic_retained_bytes(rendered_type.as_str().len());
-        let base_name = refined_base_name(scrutinee_type).to_string();
-        let declaration_span = adts.declaration_span_for_type(scrutinee_type).cloned();
+        let base_name = refined_base_name(&source.scrutinee_type).to_string();
+        let cached_bytes = rendered_type.as_str().len() + base_name.len();
+        retain_refined_match_diagnostic_bytes(cached_bytes);
         let scrutinee_type = JsonValue::shared(JsonValue::text(rendered_type.clone()));
         Self {
             scrutinee_type,
@@ -303,11 +408,12 @@ impl RefinedMatchDiagnosticFacts {
                 rendered_type,
                 DiagnosticText::from("`."),
             ]),
-            scrutinee_span: scrutinee.span.clone(),
+            scrutinee_span: source.scrutinee_span.clone(),
             adt_declaration_message: DiagnosticText::from(format!(
                 "The selected ADT is `{base_name}`."
             )),
-            adt_declaration_span: declaration_span,
+            adt_declaration_span: source.adt_declaration_span.clone(),
+            cached_bytes,
         }
     }
 }
@@ -614,17 +720,36 @@ impl<'a> FunctionChecker<'a> {
         arms: &[MatchArm],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if self.match_depth == MAX_MATCH_NESTING {
+            self.diagnostics.push(Diagnostic::new(
+                "type.match_nesting_limit",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!("match nesting exceeds the supported depth of {MAX_MATCH_NESTING}"),
+                Some(expr.span.clone()),
+                JsonValue::object([("max_depth", JsonValue::Number(MAX_MATCH_NESTING as i64))]),
+            ));
+            return expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or(Type::Unknown);
+        }
+        self.match_depth += 1;
+        let inferred = self.infer_match_within_limit(expr, scrutinee, arms, expected);
+        self.match_depth -= 1;
+        inferred
+    }
+
+    fn infer_match_within_limit(
+        &mut self,
+        expr: &Expr,
+        scrutinee: &Expr,
+        arms: &[MatchArm],
+        expected: Option<&ExpectedType>,
+    ) -> Type {
         let scrutinee_type = self.infer_match_scrutinee(expr, scrutinee, arms);
         let mut refined_coverage = self
             .is_direct_match_binding(scrutinee)
-            .then(|| {
-                RefinedMatchCoverage::new(
-                    scrutinee,
-                    &scrutinee_type,
-                    &self.environment.adts,
-                    self.function.module_name.as_deref(),
-                )
-            })
+            .then(|| self.refined_match_coverage(scrutinee, &scrutinee_type))
             .flatten();
         if arms.is_empty() {
             if let Some(coverage) = &refined_coverage {
@@ -699,6 +824,46 @@ impl<'a> FunctionChecker<'a> {
                 .bindings
                 .iter()
                 .any(|binding| binding.name == *binding_name)
+    }
+
+    fn refined_match_coverage(
+        &mut self,
+        scrutinee: &Expr,
+        scrutinee_type: &Type,
+    ) -> Option<RefinedMatchCoverage> {
+        let Type::VariantRefinement { variants, .. } = scrutinee_type else {
+            return None;
+        };
+        self.environment.adts.descriptor_for_type_prefer_module(
+            scrutinee_type,
+            self.function.module_name.as_deref(),
+        )?;
+        // The cache retains the Arc behind this address, so the allocator cannot
+        // reuse the key for a different refinement during this function check.
+        let key = variants.as_ptr() as usize;
+        let domain = if let Some(domain) = self.refined_match_domains.get(key) {
+            Arc::clone(domain)
+        } else {
+            let declaration_order = self
+                .environment
+                .adts
+                .variant_declaration_order_for_type(scrutinee_type)?;
+            let mut ranks = HashSet::with_capacity(variants.len());
+            for variant in variants.iter() {
+                record_refined_match_coverage_work(1);
+                ranks.insert(declaration_order.rank(variant)?);
+            }
+            record_refined_match_slots_allocated(ranks.capacity());
+            retain_refined_match_domain_handle();
+            let domain = Arc::new(RefinedMatchDomainFacts {
+                declaration_order,
+                variants: Arc::clone(variants),
+                ranks,
+            });
+            self.refined_match_domains.insert(key, Arc::clone(&domain));
+            domain
+        };
+        RefinedMatchCoverage::new(scrutinee, scrutinee_type, domain, &self.environment.adts)
     }
 
     fn report_refined_match_non_exhaustive(
@@ -818,23 +983,26 @@ impl<'a> FunctionChecker<'a> {
         let classification = match coverage.slot(variant_rank) {
             None => RefinedConstructorClassification::Impossible,
             Some(RefinedMatchCoverageSlot::Remaining) => RefinedConstructorClassification::Covering,
-            Some(RefinedMatchCoverageSlot::Covered(_)) => {
-                RefinedConstructorClassification::Redundant
-            }
+            Some(RefinedMatchCoverageSlot::Covered) => RefinedConstructorClassification::Redundant,
         };
-        let arm_type = if matches!(classification, RefinedConstructorClassification::Impossible) {
-            scrutinee_type.clone()
-        } else {
-            record_refined_match_refinement_variants(1);
-            Type::resolved_variant_refinement(
-                name,
-                identity,
-                type_args.clone(),
-                vec![variant.clone()],
-            )
-        };
+        let (arm_type, materialized_refinement_variants) =
+            if matches!(classification, RefinedConstructorClassification::Impossible) {
+                (scrutinee_type.clone(), 0)
+            } else {
+                record_refined_match_refinement_variants(1);
+                (
+                    Type::resolved_variant_refinement(
+                        name,
+                        identity,
+                        type_args.clone(),
+                        vec![variant.clone()],
+                    ),
+                    1,
+                )
+            };
         Some(RefinedMatchArmPlan {
             arm_type,
+            materialized_refinement_variants,
             coverage: RefinedMatchArmCoverage::Constructor {
                 variant,
                 variant_rank,
@@ -863,29 +1031,28 @@ impl<'a> FunctionChecker<'a> {
         } else {
             RefinedCatchAllClassification::Covering
         };
-        let remaining_ranks = if coverage.remaining_count == 0 {
-            Vec::new()
+        let (arm_type, materialized_refinement_variants) = if coverage.remaining_count == 0
+            || coverage.remaining_count == coverage.domain.variants.len()
+        {
+            (scrutinee_type.clone(), 0)
         } else {
-            coverage.remaining_ranks()
-        };
-        record_refined_match_slots_allocated(remaining_ranks.capacity());
-        let arm_type = if remaining_ranks.is_empty() {
-            scrutinee_type.clone()
-        } else {
-            record_refined_match_refinement_variants(remaining_ranks.len());
-            Type::resolved_variant_refinement(
-                name,
-                identity,
-                type_args.clone(),
-                coverage.variants_for_ranks(&remaining_ranks),
+            let remaining_variants = coverage.remaining_variants();
+            record_refined_match_refinement_variants(remaining_variants.len());
+            let materialized = remaining_variants.len();
+            (
+                Type::resolved_variant_refinement(
+                    name,
+                    identity,
+                    type_args.clone(),
+                    remaining_variants,
+                ),
+                materialized,
             )
         };
         Some(RefinedMatchArmPlan {
             arm_type,
-            coverage: RefinedMatchArmCoverage::CatchAll {
-                classification,
-                remaining_ranks,
-            },
+            materialized_refinement_variants,
+            coverage: RefinedMatchArmCoverage::CatchAll { classification },
         })
     }
 
@@ -909,15 +1076,9 @@ impl<'a> FunctionChecker<'a> {
                 variant_span,
                 classification,
             ),
-            RefinedMatchArmCoverage::CatchAll {
-                classification,
-                remaining_ranks,
-            } => self.commit_refined_catch_all_arm(
-                pattern,
-                coverage,
-                classification,
-                remaining_ranks,
-            ),
+            RefinedMatchArmCoverage::CatchAll { classification } => {
+                self.commit_refined_catch_all_arm(pattern, coverage, classification)
+            }
         }
     }
 
@@ -933,12 +1094,7 @@ impl<'a> FunctionChecker<'a> {
         match classification {
             RefinedConstructorClassification::Covering => {
                 record_refined_match_coverage_work(1);
-                *coverage
-                    .slots
-                    .get_mut(&variant_rank)
-                    .expect("covering variant belongs to the refined domain") =
-                    RefinedMatchCoverageSlot::Covered(pattern.span.clone());
-                coverage.push_covered_rank(variant_rank);
+                coverage.cover_rank(variant_rank, pattern.span.clone());
                 coverage.remaining_count -= 1;
             }
             RefinedConstructorClassification::Impossible => {
@@ -954,11 +1110,10 @@ impl<'a> FunctionChecker<'a> {
                         )
                     } else {
                         record_refined_match_coverage_work(1);
-                        let Some(RefinedMatchCoverageSlot::Covered(span)) =
-                            coverage.slots.get(&variant_rank)
-                        else {
-                            unreachable!("redundant variant must have a covering arm")
-                        };
+                        let span = coverage
+                            .covered
+                            .get(&variant_rank)
+                            .expect("redundant variant must have a covering arm");
                         (
                             "duplicate_variant",
                             span,
@@ -981,18 +1136,8 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         coverage: &mut RefinedMatchCoverage,
         classification: &RefinedCatchAllClassification,
-        remaining_ranks: &[usize],
     ) {
         if matches!(classification, RefinedCatchAllClassification::Covering) {
-            for rank in remaining_ranks {
-                record_refined_match_coverage_work(1);
-                *coverage
-                    .slots
-                    .get_mut(rank)
-                    .expect("catch-all residual belongs to the refined domain") =
-                    RefinedMatchCoverageSlot::Covered(pattern.span.clone());
-                coverage.push_covered_rank(*rank);
-            }
             coverage.remaining_count = 0;
             coverage.preceding_catch_all = Some(pattern.span.clone());
             return;
@@ -1022,14 +1167,13 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let related = coverage
-            .domain_ranks
+            .covered_order
             .iter()
             .filter_map(|rank| {
                 record_refined_match_coverage_work(1);
-                let Some(RefinedMatchCoverageSlot::Covered(span)) = coverage.slots.get(rank) else {
-                    return None;
-                };
+                let span = coverage.covered.get(rank)?;
                 let variant = coverage
+                    .domain
                     .declaration_order
                     .name(*rank)
                     .expect("refined match rank belongs to its ADT");
@@ -1045,6 +1189,7 @@ impl<'a> FunctionChecker<'a> {
         variant: &str,
         variant_span: &SourceSpan,
     ) {
+        let facts = coverage.diagnostic_facts();
         record_refined_match_diagnostic_retained_bytes(variant.len());
         let mut diagnostic = Diagnostic::new(
             "type.match_impossible_variant",
@@ -1053,10 +1198,7 @@ impl<'a> FunctionChecker<'a> {
             format!("variant `{variant}` is excluded by the refined match domain"),
             Some(variant_span.clone()),
             JsonValue::object([
-                (
-                    "scrutinee_type",
-                    coverage.diagnostic_facts.scrutinee_type.clone(),
-                ),
+                ("scrutinee_type", facts.scrutinee_type.clone()),
                 ("arm_variant", JsonValue::string(variant)),
             ]),
         );
@@ -1064,18 +1206,18 @@ impl<'a> FunctionChecker<'a> {
             ("kind", JsonValue::string("refinement_source")),
             (
                 "message",
-                JsonValue::text(coverage.diagnostic_facts.refinement_source_message.clone()),
+                JsonValue::text(facts.refinement_source_message.clone()),
             ),
-            ("span", span_json(&coverage.diagnostic_facts.scrutinee_span)),
+            ("span", span_json(&facts.scrutinee_span)),
         ]));
         let mut adt_declaration = vec![
             ("kind", JsonValue::string("adt_declaration")),
             (
                 "message",
-                JsonValue::text(coverage.diagnostic_facts.adt_declaration_message.clone()),
+                JsonValue::text(facts.adt_declaration_message.clone()),
             ),
         ];
-        if let Some(span) = &coverage.diagnostic_facts.adt_declaration_span {
+        if let Some(span) = &facts.adt_declaration_span {
             adt_declaration.push(("span", span_json(span)));
         }
         diagnostic.related.push(JsonValue::object(adt_declaration));
@@ -1090,6 +1232,7 @@ impl<'a> FunctionChecker<'a> {
         reason: &'static str,
         related: impl IntoIterator<Item = (&'b SourceSpan, String)>,
     ) {
+        let facts = coverage.diagnostic_facts();
         let arm_pattern = render_match_pattern(pattern);
         record_refined_match_diagnostic_retained_bytes(
             arm_pattern.len() + variant.map_or(0, str::len),
@@ -1101,10 +1244,7 @@ impl<'a> FunctionChecker<'a> {
             "match arm has no remaining variant to cover",
             Some(pattern.span.clone()),
             JsonValue::object([
-                (
-                    "scrutinee_type",
-                    coverage.diagnostic_facts.scrutinee_type.clone(),
-                ),
+                ("scrutinee_type", facts.scrutinee_type.clone()),
                 ("arm_pattern", JsonValue::string(arm_pattern)),
                 (
                     "arm_variant",
@@ -1163,9 +1303,15 @@ impl<'a> FunctionChecker<'a> {
         if pattern_bindings_admitted && let Some(binding) = direct_binding_refinement {
             self.bindings.push(binding);
         }
+        let retained_refinement_variants = arm_plan
+            .as_ref()
+            .map_or(0, |plan| plan.materialized_refinement_variants);
+        drop(arm_plan);
+        retain_refined_match_refinement_variants(retained_refinement_variants);
         self.infer_match_arm_result(match_expr, arm, expected, result);
 
         self.bindings.truncate(saved_bindings);
+        release_refined_match_refinement_variants(retained_refinement_variants);
         self.invalid_binding_recoveries
             .truncate(saved_invalid_binding_recoveries);
         for (name, previous) in self.local_name_scopes.pop().expect("match arm name frame") {
@@ -1666,6 +1812,12 @@ mod refined_match_diagnostic_work {
         static RENDERS: Cell<usize> = const { Cell::new(0) };
         static RETAINED_BYTES: Cell<usize> = const { Cell::new(0) };
         static REFINEMENT_VARIANTS: Cell<usize> = const { Cell::new(0) };
+        static CACHED_DIAGNOSTIC_BYTES: Cell<usize> = const { Cell::new(0) };
+        static PEAK_CACHED_DIAGNOSTIC_BYTES: Cell<usize> = const { Cell::new(0) };
+        static RETAINED_REFINEMENT_VARIANTS: Cell<usize> = const { Cell::new(0) };
+        static PEAK_RETAINED_REFINEMENT_VARIANTS: Cell<usize> = const { Cell::new(0) };
+        static SHARED_DOMAIN_HANDLES: Cell<usize> = const { Cell::new(0) };
+        static PEAK_SHARED_DOMAIN_HANDLES: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(super) fn record_render() {
@@ -1680,17 +1832,72 @@ mod refined_match_diagnostic_work {
         REFINEMENT_VARIANTS.set(REFINEMENT_VARIANTS.get() + variants);
     }
 
+    pub(super) fn retain_refinement_variants(variants: usize) {
+        let retained = RETAINED_REFINEMENT_VARIANTS.get() + variants;
+        RETAINED_REFINEMENT_VARIANTS.set(retained);
+        PEAK_RETAINED_REFINEMENT_VARIANTS
+            .set(PEAK_RETAINED_REFINEMENT_VARIANTS.get().max(retained));
+    }
+
+    pub(super) fn release_refinement_variants(variants: usize) {
+        RETAINED_REFINEMENT_VARIANTS.set(RETAINED_REFINEMENT_VARIANTS.get() - variants);
+    }
+
+    pub(super) fn retain_domain_handle() {
+        let retained = SHARED_DOMAIN_HANDLES.get() + 1;
+        SHARED_DOMAIN_HANDLES.set(retained);
+        PEAK_SHARED_DOMAIN_HANDLES.set(PEAK_SHARED_DOMAIN_HANDLES.get().max(retained));
+    }
+
+    pub(super) fn release_domain_handle() {
+        SHARED_DOMAIN_HANDLES.set(SHARED_DOMAIN_HANDLES.get() - 1);
+    }
+
+    pub(super) fn retain_diagnostic_bytes(bytes: usize) {
+        let retained = CACHED_DIAGNOSTIC_BYTES.get() + bytes;
+        CACHED_DIAGNOSTIC_BYTES.set(retained);
+        PEAK_CACHED_DIAGNOSTIC_BYTES.set(PEAK_CACHED_DIAGNOSTIC_BYTES.get().max(retained));
+    }
+
+    pub(super) fn release_diagnostic_bytes(bytes: usize) {
+        CACHED_DIAGNOSTIC_BYTES.set(CACHED_DIAGNOSTIC_BYTES.get() - bytes);
+    }
+
     pub(super) fn reset() {
         RENDERS.set(0);
         RETAINED_BYTES.set(0);
         REFINEMENT_VARIANTS.set(0);
+        CACHED_DIAGNOSTIC_BYTES.set(0);
+        PEAK_CACHED_DIAGNOSTIC_BYTES.set(0);
+        RETAINED_REFINEMENT_VARIANTS.set(0);
+        PEAK_RETAINED_REFINEMENT_VARIANTS.set(0);
+        SHARED_DOMAIN_HANDLES.set(0);
+        PEAK_SHARED_DOMAIN_HANDLES.set(0);
     }
 
     pub(super) fn take() -> RefinedMatchDiagnosticWork {
+        assert_eq!(
+            CACHED_DIAGNOSTIC_BYTES.get(),
+            0,
+            "refined match diagnostic cache leaked"
+        );
+        assert_eq!(
+            RETAINED_REFINEMENT_VARIANTS.get(),
+            0,
+            "refined match refinement storage leaked"
+        );
+        assert_eq!(
+            SHARED_DOMAIN_HANDLES.get(),
+            0,
+            "refined match domain handle leaked"
+        );
         RefinedMatchDiagnosticWork {
             renders: RENDERS.replace(0),
             retained_bytes: RETAINED_BYTES.replace(0),
             refinement_variants: REFINEMENT_VARIANTS.replace(0),
+            peak_cached_diagnostic_bytes: PEAK_CACHED_DIAGNOSTIC_BYTES.replace(0),
+            peak_retained_refinement_variants: PEAK_RETAINED_REFINEMENT_VARIANTS.replace(0),
+            peak_shared_domain_handles: PEAK_SHARED_DOMAIN_HANDLES.replace(0),
         }
     }
 }
