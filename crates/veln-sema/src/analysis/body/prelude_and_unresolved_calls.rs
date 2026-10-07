@@ -425,12 +425,12 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&Type>,
         handle_type: Option<&Type>,
     ) -> Option<(Vec<Type>, Option<Type>, Type, CallOrigin)> {
-        let bindings = self
-            .bindings
+        let effective_bindings = self.effective_visible_bindings();
+        let bindings = effective_bindings
             .iter()
-            .map(|binding| crate::call_resolution::TypeBinding {
-                name: &binding.name,
-                ty: &binding.ty,
+            .map(|(index, ty)| crate::call_resolution::TypeBinding {
+                name: &self.bindings[*index].name,
+                ty,
             })
             .collect::<Vec<_>>();
         let signature = crate::call_resolution::type_call_signature(

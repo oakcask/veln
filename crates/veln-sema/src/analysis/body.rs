@@ -503,6 +503,15 @@ impl<'a> FunctionChecker<'a> {
         )
     }
 
+    pub(super) fn effective_visible_bindings(&self) -> Vec<(usize, Type)> {
+        self.bindings
+            .iter()
+            .enumerate()
+            .filter(|(index, binding)| self.visible_binding_index(&binding.name) == Some(*index))
+            .map(|(index, _)| (index, self.binding_type(index)))
+            .collect()
+    }
+
     pub(super) fn set_binding_type(&mut self, index: usize, ty: Type) {
         self.bindings[index].ty = ty.clone();
         if let Some(group) = self.bindings[index].transparent_alias_group

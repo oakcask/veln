@@ -546,7 +546,8 @@ fn nested_wide_residual_matches_have_additive_state_and_work() {
 fn widened_alias_scaling_source(
     variant_count: usize,
     alias_count: usize,
-    unrelated_count: usize,
+    unrelated_non_adt_count: usize,
+    unrelated_adt_count: usize,
 ) -> String {
     let variants = (0..variant_count)
         .map(|index| format!("V{index:04}"))
@@ -555,7 +556,11 @@ fn widened_alias_scaling_source(
     for variant in &variants {
         source.push_str(&format!("  {variant}\n"));
     }
-    source.push_str("  Outside\nend\nfn classify(state: ");
+    source.push_str("  Outside\nend\n");
+    if unrelated_adt_count > 0 {
+        source.push_str("type Other\n  OtherValue\nend\n");
+    }
+    source.push_str("fn classify(state: ");
     source.push_str(
         &variants
             .iter()
@@ -570,8 +575,11 @@ fn widened_alias_scaling_source(
         source.push_str(&format!("  let {next}: State = {alias}\n"));
         alias = next;
     }
-    for index in 0..unrelated_count {
+    for index in 0..unrelated_non_adt_count {
         source.push_str(&format!("  let unrelated{index}: Int = {index}\n"));
+    }
+    for index in 0..unrelated_adt_count {
+        source.push_str(&format!("  let unrelated_adt{index}: Other = OtherValue\n"));
     }
     source.push_str(&format!("  match {alias}\n"));
     for variant in &variants {
@@ -581,7 +589,12 @@ fn widened_alias_scaling_source(
     source
 }
 
-fn measure_transparent_alias_work(source: String) -> crate::analysis::TransparentAliasWork {
+fn measure_transparent_alias_and_match_work(
+    source: String,
+) -> (
+    crate::analysis::TransparentAliasWork,
+    crate::analysis::RefinedMatchCoverageWork,
+) {
     let source = SourceFile::new("main.veln", source);
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
@@ -594,6 +607,7 @@ fn measure_transparent_alias_work(source: String) -> crate::analysis::Transparen
         .expect("classify declaration");
     let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
     crate::analysis::reset_transparent_alias_work();
+    crate::analysis::reset_refined_match_coverage_work();
     let diagnostics =
         crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
@@ -604,13 +618,17 @@ fn measure_transparent_alias_work(source: String) -> crate::analysis::Transparen
         work.active_refinements, 0,
         "refinement frames must be released"
     );
-    work
+    (work, crate::analysis::take_refined_match_coverage_work())
+}
+
+fn measure_transparent_alias_work(source: String) -> crate::analysis::TransparentAliasWork {
+    measure_transparent_alias_and_match_work(source).0
 }
 
 #[test]
 fn widened_alias_group_work_scales_by_independent_dimensions() {
     let aliases = [100, 200, 400]
-        .map(|count| measure_transparent_alias_work(widened_alias_scaling_source(32, count, 0)));
+        .map(|count| measure_transparent_alias_work(widened_alias_scaling_source(32, count, 0, 0)));
     for adjacent in aliases.windows(2) {
         assert!(
             adjacent[1].peak_retained_members <= adjacent[0].peak_retained_members * 2 + 2,
@@ -629,7 +647,7 @@ fn widened_alias_group_work_scales_by_independent_dimensions() {
     }
 
     let arms = [100, 200, 400]
-        .map(|count| measure_transparent_alias_work(widened_alias_scaling_source(count, 16, 0)));
+        .map(|count| measure_transparent_alias_work(widened_alias_scaling_source(count, 16, 0, 0)));
     for adjacent in arms.windows(2) {
         assert!(
             adjacent[1].group_lookups <= adjacent[0].group_lookups * 2 + 8,
@@ -641,16 +659,48 @@ fn widened_alias_group_work_scales_by_independent_dimensions() {
         );
     }
 
-    let unrelated = [100, 200, 400]
-        .map(|count| measure_transparent_alias_work(widened_alias_scaling_source(32, 16, count)));
+    let unrelated = [100, 200, 400].map(|count| {
+        measure_transparent_alias_and_match_work(widened_alias_scaling_source(32, 16, count, 0))
+    });
+    assert!(unrelated.iter().all(|(aliases, _)| {
+        aliases.groups_created == 1
+            && aliases.peak_retained_groups == 1
+            && aliases.peak_retained_members == 17
+    }));
     assert!(
         unrelated.windows(2).all(|adjacent| {
-            adjacent[0].group_lookups == adjacent[1].group_lookups
-                && adjacent[0].member_lookups == adjacent[1].member_lookups
-                && adjacent[0].peak_retained_groups == adjacent[1].peak_retained_groups
-                && adjacent[0].peak_retained_members == adjacent[1].peak_retained_members
+            adjacent[0].0.group_lookups == adjacent[1].0.group_lookups
+                && adjacent[0].0.member_lookups == adjacent[1].0.member_lookups
+                && adjacent[0].0.peak_retained_groups == adjacent[1].0.peak_retained_groups
+                && adjacent[0].0.peak_retained_members == adjacent[1].0.peak_retained_members
+                && adjacent[0].1.initialized_slots == adjacent[1].1.initialized_slots
+                && adjacent[0].1.units == adjacent[1].1.units
+                && adjacent[0].1.peak_retained_slots == adjacent[1].1.peak_retained_slots
+                && adjacent[0].1.cloned_labels == adjacent[1].1.cloned_labels
         }),
-        "unrelated bindings must not add alias-group work or state: {unrelated:?}"
+        "unrelated non-ADT bindings must not add alias-group work or state: {unrelated:?}"
+    );
+
+    let unrelated_adts = [100, 200, 400].map(|count| {
+        measure_transparent_alias_and_match_work(widened_alias_scaling_source(32, 16, 0, count))
+    });
+    for (index, count) in [100, 200, 400].into_iter().enumerate() {
+        assert_eq!(unrelated_adts[index].0.groups_created, count + 1);
+        assert_eq!(unrelated_adts[index].0.peak_retained_groups, count + 1);
+        assert_eq!(unrelated_adts[index].0.peak_retained_members, count + 17);
+    }
+    assert!(
+        unrelated_adts.windows(2).all(|adjacent| {
+            adjacent[0].0.group_lookups == adjacent[1].0.group_lookups
+                && adjacent[0].0.member_lookups == adjacent[1].0.member_lookups
+                && adjacent[0].0.peak_active_refinements == adjacent[1].0.peak_active_refinements
+                && adjacent[0].1.initialized_slots == adjacent[1].1.initialized_slots
+                && adjacent[0].1.units == adjacent[1].1.units
+                && adjacent[0].1.peak_retained_slots == adjacent[1].1.peak_retained_slots
+                && adjacent[0].1.cloned_labels == adjacent[1].1.cloned_labels
+        }),
+        "unrelated ADT bindings must not add repeated match or alias-group lookup work: \
+         {unrelated_adts:?}"
     );
 }
 

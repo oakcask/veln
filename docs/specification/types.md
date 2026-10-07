@@ -391,6 +391,16 @@ each participating binding's declared or inferred type. The shared feasible
 domain remains available only to classify a later `match` on a group member;
 it does not narrow that binding's type in ordinary expressions after the arm.
 
+Hole diagnostics and repair queries use the same arm-local type as ordinary
+name expressions. Their visible-binding list, query arguments, candidate
+filtering and ranking, rendered candidate types, type evidence, and `satisfy`
+checks therefore observe constructor and residual refinements for every
+transparent alias. A shadowed binding does not contribute a second candidate.
+After the arm, those surfaces again use each binding's declared or inferred
+type. The checked
+[`adt-variant-refinement-match-hole-repairs-json`](../../examples/specification/check/adt-variant-refinement-match-hole-repairs-json/)
+case exercises the JSON contract.
+
 ```veln
 type Boxed<A>
 	Filled(A)
@@ -542,8 +552,11 @@ an arm body is checked, cached dynamically rendered diagnostic text, alias
 group and member lookups, retained alias entries, and active group-refinement
 frames.
 Increasing alias count, constructor-arm count, nesting depth, or unrelated
-local count is checked independently. Unrelated locals add no alias-group work
-or state. Every instrumented match-local owner returns to zero after analysis.
+local count is checked independently. Unrelated non-ADT locals add no alias-
+group work or state. Independently tracked ADT locals add one group and member
+of ownership state each, but they do not add repeated lookups or multiply the
+work for the matched alias group. Every instrumented match-local owner returns
+to zero after analysis.
 These counters, rather than elapsed time, define the regression checks;
 reported wall-clock timings are observational. Final serialized JSON can still
 grow quadratically when a linear number of diagnostics must each expose the

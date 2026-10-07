@@ -1,0 +1,124 @@
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "partial"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.0.details.local_bindings.0.type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.0.details.local_bindings.1.type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.0.name"
+equals = "alias"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.0.type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.0.reason"
+equals = "exact_type_match"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.0.evidence.0.candidate_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.0.evidence.1.reason"
+equals = "exact_type_match"
+
+[[json_assert]]
+path = "diagnostics.1.details.candidate_queries.0.candidates.0.type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.1.details.candidate_queries.0.candidates.0.reason"
+equals = "assignable_type_match"
+
+[[json_assert]]
+path = "diagnostics.2.details.constraints.0.repair_status"
+equals = "statically_satisfied"
+
+[[json_assert]]
+path = "diagnostics.2.details.candidate_queries.0.candidates.0.type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.2.details.candidate_queries.0.candidates.0.application_policy"
+equals = "safe_repair_candidate"
+
+[[json_assert]]
+path = "diagnostics.3.details.local_bindings.0.type"
+equals = "State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.3.details.local_bindings.1.type"
+equals = "State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.3.details.local_bindings.2.type"
+equals = "State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.3.details.candidate_queries.0.candidates.0.name"
+equals = "remaining"
+
+[[json_assert]]
+path = "diagnostics.3.details.candidate_queries.0.candidates.0.type"
+equals = "State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.3.details.candidate_queries.0.candidates.0.reason"
+equals = "exact_type_match"
+
+[[json_assert]]
+path = "diagnostics.3.details.candidate_queries.0.candidates.0.evidence.0.candidate_type"
+equals = "State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.4.details.candidate_queries.0.candidates.0.reason"
+equals = "assignable_type_match"
+
+[[json_assert]]
+path = "diagnostics.5.details.constraints.0.repair_status"
+equals = "statically_satisfied"
+
+[[json_assert]]
+path = "diagnostics.5.details.candidate_queries.0.candidates.0.type"
+equals = "State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.5.details.candidate_queries.0.candidates.0.application_policy"
+equals = "safe_repair_candidate"
+
+[[json_assert]]
+path = "diagnostics.6.details.local_bindings.0.type"
+equals = "State::Ready | State::Closed | State::Failed"
+
+[[json_assert]]
+path = "diagnostics.6.details.local_bindings.1.type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.6.details.candidate_queries.0.candidates.0.type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.6.details.candidate_queries.0.candidates.0.reason"
+equals = "exact_type_match"
