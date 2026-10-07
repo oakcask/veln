@@ -468,8 +468,10 @@ demonstrates parameter, local, generic, nested-arm, and literal-payload use.
 
 A local binding is a transparent alias when its initializer is only a bare or
 redundantly parenthesized immutable parameter or local binding. This relation
-is transitive. Matching any member refines every member, including a binding
-catch-all for the complete matched value, for the current arm only.
+is transitive. An initializer with an incompatible annotation does not establish
+an alias during diagnostic recovery. Matching any member refines every member,
+including a binding catch-all for the complete matched value, for the current
+arm only.
 
 Qualified values, record-field paths, and function values do not establish a
 transparent alias in this behavior. Separate construction, equality, contract

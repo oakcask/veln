@@ -183,7 +183,6 @@ impl<'a> FunctionChecker<'a> {
         });
         let initializer_diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(expr, expected.as_ref());
-        let initializer_has_diagnostic = self.diagnostics.len() != initializer_diagnostic_count;
         let initializer_unknown_is_diagnosed = type_contains_unknown(&actual)
             && (self.diagnostics[initializer_diagnostic_count..]
                 .iter()
@@ -202,6 +201,7 @@ impl<'a> FunctionChecker<'a> {
         if let Some(expected) = &expected {
             self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
         }
+        let initializer_has_diagnostic = self.diagnostics.len() != initializer_diagnostic_count;
 
         let pattern_diagnostic_count = self.diagnostics.len();
         self.check_let_pattern_supported(pattern);

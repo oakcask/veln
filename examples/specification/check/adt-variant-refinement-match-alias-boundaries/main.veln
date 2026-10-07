@@ -115,6 +115,13 @@ fn restored(value: State::Ready | State::Closed) -> ()
 	accept_ready(widened)
 end
 
+fn rejected_narrowing(source: State) -> ()
+	let alias: State::Ready = source
+	match alias
+		Ready => accept_ready(source)
+	end
+end
+
 fn main() -> ()
 	()
 end

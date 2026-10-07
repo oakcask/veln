@@ -505,6 +505,37 @@ fn transparent_alias_refinements_restore_and_computed_values_stay_independent() 
 }
 
 #[test]
+fn invalid_alias_annotations_do_not_share_arm_refinements() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn rejected_narrowing(source: State) -> ()\n",
+        "  let alias: State::Ready = source\n",
+        "  match alias\n",
+        "    Ready => accept_ready(source)\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        detail(diagnostic, "actual_type").as_text() == Some("State")
+            && detail(diagnostic, "expected_type").as_text() == Some("State::Ready")
+    }));
+}
+
+#[test]
 fn refined_domain_classification_is_deterministic_and_preserves_related_arms() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
