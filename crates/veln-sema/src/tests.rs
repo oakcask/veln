@@ -38,6 +38,7 @@ mod variant_refinement_control_flow_context;
 mod variant_refinement_control_flow_joins;
 mod variant_refinement_diagnostics_and_control_flow;
 mod variant_refinement_function_value_provenance;
+mod variant_refinement_match_boundaries_and_recovery;
 mod variant_refinement_match_domains;
 mod variant_refinement_match_scaling;
 mod variant_refinement_private_aggregate_failures;

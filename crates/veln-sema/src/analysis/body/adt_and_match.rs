@@ -216,6 +216,11 @@ struct RefinedMatchArmPlan {
     coverage: RefinedMatchArmCoverage,
 }
 
+struct MatchArmScope {
+    saved_bindings: usize,
+    saved_invalid_binding_recoveries: usize,
+}
+
 enum RefinedMatchArmCoverage {
     Constructor {
         variant: String,
@@ -1244,10 +1249,41 @@ impl<'a> FunctionChecker<'a> {
         result: &mut ControlFlowResultJoin,
         refined_coverage: Option<&mut RefinedMatchCoverage>,
     ) {
-        let saved_bindings = self.bindings.len();
-        let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
-        self.local_name_scopes.push(Vec::new());
+        let scope = self.begin_match_arm_scope();
+        let (pattern_bindings_admitted, arm_plan) =
+            self.prepare_match_arm_pattern(domain, arm, refined_coverage);
+        self.push_match_arm_binding_refinement(
+            domain.scrutinee,
+            &arm.pattern,
+            domain.ty,
+            pattern_bindings_admitted,
+            arm_plan.as_ref(),
+        );
+        let retained_refinement_variants = arm_plan
+            .as_ref()
+            .map_or(0, |plan| plan.materialized_refinement_variants);
+        drop(arm_plan);
+        retain_refined_match_refinement_variants(retained_refinement_variants);
+        self.infer_match_arm_result(match_expr, arm, expected, result);
 
+        self.end_match_arm_scope(scope, retained_refinement_variants);
+    }
+
+    fn begin_match_arm_scope(&mut self) -> MatchArmScope {
+        let scope = MatchArmScope {
+            saved_bindings: self.bindings.len(),
+            saved_invalid_binding_recoveries: self.invalid_binding_recoveries.len(),
+        };
+        self.local_name_scopes.push(Vec::new());
+        scope
+    }
+
+    fn prepare_match_arm_pattern(
+        &mut self,
+        domain: &RefinedMatchDomain<'_>,
+        arm: &MatchArm,
+        refined_coverage: Option<&mut RefinedMatchCoverage>,
+    ) -> (bool, Option<RefinedMatchArmPlan>) {
         let direct_refined_match_validation = refined_coverage.is_some();
         let arm_plan = refined_coverage
             .as_deref()
@@ -1263,29 +1299,36 @@ impl<'a> FunctionChecker<'a> {
         {
             self.commit_refined_match_arm(&arm.pattern, coverage, plan);
         }
-        let direct_binding_refinement = self.direct_match_binding_refinement(
-            domain.scrutinee,
-            &arm.pattern,
-            domain.ty,
-            pattern_bindings_admitted
-                .then_some(arm_plan.as_ref())
-                .flatten()
-                .map(|plan| &plan.arm_type),
-        );
-        if pattern_bindings_admitted && let Some(binding) = direct_binding_refinement {
+        (pattern_bindings_admitted, arm_plan)
+    }
+
+    fn push_match_arm_binding_refinement(
+        &mut self,
+        scrutinee: &Expr,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+        pattern_bindings_admitted: bool,
+        arm_plan: Option<&RefinedMatchArmPlan>,
+    ) {
+        if !pattern_bindings_admitted {
+            return;
+        }
+        let planned_refinement = arm_plan.map(|plan| &plan.arm_type);
+        if let Some(binding) = self.direct_match_binding_refinement(
+            scrutinee,
+            pattern,
+            scrutinee_type,
+            planned_refinement,
+        ) {
             self.bindings.push(binding);
         }
-        let retained_refinement_variants = arm_plan
-            .as_ref()
-            .map_or(0, |plan| plan.materialized_refinement_variants);
-        drop(arm_plan);
-        retain_refined_match_refinement_variants(retained_refinement_variants);
-        self.infer_match_arm_result(match_expr, arm, expected, result);
+    }
 
-        self.bindings.truncate(saved_bindings);
+    fn end_match_arm_scope(&mut self, scope: MatchArmScope, retained_refinement_variants: usize) {
+        self.bindings.truncate(scope.saved_bindings);
         release_refined_match_refinement_variants(retained_refinement_variants);
         self.invalid_binding_recoveries
-            .truncate(saved_invalid_binding_recoveries);
+            .truncate(scope.saved_invalid_binding_recoveries);
         for (name, previous) in self.local_name_scopes.pop().expect("match arm name frame") {
             if let Some(previous) = previous {
                 self.local_names.insert(name, previous);
