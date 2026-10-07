@@ -1,0 +1,60 @@
+# Parenthesized bindings refine directly. Alias provenance, field paths, and
+# computed expressions remain outside that rule.
+type State
+	Ready
+	Closed
+	Failed
+end
+
+fn accept_ready(value: State::Ready) -> ()
+	()
+end
+
+fn preserve(value: State::Ready | State::Closed) -> State::Ready | State::Closed
+	value
+end
+
+fn alias_source(value: State::Ready | State::Closed) -> ()
+	let current: State::Ready | State::Closed = value
+	let transitive: State::Ready | State::Closed = current
+	match ((transitive))
+		Ready => begin
+			accept_ready(transitive)
+			accept_ready(current)
+			accept_ready(value)
+		end
+		Closed => ()
+	end
+end
+
+fn field_path(holder: {state: State::Ready | State::Closed}) -> ()
+	match holder.state
+		Ready => accept_ready(holder.state)
+		Closed => ()
+		Failed => ()
+	end
+end
+
+fn computed_call(value: State::Ready | State::Closed) -> ()
+	match preserve(value)
+		Ready => accept_ready(value)
+		Closed => ()
+		Failed => ()
+	end
+end
+
+fn pipelined(value: State::Ready | State::Closed) -> ()
+	match (value |> preserve())
+		Ready => accept_ready(value)
+		Closed => ()
+		Failed => ()
+	end
+end
+
+fn constructed(value: State::Ready | State::Closed) -> ()
+	match State::Ready
+		Ready => accept_ready(value)
+		Closed => ()
+		Failed => ()
+	end
+end

@@ -76,16 +76,22 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
         "{declaration}{}",
         concat!(
             "fn check(value: State::Ready | State::Closed) -> ()\n",
-            "  match (value)\n",
+            "  match (((value)))\n",
             "    Ready(extra) => ()\n",
             "    Closed => ()\n",
-            "    Failed => ()\n",
             "  end\n",
             "end\n",
         )
     ));
-    assert!(
-        parenthesized_wrong_arity.is_empty(),
+    assert_eq!(
+        parenthesized_wrong_arity
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.constructor_pattern_arity",
+            "type.match_non_exhaustive"
+        ],
         "{parenthesized_wrong_arity:#?}"
     );
 
@@ -134,10 +140,9 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
         "{declaration}{}",
         concat!(
             "fn check(value: State::Ready | State::Closed) -> ()\n",
-            "  match (value)\n",
+            "  match (((value)))\n",
             "    missing::Ready => ()\n",
             "    Closed => ()\n",
-            "    Failed => ()\n",
             "  end\n",
             "end\n",
         )
@@ -147,7 +152,7 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["type.match_non_exhaustive"],
+        ["name.unresolved", "type.match_non_exhaustive"],
         "{parenthesized_unresolved:#?}"
     );
 }
@@ -417,7 +422,7 @@ fn nested_refined_matches_restore_each_enclosing_scope() {
 }
 
 #[test]
-fn non_bare_refined_scrutinees_keep_the_existing_match_behavior() {
+fn computed_refined_scrutinees_keep_the_existing_match_behavior() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -425,10 +430,6 @@ fn non_bare_refined_scrutinees_keep_the_existing_match_behavior() {
             "  Ready\n",
             "end\n",
             "fn check(value: State::Ready) -> ()\n",
-            "  match (value)\n",
-            "    Failed => ()\n",
-            "    _ => ()\n",
-            "  end\n",
             "  match make()\n",
             "    Ready => ()\n",
             "    _ => ()\n",

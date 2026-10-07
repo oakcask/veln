@@ -122,13 +122,14 @@ so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
-A valid constructor arm for a bare immutable match-scrutinee binding refines
-that binding to the constructor singleton while checking the arm. A direct
-binding already typed as a singleton or finite refinement union uses that set
-as its match domain. Valid constructor arms consume one residual variant;
-binding and `_` catch-alls consume and refine the binding to the complete
-residual set. Passing the binding to a parameter that requires its arm
-refinement emits no `type.variant_mismatch`.
+A valid constructor arm for an immutable match-scrutinee binding written bare
+or with one or more surrounding parentheses refines that binding to the
+constructor singleton while checking the arm. A direct binding already typed
+as a singleton or finite refinement union uses that set as its match domain.
+Valid constructor arms consume one residual variant; binding and `_`
+catch-alls consume and refine the binding to the complete residual set.
+Passing the binding to a parameter that requires its arm refinement emits no
+`type.variant_mismatch`.
 
 A valid same-ADT constructor excluded by the original refined domain reports
 `type.match_impossible_variant` at the constructor's final name segment. Its
@@ -151,9 +152,12 @@ checked human and JSON cases are
 [`adt-variant-refinement-match-diagnostics-human`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-human/)
 and
 [`adt-variant-refinement-match-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-json/).
+The checked
+[`parenthesized diagnostic case`](../../examples/specification/check/adt-variant-refinement-parenthesized-match-diagnostics-json/)
+also preserves complete parenthesized scrutinee locations.
 
-For direct bare bindings with a refined match domain, arm validation precedes
-both classifications. An invalid-cased, unresolved,
+For direct bindings, with or without surrounding parentheses, refined-domain
+arm validation precedes both classifications. An invalid-cased, unresolved,
 inaccessible, wrong-ADT, wrong-generic-payload, wrong-arity, or malformed arm
 retains its intrinsic diagnostic, contributes no coverage, and emits neither
 derived classification. A pattern incompatible with a substituted generic
@@ -182,9 +186,10 @@ that payload pattern. Its details use
 `actual_type_source: "literal_pattern"`, and
 `constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
 refine the scrutinee unless every payload binding is admitted to the arm scope.
-When direct refined coverage is inactive, including for a base-ADT scrutinee or
-a parenthesized refined scrutinee, match arms retain the ordinary constructor
-path, payload-arity, and exhaustiveness behavior. They do not gain the
+When direct refined coverage is inactive, including for a base-ADT scrutinee,
+qualified value, field path, alias source, or computed expression, match arms
+retain the ordinary constructor path, payload-arity, and exhaustiveness
+behavior. They do not gain the
 refined-coverage `name.unresolved` or `type.constructor_pattern_arity`
 diagnostic.
 Invalid value-name casing, a duplicate payload binding,

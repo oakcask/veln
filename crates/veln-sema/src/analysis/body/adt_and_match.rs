@@ -792,15 +792,13 @@ impl<'a> FunctionChecker<'a> {
         else {
             return false;
         };
-        let ([binding_name], [binding_span]) = (segments.as_slice(), segment_spans.as_slice())
+        let ([binding_name], [_binding_span]) = (segments.as_slice(), segment_spans.as_slice())
         else {
             return false;
         };
-        binding_span == &scrutinee.span
-            && self
-                .bindings
-                .iter()
-                .any(|binding| binding.name == *binding_name)
+        self.bindings
+            .iter()
+            .any(|binding| binding.name == *binding_name)
     }
 
     fn refined_match_coverage(
@@ -1355,12 +1353,9 @@ impl<'a> FunctionChecker<'a> {
         let [binding_name] = segments.as_slice() else {
             return None;
         };
-        let [binding_span] = segment_spans.as_slice() else {
+        let [_binding_span] = segment_spans.as_slice() else {
             return None;
         };
-        if binding_span != &scrutinee.span {
-            return None;
-        }
         self.bindings
             .iter()
             .rfind(|binding| binding.name == *binding_name)?;

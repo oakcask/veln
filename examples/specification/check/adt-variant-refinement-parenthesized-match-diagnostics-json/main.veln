@@ -1,0 +1,34 @@
+type State
+	Ready(Int)
+	Closed(String)
+	Failed
+end
+
+type Other
+	Foreign
+end
+
+fn invalid_patterns(value: State::Ready | State::Closed) -> ()
+	match ((value))
+		Ready(BadBinding, extra) => missing_body
+		missing::Closed(_) => ()
+		Other::Foreign => ()
+		Closed(_) => ()
+	end
+end
+
+fn classifications(value: State::Ready | State::Closed) -> ()
+	match (((value)))
+		Failed => ()
+		Ready(_) => ()
+		Ready(_) => ()
+		Closed(_) => ()
+		_ => ()
+	end
+end
+
+fn missing(value: State::Ready | State::Closed) -> ()
+	match ((value))
+		Ready(_) => ()
+	end
+end

@@ -1,0 +1,69 @@
+# Parentheses around a direct immutable binding preserve constructor and
+# residual refinement, including nested matches and scope restoration.
+type State
+	Ready
+	Closed
+	Failed
+	Skipped
+end
+
+fn accept_ready(value: State::Ready) -> ()
+	()
+end
+
+fn accept_closed(value: State::Closed) -> ()
+	()
+end
+
+fn accept_failed(value: State::Failed) -> ()
+	()
+end
+
+fn accept_residual(value: State::Closed | State::Failed) -> ()
+	()
+end
+
+fn accept_domain(value: State::Ready | State::Closed | State::Failed) -> ()
+	()
+end
+
+fn singleton(value: State::Ready) -> ()
+	match (((value)))
+		Ready => accept_ready(value)
+	end
+end
+
+fn residual_binding(value: State::Ready | State::Closed | State::Failed) -> ()
+	match ((value))
+		Ready => accept_ready(value)
+		remaining => begin
+			accept_residual(remaining)
+			accept_residual(value)
+			match (((value)))
+				Closed => accept_closed(value)
+				Failed => accept_failed(value)
+			end
+			accept_residual(value)
+		end
+	end
+	accept_domain(value)
+end
+
+fn residual_wildcard(value: State::Ready | State::Closed | State::Failed) -> ()
+	match (((value)))
+		Ready => accept_ready(value)
+		_ => accept_residual(value)
+	end
+end
+
+fn local(value: State::Ready | State::Closed) -> ()
+	let current: State::Ready | State::Closed = value
+	match ((current))
+		Ready => accept_ready(current)
+		Closed => accept_closed(current)
+	end
+end
+
+fn main() -> ()
+	()
+end

@@ -1,0 +1,37 @@
+# Compiler integration contract: only a parenthesized direct binding gains
+# refinement; paths, aliases, and computed scrutinees retain ordinary typing.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  '"actual_type":"State::Ready | State::Closed"',
+  '"expected_type":"State::Ready"',
+]
+not_contains = [
+  '"id":"type.match_impossible_variant"',
+  '"id":"type.match_redundant_arm"',
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 6
+
+[[diagnostics]]
+id = "type.variant_mismatch"
+severity = "error"
+kind = "type"
+message = "value of type `State::Ready | State::Closed` is not assignable to variant type `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 23
+column = 17

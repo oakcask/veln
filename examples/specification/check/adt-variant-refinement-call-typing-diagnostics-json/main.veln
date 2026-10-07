@@ -25,7 +25,7 @@ fn wrong_if() -> State::Ready
 end
 
 fn wrong_match(value: State::Ready) -> State::Ready
-	match (value)
+	match needs_ready(value)
 		Ready => Ready
 		Closed => Closed
 		Failed => Ready

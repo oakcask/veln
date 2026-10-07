@@ -1,0 +1,59 @@
+# Compiler integration contract: parenthesized direct bindings preserve refined
+# match validation, classification, recovery, and complete scrutinee locations.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  '"id":"type.constructor_pattern_arity"',
+  '"id":"name.unresolved"',
+  '"id":"type.match_impossible_variant"',
+  '"id":"type.match_redundant_arm"',
+  '"id":"type.match_non_exhaustive"',
+  '"message":"This match scrutinee has refined type `State::Ready | State::Closed`."',
+  '"start":{"line":21,"column":8,"offset":347},"end":{"line":21,"column":19',
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 10
+
+[[diagnostics]]
+id = "type.constructor_pattern_arity"
+severity = "error"
+kind = "type"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved constructor `missing::Closed`"
+
+[[diagnostics]]
+id = "type.match_impossible_variant"
+severity = "error"
+kind = "type"
+
+[[diagnostics]]
+id = "type.match_redundant_arm"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 24
+column = 3
+
+[[diagnostics]]
+id = "type.match_non_exhaustive"
+severity = "error"
+kind = "type"
+message = "match is missing case Closed(_)"

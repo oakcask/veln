@@ -114,6 +114,47 @@ fn catch_alls_preserve_the_complete_multi_variant_residual() {
 }
 
 #[test]
+fn parenthesized_bindings_refine_finite_domains_and_restore_nested_scopes() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "  Skipped\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n  ()\nend\n",
+        "fn accept_closed(value: State::Closed) -> ()\n  ()\nend\n",
+        "fn accept_failed(value: State::Failed) -> ()\n  ()\nend\n",
+        "fn accept_residual(value: State::Closed | State::Failed) -> ()\n  ()\nend\n",
+        "fn accept_domain(value: State::Ready | State::Closed | State::Failed) -> ()\n  ()\nend\n",
+        "fn singleton(value: State::Ready) -> ()\n",
+        "  match (((value)))\n",
+        "    Ready => accept_ready(value)\n",
+        "  end\n",
+        "end\n",
+        "fn finite(value: State::Ready | State::Closed | State::Failed) -> ()\n",
+        "  match ((value))\n",
+        "    Ready => accept_ready(value)\n",
+        "    remaining => begin\n",
+        "      match (((value)))\n",
+        "        Closed => accept_closed(value)\n",
+        "        Failed => accept_failed(value)\n",
+        "      end\n",
+        "      accept_residual(value)\n",
+        "      match ((remaining))\n",
+        "        Closed => accept_closed(remaining)\n",
+        "        Failed => accept_failed(remaining)\n",
+        "      end\n",
+        "    end\n",
+        "  end\n",
+        "  accept_domain(value)\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn refined_domain_classification_is_deterministic_and_preserves_related_arms() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
@@ -409,8 +450,11 @@ fn invalid_casing_recovery_distinguishes_ordinary_and_refined_coverage() {
     let ordinary = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
+            "fn computed(value: State::Ready | State::Closed) -> State::Ready | State::Closed\n",
+            "  value\n",
+            "end\n",
             "fn check(value: State::Ready | State::Closed) -> ()\n",
-            "  match (value)\n",
+            "  match computed(value)\n",
             "    State::ready => ()\n",
             "    Closed => ()\n",
             "    Failed => ()\n",
@@ -449,6 +493,26 @@ fn invalid_casing_recovery_distinguishes_ordinary_and_refined_coverage() {
     assert_eq!(
         refined[1].message, "match is missing case Ready",
         "{refined:#?}"
+    );
+
+    let parenthesized = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
+            "  match (((value)))\n",
+            "    State::ready => ()\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+    assert_eq!(
+        parenthesized
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "type.match_non_exhaustive"],
+        "{parenthesized:#?}"
     );
 }
 

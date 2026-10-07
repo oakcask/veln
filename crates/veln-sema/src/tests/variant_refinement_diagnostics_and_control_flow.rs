@@ -512,7 +512,7 @@ fn nested_match_refinement_composes_and_restores_each_scope() {
 }
 
 #[test]
-fn unsupported_or_invalid_match_scrutinees_and_patterns_do_not_refine_bindings() {
+fn unsupported_scrutinees_and_invalid_patterns_do_not_refine_bindings() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -521,12 +521,6 @@ fn unsupported_or_invalid_match_scrutinees_and_patterns_do_not_refine_bindings()
             "end\n",
             "fn accept_ready(value: State::Ready) -> ()\n",
             "  ()\n",
-            "end\n",
-            "fn parenthesized(state: State) -> ()\n",
-            "  match (state)\n",
-            "    Ready => accept_ready(state)\n",
-            "    _ => ()\n",
-            "  end\n",
             "end\n",
             "fn transparent_alias(state: State) -> ()\n",
             "  let current: State = state\n",
@@ -566,7 +560,7 @@ fn unsupported_or_invalid_match_scrutinees_and_patterns_do_not_refine_bindings()
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
         .collect::<Vec<_>>();
-    assert_eq!(mismatches.len(), 6, "{diagnostics:#?}");
+    assert_eq!(mismatches.len(), 5, "{diagnostics:#?}");
     assert!(
         mismatches.iter().all(|diagnostic| {
             detail_field(diagnostic, "actual_type").as_text() == Some("State")
