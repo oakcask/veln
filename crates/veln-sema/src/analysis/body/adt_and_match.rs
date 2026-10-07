@@ -5,8 +5,6 @@ use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
 use std::collections::HashSet;
 use std::sync::Arc;
 
-pub(crate) const MAX_MATCH_NESTING: usize = 64;
-
 #[cfg(test)]
 fn record_refined_match_coverage_work(units: usize) {
     refined_match_coverage_work::record(units);
@@ -714,32 +712,6 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn infer_match(
-        &mut self,
-        expr: &Expr,
-        scrutinee: &Expr,
-        arms: &[MatchArm],
-        expected: Option<&ExpectedType>,
-    ) -> Type {
-        if self.match_depth == MAX_MATCH_NESTING {
-            self.diagnostics.push(Diagnostic::new(
-                "type.match_nesting_limit",
-                Severity::Error,
-                DiagnosticKind::Type,
-                format!("match nesting exceeds the supported depth of {MAX_MATCH_NESTING}"),
-                Some(expr.span.clone()),
-                JsonValue::object([("max_depth", JsonValue::Number(MAX_MATCH_NESTING as i64))]),
-            ));
-            return expected
-                .map(|expected| expected.ty.clone())
-                .unwrap_or(Type::Unknown);
-        }
-        self.match_depth += 1;
-        let inferred = self.infer_match_within_limit(expr, scrutinee, arms, expected);
-        self.match_depth -= 1;
-        inferred
-    }
-
-    fn infer_match_within_limit(
         &mut self,
         expr: &Expr,
         scrutinee: &Expr,

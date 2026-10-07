@@ -59,10 +59,10 @@ mod repair_reasoning;
 pub(in crate::analysis) use body::FunctionChecker;
 #[cfg(test)]
 pub(crate) use body::{
-    MAX_MATCH_NESTING, RefinedMatchCoverageWork, RefinedMatchDiagnosticWork,
-    reset_refined_match_coverage_work, reset_refined_match_diagnostic_work,
-    reset_retained_variant_diagnostic_key_variants, take_refined_match_coverage_work,
-    take_refined_match_diagnostic_work, take_retained_variant_diagnostic_key_variants,
+    RefinedMatchCoverageWork, RefinedMatchDiagnosticWork, reset_refined_match_coverage_work,
+    reset_refined_match_diagnostic_work, reset_retained_variant_diagnostic_key_variants,
+    take_refined_match_coverage_work, take_refined_match_diagnostic_work,
+    take_retained_variant_diagnostic_key_variants,
 };
 pub(crate) use body::{VariantDiagnosticInterner, check_function_body};
 pub(crate) use boundary::{

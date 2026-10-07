@@ -554,12 +554,6 @@ diagnostic cases, and the
 
 ## Compatibility and limits
 
-Semantic analysis supports at most 64 nested `match` expressions in one
-expression path. The next nested match reports `type.match_nesting_limit` at
-that match expression and does not descend into it. This limit is independent
-of parser cleanup and type-structure limits. The checked JSON case is
-[`adt-variant-refinement-match-nesting-limit`](../../examples/specification/check/adt-variant-refinement-match-nesting-limit/).
-
 The type checker resolves a structurally valid `A<T>::V` annotation to the
 singleton variant type for `V` of the finite ADT `A<T>`. A union of alternatives
 for the same ADT identity and generic arguments denotes their finite variant

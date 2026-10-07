@@ -124,7 +124,6 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) diagnostics: Vec<Diagnostic>,
     suppressed_diagnostic_indices: BTreeSet<usize>,
     defer_blocks: Vec<SourceSpan>,
-    match_depth: usize,
     refined_match_domains: adt_and_match::RefinedMatchDomainCache,
     variant_diagnostics: &'a mut VariantDiagnosticInterner,
 }
@@ -326,7 +325,6 @@ impl<'a> FunctionChecker<'a> {
             diagnostics: Vec::new(),
             suppressed_diagnostic_indices: BTreeSet::new(),
             defer_blocks: Vec::new(),
-            match_depth: 0,
             refined_match_domains: adt_and_match::RefinedMatchDomainCache::default(),
             variant_diagnostics,
         }
@@ -350,9 +348,9 @@ impl<'a> FunctionChecker<'a> {
 mod adt_and_match;
 #[cfg(test)]
 pub(crate) use adt_and_match::{
-    MAX_MATCH_NESTING, RefinedMatchCoverageWork, RefinedMatchDiagnosticWork,
-    reset_refined_match_coverage_work, reset_refined_match_diagnostic_work,
-    take_refined_match_coverage_work, take_refined_match_diagnostic_work,
+    RefinedMatchCoverageWork, RefinedMatchDiagnosticWork, reset_refined_match_coverage_work,
+    reset_refined_match_diagnostic_work, take_refined_match_coverage_work,
+    take_refined_match_diagnostic_work,
 };
 mod annotations_and_effects;
 mod body_lines;
