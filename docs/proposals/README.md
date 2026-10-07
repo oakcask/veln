@@ -25,10 +25,10 @@ also states it.
   implemented public network effect, direct facade, and `write_all` helper:
   [standard-library-networking.md](standard-library-networking.md).
 - Remaining ADT variant-refinement support for aliases and visibility,
-  stable-value and transparent-alias control-flow refinement beyond direct
-  bare-binding finite match domains, qualified immutable values after a
-  separate source-surface prerequisite, schema boundaries, package
-  documentation, command-wide enforcement, LSP, MCP, and publication:
+  stable-value and transparent-alias control-flow refinement beyond bare or
+  redundantly parenthesized binding finite match domains, qualified immutable
+  values after a separate source-surface prerequisite, schema boundaries,
+  package documentation, command-wide enforcement, LSP, MCP, and publication:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked
