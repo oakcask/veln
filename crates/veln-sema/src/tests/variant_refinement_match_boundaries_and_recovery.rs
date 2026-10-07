@@ -450,3 +450,56 @@ fn computed_refined_scrutinees_keep_the_existing_match_behavior() {
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn function_value_scrutinee_keeps_its_callable_type_and_match_boundary() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn make() -> State::Ready\n",
+            "  Ready\n",
+            "end\n",
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn check() -> ()\n",
+            "  match make\n",
+            "    Ready => ()\n",
+            "    callback => begin\n",
+            "      accept_ready(callback())\n",
+            "      accept_ready(make())\n",
+            "    end\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let mismatch = &diagnostics[0];
+    assert_eq!(mismatch.id, "type.mismatch");
+    assert_eq!(
+        mismatch.message,
+        "expected `fn() -> State::Ready`, but found `State`"
+    );
+    assert_eq!(
+        detail(mismatch, "expected_type").as_text(),
+        Some("fn() -> State::Ready")
+    );
+    assert_eq!(detail(mismatch, "actual_type").as_text(), Some("State"));
+    assert_eq!(
+        detail(mismatch, "expected_type_source").as_text(),
+        Some("inferred_expression")
+    );
+    assert_eq!(
+        detail(mismatch, "actual_type_source").as_text(),
+        Some("constructor_pattern")
+    );
+    assert_eq!(
+        detail(mismatch, "constraint").as_text(),
+        Some("constructor_pattern")
+    );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.match_impossible_variant"
+            && diagnostic.id != "type.match_redundant_arm"
+    }));
+}
