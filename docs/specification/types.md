@@ -416,9 +416,12 @@ complete written path at its final segment. A payload pattern incompatible
 with the constructor's substituted generic payload type reports the ordinary
 `type.mismatch`. A wrong payload arity reports
 `type.constructor_pattern_arity` at the complete constructor pattern while
-still checking supplied payload patterns and the arm body. Either failure can
-leave the match non-exhaustive because the rejected arm covers no variant. A
-valid same-ADT constructor outside the original refined domain reports
+still checking supplied payload patterns and the arm body. An arm rejected by
+this validation continues checking its supplied payload patterns and body,
+including binding names, unresolved values, and the inherited expected result.
+Either failure can leave the match non-exhaustive because the rejected arm
+covers no variant. A valid same-ADT constructor outside the original refined
+domain reports
 `type.match_impossible_variant`. A valid constructor or catch-all with an empty
 residual reports `type.match_redundant_arm`. An impossible or redundant arm
 does not consume coverage.
