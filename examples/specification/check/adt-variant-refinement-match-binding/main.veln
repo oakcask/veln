@@ -132,6 +132,19 @@ fn residual_alias_chain(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<In
 	end
 end
 
+fn residual_alias_wildcard(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	let current = value
+	let transitive = current
+	match transitive
+		Filled(_) => accept_filled(value)
+		_ => begin
+			accept_empty_or_failed(value)
+			accept_empty_or_failed(current)
+			accept_empty_or_failed(transitive)
+		end
+	end
+end
+
 fn parenthesized_residual(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
 	match (((value)))
 		Filled(_) => accept_filled(value)

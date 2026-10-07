@@ -1,6 +1,7 @@
 # Compiler integration contract: construction, calls, equality, Boolean
-# helpers, conditional expressions, and contract predicates do not make an
-# input binding a transparent alias of a separately checked value.
+# helpers, field access, pipeline operators, conditional expressions, and
+# contract predicates do not make an input binding a transparent alias of a
+# separately checked value. Veln has no indexing expression source form.
 type State
 	Ready
 	Closed
@@ -31,6 +32,31 @@ end
 
 fn called(source: State) -> ()
 	let candidate = identity(source)
+	match candidate
+		Ready => begin
+			accept_ready(candidate)
+			accept_ready(source)
+		end
+		Closed => ()
+		Failed => ()
+	end
+end
+
+fn field_access(source: State) -> ()
+	let holder = { value: source }
+	let candidate = holder.value
+	match candidate
+		Ready => begin
+			accept_ready(candidate)
+			accept_ready(source)
+		end
+		Closed => ()
+		Failed => ()
+	end
+end
+
+fn pipeline_operator(source: State) -> ()
+	let candidate = source |> identity()
 	match candidate
 		Ready => begin
 			accept_ready(candidate)

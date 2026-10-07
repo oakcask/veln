@@ -243,6 +243,18 @@ fn transparent_alias_chains_and_complete_pattern_bindings_share_arm_refinements(
         "    end\n",
         "  end\n",
         "end\n",
+        "fn residual_alias_wildcard(value: State::Ready | State::Closed | State::Failed) -> ()\n",
+        "  let direct = value\n",
+        "  let transitive = direct\n",
+        "  match transitive\n",
+        "    Ready => accept_ready(value)\n",
+        "    _ => begin\n",
+        "      accept_remaining(value)\n",
+        "      accept_remaining(direct)\n",
+        "      accept_remaining(transitive)\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
     ));
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
@@ -294,6 +306,29 @@ fn transparent_alias_refinements_restore_and_computed_values_stay_independent() 
         "    Failed => ()\n",
         "  end\n",
         "end\n",
+        "fn field_access(source: State) -> ()\n",
+        "  let holder = { value: source }\n",
+        "  let candidate = holder.value\n",
+        "  match candidate\n",
+        "    Ready => begin\n",
+        "      accept_ready(candidate)\n",
+        "      accept_ready(source)\n",
+        "    end\n",
+        "    Closed => ()\n",
+        "    Failed => ()\n",
+        "  end\n",
+        "end\n",
+        "fn pipeline_operator(source: State) -> ()\n",
+        "  let candidate = source |> identity()\n",
+        "  match candidate\n",
+        "    Ready => begin\n",
+        "      accept_ready(candidate)\n",
+        "      accept_ready(source)\n",
+        "    end\n",
+        "    Closed => ()\n",
+        "    Failed => ()\n",
+        "  end\n",
+        "end\n",
         "fn equality(source: State) -> ()\n",
         "  if source == Ready\n",
         "    accept_ready(source)\n",
@@ -333,7 +368,7 @@ fn transparent_alias_refinements_restore_and_computed_values_stay_independent() 
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
         .collect::<Vec<_>>();
-    assert_eq!(mismatches.len(), 8, "{diagnostics:#?}");
+    assert_eq!(mismatches.len(), 10, "{diagnostics:#?}");
     assert_eq!(
         detail(mismatches[0], "actual_type").as_text(),
         Some("State::Ready | State::Closed")
