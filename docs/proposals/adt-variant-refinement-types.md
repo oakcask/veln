@@ -17,15 +17,19 @@ stable mismatch diagnostics, and runtime erasure.
 This proposal retains only the unfinished work: alias presentation and
 visibility, control-flow refinement beyond direct bare match bindings, schema
 boundaries, package documentation, command-wide enforcement, LSP, MCP, and
-language-reference publication.
+language-reference publication. Qualified immutable-value refinement depends
+on a separately specified source form for module-addressable immutable data
+values; current qualified constructor and function expressions do not satisfy
+that dependency.
 
 ## Outcomes And Boundaries
 
 The remaining proposal has three intended outcomes:
 
 - Pattern matching can extend the implemented bare-binding refinement to
-  stable value paths and transparent aliases without a cast or runtime
-  assertion.
+  expressible stable value paths and transparent aliases without a cast or
+  runtime assertion. Qualified immutable values join that set only after the
+  source surface and name-resolution contract provide them.
 - Compiler, package-documentation, LSP, and MCP views agree on the
   spelling and identity of a refined variant.
 - `run`, `test`, and `doc` enforce refinements at their existing analysis and
@@ -180,9 +184,31 @@ and alias forms below.
 For that extension, a stable value is an immutable binding or parameter, or a
 record-field path rooted at a stable value. Parentheses do not change the
 stable value. A qualified name is stable only when name resolution identifies
-an immutable value binding. Calls, indexing, operators, and other computed
-expressions are not stable values, even when the same source text occurs more
-than once.
+an immutable data-value binding. Calls, indexing, operators, constructors, and
+other computed expressions are not stable values, even when the same source
+text occurs more than once.
+
+### Source-Surface Dependency
+
+The current [source grammar](../specification/source-surface.md#executable-grammar) admits
+`let` bindings only in a function, test, or `begin` body. Its module items do
+not include an immutable data-value declaration. Current
+[name resolution](../specification/name-resolution.md#namespaces-and-use-roles)
+therefore resolves a qualified expression value as a constructor or function,
+not as a module-addressable immutable data value.
+
+Qualified immutable-value refinement remains planned, but it is not an
+acceptance condition for an independently implementable direct-binding,
+parenthesis, field-path, or transparent-alias slice. Before selecting the
+qualified-value slice, a separate Ready proposal must define its declaration
+syntax, initialization and visibility rules, package identity, and qualified
+name-resolution behavior. That source-surface work must land with accepted and
+rejected grammar evidence before match refinement can use the new value form.
+
+Executable boundary evidence must classify an expression by its resolved
+declaration kind. A qualified constructor tests the constructor boundary, and
+a qualified function reference or call tests the function or computed-value
+boundary. Neither can stand in for a qualified immutable data value.
 
 A local initialized directly from a stable value is a transparent alias of
 that value. A field path through a transparent alias denotes the same stable
@@ -432,7 +458,8 @@ current behavior:
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Aliases and visibility | Alias-qualified refinements preserve target identity while following the stated presentation and navigation rules. Imported, private, opaque, ambiguous, and exact-companion exposure paths follow the visibility contract. Public-signature checking traverses record fields, generic arguments, function positions, public source ADT payloads, refinement unions, and alias chains without leaking a private base or variant or looping on recursion. Direct leaks select the private written segment; alias-hidden leaks select the outermost written alias and report the structural exposure path. Aliases of one target are mutually assignable, written annotations retain their spelling, unannotated and conflicting-provenance inference uses the canonical target spelling, mismatch sides select their spelling independently, and base and variant navigation select the alias and target constructor respectively. Failed visibility retains unambiguous source navigation identities under existing recovery rules but publishes no declaration or package signature. | Table-driven semantic, display, package-signature, and shared navigation cases covering every structural position, direct and multi-alias leaks, multiple paths, recursive cycles, exact companions, deterministic diagnostic order, exact primary and related spans, retained source identities, absent public identities, and rendered types. |
-| Control-flow refinement | Direct bare-binding refinement extends to parenthesized and qualified immutable values, record-field paths, and transparent aliases. Every alias of the stable value observes the current constructor or residual catch-all refinement, while reevaluated computed expressions gain no refinement. | Match cases covering parentheses, record-field paths, transitive aliases, qualified immutable values, alias-visible constructor and residual catch-all refinements, scope restoration, and computed-expression boundaries, plus alias-based state-machine `check` examples. |
+| Expressible control-flow refinement | Direct bare-binding refinement can land in independent slices for parentheses, record-field paths, and transparent aliases. Every alias implemented by a selected slice observes the current constructor or residual catch-all refinement, while constructors, function values, calls, indexing, operators, and other computed expressions gain no refinement. Each slice claims only source forms that current grammar and name resolution can distinguish. | Match cases for the selected form, alias-visible constructor and residual catch-all refinements when applicable, scope restoration, and separately named constructor, function, and computed-expression boundaries, plus alias-based state-machine `check` examples when aliases are selected. |
+| Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Diagnostics | Each remaining semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Base-refinement reasons use only the closed values in the diagnostic contract. Remaining resolution, base-eligibility, variant, visibility, and union-base failures compose with current casing, arity, and assignability diagnostics; derivative failures are suppressed; and each new failure retains exactly the specified navigation identities. | Human and JSON command fixtures covering the remaining diagnostic rows, base-reason values, their overlaps with current diagnostics, and identity-retention outcomes. |
 | Commands | `run` and `test` share semantic analysis and preserve their no-execution boundary on refinement errors; `doc` shares semantic analysis, preserves written public refinements in canonical declaration signatures, and preserves its recovery boundary. Their machine-readable modes use the same diagnostic contract as their human modes. | Command harness cases for `run`, `test`, and `doc` with accepted, rejected, and recovered sources. |
