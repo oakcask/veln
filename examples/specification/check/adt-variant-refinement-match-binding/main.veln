@@ -1,8 +1,8 @@
 # Compiler integration contract: checking a constructor arm exposes the matched
-# bare or redundantly parenthesized parameter or local at its singleton or
-# complete multi-variant residual refinement without losing generic arguments.
-# Nested matches restore the enclosing arm refinement, and computed
-# scrutinees remain outside stable-binding refinement.
+# bare or redundantly parenthesized parameter, local, transparent alias chain,
+# or complete-value pattern binding at its singleton or complete multi-variant
+# residual refinement without losing generic arguments. Nested matches restore
+# the enclosing arm refinement. Computed expressions do not alias their inputs.
 type State
 	Ready
 	Closed
@@ -41,6 +41,10 @@ fn accept_failed(value: Boxed<Int>::Failed) -> ()
 	()
 end
 
+fn accept_empty_or_failed(value: Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	()
+end
+
 fn accept_number(value: LiteralPayload::Number) -> ()
 	()
 end
@@ -76,6 +80,55 @@ fn local(value: Boxed<Int>) -> ()
 		Empty => ()
 		Failed => ()
 		Skipped => ()
+	end
+end
+
+fn inferred_alias_chain(value: Boxed<Int>) -> ()
+	let current = value
+	let transitive = ((current))
+	match transitive
+		Filled(_) => begin
+			accept_filled(value)
+			accept_filled(current)
+			accept_filled(transitive)
+		end
+		Empty => ()
+		Failed => ()
+		Skipped => ()
+	end
+end
+
+fn residual_alias_chain(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	let current: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed = value
+	let transitive: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed = current
+	match transitive
+		Filled(_) => begin
+			accept_filled(value)
+			accept_filled(current)
+			accept_filled(transitive)
+		end
+		remaining => begin
+			accept_empty_or_failed(value)
+			accept_empty_or_failed(current)
+			accept_empty_or_failed(transitive)
+			accept_empty_or_failed(remaining)
+			match remaining
+				Empty => begin
+					accept_empty(value)
+					accept_empty(current)
+					accept_empty(transitive)
+					accept_empty(remaining)
+				end
+				Failed => begin
+					accept_failed(value)
+					accept_failed(current)
+					accept_failed(transitive)
+					accept_failed(remaining)
+				end
+			end
+			accept_empty_or_failed(value)
+			accept_empty_or_failed(remaining)
+		end
 	end
 end
 

@@ -1282,10 +1282,12 @@ impl<'a> FunctionChecker<'a> {
             .as_deref()
             .and_then(|coverage| self.refined_match_arm_plan(&arm.pattern, domain.ty, coverage));
         let pattern_type = arm_plan.as_ref().map_or(domain.ty, |plan| &plan.arm_type);
+        let complete_alias_group = self.stable_match_alias_group(domain.scrutinee);
         let pattern_bindings_admitted = self.declare_match_pattern_bindings(
             &arm.pattern,
             pattern_type,
             direct_refined_match_validation,
+            complete_alias_group,
         );
         if pattern_bindings_admitted
             && let (Some(coverage), Some(plan)) = (refined_coverage, arm_plan.as_ref())
@@ -1307,12 +1309,13 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let planned_refinement = arm_plan.map(|plan| &plan.arm_type);
-        if let Some(binding) = self.stable_match_binding_refinement(
+        let bindings = self.stable_match_binding_refinements(
             scrutinee,
             pattern,
             scrutinee_type,
             planned_refinement,
-        ) {
+        );
+        for binding in bindings {
             self.bindings.push(binding);
         }
     }
@@ -1331,13 +1334,7 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn stable_match_binding_refinement(
-        &self,
-        scrutinee: &Expr,
-        pattern: &Pattern,
-        scrutinee_type: &Type,
-        planned_refinement: Option<&Type>,
-    ) -> Option<Binding> {
+    fn stable_match_alias_group(&self, scrutinee: &Expr) -> Option<usize> {
         let ExprKind::NamePath { segments, .. } = &scrutinee.kind else {
             return None;
         };
@@ -1346,55 +1343,84 @@ impl<'a> FunctionChecker<'a> {
         };
         self.bindings
             .iter()
-            .rfind(|binding| binding.name == *binding_name)?;
+            .rev()
+            .find(|binding| binding.name == *binding_name)
+            .and_then(|binding| binding.transparent_alias_group)
+    }
 
-        if let Some(refinement) = planned_refinement {
-            return Some(Binding::new(binding_name.clone(), refinement.clone()));
-        }
-
-        let Type::Named {
-            name: type_name,
-            identity,
-            args: type_args,
-        } = scrutinee_type
-        else {
-            return None;
+    fn stable_match_binding_refinements(
+        &self,
+        scrutinee: &Expr,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+        planned_refinement: Option<&Type>,
+    ) -> Vec<Binding> {
+        let Some(alias_group) = self.stable_match_alias_group(scrutinee) else {
+            return Vec::new();
         };
 
-        let PatternKind::Constructor { name, args, .. } = &pattern.kind else {
-            return None;
-        };
-        if invalid_qualified_constructor_pattern(name) {
-            return None;
-        }
-        let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
-            scrutinee_type,
-            self.function.module_name.as_deref(),
-        )?;
-        let constructor = self.environment.adts.constructor_for_descriptor(
-            name,
-            descriptor,
-            self.function.module_name.as_deref(),
-            &self.environment.uses,
-        )?;
-        if args.len() != constructor.variant.payload_fields.len() {
-            return None;
-        }
-        if !args.iter().enumerate().all(|(index, pattern)| {
-            adt::payload_type(scrutinee_type, constructor, index)
-                .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
-        }) {
-            return None;
-        }
-        Some(Binding::new(
-            binding_name.clone(),
+        let refinement = if let Some(refinement) = planned_refinement {
+            refinement.clone()
+        } else {
+            let Type::Named {
+                name: type_name,
+                identity,
+                args: type_args,
+            } = scrutinee_type
+            else {
+                return Vec::new();
+            };
+
+            let PatternKind::Constructor { name, args, .. } = &pattern.kind else {
+                return Vec::new();
+            };
+            if invalid_qualified_constructor_pattern(name) {
+                return Vec::new();
+            }
+            let Some(descriptor) = self.environment.adts.descriptor_for_type_prefer_module(
+                scrutinee_type,
+                self.function.module_name.as_deref(),
+            ) else {
+                return Vec::new();
+            };
+            let Some(constructor) = self.environment.adts.constructor_for_descriptor(
+                name,
+                descriptor,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            ) else {
+                return Vec::new();
+            };
+            if args.len() != constructor.variant.payload_fields.len() {
+                return Vec::new();
+            }
+            if !args.iter().enumerate().all(|(index, pattern)| {
+                adt::payload_type(scrutinee_type, constructor, index)
+                    .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
+            }) {
+                return Vec::new();
+            }
             Type::resolved_variant_refinement(
                 type_name,
                 identity,
                 type_args.clone(),
                 vec![constructor.variant.name.clone()],
-            ),
-        ))
+            )
+        };
+
+        let mut visible_names = HashSet::new();
+        self.bindings
+            .iter()
+            .rev()
+            .filter(|binding| visible_names.insert(binding.name.as_str()))
+            .filter(|binding| binding.transparent_alias_group == Some(alias_group))
+            .map(|binding| {
+                let arm_type = transparent_alias_arm_type(&binding.ty, &refinement);
+                let mut refined = Binding::new(binding.name.clone(), arm_type);
+                refined.transparent_alias_group = Some(alias_group);
+                refined
+            })
+            .collect()
     }
 
     fn match_pattern_is_valid_for_type(&self, pattern: &Pattern, expected: &Type) -> bool {
@@ -1455,7 +1481,12 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         scrutinee_type: &Type,
         direct_refined_match_validation: bool,
+        complete_alias_group: Option<usize>,
     ) -> bool {
+        let complete_binding = match &pattern.kind {
+            PatternKind::Binding(name) => Some(name.as_str()),
+            _ => None,
+        };
         let mut all_admitted = true;
         for binding in self.pattern_bindings_with_recovery(
             pattern,
@@ -1479,7 +1510,14 @@ impl<'a> FunctionChecker<'a> {
                 all_admitted = false;
                 continue;
             }
-            self.bindings.push(Binding::new(binding.name, binding.ty));
+            let mut admitted = Binding::new(binding.name, binding.ty);
+            admitted.transparent_alias_group =
+                Some(if complete_binding == Some(admitted.name.as_str()) {
+                    complete_alias_group.unwrap_or_else(|| self.fresh_transparent_alias_group())
+                } else {
+                    self.fresh_transparent_alias_group()
+                });
+            self.bindings.push(admitted);
         }
         all_admitted
     }
@@ -1551,6 +1589,42 @@ impl<'a> FunctionChecker<'a> {
         }
         self.infer_if_branch(expr, else_branch, expected, &mut result);
         result.materialize()
+    }
+}
+
+fn transparent_alias_arm_type(binding_type: &Type, arm_type: &Type) -> Type {
+    let Type::VariantRefinement {
+        identity: arm_identity,
+        args: arm_args,
+        variants: arm_variants,
+        ..
+    } = arm_type
+    else {
+        return binding_type.clone();
+    };
+    match binding_type {
+        Type::Named { identity, args, .. } if identity == arm_identity && args == arm_args => {
+            arm_type.clone()
+        }
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+            ..
+        } if identity == arm_identity && args == arm_args => {
+            let retained = arm_variants
+                .iter()
+                .filter(|variant| variants.contains(variant))
+                .cloned()
+                .collect::<Vec<_>>();
+            if retained.is_empty() || retained.len() == variants.len() {
+                binding_type.clone()
+            } else {
+                Type::resolved_variant_refinement(name, identity, args.clone(), retained)
+            }
+        }
+        _ => binding_type.clone(),
     }
 }
 

@@ -171,6 +171,186 @@ fn catch_alls_preserve_the_complete_multi_variant_residual() {
 }
 
 #[test]
+fn transparent_alias_chains_and_complete_pattern_bindings_share_arm_refinements() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "  Excluded\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_closed(value: State::Closed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_failed(value: State::Failed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_remaining(value: State::Closed | State::Failed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn inferred_aliases(value: State) -> ()\n",
+        "  let direct = value\n",
+        "  let transitive = direct\n",
+        "  match transitive\n",
+        "    Ready => begin\n",
+        "      accept_ready(value)\n",
+        "      accept_ready(direct)\n",
+        "      accept_ready(transitive)\n",
+        "    end\n",
+        "    Closed => ()\n",
+        "    Failed => ()\n",
+        "    Excluded => ()\n",
+        "  end\n",
+        "end\n",
+        "fn residual_aliases(value: State::Ready | State::Closed | State::Failed) -> ()\n",
+        "  let direct: State::Ready | State::Closed | State::Failed = value\n",
+        "  let annotated: State::Ready | State::Closed | State::Failed = direct\n",
+        "  let transitive: State::Ready | State::Closed | State::Failed = ((annotated))\n",
+        "  match (((transitive)))\n",
+        "    Ready => begin\n",
+        "      accept_ready(value)\n",
+        "      accept_ready(direct)\n",
+        "      accept_ready(annotated)\n",
+        "      accept_ready(transitive)\n",
+        "    end\n",
+        "    remaining => begin\n",
+        "      accept_remaining(value)\n",
+        "      accept_remaining(direct)\n",
+        "      accept_remaining(annotated)\n",
+        "      accept_remaining(transitive)\n",
+        "      accept_remaining(remaining)\n",
+        "      match remaining\n",
+        "        Closed => begin\n",
+        "          accept_closed(value)\n",
+        "          accept_closed(direct)\n",
+        "          accept_closed(annotated)\n",
+        "          accept_closed(transitive)\n",
+        "          accept_closed(remaining)\n",
+        "        end\n",
+        "        Failed => begin\n",
+        "          accept_failed(value)\n",
+        "          accept_failed(direct)\n",
+        "          accept_failed(annotated)\n",
+        "          accept_failed(transitive)\n",
+        "          accept_failed(remaining)\n",
+        "        end\n",
+        "      end\n",
+        "      accept_remaining(value)\n",
+        "      accept_remaining(remaining)\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn transparent_alias_refinements_restore_and_computed_values_stay_independent() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn identity(value: State) -> State\n",
+        "  value\n",
+        "end\n",
+        "fn is_ready(value: State) -> Bool\n",
+        "  value == Ready\n",
+        "end\n",
+        "fn restoration(value: State::Ready | State::Closed) -> ()\n",
+        "  let alias = value\n",
+        "  match alias\n",
+        "    Ready => accept_ready(value)\n",
+        "    Closed => ()\n",
+        "  end\n",
+        "  accept_ready(value)\n",
+        "  accept_ready(alias)\n",
+        "end\n",
+        "fn constructed(source: State) -> ()\n",
+        "  let candidate = Ready\n",
+        "  match candidate\n",
+        "    Ready => begin\n",
+        "      accept_ready(candidate)\n",
+        "      accept_ready(source)\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+        "fn called(source: State) -> ()\n",
+        "  let candidate = identity(source)\n",
+        "  match candidate\n",
+        "    Ready => begin\n",
+        "      accept_ready(candidate)\n",
+        "      accept_ready(source)\n",
+        "    end\n",
+        "    Closed => ()\n",
+        "    Failed => ()\n",
+        "  end\n",
+        "end\n",
+        "fn equality(source: State) -> ()\n",
+        "  if source == Ready\n",
+        "    accept_ready(source)\n",
+        "  else\n",
+        "    ()\n",
+        "  end\n",
+        "end\n",
+        "fn boolean_helper(source: State) -> ()\n",
+        "  if is_ready(source)\n",
+        "    accept_ready(source)\n",
+        "  else\n",
+        "    ()\n",
+        "  end\n",
+        "end\n",
+        "fn conditional(source: State) -> ()\n",
+        "  let candidate = if true\n",
+        "    source\n",
+        "  else\n",
+        "    source\n",
+        "  end\n",
+        "  match candidate\n",
+        "    Ready => begin\n",
+        "      accept_ready(candidate)\n",
+        "      accept_ready(source)\n",
+        "    end\n",
+        "    Closed => ()\n",
+        "    Failed => ()\n",
+        "  end\n",
+        "end\n",
+        "fn contracted(source: State) -> ()\n",
+        "require source == Ready\n",
+        "  accept_ready(source)\n",
+        "end\n",
+    ));
+
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 8, "{diagnostics:#?}");
+    assert_eq!(
+        detail(mismatches[0], "actual_type").as_text(),
+        Some("State::Ready | State::Closed")
+    );
+    assert_eq!(
+        detail(mismatches[1], "actual_type").as_text(),
+        Some("State::Ready | State::Closed")
+    );
+    assert!(
+        mismatches[2..]
+            .iter()
+            .all(|diagnostic| detail(diagnostic, "actual_type").as_text() == Some("State")),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn refined_domain_classification_is_deterministic_and_preserves_related_arms() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",

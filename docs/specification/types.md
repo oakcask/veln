@@ -366,19 +366,21 @@ unknown. Arm expressions share the expected result type when one is available.
 
 When the scrutinee is an immutable parameter or local binding written either
 as its bare name or with one or more redundant parentheses, a valid constructor
-arm gives that same binding the constructor's singleton refinement while
+arm gives that binding and each transparent alias the constructor's singleton
+refinement while
 checking the arm expression. The binding's current type can be the base ADT,
 one singleton refinement, or a finite refinement union. The refinement retains
 the resolved ADT identity and its instantiated generic arguments.
 
 A singleton or finite-union scrutinee restricts the match domain to its current
 variant set. Each valid constructor arm removes its variant from the residual
-set. A binding catch-all receives the complete residual refinement, and a
-non-binding `_` catch-all gives the existing scrutinee binding that same
+set. A binding catch-all receives the complete residual refinement and becomes
+a transparent alias for the complete matched value. A non-binding `_`
+catch-all gives the existing scrutinee and its transparent aliases that same
 refinement. Complete constructor coverage or one catch-all makes the match
 exhaustive. A nested `match` observes and can refine the current arm's finite
-domain. Leaving an inner arm preserves the enclosing refinement, and leaving
-the outer arm restores the binding's original type.
+domain. Leaving an inner arm preserves the enclosing refinement. Leaving the
+outer arm restores every participating binding's declared or inferred type.
 
 ```veln
 type Boxed<A>
@@ -404,8 +406,10 @@ The call in the `Filled` arm is accepted because `value` has type
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
 also demonstrates a generic three-variant refined domain whose binding
 catch-all, wildcard catch-all, and original scrutinee binding receive the
-complete two-variant residual type. Nested matches distinguish that residual
-from either singleton narrowing or widening to the base ADT.
+complete two-variant residual type. It also checks inferred and annotated
+transparent alias chains and complete-value pattern aliases. Nested matches
+distinguish the residual from either singleton narrowing or widening to the
+base ADT.
 
 For bare or redundantly parenthesized bindings with a refined domain, arm
 classification first validates the constructor name, visibility, owning
@@ -448,11 +452,19 @@ type while the arm expression is checked. The checked
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
 demonstrates parameter, local, generic, nested-arm, and literal-payload use.
 
-This refinement requires the scrutinee source to consist only of a binding
-name and optional redundant parentheses. Qualified values, record-field paths,
-transparent aliases, and function values do not receive this refinement or
-refined-domain arm classification. Calls, constructor expressions, and other
-computed scrutinees likewise retain the ordinary base-ADT match behavior.
+A local binding is a transparent alias when its initializer is only a bare or
+redundantly parenthesized immutable parameter or local binding. This relation
+is transitive. Matching any member refines every member, including a binding
+catch-all for the complete matched value, for the current arm only.
+
+Qualified values, record-field paths, and function values do not establish a
+transparent alias in this behavior. Separate construction, equality, contract
+predicates, Boolean helpers, calls, indexing, operators, and other computed
+expressions do not establish one either. A computed result can be refined
+after it is stored in its own local, but matching that local does not refine
+the inputs used to compute it. The checked
+[`adt-variant-refinement-match-alias-boundaries`](../../examples/specification/check/adt-variant-refinement-match-alias-boundaries/)
+case verifies these non-alias boundaries.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
@@ -695,10 +707,10 @@ private results are checked in
 rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
-Alias spelling and provenance, public/private exposure paths, pattern-based
-control-flow refinement beyond bare or redundantly parenthesized immutable
-bindings, schema boundaries, package-documentation signatures, command-wide
-coverage, LSP, MCP, and language-reference publication remain proposal work.
+Alias spelling and provenance, public/private exposure paths, record-field and
+qualified-value control-flow refinement, schema boundaries,
+package-documentation signatures, command-wide coverage, LSP, MCP, and
+language-reference publication remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

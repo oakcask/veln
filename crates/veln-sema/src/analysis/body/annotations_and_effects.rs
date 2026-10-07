@@ -334,6 +334,7 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let mut binding = Binding::new(name.to_string(), ty);
+        binding.transparent_alias_group = Some(self.fresh_transparent_alias_group());
         binding.type_origin = type_origin;
         self.bindings.push(binding);
     }
@@ -351,7 +352,9 @@ impl<'a> FunctionChecker<'a> {
                 });
             return;
         }
-        self.bindings.push(Binding::new(name.to_string(), ty));
+        let mut binding = Binding::new(name.to_string(), ty);
+        binding.transparent_alias_group = Some(self.fresh_transparent_alias_group());
+        self.bindings.push(binding);
     }
 
     pub(super) fn check_contracts(&mut self) {

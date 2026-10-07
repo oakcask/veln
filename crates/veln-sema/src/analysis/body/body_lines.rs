@@ -7,6 +7,7 @@ struct LetBindingContext {
     initializer_unknown_is_diagnosed: bool,
     deferred_initializer_diagnostic: Option<usize>,
     pattern_has_diagnostic: bool,
+    transparent_alias_group: Option<usize>,
 }
 
 impl<'a> FunctionChecker<'a> {
@@ -167,6 +168,10 @@ impl<'a> FunctionChecker<'a> {
         annotation: Option<&str>,
         expr: &Expr,
     ) {
+        let transparent_alias_group = match &pattern.kind {
+            PatternKind::Binding(_) => self.transparent_alias_group(expr),
+            _ => None,
+        };
         let expected = annotation.and_then(|annotation| {
             self.parse_annotation(
                 annotation,
@@ -219,6 +224,7 @@ impl<'a> FunctionChecker<'a> {
             initializer_unknown_is_diagnosed,
             deferred_initializer_diagnostic,
             pattern_has_diagnostic,
+            transparent_alias_group,
         };
         for binding in pattern_bindings {
             self.bind_let_pattern(binding, &binding_context);
@@ -244,6 +250,11 @@ impl<'a> FunctionChecker<'a> {
         } else {
             Binding::new(binding.name.clone(), binding.ty.clone())
         };
+        admitted.transparent_alias_group = Some(
+            context
+                .transparent_alias_group
+                .unwrap_or_else(|| self.fresh_transparent_alias_group()),
+        );
         if matches!(binding.ty, Type::Function { .. })
             && let Some(type_origin) = &context.type_origin
         {
@@ -263,6 +274,20 @@ impl<'a> FunctionChecker<'a> {
                 deferred_initializer_diagnostic: context.deferred_initializer_diagnostic,
             });
         }
+    }
+
+    fn transparent_alias_group(&self, expr: &Expr) -> Option<usize> {
+        let ExprKind::NamePath { segments, .. } = &expr.kind else {
+            return None;
+        };
+        let [name] = segments.as_slice() else {
+            return None;
+        };
+        self.bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == *name)
+            .and_then(|binding| binding.transparent_alias_group)
     }
 
     pub(super) fn check_expr_line(&mut self, index: usize, line: &BodyLine, expr: &Expr) {

@@ -112,6 +112,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) environment: &'a TypeEnvironment,
     pub(super) supports_callsite_modifier: bool,
     pub(super) bindings: Vec<Binding>,
+    next_transparent_alias_group: usize,
     invalid_binding_recoveries: Vec<InvalidBindingRecovery>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
     pub(super) local_names: BTreeMap<String, LocalNameDeclaration>,
@@ -313,6 +314,7 @@ impl<'a> FunctionChecker<'a> {
             environment,
             supports_callsite_modifier,
             bindings: Vec::new(),
+            next_transparent_alias_group: 0,
             invalid_binding_recoveries: Vec::new(),
             omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
@@ -328,6 +330,12 @@ impl<'a> FunctionChecker<'a> {
             refined_match_domains: adt_and_match::RefinedMatchDomainCache::default(),
             variant_diagnostics,
         }
+    }
+
+    pub(super) fn fresh_transparent_alias_group(&mut self) -> usize {
+        let group = self.next_transparent_alias_group;
+        self.next_transparent_alias_group += 1;
+        group
     }
 
     pub(super) fn check_body(&mut self) {

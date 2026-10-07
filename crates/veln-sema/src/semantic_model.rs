@@ -24,6 +24,7 @@ pub(crate) struct EffectUse {
 pub(crate) struct Binding {
     pub(crate) name: String,
     pub(crate) ty: Type,
+    pub(crate) transparent_alias_group: Option<usize>,
     pub(crate) type_origin: Option<TypeOrigin>,
     pub(crate) private_function_value: Option<FunctionKey>,
     pub(crate) is_diagnosed_unknown: bool,
@@ -50,6 +51,7 @@ impl Clone for Binding {
         Self {
             name: self.name.clone(),
             ty: self.ty.clone(),
+            transparent_alias_group: self.transparent_alias_group,
             type_origin: self.type_origin.clone(),
             private_function_value: self.private_function_value.clone(),
             is_diagnosed_unknown: self.is_diagnosed_unknown,
@@ -83,6 +85,7 @@ impl Binding {
         Self {
             name,
             ty,
+            transparent_alias_group: None,
             type_origin: None,
             private_function_value: None,
             is_diagnosed_unknown: false,
@@ -93,6 +96,7 @@ impl Binding {
         Self {
             name: "callsite".to_string(),
             ty: Type::source_location(),
+            transparent_alias_group: None,
             type_origin: None,
             private_function_value: None,
             is_diagnosed_unknown: false,
@@ -103,6 +107,7 @@ impl Binding {
         Self {
             name,
             ty,
+            transparent_alias_group: None,
             type_origin: None,
             private_function_value: Some(target),
             is_diagnosed_unknown: false,
@@ -113,6 +118,7 @@ impl Binding {
         Self {
             name,
             ty,
+            transparent_alias_group: None,
             type_origin: None,
             private_function_value: None,
             is_diagnosed_unknown: true,

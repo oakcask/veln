@@ -1,0 +1,83 @@
+# Compiler integration contract: construction, calls, equality, Boolean
+# helpers, conditional expressions, and contract predicates do not make an
+# input binding a transparent alias of a separately checked value.
+type State
+	Ready
+	Closed
+	Failed
+end
+
+fn accept_ready(value: State::Ready) -> ()
+	()
+end
+
+fn identity(value: State) -> State
+	value
+end
+
+fn is_ready(value: State) -> Bool
+	value == Ready
+end
+
+fn constructed(source: State) -> ()
+	let candidate = Ready
+	match candidate
+		Ready => begin
+			accept_ready(candidate)
+			accept_ready(source)
+		end
+	end
+end
+
+fn called(source: State) -> ()
+	let candidate = identity(source)
+	match candidate
+		Ready => begin
+			accept_ready(candidate)
+			accept_ready(source)
+		end
+		Closed => ()
+		Failed => ()
+	end
+end
+
+fn equality(source: State) -> ()
+	if source == Ready
+		accept_ready(source)
+	else
+		()
+	end
+end
+
+fn boolean_helper(source: State) -> ()
+	if is_ready(source)
+		accept_ready(source)
+	else
+		()
+	end
+end
+
+fn conditional(source: State) -> ()
+	let candidate = if true
+		source
+	else
+		source
+	end
+	match candidate
+		Ready => begin
+			accept_ready(candidate)
+			accept_ready(source)
+		end
+		Closed => ()
+		Failed => ()
+	end
+end
+
+fn contracted(source: State) -> ()
+require is_ready(source)
+	accept_ready(source)
+end
+
+fn main() -> ()
+	()
+end
