@@ -745,6 +745,60 @@ fn parses_variant_refinements_in_explicit_call_type_arguments() {
 }
 
 #[test]
+fn explicit_call_type_argument_finalization_preserves_spans_and_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn invoke(value: State) -> ()\n",
+            "  sink<State::Ready | Int, Result<Int>::ok>(value)\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Call { callee, .. } = &expr.kind else {
+        panic!("expected call");
+    };
+    let ExprKind::TypeApply {
+        type_args,
+        type_arg_spans,
+        ..
+    } = &callee.kind
+    else {
+        panic!("expected explicit type application");
+    };
+
+    assert_eq!(type_args, &["State::Ready|Int", "Result<Int>::ok"]);
+    assert_eq!(type_arg_spans.len(), 2);
+    assert_eq!(
+        &source.text()[type_arg_spans[0].start.offset..type_arg_spans[0].end.offset],
+        "State::Ready | Int"
+    );
+    assert_eq!(
+        &source.text()[type_arg_spans[1].start.offset..type_arg_spans[1].end.offset],
+        "Result<Int>::ok"
+    );
+
+    let refinement_diagnostics = output
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+        .collect::<Vec<_>>();
+    assert_eq!(refinement_diagnostics.len(), 2, "{:#?}", output.diagnostics);
+    assert_eq!(
+        refinement_diagnostics[0].message,
+        "`|` must join complete ADT variant refinement alternatives"
+    );
+    assert_eq!(
+        refinement_diagnostics[1].message,
+        "variant refinement final segment must start with an ASCII uppercase letter"
+    );
+}
+
+#[test]
 fn explicit_call_type_arguments_distinguish_nested_and_surplus_fused_closers() {
     let valid = SourceFile::new(
         "main.veln",
