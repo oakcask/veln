@@ -326,7 +326,9 @@ diagnostics use `boundary: "handler_operation_clause"` and do not emit a
 `reason: "unknown_handled_effect"` and related notes containing candidate
 `effect` and `operations` declarations.
 
-Advisory hole candidate and application-policy fields are specified by
+Advisory hole diagnostic fields, candidate eligibility, type-match ranking,
+and `satisfy` behavior are specified by [holes.md](holes.md). Candidate
+application-policy fields are specified by
 [repair-candidates.md](repair-candidates.md). Runtime result projections are
 specified by [run-json.md](run-json.md).
 

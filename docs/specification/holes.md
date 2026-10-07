@@ -50,6 +50,17 @@ independently available enclosing or declared expectation. Without one, it
 retains `expected_type: "unknown"` and uses the existing unknown-context
 candidate behavior.
 
+Hole diagnostics and repair queries use the same
+[arm-local type](types.md#inference-rules) as ordinary name expressions.
+`local_bindings`, candidate query argument types, and candidate records render
+that effective type. It determines candidate eligibility and whether ranking
+and evidence report an exact or assignable type match. `satisfy` checking also
+uses it. In a valid constructor or nonempty residual catch-all arm, every
+transparent alias of the matched value therefore observes the singleton or
+residual refinement. A shadowed binding contributes only its visible
+declaration. After the arm, these surfaces again use each binding's declared or
+inferred type.
+
 ## Candidate records and ranking
 
 Every candidate query is advisory and has `candidate_status: "query_only"`.
@@ -169,6 +180,8 @@ does not authorize application.
   `crates/veln-sema/src/analysis/repair_reasoning/`.
 - Predicate normalization and requirement discharge:
   `crates/veln-sema/src/contracts/`.
+- Match-arm refinement of hole diagnostics and candidates:
+  [`adt-variant-refinement-match-hole-repairs-json`](../../examples/specification/check/adt-variant-refinement-match-hole-repairs-json/).
 - JSON field definitions and applying-command gates:
   [diagnostics-json.md](diagnostics-json.md),
   [repair-candidates.md](repair-candidates.md), and

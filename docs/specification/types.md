@@ -391,15 +391,10 @@ each participating binding's declared or inferred type. The shared feasible
 domain remains available only to classify a later `match` on a group member;
 it does not narrow that binding's type in ordinary expressions after the arm.
 
-Hole diagnostics and repair queries use the same arm-local type as ordinary
-name expressions. Their visible-binding list, query arguments, candidate
-filtering and ranking, rendered candidate types, type evidence, and `satisfy`
-checks therefore observe constructor and residual refinements for every
-transparent alias. A shadowed binding does not contribute a second candidate.
-After the arm, those surfaces again use each binding's declared or inferred
-type. The checked
-[`adt-variant-refinement-match-hole-repairs-json`](../../examples/specification/check/adt-variant-refinement-match-hole-repairs-json/)
-case exercises the JSON contract.
+[Hole diagnostics and repair queries](holes.md#hole-diagnostics-and-expected-types)
+consume the same arm-local type as ordinary name expressions. The holes
+specification owns their visible-binding, candidate, ranking, and `satisfy`
+behavior.
 
 ```veln
 type Boxed<A>
