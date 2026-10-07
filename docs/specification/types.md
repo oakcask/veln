@@ -502,13 +502,13 @@ unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
 the arms that prove partial coverage.
 
-Coverage classification for one direct refined match has linear instrumented
-work when the domain size and arm count grow together. This bound covers
-complete and incomplete coverage, duplicate and impossible constructor arms,
-and a catch-all after complete constructor coverage. For a fixed singleton
-domain, widening the base ADT does not increase match-local setup or retained
-state. Sequential singleton matches increase setup linearly while retaining
-one match state at a time.
+Coverage classification for one stable-binding refined match has linear
+instrumented work when the domain size and arm count grow together. This bound
+covers complete and incomplete coverage, duplicate and impossible constructor
+arms, and a catch-all after complete constructor coverage. For a fixed
+singleton domain, widening the base ADT does not increase match-local setup or
+retained state. Sequential singleton matches increase setup linearly while
+retaining one match state at a time.
 
 An accepted source can declare one refined union of width `N` and nest `D`
 direct catch-all matches. Its match-local setup and peak retained or

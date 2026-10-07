@@ -162,13 +162,13 @@ unresolved constructor path reports `name.unresolved` at its final name segment
 with `namespace: "constructor"`; the diagnostic symbol retains the complete
 written path. If the rejected arm was the only arm for a remaining variant,
 the match also reports the ordinary `type.match_non_exhaustive` diagnostic.
-The invalid-casing recovery used by the ordinary exhaustiveness path when this
-direct refined-coverage path is inactive can suppress its sole derivative
-missing-case diagnostic; it does not validate the rejected arm.
+The invalid-casing recovery used by the ordinary exhaustiveness path when the
+stable-binding refined-coverage path is inactive can suppress its sole
+derivative missing-case diagnostic; it does not validate the rejected arm.
 
-On this direct refined-coverage path, the intrinsic wrong-arity diagnostic is
-`type.constructor_pattern_arity` at the complete constructor pattern. Its
-closed details contain only
+On the stable-binding refined-coverage path, the intrinsic wrong-arity
+diagnostic is `type.constructor_pattern_arity` at the complete constructor
+pattern. Its closed details contain only
 `constructor`, `expected_payload_count`, and `actual_payload_count`, and it has
 no related entries. The primary message states the expected and actual payload
 counts. Supplied payload patterns and the arm body are still checked, but the
