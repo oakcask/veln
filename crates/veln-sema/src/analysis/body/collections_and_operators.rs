@@ -611,11 +611,8 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::BoolLiteral(_) => Some(Type::bool()),
             ExprKind::NamePath { segments, .. } => match segments.as_slice() {
                 [name] => self
-                    .bindings
-                    .iter()
-                    .rev()
-                    .find(|binding| binding.name == *name)
-                    .map(|binding| binding.ty.clone())
+                    .visible_binding_index(name)
+                    .map(|index| self.binding_type(index))
                     .or_else(|| {
                         self.environment
                             .unqualified_function(name, self.function.module_name.as_deref())

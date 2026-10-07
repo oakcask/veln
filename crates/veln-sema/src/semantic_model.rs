@@ -240,6 +240,21 @@ impl Type {
         }
     }
 
+    pub(crate) fn resolved_variant_refinement_shared(
+        name: impl Into<String>,
+        identity: impl Into<String>,
+        args: Vec<Type>,
+        variants: Arc<[String]>,
+    ) -> Self {
+        Self::VariantRefinement {
+            name: name.into(),
+            identity: identity.into(),
+            args,
+            variants,
+            unresolved_alternatives: Vec::new(),
+        }
+    }
+
     pub(crate) fn unresolved_variant_union(
         name: String,
         args: Vec<Type>,

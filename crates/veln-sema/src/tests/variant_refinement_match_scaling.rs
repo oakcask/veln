@@ -542,3 +542,161 @@ fn nested_wide_residual_matches_have_additive_state_and_work() {
         );
     }
 }
+
+fn widened_alias_scaling_source(
+    variant_count: usize,
+    alias_count: usize,
+    unrelated_count: usize,
+) -> String {
+    let variants = (0..variant_count)
+        .map(|index| format!("V{index:04}"))
+        .collect::<Vec<_>>();
+    let mut source = String::from("type State\n");
+    for variant in &variants {
+        source.push_str(&format!("  {variant}\n"));
+    }
+    source.push_str("  Outside\nend\nfn classify(state: ");
+    source.push_str(
+        &variants
+            .iter()
+            .map(|variant| format!("State::{variant}"))
+            .collect::<Vec<_>>()
+            .join(" | "),
+    );
+    source.push_str(") -> ()\n");
+    let mut alias = "state".to_string();
+    for index in 0..alias_count {
+        let next = format!("alias{index}");
+        source.push_str(&format!("  let {next}: State = {alias}\n"));
+        alias = next;
+    }
+    for index in 0..unrelated_count {
+        source.push_str(&format!("  let unrelated{index}: Int = {index}\n"));
+    }
+    source.push_str(&format!("  match {alias}\n"));
+    for variant in &variants {
+        source.push_str(&format!("    {variant} => ()\n"));
+    }
+    source.push_str("  end\nend\n");
+    source
+}
+
+fn measure_transparent_alias_work(source: String) -> crate::analysis::TransparentAliasWork {
+    let source = SourceFile::new("main.veln", source);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let function = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("classify"))
+        .expect("classify declaration");
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    crate::analysis::reset_transparent_alias_work();
+    let diagnostics =
+        crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let work = crate::analysis::take_transparent_alias_work();
+    assert_eq!(work.retained_groups, 0, "group owners must be released");
+    assert_eq!(work.retained_members, 0, "member owners must be released");
+    assert_eq!(
+        work.active_refinements, 0,
+        "refinement frames must be released"
+    );
+    assert_eq!(
+        work.variant_visits, 0,
+        "equal/shared domains need no visits"
+    );
+    assert_eq!(
+        work.variant_clones, 0,
+        "shared domains need no label clones"
+    );
+    assert_eq!(
+        work.temporary_materializations, 0,
+        "shared domains need no temporary intersections"
+    );
+    work
+}
+
+#[test]
+fn widened_alias_group_work_scales_by_independent_dimensions() {
+    let aliases = [100, 200, 400]
+        .map(|count| measure_transparent_alias_work(widened_alias_scaling_source(32, count, 0)));
+    for adjacent in aliases.windows(2) {
+        assert!(
+            adjacent[1].peak_retained_members <= adjacent[0].peak_retained_members * 2 + 2,
+            "alias entries must grow linearly: {aliases:?}"
+        );
+        assert_eq!(adjacent[0].peak_retained_groups, 1, "{aliases:?}");
+        assert_eq!(adjacent[1].peak_retained_groups, 1, "{aliases:?}");
+        assert!(
+            adjacent[1].group_lookups <= adjacent[0].group_lookups * 2 + 2,
+            "alias construction and lookup work must grow linearly: {aliases:?}"
+        );
+        assert!(
+            adjacent[1].member_lookups <= adjacent[0].member_lookups * 2 + 2,
+            "alias member lookup work must grow linearly: {aliases:?}"
+        );
+    }
+
+    let arms = [100, 200, 400]
+        .map(|count| measure_transparent_alias_work(widened_alias_scaling_source(count, 16, 0)));
+    for adjacent in arms.windows(2) {
+        assert!(
+            adjacent[1].group_lookups <= adjacent[0].group_lookups * 2 + 8,
+            "constructor arms must add only linear group work: {arms:?}"
+        );
+        assert_eq!(
+            adjacent[0].peak_retained_members, adjacent[1].peak_retained_members,
+            "domain width must not duplicate alias entries: {arms:?}"
+        );
+    }
+
+    let unrelated = [100, 200, 400]
+        .map(|count| measure_transparent_alias_work(widened_alias_scaling_source(32, 16, count)));
+    assert!(
+        unrelated.windows(2).all(|adjacent| {
+            adjacent[0].group_lookups == adjacent[1].group_lookups
+                && adjacent[0].member_lookups == adjacent[1].member_lookups
+                && adjacent[0].peak_retained_groups == adjacent[1].peak_retained_groups
+                && adjacent[0].peak_retained_members == adjacent[1].peak_retained_members
+        }),
+        "unrelated bindings must not add alias-group work or state: {unrelated:?}"
+    );
+}
+
+#[test]
+fn nested_complete_alias_frames_have_additive_state() {
+    let depths = [8, 16, 32]
+        .map(|depth| measure_transparent_alias_work(nested_residual_catch_all_source(400, depth)));
+    for (index, depth) in [8, 16, 32].into_iter().enumerate() {
+        assert_eq!(depths[index].peak_retained_groups, 1, "{depths:?}");
+        assert_eq!(depths[index].peak_active_refinements, depth, "{depths:?}");
+        assert_eq!(depths[index].peak_retained_members, depth + 1, "{depths:?}");
+    }
+    for adjacent in depths.windows(2) {
+        assert!(
+            adjacent[1].group_lookups <= adjacent[0].group_lookups * 2 + 8,
+            "nested group work must grow linearly: {depths:?}"
+        );
+        assert!(
+            adjacent[1].peak_active_refinements <= adjacent[0].peak_active_refinements * 2 + 1,
+            "nested frame state must grow linearly: {depths:?}"
+        );
+    }
+
+    let width_and_depth = [(100, 8), (200, 16), (400, 32)].map(|(width, depth)| {
+        measure_transparent_alias_work(nested_residual_catch_all_source(width, depth))
+    });
+    for adjacent in width_and_depth.windows(2) {
+        assert!(
+            adjacent[1].group_lookups <= adjacent[0].group_lookups * 2 + 8,
+            "simultaneous width and depth growth must remain additive: {width_and_depth:?}"
+        );
+        assert!(
+            adjacent[1].peak_retained_members <= adjacent[0].peak_retained_members * 2 + 2,
+            "simultaneous width and depth growth must not multiply state: {width_and_depth:?}"
+        );
+    }
+}

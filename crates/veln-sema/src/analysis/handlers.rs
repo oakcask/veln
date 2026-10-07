@@ -457,7 +457,7 @@ fn clause_body_diagnostics(
         &expected,
         "handler_operation_result",
     );
-    let mut diagnostics = checker.diagnostics;
+    let mut diagnostics = std::mem::take(&mut checker.diagnostics);
     if checker
         .inferred_effects
         .iter()

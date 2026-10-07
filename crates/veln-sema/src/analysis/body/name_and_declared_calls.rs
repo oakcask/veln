@@ -195,18 +195,15 @@ impl<'a> FunctionChecker<'a> {
         name: &str,
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
-        let index = self
-            .bindings
-            .iter()
-            .rposition(|binding| binding.name == name)?;
+        let index = self.visible_binding_index(name)?;
         self.record_defer_capture(index, name);
-        let current = self.bindings[index].ty.clone();
+        let current = self.binding_type(index);
         if matches!(current, Type::Record(ref fields) if fields.is_empty())
             && let Some(expected) = expected
             && expected.ty.dict_parts().is_some()
             && !type_contains_unknown(&expected.ty)
         {
-            self.bindings[index].ty = expected.ty.clone();
+            self.set_binding_type(index, expected.ty.clone());
             return Some(expected.ty.clone());
         }
         if type_contains_unknown(&current)
@@ -216,10 +213,10 @@ impl<'a> FunctionChecker<'a> {
             if matches!(current, Type::VariantRefinement { .. }) {
                 let mut constrained = current.clone();
                 adt::merge_type_holes(&mut constrained, &expected.ty);
-                self.bindings[index].ty = constrained.clone();
+                self.set_binding_type(index, constrained.clone());
                 return Some(constrained);
             }
-            self.bindings[index].ty = expected.ty.clone();
+            self.set_binding_type(index, expected.ty.clone());
             return Some(expected.ty.clone());
         }
         Some(current)
@@ -262,10 +259,7 @@ impl<'a> FunctionChecker<'a> {
         let [name] = segments.as_slice() else {
             return None;
         };
-        let binding_index = self
-            .bindings
-            .iter()
-            .rposition(|binding| binding.name == *name)?;
+        let binding_index = self.visible_binding_index(name)?;
         self.record_defer_capture(binding_index, name);
         let binding = &self.bindings[binding_index];
         let type_origin = binding.type_origin.clone();
@@ -274,7 +268,7 @@ impl<'a> FunctionChecker<'a> {
             variadic,
             return_type,
             effects,
-        } = binding.ty.clone()
+        } = self.binding_type(binding_index)
         else {
             return None;
         };

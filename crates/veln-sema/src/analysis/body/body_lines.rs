@@ -120,7 +120,7 @@ impl<'a> FunctionChecker<'a> {
 
         self.check_omitted_local_inference_from(saved_omitted_bindings);
         self.omitted_local_bindings.truncate(saved_omitted_bindings);
-        self.bindings.truncate(saved_bindings);
+        self.truncate_bindings(saved_bindings);
         self.invalid_binding_recoveries
             .truncate(saved_invalid_binding_recoveries);
         for (name, previous) in self
@@ -250,17 +250,16 @@ impl<'a> FunctionChecker<'a> {
         } else {
             Binding::new(binding.name.clone(), binding.ty.clone())
         };
-        admitted.transparent_alias_group = Some(
-            context
-                .transparent_alias_group
-                .unwrap_or_else(|| self.fresh_transparent_alias_group()),
-        );
+        admitted.transparent_alias_group = context
+            .transparent_alias_group
+            .filter(|_| !context.initializer_has_diagnostic && !context.pattern_has_diagnostic)
+            .or_else(|| self.fresh_transparent_alias_group(binding.ty.clone()));
         if matches!(binding.ty, Type::Function { .. })
             && let Some(type_origin) = &context.type_origin
         {
             admitted.type_origin = Some(type_origin.clone());
         }
-        self.bindings.push(admitted);
+        self.push_binding(admitted);
         if context.annotation_is_omitted
             && (!context.initializer_has_diagnostic
                 || context.deferred_initializer_diagnostic.is_some())
@@ -283,11 +282,8 @@ impl<'a> FunctionChecker<'a> {
         let [name] = segments.as_slice() else {
             return None;
         };
-        self.bindings
-            .iter()
-            .rev()
-            .find(|binding| binding.name == *name)
-            .and_then(|binding| binding.transparent_alias_group)
+        self.visible_binding_index(name)
+            .and_then(|index| self.bindings[index].transparent_alias_group)
     }
 
     pub(super) fn check_expr_line(&mut self, index: usize, line: &BodyLine, expr: &Expr) {
@@ -599,7 +595,7 @@ impl<'a> FunctionChecker<'a> {
                 "callsite".to_string(),
                 (function.node_id.display("callsite"), span.clone()),
             );
-            self.bindings.push(Binding::new(
+            self.push_binding(Binding::new(
                 "callsite".to_string(),
                 Type::source_location(),
             ));

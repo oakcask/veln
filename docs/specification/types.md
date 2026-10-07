@@ -373,14 +373,21 @@ one singleton refinement, or a finite refinement union. The refinement retains
 the resolved ADT identity and its instantiated generic arguments.
 
 A singleton or finite-union scrutinee restricts the match domain to its current
-variant set. Each valid constructor arm removes its variant from the residual
-set. A binding catch-all receives the complete residual refinement and becomes
-a transparent alias for the complete matched value. A non-binding `_`
-catch-all gives the existing scrutinee and its transparent aliases that same
-refinement. Complete constructor coverage or one catch-all makes the match
-exhaustive. A nested `match` observes and can refine the current arm's finite
-domain. Leaving an inner arm preserves the enclosing refinement. Leaving the
-outer arm restores every participating binding's declared or inferred type.
+variant set. Transparent aliases share the feasible domain of the same
+immutable value. A valid widening changes one alias's declared type without
+enlarging that shared domain. Matching any group member therefore uses the
+shared domain for constructor feasibility, exhaustiveness, and residual
+catch-alls, even when the selected member is declared as a wider union or the
+base ADT.
+
+Each valid constructor arm removes its variant from the residual set. A binding
+catch-all receives the complete residual refinement and becomes a transparent
+alias for the complete matched value. A non-binding `_` catch-all gives the
+existing scrutinee and its transparent aliases that same refinement. Complete
+constructor coverage or one catch-all makes the match exhaustive. A nested
+`match` observes and can refine the current arm's shared finite domain. Leaving
+an inner arm preserves the enclosing refinement. Leaving the outer arm restores
+every participating binding's own declared or inferred type.
 
 ```veln
 type Boxed<A>
@@ -407,9 +414,9 @@ The call in the `Filled` arm is accepted because `value` has type
 also demonstrates a generic three-variant refined domain whose binding
 catch-all, wildcard catch-all, and original scrutinee binding receive the
 complete two-variant residual type. It also checks inferred and annotated
-transparent alias chains and complete-value pattern aliases. Nested matches
-distinguish the residual from either singleton narrowing or widening to the
-base ADT.
+transparent alias chains, direct widening, and complete-value pattern aliases.
+Nested matches distinguish the residual from either singleton narrowing or an
+alias's wider presentation.
 
 For bare or redundantly parenthesized bindings with a refined domain, arm
 classification first validates the constructor name, visibility, owning
@@ -529,12 +536,16 @@ materialized state grow additively with `N + D`, not multiplicatively with
 diagnostic text. Deterministic counters cover initialized and peak match-local
 collections including the shared-domain cache, shared domain handles,
 cumulative residual and refinement materialization, refinements retained while
-an arm body is checked, and cached dynamically rendered diagnostic text. Every
-instrumented match-local owner returns to zero after analysis. These counters,
-rather than elapsed time, define the regression checks; reported wall-clock
-timings are observational. Final serialized JSON can still grow quadratically
-when a linear number of diagnostics must each expose the complete refined
-domain.
+an arm body is checked, cached dynamically rendered diagnostic text, alias
+group and member lookups, retained alias entries, active group-refinement
+frames, variant visits and label clones, and temporary intersections.
+Increasing alias count, constructor-arm count, nesting depth, or unrelated
+local count is checked independently. Unrelated locals add no alias-group work
+or state. Every instrumented match-local owner returns to zero after analysis.
+These counters, rather than elapsed time, define the regression checks;
+reported wall-clock timings are observational. Final serialized JSON can still
+grow quadratically when a linear number of diagnostics must each expose the
+complete refined domain.
 
 ### Result propagation
 

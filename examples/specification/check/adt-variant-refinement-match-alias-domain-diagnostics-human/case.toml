@@ -1,0 +1,12 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "error[type.match_impossible_variant]: variant `Closed` is excluded by the refined match domain",
+  "The feasible match domain is `State::Ready`.",
+]
+
+[stderr]
+format = "empty"

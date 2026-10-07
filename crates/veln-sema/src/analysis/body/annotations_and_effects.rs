@@ -333,10 +333,10 @@ impl<'a> FunctionChecker<'a> {
         if !self.declare_local_name(name, node_id, span, declaration_kind, false) {
             return;
         }
-        let mut binding = Binding::new(name.to_string(), ty);
-        binding.transparent_alias_group = Some(self.fresh_transparent_alias_group());
+        let mut binding = Binding::new(name.to_string(), ty.clone());
+        binding.transparent_alias_group = self.fresh_transparent_alias_group(ty);
         binding.type_origin = type_origin;
-        self.bindings.push(binding);
+        self.push_binding(binding);
     }
 
     pub(in crate::analysis) fn admit_value_binding_without_duplicate_diagnostic(
@@ -352,9 +352,9 @@ impl<'a> FunctionChecker<'a> {
                 });
             return;
         }
-        let mut binding = Binding::new(name.to_string(), ty);
-        binding.transparent_alias_group = Some(self.fresh_transparent_alias_group());
-        self.bindings.push(binding);
+        let mut binding = Binding::new(name.to_string(), ty.clone());
+        binding.transparent_alias_group = self.fresh_transparent_alias_group(ty);
+        self.push_binding(binding);
     }
 
     pub(super) fn check_contracts(&mut self) {

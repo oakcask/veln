@@ -145,6 +145,57 @@ fn residual_alias_wildcard(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed
 	end
 end
 
+fn widened_alias_domain(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()
+	let wider_set: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed = value
+	let base: Boxed<Int> = wider_set
+	match base
+		Filled(_) => begin
+			accept_filled(value)
+			accept_filled(wider_set)
+			accept_filled(base)
+		end
+		remaining => begin
+			accept_empty(value)
+			accept_empty(wider_set)
+			accept_empty(base)
+			accept_empty(remaining)
+			let nested: Boxed<Int> = remaining
+			match nested
+				Empty => begin
+					accept_empty(value)
+					accept_empty(base)
+					accept_empty(remaining)
+					accept_empty(nested)
+				end
+			end
+			accept_empty(remaining)
+		end
+	end
+	match value
+		Filled(_) => ()
+		Empty => ()
+	end
+	match wider_set
+		Filled(_) => ()
+		Empty => ()
+	end
+	match base
+		Filled(_) => ()
+		Empty => ()
+	end
+end
+
+fn widened_residual(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	let base: Boxed<Int> = value
+	match base
+		Filled(_) => ()
+		_ => begin
+			accept_empty_or_failed(value)
+			accept_empty_or_failed(base)
+		end
+	end
+end
+
 fn parenthesized_residual(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
 	match (((value)))
 		Filled(_) => accept_filled(value)

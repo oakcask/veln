@@ -125,8 +125,9 @@ before the rejected payload. If an earlier error leaves the value untyped,
 A valid constructor arm for an immutable match-scrutinee binding written as a
 bare name or with redundant parentheses refines that binding and its
 transparent local aliases to the constructor singleton while checking the arm.
-A binding already typed as a singleton or finite refinement union uses that set
-as its match domain. Valid constructor arms consume one residual variant.
+A transparent-alias group uses the feasible domain established by all valid
+facts for its one immutable value. A wider annotation on one member does not
+enlarge that domain. Valid constructor arms consume one residual variant.
 Binding and `_` catch-alls give every participating binding the complete
 residual set; a binding catch-all also becomes another transparent alias for
 the complete matched value. Passing any participating binding to a parameter
@@ -134,8 +135,14 @@ that requires its arm refinement emits no `type.variant_mismatch`.
 
 A valid same-ADT constructor excluded by the original refined domain reports
 `type.match_impossible_variant` at the constructor's final name segment. Its
-closed details contain only `scrutinee_type` and `arm_variant`. Related entries
-identify the refined scrutinee occurrence and selected ADT declaration.
+closed details contain only `scrutinee_type` and `arm_variant`.
+`scrutinee_type` renders the alias group's effective feasible domain, including
+an enclosing arm refinement, rather than a selected member's wider declared
+type. Related entries identify the scrutinee occurrence and selected ADT
+declaration. The checked widened-alias classifications are
+[`adt-variant-refinement-match-alias-domain-diagnostics-human`](../../examples/specification/check/adt-variant-refinement-match-alias-domain-diagnostics-human/)
+and
+[`adt-variant-refinement-match-alias-domain-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-alias-domain-diagnostics-json/).
 
 A valid constructor or catch-all with no residual variant reports
 `type.match_redundant_arm` at the complete arm pattern. Its closed details are

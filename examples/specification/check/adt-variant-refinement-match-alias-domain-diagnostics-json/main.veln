@@ -1,0 +1,23 @@
+type State
+	Ready
+	Closed
+end
+
+fn accept_ready(value: State::Ready) -> ()
+	()
+end
+
+fn classify(value: State::Ready) -> ()
+	let widened: State = value
+	match widened
+		Closed => begin
+			accept_ready(value)
+			accept_ready(widened)
+		end
+		Ready => ()
+	end
+end
+
+fn main() -> ()
+	()
+end

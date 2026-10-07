@@ -21,7 +21,7 @@ main.veln:54:3: error[type.match_non_exhaustive]: match is missing case Wrapped(
   note: main.veln:54:9: Scrutinee has type `Boxed::Wrapped | Boxed::Done`.
   note: main.veln:56:5: This arm covers Done.
 main.veln:62:5: error[type.match_impossible_variant]: variant `Closed` is excluded by the refined match domain
-  note: main.veln:61:9: This match scrutinee has refined type `State::Ready`.
+  note: main.veln:61:9: The feasible match domain is `State::Ready`.
   note: main.veln:1:1: The selected ADT is `State`.
 main.veln:63:18: error[type.mismatch]: expected `Int`, but found `String`
 main.veln:64:7: error[name.unresolved]: unresolved value `missing_impossible_body`

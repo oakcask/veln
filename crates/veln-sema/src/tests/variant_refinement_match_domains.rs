@@ -261,6 +261,108 @@ fn transparent_alias_chains_and_complete_pattern_bindings_share_arm_refinements(
 }
 
 #[test]
+fn widened_aliases_share_the_source_feasible_domain() {
+    let source = [
+        STATE_DECL,
+        concat!(
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn accept_closed(value: State::Closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn singleton_source(value: State::Ready) -> ()\n",
+            "  let widened: State = value\n",
+            "  match widened\n",
+            "    Ready => begin\n",
+            "      accept_ready(value)\n",
+            "      accept_ready(widened)\n",
+            "    end\n",
+            "  end\n",
+            "end\n",
+            "fn finite_source(value: State::Ready | State::Closed) -> ()\n",
+            "  let wider_set: State::Ready | State::Closed | State::Failed = value\n",
+            "  let base: State = wider_set\n",
+            "  match base\n",
+            "    Ready => begin\n",
+            "      accept_ready(value)\n",
+            "      accept_ready(wider_set)\n",
+            "      accept_ready(base)\n",
+            "    end\n",
+            "    remaining => begin\n",
+            "      accept_closed(value)\n",
+            "      accept_closed(wider_set)\n",
+            "      accept_closed(base)\n",
+            "      accept_closed(remaining)\n",
+            "      let nested: State = remaining\n",
+            "      match nested\n",
+            "        Closed => begin\n",
+            "          accept_closed(value)\n",
+            "          accept_closed(base)\n",
+            "          accept_closed(remaining)\n",
+            "          accept_closed(nested)\n",
+            "        end\n",
+            "      end\n",
+            "      accept_closed(remaining)\n",
+            "    end\n",
+            "  end\n",
+            "  match value\n",
+            "    Ready => ()\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "  match wider_set\n",
+            "    Ready => ()\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "  match base\n",
+            "    Ready => ()\n",
+            "    Closed => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+    ]
+    .concat();
+    let diagnostics = diagnostics_for(&source);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn widened_alias_impossible_arm_uses_the_shared_domain_and_recovers() {
+    let source = [
+        STATE_DECL,
+        concat!(
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn classify(value: State::Ready) -> ()\n",
+            "  let widened: State = value\n",
+            "  match widened\n",
+            "    Closed => begin\n",
+            "      accept_ready(value)\n",
+            "      accept_ready(widened)\n",
+            "    end\n",
+            "    Ready => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+    ]
+    .concat();
+    let diagnostics = diagnostics_for(&source);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.match_impossible_variant");
+    assert_eq!(
+        detail(&diagnostics[0], "scrutinee_type").as_text(),
+        Some("State::Ready")
+    );
+    assert_eq!(
+        detail(&diagnostics[0], "arm_variant").as_text(),
+        Some("Closed")
+    );
+}
+
+#[test]
 fn transparent_alias_refinements_restore_and_computed_values_stay_independent() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",
