@@ -1359,9 +1359,7 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         planned_refinement: Option<&Type>,
     ) -> Option<(usize, Type)> {
-        let Some(alias_group) = self.stable_match_alias_group(scrutinee) else {
-            return None;
-        };
+        let alias_group = self.stable_match_alias_group(scrutinee)?;
 
         let refinement = if let Some(refinement) = planned_refinement {
             refinement.clone()
@@ -1381,20 +1379,16 @@ impl<'a> FunctionChecker<'a> {
             if invalid_qualified_constructor_pattern(name) {
                 return None;
             }
-            let Some(descriptor) = self.environment.adts.descriptor_for_type_prefer_module(
+            let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
                 scrutinee_type,
                 self.function.module_name.as_deref(),
-            ) else {
-                return None;
-            };
-            let Some(constructor) = self.environment.adts.constructor_for_descriptor(
+            )?;
+            let constructor = self.environment.adts.constructor_for_descriptor(
                 name,
                 descriptor,
                 self.function.module_name.as_deref(),
                 &self.environment.uses,
-            ) else {
-                return None;
-            };
+            )?;
             if args.len() != constructor.variant.payload_fields.len() {
                 return None;
             }
