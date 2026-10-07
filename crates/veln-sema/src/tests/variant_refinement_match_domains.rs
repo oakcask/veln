@@ -76,6 +76,63 @@ fn refined_domains_drive_constructor_and_residual_catch_all_refinement() {
 }
 
 #[test]
+fn parenthesized_bindings_refine_base_and_finite_domains_and_restore_scope() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "  Excluded\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_closed(value: State::Closed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_failed(value: State::Failed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn base(value: State) -> ()\n",
+        "  match (value)\n",
+        "    Ready => accept_ready(value)\n",
+        "    Closed => accept_closed(value)\n",
+        "    Failed => accept_failed(value)\n",
+        "    Excluded => ()\n",
+        "  end\n",
+        "end\n",
+        "fn refined(value: State::Ready | State::Closed | State::Failed) -> ()\n",
+        "  match (((value)))\n",
+        "    Ready => accept_ready(value)\n",
+        "    remaining => begin\n",
+        "      match ((remaining))\n",
+        "        Closed => accept_closed(remaining)\n",
+        "        Failed => accept_failed(remaining)\n",
+        "      end\n",
+        "      match (value)\n",
+        "        Closed => accept_closed(value)\n",
+        "        Failed => accept_failed(value)\n",
+        "      end\n",
+        "    end\n",
+        "  end\n",
+        "  match (value)\n",
+        "    Ready => accept_ready(value)\n",
+        "    Closed => accept_closed(value)\n",
+        "    Failed => accept_failed(value)\n",
+        "  end\n",
+        "end\n",
+        "fn wildcard(value: State::Ready | State::Closed) -> ()\n",
+        "  match ((value))\n",
+        "    Ready => accept_ready(value)\n",
+        "    _ => accept_closed(value)\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn catch_alls_preserve_the_complete_multi_variant_residual() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",
@@ -119,7 +176,7 @@ fn refined_domain_classification_is_deterministic_and_preserves_related_arms() {
         "{STATE_DECL}{}",
         concat!(
             "fn classify(value: State::Ready | State::Closed) -> ()\n",
-            "  match value\n",
+            "  match ((value))\n",
             "    Failed => ()\n",
             "    Ready => ()\n",
             "    Ready => ()\n",
@@ -409,8 +466,11 @@ fn invalid_casing_recovery_distinguishes_ordinary_and_refined_coverage() {
     let ordinary = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
+            "fn identity(value: State::Ready | State::Closed) -> State::Ready | State::Closed\n",
+            "  value\n",
+            "end\n",
             "fn check(value: State::Ready | State::Closed) -> ()\n",
-            "  match (value)\n",
+            "  match identity(value)\n",
             "    State::ready => ()\n",
             "    Closed => ()\n",
             "    Failed => ()\n",

@@ -725,7 +725,7 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         let scrutinee_type = self.infer_match_scrutinee(expr, scrutinee, arms);
         let mut refined_coverage = self
-            .is_direct_match_binding(scrutinee)
+            .is_stable_match_binding(scrutinee)
             .then(|| self.refined_match_coverage(scrutinee, &scrutinee_type))
             .flatten();
         if arms.is_empty() {
@@ -784,23 +784,16 @@ impl<'a> FunctionChecker<'a> {
         result.materialize()
     }
 
-    fn is_direct_match_binding(&self, scrutinee: &Expr) -> bool {
-        let ExprKind::NamePath {
-            segments,
-            segment_spans,
-        } = &scrutinee.kind
-        else {
+    fn is_stable_match_binding(&self, scrutinee: &Expr) -> bool {
+        let ExprKind::NamePath { segments, .. } = &scrutinee.kind else {
             return false;
         };
-        let ([binding_name], [binding_span]) = (segments.as_slice(), segment_spans.as_slice())
-        else {
+        let [binding_name] = segments.as_slice() else {
             return false;
         };
-        binding_span == &scrutinee.span
-            && self
-                .bindings
-                .iter()
-                .any(|binding| binding.name == *binding_name)
+        self.bindings
+            .iter()
+            .any(|binding| binding.name == *binding_name)
     }
 
     fn refined_match_coverage(
@@ -1314,7 +1307,7 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let planned_refinement = arm_plan.map(|plan| &plan.arm_type);
-        if let Some(binding) = self.direct_match_binding_refinement(
+        if let Some(binding) = self.stable_match_binding_refinement(
             scrutinee,
             pattern,
             scrutinee_type,
@@ -1338,29 +1331,19 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn direct_match_binding_refinement(
+    fn stable_match_binding_refinement(
         &self,
         scrutinee: &Expr,
         pattern: &Pattern,
         scrutinee_type: &Type,
         planned_refinement: Option<&Type>,
     ) -> Option<Binding> {
-        let ExprKind::NamePath {
-            segments,
-            segment_spans,
-        } = &scrutinee.kind
-        else {
+        let ExprKind::NamePath { segments, .. } = &scrutinee.kind else {
             return None;
         };
         let [binding_name] = segments.as_slice() else {
             return None;
         };
-        let [binding_span] = segment_spans.as_slice() else {
-            return None;
-        };
-        if binding_span != &scrutinee.span {
-            return None;
-        }
         self.bindings
             .iter()
             .rfind(|binding| binding.name == *binding_name)?;

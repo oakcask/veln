@@ -1,7 +1,8 @@
 # Compiler integration contract: checking a constructor arm exposes the matched
-# bare parameter or local at its singleton or complete multi-variant residual
-# refinement without losing generic arguments, and nested matches restore the
-# enclosing arm refinement.
+# bare or redundantly parenthesized parameter or local at its singleton or
+# complete multi-variant residual refinement without losing generic arguments.
+# Nested matches restore the enclosing arm refinement, and computed
+# scrutinees remain outside stable-binding refinement.
 type State
 	Ready
 	Closed
@@ -70,8 +71,49 @@ end
 
 fn local(value: Boxed<Int>) -> ()
 	let current: Boxed<Int> = value
-	match current
+	match (current)
 		Filled(_) => accept_filled(current)
+		Empty => ()
+		Failed => ()
+		Skipped => ()
+	end
+end
+
+fn parenthesized_residual(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	match (((value)))
+		Filled(_) => accept_filled(value)
+		remaining => begin
+			match ((remaining))
+				Empty => accept_empty(remaining)
+				Failed => accept_failed(remaining)
+			end
+			match (value)
+				Empty => accept_empty(value)
+				Failed => accept_failed(value)
+			end
+		end
+	end
+	match (value)
+		Filled(_) => accept_filled(value)
+		Empty => accept_empty(value)
+		Failed => accept_failed(value)
+	end
+end
+
+fn parenthesized_wildcard(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()
+	match ((value))
+		Filled(_) => accept_filled(value)
+		_ => accept_empty(value)
+	end
+end
+
+fn make_filled() -> Boxed<Int>::Filled
+	Filled(1)
+end
+
+fn computed_scrutinee_boundary() -> ()
+	match make_filled()
+		Filled(_) => ()
 		Empty => ()
 		Failed => ()
 		Skipped => ()

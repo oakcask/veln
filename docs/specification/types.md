@@ -348,7 +348,7 @@ lowercase is rejected by the source identifier casing rule and is not an
 accepted constructor case. It is not used for constructor payload typing or
 ordinary exhaustiveness coverage. A constructor-pattern type mismatch is still
 reported when initial-only repair of the final segment resolves a constructor
-for a different ADT descriptor. When direct-bare-binding refined coverage is
+for a different ADT descriptor. When stable-binding refined coverage is
 not active, the ordinary exhaustiveness path also computes the constructor
 found by changing only the invalid final segment's first ASCII lowercase
 letter to uppercase and resolving the resulting path through ordinary
@@ -364,11 +364,12 @@ nested patterns to the corresponding record field type when the scrutinee type
 is known. Unknown or non-record scrutinee types leave nested pattern bindings
 unknown. Arm expressions share the expected result type when one is available.
 
-When the scrutinee is a bare immutable parameter or local binding, a valid
-constructor arm gives that same binding the constructor's singleton refinement
-while checking the arm expression. The binding's current type can be the base
-ADT, one singleton refinement, or a finite refinement union. The refinement
-retains the resolved ADT identity and its instantiated generic arguments.
+When the scrutinee is an immutable parameter or local binding written either
+as its bare name or with one or more redundant parentheses, a valid constructor
+arm gives that same binding the constructor's singleton refinement while
+checking the arm expression. The binding's current type can be the base ADT,
+one singleton refinement, or a finite refinement union. The refinement retains
+the resolved ADT identity and its instantiated generic arguments.
 
 A singleton or finite-union scrutinee restricts the match domain to its current
 variant set. Each valid constructor arm removes its variant from the residual
@@ -406,8 +407,8 @@ catch-all, wildcard catch-all, and original scrutinee binding receive the
 complete two-variant residual type. Nested matches distinguish that residual
 from either singleton narrowing or widening to the base ADT.
 
-For direct bare bindings with a refined domain, arm classification first
-validates the constructor name, visibility, owning
+For bare or redundantly parenthesized bindings with a refined domain, arm
+classification first validates the constructor name, visibility, owning
 ADT, substituted generic payload types, payload arity, nested patterns, and
 admitted payload bindings. An invalid arm keeps its intrinsic diagnostic,
 consumes no coverage, and produces no derived impossible or redundant
@@ -447,11 +448,11 @@ type while the arm expression is checked. The checked
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
 demonstrates parameter, local, generic, nested-arm, and literal-payload use.
 
-This direct refinement requires the scrutinee source to consist only of the
-bare binding name. Parenthesized or qualified values, record-field paths, and
-transparent aliases do not receive this refinement or refined-domain arm
-classification. Calls, constructor expressions, and other computed
-scrutinees likewise retain the ordinary base-ADT match behavior.
+This refinement requires the scrutinee source to consist only of a binding
+name and optional redundant parentheses. Qualified values, record-field paths,
+transparent aliases, and function values do not receive this refinement or
+refined-domain arm classification. Calls, constructor expressions, and other
+computed scrutinees likewise retain the ordinary base-ADT match behavior.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
@@ -492,22 +493,22 @@ importing module, private source-declared constructors still require coverage,
 so arms for every public constructor are not exhaustive by themselves. Use `_`
 or a binding catch-all arm because the private constructors cannot be named
 there. `_` and binding patterns are catch-all arms. A
-direct bare binding whose current type is a singleton or finite refinement
-union instead requires only that restricted original domain. A valid
-out-of-domain constructor is impossible and does not satisfy or expand the
-domain. A non-exhaustive finite-domain match reports
+bare or redundantly parenthesized binding whose current type is a singleton or
+finite refinement union instead requires only that restricted original domain.
+A valid out-of-domain constructor is impossible and does not satisfy or expand
+the domain. A non-exhaustive finite-domain match reports
 `type.match_non_exhaustive` at the `match` expression. The missing case is the
 unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
 the arms that prove partial coverage.
 
-Coverage classification for one direct refined match has linear instrumented
-work when the domain size and arm count grow together. This bound covers
-complete and incomplete coverage, duplicate and impossible constructor arms,
-and a catch-all after complete constructor coverage. For a fixed singleton
-domain, widening the base ADT does not increase match-local setup or retained
-state. Sequential singleton matches increase setup linearly while retaining
-one match state at a time.
+Coverage classification for one stable-binding refined match has linear
+instrumented work when the domain size and arm count grow together. This bound
+covers complete and incomplete coverage, duplicate and impossible constructor
+arms, and a catch-all after complete constructor coverage. For a fixed
+singleton domain, widening the base ADT does not increase match-local setup or
+retained state. Sequential singleton matches increase setup linearly while
+retaining one match state at a time.
 
 An accepted source can declare one refined union of width `N` and nest `D`
 direct catch-all matches. Its match-local setup and peak retained or
@@ -695,10 +696,10 @@ rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
 Alias spelling and provenance, public/private exposure paths, pattern-based
-control-flow refinement beyond direct bare immutable bindings, schema
-boundaries, package-documentation signatures, command-wide coverage, LSP, MCP,
-and language-reference publication remain proposal work. This slice also does
-not add recursive generic or function variance.
+control-flow refinement beyond bare or redundantly parenthesized immutable
+bindings, schema boundaries, package-documentation signatures, command-wide
+coverage, LSP, MCP, and language-reference publication remain proposal work.
+This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual

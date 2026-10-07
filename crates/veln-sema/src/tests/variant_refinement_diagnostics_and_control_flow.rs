@@ -512,7 +512,7 @@ fn nested_match_refinement_composes_and_restores_each_scope() {
 }
 
 #[test]
-fn unsupported_or_invalid_match_scrutinees_and_patterns_do_not_refine_bindings() {
+fn parenthesized_bindings_refine_while_unsupported_or_invalid_forms_do_not() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -566,7 +566,7 @@ fn unsupported_or_invalid_match_scrutinees_and_patterns_do_not_refine_bindings()
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
         .collect::<Vec<_>>();
-    assert_eq!(mismatches.len(), 6, "{diagnostics:#?}");
+    assert_eq!(mismatches.len(), 5, "{diagnostics:#?}");
     assert!(
         mismatches.iter().all(|diagnostic| {
             detail_field(diagnostic, "actual_type").as_text() == Some("State")

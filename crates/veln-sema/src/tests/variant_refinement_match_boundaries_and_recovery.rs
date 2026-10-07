@@ -79,13 +79,19 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
             "  match (value)\n",
             "    Ready(extra) => ()\n",
             "    Closed => ()\n",
-            "    Failed => ()\n",
             "  end\n",
             "end\n",
         )
     ));
-    assert!(
-        parenthesized_wrong_arity.is_empty(),
+    assert_eq!(
+        parenthesized_wrong_arity
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.constructor_pattern_arity",
+            "type.match_non_exhaustive"
+        ],
         "{parenthesized_wrong_arity:#?}"
     );
 
@@ -137,7 +143,6 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
             "  match (value)\n",
             "    missing::Ready => ()\n",
             "    Closed => ()\n",
-            "    Failed => ()\n",
             "  end\n",
             "end\n",
         )
@@ -147,7 +152,7 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["type.match_non_exhaustive"],
+        ["name.unresolved", "type.match_non_exhaustive"],
         "{parenthesized_unresolved:#?}"
     );
 }
@@ -417,7 +422,7 @@ fn nested_refined_matches_restore_each_enclosing_scope() {
 }
 
 #[test]
-fn non_bare_refined_scrutinees_keep_the_existing_match_behavior() {
+fn computed_refined_scrutinees_keep_the_existing_match_behavior() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -425,10 +430,6 @@ fn non_bare_refined_scrutinees_keep_the_existing_match_behavior() {
             "  Ready\n",
             "end\n",
             "fn check(value: State::Ready) -> ()\n",
-            "  match (value)\n",
-            "    Failed => ()\n",
-            "    _ => ()\n",
-            "  end\n",
             "  match make()\n",
             "    Ready => ()\n",
             "    _ => ()\n",
@@ -448,4 +449,57 @@ fn non_bare_refined_scrutinees_keep_the_existing_match_behavior() {
         }),
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn function_value_scrutinee_keeps_its_callable_type_and_match_boundary() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn make() -> State::Ready\n",
+            "  Ready\n",
+            "end\n",
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn check() -> ()\n",
+            "  match make\n",
+            "    Ready => ()\n",
+            "    callback => begin\n",
+            "      accept_ready(callback())\n",
+            "      accept_ready(make())\n",
+            "    end\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let mismatch = &diagnostics[0];
+    assert_eq!(mismatch.id, "type.mismatch");
+    assert_eq!(
+        mismatch.message,
+        "expected `fn() -> State::Ready`, but found `State`"
+    );
+    assert_eq!(
+        detail(mismatch, "expected_type").as_text(),
+        Some("fn() -> State::Ready")
+    );
+    assert_eq!(detail(mismatch, "actual_type").as_text(), Some("State"));
+    assert_eq!(
+        detail(mismatch, "expected_type_source").as_text(),
+        Some("inferred_expression")
+    );
+    assert_eq!(
+        detail(mismatch, "actual_type_source").as_text(),
+        Some("constructor_pattern")
+    );
+    assert_eq!(
+        detail(mismatch, "constraint").as_text(),
+        Some("constructor_pattern")
+    );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.match_impossible_variant"
+            && diagnostic.id != "type.match_redundant_arm"
+    }));
 }
