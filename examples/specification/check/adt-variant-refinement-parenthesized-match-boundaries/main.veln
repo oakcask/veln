@@ -1,6 +1,6 @@
-# Parenthesized bindings refine directly. Qualified values, alias provenance,
-# field paths, indexed lookup calls, and other computed expressions remain
-# outside that rule.
+# Parenthesized bindings refine directly, but refinement does not propagate to
+# bindings that supplied their values. Qualified values, field paths, indexed
+# lookup calls, and other computed expressions remain outside that rule.
 use states
 
 type State

@@ -188,9 +188,11 @@ that payload pattern. Its details use
 `constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
 refine the scrutinee unless every payload binding is admitted to the arm scope.
 When direct refined coverage is inactive, including for a base-ADT scrutinee,
-qualified value, field path, alias source, or computed expression, match arms
-retain the ordinary constructor path, payload-arity, and exhaustiveness
-behavior. They do not gain the
+qualified value, field path, or computed expression, match arms retain the
+ordinary constructor path, payload-arity, and exhaustiveness behavior. A
+direct binding can receive refined coverage even when its value came from
+another binding, but that refinement does not propagate to the source binding
+or to another alias. Match arms outside direct refined coverage do not gain the
 refined-coverage `name.unresolved` or `type.constructor_pattern_arity`
 diagnostic.
 Invalid value-name casing, a duplicate payload binding,
