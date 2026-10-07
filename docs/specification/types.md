@@ -450,9 +450,9 @@ demonstrates parameter, local, generic, nested-arm, and literal-payload use.
 
 This refinement requires the scrutinee source to consist only of a binding
 name and optional redundant parentheses. Qualified values, record-field paths,
-and transparent aliases do not receive this refinement or refined-domain arm
-classification. Calls, constructor expressions, and other computed scrutinees
-likewise retain the ordinary base-ADT match behavior.
+transparent aliases, and function values do not receive this refinement or
+refined-domain arm classification. Calls, constructor expressions, and other
+computed scrutinees likewise retain the ordinary base-ADT match behavior.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
