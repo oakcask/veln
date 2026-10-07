@@ -388,6 +388,15 @@ fn transparent_alias_refinements_restore_and_computed_values_stay_independent() 
         "  accept_ready(value)\n",
         "  accept_ready(alias)\n",
         "end\n",
+        "fn widened_restoration(value: State::Ready | State::Closed) -> ()\n",
+        "  let alias: State = value\n",
+        "  match alias\n",
+        "    Ready => accept_ready(value)\n",
+        "    Closed => ()\n",
+        "  end\n",
+        "  accept_ready(value)\n",
+        "  accept_ready(alias)\n",
+        "end\n",
         "fn constructed(source: State) -> ()\n",
         "  let candidate = Ready\n",
         "  match candidate\n",
@@ -470,7 +479,7 @@ fn transparent_alias_refinements_restore_and_computed_values_stay_independent() 
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
         .collect::<Vec<_>>();
-    assert_eq!(mismatches.len(), 10, "{diagnostics:#?}");
+    assert_eq!(mismatches.len(), 12, "{diagnostics:#?}");
     assert_eq!(
         detail(mismatches[0], "actual_type").as_text(),
         Some("State::Ready | State::Closed")
@@ -479,8 +488,16 @@ fn transparent_alias_refinements_restore_and_computed_values_stay_independent() 
         detail(mismatches[1], "actual_type").as_text(),
         Some("State::Ready | State::Closed")
     );
+    assert_eq!(
+        detail(mismatches[2], "actual_type").as_text(),
+        Some("State::Ready | State::Closed")
+    );
+    assert_eq!(
+        detail(mismatches[3], "actual_type").as_text(),
+        Some("State")
+    );
     assert!(
-        mismatches[2..]
+        mismatches[4..]
             .iter()
             .all(|diagnostic| detail(diagnostic, "actual_type").as_text() == Some("State")),
         "{diagnostics:#?}"

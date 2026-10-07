@@ -1,7 +1,8 @@
 # Compiler integration contract: construction, calls, equality, Boolean
 # helpers, field access, pipeline operators, conditional expressions, and
 # contract predicates do not make an input binding a transparent alias of a
-# separately checked value. Veln has no indexing expression source form.
+# separately checked value. An arm restores each alias's own type. Veln has no
+# indexing expression source form.
 type State
 	Ready
 	Closed
@@ -102,6 +103,16 @@ end
 fn contracted(source: State) -> ()
 require is_ready(source)
 	accept_ready(source)
+end
+
+fn restored(value: State::Ready | State::Closed) -> ()
+	let widened: State = value
+	match widened
+		Ready => accept_ready(value)
+		Closed => ()
+	end
+	accept_ready(value)
+	accept_ready(widened)
 end
 
 fn main() -> ()

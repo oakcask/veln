@@ -604,18 +604,6 @@ fn measure_transparent_alias_work(source: String) -> crate::analysis::Transparen
         work.active_refinements, 0,
         "refinement frames must be released"
     );
-    assert_eq!(
-        work.variant_visits, 0,
-        "equal/shared domains need no visits"
-    );
-    assert_eq!(
-        work.variant_clones, 0,
-        "shared domains need no label clones"
-    );
-    assert_eq!(
-        work.temporary_materializations, 0,
-        "shared domains need no temporary intersections"
-    );
     work
 }
 

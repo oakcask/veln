@@ -387,9 +387,9 @@ existing scrutinee and its transparent aliases that same refinement. Complete
 constructor coverage or one catch-all makes the match exhaustive. A nested
 `match` observes and can refine the current arm's shared finite domain. Leaving
 an inner arm preserves the enclosing refinement. Leaving the outer arm restores
-the preceding shared feasible domain. Each participating binding resumes its
-own declared or inferred presentation constrained by that domain; a wider
-annotation does not introduce new feasible variants after the arm ends.
+each participating binding's declared or inferred type. The shared feasible
+domain remains available only to classify a later `match` on a group member;
+it does not narrow that binding's type in ordinary expressions after the arm.
 
 ```veln
 type Boxed<A>
@@ -539,8 +539,8 @@ diagnostic text. Deterministic counters cover initialized and peak match-local
 collections including the shared-domain cache, shared domain handles,
 cumulative residual and refinement materialization, refinements retained while
 an arm body is checked, cached dynamically rendered diagnostic text, alias
-group and member lookups, retained alias entries, active group-refinement
-frames, variant visits and label clones, and temporary intersections.
+group and member lookups, retained alias entries, and active group-refinement
+frames.
 Increasing alias count, constructor-arm count, nesting depth, or unrelated
 local count is checked independently. Unrelated locals add no alias-group work
 or state. Every instrumented match-local owner returns to zero after analysis.

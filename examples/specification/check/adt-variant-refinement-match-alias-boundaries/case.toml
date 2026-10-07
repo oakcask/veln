@@ -13,7 +13,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 8
+equals = 10
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -77,4 +77,20 @@ equals = "type.variant_mismatch"
 
 [[json_assert]]
 path = "diagnostics.7.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.8.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.8.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.9.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.9.details.actual_type"
 equals = "State"

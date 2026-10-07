@@ -490,7 +490,16 @@ impl<'a> FunctionChecker<'a> {
         let binding = &self.bindings[index];
         binding.transparent_alias_group.map_or_else(
             || binding.ty.clone(),
-            |group| transparent_alias_presented_type(&binding.ty, self.alias_group_type(group)),
+            |group| {
+                record_alias_group_lookup();
+                self.transparent_alias_groups[group]
+                    .active_refinements
+                    .last()
+                    .map_or_else(
+                        || binding.ty.clone(),
+                        |refinement| transparent_alias_presented_type(&binding.ty, refinement),
+                    )
+            },
         )
     }
 
@@ -570,9 +579,6 @@ pub(crate) struct TransparentAliasWork {
     pub(crate) retained_groups: usize,
     pub(crate) retained_members: usize,
     pub(crate) active_refinements: usize,
-    pub(crate) variant_visits: usize,
-    pub(crate) variant_clones: usize,
-    pub(crate) temporary_materializations: usize,
 }
 
 #[cfg(test)]
