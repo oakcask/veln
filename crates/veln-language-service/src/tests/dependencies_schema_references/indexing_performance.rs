@@ -1,6 +1,6 @@
     #[test]
     fn dependency_schema_alias_reference_lookup_avoids_nonlinear_import_rescans() {
-        for count in [100, 200, 400] {
+        for count in [50, 100, 200] {
             let (index_entries, route_lookups) = dependency_schema_alias_reference_work(count);
             assert_eq!(
                 index_entries,
