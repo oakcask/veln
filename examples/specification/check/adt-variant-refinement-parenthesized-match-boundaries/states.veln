@@ -1,0 +1,4 @@
+pub type RemoteState
+	pub RemoteReady
+	pub RemoteClosed
+end

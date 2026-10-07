@@ -178,9 +178,11 @@ classification when the scrutinee is a direct immutable parameter or local
 binding, optionally surrounded by parentheses. The remaining work extends
 that behavior to the stable-value and alias forms below.
 
-For that extension, a stable value is a qualified immutable binding or
-parameter, or a record-field path rooted at a direct or qualified immutable
-binding. A qualified name is stable only when name resolution identifies an
+For that extension, a stable value is a direct or qualified immutable binding
+or parameter, or a record-field path rooted at a direct or qualified immutable
+binding. Bare or parenthesized direct bindings already receive match
+refinement; they remain stable-value sources for the planned transparent-alias
+extension. A qualified name is stable only when name resolution identifies an
 immutable value binding. Calls, indexing, operators, and other computed
 expressions are not stable values, even when the same source text occurs more
 than once.

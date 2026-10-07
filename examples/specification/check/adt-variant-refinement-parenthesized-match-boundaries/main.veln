@@ -1,5 +1,8 @@
-# Parenthesized bindings refine directly. Alias provenance, field paths, and
-# computed expressions remain outside that rule.
+# Parenthesized bindings refine directly. Qualified values, alias provenance,
+# field paths, indexed lookup calls, and other computed expressions remain
+# outside that rule.
+use states
+
 type State
 	Ready
 	Closed
@@ -43,6 +46,18 @@ fn computed_call(value: State::Ready | State::Closed) -> ()
 	end
 end
 
+fn indexed_lookup(value: State::Ready | State::Closed) -> State::Ready | State::Closed
+	value
+end
+
+fn indexed(value: State::Ready | State::Closed) -> ()
+	match ((indexed_lookup(value)))
+		Ready => accept_ready(indexed_lookup(value))
+		Closed => ()
+		Failed => ()
+	end
+end
+
 fn pipelined(value: State::Ready | State::Closed) -> ()
 	match (value |> preserve())
 		Ready => accept_ready(value)
@@ -56,5 +71,13 @@ fn constructed(value: State::Ready | State::Closed) -> ()
 		Ready => accept_ready(value)
 		Closed => ()
 		Failed => ()
+	end
+end
+
+fn qualified_value(value: State::Ready | State::Closed) -> ()
+	match ((states::RemoteReady))
+		states::RemoteReady => accept_ready(value)
+		states::RemoteClosed => ()
+		_ => ()
 	end
 end

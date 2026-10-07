@@ -422,26 +422,105 @@ fn nested_refined_matches_restore_each_enclosing_scope() {
 }
 
 #[test]
-fn computed_refined_scrutinees_keep_the_existing_match_behavior() {
+fn computed_and_index_lookup_scrutinees_keep_the_existing_match_behavior() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
             "fn make() -> State::Ready\n",
             "  Ready\n",
             "end\n",
-            "fn check(value: State::Ready) -> ()\n",
+            "fn accept_ready(value: State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn check(value: State::Ready | State::Closed) -> ()\n",
             "  match make()\n",
             "    Ready => ()\n",
             "    _ => ()\n",
+            "  end\n",
+            "  match ((indexed_lookup(value)))\n",
+            "    Ready => accept_ready(indexed_lookup(value))\n",
+            "    Closed => ()\n",
+            "    Failed => ()\n",
             "  end\n",
             "  match Ready\n",
             "    Ready => ()\n",
             "    _ => ()\n",
             "  end\n",
             "end\n",
+            "fn indexed_lookup(value: State::Ready | State::Closed) -> State::Ready | State::Closed\n",
+            "  value\n",
+            "end\n",
         )
     ));
 
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.variant_mismatch"],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        detail(&diagnostics[0], "actual_type").as_text(),
+        Some("State::Ready | State::Closed")
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "type.match_impossible_variant"
+                && diagnostic.id != "type.match_redundant_arm"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn qualified_constructor_scrutinees_keep_ordinary_match_classification() {
+    let states = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "states.veln",
+            concat!(
+                "mod states\n",
+                "pub type State\n",
+                "  pub Ready\n",
+                "  pub Closed\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let app = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "app.veln",
+            concat!(
+                "mod app\n",
+                "use states\n",
+                "fn check() -> ()\n",
+                "  match ((states::Ready))\n",
+                "    states::Ready => ()\n",
+                "    states::Closed => ()\n",
+                "    _ => ()\n",
+                "  end\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: states.types,
+        functions: app.functions,
+        invalid_names: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert!(
         diagnostics.iter().all(|diagnostic| {
             diagnostic.id != "type.match_impossible_variant"
