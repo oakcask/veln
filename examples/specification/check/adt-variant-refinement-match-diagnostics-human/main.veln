@@ -1,6 +1,6 @@
 # Compiler integration contract: human diagnostics classify impossible and
-# redundant arms against a direct refined bare-binding domain and identify the
-# preceding coverage that made each redundant arm unreachable.
+# redundant arms against direct refined bare or parenthesized binding domains,
+# preserve coverage notes and select complete written scrutinees for context.
 type State
 	Ready
 	Closed
@@ -24,6 +24,14 @@ fn caught(value: State::Ready | State::Closed) -> ()
 		_ => ()
 		Ready => ()
 		remaining => ()
+	end
+end
+
+fn parenthesized(value: State::Ready | State::Closed) -> ()
+	match (((value)))
+		Failed => ()
+		Ready => ()
+		Closed => ()
 	end
 end
 
