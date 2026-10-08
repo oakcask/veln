@@ -117,6 +117,30 @@ fn structurally_assignable(expected: &Type, actual: &Type) -> bool {
             actual_args,
         ),
         (
+            Type::VariantRefinement {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+                variants: expected_variants,
+                ..
+            },
+            Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                variants: actual_variants,
+                ..
+            },
+        ) => {
+            same_type_identity(
+                expected_name,
+                expected_identity,
+                actual_name,
+                actual_identity,
+            ) && invariant_args_match(expected_args, actual_args)
+                && expected_variants == actual_variants
+        }
+        (
             Type::Function {
                 params: expected_params,
                 variadic: expected_variadic,

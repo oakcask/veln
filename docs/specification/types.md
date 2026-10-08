@@ -647,11 +647,24 @@ set. The alternatives are resolved before their base identities are compared,
 so qualified and unqualified spellings of the same ADT can form one union.
 Duplicate alternatives are removed and display follows ADT declaration order.
 `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
-representation. A type alias cannot qualify a variant refinement in this
-slice; an alias-qualified singleton or union alternative is an invalid type
-annotation. A union containing every declared variant is equivalent to the base
-ADT. An unknown variant, invalid base arity, or union of different resolved ADTs
-is an invalid type annotation; it does not become an assignable `unknown`
+representation. A type alias whose resolved target is an ADT can qualify a
+singleton or union alternative. Alias-qualified and target-qualified forms use
+the target ADT identity and generic arguments, so their equal variant sets are
+mutually assignable and their alternatives share duplicate removal and
+declaration ordering. A union containing every declared variant is equivalent
+to the base ADT.
+
+An explicit annotation preserves its one unambiguous alias spelling as display
+provenance. Target-only annotations and constructor inference use the target
+ADT's canonical display name. A join preserves one alias preference when the
+other contributions are canonical, but different alias preferences conflict
+and make the result use the target name. Presentation does not change type
+identity, assignability, variant ordering, or runtime representation. The
+checked
+[`alias presentation`](../../examples/specification/check/adt-variant-refinement-alias-presentation/)
+case covers singleton, union, generic, mutual-assignment, inferred, and joined
+forms. An unknown variant, invalid base arity, or union of different resolved
+ADTs is an invalid type annotation; it does not become an assignable `unknown`
 contract.
 
 A resolved constructor expression has its singleton variant type. The expected
@@ -780,8 +793,7 @@ private results are checked in
 rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
-Alias spelling and provenance, public/private exposure paths, qualified-value
-control-flow refinement, schema boundaries,
+Public/private exposure paths, qualified-value control-flow refinement, schema boundaries,
 package-documentation signatures, command-wide coverage, LSP, and remaining
 MCP integration remain proposal work.
 This slice also does not add recursive generic or function variance.

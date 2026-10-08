@@ -10,6 +10,8 @@ use crate::type_relations::{invariant_args_match, same_type_identity};
 
 pub(crate) struct AggregateTypeJoin {
     name: String,
+    canonical_name: String,
+    presentation_conflicted: bool,
     identity: String,
     args: Vec<Type>,
     declaration_order: Option<Arc<VariantDeclarationOrder>>,
@@ -36,6 +38,11 @@ impl AggregateTypeJoin {
         };
         Some(Self {
             name: initial.name.to_string(),
+            canonical_name: adts
+                .descriptor_for_type(initial.ty)
+                .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
+                .unwrap_or_else(|| initial.name.to_string()),
+            presentation_conflicted: false,
             identity: initial.identity.to_string(),
             args: initial.args.to_vec(),
             declaration_order,
@@ -64,6 +71,16 @@ impl AggregateTypeJoin {
             return false;
         }
         let mut changed = false;
+        if !self.presentation_conflicted && right.name != self.canonical_name {
+            if self.name == self.canonical_name {
+                self.name = right.name.to_string();
+                changed = true;
+            } else if self.name != right.name {
+                self.name.clone_from(&self.canonical_name);
+                self.presentation_conflicted = true;
+                changed = true;
+            }
+        }
         for (joined, right) in self.args.iter_mut().zip(right.args) {
             changed |= unification::merge_type_slot(joined, right);
         }

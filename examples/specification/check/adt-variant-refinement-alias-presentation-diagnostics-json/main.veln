@@ -1,0 +1,44 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+pub type First = State
+pub type Second = State
+
+fn needs_first(value: First::Ready) -> ()
+	()
+end
+
+fn needs_failed(value: State::Failed) -> ()
+	()
+end
+
+fn same_alias(flag: Bool)
+	let ready: First::Ready = Ready
+	let closed: First::Closed = Closed
+	if flag
+		ready
+	else
+		closed
+	end
+end
+
+fn conflicting_aliases(flag: Bool)
+	let ready: First::Ready = Ready
+	let closed: Second::Closed = Closed
+	if flag
+		ready
+	else
+		closed
+	end
+end
+
+fn main() -> ()
+	let explicit: Second::Closed = Closed
+	needs_first(explicit)
+	needs_first(Closed)
+	needs_failed(same_alias(true))
+	needs_failed(conflicting_aliases(false))
+end

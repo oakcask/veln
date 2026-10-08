@@ -1,0 +1,60 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+type Box<A>
+	Empty
+	Boxed(A)
+end
+
+pub type First = State
+pub type Second = State
+pub type StateBox = Box
+
+fn keep_target(value: State::Ready) -> First::Ready
+	value
+end
+
+fn keep_alias(value: First::Ready) -> State::Ready
+	value
+end
+
+fn keep_union(value: Second::Closed | Second::Ready | Second::Closed) -> First::Ready | State::Closed
+	value
+end
+
+fn keep_generic(value: StateBox<Int>::Boxed) -> Box<Int>::Boxed
+	value
+end
+
+fn same_alias(flag: Bool)
+	let ready: First::Ready = Ready
+	let closed: First::Closed = Closed
+	if flag
+		ready
+	else
+		closed
+	end
+end
+
+fn conflicting_aliases(flag: Bool)
+	let ready: First::Ready = Ready
+	let closed: Second::Closed = Closed
+	if flag
+		ready
+	else
+		closed
+	end
+end
+
+fn main() -> ()
+	let direct: State::Ready = keep_alias(keep_target(Ready))
+	let union: State::Ready | State::Closed = keep_union(Closed)
+	let generic: Box<Int>::Boxed = keep_generic(Boxed(1))
+	let inferred: State::Ready = First::Ready
+	let retained: First::Ready | First::Closed = same_alias(true)
+	let canonical: State::Ready | State::Closed = conflicting_aliases(false)
+	()
+end

@@ -433,40 +433,187 @@ fn qualified_and_unqualified_union_bases_resolve_before_identity_comparison() {
 }
 
 #[test]
-fn alias_qualified_refinement_annotations_are_rejected() {
-    let diagnostics = diagnostics_for(concat!(
-        "type State\n",
-        "  Ready\n",
-        "  Closed\n",
-        "end\n",
-        "pub type First = State\n",
-        "pub type Second = State\n",
-        "fn direct(value: State::Ready) -> State::Ready\n",
-        "  value\n",
-        "end\n",
-        "fn alias_singleton(value: First::Ready) -> ()\n",
-        "  ()\n",
-        "end\n",
-        "fn alias_union(value: State::Ready | Second::Closed) -> ()\n",
-        "  ()\n",
-        "end\n",
-    ));
+fn alias_qualified_refinements_share_target_identity_and_preserve_annotations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "pub type First = State\n",
+            "pub type Second = State\n",
+            "type Box<A>\n",
+            "  Empty\n",
+            "  Boxed(A)\n",
+            "end\n",
+            "pub type StateBox = Box\n",
+            "fn direct(value: State::Ready) -> First::Ready\n",
+            "  value\n",
+            "end\n",
+            "fn alias_singleton(value: First::Ready) -> State::Ready\n",
+            "  value\n",
+            "end\n",
+            "fn alias_union(value: Second::Closed | Second::Ready | Second::Closed) -> First::Ready | State::Closed\n",
+            "  value\n",
+            "end\n",
+            "fn generic(value: StateBox<Int>::Boxed) -> Box<Int>::Boxed\n",
+            "  value\n",
+            "end\n",
+            "fn alias_constructor()\n",
+            "  First::Ready\n",
+            "end\n",
+            "fn alias_and_target(value: First::Ready | State::Closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn target_and_alias(value: State::Ready | First::Closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn alias_transition(value: First::Ready) -> First::Ready\n",
+            "  value\n",
+            "end\n",
+            "fn function_value_identity() -> ()\n",
+            "  let transition: fn(State::Ready) -> State::Ready = alias_transition\n",
+            "  transition(Ready)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
 
-    let invalid_annotations = diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
-        .collect::<Vec<_>>();
-    assert_eq!(invalid_annotations.len(), 2, "{diagnostics:#?}");
-    assert!(invalid_annotations.iter().all(|diagnostic| {
-        diagnostic
-            .message
-            .contains("variant refinement annotations cannot use a type alias as their base")
-    }));
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id == "type.invalid_annotation"),
-        "{diagnostics:#?}"
+    assert_eq!(
+        environment.function("direct").unwrap().return_type.render(),
+        "First::Ready"
+    );
+    let alias_singleton = &environment.function("alias_singleton").unwrap().params[0];
+    let target_singleton = &environment.function("direct").unwrap().params[0];
+    assert!(crate::type_relations::is_assignable(
+        alias_singleton,
+        target_singleton
+    ));
+    assert!(crate::type_relations::is_assignable(
+        target_singleton,
+        alias_singleton
+    ));
+    assert_eq!(
+        environment.function("alias_union").unwrap().params[0].render(),
+        "Second::Ready | Second::Closed"
+    );
+    assert_eq!(
+        environment
+            .function("alias_union")
+            .unwrap()
+            .return_type
+            .render(),
+        "First::Ready | First::Closed"
+    );
+    assert_eq!(
+        environment.function("generic").unwrap().params[0].render(),
+        "StateBox<Int>::Boxed"
+    );
+    assert_eq!(
+        environment
+            .function("alias_constructor")
+            .unwrap()
+            .return_type
+            .render(),
+        "State::Ready"
+    );
+    assert_eq!(
+        environment.function("alias_and_target").unwrap().params[0].render(),
+        "First::Ready | First::Closed"
+    );
+    assert_eq!(
+        environment.function("target_and_alias").unwrap().params[0].render(),
+        "First::Ready | First::Closed"
+    );
+}
+
+#[test]
+fn alias_refinement_joins_and_mismatches_keep_independent_presentation() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "pub type First = State\n",
+            "pub type Second = State\n",
+            "fn same_alias(flag: Bool)\n",
+            "  let ready: First::Ready = Ready\n",
+            "  let closed: First::Closed = Closed\n",
+            "  if flag\n",
+            "    ready\n",
+            "  else\n",
+            "    closed\n",
+            "  end\n",
+            "end\n",
+            "fn conflicting_aliases(flag: Bool)\n",
+            "  let ready: First::Ready = Ready\n",
+            "  let closed: Second::Closed = Closed\n",
+            "  if flag\n",
+            "    ready\n",
+            "  else\n",
+            "    closed\n",
+            "  end\n",
+            "end\n",
+            "fn inferred(flag: Bool)\n",
+            "  if flag\n",
+            "    Ready\n",
+            "  else\n",
+            "    Closed\n",
+            "  end\n",
+            "end\n",
+            "fn needs_first(value: First::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn mismatch() -> ()\n",
+            "  let actual: Second::Closed = Closed\n",
+            "  needs_first(actual)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics[0].message,
+        "value of type `Second::Closed` is not assignable to variant type `First::Ready`"
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("same_alias")
+            .unwrap()
+            .return_type
+            .render(),
+        "First::Ready | First::Closed"
+    );
+    assert_eq!(
+        environment
+            .function("conflicting_aliases")
+            .unwrap()
+            .return_type
+            .render(),
+        "State::Ready | State::Closed"
+    );
+    assert_eq!(
+        environment
+            .function("inferred")
+            .unwrap()
+            .return_type
+            .render(),
+        "State::Ready | State::Closed"
     );
 }
 

@@ -202,18 +202,20 @@ impl AdtRegistry {
         self.descriptor_for_type_path_with_arity(name, None, current_module, uses)
     }
 
-    pub(crate) fn type_path_is_alias(
-        &self,
-        name: &str,
-        args_len: usize,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> bool {
-        self.descriptor_for_type_path(name, args_len, current_module, uses)
-            .is_some_and(|descriptor| {
-                self.type_alias_identities
-                    .contains(&descriptor_identity(descriptor))
+    pub(crate) fn canonical_type_name_for_descriptor(&self, descriptor: &AdtDescriptor) -> String {
+        self.descriptors_by_identity
+            .get(&descriptor.identity())
+            .into_iter()
+            .flatten()
+            .map(|index| &self.descriptors[*index])
+            .find(|candidate| {
+                candidate.nominal_identity.is_none()
+                    && candidate.type_parameters.len() == descriptor.type_parameters.len()
             })
+            .map_or_else(
+                || descriptor.type_name.clone(),
+                |candidate| candidate.type_name.clone(),
+            )
     }
 
     fn descriptor_for_type_path_with_arity(

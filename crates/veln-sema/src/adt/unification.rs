@@ -618,8 +618,13 @@ pub(super) fn core_type_template(ty: &Type) -> CoreType {
             name: name.clone(),
             args: args.iter().map(core_type_template).collect(),
         },
-        Type::VariantRefinement { name, args, .. } => CoreType::Named {
-            name: name.clone(),
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => CoreType::Named {
+            name: identity.rsplit("::").next().unwrap_or(name).to_string(),
             args: args.iter().map(core_type_template).collect(),
         },
         Type::Record(fields) => CoreType::Record(

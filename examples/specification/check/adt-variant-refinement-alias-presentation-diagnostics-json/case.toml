@@ -1,0 +1,46 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "value of type `Second::Closed` is not assignable to variant type `First::Ready`",
+  "value of type `State::Closed` is not assignable to variant type `First::Ready`",
+  "value of type `First::Ready | First::Closed` is not assignable to variant type `State::Failed`",
+  "value of type `State::Ready | State::Closed` is not assignable to variant type `State::Failed`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "Second::Closed"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "First::Ready"
+
+[[json_assert]]
+path = "diagnostics.1.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_type"
+equals = "First::Ready"
+
+[[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "First::Ready | First::Closed"
+
+[[json_assert]]
+path = "diagnostics.3.details.actual_type"
+equals = "State::Ready | State::Closed"

@@ -88,7 +88,12 @@ semantically.
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at
 that value expression. The primary message states the actual and expected
-types. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
+types. The diagnostic renders the two sides independently: an unambiguous
+explicit alias spelling is preserved only on the side that supplied it, and an
+expected alias never relabels an inferred actual type. Conflicting alias
+provenance uses the target ADT's canonical display name. The checked
+[`alias diagnostic case`](../../examples/specification/check/adt-variant-refinement-alias-presentation-diagnostics-json/)
+covers these presentation boundaries. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
 declaration-ordered `expected_variants`, `excluded_variants`, and `constraint`.
 `excluded_variants` is an object with `form` and `variants`. The `listed` form
 contains the declaration-ordered excluded finite set. The

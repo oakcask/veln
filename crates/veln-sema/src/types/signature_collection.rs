@@ -299,7 +299,7 @@ impl TypeCanonicalizer<'_> {
             return Type::Unknown;
         }
         let canonical_args = self.canonicalize_args(args);
-        let Some(variants) = self.resolve_refinement_alternatives(
+        let Some((variants, presentation_name)) = self.resolve_refinement_alternatives(
             descriptor,
             canonical_args.as_slice(),
             variants,
@@ -308,7 +308,13 @@ impl TypeCanonicalizer<'_> {
         ) else {
             return Type::Unknown;
         };
-        canonical_variant_refinement(descriptor, &declaration_order, canonical_args, variants)
+        canonical_variant_refinement(
+            descriptor,
+            &presentation_name,
+            &declaration_order,
+            canonical_args,
+            variants,
+        )
     }
 
     fn resolve_refinement_alternatives(
@@ -318,7 +324,13 @@ impl TypeCanonicalizer<'_> {
         mut variants: Vec<String>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
         declaration_order: &crate::adt::registry::VariantDeclarationOrder,
-    ) -> Option<Vec<String>> {
+    ) -> Option<(Vec<String>, String)> {
+        let canonical_name = self.adts.canonical_type_name_for_descriptor(descriptor);
+        let mut preferred_alias = descriptor
+            .nominal_identity
+            .is_some()
+            .then(|| descriptor.type_name.clone());
+        let mut alias_conflict = false;
         let mut selected_variants = variants.iter().cloned().collect::<HashSet<_>>();
         for (name, args, variant) in unresolved_alternatives {
             let alternative_descriptor = self.adts.descriptor_for_type_path(
@@ -335,12 +347,26 @@ impl TypeCanonicalizer<'_> {
             {
                 return None;
             }
+            if let Some(alternative_alias) = alternative_descriptor
+                .nominal_identity
+                .is_some()
+                .then_some(&alternative_descriptor.type_name)
+            {
+                match preferred_alias.as_deref() {
+                    Some(preferred) if preferred != alternative_alias => {
+                        preferred_alias = None;
+                        alias_conflict = true;
+                    }
+                    None if !alias_conflict => preferred_alias = Some(alternative_alias.clone()),
+                    _ => {}
+                }
+            }
             crate::type_relations::record_variant_set_lookup();
             if selected_variants.insert(variant.clone()) {
                 variants.push(variant);
             }
         }
-        Some(variants)
+        Some((variants, preferred_alias.unwrap_or(canonical_name)))
     }
 
     fn canonicalize_function(
@@ -373,6 +399,7 @@ impl TypeCanonicalizer<'_> {
 #[allow(clippy::too_many_arguments)]
 fn canonical_variant_refinement(
     descriptor: &crate::adt::descriptors::AdtDescriptor,
+    presentation_name: &str,
     declaration_order: &crate::adt::registry::VariantDeclarationOrder,
     args: Vec<Type>,
     variants: Vec<String>,
@@ -391,10 +418,10 @@ fn canonical_variant_refinement(
         .collect::<Vec<_>>();
     ranked_variants.sort_unstable_by_key(|(rank, _)| *rank);
     if ranked_variants.len() == declaration_order.len() {
-        Type::resolved_named(&descriptor.type_name, descriptor.identity(), args)
+        Type::resolved_named(presentation_name, descriptor.identity(), args)
     } else {
         Type::resolved_variant_refinement(
-            &descriptor.type_name,
+            presentation_name,
             descriptor.identity(),
             args,
             ranked_variants
