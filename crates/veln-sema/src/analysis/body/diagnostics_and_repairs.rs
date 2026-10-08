@@ -750,7 +750,7 @@ fn variant_mismatch_sets<'a>(
             if expected_identity != actual_identity {
                 return None;
             }
-            if expected_args != actual_args {
+            if !crate::type_relations::invariant_args_match(expected_args, actual_args) {
                 return None;
             }
             let expected_variants_set = expected_variants
@@ -779,7 +779,9 @@ fn variant_mismatch_sets<'a>(
                 args: actual_args,
                 ..
             },
-        ) if expected_identity == actual_identity && expected_args == actual_args => {
+        ) if expected_identity == actual_identity
+            && crate::type_relations::invariant_args_match(expected_args, actual_args) =>
+        {
             adts.descriptor_for_type(actual)?;
             Some(VariantMismatchFacts {
                 expected_variants: variants,

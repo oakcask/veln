@@ -218,3 +218,77 @@ fn alias_refinement_joins_and_mismatches_keep_independent_presentation() {
         "Envelope<State::Ready>::Left"
     );
 }
+
+#[test]
+fn nested_alias_argument_mismatches_keep_variant_diagnostics_and_presentations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "pub type First = State\n",
+            "pub type Second = State\n",
+            "type Envelope<A>\n",
+            "  Left(A)\n",
+            "  Right(A)\n",
+            "end\n",
+            "fn needs_left(value: Envelope<First::Ready>::Left) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn wrong_refinement() -> ()\n",
+            "  let actual: Envelope<Second::Ready>::Right = Right(Ready)\n",
+            "  needs_left(actual)\n",
+            "end\n",
+            "fn wrong_base(actual: Envelope<Second::Ready>) -> ()\n",
+            "  needs_left(actual)\n",
+            "end\n",
+            "fn different_argument() -> ()\n",
+            "  let actual: Envelope<Second::Closed>::Right = Right(Closed)\n",
+            "  needs_left(actual)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+
+    for (index, actual, exclusion) in [
+        (
+            0,
+            "Envelope<Second::Ready>::Right",
+            "\"excluded_variants\":{\"form\":\"listed\",\"variants\":[\"Right\"]}",
+        ),
+        (
+            1,
+            "Envelope<Second::Ready>",
+            "\"excluded_variants\":{\"form\":\"all_except_expected\",\"variants\":[]}",
+        ),
+    ] {
+        let diagnostic = &diagnostics[index];
+        assert_eq!(diagnostic.id, "type.variant_mismatch", "{diagnostics:#?}");
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"actual_type\":\"{actual}\"")),
+            "{json}"
+        );
+        assert!(
+            json.contains("\"expected_type\":\"Envelope<First::Ready>::Left\""),
+            "{json}"
+        );
+        assert!(json.contains("\"expected_variants\":[\"Left\"]"), "{json}");
+        assert!(json.contains(exclusion), "{json}");
+        assert!(json.contains("\"constraint\":\"call_argument\""), "{json}");
+        assert!(json.contains("\"kind\":\"variant_exclusion\""), "{json}");
+        assert!(json.contains("\"kind\":\"expected_type_origin\""), "{json}");
+    }
+
+    assert_eq!(diagnostics[2].id, "type.mismatch", "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics[2].message,
+        "expected `Envelope<First::Ready>::Left`, but found `Envelope<Second::Closed>::Right`"
+    );
+}

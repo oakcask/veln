@@ -10,6 +10,9 @@ contains = [
   "value of type `State::Ready | State::Closed` is not assignable to variant type `State::Failed`",
   "expected `Int`, but found `Single`",
   "expected `Int`, but found `Pair`",
+  "value of type `Envelope<Second::Ready>::Right` is not assignable to variant type `Envelope<First::Ready>::Left`",
+  "value of type `Envelope<Second::Ready>` is not assignable to variant type `Envelope<First::Ready>::Left`",
+  "expected `Envelope<First::Ready>::Left`, but found `Envelope<Second::Closed>::Right`",
 ]
 
 [stderr]
@@ -21,7 +24,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 8
+equals = 11
 
 [[json_assert]]
 path = "diagnostics.0.details.actual_type"
@@ -62,3 +65,91 @@ equals = "Pair"
 [[json_assert]]
 path = "diagnostics.7.details.actual_type"
 equals = "Pair"
+
+[[json_assert]]
+path = "diagnostics.8.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.8.details.actual_type"
+equals = "Envelope<Second::Ready>::Right"
+
+[[json_assert]]
+path = "diagnostics.8.details.expected_type"
+equals = "Envelope<First::Ready>::Left"
+
+[[json_assert]]
+path = "diagnostics.8.details.expected_variants"
+equals = ["Left"]
+
+[[json_assert]]
+path = "diagnostics.8.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.8.details.excluded_variants.variants"
+equals = ["Right"]
+
+[[json_assert]]
+path = "diagnostics.8.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.8.related.0.kind"
+equals = "variant_exclusion"
+
+[[json_assert]]
+path = "diagnostics.8.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.9.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.9.details.actual_type"
+equals = "Envelope<Second::Ready>"
+
+[[json_assert]]
+path = "diagnostics.9.details.expected_type"
+equals = "Envelope<First::Ready>::Left"
+
+[[json_assert]]
+path = "diagnostics.9.details.expected_variants"
+equals = ["Left"]
+
+[[json_assert]]
+path = "diagnostics.9.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.9.details.excluded_variants.variants"
+equals = []
+
+[[json_assert]]
+path = "diagnostics.9.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.9.related.0.kind"
+equals = "variant_exclusion"
+
+[[json_assert]]
+path = "diagnostics.9.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.10.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.10.details.actual_type"
+equals = "Envelope<Second::Closed>::Right"
+
+[[json_assert]]
+path = "diagnostics.10.details.expected_type"
+equals = "Envelope<First::Ready>::Left"
+
+[[json_assert]]
+path = "diagnostics.10.details.constraint"
+equals = "call_argument"

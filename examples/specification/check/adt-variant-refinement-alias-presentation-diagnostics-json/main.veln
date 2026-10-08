@@ -71,8 +71,8 @@ fn conflicting_single_reverse(flag: Bool)
 end
 
 fn conflicting_pair_forward(flag: Bool)
-	let first: PairFirst::Left | PairFirst::Right = Left
-	let second: PairSecond::Left | PairSecond::Right = Right
+	let first: PairFirst::Left | PairFirst::Right = Pair::Left
+	let second: PairSecond::Left | PairSecond::Right = Pair::Right
 	if flag
 		first
 	else
@@ -81,8 +81,8 @@ fn conflicting_pair_forward(flag: Bool)
 end
 
 fn conflicting_pair_reverse(flag: Bool)
-	let first: PairFirst::Left | PairFirst::Right = Left
-	let second: PairSecond::Left | PairSecond::Right = Right
+	let first: PairFirst::Left | PairFirst::Right = Pair::Left
+	let second: PairSecond::Left | PairSecond::Right = Pair::Right
 	if flag
 		second
 	else
@@ -104,4 +104,27 @@ fn main() -> ()
 	needs_int(conflicting_single_reverse(false))
 	needs_int(conflicting_pair_forward(true))
 	needs_int(conflicting_pair_reverse(false))
+end
+
+type Envelope<A>
+	Left(A)
+	Right(A)
+end
+
+fn needs_envelope_left(value: Envelope<First::Ready>::Left) -> ()
+	()
+end
+
+fn reject_alias_nested_refinement() -> ()
+	let actual: Envelope<Second::Ready>::Right = Envelope::Right(Ready)
+	needs_envelope_left(actual)
+end
+
+fn reject_alias_nested_base(actual: Envelope<Second::Ready>) -> ()
+	needs_envelope_left(actual)
+end
+
+fn reject_different_nested_variant() -> ()
+	let actual: Envelope<Second::Closed>::Right = Envelope::Right(Closed)
+	needs_envelope_left(actual)
 end
