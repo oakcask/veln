@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"type.match_impossible_variant\"",
+  "\"scrutinee_type\":\"State::Ready\"",
+  "\"arm_variant\":\"Closed\"",
+]
+
+[stderr]
+format = "empty"

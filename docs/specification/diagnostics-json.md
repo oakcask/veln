@@ -123,17 +123,26 @@ before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
 A valid constructor arm for an immutable match-scrutinee binding written as a
-bare name or with redundant parentheses refines that binding to the constructor
-singleton while checking the arm. A binding already typed as a singleton or
-finite refinement union uses that set as its match domain. Valid constructor
-arms consume one residual variant; binding and `_` catch-alls consume and
-refine the binding to the complete residual set. Passing the binding to a
-parameter that requires its arm refinement emits no `type.variant_mismatch`.
+bare name or with redundant parentheses refines that binding and its
+transparent local aliases to the constructor singleton while checking the arm.
+A transparent-alias group uses the feasible domain established by all valid
+facts for its one immutable value. A wider annotation on one member does not
+enlarge that domain. Valid constructor arms consume one residual variant.
+Binding and `_` catch-alls give every participating binding the complete
+residual set; a binding catch-all also becomes another transparent alias for
+the complete matched value. Passing any participating binding to a parameter
+that requires its arm refinement emits no `type.variant_mismatch`.
 
 A valid same-ADT constructor excluded by the original refined domain reports
 `type.match_impossible_variant` at the constructor's final name segment. Its
-closed details contain only `scrutinee_type` and `arm_variant`. Related entries
-identify the refined scrutinee occurrence and selected ADT declaration.
+closed details contain only `scrutinee_type` and `arm_variant`.
+`scrutinee_type` renders the alias group's effective feasible domain, including
+an enclosing arm refinement, rather than a selected member's wider declared
+type. Related entries identify the scrutinee occurrence and selected ADT
+declaration. The checked widened-alias classifications are
+[`adt-variant-refinement-match-alias-domain-diagnostics-human`](../../examples/specification/check/adt-variant-refinement-match-alias-domain-diagnostics-human/)
+and
+[`adt-variant-refinement-match-alias-domain-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-alias-domain-diagnostics-json/).
 
 A valid constructor or catch-all with no residual variant reports
 `type.match_redundant_arm` at the complete arm pattern. Its closed details are
@@ -182,10 +191,15 @@ that payload pattern. Its details use
 `actual_type_source: "literal_pattern"`, and
 `constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
 refine the scrutinee unless every payload binding is admitted to the arm scope.
-When refined coverage is inactive, including for a base-ADT scrutinee or a
-computed refined scrutinee, match arms retain the ordinary constructor path,
-payload-arity, and exhaustiveness behavior. They do not gain
-`name.unresolved` or `type.constructor_pattern_arity` from refined coverage.
+When a stable binding has a base-ADT domain, constructor and catch-all arms
+still refine its transparent aliases, but arm validation and diagnostics retain
+the ordinary constructor path, payload-arity, duplicate-arm, and exhaustiveness
+behavior. Such a match does not gain `type.match_impossible_variant`,
+`type.match_redundant_arm`, `name.unresolved`, or
+`type.constructor_pattern_arity` from refined-domain diagnostics. Refined
+coverage is inactive for a computed refined scrutinee, which also retains the
+ordinary match diagnostics and does not refine bindings that contributed to the
+computed value.
 Invalid value-name casing, a duplicate payload binding,
 parameter, or visible local, and a `callsite` binding that would shadow the
 built-in call-site location keep their intrinsic casing, resolution, field,
@@ -317,7 +331,9 @@ diagnostics use `boundary: "handler_operation_clause"` and do not emit a
 `reason: "unknown_handled_effect"` and related notes containing candidate
 `effect` and `operations` declarations.
 
-Advisory hole candidate and application-policy fields are specified by
+Advisory hole diagnostic fields, candidate eligibility, type-match ranking,
+and `satisfy` behavior are specified by [holes.md](holes.md). Candidate
+application-policy fields are specified by
 [repair-candidates.md](repair-candidates.md). Runtime result projections are
 specified by [run-json.md](run-json.md).
 

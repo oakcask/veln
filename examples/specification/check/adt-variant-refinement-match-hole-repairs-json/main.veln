@@ -1,0 +1,37 @@
+# Match-arm transparent aliases expose their effective refinement to JSON hole
+# diagnostics and repair candidates, then restore their stored types afterward.
+type State
+	Ready
+	Closed
+	Failed
+	Outside
+end
+
+fn accept_ready(value: State::Ready) -> ()
+	()
+end
+
+fn accept_remaining(value: State::Closed | State::Failed) -> ()
+	()
+end
+
+fn accept_state(value: State) -> ()
+	()
+end
+
+fn inspect(value: State::Ready | State::Closed | State::Failed) -> ()
+	let alias: State = value
+	match value
+		Ready => begin
+			accept_ready(_constructor_exact)
+			accept_state(_constructor_assignable)
+			accept_ready(_constructor_satisfy satisfy candidate => candidate == candidate)
+		end
+		remaining => begin
+			accept_remaining(_residual_exact)
+			accept_state(_residual_assignable)
+			accept_remaining(_residual_satisfy satisfy candidate => candidate == candidate)
+		end
+	end
+	accept_state(_restored)
+end

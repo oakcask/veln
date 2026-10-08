@@ -43,7 +43,7 @@ fn hole_details(
     expected_type: &str,
     expected_source: ExpectedTypeSource,
     constraints: Vec<JsonValue>,
-    bindings: &[Binding],
+    local_bindings: Vec<JsonValue>,
     candidate_queries: Vec<JsonValue>,
 ) -> JsonValue {
     JsonValue::object([
@@ -61,21 +61,9 @@ fn hole_details(
             JsonValue::string(expected_source.as_hole_source()),
         ),
         ("constraints", JsonValue::array(constraints)),
-        ("local_bindings", JsonValue::array(local_bindings(bindings))),
+        ("local_bindings", JsonValue::array(local_bindings)),
         ("candidate_queries", JsonValue::array(candidate_queries)),
     ])
-}
-
-fn local_bindings(bindings: &[Binding]) -> Vec<JsonValue> {
-    bindings
-        .iter()
-        .map(|binding| {
-            JsonValue::object([
-                ("name", JsonValue::string(binding.name.clone())),
-                ("type", JsonValue::string(binding.ty.render())),
-            ])
-        })
-        .collect()
 }
 
 fn satisfy_details(
@@ -218,6 +206,18 @@ fn satisfy_related_note(satisfy: Option<&SatisfyClause>) -> Option<JsonValue> {
 }
 
 impl<'a> FunctionChecker<'a> {
+    fn hole_local_bindings(&self) -> Vec<JsonValue> {
+        self.effective_visible_bindings()
+            .into_iter()
+            .map(|(index, ty)| {
+                JsonValue::object([
+                    ("name", JsonValue::string(self.bindings[index].name.clone())),
+                    ("type", JsonValue::string(ty.render())),
+                ])
+            })
+            .collect()
+    }
+
     pub(super) fn check_satisfy_clause(
         &mut self,
         expr: &Expr,
@@ -243,7 +243,15 @@ impl<'a> FunctionChecker<'a> {
         }
         self.check_satisfy_candidate_used(expr, satisfy, candidate, candidate_span);
 
-        let mut predicate_bindings = self.bindings.clone();
+        let mut predicate_bindings = self
+            .effective_visible_bindings()
+            .into_iter()
+            .map(|(index, ty)| {
+                let mut binding = self.bindings[index].clone();
+                binding.ty = ty;
+                binding
+            })
+            .collect::<Vec<_>>();
         if !rejected_callsite_shadow {
             predicate_bindings.push(Binding::new(
                 candidate.to_string(),
@@ -393,13 +401,14 @@ impl<'a> FunctionChecker<'a> {
         let candidate_queries =
             self.candidate_queries(expected.map(|expected| &expected.ty), expr, satisfy);
         let constraints = self.hole_constraints(satisfy, expected.map(|expected| &expected.ty));
+        let local_bindings = self.hole_local_bindings();
         let details = hole_details(
             expr,
             name,
             &expected_type,
             expected_source,
             constraints,
-            self.bindings.as_slice(),
+            local_bindings,
             candidate_queries,
         );
         let mut diagnostic = Diagnostic::new(

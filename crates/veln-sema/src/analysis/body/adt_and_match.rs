@@ -155,6 +155,7 @@ struct RefinedMatchCoverage {
     covered_order: Vec<usize>,
     remaining_count: usize,
     preceding_catch_all: Option<SourceSpan>,
+    reports_refined_diagnostics: bool,
     diagnostic_source: RefinedMatchDiagnosticSource,
     diagnostic_facts: std::sync::OnceLock<RefinedMatchDiagnosticFacts>,
 }
@@ -163,19 +164,26 @@ pub(super) struct RefinedMatchDomainFacts {
     declaration_order: Arc<VariantDeclarationOrder>,
     variants: Arc<[String]>,
     ranks: HashSet<usize>,
+    owned_variant_slots: usize,
 }
 
 #[derive(Default)]
 pub(super) struct RefinedMatchDomainCache {
-    entries: HashMap<usize, Arc<RefinedMatchDomainFacts>>,
+    entries: HashMap<RefinedMatchDomainKey, Arc<RefinedMatchDomainFacts>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum RefinedMatchDomainKey {
+    BaseDeclarationOrder(usize),
+    RefinementVariants(usize),
 }
 
 impl RefinedMatchDomainCache {
-    fn get(&self, key: usize) -> Option<&Arc<RefinedMatchDomainFacts>> {
+    fn get(&self, key: RefinedMatchDomainKey) -> Option<&Arc<RefinedMatchDomainFacts>> {
         self.entries.get(&key)
     }
 
-    fn insert(&mut self, key: usize, domain: Arc<RefinedMatchDomainFacts>) {
+    fn insert(&mut self, key: RefinedMatchDomainKey, domain: Arc<RefinedMatchDomainFacts>) {
         let previous_capacity = self.entries.capacity();
         self.entries.insert(key, domain);
         record_refined_match_slots_allocated(
@@ -219,6 +227,7 @@ struct RefinedMatchArmPlan {
 struct MatchArmScope {
     saved_bindings: usize,
     saved_invalid_binding_recoveries: usize,
+    saved_alias_refinement_frames: usize,
 }
 
 enum RefinedMatchArmCoverage {
@@ -251,16 +260,15 @@ impl RefinedMatchCoverage {
         domain: Arc<RefinedMatchDomainFacts>,
         adts: &AdtRegistry,
     ) -> Option<Self> {
-        let Type::VariantRefinement { variants, .. } = scrutinee_type else {
-            return None;
-        };
         retain_refined_match_domain_handle();
+        let remaining_count = domain.variants.len();
         Some(Self {
             domain,
             covered: HashMap::new(),
             covered_order: Vec::new(),
-            remaining_count: variants.len(),
+            remaining_count,
             preceding_catch_all: None,
+            reports_refined_diagnostics: matches!(scrutinee_type, Type::VariantRefinement { .. }),
             diagnostic_source: RefinedMatchDiagnosticSource {
                 scrutinee_type: scrutinee_type.clone(),
                 scrutinee_span: scrutinee.span.clone(),
@@ -384,7 +392,7 @@ impl Drop for RefinedMatchCoverage {
 
 impl Drop for RefinedMatchDomainFacts {
     fn drop(&mut self) {
-        record_refined_match_slots_released(self.ranks.capacity());
+        record_refined_match_slots_released(self.ranks.capacity() + self.owned_variant_slots);
         release_refined_match_domain_handle();
     }
 }
@@ -407,7 +415,7 @@ impl RefinedMatchDiagnosticFacts {
         Self {
             scrutinee_type,
             refinement_source_message: DiagnosticText::parts([
-                DiagnosticText::from("This match scrutinee has refined type `"),
+                DiagnosticText::from("The feasible match domain is `"),
                 rendered_type,
                 DiagnosticText::from("`."),
             ]),
@@ -723,13 +731,20 @@ impl<'a> FunctionChecker<'a> {
         arms: &[MatchArm],
         expected: Option<&ExpectedType>,
     ) -> Type {
-        let scrutinee_type = self.infer_match_scrutinee(expr, scrutinee, arms);
+        let inferred_scrutinee_type = self.infer_match_scrutinee(expr, scrutinee, arms);
+        let scrutinee_type = self
+            .stable_match_alias_group(scrutinee)
+            .map_or(inferred_scrutinee_type, |group| {
+                self.alias_group_match_type(group)
+            });
         let mut refined_coverage = self
             .is_stable_match_binding(scrutinee)
             .then(|| self.refined_match_coverage(scrutinee, &scrutinee_type))
             .flatten();
+        let uses_refined_match_diagnostics =
+            matches!(scrutinee_type, Type::VariantRefinement { .. });
         if arms.is_empty() {
-            if let Some(coverage) = &refined_coverage {
+            if uses_refined_match_diagnostics && let Some(coverage) = &refined_coverage {
                 if let Some(missing_case) = coverage.first_missing_case() {
                     self.report_refined_match_non_exhaustive(
                         expr,
@@ -767,7 +782,7 @@ impl<'a> FunctionChecker<'a> {
             );
         }
 
-        if let Some(coverage) = refined_coverage {
+        if uses_refined_match_diagnostics && let Some(coverage) = refined_coverage {
             if let Some(missing_case) = coverage.first_missing_case() {
                 let proving_arms = coverage.proving_arms();
                 self.report_refined_match_non_exhaustive(
@@ -801,34 +816,57 @@ impl<'a> FunctionChecker<'a> {
         scrutinee: &Expr,
         scrutinee_type: &Type,
     ) -> Option<RefinedMatchCoverage> {
-        let Type::VariantRefinement { variants, .. } = scrutinee_type else {
-            return None;
-        };
-        self.environment.adts.descriptor_for_type_prefer_module(
+        let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
             scrutinee_type,
             self.function.module_name.as_deref(),
         )?;
+        let declaration_order = self
+            .environment
+            .adts
+            .variant_declaration_order_for_descriptor(descriptor)?;
         // The cache retains the Arc behind this address, so the allocator cannot
-        // reuse the key for a different refinement during this function check.
-        let key = variants.as_ptr() as usize;
+        // reuse the key for a different domain during this function check.
+        let key = match scrutinee_type {
+            Type::Named { .. } => {
+                RefinedMatchDomainKey::BaseDeclarationOrder(Arc::as_ptr(&declaration_order) as usize)
+            }
+            Type::VariantRefinement { variants, .. } => {
+                RefinedMatchDomainKey::RefinementVariants(variants.as_ptr() as usize)
+            }
+            _ => return None,
+        };
         let domain = if let Some(domain) = self.refined_match_domains.get(key) {
             Arc::clone(domain)
         } else {
-            let declaration_order = self
-                .environment
-                .adts
-                .variant_declaration_order_for_type(scrutinee_type)?;
+            let (variants, owned_variant_slots): (Arc<[String]>, usize) = match scrutinee_type {
+                Type::Named { .. } => {
+                    let variants = (0..declaration_order.len())
+                        .map(|rank| {
+                            declaration_order
+                                .name(rank)
+                                .expect("ADT variant rank")
+                                .to_string()
+                        })
+                        .collect::<Vec<_>>()
+                        .into();
+                    (variants, declaration_order.len())
+                }
+                Type::VariantRefinement { variants, .. } => (Arc::clone(variants), 0),
+                _ => return None,
+            };
             let mut ranks = HashSet::with_capacity(variants.len());
             for variant in variants.iter() {
                 record_refined_match_coverage_work(1);
                 ranks.insert(declaration_order.rank(variant)?);
             }
             record_refined_match_slots_allocated(ranks.capacity());
+            record_refined_match_slots_allocated(owned_variant_slots);
             retain_refined_match_domain_handle();
             let domain = Arc::new(RefinedMatchDomainFacts {
                 declaration_order,
-                variants: Arc::clone(variants),
+                variants: Arc::clone(&variants),
                 ranks,
+                owned_variant_slots,
             });
             self.refined_match_domains.insert(key, Arc::clone(&domain));
             domain
@@ -929,14 +967,19 @@ impl<'a> FunctionChecker<'a> {
         if !self.match_pattern_is_valid_for_type(pattern, scrutinee_type) {
             return None;
         }
-        let Type::VariantRefinement {
-            name,
-            identity,
-            args: type_args,
-            ..
-        } = scrutinee_type
-        else {
-            return None;
+        let (name, identity, type_args) = match scrutinee_type {
+            Type::Named {
+                name,
+                identity,
+                args,
+            }
+            | Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                ..
+            } => (name, identity, args),
+            _ => return None,
         };
         let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
             scrutinee_type,
@@ -987,14 +1030,19 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         coverage: &RefinedMatchCoverage,
     ) -> Option<RefinedMatchArmPlan> {
-        let Type::VariantRefinement {
-            name,
-            identity,
-            args: type_args,
-            ..
-        } = scrutinee_type
-        else {
-            return None;
+        let (name, identity, type_args) = match scrutinee_type {
+            Type::Named {
+                name,
+                identity,
+                args,
+            }
+            | Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                ..
+            } => (name, identity, args),
+            _ => return None,
         };
         let classification = if coverage.remaining_count == 0 {
             RefinedCatchAllClassification::Redundant
@@ -1068,9 +1116,14 @@ impl<'a> FunctionChecker<'a> {
                 coverage.remaining_count -= 1;
             }
             RefinedConstructorClassification::Impossible => {
-                self.push_match_impossible_variant(coverage, variant, variant_span);
+                if coverage.reports_refined_diagnostics {
+                    self.push_match_impossible_variant(coverage, variant, variant_span);
+                }
             }
             RefinedConstructorClassification::Redundant => {
+                if !coverage.reports_refined_diagnostics {
+                    return;
+                }
                 let (reason, related_span, related_message) =
                     if let Some(span) = &coverage.preceding_catch_all {
                         (
@@ -1112,7 +1165,9 @@ impl<'a> FunctionChecker<'a> {
             coverage.preceding_catch_all = Some(pattern.span.clone());
             return;
         }
-        self.push_redundant_refined_catch_all(pattern, coverage);
+        if coverage.reports_refined_diagnostics {
+            self.push_redundant_refined_catch_all(pattern, coverage);
+        }
         if coverage.preceding_catch_all.is_none() {
             coverage.preceding_catch_all = Some(pattern.span.clone());
         }
@@ -1266,6 +1321,7 @@ impl<'a> FunctionChecker<'a> {
         let scope = MatchArmScope {
             saved_bindings: self.bindings.len(),
             saved_invalid_binding_recoveries: self.invalid_binding_recoveries.len(),
+            saved_alias_refinement_frames: self.alias_refinement_frame_count(),
         };
         self.local_name_scopes.push(Vec::new());
         scope
@@ -1277,15 +1333,18 @@ impl<'a> FunctionChecker<'a> {
         arm: &MatchArm,
         refined_coverage: Option<&mut RefinedMatchCoverage>,
     ) -> (bool, Option<RefinedMatchArmPlan>) {
-        let direct_refined_match_validation = refined_coverage.is_some();
+        let direct_refined_match_validation =
+            refined_coverage.is_some() && matches!(domain.ty, Type::VariantRefinement { .. });
         let arm_plan = refined_coverage
             .as_deref()
             .and_then(|coverage| self.refined_match_arm_plan(&arm.pattern, domain.ty, coverage));
         let pattern_type = arm_plan.as_ref().map_or(domain.ty, |plan| &plan.arm_type);
+        let complete_alias_group = self.stable_match_alias_group(domain.scrutinee);
         let pattern_bindings_admitted = self.declare_match_pattern_bindings(
             &arm.pattern,
             pattern_type,
             direct_refined_match_validation,
+            complete_alias_group,
         );
         if pattern_bindings_admitted
             && let (Some(coverage), Some(plan)) = (refined_coverage, arm_plan.as_ref())
@@ -1307,18 +1366,19 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let planned_refinement = arm_plan.map(|plan| &plan.arm_type);
-        if let Some(binding) = self.stable_match_binding_refinement(
+        if let Some((alias_group, refinement)) = self.stable_match_binding_refinement(
             scrutinee,
             pattern,
             scrutinee_type,
             planned_refinement,
         ) {
-            self.bindings.push(binding);
+            self.push_alias_group_refinement(alias_group, refinement);
         }
     }
 
     fn end_match_arm_scope(&mut self, scope: MatchArmScope, retained_refinement_variants: usize) {
-        self.bindings.truncate(scope.saved_bindings);
+        self.restore_alias_refinement_frames(scope.saved_alias_refinement_frames);
+        self.truncate_bindings(scope.saved_bindings);
         release_refined_match_refinement_variants(retained_refinement_variants);
         self.invalid_binding_recoveries
             .truncate(scope.saved_invalid_binding_recoveries);
@@ -1331,70 +1391,72 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn stable_match_binding_refinement(
-        &self,
-        scrutinee: &Expr,
-        pattern: &Pattern,
-        scrutinee_type: &Type,
-        planned_refinement: Option<&Type>,
-    ) -> Option<Binding> {
+    fn stable_match_alias_group(&self, scrutinee: &Expr) -> Option<usize> {
         let ExprKind::NamePath { segments, .. } = &scrutinee.kind else {
             return None;
         };
         let [binding_name] = segments.as_slice() else {
             return None;
         };
-        self.bindings
-            .iter()
-            .rfind(|binding| binding.name == *binding_name)?;
+        self.visible_binding_index(binding_name)
+            .and_then(|index| self.bindings[index].transparent_alias_group)
+    }
 
-        if let Some(refinement) = planned_refinement {
-            return Some(Binding::new(binding_name.clone(), refinement.clone()));
-        }
+    fn stable_match_binding_refinement(
+        &self,
+        scrutinee: &Expr,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+        planned_refinement: Option<&Type>,
+    ) -> Option<(usize, Type)> {
+        let alias_group = self.stable_match_alias_group(scrutinee)?;
 
-        let Type::Named {
-            name: type_name,
-            identity,
-            args: type_args,
-        } = scrutinee_type
-        else {
-            return None;
-        };
+        let refinement = if let Some(refinement) = planned_refinement {
+            refinement.clone()
+        } else {
+            let Type::Named {
+                name: type_name,
+                identity,
+                args: type_args,
+            } = scrutinee_type
+            else {
+                return None;
+            };
 
-        let PatternKind::Constructor { name, args, .. } = &pattern.kind else {
-            return None;
-        };
-        if invalid_qualified_constructor_pattern(name) {
-            return None;
-        }
-        let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
-            scrutinee_type,
-            self.function.module_name.as_deref(),
-        )?;
-        let constructor = self.environment.adts.constructor_for_descriptor(
-            name,
-            descriptor,
-            self.function.module_name.as_deref(),
-            &self.environment.uses,
-        )?;
-        if args.len() != constructor.variant.payload_fields.len() {
-            return None;
-        }
-        if !args.iter().enumerate().all(|(index, pattern)| {
-            adt::payload_type(scrutinee_type, constructor, index)
-                .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
-        }) {
-            return None;
-        }
-        Some(Binding::new(
-            binding_name.clone(),
+            let PatternKind::Constructor { name, args, .. } = &pattern.kind else {
+                return None;
+            };
+            if invalid_qualified_constructor_pattern(name) {
+                return None;
+            }
+            let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
+                scrutinee_type,
+                self.function.module_name.as_deref(),
+            )?;
+            let constructor = self.environment.adts.constructor_for_descriptor(
+                name,
+                descriptor,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            )?;
+            if args.len() != constructor.variant.payload_fields.len() {
+                return None;
+            }
+            if !args.iter().enumerate().all(|(index, pattern)| {
+                adt::payload_type(scrutinee_type, constructor, index)
+                    .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
+            }) {
+                return None;
+            }
             Type::resolved_variant_refinement(
                 type_name,
                 identity,
                 type_args.clone(),
                 vec![constructor.variant.name.clone()],
-            ),
-        ))
+            )
+        };
+
+        Some((alias_group, refinement))
     }
 
     fn match_pattern_is_valid_for_type(&self, pattern: &Pattern, expected: &Type) -> bool {
@@ -1455,7 +1517,12 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         scrutinee_type: &Type,
         direct_refined_match_validation: bool,
+        complete_alias_group: Option<usize>,
     ) -> bool {
+        let complete_binding = match &pattern.kind {
+            PatternKind::Binding(name) => Some(name.as_str()),
+            _ => None,
+        };
         let mut all_admitted = true;
         for binding in self.pattern_bindings_with_recovery(
             pattern,
@@ -1479,7 +1546,15 @@ impl<'a> FunctionChecker<'a> {
                 all_admitted = false;
                 continue;
             }
-            self.bindings.push(Binding::new(binding.name, binding.ty));
+            let binding_type = binding.ty;
+            let mut admitted = Binding::new(binding.name, binding_type.clone());
+            admitted.transparent_alias_group = if complete_binding == Some(admitted.name.as_str()) {
+                complete_alias_group
+                    .or_else(|| self.fresh_transparent_alias_group(binding_type.clone()))
+            } else {
+                self.fresh_transparent_alias_group(binding_type)
+            };
+            self.push_binding(admitted);
         }
         all_admitted
     }

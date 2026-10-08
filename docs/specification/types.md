@@ -198,6 +198,18 @@ generic constructors, use the existing ambiguity diagnostics until a concrete
 same-function expected type fixes the binding. The JSON details identify the
 local binding slot and include the current inferred type.
 
+An unannotated immutable parameter or local and its unannotated transparent
+aliases share compatible type information inferred for any group member. A
+concrete group fact fills corresponding `unknown` positions recursively,
+including type arguments nested inside other named types. A `match` whose
+constructor arms resolve one member to a concrete ADT therefore fixes the
+persistent type presented by every compatible member that still has unknown
+positions. Constructor and residual refinements temporarily narrow that shared
+type in the matching arm. After the arm, all still-unannotated members present
+the inferred concrete type, including for private-parameter completeness
+checking. An explicitly annotated member keeps its own declared presentation
+while the group retains one feasible match domain.
+
 Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
 value positions from every successfully typed contribution. Constructor
 refinements of the same resolved ADT and compatible generic arguments join
@@ -366,19 +378,35 @@ unknown. Arm expressions share the expected result type when one is available.
 
 When the scrutinee is an immutable parameter or local binding written either
 as its bare name or with one or more redundant parentheses, a valid constructor
-arm gives that same binding the constructor's singleton refinement while
+arm gives that binding and each transparent alias the constructor's singleton
+refinement while
 checking the arm expression. The binding's current type can be the base ADT,
 one singleton refinement, or a finite refinement union. The refinement retains
 the resolved ADT identity and its instantiated generic arguments.
 
 A singleton or finite-union scrutinee restricts the match domain to its current
-variant set. Each valid constructor arm removes its variant from the residual
-set. A binding catch-all receives the complete residual refinement, and a
-non-binding `_` catch-all gives the existing scrutinee binding that same
-refinement. Complete constructor coverage or one catch-all makes the match
-exhaustive. A nested `match` observes and can refine the current arm's finite
-domain. Leaving an inner arm preserves the enclosing refinement, and leaving
-the outer arm restores the binding's original type.
+variant set. Transparent aliases share the feasible domain of the same
+immutable value. A valid widening changes one alias's declared type without
+enlarging that shared domain. Matching any group member therefore uses the
+shared domain for constructor feasibility, exhaustiveness, and residual
+catch-alls, even when the selected member is declared as a wider union or the
+base ADT.
+
+Each valid constructor arm removes its variant from the residual set. A binding
+catch-all receives the complete residual refinement and becomes a transparent
+alias for the complete matched value. A non-binding `_` catch-all gives the
+existing scrutinee and its transparent aliases that same refinement. Complete
+constructor coverage or one catch-all makes the match exhaustive. A nested
+`match` observes and can refine the current arm's shared finite domain. Leaving
+an inner arm preserves the enclosing refinement. Leaving the outer arm restores
+each participating binding's declared or inferred type. The shared feasible
+domain remains available only to classify a later `match` on a group member;
+it does not narrow that binding's type in ordinary expressions after the arm.
+
+[Hole diagnostics and repair queries](holes.md#hole-diagnostics-and-expected-types)
+consume the same arm-local type as ordinary name expressions. The holes
+specification owns their visible-binding, candidate, ranking, and `satisfy`
+behavior.
 
 ```veln
 type Boxed<A>
@@ -402,10 +430,15 @@ The call in the `Filled` arm is accepted because `value` has type
 `Boxed<Int>::Filled` in that arm. After the `match`, `value` again has type
 `Boxed<Int>`. The checked
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
-also demonstrates a generic three-variant refined domain whose binding
-catch-all, wildcard catch-all, and original scrutinee binding receive the
-complete two-variant residual type. Nested matches distinguish that residual
-from either singleton narrowing or widening to the base ADT.
+also demonstrates a generic base-ADT domain whose catch-alls give every
+transparent alias the complete residual after preceding constructor arms. The
+same case checks a three-variant refined domain whose binding catch-all,
+wildcard catch-all, and original scrutinee binding receive the complete
+two-variant residual type. It also checks inferred and annotated transparent
+alias chains, a group whose initially unknown members acquire one inferred ADT
+type, nested generic arguments whose unknown positions become concrete, direct
+widening, and complete-value pattern aliases. Nested matches distinguish the
+residual from either singleton narrowing or an alias's wider presentation.
 
 For bare or redundantly parenthesized bindings with a refined domain, arm
 classification first validates the constructor name, visibility, owning
@@ -448,11 +481,24 @@ type while the arm expression is checked. The checked
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
 demonstrates parameter, local, generic, nested-arm, and literal-payload use.
 
-This refinement requires the scrutinee source to consist only of a binding
-name and optional redundant parentheses. Qualified values, record-field paths,
-transparent aliases, and function values do not receive this refinement or
-refined-domain arm classification. Calls, constructor expressions, and other
-computed scrutinees likewise retain the ordinary base-ADT match behavior.
+A local binding is a transparent alias when its initializer is only a bare or
+redundantly parenthesized immutable parameter or local binding. This relation
+is transitive. An initializer with an incompatible annotation does not establish
+an alias during diagnostic recovery. Matching any member refines every member,
+including a binding catch-all for the complete matched value, for the current
+arm only.
+
+Qualified values, record-field paths, and function values do not establish a
+transparent alias in this behavior. Separate construction, equality, contract
+predicates, Boolean helpers, calls, indexing, operators, and other computed
+expressions do not establish one either. A computed result can be refined
+after it is stored in its own local, but matching that local does not refine
+the inputs used to compute it. The checked
+[`adt-variant-refinement-match-alias-boundaries`](../../examples/specification/check/adt-variant-refinement-match-alias-boundaries/)
+case verifies the available computed-expression, invalid-annotation, and
+restoration boundaries. Veln currently has no indexing expression or
+module-addressable immutable-value source form. Function-value expressions do
+not produce ADT values that can exercise alias match refinement independently.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
@@ -517,12 +563,19 @@ materialized state grow additively with `N + D`, not multiplicatively with
 diagnostic text. Deterministic counters cover initialized and peak match-local
 collections including the shared-domain cache, shared domain handles,
 cumulative residual and refinement materialization, refinements retained while
-an arm body is checked, and cached dynamically rendered diagnostic text. Every
-instrumented match-local owner returns to zero after analysis. These counters,
-rather than elapsed time, define the regression checks; reported wall-clock
-timings are observational. Final serialized JSON can still grow quadratically
-when a linear number of diagnostics must each expose the complete refined
-domain.
+an arm body is checked, cached dynamically rendered diagnostic text, alias
+group and member lookups, retained alias entries, and active group-refinement
+frames.
+Increasing alias count, constructor-arm count, nesting depth, or unrelated
+local count is checked independently. Unrelated non-ADT locals add no alias-
+group work or state. Independently tracked ADT locals add one group and member
+of ownership state each, but they do not add repeated lookups or multiply the
+work for the matched alias group. Every instrumented match-local owner returns
+to zero after analysis.
+These counters, rather than elapsed time, define the regression checks;
+reported wall-clock timings are observational. Final serialized JSON can still
+grow quadratically when a linear number of diagnostics must each expose the
+complete refined domain.
 
 ### Result propagation
 
@@ -695,10 +748,10 @@ private results are checked in
 rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
-Alias spelling and provenance, public/private exposure paths, pattern-based
-control-flow refinement beyond bare or redundantly parenthesized immutable
-bindings, schema boundaries, package-documentation signatures, command-wide
-coverage, LSP, MCP, and language-reference publication remain proposal work.
+Alias spelling and provenance, public/private exposure paths, record-field and
+qualified-value control-flow refinement, schema boundaries,
+package-documentation signatures, command-wide coverage, LSP, MCP, and
+language-reference publication remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

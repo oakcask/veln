@@ -7,6 +7,7 @@ struct LetBindingContext {
     initializer_unknown_is_diagnosed: bool,
     deferred_initializer_diagnostic: Option<usize>,
     pattern_has_diagnostic: bool,
+    transparent_alias_group: Option<usize>,
 }
 
 impl<'a> FunctionChecker<'a> {
@@ -119,7 +120,7 @@ impl<'a> FunctionChecker<'a> {
 
         self.check_omitted_local_inference_from(saved_omitted_bindings);
         self.omitted_local_bindings.truncate(saved_omitted_bindings);
-        self.bindings.truncate(saved_bindings);
+        self.truncate_bindings(saved_bindings);
         self.invalid_binding_recoveries
             .truncate(saved_invalid_binding_recoveries);
         for (name, previous) in self
@@ -167,6 +168,10 @@ impl<'a> FunctionChecker<'a> {
         annotation: Option<&str>,
         expr: &Expr,
     ) {
+        let transparent_alias_group = match &pattern.kind {
+            PatternKind::Binding(_) => self.transparent_alias_group(expr),
+            _ => None,
+        };
         let expected = annotation.and_then(|annotation| {
             self.parse_annotation(
                 annotation,
@@ -178,7 +183,6 @@ impl<'a> FunctionChecker<'a> {
         });
         let initializer_diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(expr, expected.as_ref());
-        let initializer_has_diagnostic = self.diagnostics.len() != initializer_diagnostic_count;
         let initializer_unknown_is_diagnosed = type_contains_unknown(&actual)
             && (self.diagnostics[initializer_diagnostic_count..]
                 .iter()
@@ -197,6 +201,7 @@ impl<'a> FunctionChecker<'a> {
         if let Some(expected) = &expected {
             self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
         }
+        let initializer_has_diagnostic = self.diagnostics.len() != initializer_diagnostic_count;
 
         let pattern_diagnostic_count = self.diagnostics.len();
         self.check_let_pattern_supported(pattern);
@@ -219,6 +224,7 @@ impl<'a> FunctionChecker<'a> {
             initializer_unknown_is_diagnosed,
             deferred_initializer_diagnostic,
             pattern_has_diagnostic,
+            transparent_alias_group,
         };
         for binding in pattern_bindings {
             self.bind_let_pattern(binding, &binding_context);
@@ -244,12 +250,16 @@ impl<'a> FunctionChecker<'a> {
         } else {
             Binding::new(binding.name.clone(), binding.ty.clone())
         };
+        admitted.transparent_alias_group = context
+            .transparent_alias_group
+            .filter(|_| !context.initializer_has_diagnostic && !context.pattern_has_diagnostic)
+            .or_else(|| self.fresh_transparent_alias_group(binding.ty.clone()));
         if matches!(binding.ty, Type::Function { .. })
             && let Some(type_origin) = &context.type_origin
         {
             admitted.type_origin = Some(type_origin.clone());
         }
-        self.bindings.push(admitted);
+        self.push_binding(admitted);
         if context.annotation_is_omitted
             && (!context.initializer_has_diagnostic
                 || context.deferred_initializer_diagnostic.is_some())
@@ -263,6 +273,17 @@ impl<'a> FunctionChecker<'a> {
                 deferred_initializer_diagnostic: context.deferred_initializer_diagnostic,
             });
         }
+    }
+
+    fn transparent_alias_group(&self, expr: &Expr) -> Option<usize> {
+        let ExprKind::NamePath { segments, .. } = &expr.kind else {
+            return None;
+        };
+        let [name] = segments.as_slice() else {
+            return None;
+        };
+        self.visible_binding_index(name)
+            .and_then(|index| self.bindings[index].transparent_alias_group)
     }
 
     pub(super) fn check_expr_line(&mut self, index: usize, line: &BodyLine, expr: &Expr) {
@@ -393,11 +414,12 @@ impl<'a> FunctionChecker<'a> {
         let inferred = self
             .bindings
             .iter()
+            .enumerate()
             .rev()
-            .find(|binding| binding.name == param.name)
-            .map(|binding| &binding.ty)
-            .unwrap_or(&Type::Unknown);
-        if !type_contains_unknown(inferred) {
+            .find(|(_, binding)| binding.name == param.name)
+            .map(|(index, _)| self.binding_type(index))
+            .unwrap_or(Type::Unknown);
+        if !type_contains_unknown(&inferred) {
             return;
         }
         let mut diagnostic = Diagnostic::new(
@@ -473,11 +495,12 @@ impl<'a> FunctionChecker<'a> {
             let inferred = self
                 .bindings
                 .iter()
+                .enumerate()
                 .rev()
-                .find(|binding| binding.name == omitted.name)
-                .map(|binding| &binding.ty)
-                .unwrap_or(&Type::Unknown);
-            if !type_contains_unknown(inferred) {
+                .find(|(_, binding)| binding.name == omitted.name)
+                .map(|(index, _)| self.binding_type(index))
+                .unwrap_or(Type::Unknown);
+            if !type_contains_unknown(&inferred) {
                 if let Some(index) = omitted.deferred_initializer_diagnostic {
                     self.suppressed_diagnostic_indices.insert(index);
                 }
@@ -574,7 +597,7 @@ impl<'a> FunctionChecker<'a> {
                 "callsite".to_string(),
                 (function.node_id.display("callsite"), span.clone()),
             );
-            self.bindings.push(Binding::new(
+            self.push_binding(Binding::new(
                 "callsite".to_string(),
                 Type::source_location(),
             ));

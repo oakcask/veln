@@ -24,10 +24,9 @@ also states it.
   resource lifecycle, and duplex transport adapter, building on the
   implemented public network effect, direct facade, and `write_all` helper:
   [standard-library-networking.md](standard-library-networking.md).
-- Remaining ADT variant-refinement support for aliases and visibility,
-  stable-value and transparent-alias control-flow refinement beyond bare or
-  redundantly parenthesized binding finite match domains, qualified immutable
-  values after a separate source-surface prerequisite, schema boundaries,
+- Remaining ADT variant-refinement support for type-alias presentation and
+  visibility, record-field match refinement, qualified immutable values after
+  a separate source-surface prerequisite, schema boundaries,
   package documentation, command-wide enforcement, LSP, MCP, and publication:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 

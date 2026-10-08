@@ -1,8 +1,8 @@
 # Compiler integration contract: checking a constructor arm exposes the matched
-# bare or redundantly parenthesized parameter or local at its singleton or
-# complete multi-variant residual refinement without losing generic arguments.
-# Nested matches restore the enclosing arm refinement, and computed
-# scrutinees remain outside stable-binding refinement.
+# bare or redundantly parenthesized parameter, local, transparent alias chain,
+# or complete-value pattern binding at its singleton or complete multi-variant
+# residual refinement without losing generic arguments. Nested matches restore
+# the enclosing arm refinement. Computed expressions do not alias their inputs.
 type State
 	Ready
 	Closed
@@ -41,6 +41,38 @@ fn accept_failed(value: Boxed<Int>::Failed) -> ()
 	()
 end
 
+fn accept_empty_or_failed(value: Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	()
+end
+
+fn accept_non_filled(value: Boxed<Int>::Empty | Boxed<Int>::Failed | Boxed<Int>::Skipped) -> ()
+	()
+end
+
+fn accept_skipped(value: Boxed<Int>::Skipped) -> ()
+	()
+end
+
+fn accept_boxed_base(value: Boxed<Int>) -> ()
+	()
+end
+
+fn accept_original(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	()
+end
+
+fn accept_nested_filled(value: Boxed<Vec<Int>>::Filled) -> ()
+	()
+end
+
+fn accept_nested_base(value: Boxed<Vec<Int>>) -> ()
+	()
+end
+
+fn accept_string_nested_filled(value: Boxed<Vec<String>>::Filled) -> ()
+	()
+end
+
 fn accept_number(value: LiteralPayload::Number) -> ()
 	()
 end
@@ -76,6 +108,240 @@ fn local(value: Boxed<Int>) -> ()
 		Empty => ()
 		Failed => ()
 		Skipped => ()
+	end
+end
+
+fn inferred_alias_chain(value: Boxed<Int>) -> ()
+	let current = value
+	let transitive = ((current))
+	match transitive
+		Filled(_) => begin
+			accept_filled(value)
+			accept_filled(current)
+			accept_filled(transitive)
+		end
+		Empty => ()
+		Failed => ()
+		Skipped => ()
+	end
+end
+
+fn inferred_alias_group(value) -> ()
+	let current = value
+	let transitive = current
+	match transitive
+		State::Ready => ()
+		State::Closed => ()
+	end
+	match value
+		State::Ready => ()
+		State::Closed => ()
+	end
+end
+
+fn inferred_nested_alias_group(value) -> ()
+	let direct = value
+	let transitive = direct
+	let annotated: Boxed<Vec<Int>> = transitive
+	match annotated
+		complete => begin
+			match complete
+				Filled(_) => begin
+					accept_nested_filled(value)
+					accept_nested_filled(direct)
+					accept_nested_filled(transitive)
+					accept_nested_filled(annotated)
+					accept_nested_filled(complete)
+				end
+			end
+			accept_nested_filled(value)
+			accept_nested_filled(direct)
+			accept_nested_filled(transitive)
+			accept_nested_filled(annotated)
+			accept_nested_filled(complete)
+		end
+	end
+	accept_nested_filled(value)
+	accept_nested_filled(direct)
+	accept_nested_filled(transitive)
+	accept_nested_base(annotated)
+
+	let separately_constructed = Filled([])
+	match separately_constructed
+		Filled(_) => accept_string_nested_filled(separately_constructed)
+	end
+end
+
+fn supply_nested_alias_hole() -> ()
+	inferred_nested_alias_group(Filled([]))
+end
+
+fn residual_alias_chain(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	let current: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed = value
+	let transitive: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed = current
+	match transitive
+		Filled(_) => begin
+			accept_filled(value)
+			accept_filled(current)
+			accept_filled(transitive)
+		end
+		remaining => begin
+			accept_empty_or_failed(value)
+			accept_empty_or_failed(current)
+			accept_empty_or_failed(transitive)
+			accept_empty_or_failed(remaining)
+			match remaining
+				Empty => begin
+					accept_empty(value)
+					accept_empty(current)
+					accept_empty(transitive)
+					accept_empty(remaining)
+				end
+				Failed => begin
+					accept_failed(value)
+					accept_failed(current)
+					accept_failed(transitive)
+					accept_failed(remaining)
+				end
+			end
+			accept_empty_or_failed(value)
+			accept_empty_or_failed(current)
+			accept_empty_or_failed(transitive)
+			accept_empty_or_failed(remaining)
+		end
+	end
+	accept_original(value)
+	accept_original(current)
+	accept_original(transitive)
+end
+
+fn residual_alias_wildcard(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	let current = value
+	let transitive = current
+	match transitive
+		Filled(_) => accept_filled(value)
+		_ => begin
+			accept_empty_or_failed(value)
+			accept_empty_or_failed(current)
+			accept_empty_or_failed(transitive)
+		end
+	end
+end
+
+fn base_residual_alias_binding(value: Boxed<Int>) -> ()
+	let current = value
+	let transitive = current
+	match transitive
+		Filled(_) => accept_filled(value)
+		remaining => begin
+			accept_non_filled(value)
+			accept_non_filled(current)
+			accept_non_filled(transitive)
+			accept_non_filled(remaining)
+			match remaining
+				Empty => begin
+					accept_empty(value)
+					accept_empty(current)
+					accept_empty(transitive)
+					accept_empty(remaining)
+				end
+				Failed => begin
+					accept_failed(value)
+					accept_failed(current)
+					accept_failed(transitive)
+					accept_failed(remaining)
+				end
+				Skipped => begin
+					accept_skipped(value)
+					accept_skipped(current)
+					accept_skipped(transitive)
+					accept_skipped(remaining)
+				end
+			end
+			accept_non_filled(value)
+			accept_non_filled(current)
+			accept_non_filled(transitive)
+			accept_non_filled(remaining)
+		end
+	end
+	accept_boxed_base(value)
+	accept_boxed_base(current)
+	accept_boxed_base(transitive)
+end
+
+fn base_residual_alias_wildcard(value: Boxed<Int>) -> ()
+	let current = value
+	let transitive = current
+	match transitive
+		Filled(_) => ()
+		Empty => ()
+		Failed => ()
+		_ => begin
+			match value
+				Skipped => begin
+					accept_skipped(value)
+					accept_skipped(current)
+					accept_skipped(transitive)
+				end
+			end
+			accept_skipped(value)
+			accept_skipped(current)
+			accept_skipped(transitive)
+		end
+	end
+	accept_boxed_base(value)
+	accept_boxed_base(current)
+	accept_boxed_base(transitive)
+end
+
+fn widened_alias_domain(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()
+	let wider_set: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed = value
+	let base: Boxed<Int> = wider_set
+	match base
+		Filled(_) => begin
+			accept_filled(value)
+			accept_filled(wider_set)
+			accept_filled(base)
+		end
+		remaining => begin
+			accept_empty(value)
+			accept_empty(wider_set)
+			accept_empty(base)
+			accept_empty(remaining)
+			let nested: Boxed<Int> = remaining
+			match nested
+				Empty => begin
+					accept_empty(value)
+					accept_empty(base)
+					accept_empty(remaining)
+					accept_empty(nested)
+				end
+			end
+			accept_empty(remaining)
+		end
+	end
+	match value
+		Filled(_) => ()
+		Empty => ()
+	end
+	match wider_set
+		Filled(_) => ()
+		Empty => ()
+	end
+	match base
+		Filled(_) => ()
+		Empty => ()
+	end
+end
+
+fn widened_residual(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	let base: Boxed<Int> = value
+	match base
+		Filled(_) => ()
+		_ => begin
+			accept_empty_or_failed(value)
+			accept_empty_or_failed(base)
+		end
 	end
 end
 

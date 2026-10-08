@@ -1,0 +1,112 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.1.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.3.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.4.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.4.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.5.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.5.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.6.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.6.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.7.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.7.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.8.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.8.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.9.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.9.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.10.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.10.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.11.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.11.details.actual_type"
+equals = "State"
