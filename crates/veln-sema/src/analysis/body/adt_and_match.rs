@@ -1779,6 +1779,7 @@ struct ConstructorTypeArgInference {
     inferred: Vec<Type>,
     joined: Vec<Option<AggregateTypeJoin>>,
     invariant: Vec<bool>,
+    presentations: Vec<crate::type_relations::TypePresentationJoin>,
 }
 
 impl ConstructorTypeArgInference {
@@ -1789,6 +1790,7 @@ impl ConstructorTypeArgInference {
             inferred: vec![Type::Unknown; parameter_count],
             joined: (0..parameter_count).map(|_| None).collect(),
             invariant: vec![false; parameter_count],
+            presentations: (0..parameter_count).map(|_| Default::default()).collect(),
         }
     }
 
@@ -1840,9 +1842,13 @@ impl ConstructorTypeArgInference {
         if self.joined[type_index].is_none() && self.inferred[type_index] != Type::Unknown {
             self.joined[type_index] = AggregateTypeJoin::new(adts, &self.inferred[type_index]);
         }
-        self.joined[type_index]
+        let joined = self.joined[type_index]
             .as_mut()
-            .is_some_and(|joined| joined.try_join(actual))
+            .is_some_and(|joined| joined.try_join(actual));
+        if joined {
+            self.presentations[type_index].merge(&mut self.inferred[type_index], actual);
+        }
+        joined
     }
 
     fn mismatch_expected(&self, field: &AdtPayloadField, fallback: &ExpectedType) -> Type {
@@ -1878,6 +1884,7 @@ impl ConstructorTypeArgInference {
                 &mut self.inferred,
                 &mut self.joined,
                 &mut self.invariant,
+                &mut self.presentations,
                 constructor,
                 index,
                 actual,
@@ -1888,6 +1895,7 @@ impl ConstructorTypeArgInference {
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
             return Ok(());
         };
+        self.presentations[type_index].merge(&mut self.inferred[type_index], actual);
         if self.joined[type_index].is_none() {
             self.joined[type_index] = AggregateTypeJoin::new(adts, &self.inferred[type_index]);
             if let Some(joined) = &self.joined[type_index] {

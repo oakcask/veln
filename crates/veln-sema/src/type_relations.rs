@@ -227,7 +227,7 @@ pub(crate) fn invariant_args_match(expected: &[Type], actual: &[Type]) -> bool {
             .all(|(expected, actual)| invariant_types_match(expected, actual))
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct TypePresentationJoin {
     conflicted_paths: HashSet<Vec<usize>>,
 }
@@ -244,6 +244,32 @@ impl TypePresentationJoin {
                     name: joined_name,
                     identity: joined_identity,
                     args: joined_args,
+                },
+                Type::Named {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                },
+            )
+            | (
+                Type::Named {
+                    name: joined_name,
+                    identity: joined_identity,
+                    args: joined_args,
+                },
+                Type::VariantRefinement {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                    ..
+                },
+            )
+            | (
+                Type::VariantRefinement {
+                    name: joined_name,
+                    identity: joined_identity,
+                    args: joined_args,
+                    ..
                 },
                 Type::Named {
                     name: actual_name,

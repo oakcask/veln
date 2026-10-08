@@ -1,0 +1,12 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "expected `Int`, but found `ForwardWrap<State::Ready>::ForwardWrapped`",
+  "expected `Int`, but found `ReverseWrap<State::Ready>::ReverseWrapped`",
+]
+
+[stderr]
+format = "empty"

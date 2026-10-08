@@ -189,6 +189,7 @@ pub(crate) fn merge_invariant_payload_type_args(
     inferred: &mut [Type],
     joined: &mut [Option<AggregateTypeJoin>],
     invariant: &mut [bool],
+    presentations: &mut [TypePresentationJoin],
     constructor: AdtConstructor<'_>,
     index: usize,
     actual: &Type,
@@ -207,18 +208,22 @@ pub(crate) fn merge_invariant_payload_type_args(
         &contributions,
         |type_index| {
             inferred.get(type_index).map(|inferred| {
-                joined[type_index]
-                    .as_ref()
-                    .map(AggregateTypeJoin::result_type)
-                    .unwrap_or_else(|| inferred.clone())
+                (
+                    joined[type_index]
+                        .as_ref()
+                        .map(AggregateTypeJoin::result_type)
+                        .unwrap_or_else(|| inferred.clone()),
+                    presentations[type_index].clone(),
+                )
             })
         },
     )?;
-    for (type_index, constraint) in constraints {
+    for (type_index, constraint, presentation) in constraints {
         record_work(1);
         inferred[type_index] = constraint;
         joined[type_index] = None;
         invariant[type_index] = true;
+        presentations[type_index] = presentation;
     }
     Ok(())
 }

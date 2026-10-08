@@ -1,0 +1,31 @@
+type State
+	Ready
+	Closed
+end
+
+pub type First = State
+pub type Second = State
+
+type Duo<A, B>
+	Paired(A, B)
+end
+
+type ForwardWrap<A>
+	ForwardWrapped(Duo<A, A>)
+end
+
+type ReverseWrap<A>
+	ReverseWrapped(Duo<A, A>)
+end
+
+fn needs_int(value: Int) -> ()
+	()
+end
+
+fn forward(value: Duo<First::Ready, Second::Ready>) -> ()
+	needs_int(ForwardWrapped(value))
+end
+
+fn reverse(value: Duo<Second::Ready, First::Ready>) -> ()
+	needs_int(ReverseWrapped(value))
+end

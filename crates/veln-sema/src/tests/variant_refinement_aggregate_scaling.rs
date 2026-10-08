@@ -115,12 +115,15 @@ fn wide_generic_constructor_scaling_source(width: usize) -> String {
         .collect::<Vec<_>>();
     let payloads = parameters
         .iter()
-        .map(|parameter| format!("Vec<{parameter}>"))
+        .map(|parameter| format!("Duo<{parameter}, {parameter}>"))
         .collect::<Vec<_>>();
-    let arguments = (0..width).map(|_| "[1]").collect::<Vec<_>>().join(", ");
+    let arguments = (0..width)
+        .map(|_| "Paired(1, 1)")
+        .collect::<Vec<_>>()
+        .join(", ");
     let result_args = (0..width).map(|_| "Int").collect::<Vec<_>>().join(", ");
     format!(
-        "type Wide<{}>\n  Made({})\nend\nfn inferred()\n  Made({arguments})\nend\npub fn declared() -> Wide<{result_args}>::Made\n  Made({arguments})\nend\n",
+        "type Duo<A, B>\n  Paired(A, B)\nend\ntype Wide<{}>\n  Made({})\nend\nfn inferred()\n  Made({arguments})\nend\npub fn declared() -> Wide<{result_args}>::Made\n  Made({arguments})\nend\n",
         parameters.join(", "),
         payloads.join(", "),
     )

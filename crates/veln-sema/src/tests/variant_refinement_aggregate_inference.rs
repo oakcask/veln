@@ -490,6 +490,152 @@ fn ordinary_and_private_invariant_payload_contributions_merge_transactionally() 
 }
 
 #[test]
+fn invariant_payload_contributions_reconcile_alias_presentation_transactionally() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "pub type First = State\n",
+            "pub type Second = State\n",
+            "type Duo<A, B>\n",
+            "  Paired(A, B)\n",
+            "end\n",
+            "type Triple<A, B, C>\n",
+            "  Grouped(A, B, C)\n",
+            "end\n",
+            "type Wrap<A>\n",
+            "  Wrapped(Duo<A, A>)\n",
+            "end\n",
+            "type Sticky<A>\n",
+            "  Built(A, A, Duo<A, A>)\n",
+            "end\n",
+            "type Separate<A>\n",
+            "  Combined(Duo<A, A>, Duo<A, A>)\n",
+            "end\n",
+            "type Follow<A>\n",
+            "  Followed(Duo<A, A>, A)\n",
+            "end\n",
+            "type Recover<A>\n",
+            "  Recovered(Triple<A, A, A>, A)\n",
+            "end\n",
+            "fn needs_int(value: Int) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn ordinary_forward(value: Duo<First::Ready, Second::Ready>) -> ()\n",
+            "  needs_int(Wrapped(value))\n",
+            "end\n",
+            "fn ordinary_reverse(value: Duo<Second::Ready, First::Ready>) -> ()\n",
+            "  needs_int(Wrapped(value))\n",
+            "end\n",
+            "fn nested_record(value: Duo<{state: First::Ready}, {state: Second::Ready}>) -> ()\n",
+            "  needs_int(Wrapped(value))\n",
+            "end\n",
+            "fn nested_function(value: Duo<fn(First::Ready) -> First::Ready, fn(Second::Ready) -> Second::Ready>) -> ()\n",
+            "  needs_int(Wrapped(value))\n",
+            "end\n",
+            "fn private_forward(value: Duo<First::Ready, Second::Ready>)\n",
+            "  Wrapped(value)\n",
+            "end\n",
+            "fn private_reverse(value: Duo<Second::Ready, First::Ready>)\n",
+            "  Wrapped(value)\n",
+            "end\n",
+            "fn sticky(first: First::Ready, second: Second::Ready, later: Duo<First::Ready, First::Ready>)\n",
+            "  Built(first, second, later)\n",
+            "end\n",
+            "fn separate(first: Duo<First::Ready, Second::Ready>, later: Duo<First::Ready, First::Ready>)\n",
+            "  Combined(first, later)\n",
+            "end\n",
+            "fn followed(first: Duo<First::Ready, First::Ready>, later: Second::Ready)\n",
+            "  Followed(first, later)\n",
+            "end\n",
+            "fn rollback(rejected: Triple<First::Ready, Second::Ready, State::Closed>, retained: First::Ready)\n",
+            "  Recovered(rejected, retained)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
+    let messages = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    for actual in [
+        "Wrap<State::Ready>::Wrapped",
+        "Wrap<{state: State::Ready}>::Wrapped",
+        "Wrap<fn(State::Ready) -> State::Ready>::Wrapped",
+    ] {
+        assert!(
+            messages
+                .iter()
+                .any(|message| *message == format!("expected `Int`, but found `{actual}`")),
+            "{diagnostics:#?}"
+        );
+    }
+    assert_eq!(
+        messages
+            .iter()
+            .filter(|message| **message == "expected `Int`, but found `Wrap<State::Ready>::Wrapped`")
+            .count(),
+        2,
+        "both alias contribution orders must infer the canonical outer type"
+    );
+    assert!(messages.iter().any(|message| {
+        *message
+            == "expected `Triple<First::Ready, First::Ready, First::Ready>`, but found `Triple<First::Ready, Second::Ready, State::Closed>`"
+    }), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["private_forward", "private_reverse"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .expect("private omitted result should be published")
+                .return_type
+                .render(),
+            "Wrap<State::Ready>::Wrapped"
+        );
+    }
+    assert_eq!(
+        environment.function("sticky").unwrap().return_type.render(),
+        "Sticky<State::Ready>::Built",
+        "a later repeated alias must not replace a recorded presentation conflict"
+    );
+    assert_eq!(
+        environment
+            .function("separate")
+            .unwrap()
+            .return_type
+            .render(),
+        "Separate<State::Ready>::Combined",
+        "presentation conflicts must remain sticky across payload transactions"
+    );
+    assert_eq!(
+        environment
+            .function("followed")
+            .unwrap()
+            .return_type
+            .render(),
+        "Follow<State::Ready>::Followed",
+        "a direct contribution after an invariant constraint must reconcile presentation"
+    );
+    assert_eq!(
+        environment
+            .function("rollback")
+            .unwrap()
+            .return_type
+            .render(),
+        "Recover<First::Ready>::Recovered",
+        "a rejected transaction must not commit presentation provenance"
+    );
+}
+
+#[test]
 fn refined_direct_carriers_infer_invariant_arguments_without_nested_covariance() {
     let source = SourceFile::new(
         "main.veln",

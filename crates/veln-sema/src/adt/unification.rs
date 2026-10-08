@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use veln_core::CoreType;
 
 use crate::semantic_model::Type;
+use crate::type_relations::TypePresentationJoin;
 
 use super::descriptors::{AdtDescriptor, AdtPayloadType};
 
@@ -188,26 +189,26 @@ pub(crate) struct TypeParameterContributionConflict {
 
 pub(crate) fn merge_type_parameter_contributions_transactionally(
     contributions: &[(usize, Type)],
-    mut current: impl FnMut(usize) -> Option<Type>,
-) -> Result<Vec<(usize, Type)>, TypeParameterContributionConflict> {
-    let mut trial = Vec::<(usize, Type)>::new();
+    mut current: impl FnMut(usize) -> Option<(Type, TypePresentationJoin)>,
+) -> Result<Vec<(usize, Type, TypePresentationJoin)>, TypeParameterContributionConflict> {
+    let mut trial = Vec::<(usize, Type, TypePresentationJoin)>::new();
     let mut trial_positions = HashMap::<usize, usize>::new();
     for (index, actual) in contributions {
         crate::inference_work::record(1);
         let trial_index = if let Some(trial_index) = trial_positions.get(index) {
             *trial_index
         } else {
-            let Some(expected) = current(*index) else {
+            let Some((expected, presentation)) = current(*index) else {
                 continue;
             };
             crate::inference_work::record(1);
             let trial_index = trial.len();
-            trial.push((*index, expected));
+            trial.push((*index, expected, presentation));
             trial_positions.insert(*index, trial_index);
             trial_index
         };
         let rollback_work = trial.len();
-        let expected = &mut trial[trial_index].1;
+        let (_, expected, presentation) = &mut trial[trial_index];
         crate::inference_work::record(1);
         if !type_parameter_contributions_compatible(expected, actual) {
             crate::inference_work::record(rollback_work);
@@ -218,6 +219,7 @@ pub(crate) fn merge_type_parameter_contributions_transactionally(
         }
         crate::inference_work::record(1);
         merge_type_slot(expected, actual);
+        presentation.merge(expected, actual);
     }
     Ok(trial)
 }
