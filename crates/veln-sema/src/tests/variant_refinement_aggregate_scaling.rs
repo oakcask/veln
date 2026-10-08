@@ -1,4 +1,5 @@
 use super::*;
+use crate::semantic_model::Type;
 use crate::types::TypeEnvironment;
 
 fn diagnostics_for(source: &str) -> Vec<Diagnostic> {
@@ -152,6 +153,66 @@ fn control_flow_join_scaling_source(variant_count: usize) -> String {
     source
 }
 
+fn nested_alias_presentation(depth: usize, alias_prefix: &str) -> Type {
+    let mut ty = Type::resolved_variant_refinement(
+        format!("{alias_prefix}State"),
+        "State".to_string(),
+        Vec::new(),
+        vec!["Ready".to_string()],
+    );
+    for _ in 0..depth {
+        ty = Type::resolved_named(format!("{alias_prefix}Wrap"), "Wrap".to_string(), vec![ty]);
+    }
+    ty
+}
+
+fn assert_nested_presentation_is_canonical(mut ty: &Type, depth: usize) {
+    for _ in 0..depth {
+        let Type::Named {
+            name,
+            identity,
+            args,
+        } = ty
+        else {
+            panic!("expected a named wrapper, found {ty:?}");
+        };
+        assert_eq!(name, "Wrap");
+        assert_eq!(identity, "Wrap");
+        assert_eq!(args.len(), 1);
+        ty = &args[0];
+    }
+    let Type::VariantRefinement {
+        name,
+        identity,
+        args,
+        variants,
+        ..
+    } = ty
+    else {
+        panic!("expected a refined leaf, found {ty:?}");
+    };
+    assert_eq!(name, "State");
+    assert_eq!(identity, "State");
+    assert!(args.is_empty());
+    assert_eq!(variants.len(), 1);
+    assert_eq!(variants[0], "Ready");
+}
+
+fn measure_nested_alias_presentation_work(
+    depth: usize,
+) -> (crate::type_relations::TypePresentationWork, usize) {
+    let mut joined = nested_alias_presentation(depth, "First");
+    let actual = nested_alias_presentation(depth, "Second");
+    let mut presentation = crate::type_relations::TypePresentationJoin::default();
+    crate::type_relations::reset_type_presentation_work();
+    assert!(presentation.merge(&mut joined, &actual));
+    let work = crate::type_relations::take_type_presentation_work();
+    let retained_nodes = presentation.retained_nodes();
+    assert_nested_presentation_is_canonical(&joined, depth);
+    eprintln!("{depth}-level nested alias presentation: {work:?}, {retained_nodes} retained nodes");
+    (work, retained_nodes)
+}
+
 fn measure_private_control_flow_join_work(
     module: &veln_ast::SurfaceModule,
 ) -> (TypeEnvironment, usize, std::time::Duration) {
@@ -222,6 +283,38 @@ fn control_flow_join_work_grows_linearly_in_private_and_ordinary_analysis() {
         assert!(
             adjacent[1].1 <= adjacent[0].1 * 2 + 64,
             "doubling arms must add only linear ordinary join work: {work:?}"
+        );
+    }
+}
+
+#[test]
+fn nested_alias_presentation_conflicts_scale_linearly_with_depth() {
+    let depths = [64, 128, 256, 512];
+    let measured = depths.map(measure_nested_alias_presentation_work);
+
+    for ((work, retained_nodes), depth) in measured.iter().zip(depths) {
+        assert_eq!(work.conflict_lookups, depth + 1);
+        assert_eq!(work.conflict_insertions, depth + 1);
+        assert_eq!(work.child_lookups, depth);
+        assert_eq!(work.child_insertions, depth);
+        assert_eq!(*retained_nodes, depth + 1);
+    }
+    for adjacent in measured.windows(2) {
+        let previous_work = adjacent[0].0.conflict_lookups
+            + adjacent[0].0.conflict_insertions
+            + adjacent[0].0.child_lookups
+            + adjacent[0].0.child_insertions;
+        let next_work = adjacent[1].0.conflict_lookups
+            + adjacent[1].0.conflict_insertions
+            + adjacent[1].0.child_lookups
+            + adjacent[1].0.child_insertions;
+        assert!(
+            next_work <= previous_work * 2 + 1,
+            "doubling nesting depth must add only linear presentation work: {measured:?}"
+        );
+        assert!(
+            adjacent[1].1 <= adjacent[0].1 * 2,
+            "doubling nesting depth must retain only linear conflict state: {measured:?}"
         );
     }
 }

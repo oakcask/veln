@@ -23,6 +23,71 @@ pub(crate) fn record_variant_set_lookup() {
     VARIANT_SET_LOOKUPS.with(|lookups| lookups.set(lookups.get() + 1));
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct TypePresentationWork {
+    pub(crate) conflict_lookups: usize,
+    pub(crate) conflict_insertions: usize,
+    pub(crate) child_lookups: usize,
+    pub(crate) child_insertions: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static TYPE_PRESENTATION_WORK: std::cell::Cell<TypePresentationWork> =
+        const { std::cell::Cell::new(TypePresentationWork {
+            conflict_lookups: 0,
+            conflict_insertions: 0,
+            child_lookups: 0,
+            child_insertions: 0,
+        }) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_type_presentation_work() {
+    TYPE_PRESENTATION_WORK.with(|work| work.set(TypePresentationWork::default()));
+}
+
+#[cfg(test)]
+pub(crate) fn take_type_presentation_work() -> TypePresentationWork {
+    TYPE_PRESENTATION_WORK.with(|work| work.replace(TypePresentationWork::default()))
+}
+
+#[cfg(test)]
+fn update_type_presentation_work(update: impl FnOnce(&mut TypePresentationWork)) {
+    TYPE_PRESENTATION_WORK.with(|work| {
+        let mut current = work.get();
+        update(&mut current);
+        work.set(current);
+    });
+}
+
+#[inline(always)]
+fn record_type_presentation_conflict_lookup() {
+    #[cfg(test)]
+    update_type_presentation_work(|work| work.conflict_lookups += 1);
+}
+
+#[inline(always)]
+fn record_type_presentation_conflict_insertion() {
+    #[cfg(test)]
+    update_type_presentation_work(|work| work.conflict_insertions += 1);
+}
+
+#[inline(always)]
+fn record_type_presentation_child_lookup() {
+    #[cfg(test)]
+    update_type_presentation_work(|work| work.child_lookups += 1);
+}
+
+#[inline(always)]
+fn record_type_presentation_child_insertions(inserted: usize) {
+    #[cfg(test)]
+    update_type_presentation_work(|work| work.child_insertions += inserted);
+    #[cfg(not(test))]
+    let _ = inserted;
+}
+
 pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
     if trivially_assignable(expected, actual) {
         return true;
@@ -228,16 +293,48 @@ pub(crate) fn invariant_args_match(expected: &[Type], actual: &[Type]) -> bool {
 }
 
 #[derive(Clone, Default)]
+struct TypePresentationState {
+    conflicted: bool,
+    children: Vec<TypePresentationState>,
+}
+
+impl TypePresentationState {
+    fn child(&mut self, index: usize) -> &mut Self {
+        record_type_presentation_child_lookup();
+        if self.children.len() <= index {
+            let inserted = index + 1 - self.children.len();
+            record_type_presentation_child_insertions(inserted);
+            self.children.resize_with(index + 1, Self::default);
+        }
+        &mut self.children[index]
+    }
+
+    #[cfg(test)]
+    fn retained_nodes(&self) -> usize {
+        1 + self
+            .children
+            .iter()
+            .map(TypePresentationState::retained_nodes)
+            .sum::<usize>()
+    }
+}
+
+#[derive(Clone, Default)]
 pub(crate) struct TypePresentationJoin {
-    conflicted_paths: HashSet<Vec<usize>>,
+    state: TypePresentationState,
 }
 
 impl TypePresentationJoin {
     pub(crate) fn merge(&mut self, joined: &mut Type, actual: &Type) -> bool {
-        self.merge_at(joined, actual, &mut Vec::new())
+        Self::merge_at(joined, actual, &mut self.state)
     }
 
-    fn merge_at(&mut self, joined: &mut Type, actual: &Type, path: &mut Vec<usize>) -> bool {
+    #[cfg(test)]
+    pub(crate) fn retained_nodes(&self) -> usize {
+        self.state.retained_nodes()
+    }
+
+    fn merge_at(joined: &mut Type, actual: &Type, state: &mut TypePresentationState) -> bool {
         match (joined, actual) {
             (
                 Type::Named {
@@ -293,17 +390,17 @@ impl TypePresentationJoin {
             ) if same_type_identity(joined_name, joined_identity, actual_name, actual_identity)
                 && joined_args.len() == actual_args.len() =>
             {
-                self.merge_named(
+                Self::merge_named(
                     joined_name,
                     joined_identity,
                     joined_args,
                     actual_name,
                     actual_args,
-                    path,
+                    state,
                 )
             }
             (Type::Record(joined_fields), Type::Record(actual_fields)) => {
-                self.merge_record(joined_fields, actual_fields, path)
+                Self::merge_record(joined_fields, actual_fields, state)
             }
             (
                 Type::Function {
@@ -318,23 +415,22 @@ impl TypePresentationJoin {
                     return_type: actual_return,
                     ..
                 },
-            ) if joined_params.len() == actual_params.len() => self.merge_function(
+            ) if joined_params.len() == actual_params.len() => Self::merge_function(
                 (joined_params, joined_variadic, joined_return),
                 (actual_params, actual_variadic, actual_return),
-                path,
+                state,
             ),
             _ => false,
         }
     }
 
     fn merge_named(
-        &mut self,
         joined_name: &mut String,
         joined_identity: &str,
         joined_args: &mut [Type],
         actual_name: &str,
         actual_args: &[Type],
-        path: &mut Vec<usize>,
+        state: &mut TypePresentationState,
     ) -> bool {
         let canonical_name = joined_identity
             .rsplit("::")
@@ -345,21 +441,19 @@ impl TypePresentationJoin {
             joined_name,
             actual_name,
             &canonical_name,
-            path,
-            &mut self.conflicted_paths,
+            &mut state.conflicted,
         );
         for (index, (joined_arg, actual_arg)) in joined_args.iter_mut().zip(actual_args).enumerate()
         {
-            changed |= self.merge_child(joined_arg, actual_arg, path, index);
+            changed |= Self::merge_child(joined_arg, actual_arg, state, index);
         }
         changed
     }
 
     fn merge_record(
-        &mut self,
         joined_fields: &mut [(String, Type)],
         actual_fields: &[(String, Type)],
-        path: &mut Vec<usize>,
+        state: &mut TypePresentationState,
     ) -> bool {
         let mut changed = false;
         for (index, (name, joined_field)) in joined_fields.iter_mut().enumerate() {
@@ -369,16 +463,15 @@ impl TypePresentationJoin {
             else {
                 continue;
             };
-            changed |= self.merge_child(joined_field, actual_field, path, index);
+            changed |= Self::merge_child(joined_field, actual_field, state, index);
         }
         changed
     }
 
     fn merge_function(
-        &mut self,
         joined: (&mut [Type], &mut Option<Box<Type>>, &mut Type),
         actual: (&[Type], &Option<Box<Type>>, &Type),
-        path: &mut Vec<usize>,
+        state: &mut TypePresentationState,
     ) -> bool {
         let (joined_params, joined_variadic, joined_return) = joined;
         let (actual_params, actual_variadic, actual_return) = actual;
@@ -386,28 +479,24 @@ impl TypePresentationJoin {
         for (index, (joined_param, actual_param)) in
             joined_params.iter_mut().zip(actual_params).enumerate()
         {
-            changed |= self.merge_child(joined_param, actual_param, path, index);
+            changed |= Self::merge_child(joined_param, actual_param, state, index);
         }
         if let (Some(joined_variadic), Some(actual_variadic)) =
             (joined_variadic.as_deref_mut(), actual_variadic.as_deref())
         {
             changed |=
-                self.merge_child(joined_variadic, actual_variadic, path, joined_params.len());
+                Self::merge_child(joined_variadic, actual_variadic, state, joined_params.len());
         }
-        changed | self.merge_child(joined_return, actual_return, path, joined_params.len() + 1)
+        changed | Self::merge_child(joined_return, actual_return, state, joined_params.len() + 1)
     }
 
     fn merge_child(
-        &mut self,
         joined: &mut Type,
         actual: &Type,
-        path: &mut Vec<usize>,
+        state: &mut TypePresentationState,
         index: usize,
     ) -> bool {
-        path.push(index);
-        let changed = self.merge_at(joined, actual, path);
-        path.pop();
-        changed
+        Self::merge_at(joined, actual, state.child(index))
     }
 }
 
@@ -415,10 +504,10 @@ fn reconcile_presentation_name(
     joined: &mut String,
     actual: &str,
     canonical: &str,
-    path: &[usize],
-    conflicted_paths: &mut HashSet<Vec<usize>>,
+    conflicted: &mut bool,
 ) -> bool {
-    if conflicted_paths.contains(path) {
+    record_type_presentation_conflict_lookup();
+    if *conflicted {
         if joined == canonical {
             return false;
         }
@@ -439,7 +528,8 @@ fn reconcile_presentation_name(
     }
     joined.clear();
     joined.push_str(canonical);
-    conflicted_paths.insert(path.to_vec());
+    *conflicted = true;
+    record_type_presentation_conflict_insertion();
     true
 }
 
