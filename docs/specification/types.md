@@ -670,6 +670,11 @@ case covers transitive singleton, union, and generic aliases together with
 mutual assignment, inference, finite joins, and complete-domain joins. An
 unknown variant, invalid base arity, or union of different resolved ADTs is an
 invalid type annotation; it does not become an assignable `unknown` contract.
+The checked
+[`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
+case also verifies that imported alias-qualified constructor context supplies
+generic payload arguments and that target-qualified and differently
+alias-qualified patterns preserve those payload binding types.
 
 A resolved constructor expression has its singleton variant type. The expected
 base ADT can supply generic arguments to the constructor, and the singleton can

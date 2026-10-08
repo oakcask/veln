@@ -122,6 +122,65 @@ fn alias_qualified_refinements_share_target_identity_and_preserve_annotations() 
 }
 
 #[test]
+fn generic_alias_refinements_keep_arguments_across_constructor_and_pattern_qualifiers() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "api",
+            SourceFile::new(
+                "api.veln",
+                concat!(
+                    "pub type Box<A>\n",
+                    "  pub Empty\n",
+                    "  pub Boxed(A)\n",
+                    "end\n",
+                    "pub type FirstBox = Box\n",
+                    "pub type SecondBox = Box\n",
+                ),
+            ),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use api\n",
+                    "fn accept_items(items: Vec<Int>) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn construct() -> api::FirstBox<Vec<Int>>::Boxed\n",
+                    "  api::Boxed([])\n",
+                    "end\n",
+                    "fn construct_from_alias() -> api::Box<Vec<Int>>::Boxed\n",
+                    "  api::FirstBox::Boxed([])\n",
+                    "end\n",
+                    "fn empty_from_alias() -> api::Box<Vec<Int>>::Empty\n",
+                    "  api::FirstBox::Empty\n",
+                    "end\n",
+                    "fn alias_to_target(value: api::FirstBox<Vec<Int>>::Boxed) -> ()\n",
+                    "  match value\n",
+                    "    api::Box::Boxed(items) => accept_items(items)\n",
+                    "  end\n",
+                    "end\n",
+                    "fn target_to_alias(value: api::Box<Vec<Int>>::Boxed) -> ()\n",
+                    "  match value\n",
+                    "    api::FirstBox::Boxed(items) => accept_items(items)\n",
+                    "  end\n",
+                    "end\n",
+                    "fn alias_to_alias(value: api::FirstBox<Vec<Int>>::Boxed) -> ()\n",
+                    "  match value\n",
+                    "    api::SecondBox::Boxed(items) => accept_items(items)\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn alias_refinement_joins_and_mismatches_keep_independent_presentation() {
     let source = SourceFile::new(
         "main.veln",

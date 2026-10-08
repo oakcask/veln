@@ -1,0 +1,49 @@
+use api
+
+# Compiler integration contract: resolved ADT identity carries generic
+# arguments through imported alias-qualified constructor context and through
+# target-qualified or differently alias-qualified constructor patterns. The
+# empty Vec literal and accept_items calls detect lost payload context.
+fn accept_items(items: Vec<Int>) -> ()
+	()
+end
+
+fn construct() -> api::FirstBox<Vec<Int>>::Boxed
+	api::Boxed([])
+end
+
+fn construct_from_alias() -> api::Box<Vec<Int>>::Boxed
+	api::FirstBox::Boxed([])
+end
+
+fn empty_from_alias() -> api::Box<Vec<Int>>::Empty
+	api::FirstBox::Empty
+end
+
+fn alias_to_target(value: api::FirstBox<Vec<Int>>::Boxed) -> ()
+	match value
+		api::Box::Boxed(items) => accept_items(items)
+	end
+end
+
+fn target_to_alias(value: api::Box<Vec<Int>>::Boxed) -> ()
+	match value
+		api::FirstBox::Boxed(items) => accept_items(items)
+	end
+end
+
+fn alias_to_alias(value: api::FirstBox<Vec<Int>>::Boxed) -> ()
+	match value
+		api::SecondBox::Boxed(items) => accept_items(items)
+	end
+end
+
+pub fn main() -> ()
+	let first = construct()
+	alias_to_target(first)
+	alias_to_target(construct_from_alias())
+	target_to_alias(api::Boxed([]))
+	alias_to_alias(first)
+	let empty: api::Box<Vec<Int>>::Empty = empty_from_alias()
+	()
+end

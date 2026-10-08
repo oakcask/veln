@@ -6,14 +6,17 @@ use super::AdtDescriptor;
 
 pub(crate) trait NamedTypeArguments: Sized {
     fn named_type_arguments(&self) -> Option<(&str, &[Self])>;
+
+    fn matches_adt_descriptor(&self, descriptor: &AdtDescriptor) -> bool;
 }
 
 pub(crate) fn adt_args<'a, T: NamedTypeArguments>(
     ty: &'a T,
     descriptor: &AdtDescriptor,
 ) -> Option<&'a [T]> {
-    let (name, args) = ty.named_type_arguments()?;
-    (name == descriptor.type_name && args.len() == descriptor.type_parameters.len()).then_some(args)
+    let (_, args) = ty.named_type_arguments()?;
+    (ty.matches_adt_descriptor(descriptor) && args.len() == descriptor.type_parameters.len())
+        .then_some(args)
 }
 
 impl NamedTypeArguments for Type {
@@ -25,6 +28,15 @@ impl NamedTypeArguments for Type {
             _ => None,
         }
     }
+
+    fn matches_adt_descriptor(&self, descriptor: &AdtDescriptor) -> bool {
+        match self {
+            Self::Named { identity, .. } | Self::VariantRefinement { identity, .. } => {
+                identity == &descriptor.identity()
+            }
+            _ => false,
+        }
+    }
 }
 
 impl NamedTypeArguments for CoreType {
@@ -33,6 +45,10 @@ impl NamedTypeArguments for CoreType {
             return None;
         };
         Some((name, args))
+    }
+
+    fn matches_adt_descriptor(&self, descriptor: &AdtDescriptor) -> bool {
+        matches!(self, Self::Named { name, .. } if name == &descriptor.type_name)
     }
 }
 
