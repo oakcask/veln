@@ -132,14 +132,15 @@ A transparent-alias group uses the feasible domain established by all valid
 facts for its one immutable value. A wider annotation on one member does not
 enlarge that domain. Valid constructor arms consume one residual variant.
 Binding and `_` catch-alls give every participating binding the complete
-residual set; a binding catch-all also becomes another transparent alias for
-the complete matched value. Passing any participating binding to a parameter
-that requires its arm refinement emits no `type.variant_mismatch`. Passing a
-repeated stable field access to such a parameter has the same result. The
-checked
+residual set. A binding catch-all denotes the same complete matched value as a
+stable field path. Matching the catch-all, the original field path, or a path
+through a transparent alias of its root refines every reference to that value
+for the nested arm. Passing any such reference to a parameter that requires
+its arm refinement emits no `type.variant_mismatch`. The checked
 [`adt-variant-refinement-match-field-path`](../../examples/specification/check/adt-variant-refinement-match-field-path/)
 case demonstrates direct and transparent-root field paths, constructor and
-residual refinements, nested refinement, and restoration.
+residual refinements, bidirectional nested refinement through a catch-all, and
+restoration.
 
 A valid same-ADT constructor excluded by the original refined domain reports
 `type.match_impossible_variant` at the constructor's final name segment. Its
