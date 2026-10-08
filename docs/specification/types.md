@@ -394,9 +394,8 @@ value. Matching either the catch-all, one of its transparent aliases, or the
 original field path refines every reference to that value for the nested arm.
 Leaving the nested arm restores the enclosing residual or singleton fact, and
 leaving the outer arm restores the declared field type. The root is identified
-by its resolved binding, so a
-shadowing binding, a different root, or a different field sequence does not
-share the refinement. The checked
+by its resolved binding, so a shadowing binding, a different root, or a
+different field sequence does not share the refinement. The checked
 [`adt-variant-refinement-match-field-path`](../../examples/specification/check/adt-variant-refinement-match-field-path/)
 case demonstrates constructor and residual arms, transparent root aliases,
 nested refinement, and restoration.
@@ -587,13 +586,23 @@ collections including the shared-domain cache, shared domain handles,
 cumulative residual and refinement materialization, refinements retained while
 an arm body is checked, cached dynamically rendered diagnostic text, alias
 group and member lookups, retained alias entries, and active group-refinement
-frames.
+frames. Stable-place counters cover record-root and path-key creation and
+retention, path-key lookups, discovered field segments, and active refinements
+and frames.
+
 Increasing alias count, constructor-arm count, nesting depth, or unrelated
 local count is checked independently. Unrelated non-ADT locals add no alias-
 group work or state. Independently tracked ADT locals add one group and member
 of ownership state each, but they do not add repeated lookups or multiply the
 work for the matched alias group. Every instrumented match-local owner returns
 to zero after analysis.
+
+Increasing stable field-path depth or repeated access count adds only linear
+path discovery and lookup work. Transparent aliases of one record root reuse
+that root and its path keys. Distinct active record roots add independent roots
+and keys. Nested matches on one stable place add one active refinement and
+frame per nesting level. Every stable-place root, key, refinement, and frame is
+released after successful or failed analysis.
 
 These counters, rather than elapsed time, define the regression checks;
 reported wall-clock timings are observational. Final serialized JSON can still

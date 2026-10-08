@@ -122,16 +122,24 @@ so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
-A valid constructor arm for an immutable match-scrutinee binding written as a
-bare name or with redundant parentheses refines that binding and its
-transparent local aliases to the constructor singleton while checking the arm.
+A valid constructor arm for a stable match scrutinee refines the matched place
+to the constructor singleton while checking the arm. A stable scrutinee is an
+immutable binding written as a bare name or with redundant parentheses, or a
+record-field path whose base ultimately resolves to an immutable parameter or
+local binding. A binding and its transparent local aliases share one place. A
+field path also shares its place with repeated access through transparent
+aliases of the same resolved root. A different root or field sequence does not
+share that refinement.
+
 A transparent-alias group uses the feasible domain established by all valid
 facts for its one immutable value. A wider annotation on one member does not
 enlarge that domain. Valid constructor arms consume one residual variant.
-Binding and `_` catch-alls give every participating binding the complete
-residual set; a binding catch-all also becomes another transparent alias for
-the complete matched value. Passing any participating binding to a parameter
-that requires its arm refinement emits no `type.variant_mismatch`.
+Binding and `_` catch-alls give every participating reference the complete
+residual set. A binding catch-all identifies the complete matched value, so a
+nested match through that binding refines the original place and its aliases.
+Passing any participating binding or field path to a parameter that requires
+its arm refinement emits no `type.variant_mismatch`. Leaving an arm restores
+the prior type of the binding or field path.
 
 A valid same-ADT constructor excluded by the original refined domain reports
 `type.match_impossible_variant` at the constructor's final name segment. Its
@@ -161,8 +169,8 @@ checked human and JSON cases are
 and
 [`adt-variant-refinement-match-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-json/).
 
-For bare or redundantly parenthesized bindings with a refined match domain,
-arm validation precedes both classifications. An invalid-cased, unresolved,
+For stable bindings or record-field paths with a refined match domain, arm
+validation precedes both classifications. An invalid-cased, unresolved,
 inaccessible, wrong-ADT, wrong-generic-payload, wrong-arity, or malformed arm
 retains its intrinsic diagnostic, contributes no coverage, and emits neither
 derived classification. A pattern incompatible with a substituted generic
@@ -172,10 +180,10 @@ with `namespace: "constructor"`; the diagnostic symbol retains the complete
 written path. If the rejected arm was the only arm for a remaining variant,
 the match also reports the ordinary `type.match_non_exhaustive` diagnostic.
 The invalid-casing recovery used by the ordinary exhaustiveness path when the
-stable-binding refined-coverage path is inactive can suppress its sole
+stable-place refined-coverage path is inactive can suppress its sole
 derivative missing-case diagnostic; it does not validate the rejected arm.
 
-On the stable-binding refined-coverage path, the intrinsic wrong-arity
+On the stable-place refined-coverage path, the intrinsic wrong-arity
 diagnostic is `type.constructor_pattern_arity` at the complete constructor
 pattern. Its closed details contain only
 `constructor`, `expected_payload_count`, and `actual_payload_count`, and it has
@@ -191,15 +199,17 @@ that payload pattern. Its details use
 `actual_type_source: "literal_pattern"`, and
 `constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
 refine the scrutinee unless every payload binding is admitted to the arm scope.
-When a stable binding has a base-ADT domain, constructor and catch-all arms
-still refine its transparent aliases, but arm validation and diagnostics retain
-the ordinary constructor path, payload-arity, duplicate-arm, and exhaustiveness
-behavior. Such a match does not gain `type.match_impossible_variant`,
+When a stable binding or record-field path has a base-ADT domain, constructor
+and catch-all arms still refine the same place and its aliases, but arm
+validation and diagnostics retain the ordinary constructor path, payload-arity,
+duplicate-arm, and exhaustiveness behavior. Such a match does not gain
+`type.match_impossible_variant`,
 `type.match_redundant_arm`, `name.unresolved`, or
 `type.constructor_pattern_arity` from refined-domain diagnostics. Refined
-coverage is inactive for a computed refined scrutinee, which also retains the
-ordinary match diagnostics and does not refine bindings that contributed to the
-computed value.
+coverage is inactive for a computed refined scrutinee, including a field access
+rooted at a call, operator, or constructed value. It retains the ordinary match
+diagnostics and does not refine bindings that contributed to the computed
+value.
 Invalid value-name casing, a duplicate payload binding,
 parameter, or visible local, and a `callsite` binding that would shadow the
 built-in call-site location keep their intrinsic casing, resolution, field,
