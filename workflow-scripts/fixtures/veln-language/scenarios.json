@@ -5,60 +5,60 @@
       "content": [
         {
           "type": "text",
-          "text": "{\"topics\":[{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/contracts\",\"title\":\"Contracts\",\"summary\":\"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.\"},{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/declarations-aliases\",\"title\":\"Declarations And Aliases\",\"summary\":\"Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.\"},{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/effects-handlers\",\"title\":\"Effects And Handlers\",\"summary\":\"Effect declarations, effect rows, perform expressions, handler declarations, and handler operation clauses describe effectful source behavior.\"},{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/expressions-patterns\",\"title\":\"Expressions, Operators, And Patterns\",\"summary\":\"Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.\"},{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/holes\",\"title\":\"Holes\",\"summary\":\"Named holes and underscore patterns carry source placeholders, type context, satisfy constraints, diagnostics, and repair candidates.\"},{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/lexical-structure\",\"title\":\"Lexical Structure And Grammar\",\"summary\":\"Source files use ASCII keyword and punctuation tokens, hash comments, identifiers, holes, literals, and the complete executable source grammar.\"},{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/modules-imports-packages\",\"title\":\"Modules, Imports, Packages, Exports, And Visibility\",\"summary\":\"Modules declare package-local paths, import modules or packages, and publish selected declarations through explicit public forms.\"},{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas\",\"title\":\"Schemas\",\"summary\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\"},{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/tests-docs-doctests\",\"title\":\"Tests, Documentation Comments, And Doctests\",\"summary\":\"Test declarations, documentation comments, doctest fences, package documentation, and command examples define user-facing specification evidence.\"},{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/types-inference-constructors\",\"title\":\"Types, Inference, And Constructors\",\"summary\":\"Type text, parameters, return annotations, result bindings, constructor payloads, and inference-sensitive contexts define typed source behavior.\"}]}"
+          "text": "{\"topics\":[{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/contracts\",\"title\":\"Contracts\",\"summary\":\"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.\"},{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/declarations-aliases\",\"title\":\"Declarations And Aliases\",\"summary\":\"Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.\"},{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/effects-handlers\",\"title\":\"Effects And Handlers\",\"summary\":\"Effect declarations, effect rows, perform expressions, handler declarations, and handler operation clauses describe effectful source behavior.\"},{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/expressions-patterns\",\"title\":\"Expressions, Operators, And Patterns\",\"summary\":\"Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.\"},{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/holes\",\"title\":\"Holes\",\"summary\":\"Named holes and underscore patterns carry source placeholders, type context, satisfy constraints, diagnostics, and repair candidates.\"},{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/lexical-structure\",\"title\":\"Lexical Structure And Grammar\",\"summary\":\"Source files use ASCII keyword and punctuation tokens, hash comments, identifiers, holes, literals, and the complete executable source grammar.\"},{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/modules-imports-packages\",\"title\":\"Modules, Imports, Packages, Exports, And Visibility\",\"summary\":\"Modules declare package-local paths, import modules or packages, and publish selected declarations through explicit public forms.\"},{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas\",\"title\":\"Schemas\",\"summary\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\"},{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/tests-docs-doctests\",\"title\":\"Tests, Documentation Comments, And Doctests\",\"summary\":\"Test declarations, documentation comments, doctest fences, package documentation, and command examples define user-facing specification evidence.\"},{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/types-inference-constructors\",\"title\":\"Types, Inference, And Constructors\",\"summary\":\"Type text, inference, constructors, and ADT variant refinements define typed values, assignments, calls, aggregates, and control-flow results.\"}]}"
         }
       ],
       "structuredContent": {
         "topics": [
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/contracts",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/contracts",
             "title": "Contracts",
             "summary": "Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations."
           },
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/declarations-aliases",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/declarations-aliases",
             "title": "Declarations And Aliases",
             "summary": "Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items."
           },
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/effects-handlers",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/effects-handlers",
             "title": "Effects And Handlers",
             "summary": "Effect declarations, effect rows, perform expressions, handler declarations, and handler operation clauses describe effectful source behavior."
           },
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/expressions-patterns",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/expressions-patterns",
             "title": "Expressions, Operators, And Patterns",
             "summary": "Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns."
           },
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/holes",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/holes",
             "title": "Holes",
             "summary": "Named holes and underscore patterns carry source placeholders, type context, satisfy constraints, diagnostics, and repair candidates."
           },
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/lexical-structure",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/lexical-structure",
             "title": "Lexical Structure And Grammar",
             "summary": "Source files use ASCII keyword and punctuation tokens, hash comments, identifiers, holes, literals, and the complete executable source grammar."
           },
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/modules-imports-packages",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/modules-imports-packages",
             "title": "Modules, Imports, Packages, Exports, And Visibility",
             "summary": "Modules declare package-local paths, import modules or packages, and publish selected declarations through explicit public forms."
           },
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas",
             "title": "Schemas",
             "summary": "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
           },
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/tests-docs-doctests",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/tests-docs-doctests",
             "title": "Tests, Documentation Comments, And Doctests",
             "summary": "Test declarations, documentation comments, doctest fences, package documentation, and command examples define user-facing specification evidence."
           },
           {
-            "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/types-inference-constructors",
+            "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/types-inference-constructors",
             "title": "Types, Inference, And Constructors",
-            "summary": "Type text, parameters, return annotations, result bindings, constructor payloads, and inference-sensitive contexts define typed source behavior."
+            "summary": "Type text, inference, constructors, and ADT variant refinements define typed values, assignments, calls, aggregates, and control-flow results."
           }
         ]
       },
@@ -68,16 +68,16 @@
       "content": [
         {
           "type": "text",
-          "text": "{\"uri\":\"veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas\",\"name\":\"schemas\",\"title\":\"Schemas\",\"description\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\",\"mimeType\":\"text/markdown; charset=utf-8\",\"text\":\"# Schemas\\n\\nSchemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\\n\\nThe schema topic selects schema declaration, field, primitive, repeat, encode, and decode grammar.\\n\\nThe selected example covers schema composition precedence through a successful check case.\\n\\n## Grammar\\n\\n### SchemaDecl\\n\\n```ebnf\\nSchemaDecl    ::= \\\"pub\\\"? \\\"schema\\\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \\\"end\\\" NL?\\n```\\n\\n### SchemaField\\n\\n```ebnf\\nSchemaField   ::= Name \\\":\\\" SchemaFieldType SchemaFieldWhere? NL\\n```\\n\\n### SchemaFieldType\\n\\n```ebnf\\nSchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | ByteViewPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive | DispatchPrimitive | ExtensionDispatchPrimitive\\n```\\n\\n### SchemaDecode\\n\\n```ebnf\\nSchemaDecode  ::= \\\"decode\\\" MemberPath \\\"from\\\" Expr \\\"at\\\" Expr\\n```\\n\\n### SchemaEncode\\n\\n```ebnf\\nSchemaEncode  ::= \\\"encode\\\" MemberPath \\\"from\\\" Expr\\n```\\n\\n## Examples\\n\\n### Schema composition grammar precedence\\n\\n#### neutral.veln\\n\\n```veln\\npub schema Int\\n\\tnested: String\\nend\\n\\npub schema String = Int\\n\\npub schema NeutralHost\\n\\tcount: Int\\n\\tlabel: String\\nend\\n\\n```\\n\\n#### binary.veln\\n\\n```veln\\npub schema UInt8\\n\\tvalue: Int\\nend\\n\\npub schema UInt16be = UInt8\\n\\npub schema BinaryHost\\n\\tformat binary\\n\\n\\tbyte: UInt8\\n\\tword: UInt16be\\nend\\n\\n```\\n\\n## Keywords\\n\\n- binary\\n- codec\\n- decode\\n- encode\\n- schemas\\n\\n## Related Topics\\n\\n- [contracts](veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/contracts)\\n- [expressions-patterns](veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/expressions-patterns)\\n- [types-inference-constructors](veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/types-inference-constructors)\\n\"}"
+          "text": "{\"uri\":\"veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas\",\"name\":\"schemas\",\"title\":\"Schemas\",\"description\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\",\"mimeType\":\"text/markdown; charset=utf-8\",\"text\":\"# Schemas\\n\\nSchemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\\n\\nThe schema topic selects schema declaration, field, primitive, repeat, encode, and decode grammar.\\n\\nThe selected example covers schema composition precedence through a successful check case.\\n\\n## Grammar\\n\\n### SchemaDecl\\n\\n```ebnf\\nSchemaDecl    ::= \\\"pub\\\"? \\\"schema\\\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \\\"end\\\" NL?\\n```\\n\\n### SchemaField\\n\\n```ebnf\\nSchemaField   ::= Name \\\":\\\" SchemaFieldType SchemaFieldWhere? NL\\n```\\n\\n### SchemaFieldType\\n\\n```ebnf\\nSchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | ByteViewPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive | DispatchPrimitive | ExtensionDispatchPrimitive\\n```\\n\\n### SchemaDecode\\n\\n```ebnf\\nSchemaDecode  ::= \\\"decode\\\" MemberPath \\\"from\\\" Expr \\\"at\\\" Expr\\n```\\n\\n### SchemaEncode\\n\\n```ebnf\\nSchemaEncode  ::= \\\"encode\\\" MemberPath \\\"from\\\" Expr\\n```\\n\\n## Examples\\n\\n### Schema composition grammar precedence\\n\\n#### neutral.veln\\n\\n```veln\\npub schema Int\\n\\tnested: String\\nend\\n\\npub schema String = Int\\n\\npub schema NeutralHost\\n\\tcount: Int\\n\\tlabel: String\\nend\\n\\n```\\n\\n#### binary.veln\\n\\n```veln\\npub schema UInt8\\n\\tvalue: Int\\nend\\n\\npub schema UInt16be = UInt8\\n\\npub schema BinaryHost\\n\\tformat binary\\n\\n\\tbyte: UInt8\\n\\tword: UInt16be\\nend\\n\\n```\\n\\n## Keywords\\n\\n- binary\\n- codec\\n- decode\\n- encode\\n- schemas\\n\\n## Related Topics\\n\\n- [contracts](veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/contracts)\\n- [expressions-patterns](veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/expressions-patterns)\\n- [types-inference-constructors](veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/types-inference-constructors)\\n\"}"
         }
       ],
       "structuredContent": {
-        "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas",
+        "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas",
         "name": "schemas",
         "title": "Schemas",
         "description": "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.",
         "mimeType": "text/markdown; charset=utf-8",
-        "text": "# Schemas\n\nSchemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\n\nThe schema topic selects schema declaration, field, primitive, repeat, encode, and decode grammar.\n\nThe selected example covers schema composition precedence through a successful check case.\n\n## Grammar\n\n### SchemaDecl\n\n```ebnf\nSchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?\n```\n\n### SchemaField\n\n```ebnf\nSchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL\n```\n\n### SchemaFieldType\n\n```ebnf\nSchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | ByteViewPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive | DispatchPrimitive | ExtensionDispatchPrimitive\n```\n\n### SchemaDecode\n\n```ebnf\nSchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr\n```\n\n### SchemaEncode\n\n```ebnf\nSchemaEncode  ::= \"encode\" MemberPath \"from\" Expr\n```\n\n## Examples\n\n### Schema composition grammar precedence\n\n#### neutral.veln\n\n```veln\npub schema Int\n\tnested: String\nend\n\npub schema String = Int\n\npub schema NeutralHost\n\tcount: Int\n\tlabel: String\nend\n\n```\n\n#### binary.veln\n\n```veln\npub schema UInt8\n\tvalue: Int\nend\n\npub schema UInt16be = UInt8\n\npub schema BinaryHost\n\tformat binary\n\n\tbyte: UInt8\n\tword: UInt16be\nend\n\n```\n\n## Keywords\n\n- binary\n- codec\n- decode\n- encode\n- schemas\n\n## Related Topics\n\n- [contracts](veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/contracts)\n- [expressions-patterns](veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/expressions-patterns)\n- [types-inference-constructors](veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/types-inference-constructors)\n"
+        "text": "# Schemas\n\nSchemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\n\nThe schema topic selects schema declaration, field, primitive, repeat, encode, and decode grammar.\n\nThe selected example covers schema composition precedence through a successful check case.\n\n## Grammar\n\n### SchemaDecl\n\n```ebnf\nSchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?\n```\n\n### SchemaField\n\n```ebnf\nSchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL\n```\n\n### SchemaFieldType\n\n```ebnf\nSchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | ByteViewPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive | DispatchPrimitive | ExtensionDispatchPrimitive\n```\n\n### SchemaDecode\n\n```ebnf\nSchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr\n```\n\n### SchemaEncode\n\n```ebnf\nSchemaEncode  ::= \"encode\" MemberPath \"from\" Expr\n```\n\n## Examples\n\n### Schema composition grammar precedence\n\n#### neutral.veln\n\n```veln\npub schema Int\n\tnested: String\nend\n\npub schema String = Int\n\npub schema NeutralHost\n\tcount: Int\n\tlabel: String\nend\n\n```\n\n#### binary.veln\n\n```veln\npub schema UInt8\n\tvalue: Int\nend\n\npub schema UInt16be = UInt8\n\npub schema BinaryHost\n\tformat binary\n\n\tbyte: UInt8\n\tword: UInt16be\nend\n\n```\n\n## Keywords\n\n- binary\n- codec\n- decode\n- encode\n- schemas\n\n## Related Topics\n\n- [contracts](veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/contracts)\n- [expressions-patterns](veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/expressions-patterns)\n- [types-inference-constructors](veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/types-inference-constructors)\n"
       },
       "isError": false
     }
@@ -768,7 +768,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -784,7 +784,7 @@
                 "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
               ],
               "source_uris": [
-                "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               ]
             }
           ]
@@ -823,7 +823,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -839,7 +839,7 @@
                 "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
               ],
               "source_uris": [
-                "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               ]
             }
           ]
@@ -913,7 +913,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -929,7 +929,7 @@
                 "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
               ],
               "source_uris": [
-                "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               ]
             }
           ]
@@ -997,7 +997,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -1013,7 +1013,7 @@
                 "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
               ],
               "source_uris": [
-                "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               ]
             }
           ]
@@ -1058,7 +1058,7 @@
                   "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
                 ],
                 "source_uris": [
-                  "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                  "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
                 ]
               }
             }
@@ -1098,7 +1098,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -1114,7 +1114,7 @@
                 "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
               ],
               "source_uris": [
-                "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               ]
             }
           ]
@@ -1159,7 +1159,7 @@
                   "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
                 ],
                 "source_uris": [
-                  "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                  "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
                 ]
               }
             }
@@ -1199,7 +1199,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -1215,7 +1215,7 @@
                 "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
               ],
               "source_uris": [
-                "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               ]
             }
           ]
@@ -1246,7 +1246,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -1264,7 +1264,7 @@
               "source_uris": [],
               "failure": {
                 "operation": "read_doc",
-                "artifact_uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "artifact_uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               },
               "retained_result": {
                 "type": "answer",
@@ -1273,7 +1273,7 @@
                   "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
                 ],
                 "source_uris": [
-                  "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                  "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
                 ]
               }
             }
@@ -1313,7 +1313,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -1329,7 +1329,7 @@
                 "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
               ],
               "source_uris": [
-                "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               ]
             }
           ]
@@ -1360,7 +1360,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -1379,7 +1379,7 @@
               "source_uris": [],
               "failure": {
                 "operation": "read_doc",
-                "artifact_uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "artifact_uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               },
               "retained_result": {
                 "type": "answer",
@@ -1388,7 +1388,7 @@
                   "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
                 ],
                 "source_uris": [
-                  "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                  "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
                 ]
               }
             }
@@ -1428,7 +1428,7 @@
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "uri": "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               }
             },
             {
@@ -1444,7 +1444,7 @@
                 "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
               ],
               "source_uris": [
-                "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
               ]
             }
           ]
@@ -1473,60 +1473,60 @@
                 "content": [
                   {
                     "type": "text",
-                    "text": "{\"topics\":[{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/contracts\",\"title\":\"Contracts\",\"summary\":\"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.\"},{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/declarations-aliases\",\"title\":\"Declarations And Aliases\",\"summary\":\"Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.\"},{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/effects-handlers\",\"title\":\"Effects And Handlers\",\"summary\":\"Effect declarations, effect rows, perform expressions, handler declarations, and handler operation clauses describe effectful source behavior.\"},{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/expressions-patterns\",\"title\":\"Expressions, Operators, And Patterns\",\"summary\":\"Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.\"},{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/holes\",\"title\":\"Holes\",\"summary\":\"Named holes and underscore patterns carry source placeholders, type context, satisfy constraints, diagnostics, and repair candidates.\"},{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/legacy-module-lexicon\",\"title\":\"Legacy Module Lexicon\",\"summary\":\"The archived snapshot included a module lexicon topic that was later removed.\"},{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/modules-legacy-layout\",\"title\":\"Modules Legacy Layout\",\"summary\":\"The archived snapshot described a module layout that was later renamed.\"},{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/schemas\",\"title\":\"Schemas\",\"summary\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\"},{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/tests-docs-doctests\",\"title\":\"Tests, Documentation Comments, And Doctests\",\"summary\":\"Test declarations, documentation comments, doctest fences, package documentation, and command examples define user-facing specification evidence.\"},{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/types-inference-constructors\",\"title\":\"Types, Inference, And Constructors\",\"summary\":\"Type text, parameters, return annotations, result bindings, constructor payloads, and inference-sensitive contexts define typed source behavior.\"}]}"
+                    "text": "{\"topics\":[{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/contracts\",\"title\":\"Contracts\",\"summary\":\"Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations.\"},{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/declarations-aliases\",\"title\":\"Declarations And Aliases\",\"summary\":\"Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.\"},{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/effects-handlers\",\"title\":\"Effects And Handlers\",\"summary\":\"Effect declarations, effect rows, perform expressions, handler declarations, and handler operation clauses describe effectful source behavior.\"},{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/expressions-patterns\",\"title\":\"Expressions, Operators, And Patterns\",\"summary\":\"Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns.\"},{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/holes\",\"title\":\"Holes\",\"summary\":\"Named holes and underscore patterns carry source placeholders, type context, satisfy constraints, diagnostics, and repair candidates.\"},{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/legacy-module-lexicon\",\"title\":\"Legacy Module Lexicon\",\"summary\":\"The archived snapshot included a module lexicon topic that was later removed.\"},{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/modules-legacy-layout\",\"title\":\"Modules Legacy Layout\",\"summary\":\"The archived snapshot described a module layout that was later renamed.\"},{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/schemas\",\"title\":\"Schemas\",\"summary\":\"Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.\"},{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/tests-docs-doctests\",\"title\":\"Tests, Documentation Comments, And Doctests\",\"summary\":\"Test declarations, documentation comments, doctest fences, package documentation, and command examples define user-facing specification evidence.\"},{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/types-inference-constructors\",\"title\":\"Types, Inference, And Constructors\",\"summary\":\"Type text, inference, constructors, and ADT variant refinements define typed values, assignments, calls, aggregates, and control-flow results.\"}]}"
                   }
                 ],
                 "structuredContent": {
                   "topics": [
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/contracts",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/contracts",
                       "title": "Contracts",
                       "summary": "Require, ensure, and invariant clauses attach checked contract predicates to functions, tests, schemas, and runtime obligations."
                     },
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/declarations-aliases",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/declarations-aliases",
                       "title": "Declarations And Aliases",
                       "summary": "Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items."
                     },
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/effects-handlers",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/effects-handlers",
                       "title": "Effects And Handlers",
                       "summary": "Effect declarations, effect rows, perform expressions, handler declarations, and handler operation clauses describe effectful source behavior."
                     },
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/expressions-patterns",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/expressions-patterns",
                       "title": "Expressions, Operators, And Patterns",
                       "summary": "Expressions include calls, operators, aggregates, control flow, static-only lexical cleanup regions, schema operations, effects, handlers, field access, and patterns."
                     },
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/holes",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/holes",
                       "title": "Holes",
                       "summary": "Named holes and underscore patterns carry source placeholders, type context, satisfy constraints, diagnostics, and repair candidates."
                     },
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/legacy-module-lexicon",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/legacy-module-lexicon",
                       "title": "Legacy Module Lexicon",
                       "summary": "The archived snapshot included a module lexicon topic that was later removed."
                     },
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/modules-legacy-layout",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/modules-legacy-layout",
                       "title": "Modules Legacy Layout",
                       "summary": "The archived snapshot described a module layout that was later renamed."
                     },
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/schemas",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/schemas",
                       "title": "Schemas",
                       "summary": "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
                     },
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/tests-docs-doctests",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/tests-docs-doctests",
                       "title": "Tests, Documentation Comments, And Doctests",
                       "summary": "Test declarations, documentation comments, doctest fences, package documentation, and command examples define user-facing specification evidence."
                     },
                     {
-                      "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/types-inference-constructors",
+                      "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/types-inference-constructors",
                       "title": "Types, Inference, And Constructors",
-                      "summary": "Type text, parameters, return annotations, result bindings, constructor payloads, and inference-sensitive contexts define typed source behavior."
+                      "summary": "Type text, inference, constructors, and ADT variant refinements define typed values, assignments, calls, aggregates, and control-flow results."
                     }
                   ]
                 },
@@ -1538,18 +1538,18 @@
               "transition": "replace_process",
               "before": {
                 "server_instance": "archived-reference-server",
-                "language_snapshot_digest": "0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f"
+                "language_snapshot_digest": "ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615"
               },
               "after": {
                 "server_instance": "current-reference-server",
-                "language_snapshot_digest": "3347360720a9783538b87e7cc74ec2e2479039d50e09e301589b7215694a590e"
+                "language_snapshot_digest": "a199061520abf30ebfb85e244a04a911a6cae6429eb5c00e7537264153b0ba01"
               }
             },
             {
               "type": "call",
               "tool": "read_doc",
               "arguments": {
-                "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/modules-legacy-layout"
+                "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/modules-legacy-layout"
               }
             },
             {
@@ -1560,14 +1560,14 @@
                 "content": [
                   {
                     "type": "text",
-                    "text": "{\"code\":\"resource_not_found\",\"message\":\"language reference resource not found\",\"details\":{\"uri\":\"veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/modules-legacy-layout\"}}"
+                    "text": "{\"code\":\"resource_not_found\",\"message\":\"language reference resource not found\",\"details\":{\"uri\":\"veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/modules-legacy-layout\"}}"
                   }
                 ],
                 "structuredContent": {
                   "code": "resource_not_found",
                   "message": "language reference resource not found",
                   "details": {
-                    "uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/modules-legacy-layout"
+                    "uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/modules-legacy-layout"
                   }
                 },
                 "isError": true
@@ -1580,7 +1580,7 @@
               "source_uris": [],
               "failure": {
                 "operation": "read_doc",
-                "artifact_uri": "veln-doc:///language/snapshot/0612a30f81e2ac3e2ace8391ec332f28a64182a479cf7094fead0d77d5a5eb2f/topic/modules-legacy-layout"
+                "artifact_uri": "veln-doc:///language/snapshot/ad42f0e48fb65340ea6903440f3103333731d8164939b36cedbca6ec152d5615/topic/modules-legacy-layout"
               },
               "retained_result": {
                 "type": "answer",
@@ -1589,7 +1589,7 @@
                   "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."
                 ],
                 "source_uris": [
-                  "veln-doc:///language/snapshot/9e21f6a50cc3ddd0a4baf8d7df00fc807148b3cf86d2c87e64f6a5af55cd677f/topic/schemas"
+                  "veln-doc:///language/snapshot/aad9eb1eaded2e0d765e1d555839d8659076849dab93d381a3569db1ea7449d2/topic/schemas"
                 ]
               }
             }

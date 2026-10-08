@@ -782,8 +782,8 @@ rejected nested widening and generic argument mismatch are checked in its
 
 Alias spelling and provenance, public/private exposure paths, qualified-value
 control-flow refinement, schema boundaries,
-package-documentation signatures, command-wide coverage, LSP, MCP, and
-language-reference publication remain proposal work.
+package-documentation signatures, command-wide coverage, LSP, and remaining
+MCP integration remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

@@ -87,6 +87,29 @@ fn search_docs_discovers_cleanup_region_forms() {
 }
 
 #[test]
+fn search_docs_discovers_the_published_variant_refinement_contract() {
+    let workspace = TempWorkspace::new("search-variant-refinements");
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+
+    for query in [
+        "subset assignability",
+        "control-flow result",
+        "runtime erasure",
+    ] {
+        let result = search(&mut server, json!({"query": query, "limit": 1}));
+        let first = &result["structuredContent"]["results"][0];
+        assert_eq!(first["title"], "Types, Inference, And Constructors");
+
+        let document = read_doc(&mut server, first["uri"].as_str().unwrap());
+        let text = document["structuredContent"]["text"].as_str().unwrap();
+        assert!(text.contains("whose variant set is a superset"));
+        assert!(text.contains("Control-flow result inference applies the same join"));
+        assert!(text.contains("Refinements are erased at runtime"));
+        assert!(!text.contains("not implemented semantic type behavior"));
+    }
+}
+
+#[test]
 fn search_docs_normalizes_case_unicode_whitespace_tokens_and_limits() {
     let workspace = TempWorkspace::new("search-normalization");
     let mut server = initialized_server_with_embedded_resources(&workspace);
