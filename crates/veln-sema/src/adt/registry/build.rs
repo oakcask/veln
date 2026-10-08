@@ -135,6 +135,7 @@ impl AdtRegistry {
             companion_access_targets,
             annotation_types,
             type_alias_identities: BTreeSet::new(),
+            resolved_type_alias_declarations: BTreeSet::new(),
             declaration_spans: HashMap::new(),
         }
     }
@@ -169,9 +170,11 @@ impl AdtRegistry {
 
         let mut alias_targets = descriptors.clone();
         alias_targets.extend(source_descriptors.clone());
-        let aliases = type_alias_descriptors(module, &alias_targets);
+        let (aliases, resolved_alias_declarations) = type_alias_descriptors(module, &alias_targets);
         let mut type_alias_identities = base.type_alias_identities.clone();
         type_alias_identities.extend(aliases.iter().map(descriptor_identity));
+        let mut resolved_type_alias_declarations = base.resolved_type_alias_declarations.clone();
+        resolved_type_alias_declarations.extend(resolved_alias_declarations);
         extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
 
         descriptors.extend(aliases);
@@ -185,6 +188,7 @@ impl AdtRegistry {
             annotation_types,
         );
         registry.type_alias_identities = type_alias_identities;
+        registry.resolved_type_alias_declarations = resolved_type_alias_declarations;
         registry.declaration_spans = base.declaration_spans.clone();
         registry
             .declaration_spans
@@ -264,6 +268,17 @@ impl AdtRegistry {
             annotation_types,
         );
         registry.type_alias_identities = retained_type_alias_identities(self, module_names);
+        registry.resolved_type_alias_declarations = self
+            .resolved_type_alias_declarations
+            .iter()
+            .filter(|identity| {
+                identity
+                    .module_name
+                    .as_ref()
+                    .is_none_or(|module_name| module_names.contains(module_name))
+            })
+            .cloned()
+            .collect();
         registry.declaration_spans = retained_declaration_spans(self, &registry);
         registry
     }

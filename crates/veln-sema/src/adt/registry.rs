@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use veln_ast::{PublicAlias, UseDecl, Visibility};
 use veln_core::CoreType;
-use veln_source::SourceSpan;
+use veln_source::{SourcePath, SourceSpan};
 
 use crate::semantic_model::Type;
 
@@ -25,7 +25,28 @@ pub(crate) struct AdtRegistry {
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<(Option<String>, String)>,
+    resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<String, SourceSpan>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct TypeAliasDeclarationIdentity {
+    module_name: Option<String>,
+    file: SourcePath,
+    start: usize,
+    end: usize,
+}
+
+impl TypeAliasDeclarationIdentity {
+    fn new(alias: &PublicAlias) -> Self {
+        let span = alias.span.resolved_or_generated();
+        Self {
+            module_name: alias.module_name.clone(),
+            file: span.file,
+            start: span.start.offset,
+            end: span.end.offset,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -77,10 +98,8 @@ impl ConstructorShape {
 
 impl AdtRegistry {
     pub(crate) fn resolves_type_alias(&self, alias: &PublicAlias) -> bool {
-        alias.name.as_ref().is_some_and(|name| {
-            self.type_alias_identities
-                .contains(&(alias.module_name.clone(), name.clone()))
-        })
+        self.resolved_type_alias_declarations
+            .contains(&TypeAliasDeclarationIdentity::new(alias))
     }
 
     fn descriptors_named(&self, name: &str) -> impl DoubleEndedIterator<Item = &AdtDescriptor> {
