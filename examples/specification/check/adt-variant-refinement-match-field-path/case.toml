@@ -1,0 +1,20 @@
+# Compiler integration contract: check accepts constructor, binding catch-all,
+# and `_` catch-all refinement for a stable record field path, including
+# transparent root aliases, bidirectional nested matches through the residual
+# binding, and restoration after each arm.
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 0

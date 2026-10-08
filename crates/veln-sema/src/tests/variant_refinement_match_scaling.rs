@@ -625,6 +625,225 @@ fn measure_transparent_alias_work(source: String) -> crate::analysis::Transparen
     measure_transparent_alias_and_match_work(source).0
 }
 
+fn nested_record_type(depth: usize) -> String {
+    (0..depth).fold("State".to_string(), |ty, _| format!("{{next: {ty}}}"))
+}
+
+fn nested_field_path(root: &str, depth: usize) -> String {
+    let mut path = root.to_string();
+    for _ in 0..depth {
+        path.push_str(".next");
+    }
+    path
+}
+
+fn stable_field_path_scaling_source(
+    depth: usize,
+    repeated_expressions: usize,
+    active: bool,
+) -> String {
+    let ty = nested_record_type(depth);
+    let path = nested_field_path("root", depth);
+    let mut source = String::from(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+    source.push_str(&format!("fn inspect(root: {ty}) -> ()\n"));
+    if active {
+        source.push_str(&format!("  match {path}\n    Ready => begin\n"));
+        for _ in 0..repeated_expressions {
+            source.push_str(&format!("      accept_ready({path})\n"));
+        }
+        source.push_str("    end\n    Closed => ()\n  end\nend\n");
+    } else {
+        for index in 0..repeated_expressions {
+            source.push_str(&format!("  let value{index} = {path}\n"));
+        }
+        source.push_str("end\n");
+    }
+    source
+}
+
+fn stable_record_root_scaling_source(alias_count: usize, distinct_active_roots: usize) -> String {
+    let mut source = String::from(concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "fn inspect(root: {state: State}) -> ()\n",
+    ));
+    let mut alias = "root".to_string();
+    for index in 0..alias_count {
+        let next = format!("alias{index}");
+        source.push_str(&format!("  let {next} = {alias}\n"));
+        alias = next;
+    }
+    source.push_str(&format!("  match {alias}.state\n    Ready => ()\n  end\n"));
+    for index in 0..distinct_active_roots {
+        source.push_str(&format!("  let root{index} = {{state: Ready}}\n"));
+        source.push_str(&format!(
+            "  match root{index}.state\n    Ready => ()\n  end\n"
+        ));
+    }
+    source.push_str("end\n");
+    source
+}
+
+fn nested_stable_place_frames_source(depth: usize) -> String {
+    let mut source = String::from(concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "fn inspect(root: {state: State}) -> ()\n",
+    ));
+    for level in 0..depth {
+        source.push_str(&"  ".repeat(level + 1));
+        source.push_str("match root.state\n");
+        source.push_str(&"  ".repeat(level + 2));
+        source.push_str("Ready => begin\n");
+    }
+    source.push_str(&"  ".repeat(depth + 1));
+    source.push_str("()\n");
+    for level in (0..depth).rev() {
+        source.push_str(&"  ".repeat(level + 2));
+        source.push_str("end\n");
+        source.push_str(&"  ".repeat(level + 1));
+        source.push_str("end\n");
+    }
+    source.push_str("end\n");
+    source
+}
+
+fn measure_stable_place_work(
+    source: String,
+    expect_diagnostics: bool,
+) -> crate::analysis::StablePlaceWork {
+    measure_stable_place_and_alias_work(source, expect_diagnostics).0
+}
+
+fn measure_stable_place_and_alias_work(
+    source: String,
+    expect_diagnostics: bool,
+) -> (
+    crate::analysis::StablePlaceWork,
+    crate::analysis::TransparentAliasWork,
+) {
+    let source = SourceFile::new("main.veln", source);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let function = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("inspect"))
+        .expect("inspect declaration");
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    crate::analysis::reset_stable_place_work();
+    crate::analysis::reset_transparent_alias_work();
+    let diagnostics =
+        crate::analysis::check_function_body(function, &environment, &mut variant_diagnostics);
+    assert_eq!(
+        !diagnostics.is_empty(),
+        expect_diagnostics,
+        "{diagnostics:#?}"
+    );
+    let aliases = crate::analysis::take_transparent_alias_work();
+    assert_eq!(aliases.retained_groups, 0);
+    assert_eq!(aliases.retained_members, 0);
+    assert_eq!(aliases.active_refinements, 0);
+    let work = crate::analysis::take_stable_place_work();
+    assert_eq!(work.retained_roots, 0, "root owners must be released");
+    assert_eq!(work.retained_keys, 0, "path keys must be released");
+    assert_eq!(work.active_refinements, 0, "refinements must be released");
+    assert_eq!(work.active_frames, 0, "frames must be released");
+    (work, aliases)
+}
+
+#[test]
+fn stable_field_path_work_scales_linearly_by_depth_and_repetition() {
+    let inactive = [32, 64, 128, 256].map(|depth| {
+        measure_stable_place_work(stable_field_path_scaling_source(depth, 16, false), false)
+    });
+    assert!(inactive.iter().all(|work| {
+        work.key_lookups == 0
+            && work.segments_discovered == 0
+            && work.roots_created == 0
+            && work.keys_created == 0
+    }));
+
+    let active = [32, 64, 128, 256].map(|depth| {
+        measure_stable_place_work(stable_field_path_scaling_source(depth, 16, true), false)
+    });
+    for (index, depth) in [32, 64, 128, 256].into_iter().enumerate() {
+        assert_eq!(active[index].roots_created, 1, "{active:?}");
+        assert_eq!(active[index].keys_created, depth, "{active:?}");
+        assert_eq!(active[index].peak_retained_keys, depth, "{active:?}");
+        assert_eq!(active[index].segments_discovered, depth * 17, "{active:?}");
+    }
+    for adjacent in active.windows(2) {
+        assert!(adjacent[1].key_lookups <= adjacent[0].key_lookups * 2 + 2);
+        assert!(adjacent[1].segments_discovered <= adjacent[0].segments_discovered * 2 + 2);
+    }
+
+    let repeated = [8, 16, 32].map(|count| {
+        measure_stable_place_work(stable_field_path_scaling_source(64, count, true), false)
+    });
+    assert!(repeated.iter().all(|work| work.keys_created == 64));
+    for adjacent in repeated.windows(2) {
+        assert!(adjacent[1].key_lookups <= adjacent[0].key_lookups * 2 + 2);
+        assert!(adjacent[1].segments_discovered <= adjacent[0].segments_discovered * 2 + 64);
+    }
+}
+
+#[test]
+fn stable_record_roots_aliases_and_frames_have_bounded_ownership() {
+    let unrelated_records = [32, 64, 128].map(|count| {
+        let mut source = String::from("fn inspect() -> ()\n");
+        for index in 0..count {
+            source.push_str(&format!("  let record{index} = {{value: {index}}}\n"));
+        }
+        source.push_str("end\n");
+        measure_stable_place_and_alias_work(source, false)
+    });
+    assert!(unrelated_records.iter().all(|(places, aliases)| {
+        places.roots_created == 0
+            && places.keys_created == 0
+            && aliases.groups_created == 0
+            && aliases.peak_retained_groups == 0
+            && aliases.peak_retained_members == 0
+    }));
+
+    let aliases = [32, 64, 128]
+        .map(|count| measure_stable_place_work(stable_record_root_scaling_source(count, 0), false));
+    assert!(aliases.iter().all(|work| {
+        work.roots_created == 1 && work.peak_retained_roots == 1 && work.keys_created == 1
+    }));
+
+    let roots = [16, 32, 64]
+        .map(|count| measure_stable_place_work(stable_record_root_scaling_source(0, count), false));
+    for (index, count) in [16, 32, 64].into_iter().enumerate() {
+        assert_eq!(roots[index].roots_created, count + 1, "{roots:?}");
+        assert_eq!(roots[index].peak_retained_roots, count + 1, "{roots:?}");
+        assert_eq!(roots[index].keys_created, count + 1, "{roots:?}");
+    }
+
+    let frames = [4, 8, 16]
+        .map(|depth| measure_stable_place_work(nested_stable_place_frames_source(depth), false));
+    for (index, depth) in [4, 8, 16].into_iter().enumerate() {
+        assert_eq!(frames[index].peak_active_refinements, depth, "{frames:?}");
+        assert_eq!(frames[index].peak_active_frames, depth, "{frames:?}");
+    }
+
+    let failing = stable_field_path_scaling_source(32, 1, true)
+        .replace("      accept_ready(root", "      missing(root");
+    measure_stable_place_work(failing, true);
+}
+
 #[test]
 fn widened_alias_group_work_scales_by_independent_dimensions() {
     let aliases = [100, 200, 400]

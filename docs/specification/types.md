@@ -360,7 +360,7 @@ lowercase is rejected by the source identifier casing rule and is not an
 accepted constructor case. It is not used for constructor payload typing or
 ordinary exhaustiveness coverage. A constructor-pattern type mismatch is still
 reported when initial-only repair of the final segment resolves a constructor
-for a different ADT descriptor. When stable-binding refined coverage is
+for a different ADT descriptor. When stable-place refined coverage is
 not active, the ordinary exhaustiveness path also computes the constructor
 found by changing only the invalid final segment's first ASCII lowercase
 letter to uppercase and resolving the resulting path through ordinary
@@ -383,6 +383,22 @@ refinement while
 checking the arm expression. The binding's current type can be the base ADT,
 one singleton refinement, or a finite refinement union. The refinement retains
 the resolved ADT identity and its instantiated generic arguments.
+
+The same arm-local rule applies when the scrutinee is a record-field path
+rooted at an immutable parameter or local binding. Repeated access to the same
+field sequence receives the constructor singleton or complete residual type in
+that arm. A transparent alias of the root identifies the same path. Nested
+matches compose with the enclosing path refinement, and leaving an arm restores
+the prior field type. A binding catch-all denotes that same complete field
+value. Matching either the catch-all, one of its transparent aliases, or the
+original field path refines every reference to that value for the nested arm.
+Leaving the nested arm restores the enclosing residual or singleton fact, and
+leaving the outer arm restores the declared field type. The root is identified
+by its resolved binding, so a shadowing binding, a different root, or a
+different field sequence does not share the refinement. The checked
+[`adt-variant-refinement-match-field-path`](../../examples/specification/check/adt-variant-refinement-match-field-path/)
+case demonstrates constructor and residual arms, transparent root aliases,
+nested refinement, and restoration.
 
 A singleton or finite-union scrutinee restricts the match domain to its current
 variant set. Transparent aliases share the feasible domain of the same
@@ -440,7 +456,7 @@ type, nested generic arguments whose unknown positions become concrete, direct
 widening, and complete-value pattern aliases. Nested matches distinguish the
 residual from either singleton narrowing or an alias's wider presentation.
 
-For bare or redundantly parenthesized bindings with a refined domain, arm
+For stable bindings or record-field paths with a refined domain, arm
 classification first validates the constructor name, visibility, owning
 ADT, substituted generic payload types, payload arity, nested patterns, and
 admitted payload bindings. An invalid arm keeps its intrinsic diagnostic,
@@ -488,15 +504,20 @@ an alias during diagnostic recovery. Matching any member refines every member,
 including a binding catch-all for the complete matched value, for the current
 arm only.
 
-Qualified values, record-field paths, and function values do not establish a
-transparent alias in this behavior. Separate construction, equality, contract
-predicates, Boolean helpers, calls, indexing, operators, and other computed
-expressions do not establish one either. A computed result can be refined
-after it is stored in its own local, but matching that local does not refine
-the inputs used to compute it. The checked
+Qualified values and function values do not establish a transparent alias in
+this behavior. A field path is stable only when its base ultimately resolves
+to an immutable parameter or local binding. Separate construction, equality,
+contract predicates, Boolean helpers, calls, indexing, operators, and other
+computed expressions do not establish a stable field path, even when repeated
+source text is identical. A computed result can be refined after it is stored
+in its own local, but matching that local does not refine the inputs used to
+compute it. The checked
 [`adt-variant-refinement-match-alias-boundaries`](../../examples/specification/check/adt-variant-refinement-match-alias-boundaries/)
 case verifies the available computed-expression, invalid-annotation, and
-restoration boundaries. Veln currently has no indexing expression or
+restoration boundaries. The checked
+[`adt-variant-refinement-match-computed-field-boundary`](../../examples/specification/check/adt-variant-refinement-match-computed-field-boundary/)
+case verifies that call and record-constructor bases remain outside field-path
+refinement. Veln currently has no indexing expression or
 module-addressable immutable-value source form. Function-value expressions do
 not produce ADT values that can exercise alias match refinement independently.
 
@@ -539,7 +560,7 @@ importing module, private source-declared constructors still require coverage,
 so arms for every public constructor are not exhaustive by themselves. Use `_`
 or a binding catch-all arm because the private constructors cannot be named
 there. `_` and binding patterns are catch-all arms. A
-bare or redundantly parenthesized binding whose current type is a singleton or
+stable binding or record-field path whose current type is a singleton or
 finite refinement union instead requires only that restricted original domain.
 A valid out-of-domain constructor is impossible and does not satisfy or expand
 the domain. A non-exhaustive finite-domain match reports
@@ -548,7 +569,7 @@ unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
 the arms that prove partial coverage.
 
-Coverage classification for one stable-binding refined match has linear
+Coverage classification for one stable-place refined match has linear
 instrumented work when the domain size and arm count grow together. This bound
 covers complete and incomplete coverage, duplicate and impossible constructor
 arms, and a catch-all after complete constructor coverage. For a fixed
@@ -565,13 +586,24 @@ collections including the shared-domain cache, shared domain handles,
 cumulative residual and refinement materialization, refinements retained while
 an arm body is checked, cached dynamically rendered diagnostic text, alias
 group and member lookups, retained alias entries, and active group-refinement
-frames.
+frames. Stable-place counters cover record-root and path-key creation and
+retention, path-key lookups, discovered field segments, and active refinements
+and frames.
+
 Increasing alias count, constructor-arm count, nesting depth, or unrelated
 local count is checked independently. Unrelated non-ADT locals add no alias-
 group work or state. Independently tracked ADT locals add one group and member
 of ownership state each, but they do not add repeated lookups or multiply the
 work for the matched alias group. Every instrumented match-local owner returns
 to zero after analysis.
+
+Increasing stable field-path depth or repeated access count adds only linear
+path discovery and lookup work. Transparent aliases of one record root reuse
+that root and its path keys. Distinct active record roots add independent roots
+and keys. Nested matches on one stable place add one active refinement and
+frame per nesting level. Every stable-place root, key, refinement, and frame is
+released after successful or failed analysis.
+
 These counters, rather than elapsed time, define the regression checks;
 reported wall-clock timings are observational. Final serialized JSON can still
 grow quadratically when a linear number of diagnostics must each expose the
@@ -748,8 +780,8 @@ private results are checked in
 rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
-Alias spelling and provenance, public/private exposure paths, record-field and
-qualified-value control-flow refinement, schema boundaries,
+Alias spelling and provenance, public/private exposure paths, qualified-value
+control-flow refinement, schema boundaries,
 package-documentation signatures, command-wide coverage, LSP, MCP, and
 language-reference publication remain proposal work.
 This slice also does not add recursive generic or function variance.

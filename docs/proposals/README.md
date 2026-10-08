@@ -25,8 +25,8 @@ also states it.
   implemented public network effect, direct facade, and `write_all` helper:
   [standard-library-networking.md](standard-library-networking.md).
 - Remaining ADT variant-refinement support for type-alias presentation and
-  visibility, record-field match refinement, qualified immutable values after
-  a separate source-surface prerequisite, schema boundaries,
+  visibility, qualified immutable values after a separate source-surface
+  prerequisite, schema boundaries,
   package documentation, command-wide enforcement, LSP, MCP, and publication:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 

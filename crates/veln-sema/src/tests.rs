@@ -41,5 +41,6 @@ mod variant_refinement_function_value_provenance;
 mod variant_refinement_hole_repairs;
 mod variant_refinement_match_boundaries_and_recovery;
 mod variant_refinement_match_domains;
+mod variant_refinement_match_field_paths;
 mod variant_refinement_match_scaling;
 mod variant_refinement_private_aggregate_failures;

@@ -1,0 +1,102 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+fn accept_ready(value: State::Ready) -> ()
+	()
+end
+
+fn accept_closed(value: State::Closed) -> ()
+	()
+end
+
+fn accept_failed(value: State::Failed) -> ()
+	()
+end
+
+fn accept_residual(value: State::Closed | State::Failed) -> ()
+	()
+end
+
+fn accept_base(value: State) -> ()
+	()
+end
+
+fn inspect(holder: {session: {state: State}}) -> ()
+	let alias = holder
+	match holder.session.state
+		Ready => begin
+			accept_ready(holder.session.state)
+			accept_ready(alias.session.state)
+		end
+		remaining => begin
+			let remaining_alias = remaining
+			accept_residual(holder.session.state)
+			accept_residual(alias.session.state)
+			accept_residual(remaining)
+			accept_residual(remaining_alias)
+			match remaining_alias
+				Closed => begin
+					accept_closed(holder.session.state)
+					accept_closed(alias.session.state)
+					accept_closed(remaining)
+					accept_closed(remaining_alias)
+				end
+				Failed => begin
+					accept_failed(holder.session.state)
+					accept_failed(alias.session.state)
+					accept_failed(remaining)
+					accept_failed(remaining_alias)
+				end
+			end
+			accept_residual(holder.session.state)
+			accept_residual(alias.session.state)
+			accept_residual(remaining)
+			accept_residual(remaining_alias)
+			match alias.session.state
+				Closed => begin
+					accept_closed(holder.session.state)
+					accept_closed(remaining)
+					accept_closed(remaining_alias)
+				end
+				Failed => begin
+					accept_failed(holder.session.state)
+					accept_failed(remaining)
+					accept_failed(remaining_alias)
+				end
+			end
+			accept_residual(holder.session.state)
+			accept_residual(remaining)
+			accept_residual(remaining_alias)
+		end
+	end
+	accept_base(holder.session.state)
+	accept_base(alias.session.state)
+	match alias.session.state
+		Ready => begin
+			accept_ready(holder.session.state)
+			accept_ready(alias.session.state)
+		end
+		Closed => begin
+			accept_closed(holder.session.state)
+			accept_closed(alias.session.state)
+		end
+		Failed => begin
+			accept_failed(holder.session.state)
+			accept_failed(alias.session.state)
+		end
+	end
+end
+
+fn inspect_wildcard(holder: {state: State}) -> ()
+	let alias = holder
+	match holder.state
+		Ready => accept_ready(holder.state)
+		_ => begin
+			accept_residual(holder.state)
+			accept_residual(alias.state)
+		end
+	end
+end
