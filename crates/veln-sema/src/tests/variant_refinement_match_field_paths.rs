@@ -18,6 +18,11 @@ fn detail<'a>(diagnostic: &'a Diagnostic, name: &str) -> &'a JsonValue {
         .unwrap_or_else(|| panic!("missing diagnostic detail `{name}`"))
 }
 
+fn spanned_text<'a>(source: &'a str, diagnostic: &Diagnostic) -> &'a str {
+    let span = diagnostic.span.as_ref().expect("diagnostic span");
+    &source[span.start.offset..span.end.offset]
+}
+
 const PRELUDE: &str = concat!(
     "type State\n",
     "  Ready\n",
@@ -40,7 +45,7 @@ const PRELUDE: &str = concat!(
 
 #[test]
 fn direct_nested_and_root_alias_paths_refine_and_restore_by_arm() {
-    let diagnostics = diagnostics_for(&format!(
+    let source = format!(
         "{PRELUDE}{}",
         concat!(
             "fn inspect(holder: {session: {state: State}}) -> ()\n",
@@ -98,7 +103,8 @@ fn direct_nested_and_root_alias_paths_refine_and_restore_by_arm() {
             "  accept_ready(alias.session.state)\n",
             "end\n",
         )
-    ));
+    );
+    let diagnostics = diagnostics_for(&source);
 
     let mismatches = diagnostics
         .iter()
@@ -109,11 +115,18 @@ fn direct_nested_and_root_alias_paths_refine_and_restore_by_arm() {
         detail(diagnostic, "actual_type").as_text() == Some("State")
             && detail(diagnostic, "expected_type").as_text() == Some("State::Ready")
     }));
+    assert_eq!(
+        mismatches
+            .iter()
+            .map(|diagnostic| spanned_text(&source, diagnostic))
+            .collect::<Vec<_>>(),
+        ["holder.session.state", "alias.session.state"]
+    );
 }
 
 #[test]
 fn path_identity_separates_shadowed_roots_unrelated_fields_and_computed_bases() {
-    let diagnostics = diagnostics_for(&format!(
+    let source = format!(
         "{PRELUDE}{}",
         concat!(
             "fn identity(holder: {state: State}) -> {state: State}\n",
@@ -150,7 +163,8 @@ fn path_identity_separates_shadowed_roots_unrelated_fields_and_computed_bases() 
             "  end\n",
             "end\n",
         )
-    ));
+    );
+    let diagnostics = diagnostics_for(&source);
 
     let mismatches = diagnostics
         .iter()
@@ -161,6 +175,19 @@ fn path_identity_separates_shadowed_roots_unrelated_fields_and_computed_bases() 
         detail(diagnostic, "actual_type").as_text() == Some("State")
             && detail(diagnostic, "expected_type").as_text() == Some("State::Ready")
     }));
+    assert_eq!(
+        mismatches
+            .iter()
+            .map(|diagnostic| spanned_text(&source, diagnostic))
+            .collect::<Vec<_>>(),
+        [
+            "holder.right",
+            "unrelated.left",
+            "identity({state: holder.left}).state",
+            "{state: holder.left}.state",
+            "(holder |> identity_pair()).left",
+        ]
+    );
 }
 
 #[test]

@@ -595,19 +595,6 @@ of ownership state each, but they do not add repeated lookups or multiply the
 work for the matched alias group. Every instrumented match-local owner returns
 to zero after analysis.
 
-Stable record-field paths use separate, lazily materialized place identities.
-Without an active field-path refinement, increasing field depth or repeating
-an access adds no stable-place lookup, key, or retained root state. With an
-active refinement, a depth-`D` access discovers and looks up `D` field segments
-instead of reconstructing every prefix. Repeating the access `R` times performs
-linear `D * R` segment work while retaining only the `D` distinct path keys.
-Transparent aliases of one record root reuse one root identity. Independently
-matched record roots add one identity each. Unrelated record locals add neither
-ADT alias-group state nor stable-place state. Nested matches add one active
-place refinement and frame per level. Every root identity, path key,
-refinement, and frame owner returns to zero after successful or failing
-analysis.
-
 These counters, rather than elapsed time, define the regression checks;
 reported wall-clock timings are observational. Final serialized JSON can still
 grow quadratically when a linear number of diagnostics must each expose the
