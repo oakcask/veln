@@ -155,6 +155,7 @@ struct RefinedMatchCoverage {
     covered_order: Vec<usize>,
     remaining_count: usize,
     preceding_catch_all: Option<SourceSpan>,
+    reports_refined_diagnostics: bool,
     diagnostic_source: RefinedMatchDiagnosticSource,
     diagnostic_facts: std::sync::OnceLock<RefinedMatchDiagnosticFacts>,
 }
@@ -163,19 +164,26 @@ pub(super) struct RefinedMatchDomainFacts {
     declaration_order: Arc<VariantDeclarationOrder>,
     variants: Arc<[String]>,
     ranks: HashSet<usize>,
+    owned_variant_slots: usize,
 }
 
 #[derive(Default)]
 pub(super) struct RefinedMatchDomainCache {
-    entries: HashMap<usize, Arc<RefinedMatchDomainFacts>>,
+    entries: HashMap<RefinedMatchDomainKey, Arc<RefinedMatchDomainFacts>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum RefinedMatchDomainKey {
+    BaseDeclarationOrder(usize),
+    RefinementVariants(usize),
 }
 
 impl RefinedMatchDomainCache {
-    fn get(&self, key: usize) -> Option<&Arc<RefinedMatchDomainFacts>> {
+    fn get(&self, key: RefinedMatchDomainKey) -> Option<&Arc<RefinedMatchDomainFacts>> {
         self.entries.get(&key)
     }
 
-    fn insert(&mut self, key: usize, domain: Arc<RefinedMatchDomainFacts>) {
+    fn insert(&mut self, key: RefinedMatchDomainKey, domain: Arc<RefinedMatchDomainFacts>) {
         let previous_capacity = self.entries.capacity();
         self.entries.insert(key, domain);
         record_refined_match_slots_allocated(
@@ -252,16 +260,15 @@ impl RefinedMatchCoverage {
         domain: Arc<RefinedMatchDomainFacts>,
         adts: &AdtRegistry,
     ) -> Option<Self> {
-        let Type::VariantRefinement { variants, .. } = scrutinee_type else {
-            return None;
-        };
         retain_refined_match_domain_handle();
+        let remaining_count = domain.variants.len();
         Some(Self {
             domain,
             covered: HashMap::new(),
             covered_order: Vec::new(),
-            remaining_count: variants.len(),
+            remaining_count,
             preceding_catch_all: None,
+            reports_refined_diagnostics: matches!(scrutinee_type, Type::VariantRefinement { .. }),
             diagnostic_source: RefinedMatchDiagnosticSource {
                 scrutinee_type: scrutinee_type.clone(),
                 scrutinee_span: scrutinee.span.clone(),
@@ -385,7 +392,7 @@ impl Drop for RefinedMatchCoverage {
 
 impl Drop for RefinedMatchDomainFacts {
     fn drop(&mut self) {
-        record_refined_match_slots_released(self.ranks.capacity());
+        record_refined_match_slots_released(self.ranks.capacity() + self.owned_variant_slots);
         release_refined_match_domain_handle();
     }
 }
@@ -734,8 +741,10 @@ impl<'a> FunctionChecker<'a> {
             .is_stable_match_binding(scrutinee)
             .then(|| self.refined_match_coverage(scrutinee, &scrutinee_type))
             .flatten();
+        let uses_refined_match_diagnostics =
+            matches!(scrutinee_type, Type::VariantRefinement { .. });
         if arms.is_empty() {
-            if let Some(coverage) = &refined_coverage {
+            if uses_refined_match_diagnostics && let Some(coverage) = &refined_coverage {
                 if let Some(missing_case) = coverage.first_missing_case() {
                     self.report_refined_match_non_exhaustive(
                         expr,
@@ -773,7 +782,7 @@ impl<'a> FunctionChecker<'a> {
             );
         }
 
-        if let Some(coverage) = refined_coverage {
+        if uses_refined_match_diagnostics && let Some(coverage) = refined_coverage {
             if let Some(missing_case) = coverage.first_missing_case() {
                 let proving_arms = coverage.proving_arms();
                 self.report_refined_match_non_exhaustive(
@@ -807,34 +816,57 @@ impl<'a> FunctionChecker<'a> {
         scrutinee: &Expr,
         scrutinee_type: &Type,
     ) -> Option<RefinedMatchCoverage> {
-        let Type::VariantRefinement { variants, .. } = scrutinee_type else {
-            return None;
-        };
-        self.environment.adts.descriptor_for_type_prefer_module(
+        let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
             scrutinee_type,
             self.function.module_name.as_deref(),
         )?;
+        let declaration_order = self
+            .environment
+            .adts
+            .variant_declaration_order_for_descriptor(descriptor)?;
         // The cache retains the Arc behind this address, so the allocator cannot
-        // reuse the key for a different refinement during this function check.
-        let key = variants.as_ptr() as usize;
+        // reuse the key for a different domain during this function check.
+        let key = match scrutinee_type {
+            Type::Named { .. } => {
+                RefinedMatchDomainKey::BaseDeclarationOrder(Arc::as_ptr(&declaration_order) as usize)
+            }
+            Type::VariantRefinement { variants, .. } => {
+                RefinedMatchDomainKey::RefinementVariants(variants.as_ptr() as usize)
+            }
+            _ => return None,
+        };
         let domain = if let Some(domain) = self.refined_match_domains.get(key) {
             Arc::clone(domain)
         } else {
-            let declaration_order = self
-                .environment
-                .adts
-                .variant_declaration_order_for_type(scrutinee_type)?;
+            let (variants, owned_variant_slots): (Arc<[String]>, usize) = match scrutinee_type {
+                Type::Named { .. } => {
+                    let variants = (0..declaration_order.len())
+                        .map(|rank| {
+                            declaration_order
+                                .name(rank)
+                                .expect("ADT variant rank")
+                                .to_string()
+                        })
+                        .collect::<Vec<_>>()
+                        .into();
+                    (variants, declaration_order.len())
+                }
+                Type::VariantRefinement { variants, .. } => (Arc::clone(variants), 0),
+                _ => return None,
+            };
             let mut ranks = HashSet::with_capacity(variants.len());
             for variant in variants.iter() {
                 record_refined_match_coverage_work(1);
                 ranks.insert(declaration_order.rank(variant)?);
             }
             record_refined_match_slots_allocated(ranks.capacity());
+            record_refined_match_slots_allocated(owned_variant_slots);
             retain_refined_match_domain_handle();
             let domain = Arc::new(RefinedMatchDomainFacts {
                 declaration_order,
-                variants: Arc::clone(variants),
+                variants: Arc::clone(&variants),
                 ranks,
+                owned_variant_slots,
             });
             self.refined_match_domains.insert(key, Arc::clone(&domain));
             domain
@@ -935,14 +967,19 @@ impl<'a> FunctionChecker<'a> {
         if !self.match_pattern_is_valid_for_type(pattern, scrutinee_type) {
             return None;
         }
-        let Type::VariantRefinement {
-            name,
-            identity,
-            args: type_args,
-            ..
-        } = scrutinee_type
-        else {
-            return None;
+        let (name, identity, type_args) = match scrutinee_type {
+            Type::Named {
+                name,
+                identity,
+                args,
+            }
+            | Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                ..
+            } => (name, identity, args),
+            _ => return None,
         };
         let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
             scrutinee_type,
@@ -993,14 +1030,19 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         coverage: &RefinedMatchCoverage,
     ) -> Option<RefinedMatchArmPlan> {
-        let Type::VariantRefinement {
-            name,
-            identity,
-            args: type_args,
-            ..
-        } = scrutinee_type
-        else {
-            return None;
+        let (name, identity, type_args) = match scrutinee_type {
+            Type::Named {
+                name,
+                identity,
+                args,
+            }
+            | Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                ..
+            } => (name, identity, args),
+            _ => return None,
         };
         let classification = if coverage.remaining_count == 0 {
             RefinedCatchAllClassification::Redundant
@@ -1074,9 +1116,14 @@ impl<'a> FunctionChecker<'a> {
                 coverage.remaining_count -= 1;
             }
             RefinedConstructorClassification::Impossible => {
-                self.push_match_impossible_variant(coverage, variant, variant_span);
+                if coverage.reports_refined_diagnostics {
+                    self.push_match_impossible_variant(coverage, variant, variant_span);
+                }
             }
             RefinedConstructorClassification::Redundant => {
+                if !coverage.reports_refined_diagnostics {
+                    return;
+                }
                 let (reason, related_span, related_message) =
                     if let Some(span) = &coverage.preceding_catch_all {
                         (
@@ -1118,7 +1165,9 @@ impl<'a> FunctionChecker<'a> {
             coverage.preceding_catch_all = Some(pattern.span.clone());
             return;
         }
-        self.push_redundant_refined_catch_all(pattern, coverage);
+        if coverage.reports_refined_diagnostics {
+            self.push_redundant_refined_catch_all(pattern, coverage);
+        }
         if coverage.preceding_catch_all.is_none() {
             coverage.preceding_catch_all = Some(pattern.span.clone());
         }
@@ -1284,7 +1333,8 @@ impl<'a> FunctionChecker<'a> {
         arm: &MatchArm,
         refined_coverage: Option<&mut RefinedMatchCoverage>,
     ) -> (bool, Option<RefinedMatchArmPlan>) {
-        let direct_refined_match_validation = refined_coverage.is_some();
+        let direct_refined_match_validation =
+            refined_coverage.is_some() && matches!(domain.ty, Type::VariantRefinement { .. });
         let arm_plan = refined_coverage
             .as_deref()
             .and_then(|coverage| self.refined_match_arm_plan(&arm.pattern, domain.ty, coverage));

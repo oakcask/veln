@@ -45,6 +45,18 @@ fn accept_empty_or_failed(value: Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
 	()
 end
 
+fn accept_non_filled(value: Boxed<Int>::Empty | Boxed<Int>::Failed | Boxed<Int>::Skipped) -> ()
+	()
+end
+
+fn accept_skipped(value: Boxed<Int>::Skipped) -> ()
+	()
+end
+
+fn accept_boxed_base(value: Boxed<Int>) -> ()
+	()
+end
+
 fn accept_original(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
 	()
 end
@@ -214,6 +226,72 @@ fn residual_alias_wildcard(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed
 			accept_empty_or_failed(transitive)
 		end
 	end
+end
+
+fn base_residual_alias_binding(value: Boxed<Int>) -> ()
+	let current = value
+	let transitive = current
+	match transitive
+		Filled(_) => accept_filled(value)
+		remaining => begin
+			accept_non_filled(value)
+			accept_non_filled(current)
+			accept_non_filled(transitive)
+			accept_non_filled(remaining)
+			match remaining
+				Empty => begin
+					accept_empty(value)
+					accept_empty(current)
+					accept_empty(transitive)
+					accept_empty(remaining)
+				end
+				Failed => begin
+					accept_failed(value)
+					accept_failed(current)
+					accept_failed(transitive)
+					accept_failed(remaining)
+				end
+				Skipped => begin
+					accept_skipped(value)
+					accept_skipped(current)
+					accept_skipped(transitive)
+					accept_skipped(remaining)
+				end
+			end
+			accept_non_filled(value)
+			accept_non_filled(current)
+			accept_non_filled(transitive)
+			accept_non_filled(remaining)
+		end
+	end
+	accept_boxed_base(value)
+	accept_boxed_base(current)
+	accept_boxed_base(transitive)
+end
+
+fn base_residual_alias_wildcard(value: Boxed<Int>) -> ()
+	let current = value
+	let transitive = current
+	match transitive
+		Filled(_) => ()
+		Empty => ()
+		Failed => ()
+		_ => begin
+			match value
+				Skipped => begin
+					accept_skipped(value)
+					accept_skipped(current)
+					accept_skipped(transitive)
+				end
+			end
+			accept_skipped(value)
+			accept_skipped(current)
+			accept_skipped(transitive)
+		end
+	end
+	accept_boxed_base(value)
+	accept_boxed_base(current)
+	accept_boxed_base(transitive)
 end
 
 fn widened_alias_domain(value: Boxed<Int>::Filled | Boxed<Int>::Empty) -> ()

@@ -171,6 +171,149 @@ fn catch_alls_preserve_the_complete_multi_variant_residual() {
 }
 
 #[test]
+fn base_adt_alias_groups_share_residual_catch_all_refinements_and_restore_scope() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_closed(value: State::Closed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_failed(value: State::Failed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_residual(value: State::Closed | State::Failed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_base(value: State) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn binding(value: State) -> ()\n",
+        "  let direct = value\n",
+        "  let transitive = direct\n",
+        "  match transitive\n",
+        "    Ready => accept_ready(value)\n",
+        "    remaining => begin\n",
+        "      accept_residual(value)\n",
+        "      accept_residual(direct)\n",
+        "      accept_residual(transitive)\n",
+        "      accept_residual(remaining)\n",
+        "      match remaining\n",
+        "        Closed => begin\n",
+        "          accept_closed(value)\n",
+        "          accept_closed(direct)\n",
+        "          accept_closed(transitive)\n",
+        "          accept_closed(remaining)\n",
+        "        end\n",
+        "        Failed => begin\n",
+        "          accept_failed(value)\n",
+        "          accept_failed(direct)\n",
+        "          accept_failed(transitive)\n",
+        "          accept_failed(remaining)\n",
+        "        end\n",
+        "      end\n",
+        "      accept_residual(value)\n",
+        "      accept_residual(direct)\n",
+        "      accept_residual(transitive)\n",
+        "      accept_residual(remaining)\n",
+        "    end\n",
+        "  end\n",
+        "  accept_base(value)\n",
+        "  accept_base(direct)\n",
+        "  accept_base(transitive)\n",
+        "end\n",
+        "fn wildcard(value: State) -> ()\n",
+        "  let direct = value\n",
+        "  let transitive = direct\n",
+        "  match transitive\n",
+        "    Ready => ()\n",
+        "    _ => begin\n",
+        "      accept_residual(value)\n",
+        "      accept_residual(direct)\n",
+        "      accept_residual(transitive)\n",
+        "      match value\n",
+        "        Closed => begin\n",
+        "          accept_closed(value)\n",
+        "          accept_closed(direct)\n",
+        "          accept_closed(transitive)\n",
+        "        end\n",
+        "        Failed => begin\n",
+        "          accept_failed(value)\n",
+        "          accept_failed(direct)\n",
+        "          accept_failed(transitive)\n",
+        "        end\n",
+        "      end\n",
+        "      accept_residual(value)\n",
+        "      accept_residual(direct)\n",
+        "      accept_residual(transitive)\n",
+        "    end\n",
+        "  end\n",
+        "  match transitive\n",
+        "    Ready => ()\n",
+        "    Closed => ()\n",
+        "    _ => begin\n",
+        "      match value\n",
+        "        Failed => begin\n",
+        "          accept_failed(value)\n",
+        "          accept_failed(direct)\n",
+        "          accept_failed(transitive)\n",
+        "        end\n",
+        "      end\n",
+        "      accept_failed(value)\n",
+        "      accept_failed(direct)\n",
+        "      accept_failed(transitive)\n",
+        "    end\n",
+        "  end\n",
+        "  accept_base(value)\n",
+        "  accept_base(direct)\n",
+        "  accept_base(transitive)\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn base_adt_alias_group_types_are_restored_after_residual_matches() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn inspect(value: State) -> ()\n",
+        "  let direct = value\n",
+        "  let transitive = direct\n",
+        "  match transitive\n",
+        "    Ready => ()\n",
+        "    _ => ()\n",
+        "  end\n",
+        "  accept_ready(value)\n",
+        "  accept_ready(direct)\n",
+        "  accept_ready(transitive)\n",
+        "end\n",
+    ));
+
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 3, "{diagnostics:#?}");
+    assert!(mismatches.iter().all(|diagnostic| {
+        detail(diagnostic, "actual_type").as_text() == Some("State")
+            && detail(diagnostic, "expected_type").as_text() == Some("State::Ready")
+    }));
+}
+
+#[test]
 fn transparent_alias_chains_and_complete_pattern_bindings_share_arm_refinements() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",
