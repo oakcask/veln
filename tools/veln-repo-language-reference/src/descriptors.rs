@@ -150,6 +150,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "control flow",
                 "match refinement",
                 "runtime erasure",
+                "type aliases",
             ],
             body: &[
                 "The topic selects grammar for type parameters, return annotations, result bindings, ADT variant-refinement type text, and constructor patterns.",
@@ -157,8 +158,9 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "A refinement is assignable to the same refinement or to a refinement whose variant set is a superset. It can also widen directly to its base ADT. Assignment in the opposite direction is rejected. Function values remain invariant in refined parameter and result types; ordinary call arguments and declared results use the refinement assignability rules.",
                 "Lists, dictionaries, records, and constructor payloads retain compatible refinements. Aggregate inference joins compatible singleton and finite-set refinements. Control-flow result inference applies the same join to `if` and `match` branches. A join widens to the base ADT when one branch is already base-typed or when the joined set contains every declared variant.",
                 "A constructor pattern narrows a stable matched value to the selected singleton in that arm. A residual catch-all receives the feasible variants not selected by earlier arms. Refinement applies to immutable parameters and local bindings, transparent local aliases that share one feasible domain, and record-field paths rooted at those stable values. Computed expressions are not stable refinement paths.",
-                "Refinements are erased at runtime and use the base ADT representation. They do not add a runtime state store, linear consumption, reachability or progress proofs, payload predicates, or restrictions on constructing visible variants. Type aliases cannot currently serve as refinement bases, and qualified immutable-value refinement is unavailable because the source language has no module-addressable immutable data-value declaration.",
-                "The selected checked examples exercise constructor singleton inference, subset assignment and widening, refined call typing, aggregate retention, and control-flow result joins.",
+                "Refinements are erased at runtime and use the base ADT representation. They do not add a runtime state store, linear consumption, reachability or progress proofs, payload predicates, or restrictions on constructing visible variants.",
+                "A type alias whose resolved target is an ADT can qualify a refinement. Alias-qualified and target-qualified forms use the target ADT identity and type arguments, so equal variant sets are mutually assignable. One unambiguous alias from an explicit annotation is preserved for display. Constructor inference uses the target ADT name. A join preserves one alias preference when its other contributions use the target name, but conflicting alias preferences make the result use the target name. Qualified immutable-value refinement remains unavailable because the source language has no module-addressable immutable data-value declaration.",
+                "The selected checked examples exercise constructor singleton inference, subset assignment and widening, refined call typing, alias identity and presentation, aggregate retention, and control-flow result joins.",
             ],
             related: &["declarations-aliases", "expressions-patterns", "contracts"],
             grammar: &[
@@ -183,6 +185,11 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 ExampleSelection {
                     case: "check/adt-variant-refinement-control-flow-result-joins",
                     display_name: "ADT variant-refinement control-flow result joins",
+                    files: &["main.veln"],
+                },
+                ExampleSelection {
+                    case: "check/adt-variant-refinement-alias-presentation",
+                    display_name: "ADT variant-refinement alias identity and presentation",
                     files: &["main.veln"],
                 },
             ],

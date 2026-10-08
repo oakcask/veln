@@ -46,10 +46,11 @@ The `types-inference-constructors` topic includes the executable productions
 for variant-refinement type text. Its descriptor publishes the current
 singleton and finite-set identity, subset assignability and direct widening,
 aggregate and control-flow joins, stable match-path narrowing, runtime erasure,
-and current alias and qualified-value limits. The selected examples demonstrate
-refined call typing and control-flow result joins. The current type and source
-specifications remain authoritative for those behaviors and the accepted source
-forms, including malformed-form boundaries.
+alias-qualified identity and presentation, and the qualified-value limit. The
+selected examples demonstrate refined call typing, control-flow result joins,
+and alias-qualified identity and presentation. The current type and source
+specifications remain authoritative for those behaviors and the accepted
+source forms, including malformed-form boundaries.
 The expressions-and-patterns topic identifies lexical cleanup forms as a
 static, tooling, and executable surface. Its body states that checked core,
 typed IR, and the JVM backend preserve registration-time captures and run

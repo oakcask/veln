@@ -423,9 +423,11 @@ fn checked_types_topic_renders_the_variant_refinement_contract_and_examples() {
         "Control-flow result inference applies the same join",
         "residual catch-all",
         "erased at runtime",
-        "Type aliases cannot currently serve as refinement bases",
+        "A type alias whose resolved target is an ADT can qualify a refinement",
+        "conflicting alias preferences make the result use the target name",
         "ADT variant-refinement call typing",
         "ADT variant-refinement control-flow result joins",
+        "ADT variant-refinement alias identity and presentation",
     ] {
         assert!(
             topic.text.contains(expected),
