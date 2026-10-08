@@ -102,6 +102,16 @@ fn direct_nested_and_root_alias_paths_refine_and_restore_by_arm() {
             "  accept_ready(holder.session.state)\n",
             "  accept_ready(alias.session.state)\n",
             "end\n",
+            "fn inspect_wildcard(holder: {state: State}) -> ()\n",
+            "  let alias = holder\n",
+            "  match holder.state\n",
+            "    Ready => accept_ready(holder.state)\n",
+            "    _ => begin\n",
+            "      accept_residual(holder.state)\n",
+            "      accept_residual(alias.state)\n",
+            "    end\n",
+            "  end\n",
+            "end\n",
         )
     );
     let diagnostics = diagnostics_for(&source);
@@ -110,6 +120,7 @@ fn direct_nested_and_root_alias_paths_refine_and_restore_by_arm() {
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
         .collect::<Vec<_>>();
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
     assert_eq!(mismatches.len(), 2, "{diagnostics:#?}");
     assert!(mismatches.iter().all(|diagnostic| {
         detail(diagnostic, "actual_type").as_text() == Some("State")

@@ -74,4 +74,29 @@ fn inspect(holder: {session: {state: State}}) -> ()
 	end
 	accept_base(holder.session.state)
 	accept_base(alias.session.state)
+	match alias.session.state
+		Ready => begin
+			accept_ready(holder.session.state)
+			accept_ready(alias.session.state)
+		end
+		Closed => begin
+			accept_closed(holder.session.state)
+			accept_closed(alias.session.state)
+		end
+		Failed => begin
+			accept_failed(holder.session.state)
+			accept_failed(alias.session.state)
+		end
+	end
+end
+
+fn inspect_wildcard(holder: {state: State}) -> ()
+	let alias = holder
+	match holder.state
+		Ready => accept_ready(holder.state)
+		_ => begin
+			accept_residual(holder.state)
+			accept_residual(alias.state)
+		end
+	end
 end

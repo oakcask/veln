@@ -1,7 +1,7 @@
-# Compiler integration contract: check accepts constructor and residual arm-local
-# refinement for a stable record field path, including transparent root aliases,
-# bidirectional nested matches through the residual binding, and restoration
-# after each arm.
+# Compiler integration contract: check accepts constructor, binding catch-all,
+# and `_` catch-all refinement for a stable record field path, including
+# transparent root aliases, bidirectional nested matches through the residual
+# binding, and restoration after each arm.
 command = ["check", "--json", "main.veln"]
 exit = 0
 
