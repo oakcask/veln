@@ -791,9 +791,14 @@ or final result. Its JSON details contain the rendered `actual_type`, rendered
 is the complete base ADT. A `variant_exclusion` related note renders the same
 fact for human output, and another related note identifies the expected local
 annotation, parameter, result declaration, or compiler-known helper parameter
-inferred at the call site. A nested record, named argument, ADT payload, or
-function-position invariance failure has no truthful top-level variant
-exclusion and uses the ordinary `type.mismatch` diagnostic instead.
+inferred at the call site. Invariant named-type arguments are compared by
+resolved type identity, not by alias display spelling. If the arguments differ
+only by aliases of one target, an outer refinement exclusion therefore remains
+a `type.variant_mismatch`, and each rendered side retains its own alias
+spelling. If the resolved nested refinements differ, or a nested record,
+named-type argument, ADT payload, or function position otherwise fails
+invariance, there is no truthful top-level variant exclusion and the comparison
+uses the ordinary `type.mismatch` diagnostic instead.
 The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures

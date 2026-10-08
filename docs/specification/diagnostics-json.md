@@ -110,10 +110,15 @@ note identifies the declaration or local annotation that supplied the
 expectation. When a compiler-known helper infers a parameter expectation from
 the call, the note instead identifies that helper at the call site. A nested
 aggregate invariance failure with no truthful finite variant exclusion reports
-ordinary `type.mismatch`. Its actual type preserves the inferred nested
-refinement. This includes assigning an inferred record with a singleton-refined
-field, or an inferred named aggregate with a refined type argument, to the
-corresponding type that uses the base ADT. During aggregate inference, an
+ordinary `type.mismatch`. Alias display differences do not create such an
+invariance failure: when invariant arguments have the same resolved type, an
+outer finite-set or base-to-refinement exclusion remains
+`type.variant_mismatch`, with independent alias spellings in `actual_type` and
+`expected_type`. A genuinely different resolved nested refinement reports
+`type.mismatch`; its actual type preserves the inferred nested refinement. This
+also includes assigning an inferred record with a singleton-refined field, or
+an inferred named aggregate with a refined type argument, to the corresponding
+type that uses the base ADT. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement
 as actual. The accumulated expected type contains only successfully typed
