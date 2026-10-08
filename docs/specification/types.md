@@ -604,6 +604,14 @@ and keys. Nested matches on one stable place add one active refinement and
 frame per nesting level. Every stable-place root, key, refinement, and frame is
 released after successful or failed analysis.
 
+Reconciling two equally shaped nested named types that use a different alias
+spelling at every named node performs one conflict lookup and at most one
+conflict insertion per node. Descending through the type arguments performs
+one child-state lookup and retains one presentation-state node per traversed
+type node. Increasing the nesting depth therefore adds only linear
+presentation work and retained state while the reconciled type uses the
+canonical target spelling at every conflicting node.
+
 These counters, rather than elapsed time, define the regression checks;
 reported wall-clock timings are observational. Final serialized JSON can still
 grow quadratically when a linear number of diagnostics must each expose the
@@ -914,5 +922,7 @@ inventing an arithmetic rewrite.
 - Effect-row typing: `crates/veln-sema/src/effect_rows.rs`.
 - Refined-match coverage scaling:
   `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
+- Aggregate and alias-presentation join scaling:
+  `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.
