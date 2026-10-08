@@ -492,13 +492,16 @@ impl<'a> FunctionChecker<'a> {
             || binding.ty.clone(),
             |group| {
                 record_alias_group_lookup();
-                self.transparent_alias_groups[group]
-                    .active_refinements
-                    .last()
-                    .map_or_else(
-                        || binding.ty.clone(),
-                        |refinement| transparent_alias_presented_type(&binding.ty, refinement),
-                    )
+                let alias_group = &self.transparent_alias_groups[group];
+                let persistent = if binding.ty == Type::Unknown {
+                    &alias_group.feasible_type
+                } else {
+                    &binding.ty
+                };
+                alias_group.active_refinements.last().map_or_else(
+                    || persistent.clone(),
+                    |refinement| transparent_alias_presented_type(persistent, refinement),
+                )
             },
         )
     }

@@ -152,6 +152,61 @@ fn match_alias_refinements_drive_hole_candidates_and_restore_after_the_arm() {
 }
 
 #[test]
+fn inferred_alias_group_members_share_constructor_type_and_restore_to_inferred_base() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_state(value: State) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn inspect(value) -> ()\n",
+        "  let direct = value\n",
+        "  let transitive = direct\n",
+        "  match transitive\n",
+        "    Ready => accept_ready(_constructor)\n",
+        "    Closed => ()\n",
+        "    Failed => ()\n",
+        "  end\n",
+        "  accept_state(_restored)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "hole.unfilled"),
+        "{diagnostics:#?}"
+    );
+
+    let constructor = hole_details(&diagnostics, "constructor");
+    assert!(
+        constructor.contains(concat!(
+            "\"local_bindings\":[{\"name\":\"value\",\"type\":\"State::Ready\"},",
+            "{\"name\":\"direct\",\"type\":\"State::Ready\"},",
+            "{\"name\":\"transitive\",\"type\":\"State::Ready\"}]"
+        )),
+        "{constructor}"
+    );
+
+    let restored = hole_details(&diagnostics, "restored");
+    assert!(
+        restored.contains(concat!(
+            "\"local_bindings\":[{\"name\":\"value\",\"type\":\"State\"},",
+            "{\"name\":\"direct\",\"type\":\"State\"},",
+            "{\"name\":\"transitive\",\"type\":\"State\"}]"
+        )),
+        "{restored}"
+    );
+}
+
+#[test]
 fn hole_candidates_include_only_the_visible_shadowed_binding() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",

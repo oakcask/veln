@@ -261,6 +261,28 @@ fn transparent_alias_chains_and_complete_pattern_bindings_share_arm_refinements(
 }
 
 #[test]
+fn inferred_alias_group_type_is_visible_to_every_member_and_restores_after_match() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+        "fn inferred(value) -> ()\n",
+        "  let direct = value\n",
+        "  let transitive = direct\n",
+        "  match transitive\n",
+        "    Ready => ()\n",
+        "    Closed => ()\n",
+        "    Failed => ()\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn widened_aliases_share_the_source_feasible_domain() {
     let source = [
         STATE_DECL,

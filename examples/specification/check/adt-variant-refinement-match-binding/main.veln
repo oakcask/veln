@@ -98,6 +98,19 @@ fn inferred_alias_chain(value: Boxed<Int>) -> ()
 	end
 end
 
+fn inferred_alias_group(value) -> ()
+	let current = value
+	let transitive = current
+	match transitive
+		State::Ready => ()
+		State::Closed => ()
+	end
+	match value
+		State::Ready => ()
+		State::Closed => ()
+	end
+end
+
 fn residual_alias_chain(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
 	let current: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed = value
 	let transitive: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed = current

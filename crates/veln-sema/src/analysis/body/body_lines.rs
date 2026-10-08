@@ -414,11 +414,12 @@ impl<'a> FunctionChecker<'a> {
         let inferred = self
             .bindings
             .iter()
+            .enumerate()
             .rev()
-            .find(|binding| binding.name == param.name)
-            .map(|binding| &binding.ty)
-            .unwrap_or(&Type::Unknown);
-        if !type_contains_unknown(inferred) {
+            .find(|(_, binding)| binding.name == param.name)
+            .map(|(index, _)| self.binding_type(index))
+            .unwrap_or(Type::Unknown);
+        if !type_contains_unknown(&inferred) {
             return;
         }
         let mut diagnostic = Diagnostic::new(
@@ -494,11 +495,12 @@ impl<'a> FunctionChecker<'a> {
             let inferred = self
                 .bindings
                 .iter()
+                .enumerate()
                 .rev()
-                .find(|binding| binding.name == omitted.name)
-                .map(|binding| &binding.ty)
-                .unwrap_or(&Type::Unknown);
-            if !type_contains_unknown(inferred) {
+                .find(|(_, binding)| binding.name == omitted.name)
+                .map(|(index, _)| self.binding_type(index))
+                .unwrap_or(Type::Unknown);
+            if !type_contains_unknown(&inferred) {
                 if let Some(index) = omitted.deferred_initializer_diagnostic {
                     self.suppressed_diagnostic_indices.insert(index);
                 }
