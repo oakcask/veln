@@ -31,8 +31,12 @@ impl NamedTypeArguments for Type {
 
     fn matches_adt_descriptor(&self, descriptor: &AdtDescriptor) -> bool {
         match self {
-            Self::Named { identity, .. } | Self::VariantRefinement { identity, .. } => {
-                identity == &descriptor.identity()
+            Self::Named { name, identity, .. } | Self::VariantRefinement { name, identity, .. } => {
+                if identity == name {
+                    name == &descriptor.type_name
+                } else {
+                    identity == &descriptor.identity()
+                }
             }
             _ => false,
         }

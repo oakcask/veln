@@ -58,13 +58,26 @@ pub(crate) fn refined_constructed_type_from_args(
 }
 
 pub(crate) fn type_matches_descriptor(ty: &Type, descriptor: &AdtDescriptor) -> bool {
-    let (identity, args) = match ty {
-        Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
-            (identity, args)
+    let (name, identity, args) = match ty {
+        Type::Named {
+            name,
+            identity,
+            args,
         }
+        | Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => (name, identity, args),
         _ => return false,
     };
-    args.len() == descriptor.type_parameters.len() && identity == &descriptor.identity()
+    args.len() == descriptor.type_parameters.len()
+        && if identity == name {
+            name == &descriptor.type_name
+        } else {
+            identity == &descriptor.identity()
+        }
 }
 
 pub(crate) fn core_constructed_type_from_args(
