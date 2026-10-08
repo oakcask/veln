@@ -95,6 +95,54 @@ fn record_alias_refinement_released() {
 #[cfg(not(test))]
 fn record_alias_refinement_released() {}
 
+#[cfg(test)]
+fn record_stable_place_root_created() {
+    stable_place_work::root_created();
+}
+
+#[cfg(not(test))]
+fn record_stable_place_root_created() {}
+
+#[cfg(test)]
+fn record_stable_place_key_created() {
+    stable_place_work::key_created();
+}
+
+#[cfg(not(test))]
+fn record_stable_place_key_created() {}
+
+#[cfg(test)]
+fn record_stable_place_key_lookup() {
+    stable_place_work::key_lookup();
+}
+
+#[cfg(not(test))]
+fn record_stable_place_key_lookup() {}
+
+#[cfg(test)]
+fn record_stable_place_segment_discovered() {
+    stable_place_work::segment_discovered();
+}
+
+#[cfg(not(test))]
+fn record_stable_place_segment_discovered() {}
+
+#[cfg(test)]
+fn record_stable_place_refinement_retained() {
+    stable_place_work::refinement_retained();
+}
+
+#[cfg(not(test))]
+fn record_stable_place_refinement_retained() {}
+
+#[cfg(test)]
+fn record_stable_place_refinement_released() {
+    stable_place_work::refinement_released();
+}
+
+#[cfg(not(test))]
+fn record_stable_place_refinement_released() {}
+
 fn json_string_field_is(value: &JsonValue, field: &str, expected: &str) -> bool {
     matches!(
         value,
@@ -177,11 +225,14 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) supports_callsite_modifier: bool,
     pub(super) bindings: Vec<Binding>,
     binding_positions: HashMap<String, Vec<usize>>,
+    next_stable_record_root: usize,
     next_transparent_alias_group: usize,
     transparent_alias_groups: Vec<TransparentAliasGroup>,
     transparent_alias_refinement_frames: Vec<usize>,
-    stable_field_path_refinements: HashMap<StableFieldPath, Vec<Type>>,
-    stable_field_path_refinement_frames: Vec<StableFieldPath>,
+    stable_place_keys: HashMap<StablePlaceKey, usize>,
+    stable_place_refinements: HashMap<usize, Vec<Type>>,
+    stable_place_refinement_frames: Vec<usize>,
+    last_inferred_stable_place: Option<(NodeId, usize)>,
     invalid_binding_recoveries: Vec<InvalidBindingRecovery>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
     pub(super) local_names: BTreeMap<String, LocalNameDeclaration>,
@@ -205,9 +256,9 @@ struct TransparentAliasGroup {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct StableFieldPath {
-    root_alias_group: usize,
-    fields: Vec<String>,
+enum StablePlaceKey {
+    Root(usize),
+    Field { base: usize, field: String },
 }
 
 pub(in crate::analysis) struct PatternBinding {
@@ -396,11 +447,14 @@ impl<'a> FunctionChecker<'a> {
             supports_callsite_modifier,
             bindings: Vec::new(),
             binding_positions: HashMap::new(),
+            next_stable_record_root: 0,
             next_transparent_alias_group: 0,
             transparent_alias_groups: Vec::new(),
             transparent_alias_refinement_frames: Vec::new(),
-            stable_field_path_refinements: HashMap::new(),
-            stable_field_path_refinement_frames: Vec::new(),
+            stable_place_keys: HashMap::new(),
+            stable_place_refinements: HashMap::new(),
+            stable_place_refinement_frames: Vec::new(),
+            last_inferred_stable_place: None,
             invalid_binding_recoveries: Vec::new(),
             omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
@@ -420,7 +474,6 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn fresh_transparent_alias_group(&mut self, feasible_type: Type) -> Option<usize> {
         if feasible_type != Type::Unknown
-            && !matches!(feasible_type, Type::Record(_))
             && self
                 .environment
                 .adts
@@ -444,6 +497,11 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn push_binding(&mut self, binding: Binding) {
+        let mut binding = binding;
+        if binding.stable_record_root.is_none() && matches!(binding.ty, Type::Record(_)) {
+            binding.stable_record_root = Some(self.next_stable_record_root);
+            self.next_stable_record_root += 1;
+        }
         self.binding_positions
             .entry(binding.name.clone())
             .or_default()
@@ -499,6 +557,14 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn binding_type(&self, index: usize) -> Type {
         record_alias_member_lookup();
         let binding = &self.bindings[index];
+        if let Some(place) = binding.stable_place
+            && let Some(refinement) = self
+                .stable_place_refinements
+                .get(&place)
+                .and_then(|refinements| refinements.last())
+        {
+            return transparent_alias_presented_type(&binding.ty, refinement);
+        }
         binding.transparent_alias_group.map_or_else(
             || binding.ty.clone(),
             |group| {
@@ -565,35 +631,51 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn push_stable_field_path_refinement(&mut self, path: StableFieldPath, refinement: Type) {
-        self.stable_field_path_refinements
-            .entry(path.clone())
+    fn push_stable_place_refinement(&mut self, place: usize, refinement: Type) {
+        self.stable_place_refinements
+            .entry(place)
             .or_default()
             .push(refinement);
-        self.stable_field_path_refinement_frames.push(path);
+        self.stable_place_refinement_frames.push(place);
+        record_stable_place_refinement_retained();
     }
 
-    fn stable_field_path_refinement_frame_count(&self) -> usize {
-        self.stable_field_path_refinement_frames.len()
+    fn stable_place_refinement_frame_count(&self) -> usize {
+        self.stable_place_refinement_frames.len()
     }
 
-    fn restore_stable_field_path_refinement_frames(&mut self, len: usize) {
-        while self.stable_field_path_refinement_frames.len() > len {
-            let path = self
-                .stable_field_path_refinement_frames
+    fn restore_stable_place_refinement_frames(&mut self, len: usize) {
+        while self.stable_place_refinement_frames.len() > len {
+            let place = self
+                .stable_place_refinement_frames
                 .pop()
-                .expect("stable field path refinement frame");
+                .expect("stable place refinement frame");
             let refinements = self
-                .stable_field_path_refinements
-                .get_mut(&path)
-                .expect("stable field path refinements");
-            refinements
-                .pop()
-                .expect("active stable field path refinement");
+                .stable_place_refinements
+                .get_mut(&place)
+                .expect("stable place refinements");
+            refinements.pop().expect("active stable place refinement");
+            record_stable_place_refinement_released();
             if refinements.is_empty() {
-                self.stable_field_path_refinements.remove(&path);
+                self.stable_place_refinements.remove(&place);
             }
         }
+    }
+
+    fn intern_stable_place(&mut self, key: StablePlaceKey) -> usize {
+        record_stable_place_key_lookup();
+        if let Some(place) = self.stable_place_keys.get(&key) {
+            return *place;
+        }
+        let is_root = matches!(key, StablePlaceKey::Root(_));
+        let place = self.stable_place_keys.len();
+        self.stable_place_keys.insert(key, place);
+        if is_root {
+            record_stable_place_root_created();
+        } else {
+            record_stable_place_key_created();
+        }
+        place
     }
 
     pub(super) fn check_body(&mut self) {
@@ -613,11 +695,14 @@ impl<'a> FunctionChecker<'a> {
 
 impl Drop for FunctionChecker<'_> {
     fn drop(&mut self) {
+        self.restore_stable_place_refinement_frames(0);
         self.restore_alias_refinement_frames(0);
         self.truncate_bindings(0);
         for _ in self.transparent_alias_groups.drain(..) {
             record_alias_group_released();
         }
+        #[cfg(test)]
+        stable_place_work::release_keys(&self.stable_place_keys);
     }
 }
 
@@ -643,6 +728,33 @@ pub(crate) fn reset_transparent_alias_work() {
 #[cfg(test)]
 pub(crate) fn take_transparent_alias_work() -> TransparentAliasWork {
     transparent_alias_work::take()
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct StablePlaceWork {
+    pub(crate) key_lookups: usize,
+    pub(crate) segments_discovered: usize,
+    pub(crate) roots_created: usize,
+    pub(crate) keys_created: usize,
+    pub(crate) peak_retained_roots: usize,
+    pub(crate) peak_retained_keys: usize,
+    pub(crate) peak_active_refinements: usize,
+    pub(crate) peak_active_frames: usize,
+    pub(crate) retained_roots: usize,
+    pub(crate) retained_keys: usize,
+    pub(crate) active_refinements: usize,
+    pub(crate) active_frames: usize,
+}
+
+#[cfg(test)]
+pub(crate) fn reset_stable_place_work() {
+    stable_place_work::reset();
+}
+
+#[cfg(test)]
+pub(crate) fn take_stable_place_work() -> StablePlaceWork {
+    stable_place_work::take()
 }
 
 #[cfg(test)]
@@ -711,6 +823,86 @@ mod transparent_alias_work {
 
     pub(super) fn refinement_released() {
         update(|work| work.active_refinements -= 1);
+    }
+}
+
+#[cfg(test)]
+mod stable_place_work {
+    use super::{StablePlaceKey, StablePlaceWork};
+    use std::cell::Cell;
+    use std::collections::HashMap;
+
+    thread_local! {
+        static WORK: Cell<StablePlaceWork> = Cell::new(StablePlaceWork::default());
+    }
+
+    fn update(f: impl FnOnce(&mut StablePlaceWork)) {
+        WORK.set({
+            let mut work = WORK.get();
+            f(&mut work);
+            work
+        });
+    }
+
+    pub(super) fn reset() {
+        WORK.set(StablePlaceWork::default());
+    }
+
+    pub(super) fn take() -> StablePlaceWork {
+        WORK.replace(StablePlaceWork::default())
+    }
+
+    pub(super) fn root_created() {
+        update(|work| {
+            work.roots_created += 1;
+            work.retained_roots += 1;
+            work.peak_retained_roots = work.peak_retained_roots.max(work.retained_roots);
+        });
+    }
+
+    pub(super) fn key_created() {
+        update(|work| {
+            work.keys_created += 1;
+            work.retained_keys += 1;
+            work.peak_retained_keys = work.peak_retained_keys.max(work.retained_keys);
+        });
+    }
+
+    pub(super) fn key_lookup() {
+        update(|work| work.key_lookups += 1);
+    }
+
+    pub(super) fn segment_discovered() {
+        update(|work| work.segments_discovered += 1);
+    }
+
+    pub(super) fn refinement_retained() {
+        update(|work| {
+            work.active_refinements += 1;
+            work.active_frames += 1;
+            work.peak_active_refinements =
+                work.peak_active_refinements.max(work.active_refinements);
+            work.peak_active_frames = work.peak_active_frames.max(work.active_frames);
+        });
+    }
+
+    pub(super) fn refinement_released() {
+        update(|work| {
+            work.active_refinements -= 1;
+            work.active_frames -= 1;
+        });
+    }
+
+    pub(super) fn release_keys(keys: &HashMap<StablePlaceKey, usize>) {
+        let roots = keys
+            .keys()
+            .filter(|key| matches!(key, StablePlaceKey::Root(_)))
+            .count();
+        let fields = keys.len() - roots;
+        update(|work| {
+            work.retained_roots -= roots;
+            work.retained_keys -= fields;
+        });
     }
 }
 

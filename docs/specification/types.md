@@ -389,7 +389,12 @@ rooted at an immutable parameter or local binding. Repeated access to the same
 field sequence receives the constructor singleton or complete residual type in
 that arm. A transparent alias of the root identifies the same path. Nested
 matches compose with the enclosing path refinement, and leaving an arm restores
-the prior field type. The root is identified by its resolved binding, so a
+the prior field type. A binding catch-all denotes that same complete field
+value. Matching either the catch-all, one of its transparent aliases, or the
+original field path refines every reference to that value for the nested arm.
+Leaving the nested arm restores the enclosing residual or singleton fact, and
+leaving the outer arm restores the declared field type. The root is identified
+by its resolved binding, so a
 shadowing binding, a different root, or a different field sequence does not
 share the refinement. The checked
 [`adt-variant-refinement-match-field-path`](../../examples/specification/check/adt-variant-refinement-match-field-path/)
@@ -589,6 +594,20 @@ group work or state. Independently tracked ADT locals add one group and member
 of ownership state each, but they do not add repeated lookups or multiply the
 work for the matched alias group. Every instrumented match-local owner returns
 to zero after analysis.
+
+Stable record-field paths use separate, lazily materialized place identities.
+Without an active field-path refinement, increasing field depth or repeating
+an access adds no stable-place lookup, key, or retained root state. With an
+active refinement, a depth-`D` access discovers and looks up `D` field segments
+instead of reconstructing every prefix. Repeating the access `R` times performs
+linear `D * R` segment work while retaining only the `D` distinct path keys.
+Transparent aliases of one record root reuse one root identity. Independently
+matched record roots add one identity each. Unrelated record locals add neither
+ADT alias-group state nor stable-place state. Nested matches add one active
+place refinement and frame per level. Every root identity, path key,
+refinement, and frame owner returns to zero after successful or failing
+analysis.
+
 These counters, rather than elapsed time, define the regression checks;
 reported wall-clock timings are observational. Final serialized JSON can still
 grow quadratically when a linear number of diagnostics must each expose the

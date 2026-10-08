@@ -59,11 +59,12 @@ mod repair_reasoning;
 pub(in crate::analysis) use body::FunctionChecker;
 #[cfg(test)]
 pub(crate) use body::{
-    RefinedMatchCoverageWork, RefinedMatchDiagnosticWork, TransparentAliasWork,
+    RefinedMatchCoverageWork, RefinedMatchDiagnosticWork, StablePlaceWork, TransparentAliasWork,
     reset_refined_match_coverage_work, reset_refined_match_diagnostic_work,
-    reset_retained_variant_diagnostic_key_variants, reset_transparent_alias_work,
-    take_refined_match_coverage_work, take_refined_match_diagnostic_work,
-    take_retained_variant_diagnostic_key_variants, take_transparent_alias_work,
+    reset_retained_variant_diagnostic_key_variants, reset_stable_place_work,
+    reset_transparent_alias_work, take_refined_match_coverage_work,
+    take_refined_match_diagnostic_work, take_retained_variant_diagnostic_key_variants,
+    take_stable_place_work, take_transparent_alias_work,
 };
 pub(crate) use body::{VariantDiagnosticInterner, check_function_body};
 pub(crate) use boundary::{

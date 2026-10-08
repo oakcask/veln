@@ -8,6 +8,8 @@ struct LetBindingContext {
     deferred_initializer_diagnostic: Option<usize>,
     pattern_has_diagnostic: bool,
     transparent_alias_group: Option<usize>,
+    stable_record_root: Option<usize>,
+    stable_place: Option<usize>,
 }
 
 impl<'a> FunctionChecker<'a> {
@@ -172,6 +174,14 @@ impl<'a> FunctionChecker<'a> {
             PatternKind::Binding(_) => self.transparent_alias_group(expr),
             _ => None,
         };
+        let stable_record_root = match &pattern.kind {
+            PatternKind::Binding(_) => self.stable_record_root(expr),
+            _ => None,
+        };
+        let stable_place = match &pattern.kind {
+            PatternKind::Binding(_) => self.stable_place_binding(expr),
+            _ => None,
+        };
         let expected = annotation.and_then(|annotation| {
             self.parse_annotation(
                 annotation,
@@ -225,6 +235,8 @@ impl<'a> FunctionChecker<'a> {
             deferred_initializer_diagnostic,
             pattern_has_diagnostic,
             transparent_alias_group,
+            stable_record_root,
+            stable_place,
         };
         for binding in pattern_bindings {
             self.bind_let_pattern(binding, &binding_context);
@@ -250,10 +262,20 @@ impl<'a> FunctionChecker<'a> {
         } else {
             Binding::new(binding.name.clone(), binding.ty.clone())
         };
-        admitted.transparent_alias_group = context
-            .transparent_alias_group
-            .filter(|_| !context.initializer_has_diagnostic && !context.pattern_has_diagnostic)
-            .or_else(|| self.fresh_transparent_alias_group(binding.ty.clone()));
+        admitted.stable_record_root = context
+            .stable_record_root
+            .filter(|_| !context.initializer_has_diagnostic && !context.pattern_has_diagnostic);
+        admitted.stable_place = context
+            .stable_place
+            .filter(|_| !context.initializer_has_diagnostic && !context.pattern_has_diagnostic);
+        admitted.transparent_alias_group = if admitted.stable_place.is_some() {
+            None
+        } else {
+            context
+                .transparent_alias_group
+                .filter(|_| !context.initializer_has_diagnostic && !context.pattern_has_diagnostic)
+                .or_else(|| self.fresh_transparent_alias_group(binding.ty.clone()))
+        };
         if matches!(binding.ty, Type::Function { .. })
             && let Some(type_origin) = &context.type_origin
         {
@@ -284,6 +306,28 @@ impl<'a> FunctionChecker<'a> {
         };
         self.visible_binding_index(name)
             .and_then(|index| self.bindings[index].transparent_alias_group)
+    }
+
+    fn stable_record_root(&self, expr: &Expr) -> Option<usize> {
+        let ExprKind::NamePath { segments, .. } = &expr.kind else {
+            return None;
+        };
+        let [name] = segments.as_slice() else {
+            return None;
+        };
+        self.visible_binding_index(name)
+            .and_then(|index| self.bindings[index].stable_record_root)
+    }
+
+    fn stable_place_binding(&self, expr: &Expr) -> Option<usize> {
+        let ExprKind::NamePath { segments, .. } = &expr.kind else {
+            return None;
+        };
+        let [name] = segments.as_slice() else {
+            return None;
+        };
+        self.visible_binding_index(name)
+            .and_then(|index| self.bindings[index].stable_place)
     }
 
     pub(super) fn check_expr_line(&mut self, index: usize, line: &BodyLine, expr: &Expr) {

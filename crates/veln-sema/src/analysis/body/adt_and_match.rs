@@ -228,7 +228,13 @@ struct MatchArmScope {
     saved_bindings: usize,
     saved_invalid_binding_recoveries: usize,
     saved_alias_refinement_frames: usize,
-    saved_field_path_refinement_frames: usize,
+    saved_stable_place_refinement_frames: usize,
+}
+
+#[derive(Clone, Copy)]
+enum StableMatchPlace {
+    AliasGroup(usize),
+    StablePlace(usize),
 }
 
 enum RefinedMatchArmCoverage {
@@ -738,8 +744,9 @@ impl<'a> FunctionChecker<'a> {
             .map_or(inferred_scrutinee_type, |group| {
                 self.alias_group_match_type(group)
             });
-        let mut refined_coverage = self
-            .is_stable_match_place(scrutinee)
+        let stable_place = self.stable_match_place(scrutinee);
+        let mut refined_coverage = stable_place
+            .is_some()
             .then(|| self.refined_match_coverage(scrutinee, &scrutinee_type))
             .flatten();
         let uses_refined_match_diagnostics =
@@ -769,8 +776,8 @@ impl<'a> FunctionChecker<'a> {
                 .unwrap_or(Type::Unknown),
         );
         let domain = RefinedMatchDomain {
-            scrutinee,
             ty: &scrutinee_type,
+            stable_place,
         };
         for arm in arms {
             self.infer_match_arm(
@@ -798,11 +805,6 @@ impl<'a> FunctionChecker<'a> {
             self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
         }
         result.materialize()
-    }
-
-    fn is_stable_match_place(&self, scrutinee: &Expr) -> bool {
-        self.stable_match_alias_group(scrutinee).is_some()
-            || self.stable_field_path(scrutinee).is_some()
     }
 
     fn refined_match_coverage(
@@ -1295,7 +1297,7 @@ impl<'a> FunctionChecker<'a> {
         let (pattern_bindings_admitted, arm_plan) =
             self.prepare_match_arm_pattern(domain, arm, refined_coverage);
         self.push_match_arm_binding_refinement(
-            domain.scrutinee,
+            domain.stable_place,
             &arm.pattern,
             domain.ty,
             pattern_bindings_admitted,
@@ -1316,7 +1318,7 @@ impl<'a> FunctionChecker<'a> {
             saved_bindings: self.bindings.len(),
             saved_invalid_binding_recoveries: self.invalid_binding_recoveries.len(),
             saved_alias_refinement_frames: self.alias_refinement_frame_count(),
-            saved_field_path_refinement_frames: self.stable_field_path_refinement_frame_count(),
+            saved_stable_place_refinement_frames: self.stable_place_refinement_frame_count(),
         };
         self.local_name_scopes.push(Vec::new());
         scope
@@ -1334,12 +1336,20 @@ impl<'a> FunctionChecker<'a> {
             .as_deref()
             .and_then(|coverage| self.refined_match_arm_plan(&arm.pattern, domain.ty, coverage));
         let pattern_type = arm_plan.as_ref().map_or(domain.ty, |plan| &plan.arm_type);
-        let complete_alias_group = self.stable_match_alias_group(domain.scrutinee);
+        let complete_alias_group = match domain.stable_place {
+            Some(StableMatchPlace::AliasGroup(group)) => Some(group),
+            _ => None,
+        };
+        let complete_stable_place = match domain.stable_place {
+            Some(StableMatchPlace::StablePlace(place)) => Some(place),
+            _ => None,
+        };
         let pattern_bindings_admitted = self.declare_match_pattern_bindings(
             &arm.pattern,
             pattern_type,
             direct_refined_match_validation,
             complete_alias_group,
+            complete_stable_place,
         );
         if pattern_bindings_admitted
             && let (Some(coverage), Some(plan)) = (refined_coverage, arm_plan.as_ref())
@@ -1351,7 +1361,7 @@ impl<'a> FunctionChecker<'a> {
 
     fn push_match_arm_binding_refinement(
         &mut self,
-        scrutinee: &Expr,
+        stable_place: Option<StableMatchPlace>,
         pattern: &Pattern,
         scrutinee_type: &Type,
         pattern_bindings_admitted: bool,
@@ -1360,23 +1370,27 @@ impl<'a> FunctionChecker<'a> {
         if !pattern_bindings_admitted {
             return;
         }
-        let planned_refinement = arm_plan.map(|plan| &plan.arm_type);
-        if let Some((alias_group, refinement)) = self.stable_match_binding_refinement(
-            scrutinee,
-            pattern,
-            scrutinee_type,
-            planned_refinement,
-        ) {
-            self.push_alias_group_refinement(alias_group, refinement);
-        } else if let (Some(path), Some(refinement)) =
-            (self.stable_field_path(scrutinee), planned_refinement)
-        {
-            self.push_stable_field_path_refinement(path, refinement.clone());
+        let Some(stable_place) = stable_place else {
+            return;
+        };
+        let refinement = arm_plan
+            .map(|plan| plan.arm_type.clone())
+            .or_else(|| self.unplanned_match_binding_refinement(pattern, scrutinee_type));
+        let Some(refinement) = refinement else {
+            return;
+        };
+        match stable_place {
+            StableMatchPlace::AliasGroup(group) => {
+                self.push_alias_group_refinement(group, refinement)
+            }
+            StableMatchPlace::StablePlace(place) => {
+                self.push_stable_place_refinement(place, refinement)
+            }
         }
     }
 
     fn end_match_arm_scope(&mut self, scope: MatchArmScope, retained_refinement_variants: usize) {
-        self.restore_stable_field_path_refinement_frames(scope.saved_field_path_refinement_frames);
+        self.restore_stable_place_refinement_frames(scope.saved_stable_place_refinement_frames);
         self.restore_alias_refinement_frames(scope.saved_alias_refinement_frames);
         self.truncate_bindings(scope.saved_bindings);
         release_refined_match_refinement_variants(retained_refinement_variants);
@@ -1402,11 +1416,27 @@ impl<'a> FunctionChecker<'a> {
             .and_then(|index| self.bindings[index].transparent_alias_group)
     }
 
-    pub(super) fn stable_field_path(&self, expr: &Expr) -> Option<StableFieldPath> {
+    fn stable_match_place(&mut self, scrutinee: &Expr) -> Option<StableMatchPlace> {
+        if let ExprKind::NamePath { segments, .. } = &scrutinee.kind
+            && let [name] = segments.as_slice()
+        {
+            let index = self.visible_binding_index(name)?;
+            if let Some(place) = self.bindings[index].stable_place {
+                return Some(StableMatchPlace::StablePlace(place));
+            }
+            return self.bindings[index]
+                .transparent_alias_group
+                .map(StableMatchPlace::AliasGroup);
+        }
+        self.stable_field_place(scrutinee)
+            .map(StableMatchPlace::StablePlace)
+    }
+
+    pub(super) fn stable_field_place(&mut self, expr: &Expr) -> Option<usize> {
         let mut fields = Vec::new();
         let mut current = expr;
         while let ExprKind::FieldAccess { base, field, .. } = &current.kind {
-            fields.push(field.clone());
+            fields.push(field.as_str());
             current = base;
         }
         let ExprKind::NamePath { segments, .. } = &current.kind else {
@@ -1415,74 +1445,109 @@ impl<'a> FunctionChecker<'a> {
         let [root_name] = segments.as_slice() else {
             return None;
         };
-        let root_alias_group = self
+        let root = self
             .visible_binding_index(root_name)
-            .and_then(|index| self.bindings[index].transparent_alias_group)?;
+            .and_then(|index| self.bindings[index].stable_record_root)?;
         if fields.is_empty() {
             return None;
         }
-        fields.reverse();
-        Some(StableFieldPath {
-            root_alias_group,
-            fields,
-        })
+        let mut place = self.intern_stable_place(StablePlaceKey::Root(root));
+        for field in fields.into_iter().rev() {
+            record_stable_place_segment_discovered();
+            place = self.intern_stable_place(StablePlaceKey::Field {
+                base: place,
+                field: field.to_string(),
+            });
+        }
+        Some(place)
     }
 
-    fn stable_match_binding_refinement(
+    pub(super) fn active_stable_place_refinements(&self) -> bool {
+        !self.stable_place_refinements.is_empty()
+    }
+
+    pub(super) fn inferred_stable_field_place(
+        &mut self,
+        expr: &Expr,
+        base: &Expr,
+        field: &str,
+    ) -> Option<usize> {
+        let parent = self
+            .last_inferred_stable_place
+            .filter(|(node_id, _)| *node_id == base.node_id)
+            .map(|(_, place)| place)
+            .or_else(|| {
+                let ExprKind::NamePath { segments, .. } = &base.kind else {
+                    return None;
+                };
+                let [root_name] = segments.as_slice() else {
+                    return None;
+                };
+                let root = self
+                    .visible_binding_index(root_name)
+                    .and_then(|index| self.bindings[index].stable_record_root)?;
+                Some(self.intern_stable_place(StablePlaceKey::Root(root)))
+            })?;
+        record_stable_place_segment_discovered();
+        let place = self.intern_stable_place(StablePlaceKey::Field {
+            base: parent,
+            field: field.to_string(),
+        });
+        self.last_inferred_stable_place = Some((expr.node_id, place));
+        Some(place)
+    }
+
+    pub(super) fn stable_place_refinement(&self, place: usize) -> Option<&Type> {
+        self.stable_place_refinements
+            .get(&place)
+            .and_then(|refinements| refinements.last())
+    }
+
+    fn unplanned_match_binding_refinement(
         &self,
-        scrutinee: &Expr,
         pattern: &Pattern,
         scrutinee_type: &Type,
-        planned_refinement: Option<&Type>,
-    ) -> Option<(usize, Type)> {
-        let alias_group = self.stable_match_alias_group(scrutinee)?;
-
-        let refinement = if let Some(refinement) = planned_refinement {
-            refinement.clone()
-        } else {
-            let Type::Named {
-                name: type_name,
-                identity,
-                args: type_args,
-            } = scrutinee_type
-            else {
-                return None;
-            };
-
-            let PatternKind::Constructor { name, args, .. } = &pattern.kind else {
-                return None;
-            };
-            if invalid_qualified_constructor_pattern(name) {
-                return None;
-            }
-            let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
-                scrutinee_type,
-                self.function.module_name.as_deref(),
-            )?;
-            let constructor = self.environment.adts.constructor_for_descriptor(
-                name,
-                descriptor,
-                self.function.module_name.as_deref(),
-                &self.environment.uses,
-            )?;
-            if args.len() != constructor.variant.payload_fields.len() {
-                return None;
-            }
-            if !args.iter().enumerate().all(|(index, pattern)| {
-                adt::payload_type(scrutinee_type, constructor, index)
-                    .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
-            }) {
-                return None;
-            }
-            Type::resolved_variant_refinement(
-                type_name,
-                identity,
-                type_args.clone(),
-                vec![constructor.variant.name.clone()],
-            )
+    ) -> Option<Type> {
+        let Type::Named {
+            name: type_name,
+            identity,
+            args: type_args,
+        } = scrutinee_type
+        else {
+            return None;
         };
 
-        Some((alias_group, refinement))
+        let PatternKind::Constructor { name, args, .. } = &pattern.kind else {
+            return None;
+        };
+        if invalid_qualified_constructor_pattern(name) {
+            return None;
+        }
+        let descriptor = self.environment.adts.descriptor_for_type_prefer_module(
+            scrutinee_type,
+            self.function.module_name.as_deref(),
+        )?;
+        let constructor = self.environment.adts.constructor_for_descriptor(
+            name,
+            descriptor,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        )?;
+        if args.len() != constructor.variant.payload_fields.len() {
+            return None;
+        }
+        if !args.iter().enumerate().all(|(index, pattern)| {
+            adt::payload_type(scrutinee_type, constructor, index)
+                .is_some_and(|ty| self.match_pattern_is_valid_for_type(pattern, &ty))
+        }) {
+            return None;
+        }
+        Some(Type::resolved_variant_refinement(
+            type_name,
+            identity,
+            type_args.clone(),
+            vec![constructor.variant.name.clone()],
+        ))
     }
 
     fn match_pattern_is_valid_for_type(&self, pattern: &Pattern, expected: &Type) -> bool {
@@ -1544,6 +1609,7 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         direct_refined_match_validation: bool,
         complete_alias_group: Option<usize>,
+        complete_stable_place: Option<usize>,
     ) -> bool {
         let complete_binding = match &pattern.kind {
             PatternKind::Binding(name) => Some(name.as_str()),
@@ -1575,11 +1641,18 @@ impl<'a> FunctionChecker<'a> {
             let binding_type = binding.ty;
             let mut admitted = Binding::new(binding.name, binding_type.clone());
             admitted.transparent_alias_group = if complete_binding == Some(admitted.name.as_str()) {
-                complete_alias_group
-                    .or_else(|| self.fresh_transparent_alias_group(binding_type.clone()))
+                if complete_stable_place.is_some() {
+                    None
+                } else {
+                    complete_alias_group
+                        .or_else(|| self.fresh_transparent_alias_group(binding_type.clone()))
+                }
             } else {
                 self.fresh_transparent_alias_group(binding_type)
             };
+            if complete_binding == Some(admitted.name.as_str()) {
+                admitted.stable_place = complete_stable_place;
+            }
             self.push_binding(admitted);
         }
         all_admitted
@@ -1656,8 +1729,8 @@ impl<'a> FunctionChecker<'a> {
 }
 
 struct RefinedMatchDomain<'a> {
-    scrutinee: &'a Expr,
     ty: &'a Type,
+    stable_place: Option<StableMatchPlace>,
 }
 
 fn refined_base_name(ty: &Type) -> &str {

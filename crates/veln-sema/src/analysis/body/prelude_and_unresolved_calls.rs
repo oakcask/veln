@@ -380,10 +380,9 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         let base_type = self.infer_expr(base, None);
         if let Some(field_type) = base_type.record_field(field) {
-            if let Some(refinement) = self
-                .stable_field_path(expr)
-                .and_then(|path| self.stable_field_path_refinements.get(&path))
-                .and_then(|refinements| refinements.last())
+            if self.active_stable_place_refinements()
+                && let Some(place) = self.inferred_stable_field_place(expr, base, field)
+                && let Some(refinement) = self.stable_place_refinement(place)
             {
                 return transparent_alias_presented_type(field_type, refinement);
             }
