@@ -28,9 +28,18 @@ pub(crate) fn core_constructed_type(
     core_constructed_type_from_args(constructor, &args)
 }
 
+fn canonical_descriptor_name(descriptor: &AdtDescriptor) -> String {
+    let identity = descriptor.identity();
+    identity
+        .rsplit("::")
+        .next()
+        .unwrap_or(&descriptor.type_name)
+        .to_string()
+}
+
 pub(crate) fn constructed_type_from_args(constructor: AdtConstructor<'_>, args: &[Type]) -> Type {
     Type::resolved_named(
-        &constructor.descriptor.type_name,
+        canonical_descriptor_name(constructor.descriptor),
         constructor.descriptor.identity(),
         args.to_vec(),
     )
@@ -41,7 +50,7 @@ pub(crate) fn refined_constructed_type_from_args(
     args: &[Type],
 ) -> Type {
     Type::resolved_variant_refinement(
-        &constructor.descriptor.type_name,
+        canonical_descriptor_name(constructor.descriptor),
         constructor.descriptor.identity(),
         args.to_vec(),
         vec![constructor.variant.name.clone()],
@@ -75,7 +84,10 @@ pub(crate) fn core_constructed_type_from_args(
     constructor: AdtConstructor<'_>,
     args: &[CoreType],
 ) -> CoreType {
-    CoreType::named(&constructor.descriptor.type_name, args.to_vec())
+    CoreType::named(
+        canonical_descriptor_name(constructor.descriptor),
+        args.to_vec(),
+    )
 }
 
 pub(crate) fn payload_type_with_resolved_args(
@@ -87,7 +99,7 @@ pub(crate) fn payload_type_with_resolved_args(
     match &field.ty {
         super::descriptors::AdtPayloadType::TypeParameter(index) => Some(resolve(*index)),
         super::descriptors::AdtPayloadType::SelfType => Some(Type::resolved_named(
-            &constructor.descriptor.type_name,
+            canonical_descriptor_name(constructor.descriptor),
             constructor.descriptor.identity(),
             (0..constructor.descriptor.type_parameters.len())
                 .map(resolve)

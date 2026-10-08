@@ -604,6 +604,14 @@ and keys. Nested matches on one stable place add one active refinement and
 frame per nesting level. Every stable-place root, key, refinement, and frame is
 released after successful or failed analysis.
 
+Reconciling two equally shaped nested named types that use a different alias
+spelling at every named node performs one conflict lookup and at most one
+conflict insertion per node. Descending through the type arguments performs
+one child-state lookup and retains one presentation-state node per traversed
+type node. Increasing the nesting depth therefore adds only linear
+presentation work and retained state while the reconciled type uses the
+canonical target spelling at every conflicting node.
+
 These counters, rather than elapsed time, define the regression checks;
 reported wall-clock timings are observational. Final serialized JSON can still
 grow quadratically when a linear number of diagnostics must each expose the
@@ -647,12 +655,34 @@ set. The alternatives are resolved before their base identities are compared,
 so qualified and unqualified spellings of the same ADT can form one union.
 Duplicate alternatives are removed and display follows ADT declaration order.
 `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
-representation. A type alias cannot qualify a variant refinement in this
-slice; an alias-qualified singleton or union alternative is an invalid type
-annotation. A union containing every declared variant is equivalent to the base
-ADT. An unknown variant, invalid base arity, or union of different resolved ADTs
-is an invalid type annotation; it does not become an assignable `unknown`
-contract.
+representation. A public type-alias chain whose resolved target is an ADT can
+qualify a singleton or union alternative. Alias-qualified and target-qualified
+forms use the target ADT identity and generic arguments, so their equal variant
+sets are mutually assignable. Each selected variant has the identity of its
+target ADT constructor; alias spelling does not create another constructor
+identity. Their alternatives share duplicate removal and declaration ordering.
+A union containing every declared variant is equivalent to the base ADT.
+
+An explicit annotation preserves its one unambiguous alias spelling as display
+provenance, including the outer alias written through a transitive alias chain.
+Target-only annotations and constructor inference use the target ADT's
+canonical display name. A join preserves one alias preference when the other
+contributions are canonical, but different alias preferences conflict and make
+the result use the target name. This reconciliation is independent of
+contribution order and still applies when a singleton ADT or a complete
+refinement union has collapsed to the base ADT. Presentation does not change
+type identity, assignability, variant ordering, or runtime representation. The
+checked
+[`alias presentation`](../../examples/specification/check/adt-variant-refinement-alias-presentation/)
+case covers transitive singleton, union, and generic aliases together with
+mutual assignment, inference, finite joins, and complete-domain joins. An
+unknown variant, invalid base arity, or union of different resolved ADTs is an
+invalid type annotation; it does not become an assignable `unknown` contract.
+The checked
+[`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
+case also verifies that imported alias-qualified constructor context supplies
+generic payload arguments and that target-qualified and differently
+alias-qualified patterns preserve those payload binding types.
 
 A resolved constructor expression has its singleton variant type. The expected
 base ADT can supply generic arguments to the constructor, and the singleton can
@@ -706,6 +736,16 @@ constructor type argument. A later valid payload therefore continues from the
 last successfully inferred type instead of from a partial result of the failed
 payload. This rule also applies when the rejected payload contains repeated
 occurrences inside one invariant named type.
+
+Successful direct and invariant nested contributions also reconcile alias
+presentation for the inferred type argument. Different alias preferences make
+the target ADT's canonical name permanent for that inference, even when a later
+contribution repeats one alias. The result is independent of payload order and
+applies recursively through record and function positions. A rejected payload
+transaction does not contribute alias provenance, so it cannot create or clear
+a presentation conflict. The checked
+[`invariant alias presentation diagnostic`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
+case covers the canonical result for both contribution orders.
 
 When a concrete payload has the form `Box<A>`, a matching refined carrier such
 as `Box<State::Ready>::Boxed` can supply `State::Ready` for `A`. This direct
@@ -765,9 +805,14 @@ or final result. Its JSON details contain the rendered `actual_type`, rendered
 is the complete base ADT. A `variant_exclusion` related note renders the same
 fact for human output, and another related note identifies the expected local
 annotation, parameter, result declaration, or compiler-known helper parameter
-inferred at the call site. A nested record, named argument, ADT payload, or
-function-position invariance failure has no truthful top-level variant
-exclusion and uses the ordinary `type.mismatch` diagnostic instead.
+inferred at the call site. Invariant named-type arguments are compared by
+resolved type identity, not by alias display spelling. If the arguments differ
+only by aliases of one target, an outer refinement exclusion therefore remains
+a `type.variant_mismatch`, and each rendered side retains its own alias
+spelling. If the resolved nested refinements differ, or a nested record,
+named-type argument, ADT payload, or function position otherwise fails
+invariance, there is no truthful top-level variant exclusion and the comparison
+uses the ordinary `type.mismatch` diagnostic instead.
 The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures
@@ -780,8 +825,7 @@ private results are checked in
 rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
-Alias spelling and provenance, public/private exposure paths, qualified-value
-control-flow refinement, schema boundaries,
+Public/private exposure paths, qualified-value control-flow refinement, schema boundaries,
 package-documentation signatures, command-wide coverage, LSP, and remaining
 MCP integration remain proposal work.
 This slice also does not add recursive generic or function variance.
@@ -878,5 +922,7 @@ inventing an arithmetic rewrite.
 - Effect-row typing: `crates/veln-sema/src/effect_rows.rs`.
 - Refined-match coverage scaling:
   `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
+- Aggregate and alias-presentation join scaling:
+  `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.

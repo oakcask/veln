@@ -1,0 +1,117 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+type Box<A>
+	Empty
+	Boxed(A)
+end
+
+type Envelope<A>
+	Left(A)
+	Right(A)
+end
+
+pub type First = State
+pub type Second = First
+pub type StateBox = Box
+pub type OuterStateBox = StateBox
+
+fn keep_target(value: State::Ready) -> First::Ready
+	value
+end
+
+fn keep_alias(value: First::Ready) -> State::Ready
+	value
+end
+
+fn first_to_second(value: First::Ready) -> Second::Ready
+	value
+end
+
+fn second_to_first(value: Second::Ready) -> First::Ready
+	value
+end
+
+fn keep_union(value: Second::Closed | Second::Ready | Second::Closed) -> First::Ready | State::Closed
+	value
+end
+
+fn keep_generic(value: OuterStateBox<Int>::Boxed) -> Box<Int>::Boxed
+	value
+end
+
+type Single
+	Only
+end
+
+pub type SingleFirst = Single
+pub type SingleSecond = Single
+
+fn collapsed_singleton(flag: Bool)
+	let first: SingleFirst::Only = Only
+	let second: SingleSecond::Only = Only
+	if flag
+		first
+	else
+		second
+	end
+end
+
+type Pair
+	Left
+	Right
+end
+
+pub type PairFirst = Pair
+pub type PairSecond = Pair
+
+fn collapsed_union(flag: Bool)
+	let first: PairFirst::Left | PairFirst::Right = Pair::Left
+	let second: PairSecond::Left | PairSecond::Right = Pair::Right
+	if flag
+		second
+	else
+		first
+	end
+end
+
+fn same_alias(flag: Bool)
+	let ready: First::Ready = Ready
+	let closed: First::Closed = Closed
+	if flag
+		ready
+	else
+		closed
+	end
+end
+
+fn conflicting_aliases(flag: Bool)
+	let ready: First::Ready = Ready
+	let closed: Second::Closed = Closed
+	if flag
+		ready
+	else
+		closed
+	end
+end
+
+fn keep_nested_union(value: Envelope<First::Ready>::Left | Envelope<Second::Ready>::Right) -> Envelope<State::Ready>
+	value
+end
+
+fn main() -> ()
+	let direct: State::Ready = keep_alias(keep_target(Ready))
+	let aliases: First::Ready = second_to_first(first_to_second(Ready))
+	let union: State::Ready | State::Closed = keep_union(Closed)
+	let generic: Box<Int>::Boxed = keep_generic(Boxed(1))
+	let inferred: State::Ready = First::Ready
+	let retained: First::Ready | First::Closed = same_alias(true)
+	let canonical: State::Ready | State::Closed = conflicting_aliases(false)
+	let nested: Envelope<State::Ready> = keep_nested_union(Left(Ready))
+	let singleton: Single = collapsed_singleton(true)
+	let pair: Pair = collapsed_union(false)
+	()
+end

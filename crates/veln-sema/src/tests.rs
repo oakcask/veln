@@ -32,6 +32,7 @@ mod standard_reuse;
 mod typechecking_and_match_exhaustiveness;
 mod variant_refinement_aggregate_inference;
 mod variant_refinement_aggregate_scaling;
+mod variant_refinement_alias_call_typing;
 mod variant_refinement_annotations_and_private_results;
 mod variant_refinement_call_typing;
 mod variant_refinement_control_flow_context;

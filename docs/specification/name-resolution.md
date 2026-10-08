@@ -55,6 +55,21 @@ that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
 
+A finite chain of public type aliases is a valid type-alias target when it
+terminates in a resolved source ADT. Every alias in the chain retains the
+terminal ADT's nominal identity while remaining a selectable type name. A
+direct function target reports `name.kind_mismatch`. A target that does not
+resolve to a type reports `name.unresolved`. The
+[type compatibility rules](types.md#compatibility-and-limits) define how a
+resolved chain qualifies variant refinements and preserves display provenance.
+
+Each public type-alias declaration resolves its own target, including when
+another declaration in the same module has the same alias name. The later
+declaration reports `name.duplicate`. An unresolved or wrong-kind target also
+reports its target diagnostic at the invalid declaration, regardless of which
+duplicate is written first. A valid duplicate does not make the invalid
+declaration resolve.
+
 ### Schema navigation
 
 For saved composition-and-operation reference navigation, a public schema

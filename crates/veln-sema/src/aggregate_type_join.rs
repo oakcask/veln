@@ -6,12 +6,15 @@ use crate::adt::descriptors::AdtConstructor;
 use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
-use crate::type_relations::{invariant_args_match, same_type_identity};
+use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_type_identity};
 
 pub(crate) struct AggregateTypeJoin {
     name: String,
+    canonical_name: String,
+    presentation_conflicted: bool,
     identity: String,
     args: Vec<Type>,
+    arg_presentations: Vec<TypePresentationJoin>,
     declaration_order: Option<Arc<VariantDeclarationOrder>>,
     variants: Option<HashSet<usize>>,
     materialized: RefCell<Option<Type>>,
@@ -34,10 +37,20 @@ impl AggregateTypeJoin {
                 (Some(declaration_order), variants)
             }
         };
+        let args = initial.args.to_vec();
+        let arg_presentations = (0..args.len())
+            .map(|_| TypePresentationJoin::default())
+            .collect();
         Some(Self {
             name: initial.name.to_string(),
+            canonical_name: adts
+                .descriptor_for_type(initial.ty)
+                .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
+                .unwrap_or_else(|| initial.name.to_string()),
+            presentation_conflicted: false,
             identity: initial.identity.to_string(),
-            args: initial.args.to_vec(),
+            args,
+            arg_presentations,
             declaration_order,
             variants,
             materialized: RefCell::new(None),
@@ -45,10 +58,11 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn new_resolved_refinement(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
-        let Type::VariantRefinement { args, .. } = initial else {
-            return None;
+        let args = match initial {
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+            _ => return None,
         };
-        if args.iter().any(type_contains_unknown) {
+        if args.iter().any(type_contains_unknown) || adts.descriptor_for_type(initial).is_none() {
             return None;
         }
         Self::new(adts, initial)
@@ -64,8 +78,24 @@ impl AggregateTypeJoin {
             return false;
         }
         let mut changed = false;
-        for (joined, right) in self.args.iter_mut().zip(right.args) {
+        if !self.presentation_conflicted && right.name != self.canonical_name {
+            if self.name == self.canonical_name {
+                self.name = right.name.to_string();
+                changed = true;
+            } else if self.name != right.name {
+                self.name.clone_from(&self.canonical_name);
+                self.presentation_conflicted = true;
+                changed = true;
+            }
+        }
+        for ((joined, presentation), right) in self
+            .args
+            .iter_mut()
+            .zip(&mut self.arg_presentations)
+            .zip(right.args)
+        {
             changed |= unification::merge_type_slot(joined, right);
+            changed |= presentation.merge(joined, right);
         }
         match (&mut self.variants, right.variants) {
             (Some(joined), Some(right)) => {
@@ -104,6 +134,10 @@ impl AggregateTypeJoin {
             return false;
         }
         self.try_join(right)
+    }
+
+    pub(crate) fn has_complete_domain(&self) -> bool {
+        self.variants.is_none()
     }
 
     pub(crate) fn inference_type(&self) -> Type {
@@ -155,6 +189,7 @@ pub(crate) fn merge_invariant_payload_type_args(
     inferred: &mut [Type],
     joined: &mut [Option<AggregateTypeJoin>],
     invariant: &mut [bool],
+    presentations: &mut [TypePresentationJoin],
     constructor: AdtConstructor<'_>,
     index: usize,
     actual: &Type,
@@ -173,18 +208,22 @@ pub(crate) fn merge_invariant_payload_type_args(
         &contributions,
         |type_index| {
             inferred.get(type_index).map(|inferred| {
-                joined[type_index]
-                    .as_ref()
-                    .map(AggregateTypeJoin::result_type)
-                    .unwrap_or_else(|| inferred.clone())
+                (
+                    joined[type_index]
+                        .as_ref()
+                        .map(AggregateTypeJoin::result_type)
+                        .unwrap_or_else(|| inferred.clone()),
+                    presentations[type_index].clone(),
+                )
             })
         },
     )?;
-    for (type_index, constraint) in constraints {
+    for (type_index, constraint, presentation) in constraints {
         record_work(1);
         inferred[type_index] = constraint;
         joined[type_index] = None;
         invariant[type_index] = true;
+        presentations[type_index] = presentation;
     }
     Ok(())
 }

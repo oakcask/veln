@@ -8,8 +8,14 @@ pub(crate) fn core_type(ty: &Type) -> CoreType {
         Type::Named { name, args, .. } => {
             CoreType::named(name.clone(), args.iter().map(core_type).collect())
         }
-        Type::VariantRefinement { name, args, .. } => {
-            CoreType::named(name.clone(), args.iter().map(core_type).collect())
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => {
+            let canonical_name = identity.rsplit("::").next().unwrap_or(name);
+            CoreType::named(canonical_name, args.iter().map(core_type).collect())
         }
         Type::Record(fields) => CoreType::Record(
             fields

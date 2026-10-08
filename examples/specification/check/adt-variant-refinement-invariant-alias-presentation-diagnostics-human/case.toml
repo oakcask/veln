@@ -1,0 +1,17 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "expected `Int`, but found `ForwardWrap<State::Ready>::ForwardWrapped`",
+  "expected `Int`, but found `ReverseWrap<State::Ready>::ReverseWrapped`",
+  "value of type `Envelope<Second::Ready>::Right` is not assignable to variant type `Envelope<First::Ready>::Left`",
+  "value of type `Envelope<Second::Ready>` is not assignable to variant type `Envelope<First::Ready>::Left`",
+  "Excluded variants: Right.",
+  "Excluded variants: every `Envelope<Second::Ready>` variant except Left.",
+  "Callee parameter type declared here.",
+]
+
+[stderr]
+format = "empty"

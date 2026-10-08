@@ -1,0 +1,49 @@
+type State
+	Ready
+	Closed
+end
+
+pub type First = State
+pub type Second = State
+
+type Duo<A, B>
+	Paired(A, B)
+end
+
+type ForwardWrap<A>
+	ForwardWrapped(Duo<A, A>)
+end
+
+type ReverseWrap<A>
+	ReverseWrapped(Duo<A, A>)
+end
+
+fn needs_int(value: Int) -> ()
+	()
+end
+
+fn forward(value: Duo<First::Ready, Second::Ready>) -> ()
+	needs_int(ForwardWrapped(value))
+end
+
+fn reverse(value: Duo<Second::Ready, First::Ready>) -> ()
+	needs_int(ReverseWrapped(value))
+end
+
+type Envelope<A>
+	Left(A)
+	Right(A)
+end
+
+fn needs_left(value: Envelope<First::Ready>::Left) -> ()
+	()
+end
+
+fn wrong_refinement() -> ()
+	let actual: Envelope<Second::Ready>::Right = Right(Ready)
+	needs_left(actual)
+end
+
+fn wrong_base(actual: Envelope<Second::Ready>) -> ()
+	needs_left(actual)
+end

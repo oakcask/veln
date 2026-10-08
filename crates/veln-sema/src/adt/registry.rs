@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
-use veln_ast::{UseDecl, Visibility};
+use veln_ast::{PublicAlias, UseDecl, Visibility};
 use veln_core::CoreType;
-use veln_source::SourceSpan;
+use veln_source::{SourcePath, SourceSpan};
 
 use crate::semantic_model::Type;
 
@@ -25,7 +25,28 @@ pub(crate) struct AdtRegistry {
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<(Option<String>, String)>,
+    resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<String, SourceSpan>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct TypeAliasDeclarationIdentity {
+    module_name: Option<String>,
+    file: SourcePath,
+    start: usize,
+    end: usize,
+}
+
+impl TypeAliasDeclarationIdentity {
+    fn new(alias: &PublicAlias) -> Self {
+        let span = alias.span.resolved_or_generated();
+        Self {
+            module_name: alias.module_name.clone(),
+            file: span.file,
+            start: span.start.offset,
+            end: span.end.offset,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -76,6 +97,11 @@ impl ConstructorShape {
 }
 
 impl AdtRegistry {
+    pub(crate) fn resolves_type_alias(&self, alias: &PublicAlias) -> bool {
+        self.resolved_type_alias_declarations
+            .contains(&TypeAliasDeclarationIdentity::new(alias))
+    }
+
     fn descriptors_named(&self, name: &str) -> impl DoubleEndedIterator<Item = &AdtDescriptor> {
         self.descriptors_by_type_name
             .get(name)
@@ -202,18 +228,20 @@ impl AdtRegistry {
         self.descriptor_for_type_path_with_arity(name, None, current_module, uses)
     }
 
-    pub(crate) fn type_path_is_alias(
-        &self,
-        name: &str,
-        args_len: usize,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> bool {
-        self.descriptor_for_type_path(name, args_len, current_module, uses)
-            .is_some_and(|descriptor| {
-                self.type_alias_identities
-                    .contains(&descriptor_identity(descriptor))
+    pub(crate) fn canonical_type_name_for_descriptor(&self, descriptor: &AdtDescriptor) -> String {
+        self.descriptors_by_identity
+            .get(&descriptor.identity())
+            .into_iter()
+            .flatten()
+            .map(|index| &self.descriptors[*index])
+            .find(|candidate| {
+                candidate.nominal_identity.is_none()
+                    && candidate.type_parameters.len() == descriptor.type_parameters.len()
             })
+            .map_or_else(
+                || descriptor.type_name.clone(),
+                |candidate| candidate.type_name.clone(),
+            )
     }
 
     fn descriptor_for_type_path_with_arity(

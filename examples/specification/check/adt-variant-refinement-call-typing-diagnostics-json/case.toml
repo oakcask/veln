@@ -9,7 +9,6 @@ contains = [
   "\"kind\":\"expected_type_origin\"",
   "\"id\":\"type.mismatch\"",
   "invalid type annotation `Choice::Absent`: `Choice` expects 1 type argument(s), found 0",
-  "variant refinement annotations cannot use a type alias as their base",
 ]
 
 [stderr]
@@ -21,7 +20,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 26
+equals = 25
 
 [[diagnostics]]
 id = "type.match_impossible_variant"
@@ -444,17 +443,6 @@ path = "diagnostics.23.related.1.span.start.line"
 equals = 136
 
 [[diagnostics]]
-id = "type.invalid_annotation"
-severity = "error"
-kind = "type"
-message = "invalid type annotation `StateAlias::Ready`: variant refinement annotations cannot use a type alias as their base"
-
-[diagnostics.span]
-file = "main.veln"
-line = 143
-column = 30
-
-[[diagnostics]]
 id = "type.mismatch"
 severity = "error"
 kind = "type"
@@ -466,13 +454,13 @@ line = 149
 column = 32
 
 [[json_assert]]
-path = "diagnostics.25.details.expected_type"
+path = "diagnostics.24.details.expected_type"
 equals = "{state: State}"
 
 [[json_assert]]
-path = "diagnostics.25.details.actual_type"
+path = "diagnostics.24.details.actual_type"
 equals = "{state: State::Ready}"
 
 [[json_assert]]
-path = "diagnostics.25.details.constraint"
+path = "diagnostics.24.details.constraint"
 equals = "assignable"

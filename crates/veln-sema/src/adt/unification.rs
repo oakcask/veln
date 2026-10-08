@@ -3,8 +3,14 @@ use std::collections::HashMap;
 use veln_core::CoreType;
 
 use crate::semantic_model::Type;
+use crate::type_relations::TypePresentationJoin;
 
 use super::descriptors::{AdtDescriptor, AdtPayloadType};
+
+pub(crate) use named_arguments::adt_args;
+pub(super) use named_arguments::{named_part, named_parts2};
+
+mod named_arguments;
 
 pub(super) fn payload_type_from_args(
     ty: &Type,
@@ -101,15 +107,21 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
         (
             Type::Named {
                 name: slot_name,
+                identity: slot_identity,
                 args: slot_args,
-                ..
             },
             Type::Named {
                 name: actual_name,
+                identity: actual_identity,
                 args: actual_args,
-                ..
             },
-        ) if slot_name == actual_name && slot_args.len() == actual_args.len() => {
+        ) if crate::type_relations::same_type_identity(
+            slot_name,
+            slot_identity,
+            actual_name,
+            actual_identity,
+        ) && slot_args.len() == actual_args.len() =>
+        {
             merge_type_arguments(slot_args, actual_args)
         }
         (
@@ -177,26 +189,26 @@ pub(crate) struct TypeParameterContributionConflict {
 
 pub(crate) fn merge_type_parameter_contributions_transactionally(
     contributions: &[(usize, Type)],
-    mut current: impl FnMut(usize) -> Option<Type>,
-) -> Result<Vec<(usize, Type)>, TypeParameterContributionConflict> {
-    let mut trial = Vec::<(usize, Type)>::new();
+    mut current: impl FnMut(usize) -> Option<(Type, TypePresentationJoin)>,
+) -> Result<Vec<(usize, Type, TypePresentationJoin)>, TypeParameterContributionConflict> {
+    let mut trial = Vec::<(usize, Type, TypePresentationJoin)>::new();
     let mut trial_positions = HashMap::<usize, usize>::new();
     for (index, actual) in contributions {
         crate::inference_work::record(1);
         let trial_index = if let Some(trial_index) = trial_positions.get(index) {
             *trial_index
         } else {
-            let Some(expected) = current(*index) else {
+            let Some((expected, presentation)) = current(*index) else {
                 continue;
             };
             crate::inference_work::record(1);
             let trial_index = trial.len();
-            trial.push((*index, expected));
+            trial.push((*index, expected, presentation));
             trial_positions.insert(*index, trial_index);
             trial_index
         };
         let rollback_work = trial.len();
-        let expected = &mut trial[trial_index].1;
+        let (_, expected, presentation) = &mut trial[trial_index];
         crate::inference_work::record(1);
         if !type_parameter_contributions_compatible(expected, actual) {
             crate::inference_work::record(rollback_work);
@@ -207,6 +219,7 @@ pub(crate) fn merge_type_parameter_contributions_transactionally(
         }
         crate::inference_work::record(1);
         merge_type_slot(expected, actual);
+        presentation.merge(expected, actual);
     }
     Ok(trial)
 }
@@ -618,8 +631,13 @@ pub(super) fn core_type_template(ty: &Type) -> CoreType {
             name: name.clone(),
             args: args.iter().map(core_type_template).collect(),
         },
-        Type::VariantRefinement { name, args, .. } => CoreType::Named {
-            name: name.clone(),
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => CoreType::Named {
+            name: identity.rsplit("::").next().unwrap_or(name).to_string(),
             args: args.iter().map(core_type_template).collect(),
         },
         Type::Record(fields) => CoreType::Record(
@@ -640,55 +658,4 @@ pub(super) fn core_type_template(ty: &Type) -> CoreType {
             effects: effects.clone(),
         },
     }
-}
-
-pub(crate) trait NamedTypeArguments: Sized {
-    fn named_type_arguments(&self) -> Option<(&str, &[Self])>;
-}
-
-pub(crate) fn adt_args<'a, T: NamedTypeArguments>(
-    ty: &'a T,
-    descriptor: &AdtDescriptor,
-) -> Option<&'a [T]> {
-    let (name, args) = ty.named_type_arguments()?;
-    (name == descriptor.type_name && args.len() == descriptor.type_parameters.len()).then_some(args)
-}
-
-impl NamedTypeArguments for Type {
-    fn named_type_arguments(&self) -> Option<(&str, &[Self])> {
-        match self {
-            Self::Named { name, args, .. } | Self::VariantRefinement { name, args, .. } => {
-                Some((name, args))
-            }
-            _ => None,
-        }
-    }
-}
-
-impl NamedTypeArguments for CoreType {
-    fn named_type_arguments(&self) -> Option<(&str, &[Self])> {
-        let Self::Named { name, args } = self else {
-            return None;
-        };
-        Some((name, args))
-    }
-}
-
-pub(super) fn named_part<'a, T: NamedTypeArguments>(
-    ty: &'a T,
-    name: &str,
-    arity: usize,
-) -> Option<&'a T> {
-    let (ty_name, args) = ty.named_type_arguments()?;
-    (ty_name == name && args.len() == arity)
-        .then(|| args.first())
-        .flatten()
-}
-
-pub(super) fn named_parts2<'a, T: NamedTypeArguments>(
-    ty: &'a T,
-    name: &str,
-) -> Option<(&'a T, &'a T)> {
-    let (ty_name, args) = ty.named_type_arguments()?;
-    (ty_name == name && args.len() == 2).then(|| (&args[0], &args[1]))
 }

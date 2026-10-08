@@ -140,7 +140,7 @@ end
 
 pub type StateAlias = State
 
-fn rejected_alias_refinement(value: StateAlias::Ready) -> ()
+fn accepted_alias_refinement(value: StateAlias::Ready) -> ()
 	()
 end
 

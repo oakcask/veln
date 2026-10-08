@@ -257,6 +257,7 @@ struct PrivateConstructorTypeArgInference {
     inferred: Vec<Type>,
     joined: Vec<Option<crate::aggregate_type_join::AggregateTypeJoin>>,
     invariant: Vec<bool>,
+    presentations: Vec<crate::type_relations::TypePresentationJoin>,
 }
 
 impl PrivateConstructorTypeArgInference {
@@ -267,6 +268,7 @@ impl PrivateConstructorTypeArgInference {
             inferred: vec![Type::Unknown; parameter_count],
             joined: (0..parameter_count).map(|_| None).collect(),
             invariant: vec![false; parameter_count],
+            presentations: (0..parameter_count).map(|_| Default::default()).collect(),
         }
     }
 
@@ -330,9 +332,13 @@ impl PrivateConstructorTypeArgInference {
                 &self.inferred[*type_index],
             );
         }
-        self.joined[*type_index]
+        let joined = self.joined[*type_index]
             .as_mut()
-            .is_some_and(|joined| joined.try_join(actual))
+            .is_some_and(|joined| joined.try_join(actual));
+        if joined {
+            self.presentations[*type_index].merge(&mut self.inferred[*type_index], actual);
+        }
+        joined
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -364,6 +370,7 @@ impl PrivateConstructorTypeArgInference {
                     &mut self.inferred,
                     &mut self.joined,
                     &mut self.invariant,
+                    &mut self.presentations,
                     constructor,
                     index,
                     actual,
@@ -376,6 +383,7 @@ impl PrivateConstructorTypeArgInference {
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
             return Ok(());
         };
+        self.presentations[type_index].merge(&mut self.inferred[type_index], actual);
         if self.joined[type_index].is_none() {
             self.joined[type_index] = crate::aggregate_type_join::AggregateTypeJoin::new(
                 adts,

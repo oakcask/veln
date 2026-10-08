@@ -76,6 +76,15 @@ related notes may identify the accepted digit set or prefix. Invalid literal
 shift counts use `type.invalid_shift_count` with `operator`, `actual_count`,
 `minimum_count`, and `maximum_count`; the span is the count expression.
 
+An unresolved public type-alias target reports `name.unresolved` at that alias
+declaration. Its details contain `phase: "name"`, the alias `node_id`,
+`expected_kind: "type"`, and the written `target`. A function target reports
+`name.kind_mismatch` at the alias declaration with the same fields and
+`actual_kind: "function"`. These target diagnostics remain present when a
+same-named alias declaration resolves successfully. The later declaration
+independently reports `name.duplicate`, so source order does not suppress the
+invalid declaration's target diagnostic.
+
 Malformed variant-refinement-shaped type text uses
 `parse.variant_refinement_type`. The
 [malformed variant-refinement forms](source-surface.md#malformed-variant-refinement-forms)
@@ -88,7 +97,17 @@ semantically.
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at
 that value expression. The primary message states the actual and expected
-types. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
+types. The diagnostic renders the two sides independently: an unambiguous
+explicit alias spelling is preserved only on the side that supplied it, and an
+expected alias never relabels an inferred actual type. Conflicting alias
+provenance uses the target ADT's canonical display name, including when the
+conflicting singleton or union refinements cover the complete ADT domain and
+render as its base type. The same rule applies when direct and invariant nested
+constructor payload contributions infer one type argument. The checked
+[`alias diagnostic case`](../../examples/specification/check/adt-variant-refinement-alias-presentation-diagnostics-json/)
+and
+[`invariant payload diagnostic case`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
+cover these presentation boundaries. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
 declaration-ordered `expected_variants`, `excluded_variants`, and `constraint`.
 `excluded_variants` is an object with `form` and `variants`. The `listed` form
 contains the declaration-ordered excluded finite set. The
@@ -100,10 +119,15 @@ note identifies the declaration or local annotation that supplied the
 expectation. When a compiler-known helper infers a parameter expectation from
 the call, the note instead identifies that helper at the call site. A nested
 aggregate invariance failure with no truthful finite variant exclusion reports
-ordinary `type.mismatch`. Its actual type preserves the inferred nested
-refinement. This includes assigning an inferred record with a singleton-refined
-field, or an inferred named aggregate with a refined type argument, to the
-corresponding type that uses the base ADT. During aggregate inference, an
+ordinary `type.mismatch`. Alias display differences do not create such an
+invariance failure: when invariant arguments have the same resolved type, an
+outer finite-set or base-to-refinement exclusion remains
+`type.variant_mismatch`, with independent alias spellings in `actual_type` and
+`expected_type`. A genuinely different resolved nested refinement reports
+`type.mismatch`; its actual type preserves the inferred nested refinement. This
+also includes assigning an inferred record with a singleton-refined field, or
+an inferred named aggregate with a refined type argument, to the corresponding
+type that uses the base ADT. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement
 as actual. The accumulated expected type contains only successfully typed

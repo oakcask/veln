@@ -205,6 +205,167 @@ fn public_type_alias_rejects_function_targets() {
 }
 
 #[test]
+fn public_type_alias_resolves_transitive_type_target() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "end\n",
+            "pub type First = State\n",
+            "pub type Second = First\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert!(
+        TypeEnvironment::from_module(&module)
+            .adts
+            .descriptors()
+            .iter()
+            .any(|descriptor| descriptor.type_name == "Second")
+    );
+}
+
+#[test]
+fn duplicate_type_alias_keeps_unresolved_target_diagnostic_in_both_orders() {
+    for invalid_first in [false, true] {
+        assert_duplicate_type_alias_target_diagnostic(
+            invalid_first,
+            "pub type Choice = Missing\n",
+            "Missing",
+            "name.unresolved",
+            "unresolved type alias target `Missing`",
+            &["\"expected_kind\":\"type\"", "\"target\":\"Missing\""],
+        );
+    }
+}
+
+#[test]
+fn duplicate_type_alias_keeps_wrong_kind_target_diagnostic_in_both_orders() {
+    for invalid_first in [false, true] {
+        assert_duplicate_type_alias_target_diagnostic(
+            invalid_first,
+            "pub type Choice = action\n",
+            "action",
+            "name.kind_mismatch",
+            "public alias target `action` is a function, not a type",
+            &[
+                "\"expected_kind\":\"type\"",
+                "\"actual_kind\":\"function\"",
+                "\"target\":\"action\"",
+            ],
+        );
+    }
+}
+
+#[test]
+fn duplicate_type_alias_resolution_uses_source_identity_in_combined_modules() {
+    let valid_source = SourceFile::new(
+        "valid.veln",
+        concat!(
+            "mod spec.api\n",
+            "type State\n",
+            "  Ready\n",
+            "end\n",
+            "pub type Choice = State\n",
+        ),
+    );
+    let invalid_source =
+        SourceFile::new("invalid.veln", "mod spec.api\npub type Choice = Missing\n");
+    let valid = parse(&valid_source);
+    let invalid = parse(&invalid_source);
+    assert!(valid.diagnostics.is_empty(), "{:#?}", valid.diagnostics);
+    assert!(invalid.diagnostics.is_empty(), "{:#?}", invalid.diagnostics);
+    let mut module = lower_surface_ast(&valid.tree);
+    let invalid_module = lower_surface_ast(&invalid.tree);
+    let invalid_alias = invalid_module.aliases[0].clone();
+    module.aliases.extend(invalid_module.aliases);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate type alias name `Choice`"
+    }));
+    let unresolved = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved type alias target `Missing`"
+        })
+        .expect("invalid alias target diagnostic");
+    assert_eq!(unresolved.span.as_ref(), Some(&invalid_alias.span));
+}
+
+fn assert_duplicate_type_alias_target_diagnostic(
+    invalid_first: bool,
+    invalid_declaration: &str,
+    invalid_target: &str,
+    target_diagnostic_id: &str,
+    target_message: &str,
+    expected_detail_fragments: &[&str],
+) {
+    let valid_declaration = "pub type Choice = State\n";
+    let declarations = if invalid_first {
+        format!("{invalid_declaration}{valid_declaration}")
+    } else {
+        format!("{valid_declaration}{invalid_declaration}")
+    };
+    let source = SourceFile::new(
+        "api.veln",
+        format!("type State\n  Ready\nend\nfn action() -> ()\n  ()\nend\n{declarations}"),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let invalid_alias = module
+        .aliases
+        .iter()
+        .find(|alias| {
+            alias
+                .target
+                .last()
+                .is_some_and(|target| target == invalid_target)
+        })
+        .expect("invalid duplicate alias");
+
+    let diagnostics = analyze_surface_module(&module);
+    let duplicate = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "name.duplicate"
+                && diagnostic.message == "duplicate type alias name `Choice`"
+        })
+        .expect("duplicate alias diagnostic");
+    let target_diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == target_diagnostic_id && diagnostic.message == target_message
+        })
+        .expect("invalid alias target diagnostic");
+
+    assert!(duplicate.span.is_some());
+    assert_eq!(target_diagnostic.span.as_ref(), Some(&invalid_alias.span));
+    let details = target_diagnostic.details.to_json();
+    assert!(
+        details.contains(&format!(
+            "\"node_id\":\"{}\"",
+            invalid_alias.node_id.display("alias")
+        )),
+        "details={details}"
+    );
+    for fragment in expected_detail_fragments {
+        assert!(details.contains(fragment), "details={details}");
+    }
+}
+
+#[test]
 fn public_alias_rejects_unresolved_targets() {
     let source = SourceFile::new(
         "api.veln",

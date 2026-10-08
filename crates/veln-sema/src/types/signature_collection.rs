@@ -1,5 +1,3 @@
-#[cfg(test)]
-use std::cell::Cell;
 use std::collections::{BTreeMap, HashSet};
 
 use veln_ast::{FunctionKind, HandlerDecl, SurfaceModule, UseDecl, Visibility};
@@ -18,41 +16,16 @@ use super::signatures::{
 };
 use super::symbols::imported_use_for_path;
 
+use instrumentation::{record_type_canonicalization_visit, record_variant_canonicalization_lookup};
 #[cfg(test)]
-thread_local! {
-    static TYPE_CANONICALIZATION_VISITS: Cell<usize> = const { Cell::new(0) };
-    static VARIANT_CANONICALIZATION_LOOKUPS: Cell<usize> = const { Cell::new(0) };
-}
+pub(crate) use instrumentation::{
+    reset_type_canonicalization_visits, reset_variant_canonicalization_lookups,
+    take_type_canonicalization_visits, take_variant_canonicalization_lookups,
+};
+use refinement_resolution::RefinementResolution;
 
-#[cfg(test)]
-pub(crate) fn reset_type_canonicalization_visits() {
-    TYPE_CANONICALIZATION_VISITS.with(|visits| visits.set(0));
-}
-
-#[cfg(test)]
-pub(crate) fn take_type_canonicalization_visits() -> usize {
-    TYPE_CANONICALIZATION_VISITS.with(|visits| visits.replace(0))
-}
-
-#[cfg(test)]
-pub(crate) fn reset_variant_canonicalization_lookups() {
-    VARIANT_CANONICALIZATION_LOOKUPS.with(|lookups| lookups.set(0));
-}
-
-#[cfg(test)]
-pub(crate) fn take_variant_canonicalization_lookups() -> usize {
-    VARIANT_CANONICALIZATION_LOOKUPS.with(|lookups| lookups.replace(0))
-}
-
-fn record_type_canonicalization_visit() {
-    #[cfg(test)]
-    TYPE_CANONICALIZATION_VISITS.with(|visits| visits.set(visits.get() + 1));
-}
-
-fn record_variant_canonicalization_lookup() {
-    #[cfg(test)]
-    VARIANT_CANONICALIZATION_LOOKUPS.with(|lookups| lookups.set(lookups.get() + 1));
-}
+mod instrumentation;
+mod refinement_resolution;
 
 pub(super) fn ordinary_function_signatures(
     module: &SurfaceModule,
@@ -299,27 +272,36 @@ impl TypeCanonicalizer<'_> {
             return Type::Unknown;
         }
         let canonical_args = self.canonicalize_args(args);
-        let Some(variants) = self.resolve_refinement_alternatives(
-            descriptor,
-            canonical_args.as_slice(),
-            variants,
-            unresolved_alternatives,
-            &declaration_order,
-        ) else {
+        let Some((variants, presentation_name, canonical_args)) = self
+            .resolve_refinement_alternatives(
+                descriptor,
+                canonical_args,
+                variants,
+                unresolved_alternatives,
+                &declaration_order,
+            )
+        else {
             return Type::Unknown;
         };
-        canonical_variant_refinement(descriptor, &declaration_order, canonical_args, variants)
+        canonical_variant_refinement(
+            descriptor,
+            &presentation_name,
+            &declaration_order,
+            canonical_args,
+            variants,
+        )
     }
 
     fn resolve_refinement_alternatives(
         &self,
         descriptor: &crate::adt::descriptors::AdtDescriptor,
-        canonical_args: &[Type],
-        mut variants: Vec<String>,
+        canonical_args: Vec<Type>,
+        variants: Vec<String>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
         declaration_order: &crate::adt::registry::VariantDeclarationOrder,
-    ) -> Option<Vec<String>> {
-        let mut selected_variants = variants.iter().cloned().collect::<HashSet<_>>();
+    ) -> Option<(Vec<String>, String, Vec<Type>)> {
+        let canonical_name = self.adts.canonical_type_name_for_descriptor(descriptor);
+        let mut resolution = RefinementResolution::new(descriptor, canonical_args, variants);
         for (name, args, variant) in unresolved_alternatives {
             let alternative_descriptor = self.adts.descriptor_for_type_path(
                 &name,
@@ -329,18 +311,18 @@ impl TypeCanonicalizer<'_> {
             )?;
             crate::type_relations::record_variant_set_lookup();
             record_variant_canonicalization_lookup();
-            if alternative_descriptor.identity() != descriptor.identity()
-                || self.canonicalize_args(args) != canonical_args
-                || declaration_order.rank(&variant).is_none()
-            {
+            let alternative_args = self.canonicalize_args(args);
+            if !resolution.merge_alternative(
+                descriptor,
+                alternative_descriptor,
+                alternative_args,
+                variant,
+                declaration_order,
+            ) {
                 return None;
             }
-            crate::type_relations::record_variant_set_lookup();
-            if selected_variants.insert(variant.clone()) {
-                variants.push(variant);
-            }
         }
-        Some(variants)
+        Some(resolution.finish(canonical_name))
     }
 
     fn canonicalize_function(
@@ -373,6 +355,7 @@ impl TypeCanonicalizer<'_> {
 #[allow(clippy::too_many_arguments)]
 fn canonical_variant_refinement(
     descriptor: &crate::adt::descriptors::AdtDescriptor,
+    presentation_name: &str,
     declaration_order: &crate::adt::registry::VariantDeclarationOrder,
     args: Vec<Type>,
     variants: Vec<String>,
@@ -391,10 +374,10 @@ fn canonical_variant_refinement(
         .collect::<Vec<_>>();
     ranked_variants.sort_unstable_by_key(|(rank, _)| *rank);
     if ranked_variants.len() == declaration_order.len() {
-        Type::resolved_named(&descriptor.type_name, descriptor.identity(), args)
+        Type::resolved_named(presentation_name, descriptor.identity(), args)
     } else {
         Type::resolved_variant_refinement(
-            &descriptor.type_name,
+            presentation_name,
             descriptor.identity(),
             args,
             ranked_variants

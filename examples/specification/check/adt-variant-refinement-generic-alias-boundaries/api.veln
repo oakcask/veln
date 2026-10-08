@@ -1,0 +1,7 @@
+pub type Box<A>
+	pub Empty
+	pub Boxed(A)
+end
+
+pub type FirstBox = Box
+pub type SecondBox = Box

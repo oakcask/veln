@@ -433,40 +433,111 @@ fn qualified_and_unqualified_union_bases_resolve_before_identity_comparison() {
 }
 
 #[test]
-fn alias_qualified_refinement_annotations_are_rejected() {
-    let diagnostics = diagnostics_for(concat!(
-        "type State\n",
-        "  Ready\n",
-        "  Closed\n",
-        "end\n",
-        "pub type First = State\n",
-        "pub type Second = State\n",
-        "fn direct(value: State::Ready) -> State::Ready\n",
-        "  value\n",
-        "end\n",
-        "fn alias_singleton(value: First::Ready) -> ()\n",
-        "  ()\n",
-        "end\n",
-        "fn alias_union(value: State::Ready | Second::Closed) -> ()\n",
-        "  ()\n",
-        "end\n",
-    ));
+fn collapsed_refinement_joins_reconcile_alias_presentation_in_both_orders() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Single\n",
+            "  Only\n",
+            "end\n",
+            "pub type SingleFirst = Single\n",
+            "pub type SingleSecond = Single\n",
+            "type Pair\n",
+            "  Left\n",
+            "  Right\n",
+            "end\n",
+            "pub type PairFirst = Pair\n",
+            "pub type PairSecond = Pair\n",
+            "fn single_forward(flag: Bool)\n",
+            "  let first: SingleFirst::Only = Only\n",
+            "  let second: SingleSecond::Only = Only\n",
+            "  if flag\n",
+            "    first\n",
+            "  else\n",
+            "    second\n",
+            "  end\n",
+            "end\n",
+            "fn single_reverse(flag: Bool)\n",
+            "  let first: SingleFirst::Only = Only\n",
+            "  let second: SingleSecond::Only = Only\n",
+            "  if flag\n",
+            "    second\n",
+            "  else\n",
+            "    first\n",
+            "  end\n",
+            "end\n",
+            "fn pair_forward(flag: Bool)\n",
+            "  let first: PairFirst::Left | PairFirst::Right = Left\n",
+            "  let second: PairSecond::Left | PairSecond::Right = Right\n",
+            "  if flag\n",
+            "    first\n",
+            "  else\n",
+            "    second\n",
+            "  end\n",
+            "end\n",
+            "fn pair_reverse(flag: Bool)\n",
+            "  let first: PairFirst::Left | PairFirst::Right = Left\n",
+            "  let second: PairSecond::Left | PairSecond::Right = Right\n",
+            "  if flag\n",
+            "    second\n",
+            "  else\n",
+            "    first\n",
+            "  end\n",
+            "end\n",
+            "fn single_canonical_then_alias(flag: Bool)\n",
+            "  let canonical: Single = Only\n",
+            "  let alias: SingleFirst::Only = Only\n",
+            "  if flag\n",
+            "    canonical\n",
+            "  else\n",
+            "    alias\n",
+            "  end\n",
+            "end\n",
+            "fn pair_canonical_then_alias(flag: Bool)\n",
+            "  let canonical: Pair = Left\n",
+            "  let alias: PairFirst::Left | PairFirst::Right = Right\n",
+            "  if flag\n",
+            "    canonical\n",
+            "  else\n",
+            "    alias\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
 
-    let invalid_annotations = diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
-        .collect::<Vec<_>>();
-    assert_eq!(invalid_annotations.len(), 2, "{diagnostics:#?}");
-    assert!(invalid_annotations.iter().all(|diagnostic| {
-        diagnostic
-            .message
-            .contains("variant refinement annotations cannot use a type alias as their base")
-    }));
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id == "type.invalid_annotation"),
-        "{diagnostics:#?}"
+    for function in ["single_forward", "single_reverse"] {
+        assert_eq!(
+            environment.function(function).unwrap().return_type.render(),
+            "Single"
+        );
+    }
+    for function in ["pair_forward", "pair_reverse"] {
+        assert_eq!(
+            environment.function(function).unwrap().return_type.render(),
+            "Pair"
+        );
+    }
+    assert_eq!(
+        environment
+            .function("single_canonical_then_alias")
+            .unwrap()
+            .return_type
+            .render(),
+        "SingleFirst"
+    );
+    assert_eq!(
+        environment
+            .function("pair_canonical_then_alias")
+            .unwrap()
+            .return_type
+            .render(),
+        "PairFirst"
     );
 }
 

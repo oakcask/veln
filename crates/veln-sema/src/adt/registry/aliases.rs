@@ -6,15 +6,15 @@ use crate::name_recovery::{
     normal_use_decls, public_alias_has_invalid_target_leaf, use_decl_matches_import_path,
 };
 
-use super::descriptor_identity;
 #[cfg(test)]
 use super::type_alias_resolution_counters;
+use super::{TypeAliasDeclarationIdentity, descriptor_identity};
 use crate::adt::descriptors::AdtDescriptor;
 
 pub(super) fn type_alias_descriptors(
     module: &SurfaceModule,
     descriptors: &[AdtDescriptor],
-) -> Vec<AdtDescriptor> {
+) -> (Vec<AdtDescriptor>, Vec<TypeAliasDeclarationIdentity>) {
     let uses = normal_use_decls(module);
     let aliases = eligible_type_aliases(module);
     let targets = TypeAliasTargetIndex::new(descriptors, &aliases, &uses);
@@ -60,6 +60,7 @@ struct TypeAliasResolver<'a> {
     memo: Vec<Option<Option<AdtDescriptor>>>,
     visiting: Vec<bool>,
     resolved: Vec<AdtDescriptor>,
+    resolved_declarations: Vec<TypeAliasDeclarationIdentity>,
 }
 
 impl<'a> TypeAliasResolver<'a> {
@@ -75,16 +76,17 @@ impl<'a> TypeAliasResolver<'a> {
             memo: vec![None; aliases.len()],
             visiting: vec![false; aliases.len()],
             resolved: Vec::new(),
+            resolved_declarations: Vec::new(),
         }
     }
 
-    fn resolve(mut self) -> Vec<AdtDescriptor> {
+    fn resolve(mut self) -> (Vec<AdtDescriptor>, Vec<TypeAliasDeclarationIdentity>) {
         for start in 0..self.aliases.len() {
             if self.memo[start].is_none() {
                 self.resolve_from(start);
             }
         }
-        self.resolved
+        (self.resolved, self.resolved_declarations)
     }
 
     fn resolve_from(&mut self, start: usize) {
@@ -98,6 +100,8 @@ impl<'a> TypeAliasResolver<'a> {
             self.memo[index] = Some(descriptor.clone());
             if let Some(descriptor) = &descriptor {
                 self.resolved.push(descriptor.clone());
+                self.resolved_declarations
+                    .push(TypeAliasDeclarationIdentity::new(self.aliases[index]));
             }
             target = descriptor;
         }
