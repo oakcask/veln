@@ -723,6 +723,16 @@ last successfully inferred type instead of from a partial result of the failed
 payload. This rule also applies when the rejected payload contains repeated
 occurrences inside one invariant named type.
 
+Successful direct and invariant nested contributions also reconcile alias
+presentation for the inferred type argument. Different alias preferences make
+the target ADT's canonical name permanent for that inference, even when a later
+contribution repeats one alias. The result is independent of payload order and
+applies recursively through record and function positions. A rejected payload
+transaction does not contribute alias provenance, so it cannot create or clear
+a presentation conflict. The checked
+[`invariant alias presentation diagnostic`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
+case covers the canonical result for both contribution orders.
+
 When a concrete payload has the form `Box<A>`, a matching refined carrier such
 as `Box<State::Ready>::Boxed` can supply `State::Ready` for `A`. This direct
 carrier inference allows `Carried(Boxed(Ready))` to infer

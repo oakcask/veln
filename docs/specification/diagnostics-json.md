@@ -93,9 +93,12 @@ explicit alias spelling is preserved only on the side that supplied it, and an
 expected alias never relabels an inferred actual type. Conflicting alias
 provenance uses the target ADT's canonical display name, including when the
 conflicting singleton or union refinements cover the complete ADT domain and
-render as its base type. The checked
+render as its base type. The same rule applies when direct and invariant nested
+constructor payload contributions infer one type argument. The checked
 [`alias diagnostic case`](../../examples/specification/check/adt-variant-refinement-alias-presentation-diagnostics-json/)
-covers these presentation boundaries. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
+and
+[`invariant payload diagnostic case`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
+cover these presentation boundaries. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
 declaration-ordered `expected_variants`, `excluded_variants`, and `constraint`.
 `excluded_variants` is an object with `form` and `variants`. The `listed` form
 contains the declaration-ordered excluded finite set. The
