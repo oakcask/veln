@@ -60,6 +60,21 @@ pub(crate) enum ConstructorLookup<'a> {
     Missing,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum ConstructorShape {
+    Nullary,
+    Payload,
+}
+
+impl ConstructorShape {
+    fn matches(self, constructor: AdtConstructor<'_>) -> bool {
+        match self {
+            Self::Nullary => constructor.variant.payload_fields.is_empty(),
+            Self::Payload => !constructor.variant.payload_fields.is_empty(),
+        }
+    }
+}
+
 impl AdtRegistry {
     fn descriptors_named(&self, name: &str) -> impl DoubleEndedIterator<Item = &AdtDescriptor> {
         self.descriptors_by_type_name
@@ -250,6 +265,47 @@ impl AdtRegistry {
         self.descriptors_named(name).find(|descriptor| {
             descriptor.type_name == *name && descriptor.type_parameters.len() == args.len()
         })
+    }
+
+    fn constructor_for_core_type(
+        &self,
+        segments: &[String],
+        ty: &CoreType,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<AdtConstructor<'_>> {
+        let descriptor = self.descriptor_for_core_type(ty)?;
+        self.constructor_for_descriptor(segments, descriptor, current_module, uses)
+    }
+
+    pub(crate) fn constructor_for_expected_type(
+        &self,
+        segments: &[String],
+        expected: Option<&CoreType>,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+        shape: ConstructorShape,
+    ) -> ConstructorLookup<'_> {
+        let expected_constructor = || {
+            expected
+                .and_then(|ty| self.constructor_for_core_type(segments, ty, current_module, uses))
+                .filter(|constructor| shape.matches(*constructor))
+        };
+        if segments.len() == 1
+            && let Some(constructor) = expected_constructor()
+        {
+            return ConstructorLookup::Found(constructor);
+        }
+
+        match self.constructor(segments, current_module, uses) {
+            ConstructorLookup::Found(constructor) if shape.matches(constructor) => {
+                ConstructorLookup::Found(constructor)
+            }
+            ConstructorLookup::Ambiguous => expected_constructor()
+                .map(ConstructorLookup::Found)
+                .unwrap_or(ConstructorLookup::Ambiguous),
+            ConstructorLookup::Found(_) | ConstructorLookup::Missing => ConstructorLookup::Missing,
+        }
     }
 
     pub(crate) fn constructor(

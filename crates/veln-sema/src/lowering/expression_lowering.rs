@@ -347,29 +347,12 @@ impl<'a> CoreLowerer<'a> {
         segments: &[String],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        if segments.len() == 1
-            && let Some(constructor) = expected
-                .and_then(|expected| self.environment.adts.descriptor_for_core_type(expected))
-                .and_then(|descriptor| {
-                    self.environment.adts.constructor_for_descriptor(
-                        segments,
-                        descriptor,
-                        self.function.module_name.as_deref(),
-                        &self.environment.uses,
-                    )
-                })
-                .filter(|constructor| constructor.variant.payload_fields.is_empty())
-        {
-            return Some(self.core_expr(
-                expr,
-                expected.cloned().unwrap_or(CoreType::Unknown),
-                core_nullary_constructor_kind(constructor),
-            ));
-        }
-        match self.environment.adts.nullary_constructor(
+        match self.environment.adts.constructor_for_expected_type(
             segments,
+            expected,
             self.function.module_name.as_deref(),
             &self.environment.uses,
+            ConstructorShape::Nullary,
         ) {
             ConstructorLookup::Found(constructor) => {
                 let ty = expected
@@ -380,31 +363,11 @@ impl<'a> CoreLowerer<'a> {
                     .unwrap_or_else(|| adt::core_constructed_type(constructor, &[]));
                 Some(self.core_expr(expr, ty, core_nullary_constructor_kind(constructor)))
             }
-            ConstructorLookup::Ambiguous => {
-                if let Some(constructor) = expected
-                    .and_then(|expected| self.environment.adts.descriptor_for_core_type(expected))
-                    .and_then(|descriptor| {
-                        self.environment.adts.constructor_for_descriptor(
-                            segments,
-                            descriptor,
-                            self.function.module_name.as_deref(),
-                            &self.environment.uses,
-                        )
-                    })
-                    .filter(|constructor| constructor.variant.payload_fields.is_empty())
-                {
-                    return Some(self.core_expr(
-                        expr,
-                        expected.cloned().unwrap_or(CoreType::Unknown),
-                        core_nullary_constructor_kind(constructor),
-                    ));
-                }
-                Some(self.core_expr(
-                    expr,
-                    CoreType::Unknown,
-                    CoreExprKind::Local(segments.join("::")),
-                ))
-            }
+            ConstructorLookup::Ambiguous => Some(self.core_expr(
+                expr,
+                CoreType::Unknown,
+                CoreExprKind::Local(segments.join("::")),
+            )),
             ConstructorLookup::Missing => None,
         }
     }

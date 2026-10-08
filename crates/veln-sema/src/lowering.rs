@@ -14,7 +14,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;
 
 use crate::adt::descriptors::{AdtConstructor, AdtVariantKind};
-use crate::adt::registry::ConstructorLookup;
+use crate::adt::registry::{ConstructorLookup, ConstructorShape};
 use crate::adt::{type_operations as adt, unification};
 use crate::call_resolution::CoreCallSignature;
 use crate::contracts::contract_predicate_is_statically_true;
