@@ -150,20 +150,43 @@ fn unresolved_generic_constructor_locals_preserve_their_variant() {
 }
 
 #[test]
-fn expected_adt_disambiguates_nullary_constructors() {
-    let diagnostics = diagnostics_for(concat!(
-        "type Left\n",
-        "  Ready\n",
-        "end\n",
-        "type Right\n",
-        "  Ready\n",
-        "end\n",
-        "fn pick() -> Left\n",
-        "  Ready\n",
-        "end\n",
-    ));
+fn expected_adt_disambiguates_and_lowers_nullary_constructor() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Left\n",
+            "  Ready\n",
+            "end\n",
+            "type Right\n",
+            "  Ready\n",
+            "end\n",
+            "fn pick() -> Left\n",
+            "  Ready\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
 
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let function = core
+        .functions
+        .iter()
+        .find(|function| function.name == "pick")
+        .expect("pick should be lowered");
+    let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+        panic!("pick should return a constructor");
+    };
+    assert!(
+        matches!(&expr.kind, CoreExprKind::AdtVariant { name, payloads }
+            if name == &vec!["Left".to_string(), "Ready".to_string()]
+                && payloads.is_empty()),
+        "the expected Left type should select Left::Ready"
+    );
 }
 
 #[test]

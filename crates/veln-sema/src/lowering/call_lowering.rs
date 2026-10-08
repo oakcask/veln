@@ -129,52 +129,17 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        if let ExprKind::NamePath { segments, .. } = &callee.kind {
-            if segments.len() == 1
-                && let Some(constructor) = expected
-                    .and_then(|expected| self.environment.adts.descriptor_for_core_type(expected))
-                    .and_then(|descriptor| {
-                        self.environment.adts.constructor_for_descriptor(
-                            segments,
-                            descriptor,
-                            self.function.module_name.as_deref(),
-                            &self.environment.uses,
-                        )
-                    })
-                    .filter(|constructor| !constructor.variant.payload_fields.is_empty())
-            {
-                return Some(self.lower_adt_constructor(expr, args, expected, constructor));
-            }
-            match self.environment.adts.constructor(
-                segments,
-                self.function.module_name.as_deref(),
-                &self.environment.uses,
-            ) {
-                ConstructorLookup::Found(constructor)
-                    if !constructor.variant.payload_fields.is_empty() =>
-                {
-                    return Some(self.lower_adt_constructor(expr, args, expected, constructor));
-                }
-                ConstructorLookup::Ambiguous => {
-                    if let Some(constructor) = expected
-                        .and_then(|expected| {
-                            self.environment.adts.descriptor_for_core_type(expected)
-                        })
-                        .and_then(|descriptor| {
-                            self.environment.adts.constructor_for_descriptor(
-                                segments,
-                                descriptor,
-                                self.function.module_name.as_deref(),
-                                &self.environment.uses,
-                            )
-                        })
-                        .filter(|constructor| !constructor.variant.payload_fields.is_empty())
-                    {
-                        return Some(self.lower_adt_constructor(expr, args, expected, constructor));
-                    }
-                }
-                _ => {}
-            }
+        if let ExprKind::NamePath { segments, .. } = &callee.kind
+            && let ConstructorLookup::Found(constructor) =
+                self.environment.adts.constructor_for_expected_type(
+                    segments,
+                    expected,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                    ConstructorShape::Payload,
+                )
+        {
+            return Some(self.lower_adt_constructor(expr, args, expected, constructor));
         }
         None
     }
