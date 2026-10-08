@@ -137,7 +137,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
         Descriptor {
             id: "types-inference-constructors",
             title: "Types, Inference, And Constructors",
-            summary: "Type text, parameters, return annotations, result bindings, constructor payloads, and inference-sensitive contexts define typed source behavior.",
+            summary: "Type text, inference, constructors, and ADT variant refinements define typed values, assignments, calls, aggregates, and control-flow results.",
             keywords: &[
                 "types",
                 "inference",
@@ -145,11 +145,20 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "annotations",
                 "returns",
                 "variant refinement",
+                "finite set",
+                "assignability",
+                "control flow",
+                "match refinement",
+                "runtime erasure",
             ],
             body: &[
-                "The topic selects grammar for type parameters, return annotations, result bindings, structurally recognized variant-refinement-shaped type text, and constructor patterns.",
-                "Variant-refinement structure is a parser and formatting contract; ADT variant identity, assignability, and control-flow refinement are not implemented semantic type behavior.",
-                "The selected example verifies constructor payload inference in a successful check case.",
+                "The topic selects grammar for type parameters, return annotations, result bindings, ADT variant-refinement type text, and constructor patterns.",
+                "A refinement `State::Ready` identifies the singleton set containing the declared `Ready` variant of `State`. A union such as `State::Ready | State::Closed` identifies a finite set of variants from the same ADT identity and type arguments. Duplicate alternatives are removed and the set uses declaration order. A constructor expression infers its singleton refinement when type information is available.",
+                "A refinement is assignable to the same refinement or to a refinement whose variant set is a superset. It can also widen directly to its base ADT. Assignment in the opposite direction is rejected. Function values remain invariant in refined parameter and result types; ordinary call arguments and declared results use the refinement assignability rules.",
+                "Lists, dictionaries, records, and constructor payloads retain compatible refinements. Aggregate inference joins compatible singleton and finite-set refinements. Control-flow result inference applies the same join to `if` and `match` branches. A join widens to the base ADT when one branch is already base-typed or when the joined set contains every declared variant.",
+                "A constructor pattern narrows a stable matched value to the selected singleton in that arm. A residual catch-all receives the feasible variants not selected by earlier arms. Refinement applies to immutable parameters and local bindings, transparent local aliases that share one feasible domain, and record-field paths rooted at those stable values. Computed expressions are not stable refinement paths.",
+                "Refinements are erased at runtime and use the base ADT representation. They do not add a runtime state store, linear consumption, reachability or progress proofs, payload predicates, or restrictions on constructing visible variants. Type aliases cannot currently serve as refinement bases, and qualified immutable-value refinement is unavailable because the source language has no module-addressable immutable data-value declaration.",
+                "The selected checked examples exercise constructor singleton inference, subset assignment and widening, refined call typing, aggregate retention, and control-flow result joins.",
             ],
             related: &["declarations-aliases", "expressions-patterns", "contracts"],
             grammar: &[
@@ -165,11 +174,18 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "TypeVariant",
                 "ConstructorPattern",
             ],
-            examples: &[ExampleSelection {
-                case: "check/constructor-payload-callback-inference",
-                display_name: "Constructor payload inference check",
-                files: &["main.veln"],
-            }],
+            examples: &[
+                ExampleSelection {
+                    case: "check/adt-variant-refinement-call-typing",
+                    display_name: "ADT variant-refinement call typing",
+                    files: &["main.veln"],
+                },
+                ExampleSelection {
+                    case: "check/adt-variant-refinement-control-flow-result-joins",
+                    display_name: "ADT variant-refinement control-flow result joins",
+                    files: &["main.veln"],
+                },
+            ],
         },
         Descriptor {
             id: "effects-handlers",

@@ -409,6 +409,37 @@ fn generated_bundle_excludes_development_provenance() {
 }
 
 #[test]
+fn checked_types_topic_renders_the_variant_refinement_contract_and_examples() {
+    let rendered = render_checked_language_reference().unwrap();
+    let topic = rendered
+        .resources
+        .iter()
+        .find(|resource| resource.name == "types-inference-constructors")
+        .unwrap();
+
+    for expected in [
+        "identifies the singleton set",
+        "whose variant set is a superset",
+        "Control-flow result inference applies the same join",
+        "residual catch-all",
+        "erased at runtime",
+        "Type aliases cannot currently serve as refinement bases",
+        "ADT variant-refinement call typing",
+        "ADT variant-refinement control-flow result joins",
+    ] {
+        assert!(
+            topic.text.contains(expected),
+            "rendered types topic must contain `{expected}`"
+        );
+    }
+    assert!(
+        !topic
+            .text
+            .contains("not implemented semantic type behavior")
+    );
+}
+
+#[test]
 fn checked_artifact_has_closed_schema_v1_topics() {
     let value: Value = serde_json::from_str(CHECKED_ARTIFACT).unwrap();
     let contract: Value = serde_json::from_str(SPEC_CONTRACT).unwrap();

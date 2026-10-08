@@ -17,7 +17,8 @@ stable mismatch diagnostics, and runtime erasure.
 This proposal retains only the unfinished work: alias presentation and
 visibility, qualified-value match refinement, schema boundaries, package
 documentation, command-wide
-enforcement, LSP, MCP, and language-reference publication. Qualified
+enforcement, LSP, and remaining MCP diagnostics, navigation, rename,
+package-signature, and saved-state behavior. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
@@ -380,7 +381,7 @@ contracts rather than variant-only implementations.
 
 ### MCP
 
-The existing MCP surface gains matching saved-snapshot behavior:
+The remaining MCP surface gains matching saved-snapshot behavior:
 
 - `check_project` returns the new structured diagnostics and counts them in
   the existing summary.
@@ -393,11 +394,6 @@ The existing MCP surface gains matching saved-snapshot behavior:
 - Package-documentation declaration signatures preserve public singleton and
   union refinement annotations. Constructor documentation identity remains
   the owning ADT and constructor identity rather than a synthetic declaration.
-- The language-reference catalog expands its parser-only refinement material
-  to cover the current semantic contract, either in the existing types topic
-  or in a focused topic if the catalog's subject boundaries require one. The
-  existing `search_docs` and `read_doc` tools and language-reference resources
-  expose that semantic material after the feature becomes current behavior.
 
 Protocol-invalid input, failed stable capture, failed analysis, pagination
 failure, and rename refusal create no partial result, consume no unrelated
@@ -424,7 +420,7 @@ current behavior:
 | Diagnostics | Each remaining semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Base-refinement reasons use only the closed values in the diagnostic contract. Remaining resolution, base-eligibility, variant, visibility, and union-base failures compose with current casing, arity, and assignability diagnostics; derivative failures are suppressed; and each new failure retains exactly the specified navigation identities. | Human and JSON command fixtures covering the remaining diagnostic rows, base-reason values, their overlaps with current diagnostics, and identity-retention outcomes. |
 | Commands | `run` and `test` share semantic analysis and preserve their no-execution boundary on refinement errors; `doc` shares semantic analysis, preserves written public refinements in canonical declaration signatures, and preserves its recovery boundary. Their machine-readable modes use the same diagnostic contract as their human modes. | Command harness cases for `run`, `test`, and `doc` with accepted, rejected, and recovered sources. |
 | LSP | Tokens, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
-| MCP | Check, navigation, pagination, rename, package signatures, reference publication, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
+| MCP | Check, navigation, pagination, rename, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 | Cross-transport identity | LSP and MCP select the same declaration and reference set from the same saved source before coordinate projection. | Shared language-service cases consumed by both adapter suites. |
 
 The remaining state-machine examples must include match-based recovery of a
@@ -449,12 +445,11 @@ a failed language-service request.
 
 ## Completion
 
-This proposal is complete only when every remaining acceptance row passes, the
-language-reference artifact includes the type form, and the smallest current
-specification pages for types, execution, diagnostics, editor support, package
-documentation, and MCP describe the implemented contract. Completion also
-requires the public examples to explain both the state-machine benefit and the
-testing boundary.
+This proposal is complete only when every remaining acceptance row passes and
+the smallest current specification pages for types, execution, diagnostics,
+editor support, package documentation, and MCP describe the implemented
+contract. Completion also requires the public examples to explain both the
+state-machine benefit and the testing boundary.
 
 This page remains the authority for the unimplemented rows, and no stage may
 claim end-to-end variant-refinement support until those rows are current and
