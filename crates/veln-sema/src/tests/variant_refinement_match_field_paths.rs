@@ -171,3 +171,56 @@ fn same_spelled_roots_in_distinct_arm_scopes_keep_distinct_path_facts() {
         Some("State")
     );
 }
+
+#[test]
+fn refined_field_domain_preserves_impossible_and_redundant_arm_classification() {
+    let diagnostics = diagnostics_for(&format!(
+        "{PRELUDE}{}",
+        concat!(
+            "fn classify(holder: {state: State::Ready | State::Closed}) -> ()\n",
+            "  match holder.state\n",
+            "    Failed => ()\n",
+            "    Ready => accept_ready(holder.state)\n",
+            "    Ready => ()\n",
+            "    Closed => ()\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+        )
+    ));
+
+    let classified = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "type.match_impossible_variant" | "type.match_redundant_arm"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(classified.len(), 3, "{diagnostics:#?}");
+
+    assert_eq!(classified[0].id, "type.match_impossible_variant");
+    assert_eq!(
+        detail(classified[0], "scrutinee_type").as_text(),
+        Some("State::Ready | State::Closed")
+    );
+    assert_eq!(
+        detail(classified[0], "arm_variant").as_text(),
+        Some("Failed")
+    );
+
+    assert_eq!(classified[1].id, "type.match_redundant_arm");
+    assert_eq!(
+        detail(classified[1], "reason").as_text(),
+        Some("duplicate_variant")
+    );
+    assert_eq!(classified[1].related.len(), 1);
+
+    assert_eq!(classified[2].id, "type.match_redundant_arm");
+    assert_eq!(
+        detail(classified[2], "reason").as_text(),
+        Some("complete_prior_coverage")
+    );
+    assert_eq!(classified[2].related.len(), 2);
+}

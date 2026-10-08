@@ -360,7 +360,7 @@ lowercase is rejected by the source identifier casing rule and is not an
 accepted constructor case. It is not used for constructor payload typing or
 ordinary exhaustiveness coverage. A constructor-pattern type mismatch is still
 reported when initial-only repair of the final segment resolves a constructor
-for a different ADT descriptor. When stable-binding refined coverage is
+for a different ADT descriptor. When stable-place refined coverage is
 not active, the ordinary exhaustiveness path also computes the constructor
 found by changing only the invalid final segment's first ASCII lowercase
 letter to uppercase and resolving the resulting path through ordinary
@@ -452,7 +452,7 @@ type, nested generic arguments whose unknown positions become concrete, direct
 widening, and complete-value pattern aliases. Nested matches distinguish the
 residual from either singleton narrowing or an alias's wider presentation.
 
-For bare or redundantly parenthesized bindings with a refined domain, arm
+For stable bindings or record-field paths with a refined domain, arm
 classification first validates the constructor name, visibility, owning
 ADT, substituted generic payload types, payload arity, nested patterns, and
 admitted payload bindings. An invalid arm keeps its intrinsic diagnostic,
@@ -556,7 +556,7 @@ importing module, private source-declared constructors still require coverage,
 so arms for every public constructor are not exhaustive by themselves. Use `_`
 or a binding catch-all arm because the private constructors cannot be named
 there. `_` and binding patterns are catch-all arms. A
-bare or redundantly parenthesized binding whose current type is a singleton or
+stable binding or record-field path whose current type is a singleton or
 finite refinement union instead requires only that restricted original domain.
 A valid out-of-domain constructor is impossible and does not satisfy or expand
 the domain. A non-exhaustive finite-domain match reports
@@ -565,7 +565,7 @@ unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
 the arms that prove partial coverage.
 
-Coverage classification for one stable-binding refined match has linear
+Coverage classification for one stable-place refined match has linear
 instrumented work when the domain size and arm count grow together. This bound
 covers complete and incomplete coverage, duplicate and impossible constructor
 arms, and a catch-all after complete constructor coverage. For a fixed
