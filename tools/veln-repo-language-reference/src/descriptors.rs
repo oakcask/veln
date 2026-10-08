@@ -159,8 +159,8 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "Lists, dictionaries, records, and constructor payloads retain compatible refinements. Aggregate inference joins compatible singleton and finite-set refinements. Control-flow result inference applies the same join to `if` and `match` branches. A join widens to the base ADT when one branch is already base-typed or when the joined set contains every declared variant.",
                 "A constructor pattern narrows a stable matched value to the selected singleton in that arm. A residual catch-all receives the feasible variants not selected by earlier arms. Refinement applies to immutable parameters and local bindings, transparent local aliases that share one feasible domain, and record-field paths rooted at those stable values. Computed expressions are not stable refinement paths.",
                 "Refinements are erased at runtime and use the base ADT representation. They do not add a runtime state store, linear consumption, reachability or progress proofs, payload predicates, or restrictions on constructing visible variants.",
-                "A public type-alias chain whose resolved target is an ADT can qualify a refinement. Alias-qualified and target-qualified forms use the target ADT identity and type arguments, so equal variant sets are mutually assignable. One unambiguous alias from an explicit annotation is preserved for display. Constructor inference uses the target ADT name. A join preserves one alias preference when its other contributions use the target name, but conflicting alias preferences make the result use the target name. This reconciliation is independent of contribution order and still applies when a singleton ADT or complete refinement union collapses to the base ADT. Qualified immutable-value refinement remains unavailable because the source language has no module-addressable immutable data-value declaration.",
-                "The selected checked examples exercise constructor singleton inference, subset assignment and widening, refined call typing, alias identity and presentation, aggregate retention, and control-flow result joins.",
+                "A public type-alias chain whose resolved target is an ADT can qualify a refinement. Alias-qualified and target-qualified forms use the target ADT identity and type arguments, so equal variant sets are mutually assignable. Expected alias-qualified constructor context supplies the target ADT's generic payload arguments. Constructor patterns preserve those payload arguments when the scrutinee and pattern use target and alias qualifiers of the same ADT. One unambiguous alias from an explicit annotation is preserved for display. Constructor inference uses the target ADT name. A join preserves one alias preference when its other contributions use the target name, but conflicting alias preferences make the result use the target name. This reconciliation is independent of contribution order and still applies when a singleton ADT or complete refinement union collapses to the base ADT. Qualified immutable-value refinement remains unavailable because the source language has no module-addressable immutable data-value declaration.",
+                "The selected checked examples exercise constructor singleton inference, subset assignment and widening, refined call typing, alias identity and presentation, generic alias constructor and pattern boundaries, aggregate retention, and control-flow result joins.",
             ],
             related: &["declarations-aliases", "expressions-patterns", "contracts"],
             grammar: &[
@@ -191,6 +191,11 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                     case: "check/adt-variant-refinement-alias-presentation",
                     display_name: "ADT variant-refinement alias identity and presentation",
                     files: &["main.veln"],
+                },
+                ExampleSelection {
+                    case: "check/adt-variant-refinement-generic-alias-boundaries",
+                    display_name: "ADT variant-refinement generic alias boundaries",
+                    files: &["api.veln", "app.veln"],
                 },
             ],
         },
