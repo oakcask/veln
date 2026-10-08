@@ -162,51 +162,25 @@ fn mark_report_partial(report: &mut MetricsReport, path: &str) {
 }
 
 fn report_from_edges(edges: &[(&str, &str)]) -> MetricsReport {
-    let mut modules = edges
+    let modules = edges
         .iter()
         .flat_map(|(source, target)| [*source, *target])
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .map(|module| ModuleMetric {
-            module: module.to_string(),
-            path: format!("{module}.veln"),
-            generated: false,
-            fan_in: 0,
-            fan_out: 0,
-            dependency_pressure: 0,
-            external_dependency_count: 0,
-            span: SourceFile::new(format!("{module}.veln"), "")
-                .span(veln_source::TextRange::new(0, 0)),
-        })
-        .collect::<Vec<_>>();
-    modules.sort_by(compare_module_metrics);
-    let edges = edges
+        .collect::<BTreeSet<_>>();
+    let selected = modules
         .iter()
-        .map(|(source, target)| DependencyEdge {
-            source: (*source).to_string(),
-            target: (*target).to_string(),
-            span: SourceFile::new(format!("{source}.veln"), "")
-                .span(veln_source::TextRange::new(0, 0)),
-        })
-        .collect::<Vec<_>>();
+        .map(|module| format!("{module}.veln"))
+        .collect::<BTreeSet<_>>();
     let graph_project = Project {
         root: ".".into(),
         manifest: None,
         files: modules
             .iter()
             .map(|module| {
-                SourceFile::new(
-                    module.path.as_str(),
-                    source_for_module(&module.module, &edges),
-                )
+                SourceFile::new(format!("{module}.veln"), source_for_module(module, edges))
             })
             .collect(),
     };
     let graph = DependencyGraph::from_project(&graph_project).expect("graph");
-    let selected = modules
-        .iter()
-        .map(|module| module.path.clone())
-        .collect::<BTreeSet<_>>();
     graph.report(
         &graph_project,
         ProjectIdentity {
@@ -220,10 +194,10 @@ fn report_from_edges(edges: &[(&str, &str)]) -> MetricsReport {
     )
 }
 
-fn source_for_module(module: &str, edges: &[DependencyEdge]) -> String {
+fn source_for_module(module: &str, edges: &[(&str, &str)]) -> String {
     let mut source = String::new();
-    for edge in edges.iter().filter(|edge| edge.source == module) {
-        source.push_str(&format!("use {}\n", edge.target));
+    for (_, target) in edges.iter().filter(|(source, _)| *source == module) {
+        source.push_str(&format!("use {target}\n"));
     }
     source.push_str(&format!("fn {}_value() -> ()\n  ()\nend\n", module));
     source

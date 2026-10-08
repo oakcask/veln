@@ -43,6 +43,36 @@ fn counts_internal_edges_external_imports_and_self_cycles() {
 }
 
 #[test]
+fn edge_report_projects_modules_paths_and_dependencies() {
+    let report = report_from_edges(&[("zeta", "app"), ("app", "util")]);
+
+    assert_eq!(
+        report.project.selected_paths,
+        ["app.veln", "util.veln", "zeta.veln"].map(str::to_string)
+    );
+    assert_eq!(
+        report
+            .modules
+            .iter()
+            .map(|module| (module.module.as_str(), module.path.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            ("app", "app.veln"),
+            ("zeta", "zeta.veln"),
+            ("util", "util.veln"),
+        ]
+    );
+    assert_eq!(
+        report
+            .edges
+            .iter()
+            .map(|edge| (edge.source.as_str(), edge.target.as_str()))
+            .collect::<Vec<_>>(),
+        [("app", "util"), ("zeta", "app")]
+    );
+}
+
+#[test]
 fn counts_abc_constructs_from_function_bodies() {
     let cases = [
         (
