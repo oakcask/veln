@@ -1,7 +1,10 @@
 use veln_core::CoreType;
 
 use super::source_signatures::source_prelude_callback_signatures_from_text;
-use super::{core_prelude_signature, prelude_signature, prelude_signature_with_input};
+use super::{
+    core_prelude_signature, prelude_signature, prelude_signature_with_input,
+    qualified_core_prelude_builtin_signature, qualified_prelude_builtin_signature_with_input,
+};
 use crate::adt::type_operations as adt;
 use crate::semantic_model::Type;
 use crate::type_lowering::core_type;
@@ -242,6 +245,36 @@ fn surface_and_core_signature_routes_agree_for_each_builtin_family() {
         let (_, core_params, core_return) = core_prelude_signature(name, Some(&core_expected))
             .unwrap_or_else(|| panic!("core signature for {name}"));
 
+        assert_eq!(
+            surface_params.iter().map(core_type).collect::<Vec<_>>(),
+            core_params,
+            "parameters for {name}"
+        );
+        assert_eq!(core_type(&surface_return), core_return, "return for {name}");
+    }
+}
+
+#[test]
+fn http2_diagnostic_signatures_preserve_preview_representation_across_routes() {
+    for (name, preview_type) in [
+        (
+            "http2_protocol_invalid_payload_length",
+            Type::named("ByteView", Vec::new()),
+        ),
+        (
+            "http2_protocol_invalid_payload_length_chunk",
+            Type::named("ByteChunk", Vec::new()),
+        ),
+    ] {
+        let segments = vec!["prelude_builtin".to_string(), name.to_string()];
+        let (_, surface_params, surface_return) =
+            qualified_prelude_builtin_signature_with_input(&segments, None, None)
+                .unwrap_or_else(|| panic!("surface signature for {name}"));
+        let (_, core_params, core_return) =
+            qualified_core_prelude_builtin_signature(&segments, None)
+                .unwrap_or_else(|| panic!("core signature for {name}"));
+
+        assert_eq!(surface_params.last(), Some(&preview_type), "{name}");
         assert_eq!(
             surface_params.iter().map(core_type).collect::<Vec<_>>(),
             core_params,

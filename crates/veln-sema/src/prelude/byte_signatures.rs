@@ -129,10 +129,7 @@ fn byte_prelude_signature<T: BytePreludeType>(name: &str) -> Option<ByteSignatur
         .or_else(|| byte_view_signature(name, &types))
         .or_else(|| byte_chunk_list_signature(name, &types))
         .or_else(|| byte_decode_sample_signature(name, &types))
-        .or_else(|| http2_protocol_preface_signature(name, &types))
-        .or_else(|| http2_protocol_frame_signature(name, &types))
-        .or_else(|| http2_peer_limit_signature(name, &types))
-        .or_else(|| hpack_fixture_signature(name, &types))
+        .or_else(|| runtime_diagnostic_signature(name, &types))
         .or_else(|| byte_numeric_signature(name, &types))
 }
 
@@ -142,6 +139,110 @@ fn result_string<T: BytePreludeType>(value: T) -> T {
 
 fn unit_runtime_diagnostic_result<T: BytePreludeType>() -> T {
     T::result(T::unit(), T::named("RuntimeDiagnostic"))
+}
+
+#[derive(Clone, Copy)]
+enum DiagnosticParameter {
+    Int,
+    String,
+    ByteChunk,
+    ByteView,
+}
+
+impl DiagnosticParameter {
+    fn resolve<T: BytePreludeType>(self, types: &BytePreludeTypes<T>) -> T {
+        match self {
+            Self::Int => T::int(),
+            Self::String => T::string(),
+            Self::ByteChunk => types.byte_chunk.clone(),
+            Self::ByteView => types.byte_view.clone(),
+        }
+    }
+}
+
+struct DiagnosticSignature {
+    names: &'static [&'static str],
+    parameters: &'static [DiagnosticParameter],
+}
+
+use DiagnosticParameter::{ByteChunk, ByteView, Int, String as StringParameter};
+
+macro_rules! diagnostic_signature {
+    ([$($name:literal),+ $(,)?] => [$($parameter:ident),* $(,)?]) => {
+        DiagnosticSignature {
+            names: &[$($name),+],
+            parameters: &[$($parameter),*],
+        }
+    };
+}
+
+#[rustfmt::skip]
+const RUNTIME_DIAGNOSTIC_SIGNATURES: &[DiagnosticSignature] = &[
+    diagnostic_signature!(["http2_protocol_closed_with_pending"] => [Int, Int, StringParameter, Int, Int, Int, Int, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_protocol_partial_preface"] => [Int, Int, ByteView]),
+    diagnostic_signature!(["http2_protocol_invalid_preface"] => [Int, Int, Int, Int, ByteView]),
+    diagnostic_signature!(["http2_protocol_initial_peer_settings_required"] => [Int, Int, Int, Int, StringParameter, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_protocol_continuation_expected"] => [Int, Int, Int, Int, Int, Int, StringParameter, Int, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_protocol_invalid_frame_kind"] => [Int, Int, Int, Int, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_protocol_invalid_stream_id"] => [Int, Int, Int, StringParameter, StringParameter, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!([
+        "http2_protocol_invalid_payload_length",
+        "http2_protocol_invalid_window_update_increment",
+        "http2_protocol_content_length_mismatch",
+    ] => [Int, Int, Int, Int, Int, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_protocol_invalid_payload_length_chunk"] => [Int, Int, Int, Int, Int, StringParameter, StringParameter, ByteChunk]),
+    diagnostic_signature!(["http2_protocol_invalid_data_padding"] => [Int, Int, Int, Int, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!([
+        "http2_protocol_invalid_request_header_list",
+        "http2_protocol_invalid_response_header_list",
+    ] => [Int, Int, Int, StringParameter, StringParameter, StringParameter, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_protocol_unexpected_settings_ack"] => [Int, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_protocol_settings_not_allowed_for_endpoint"] => [Int, Int, StringParameter, StringParameter, Int, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_protocol_invalid_priority_dependency"] => [Int, Int, Int, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_protocol_stream_after_goaway"] => [Int, Int, Int, StringParameter, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_peer_limit_frame_size_exceeded"] => [Int, Int, Int, Int, Int, StringParameter, ByteView]),
+    diagnostic_signature!([
+        "http2_peer_limit_header_list_size_exceeded",
+        "http2_peer_limit_header_table_size_exceeded",
+        "http2_peer_limit_flow_control_window_exceeded",
+    ] => [Int, Int, Int, Int, Int, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_peer_limit_concurrent_streams_exceeded"] => [Int, Int, Int, Int, StringParameter, StringParameter, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!(["http2_peer_limit_settings_value_out_of_range"] => [Int, Int, StringParameter, Int, Int, Int, StringParameter, ByteView]),
+    diagnostic_signature!([
+        "hpack_fixture_unsupported_header_block",
+        "hpack_fixture_unsupported_static_index",
+        "hpack_fixture_malformed_string_length",
+        "hpack_fixture_malformed_raw_string_value",
+        "hpack_fixture_malformed_huffman_padding",
+        "hpack_fixture_huffman_eos_symbol",
+        "hpack_fixture_huffman_non_visible_value",
+        "hpack_fixture_table_size_update_malformed",
+    ] => [Int, Int, Int, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!([
+        "hpack_fixture_dynamic_index_out_of_range",
+        "hpack_fixture_dynamic_name_continuation_missing",
+        "hpack_fixture_dynamic_name_continuation_malformed",
+        "hpack_fixture_dynamic_name_continuation_out_of_range",
+    ] => [Int, Int, Int, Int, Int, StringParameter, StringParameter, ByteView]),
+    diagnostic_signature!([
+        "hpack_fixture_table_size_update_not_at_start",
+        "hpack_fixture_table_size_update_trailing_bytes",
+    ] => [Int, Int, Int, Int, Int, Int, StringParameter, StringParameter, StringParameter, ByteView]),
+];
+
+fn runtime_diagnostic_signature<T: BytePreludeType>(
+    name: &str,
+    types: &BytePreludeTypes<T>,
+) -> Option<ByteSignature<T>> {
+    let signature = RUNTIME_DIAGNOSTIC_SIGNATURES
+        .iter()
+        .find(|signature| signature.names.contains(&name))?;
+    let parameters = signature
+        .parameters
+        .iter()
+        .map(|parameter| parameter.resolve(types))
+        .collect();
+    Some((parameters, unit_runtime_diagnostic_result()))
 }
 
 fn byte_constructor_signature<T: BytePreludeType>(
@@ -264,370 +365,6 @@ fn byte_decode_sample_signature<T: BytePreludeType>(
         "byte_decode_schema_validation_sample" => Some((
             vec![types.byte_view.clone()],
             result_string(schema_validation_sample_type()),
-        )),
-        _ => None,
-    }
-}
-
-fn http2_protocol_preface_signature<T: BytePreludeType>(
-    name: &str,
-    types: &BytePreludeTypes<T>,
-) -> Option<ByteSignature<T>> {
-    match name {
-        "http2_protocol_closed_with_pending" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::string(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_partial_preface" => Some((
-            vec![T::int(), T::int(), types.byte_view.clone()],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_preface" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_initial_peer_settings_required" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_continuation_expected" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::int(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        _ => None,
-    }
-}
-
-fn http2_protocol_frame_signature<T: BytePreludeType>(
-    name: &str,
-    types: &BytePreludeTypes<T>,
-) -> Option<ByteSignature<T>> {
-    match name {
-        "http2_protocol_invalid_frame_kind" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_stream_id" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_payload_length" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_payload_length_chunk" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_chunk.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_window_update_increment" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_data_padding" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_content_length_mismatch" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_request_header_list"
-        | "http2_protocol_invalid_response_header_list" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                T::string(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_unexpected_settings_ack" => Some((
-            vec![T::int(), T::string(), T::string(), types.byte_view.clone()],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_settings_not_allowed_for_endpoint" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_priority_dependency" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_stream_after_goaway" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        _ => None,
-    }
-}
-
-fn http2_peer_limit_signature<T: BytePreludeType>(
-    name: &str,
-    types: &BytePreludeTypes<T>,
-) -> Option<ByteSignature<T>> {
-    match name {
-        "http2_peer_limit_frame_size_exceeded" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_peer_limit_header_list_size_exceeded" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_peer_limit_header_table_size_exceeded" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_peer_limit_flow_control_window_exceeded" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_peer_limit_concurrent_streams_exceeded" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_peer_limit_settings_value_out_of_range" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::string(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        _ => None,
-    }
-}
-
-fn hpack_fixture_signature<T: BytePreludeType>(
-    name: &str,
-    types: &BytePreludeTypes<T>,
-) -> Option<ByteSignature<T>> {
-    match name {
-        "hpack_fixture_unsupported_header_block"
-        | "hpack_fixture_unsupported_static_index"
-        | "hpack_fixture_malformed_string_length"
-        | "hpack_fixture_malformed_raw_string_value"
-        | "hpack_fixture_malformed_huffman_padding"
-        | "hpack_fixture_huffman_eos_symbol"
-        | "hpack_fixture_huffman_non_visible_value"
-        | "hpack_fixture_table_size_update_malformed" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "hpack_fixture_dynamic_index_out_of_range"
-        | "hpack_fixture_dynamic_name_continuation_missing"
-        | "hpack_fixture_dynamic_name_continuation_malformed"
-        | "hpack_fixture_dynamic_name_continuation_out_of_range" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "hpack_fixture_table_size_update_not_at_start"
-        | "hpack_fixture_table_size_update_trailing_bytes" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
         )),
         _ => None,
     }
