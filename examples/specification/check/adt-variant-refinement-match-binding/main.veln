@@ -45,6 +45,18 @@ fn accept_empty_or_failed(value: Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
 	()
 end
 
+fn accept_nested_filled(value: Boxed<Vec<Int>>::Filled) -> ()
+	()
+end
+
+fn accept_nested_base(value: Boxed<Vec<Int>>) -> ()
+	()
+end
+
+fn accept_string_nested_filled(value: Boxed<Vec<String>>::Filled) -> ()
+	()
+end
+
 fn accept_number(value: LiteralPayload::Number) -> ()
 	()
 end
@@ -109,6 +121,43 @@ fn inferred_alias_group(value) -> ()
 		State::Ready => ()
 		State::Closed => ()
 	end
+end
+
+fn inferred_nested_alias_group(value) -> ()
+	let direct = value
+	let transitive = direct
+	let annotated: Boxed<Vec<Int>> = transitive
+	match annotated
+		complete => begin
+			match complete
+				Filled(_) => begin
+					accept_nested_filled(value)
+					accept_nested_filled(direct)
+					accept_nested_filled(transitive)
+					accept_nested_filled(annotated)
+					accept_nested_filled(complete)
+				end
+			end
+			accept_nested_filled(value)
+			accept_nested_filled(direct)
+			accept_nested_filled(transitive)
+			accept_nested_filled(annotated)
+			accept_nested_filled(complete)
+		end
+	end
+	accept_nested_filled(value)
+	accept_nested_filled(direct)
+	accept_nested_filled(transitive)
+	accept_nested_base(annotated)
+
+	let separately_constructed = Filled([])
+	match separately_constructed
+		Filled(_) => accept_string_nested_filled(separately_constructed)
+	end
+end
+
+fn supply_nested_alias_hole() -> ()
+	inferred_nested_alias_group(Filled([]))
 end
 
 fn residual_alias_chain(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()

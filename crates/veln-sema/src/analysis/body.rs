@@ -493,14 +493,13 @@ impl<'a> FunctionChecker<'a> {
             |group| {
                 record_alias_group_lookup();
                 let alias_group = &self.transparent_alias_groups[group];
-                let persistent = if binding.ty == Type::Unknown {
-                    &alias_group.feasible_type
-                } else {
-                    &binding.ty
-                };
+                let mut persistent = binding.ty.clone();
+                if is_assignable(&persistent, &alias_group.feasible_type) {
+                    adt::merge_type_holes(&mut persistent, &alias_group.feasible_type);
+                }
                 alias_group.active_refinements.last().map_or_else(
                     || persistent.clone(),
-                    |refinement| transparent_alias_presented_type(persistent, refinement),
+                    |refinement| transparent_alias_presented_type(&persistent, refinement),
                 )
             },
         )
@@ -517,10 +516,11 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn set_binding_type(&mut self, index: usize, ty: Type) {
         self.bindings[index].ty = ty.clone();
-        if let Some(group) = self.bindings[index].transparent_alias_group
-            && self.transparent_alias_groups[group].feasible_type == Type::Unknown
-        {
-            self.transparent_alias_groups[group].feasible_type = ty;
+        if let Some(group) = self.bindings[index].transparent_alias_group {
+            let feasible_type = &mut self.transparent_alias_groups[group].feasible_type;
+            if is_assignable(&ty, feasible_type) {
+                adt::merge_type_holes(feasible_type, &ty);
+            }
         }
     }
 

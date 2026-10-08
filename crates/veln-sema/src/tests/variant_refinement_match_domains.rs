@@ -283,6 +283,66 @@ fn inferred_alias_group_type_is_visible_to_every_member_and_restores_after_match
 }
 
 #[test]
+fn inferred_nested_alias_arguments_share_refinements_and_restore_presentations() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n",
+        "  Boxed(A)\n",
+        "  Empty\n",
+        "end\n",
+        "fn accept_boxed(value: Box<Vec<Int>>::Boxed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn accept_base(value: Box<Vec<Int>>) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn inspect(source) -> ()\n",
+        "  let direct = source\n",
+        "  let transitive = direct\n",
+        "  let annotated: Box<Vec<Int>> = transitive\n",
+        "  match annotated\n",
+        "    complete => begin\n",
+        "      match complete\n",
+        "        Boxed(_) => begin\n",
+        "          accept_boxed(source)\n",
+        "          accept_boxed(direct)\n",
+        "          accept_boxed(transitive)\n",
+        "          accept_boxed(annotated)\n",
+        "          accept_boxed(complete)\n",
+        "        end\n",
+        "      end\n",
+        "      accept_boxed(source)\n",
+        "      accept_boxed(direct)\n",
+        "      accept_boxed(transitive)\n",
+        "      accept_boxed(annotated)\n",
+        "      accept_boxed(complete)\n",
+        "      accept_base(annotated)\n",
+        "      accept_base(complete)\n",
+        "    end\n",
+        "  end\n",
+        "  accept_boxed(source)\n",
+        "  accept_boxed(direct)\n",
+        "  accept_boxed(transitive)\n",
+        "  accept_base(annotated)\n",
+        "  accept_boxed(annotated)\n",
+        "end\n",
+        "fn infer_nested_argument() -> ()\n",
+        "  inspect(Boxed([]))\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_mismatch");
+    assert_eq!(
+        detail(&diagnostics[0], "actual_type").as_text(),
+        Some("Box<Vec<Int>>")
+    );
+    assert_eq!(
+        detail(&diagnostics[0], "expected_type").as_text(),
+        Some("Box<Vec<Int>>::Boxed")
+    );
+}
+
+#[test]
 fn widened_aliases_share_the_source_feasible_domain() {
     let source = [
         STATE_DECL,
