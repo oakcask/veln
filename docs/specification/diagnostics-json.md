@@ -91,7 +91,9 @@ that value expression. The primary message states the actual and expected
 types. The diagnostic renders the two sides independently: an unambiguous
 explicit alias spelling is preserved only on the side that supplied it, and an
 expected alias never relabels an inferred actual type. Conflicting alias
-provenance uses the target ADT's canonical display name. The checked
+provenance uses the target ADT's canonical display name, including when the
+conflicting singleton or union refinements cover the complete ADT domain and
+render as its base type. The checked
 [`alias diagnostic case`](../../examples/specification/check/adt-variant-refinement-alias-presentation-diagnostics-json/)
 covers these presentation boundaries. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
 declaration-ordered `expected_variants`, `excluded_variants`, and `constraint`.
