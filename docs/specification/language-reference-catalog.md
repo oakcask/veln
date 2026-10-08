@@ -43,12 +43,13 @@ Each topic has validated descriptor text, normalized set-valued fields,
 validated related-topic identifiers, selected executable grammar productions,
 and selected displayed source files from specification case command inputs.
 The `types-inference-constructors` topic includes the executable productions
-for structurally recognized variant-refinement-shaped type text. Its descriptor
-states that this is parser and formatting behavior only; it does not claim ADT
-variant identity, assignability, or control-flow refinement as current type
-semantics. The selected productions publish the structural shape; the current
-source specification and checked parser cases own the accepted forms,
-disambiguation from qualified generic types, and malformed-form boundaries.
+for variant-refinement type text. Its descriptor publishes the current
+singleton and finite-set identity, subset assignability and direct widening,
+aggregate and control-flow joins, stable match-path narrowing, runtime erasure,
+and current alias and qualified-value limits. The selected examples demonstrate
+refined call typing and control-flow result joins. The current type and source
+specifications remain authoritative for those behaviors and the accepted source
+forms, including malformed-form boundaries.
 The expressions-and-patterns topic identifies lexical cleanup forms as a
 static, tooling, and executable surface. Its body states that checked core,
 typed IR, and the JVM backend preserve registration-time captures and run
