@@ -63,6 +63,13 @@ resolve to a type reports `name.unresolved`. The
 [type compatibility rules](types.md#compatibility-and-limits) define how a
 resolved chain qualifies variant refinements and preserves display provenance.
 
+Each public type-alias declaration resolves its own target, including when
+another declaration in the same module has the same alias name. The later
+declaration reports `name.duplicate`. An unresolved or wrong-kind target also
+reports its target diagnostic at the invalid declaration, regardless of which
+duplicate is written first. A valid duplicate does not make the invalid
+declaration resolve.
+
 ### Schema navigation
 
 For saved composition-and-operation reference navigation, a public schema

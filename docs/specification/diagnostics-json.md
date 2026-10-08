@@ -76,6 +76,15 @@ related notes may identify the accepted digit set or prefix. Invalid literal
 shift counts use `type.invalid_shift_count` with `operator`, `actual_count`,
 `minimum_count`, and `maximum_count`; the span is the count expression.
 
+An unresolved public type-alias target reports `name.unresolved` at that alias
+declaration. Its details contain `phase: "name"`, the alias `node_id`,
+`expected_kind: "type"`, and the written `target`. A function target reports
+`name.kind_mismatch` at the alias declaration with the same fields and
+`actual_kind: "function"`. These target diagnostics remain present when a
+same-named alias declaration resolves successfully. The later declaration
+independently reports `name.duplicate`, so source order does not suppress the
+invalid declaration's target diagnostic.
+
 Malformed variant-refinement-shaped type text uses
 `parse.variant_refinement_type`. The
 [malformed variant-refinement forms](source-surface.md#malformed-variant-refinement-forms)
