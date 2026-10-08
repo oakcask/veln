@@ -1,0 +1,53 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+fn accept_ready(value: State::Ready) -> ()
+	()
+end
+
+fn accept_closed(value: State::Closed) -> ()
+	()
+end
+
+fn accept_failed(value: State::Failed) -> ()
+	()
+end
+
+fn accept_residual(value: State::Closed | State::Failed) -> ()
+	()
+end
+
+fn accept_base(value: State) -> ()
+	()
+end
+
+fn inspect(holder: {session: {state: State}}) -> ()
+	let alias = holder
+	match holder.session.state
+		Ready => begin
+			accept_ready(holder.session.state)
+			accept_ready(alias.session.state)
+		end
+		remaining => begin
+			accept_residual(holder.session.state)
+			accept_residual(alias.session.state)
+			accept_residual(remaining)
+			match alias.session.state
+				Closed => begin
+					accept_closed(holder.session.state)
+					accept_closed(alias.session.state)
+				end
+				Failed => begin
+					accept_failed(holder.session.state)
+					accept_failed(alias.session.state)
+				end
+			end
+			accept_residual(holder.session.state)
+		end
+	end
+	accept_base(holder.session.state)
+	accept_base(alias.session.state)
+end

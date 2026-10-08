@@ -384,6 +384,18 @@ checking the arm expression. The binding's current type can be the base ADT,
 one singleton refinement, or a finite refinement union. The refinement retains
 the resolved ADT identity and its instantiated generic arguments.
 
+The same arm-local rule applies when the scrutinee is a record-field path
+rooted at an immutable parameter or local binding. Repeated access to the same
+field sequence receives the constructor singleton or complete residual type in
+that arm. A transparent alias of the root identifies the same path. Nested
+matches compose with the enclosing path refinement, and leaving an arm restores
+the prior field type. The root is identified by its resolved binding, so a
+shadowing binding, a different root, or a different field sequence does not
+share the refinement. The checked
+[`adt-variant-refinement-match-field-path`](../../examples/specification/check/adt-variant-refinement-match-field-path/)
+case demonstrates constructor and residual arms, transparent root aliases,
+nested refinement, and restoration.
+
 A singleton or finite-union scrutinee restricts the match domain to its current
 variant set. Transparent aliases share the feasible domain of the same
 immutable value. A valid widening changes one alias's declared type without
@@ -488,15 +500,20 @@ an alias during diagnostic recovery. Matching any member refines every member,
 including a binding catch-all for the complete matched value, for the current
 arm only.
 
-Qualified values, record-field paths, and function values do not establish a
-transparent alias in this behavior. Separate construction, equality, contract
-predicates, Boolean helpers, calls, indexing, operators, and other computed
-expressions do not establish one either. A computed result can be refined
-after it is stored in its own local, but matching that local does not refine
-the inputs used to compute it. The checked
+Qualified values and function values do not establish a transparent alias in
+this behavior. A field path is stable only when its base ultimately resolves
+to an immutable parameter or local binding. Separate construction, equality,
+contract predicates, Boolean helpers, calls, indexing, operators, and other
+computed expressions do not establish a stable field path, even when repeated
+source text is identical. A computed result can be refined after it is stored
+in its own local, but matching that local does not refine the inputs used to
+compute it. The checked
 [`adt-variant-refinement-match-alias-boundaries`](../../examples/specification/check/adt-variant-refinement-match-alias-boundaries/)
 case verifies the available computed-expression, invalid-annotation, and
-restoration boundaries. Veln currently has no indexing expression or
+restoration boundaries. The checked
+[`adt-variant-refinement-match-computed-field-boundary`](../../examples/specification/check/adt-variant-refinement-match-computed-field-boundary/)
+case verifies that call and record-constructor bases remain outside field-path
+refinement. Veln currently has no indexing expression or
 module-addressable immutable-value source form. Function-value expressions do
 not produce ADT values that can exercise alias match refinement independently.
 
@@ -748,8 +765,8 @@ private results are checked in
 rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
-Alias spelling and provenance, public/private exposure paths, record-field and
-qualified-value control-flow refinement, schema boundaries,
+Alias spelling and provenance, public/private exposure paths, qualified-value
+control-flow refinement, schema boundaries,
 package-documentation signatures, command-wide coverage, LSP, MCP, and
 language-reference publication remain proposal work.
 This slice also does not add recursive generic or function variance.

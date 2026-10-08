@@ -1,0 +1,19 @@
+# Compiler integration contract: check accepts constructor and residual arm-local
+# refinement for a stable record field path, including transparent root aliases,
+# nested matches, and restoration after each arm.
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 0

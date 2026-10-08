@@ -180,6 +180,8 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     next_transparent_alias_group: usize,
     transparent_alias_groups: Vec<TransparentAliasGroup>,
     transparent_alias_refinement_frames: Vec<usize>,
+    stable_field_path_refinements: HashMap<StableFieldPath, Vec<Type>>,
+    stable_field_path_refinement_frames: Vec<StableFieldPath>,
     invalid_binding_recoveries: Vec<InvalidBindingRecovery>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
     pub(super) local_names: BTreeMap<String, LocalNameDeclaration>,
@@ -200,6 +202,12 @@ struct TransparentAliasGroup {
     feasible_type: Type,
     active_refinements: Vec<Type>,
     member_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct StableFieldPath {
+    root_alias_group: usize,
+    fields: Vec<String>,
 }
 
 pub(in crate::analysis) struct PatternBinding {
@@ -391,6 +399,8 @@ impl<'a> FunctionChecker<'a> {
             next_transparent_alias_group: 0,
             transparent_alias_groups: Vec::new(),
             transparent_alias_refinement_frames: Vec::new(),
+            stable_field_path_refinements: HashMap::new(),
+            stable_field_path_refinement_frames: Vec::new(),
             invalid_binding_recoveries: Vec::new(),
             omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
@@ -410,6 +420,7 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn fresh_transparent_alias_group(&mut self, feasible_type: Type) -> Option<usize> {
         if feasible_type != Type::Unknown
+            && !matches!(feasible_type, Type::Record(_))
             && self
                 .environment
                 .adts
@@ -551,6 +562,37 @@ impl<'a> FunctionChecker<'a> {
                 .pop()
                 .expect("active alias refinement");
             record_alias_refinement_released();
+        }
+    }
+
+    fn push_stable_field_path_refinement(&mut self, path: StableFieldPath, refinement: Type) {
+        self.stable_field_path_refinements
+            .entry(path.clone())
+            .or_default()
+            .push(refinement);
+        self.stable_field_path_refinement_frames.push(path);
+    }
+
+    fn stable_field_path_refinement_frame_count(&self) -> usize {
+        self.stable_field_path_refinement_frames.len()
+    }
+
+    fn restore_stable_field_path_refinement_frames(&mut self, len: usize) {
+        while self.stable_field_path_refinement_frames.len() > len {
+            let path = self
+                .stable_field_path_refinement_frames
+                .pop()
+                .expect("stable field path refinement frame");
+            let refinements = self
+                .stable_field_path_refinements
+                .get_mut(&path)
+                .expect("stable field path refinements");
+            refinements
+                .pop()
+                .expect("active stable field path refinement");
+            if refinements.is_empty() {
+                self.stable_field_path_refinements.remove(&path);
+            }
         }
     }
 

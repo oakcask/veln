@@ -380,6 +380,13 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         let base_type = self.infer_expr(base, None);
         if let Some(field_type) = base_type.record_field(field) {
+            if let Some(refinement) = self
+                .stable_field_path(expr)
+                .and_then(|path| self.stable_field_path_refinements.get(&path))
+                .and_then(|refinements| refinements.last())
+            {
+                return transparent_alias_presented_type(field_type, refinement);
+            }
             return field_type.clone();
         }
         if base_type == Type::Unknown {

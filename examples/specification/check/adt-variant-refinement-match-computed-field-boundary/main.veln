@@ -1,0 +1,27 @@
+type State
+	Ready
+	Closed
+end
+
+fn accept_ready(value: State::Ready) -> ()
+	()
+end
+
+fn identity(holder: {state: State}) -> {state: State}
+	holder
+end
+
+fn inspect(holder: {state: State}) -> ()
+	match identity(holder).state
+		Ready => accept_ready(identity(holder).state)
+		Closed => ()
+	end
+	match {state: holder.state}.state
+		Ready => accept_ready({state: holder.state}.state)
+		Closed => ()
+	end
+	match (holder |> identity()).state
+		Ready => accept_ready((holder |> identity()).state)
+		Closed => ()
+	end
+end

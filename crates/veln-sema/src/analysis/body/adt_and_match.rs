@@ -228,6 +228,7 @@ struct MatchArmScope {
     saved_bindings: usize,
     saved_invalid_binding_recoveries: usize,
     saved_alias_refinement_frames: usize,
+    saved_field_path_refinement_frames: usize,
 }
 
 enum RefinedMatchArmCoverage {
@@ -738,7 +739,7 @@ impl<'a> FunctionChecker<'a> {
                 self.alias_group_match_type(group)
             });
         let mut refined_coverage = self
-            .is_stable_match_binding(scrutinee)
+            .is_stable_match_place(scrutinee)
             .then(|| self.refined_match_coverage(scrutinee, &scrutinee_type))
             .flatten();
         let uses_refined_match_diagnostics =
@@ -799,16 +800,9 @@ impl<'a> FunctionChecker<'a> {
         result.materialize()
     }
 
-    fn is_stable_match_binding(&self, scrutinee: &Expr) -> bool {
-        let ExprKind::NamePath { segments, .. } = &scrutinee.kind else {
-            return false;
-        };
-        let [binding_name] = segments.as_slice() else {
-            return false;
-        };
-        self.bindings
-            .iter()
-            .any(|binding| binding.name == *binding_name)
+    fn is_stable_match_place(&self, scrutinee: &Expr) -> bool {
+        self.stable_match_alias_group(scrutinee).is_some()
+            || self.stable_field_path(scrutinee).is_some()
     }
 
     fn refined_match_coverage(
@@ -1322,6 +1316,7 @@ impl<'a> FunctionChecker<'a> {
             saved_bindings: self.bindings.len(),
             saved_invalid_binding_recoveries: self.invalid_binding_recoveries.len(),
             saved_alias_refinement_frames: self.alias_refinement_frame_count(),
+            saved_field_path_refinement_frames: self.stable_field_path_refinement_frame_count(),
         };
         self.local_name_scopes.push(Vec::new());
         scope
@@ -1373,10 +1368,15 @@ impl<'a> FunctionChecker<'a> {
             planned_refinement,
         ) {
             self.push_alias_group_refinement(alias_group, refinement);
+        } else if let (Some(path), Some(refinement)) =
+            (self.stable_field_path(scrutinee), planned_refinement)
+        {
+            self.push_stable_field_path_refinement(path, refinement.clone());
         }
     }
 
     fn end_match_arm_scope(&mut self, scope: MatchArmScope, retained_refinement_variants: usize) {
+        self.restore_stable_field_path_refinement_frames(scope.saved_field_path_refinement_frames);
         self.restore_alias_refinement_frames(scope.saved_alias_refinement_frames);
         self.truncate_bindings(scope.saved_bindings);
         release_refined_match_refinement_variants(retained_refinement_variants);
@@ -1400,6 +1400,32 @@ impl<'a> FunctionChecker<'a> {
         };
         self.visible_binding_index(binding_name)
             .and_then(|index| self.bindings[index].transparent_alias_group)
+    }
+
+    pub(super) fn stable_field_path(&self, expr: &Expr) -> Option<StableFieldPath> {
+        let mut fields = Vec::new();
+        let mut current = expr;
+        while let ExprKind::FieldAccess { base, field, .. } = &current.kind {
+            fields.push(field.clone());
+            current = base;
+        }
+        let ExprKind::NamePath { segments, .. } = &current.kind else {
+            return None;
+        };
+        let [root_name] = segments.as_slice() else {
+            return None;
+        };
+        let root_alias_group = self
+            .visible_binding_index(root_name)
+            .and_then(|index| self.bindings[index].transparent_alias_group)?;
+        if fields.is_empty() {
+            return None;
+        }
+        fields.reverse();
+        Some(StableFieldPath {
+            root_alias_group,
+            fields,
+        })
     }
 
     fn stable_match_binding_refinement(
