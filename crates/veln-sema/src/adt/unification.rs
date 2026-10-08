@@ -6,6 +6,11 @@ use crate::semantic_model::Type;
 
 use super::descriptors::{AdtDescriptor, AdtPayloadType};
 
+pub(crate) use named_arguments::adt_args;
+pub(super) use named_arguments::{named_part, named_parts2};
+
+mod named_arguments;
+
 pub(super) fn payload_type_from_args(
     ty: &Type,
     descriptor: &AdtDescriptor,
@@ -651,55 +656,4 @@ pub(super) fn core_type_template(ty: &Type) -> CoreType {
             effects: effects.clone(),
         },
     }
-}
-
-pub(crate) trait NamedTypeArguments: Sized {
-    fn named_type_arguments(&self) -> Option<(&str, &[Self])>;
-}
-
-pub(crate) fn adt_args<'a, T: NamedTypeArguments>(
-    ty: &'a T,
-    descriptor: &AdtDescriptor,
-) -> Option<&'a [T]> {
-    let (name, args) = ty.named_type_arguments()?;
-    (name == descriptor.type_name && args.len() == descriptor.type_parameters.len()).then_some(args)
-}
-
-impl NamedTypeArguments for Type {
-    fn named_type_arguments(&self) -> Option<(&str, &[Self])> {
-        match self {
-            Self::Named { name, args, .. } | Self::VariantRefinement { name, args, .. } => {
-                Some((name, args))
-            }
-            _ => None,
-        }
-    }
-}
-
-impl NamedTypeArguments for CoreType {
-    fn named_type_arguments(&self) -> Option<(&str, &[Self])> {
-        let Self::Named { name, args } = self else {
-            return None;
-        };
-        Some((name, args))
-    }
-}
-
-pub(super) fn named_part<'a, T: NamedTypeArguments>(
-    ty: &'a T,
-    name: &str,
-    arity: usize,
-) -> Option<&'a T> {
-    let (ty_name, args) = ty.named_type_arguments()?;
-    (ty_name == name && args.len() == arity)
-        .then(|| args.first())
-        .flatten()
-}
-
-pub(super) fn named_parts2<'a, T: NamedTypeArguments>(
-    ty: &'a T,
-    name: &str,
-) -> Option<(&'a T, &'a T)> {
-    let (ty_name, args) = ty.named_type_arguments()?;
-    (ty_name == name && args.len() == 2).then(|| (&args[0], &args[1]))
 }
