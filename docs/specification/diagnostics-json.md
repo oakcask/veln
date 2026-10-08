@@ -191,10 +191,15 @@ that payload pattern. Its details use
 `actual_type_source: "literal_pattern"`, and
 `constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
 refine the scrutinee unless every payload binding is admitted to the arm scope.
-When refined coverage is inactive, including for a base-ADT scrutinee or a
-computed refined scrutinee, match arms retain the ordinary constructor path,
-payload-arity, and exhaustiveness behavior. They do not gain
-`name.unresolved` or `type.constructor_pattern_arity` from refined coverage.
+When a stable binding has a base-ADT domain, constructor and catch-all arms
+still refine its transparent aliases, but arm validation and diagnostics retain
+the ordinary constructor path, payload-arity, duplicate-arm, and exhaustiveness
+behavior. Such a match does not gain `type.match_impossible_variant`,
+`type.match_redundant_arm`, `name.unresolved`, or
+`type.constructor_pattern_arity` from refined-domain diagnostics. Refined
+coverage is inactive for a computed refined scrutinee, which also retains the
+ordinary match diagnostics and does not refine bindings that contributed to the
+computed value.
 Invalid value-name casing, a duplicate payload binding,
 parameter, or visible local, and a `callsite` binding that would shadow the
 built-in call-site location keep their intrinsic casing, resolution, field,

@@ -430,14 +430,15 @@ The call in the `Filled` arm is accepted because `value` has type
 `Boxed<Int>::Filled` in that arm. After the `match`, `value` again has type
 `Boxed<Int>`. The checked
 [`adt-variant-refinement-match-binding`](../../examples/specification/check/adt-variant-refinement-match-binding/)
-also demonstrates a generic three-variant refined domain whose binding
-catch-all, wildcard catch-all, and original scrutinee binding receive the
-complete two-variant residual type. It also checks inferred and annotated
-transparent alias chains, a group whose initially unknown members acquire one
-inferred ADT type, nested generic arguments whose unknown positions become
-concrete, direct widening, and complete-value pattern aliases. Nested matches
-distinguish the residual from either singleton narrowing or an alias's wider
-presentation.
+also demonstrates a generic base-ADT domain whose catch-alls give every
+transparent alias the complete residual after preceding constructor arms. The
+same case checks a three-variant refined domain whose binding catch-all,
+wildcard catch-all, and original scrutinee binding receive the complete
+two-variant residual type. It also checks inferred and annotated transparent
+alias chains, a group whose initially unknown members acquire one inferred ADT
+type, nested generic arguments whose unknown positions become concrete, direct
+widening, and complete-value pattern aliases. Nested matches distinguish the
+residual from either singleton narrowing or an alias's wider presentation.
 
 For bare or redundantly parenthesized bindings with a refined domain, arm
 classification first validates the constructor name, visibility, owning
