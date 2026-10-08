@@ -199,14 +199,16 @@ same-function expected type fixes the binding. The JSON details identify the
 local binding slot and include the current inferred type.
 
 An unannotated immutable parameter or local and its unannotated transparent
-aliases share a concrete type inferred for any group member. A `match` whose
+aliases share compatible type information inferred for any group member. A
+concrete group fact fills corresponding `unknown` positions recursively,
+including type arguments nested inside other named types. A `match` whose
 constructor arms resolve one member to a concrete ADT therefore fixes the
-persistent type presented by every still-unknown member. Constructor and
-residual refinements temporarily narrow that shared type in the matching arm.
-After the arm, all still-unannotated members present the inferred concrete
-type, including for private-parameter completeness checking. An explicitly
-annotated member keeps its own declared presentation while the group retains
-one feasible match domain.
+persistent type presented by every compatible member that still has unknown
+positions. Constructor and residual refinements temporarily narrow that shared
+type in the matching arm. After the arm, all still-unannotated members present
+the inferred concrete type, including for private-parameter completeness
+checking. An explicitly annotated member keeps its own declared presentation
+while the group retains one feasible match domain.
 
 Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
 value positions from every successfully typed contribution. Constructor
@@ -432,9 +434,10 @@ also demonstrates a generic three-variant refined domain whose binding
 catch-all, wildcard catch-all, and original scrutinee binding receive the
 complete two-variant residual type. It also checks inferred and annotated
 transparent alias chains, a group whose initially unknown members acquire one
-inferred ADT type, direct widening, and complete-value pattern aliases. Nested
-matches distinguish the residual from either singleton narrowing or an alias's
-wider presentation.
+inferred ADT type, nested generic arguments whose unknown positions become
+concrete, direct widening, and complete-value pattern aliases. Nested matches
+distinguish the residual from either singleton narrowing or an alias's wider
+presentation.
 
 For bare or redundantly parenthesized bindings with a refined domain, arm
 classification first validates the constructor name, visibility, owning
