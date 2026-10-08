@@ -58,8 +58,10 @@ and evidence report an exact or assignable type match. `satisfy` checking also
 uses it. In a valid constructor or nonempty residual catch-all arm, every
 transparent alias of the matched value therefore observes the singleton or
 residual refinement. A shadowed binding contributes only its visible
-declaration. After the arm, these surfaces again use each binding's declared or
-inferred type.
+declaration. If one initially unknown alias member acquires a concrete type,
+every still-unannotated member presents that shared inferred type. After the
+arm, these surfaces again use each binding's declared type or the group's
+shared inferred type.
 
 ## Candidate records and ranking
 
