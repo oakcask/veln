@@ -494,7 +494,10 @@ expressions do not establish one either. A computed result can be refined
 after it is stored in its own local, but matching that local does not refine
 the inputs used to compute it. The checked
 [`adt-variant-refinement-match-alias-boundaries`](../../examples/specification/check/adt-variant-refinement-match-alias-boundaries/)
-case verifies these non-alias boundaries.
+case verifies the available computed-expression, invalid-annotation, and
+restoration boundaries. Veln currently has no indexing expression or
+module-addressable immutable-value source form. Function-value expressions do
+not produce ADT values that can exercise alias match refinement independently.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved

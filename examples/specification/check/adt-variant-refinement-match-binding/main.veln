@@ -45,6 +45,10 @@ fn accept_empty_or_failed(value: Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
 	()
 end
 
+fn accept_original(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
+	()
+end
+
 fn accept_nested_filled(value: Boxed<Vec<Int>>::Filled) -> ()
 	()
 end
@@ -189,9 +193,14 @@ fn residual_alias_chain(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<In
 				end
 			end
 			accept_empty_or_failed(value)
+			accept_empty_or_failed(current)
+			accept_empty_or_failed(transitive)
 			accept_empty_or_failed(remaining)
 		end
 	end
+	accept_original(value)
+	accept_original(current)
+	accept_original(transitive)
 end
 
 fn residual_alias_wildcard(value: Boxed<Int>::Filled | Boxed<Int>::Empty | Boxed<Int>::Failed) -> ()
