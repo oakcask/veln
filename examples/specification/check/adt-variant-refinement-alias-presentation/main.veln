@@ -15,8 +15,9 @@ type Envelope<A>
 end
 
 pub type First = State
-pub type Second = State
+pub type Second = First
 pub type StateBox = Box
+pub type OuterStateBox = StateBox
 
 fn keep_target(value: State::Ready) -> First::Ready
 	value
@@ -30,8 +31,43 @@ fn keep_union(value: Second::Closed | Second::Ready | Second::Closed) -> First::
 	value
 end
 
-fn keep_generic(value: StateBox<Int>::Boxed) -> Box<Int>::Boxed
+fn keep_generic(value: OuterStateBox<Int>::Boxed) -> Box<Int>::Boxed
 	value
+end
+
+type Single
+	Only
+end
+
+pub type SingleFirst = Single
+pub type SingleSecond = Single
+
+fn collapsed_singleton(flag: Bool)
+	let first: SingleFirst::Only = Only
+	let second: SingleSecond::Only = Only
+	if flag
+		first
+	else
+		second
+	end
+end
+
+type Pair
+	Left
+	Right
+end
+
+pub type PairFirst = Pair
+pub type PairSecond = Pair
+
+fn collapsed_union(flag: Bool)
+	let first: PairFirst::Left | PairFirst::Right = Pair::Left
+	let second: PairSecond::Left | PairSecond::Right = Pair::Right
+	if flag
+		second
+	else
+		first
+	end
 end
 
 fn same_alias(flag: Bool)
@@ -66,5 +102,7 @@ fn main() -> ()
 	let retained: First::Ready | First::Closed = same_alias(true)
 	let canonical: State::Ready | State::Closed = conflicting_aliases(false)
 	let nested: Envelope<State::Ready> = keep_nested_union(Left(Ready))
+	let singleton: Single = collapsed_singleton(true)
+	let pair: Pair = collapsed_union(false)
 	()
 end

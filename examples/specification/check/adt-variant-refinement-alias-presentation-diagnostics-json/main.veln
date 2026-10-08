@@ -7,6 +7,21 @@ end
 pub type First = State
 pub type Second = State
 
+type Single
+	Only
+end
+
+pub type SingleFirst = Single
+pub type SingleSecond = Single
+
+type Pair
+	Left
+	Right
+end
+
+pub type PairFirst = Pair
+pub type PairSecond = Pair
+
 fn needs_first(value: First::Ready) -> ()
 	()
 end
@@ -35,10 +50,58 @@ fn conflicting_aliases(flag: Bool)
 	end
 end
 
+fn conflicting_single_forward(flag: Bool)
+	let first: SingleFirst::Only = Only
+	let second: SingleSecond::Only = Only
+	if flag
+		first
+	else
+		second
+	end
+end
+
+fn conflicting_single_reverse(flag: Bool)
+	let first: SingleFirst::Only = Only
+	let second: SingleSecond::Only = Only
+	if flag
+		second
+	else
+		first
+	end
+end
+
+fn conflicting_pair_forward(flag: Bool)
+	let first: PairFirst::Left | PairFirst::Right = Left
+	let second: PairSecond::Left | PairSecond::Right = Right
+	if flag
+		first
+	else
+		second
+	end
+end
+
+fn conflicting_pair_reverse(flag: Bool)
+	let first: PairFirst::Left | PairFirst::Right = Left
+	let second: PairSecond::Left | PairSecond::Right = Right
+	if flag
+		second
+	else
+		first
+	end
+end
+
+fn needs_int(value: Int) -> ()
+	()
+end
+
 fn main() -> ()
 	let explicit: Second::Closed = Closed
 	needs_first(explicit)
 	needs_first(Closed)
 	needs_failed(same_alias(true))
 	needs_failed(conflicting_aliases(false))
+	needs_int(conflicting_single_forward(true))
+	needs_int(conflicting_single_reverse(false))
+	needs_int(conflicting_pair_forward(true))
+	needs_int(conflicting_pair_reverse(false))
 end

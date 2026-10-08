@@ -188,7 +188,7 @@ fn check_module_declarations(
     diagnostics.extend(check_module_boundary(module));
     diagnostics.extend(check_duplicate_use_aliases(module));
     diagnostics.extend(check_reserved_prelude_aliases(module));
-    diagnostics.extend(check_public_aliases(module));
+    diagnostics.extend(check_public_aliases(module, &environment.adts));
     diagnostics.extend(check_schema_field_primitives(module));
     diagnostics.extend(check_schema_type_references(module));
     diagnostics.extend(check_handler_declarations(module, environment));

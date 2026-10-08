@@ -1666,7 +1666,10 @@ impl<'a> FunctionChecker<'a> {
         result: &mut ControlFlowResultJoin,
     ) {
         let recovery_expected = if expected.is_none()
-            && result.joined.is_none()
+            && result
+                .joined
+                .as_ref()
+                .is_none_or(AggregateTypeJoin::has_complete_domain)
             && result.recovery_type != Type::Unknown
         {
             Some(ExpectedType {

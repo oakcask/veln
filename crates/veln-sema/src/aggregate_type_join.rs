@@ -58,10 +58,11 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn new_resolved_refinement(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
-        let Type::VariantRefinement { args, .. } = initial else {
-            return None;
+        let args = match initial {
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+            _ => return None,
         };
-        if args.iter().any(type_contains_unknown) {
+        if args.iter().any(type_contains_unknown) || adts.descriptor_for_type(initial).is_none() {
             return None;
         }
         Self::new(adts, initial)
@@ -133,6 +134,10 @@ impl AggregateTypeJoin {
             return false;
         }
         self.try_join(right)
+    }
+
+    pub(crate) fn has_complete_domain(&self) -> bool {
+        self.variants.is_none()
     }
 
     pub(crate) fn inference_type(&self) -> Type {

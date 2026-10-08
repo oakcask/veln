@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
-use veln_ast::{UseDecl, Visibility};
+use veln_ast::{PublicAlias, UseDecl, Visibility};
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
@@ -76,6 +76,13 @@ impl ConstructorShape {
 }
 
 impl AdtRegistry {
+    pub(crate) fn resolves_type_alias(&self, alias: &PublicAlias) -> bool {
+        alias.name.as_ref().is_some_and(|name| {
+            self.type_alias_identities
+                .contains(&(alias.module_name.clone(), name.clone()))
+        })
+    }
+
     fn descriptors_named(&self, name: &str) -> impl DoubleEndedIterator<Item = &AdtDescriptor> {
         self.descriptors_by_type_name
             .get(name)

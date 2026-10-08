@@ -21,7 +21,10 @@ pub(crate) fn infer_private_match_type(
     let mut joined_result = None;
     let mut join_failed = false;
     for arm in arms {
-        let recovery_expected = joined_result.is_none().then_some(&result);
+        let recovery_expected = joined_result
+            .as_ref()
+            .is_none_or(crate::aggregate_type_join::AggregateTypeJoin::has_complete_domain)
+            .then_some(&result);
         let actual = context.infer(
             &arm.expr,
             expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
@@ -52,7 +55,10 @@ pub(crate) fn infer_private_if_result_type(
         .chain(else_if_branches.iter().map(|branch| &branch.expr))
         .chain(std::iter::once(else_branch))
     {
-        let recovery_expected = joined_result.is_none().then_some(&result);
+        let recovery_expected = joined_result
+            .as_ref()
+            .is_none_or(crate::aggregate_type_join::AggregateTypeJoin::has_complete_domain)
+            .then_some(&result);
         let actual = context.infer(
             branch_expr,
             expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),

@@ -8,6 +8,8 @@ contains = [
   "value of type `State::Closed` is not assignable to variant type `First::Ready`",
   "value of type `First::Ready | First::Closed` is not assignable to variant type `State::Failed`",
   "value of type `State::Ready | State::Closed` is not assignable to variant type `State::Failed`",
+  "expected `Int`, but found `Single`",
+  "expected `Int`, but found `Pair`",
 ]
 
 [stderr]
@@ -19,7 +21,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 8
 
 [[json_assert]]
 path = "diagnostics.0.details.actual_type"
@@ -44,3 +46,19 @@ equals = "First::Ready | First::Closed"
 [[json_assert]]
 path = "diagnostics.3.details.actual_type"
 equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.4.details.actual_type"
+equals = "Single"
+
+[[json_assert]]
+path = "diagnostics.5.details.actual_type"
+equals = "Single"
+
+[[json_assert]]
+path = "diagnostics.6.details.actual_type"
+equals = "Pair"
+
+[[json_assert]]
+path = "diagnostics.7.details.actual_type"
+equals = "Pair"

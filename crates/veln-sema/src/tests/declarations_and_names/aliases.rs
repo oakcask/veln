@@ -205,6 +205,34 @@ fn public_type_alias_rejects_function_targets() {
 }
 
 #[test]
+fn public_type_alias_resolves_transitive_type_target() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "end\n",
+            "pub type First = State\n",
+            "pub type Second = First\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert!(
+        TypeEnvironment::from_module(&module)
+            .adts
+            .descriptors()
+            .iter()
+            .any(|descriptor| descriptor.type_name == "Second")
+    );
+}
+
+#[test]
 fn public_alias_rejects_unresolved_targets() {
     let source = SourceFile::new(
         "api.veln",

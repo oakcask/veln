@@ -443,12 +443,13 @@ fn alias_qualified_refinements_share_target_identity_and_preserve_annotations() 
             "  Failed\n",
             "end\n",
             "pub type First = State\n",
-            "pub type Second = State\n",
+            "pub type Second = First\n",
             "type Box<A>\n",
             "  Empty\n",
             "  Boxed(A)\n",
             "end\n",
             "pub type StateBox = Box\n",
+            "pub type OuterStateBox = StateBox\n",
             "fn direct(value: State::Ready) -> First::Ready\n",
             "  value\n",
             "end\n",
@@ -458,7 +459,7 @@ fn alias_qualified_refinements_share_target_identity_and_preserve_annotations() 
             "fn alias_union(value: Second::Closed | Second::Ready | Second::Closed) -> First::Ready | State::Closed\n",
             "  value\n",
             "end\n",
-            "fn generic(value: StateBox<Int>::Boxed) -> Box<Int>::Boxed\n",
+            "fn generic(value: OuterStateBox<Int>::Boxed) -> Box<Int>::Boxed\n",
             "  value\n",
             "end\n",
             "fn alias_constructor()\n",
@@ -515,7 +516,7 @@ fn alias_qualified_refinements_share_target_identity_and_preserve_annotations() 
     );
     assert_eq!(
         environment.function("generic").unwrap().params[0].render(),
-        "StateBox<Int>::Boxed"
+        "OuterStateBox<Int>::Boxed"
     );
     assert_eq!(
         environment
@@ -646,6 +647,115 @@ fn alias_refinement_joins_and_mismatches_keep_independent_presentation() {
             .return_type
             .render(),
         "Envelope<State::Ready>::Left"
+    );
+}
+
+#[test]
+fn collapsed_refinement_joins_reconcile_alias_presentation_in_both_orders() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Single\n",
+            "  Only\n",
+            "end\n",
+            "pub type SingleFirst = Single\n",
+            "pub type SingleSecond = Single\n",
+            "type Pair\n",
+            "  Left\n",
+            "  Right\n",
+            "end\n",
+            "pub type PairFirst = Pair\n",
+            "pub type PairSecond = Pair\n",
+            "fn single_forward(flag: Bool)\n",
+            "  let first: SingleFirst::Only = Only\n",
+            "  let second: SingleSecond::Only = Only\n",
+            "  if flag\n",
+            "    first\n",
+            "  else\n",
+            "    second\n",
+            "  end\n",
+            "end\n",
+            "fn single_reverse(flag: Bool)\n",
+            "  let first: SingleFirst::Only = Only\n",
+            "  let second: SingleSecond::Only = Only\n",
+            "  if flag\n",
+            "    second\n",
+            "  else\n",
+            "    first\n",
+            "  end\n",
+            "end\n",
+            "fn pair_forward(flag: Bool)\n",
+            "  let first: PairFirst::Left | PairFirst::Right = Left\n",
+            "  let second: PairSecond::Left | PairSecond::Right = Right\n",
+            "  if flag\n",
+            "    first\n",
+            "  else\n",
+            "    second\n",
+            "  end\n",
+            "end\n",
+            "fn pair_reverse(flag: Bool)\n",
+            "  let first: PairFirst::Left | PairFirst::Right = Left\n",
+            "  let second: PairSecond::Left | PairSecond::Right = Right\n",
+            "  if flag\n",
+            "    second\n",
+            "  else\n",
+            "    first\n",
+            "  end\n",
+            "end\n",
+            "fn single_canonical_then_alias(flag: Bool)\n",
+            "  let canonical: Single = Only\n",
+            "  let alias: SingleFirst::Only = Only\n",
+            "  if flag\n",
+            "    canonical\n",
+            "  else\n",
+            "    alias\n",
+            "  end\n",
+            "end\n",
+            "fn pair_canonical_then_alias(flag: Bool)\n",
+            "  let canonical: Pair = Left\n",
+            "  let alias: PairFirst::Left | PairFirst::Right = Right\n",
+            "  if flag\n",
+            "    canonical\n",
+            "  else\n",
+            "    alias\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+
+    for function in ["single_forward", "single_reverse"] {
+        assert_eq!(
+            environment.function(function).unwrap().return_type.render(),
+            "Single"
+        );
+    }
+    for function in ["pair_forward", "pair_reverse"] {
+        assert_eq!(
+            environment.function(function).unwrap().return_type.render(),
+            "Pair"
+        );
+    }
+    assert_eq!(
+        environment
+            .function("single_canonical_then_alias")
+            .unwrap()
+            .return_type
+            .render(),
+        "SingleFirst"
+    );
+    assert_eq!(
+        environment
+            .function("pair_canonical_then_alias")
+            .unwrap()
+            .return_type
+            .render(),
+        "PairFirst"
     );
 }
 

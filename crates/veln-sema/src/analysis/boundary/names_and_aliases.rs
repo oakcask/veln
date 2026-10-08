@@ -1,3 +1,4 @@
+use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::{
     public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
 };
@@ -238,7 +239,7 @@ pub(super) fn codec_schema_wrong_kind(
     None
 }
 
-pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
+pub(crate) fn check_public_aliases(module: &SurfaceModule, adts: &AdtRegistry) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut schema_alias_cache = BTreeMap::new();
     for alias in &module.aliases {
@@ -255,6 +256,7 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
                 module,
                 alias,
                 alias.module_name.as_deref(),
+                adts,
             )),
             PublicAliasKind::Schema => {
                 match resolve_schema_alias_check_reference(
@@ -307,8 +309,10 @@ pub(super) fn check_type_alias_target(
     module: &SurfaceModule,
     alias: &veln_ast::PublicAlias,
     module_name: Option<&str>,
+    adts: &AdtRegistry,
 ) -> Option<Diagnostic> {
-    if type_target(module, &alias.target, module_name).is_some()
+    if adts.resolves_type_alias(alias)
+        || type_target(module, &alias.target, module_name).is_some()
         || is_standard_type_alias_target(module, &alias.target, module_name)
     {
         None
