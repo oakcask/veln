@@ -25,6 +25,12 @@ fn alias_qualified_refinements_share_target_identity_and_preserve_annotations() 
             "fn alias_singleton(value: First::Ready) -> State::Ready\n",
             "  value\n",
             "end\n",
+            "fn first_to_second(value: First::Ready) -> Second::Ready\n",
+            "  value\n",
+            "end\n",
+            "fn second_to_first(value: Second::Ready) -> First::Ready\n",
+            "  value\n",
+            "end\n",
             "fn alias_union(value: Second::Closed | Second::Ready | Second::Closed) -> First::Ready | State::Closed\n",
             "  value\n",
             "end\n",
@@ -70,6 +76,16 @@ fn alias_qualified_refinements_share_target_identity_and_preserve_annotations() 
     assert!(crate::type_relations::is_assignable(
         target_singleton,
         alias_singleton
+    ));
+    let first_singleton = &environment.function("first_to_second").unwrap().params[0];
+    let second_singleton = &environment.function("second_to_first").unwrap().params[0];
+    assert!(crate::type_relations::is_assignable(
+        first_singleton,
+        second_singleton
+    ));
+    assert!(crate::type_relations::is_assignable(
+        second_singleton,
+        first_singleton
     ));
     assert_eq!(
         environment.function("alias_union").unwrap().params[0].render(),

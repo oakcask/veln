@@ -27,6 +27,14 @@ fn keep_alias(value: First::Ready) -> State::Ready
 	value
 end
 
+fn first_to_second(value: First::Ready) -> Second::Ready
+	value
+end
+
+fn second_to_first(value: Second::Ready) -> First::Ready
+	value
+end
+
 fn keep_union(value: Second::Closed | Second::Ready | Second::Closed) -> First::Ready | State::Closed
 	value
 end
@@ -96,6 +104,7 @@ end
 
 fn main() -> ()
 	let direct: State::Ready = keep_alias(keep_target(Ready))
+	let aliases: First::Ready = second_to_first(first_to_second(Ready))
 	let union: State::Ready | State::Closed = keep_union(Closed)
 	let generic: Box<Int>::Boxed = keep_generic(Boxed(1))
 	let inferred: State::Ready = First::Ready

@@ -650,9 +650,10 @@ Duplicate alternatives are removed and display follows ADT declaration order.
 representation. A public type-alias chain whose resolved target is an ADT can
 qualify a singleton or union alternative. Alias-qualified and target-qualified
 forms use the target ADT identity and generic arguments, so their equal variant
-sets are mutually assignable and their alternatives share duplicate removal
-and declaration ordering. A union containing every declared variant is
-equivalent to the base ADT.
+sets are mutually assignable. Each selected variant has the identity of its
+target ADT constructor; alias spelling does not create another constructor
+identity. Their alternatives share duplicate removal and declaration ordering.
+A union containing every declared variant is equivalent to the base ADT.
 
 An explicit annotation preserves its one unambiguous alias spelling as display
 provenance, including the outer alias written through a transitive alias chain.
