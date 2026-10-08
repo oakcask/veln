@@ -25,8 +25,11 @@ that dependency.
 
 ## Outcomes And Boundaries
 
-The remaining proposal has two intended outcomes:
+The remaining proposal has three intended outcomes:
 
+- Qualified immutable values gain the implemented stable-value match
+  refinement only after a separate source-surface and name-resolution contract
+  provides module-addressable immutable data values.
 - Compiler, package-documentation, LSP, and MCP views agree on the
   spelling and identity of a refined variant.
 - `run`, `test`, and `doc` enforce refinements at their existing analysis and

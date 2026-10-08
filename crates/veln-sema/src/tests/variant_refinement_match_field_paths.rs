@@ -192,7 +192,7 @@ fn path_identity_separates_shadowed_roots_unrelated_fields_and_computed_bases() 
 
 #[test]
 fn same_spelled_roots_in_distinct_arm_scopes_keep_distinct_path_facts() {
-    let diagnostics = diagnostics_for(&format!(
+    let source = format!(
         "{PRELUDE}{}",
         concat!(
             "fn inspect(select_first: Bool, first: {state: State}, second: {state: State}) -> ()\n",
@@ -212,7 +212,8 @@ fn same_spelled_roots_in_distinct_arm_scopes_keep_distinct_path_facts() {
             "  end\n",
             "end\n",
         )
-    ));
+    );
+    let diagnostics = diagnostics_for(&source);
 
     let mismatches = diagnostics
         .iter()
@@ -222,6 +223,11 @@ fn same_spelled_roots_in_distinct_arm_scopes_keep_distinct_path_facts() {
     assert_eq!(
         detail(mismatches[0], "actual_type").as_text(),
         Some("State")
+    );
+    assert_eq!(
+        spanned_text(&source, mismatches[0]),
+        "holder.state",
+        "the second arm's root must not inherit the first arm's path fact"
     );
 }
 
