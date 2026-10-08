@@ -9,6 +9,11 @@ type Box<A>
 	Boxed(A)
 end
 
+type Envelope<A>
+	Left(A)
+	Right(A)
+end
+
 pub type First = State
 pub type Second = State
 pub type StateBox = Box
@@ -49,6 +54,10 @@ fn conflicting_aliases(flag: Bool)
 	end
 end
 
+fn keep_nested_union(value: Envelope<First::Ready>::Left | Envelope<Second::Ready>::Right) -> Envelope<State::Ready>
+	value
+end
+
 fn main() -> ()
 	let direct: State::Ready = keep_alias(keep_target(Ready))
 	let union: State::Ready | State::Closed = keep_union(Closed)
@@ -56,5 +65,6 @@ fn main() -> ()
 	let inferred: State::Ready = First::Ready
 	let retained: First::Ready | First::Closed = same_alias(true)
 	let canonical: State::Ready | State::Closed = conflicting_aliases(false)
+	let nested: Envelope<State::Ready> = keep_nested_union(Left(Ready))
 	()
 end

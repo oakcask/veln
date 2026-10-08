@@ -6,7 +6,7 @@ use crate::adt::descriptors::AdtConstructor;
 use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
-use crate::type_relations::{invariant_args_match, same_type_identity};
+use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_type_identity};
 
 pub(crate) struct AggregateTypeJoin {
     name: String,
@@ -14,6 +14,7 @@ pub(crate) struct AggregateTypeJoin {
     presentation_conflicted: bool,
     identity: String,
     args: Vec<Type>,
+    arg_presentations: Vec<TypePresentationJoin>,
     declaration_order: Option<Arc<VariantDeclarationOrder>>,
     variants: Option<HashSet<usize>>,
     materialized: RefCell<Option<Type>>,
@@ -36,6 +37,10 @@ impl AggregateTypeJoin {
                 (Some(declaration_order), variants)
             }
         };
+        let args = initial.args.to_vec();
+        let arg_presentations = (0..args.len())
+            .map(|_| TypePresentationJoin::default())
+            .collect();
         Some(Self {
             name: initial.name.to_string(),
             canonical_name: adts
@@ -44,7 +49,8 @@ impl AggregateTypeJoin {
                 .unwrap_or_else(|| initial.name.to_string()),
             presentation_conflicted: false,
             identity: initial.identity.to_string(),
-            args: initial.args.to_vec(),
+            args,
+            arg_presentations,
             declaration_order,
             variants,
             materialized: RefCell::new(None),
@@ -81,8 +87,14 @@ impl AggregateTypeJoin {
                 changed = true;
             }
         }
-        for (joined, right) in self.args.iter_mut().zip(right.args) {
+        for ((joined, presentation), right) in self
+            .args
+            .iter_mut()
+            .zip(&mut self.arg_presentations)
+            .zip(right.args)
+        {
             changed |= unification::merge_type_slot(joined, right);
+            changed |= presentation.merge(joined, right);
         }
         match (&mut self.variants, right.variants) {
             (Some(joined), Some(right)) => {

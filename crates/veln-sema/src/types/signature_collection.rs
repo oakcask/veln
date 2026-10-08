@@ -299,13 +299,15 @@ impl TypeCanonicalizer<'_> {
             return Type::Unknown;
         }
         let canonical_args = self.canonicalize_args(args);
-        let Some((variants, presentation_name)) = self.resolve_refinement_alternatives(
-            descriptor,
-            canonical_args.as_slice(),
-            variants,
-            unresolved_alternatives,
-            &declaration_order,
-        ) else {
+        let Some((variants, presentation_name, canonical_args)) = self
+            .resolve_refinement_alternatives(
+                descriptor,
+                canonical_args,
+                variants,
+                unresolved_alternatives,
+                &declaration_order,
+            )
+        else {
             return Type::Unknown;
         };
         canonical_variant_refinement(
@@ -320,17 +322,20 @@ impl TypeCanonicalizer<'_> {
     fn resolve_refinement_alternatives(
         &self,
         descriptor: &crate::adt::descriptors::AdtDescriptor,
-        canonical_args: &[Type],
+        mut canonical_args: Vec<Type>,
         mut variants: Vec<String>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
         declaration_order: &crate::adt::registry::VariantDeclarationOrder,
-    ) -> Option<(Vec<String>, String)> {
+    ) -> Option<(Vec<String>, String, Vec<Type>)> {
         let canonical_name = self.adts.canonical_type_name_for_descriptor(descriptor);
         let mut preferred_alias = descriptor
             .nominal_identity
             .is_some()
             .then(|| descriptor.type_name.clone());
         let mut alias_conflict = false;
+        let mut argument_presentations = (0..canonical_args.len())
+            .map(|_| crate::type_relations::TypePresentationJoin::default())
+            .collect::<Vec<_>>();
         let mut selected_variants = variants.iter().cloned().collect::<HashSet<_>>();
         for (name, args, variant) in unresolved_alternatives {
             let alternative_descriptor = self.adts.descriptor_for_type_path(
@@ -341,11 +346,19 @@ impl TypeCanonicalizer<'_> {
             )?;
             crate::type_relations::record_variant_set_lookup();
             record_variant_canonicalization_lookup();
+            let alternative_args = self.canonicalize_args(args);
             if alternative_descriptor.identity() != descriptor.identity()
-                || self.canonicalize_args(args) != canonical_args
+                || !crate::type_relations::invariant_args_match(&canonical_args, &alternative_args)
                 || declaration_order.rank(&variant).is_none()
             {
                 return None;
+            }
+            for ((canonical_arg, presentation), alternative_arg) in canonical_args
+                .iter_mut()
+                .zip(&mut argument_presentations)
+                .zip(&alternative_args)
+            {
+                presentation.merge(canonical_arg, alternative_arg);
             }
             if let Some(alternative_alias) = alternative_descriptor
                 .nominal_identity
@@ -366,7 +379,11 @@ impl TypeCanonicalizer<'_> {
                 variants.push(variant);
             }
         }
-        Some((variants, preferred_alias.unwrap_or(canonical_name)))
+        Some((
+            variants,
+            preferred_alias.unwrap_or(canonical_name),
+            canonical_args,
+        ))
     }
 
     fn canonicalize_function(

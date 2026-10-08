@@ -547,6 +547,10 @@ fn alias_refinement_joins_and_mismatches_keep_independent_presentation() {
             "end\n",
             "pub type First = State\n",
             "pub type Second = State\n",
+            "type Envelope<A>\n",
+            "  Left(A)\n",
+            "  Right(A)\n",
+            "end\n",
             "fn same_alias(flag: Bool)\n",
             "  let ready: First::Ready = Ready\n",
             "  let closed: First::Closed = Closed\n",
@@ -570,6 +574,18 @@ fn alias_refinement_joins_and_mismatches_keep_independent_presentation() {
             "    Ready\n",
             "  else\n",
             "    Closed\n",
+            "  end\n",
+            "end\n",
+            "fn generic_argument_union(value: Envelope<First::Ready>::Left | Envelope<Second::Ready>::Right) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested_conflicting_aliases(flag: Bool)\n",
+            "  let left: Envelope<First::Ready>::Left = Left(Ready)\n",
+            "  let other: Envelope<Second::Ready>::Left = Left(Ready)\n",
+            "  if flag\n",
+            "    left\n",
+            "  else\n",
+            "    other\n",
             "  end\n",
             "end\n",
             "fn needs_first(value: First::Ready) -> ()\n",
@@ -614,6 +630,22 @@ fn alias_refinement_joins_and_mismatches_keep_independent_presentation() {
             .return_type
             .render(),
         "State::Ready | State::Closed"
+    );
+    assert_eq!(
+        environment
+            .function("generic_argument_union")
+            .unwrap()
+            .params[0]
+            .render(),
+        "Envelope<State::Ready>"
+    );
+    assert_eq!(
+        environment
+            .function("nested_conflicting_aliases")
+            .unwrap()
+            .return_type
+            .render(),
+        "Envelope<State::Ready>::Left"
     );
 }
 

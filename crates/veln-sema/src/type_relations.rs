@@ -227,6 +227,153 @@ pub(crate) fn invariant_args_match(expected: &[Type], actual: &[Type]) -> bool {
             .all(|(expected, actual)| invariant_types_match(expected, actual))
 }
 
+#[derive(Default)]
+pub(crate) struct TypePresentationJoin {
+    conflicted_paths: HashSet<Vec<usize>>,
+}
+
+impl TypePresentationJoin {
+    pub(crate) fn merge(&mut self, joined: &mut Type, actual: &Type) -> bool {
+        self.merge_at(joined, actual, &mut Vec::new())
+    }
+
+    fn merge_at(&mut self, joined: &mut Type, actual: &Type, path: &mut Vec<usize>) -> bool {
+        match (joined, actual) {
+            (
+                Type::Named {
+                    name: joined_name,
+                    identity: joined_identity,
+                    args: joined_args,
+                },
+                Type::Named {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                },
+            )
+            | (
+                Type::VariantRefinement {
+                    name: joined_name,
+                    identity: joined_identity,
+                    args: joined_args,
+                    ..
+                },
+                Type::VariantRefinement {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                    ..
+                },
+            ) if same_type_identity(joined_name, joined_identity, actual_name, actual_identity)
+                && joined_args.len() == actual_args.len() =>
+            {
+                let canonical_name = joined_identity
+                    .rsplit("::")
+                    .next()
+                    .unwrap_or(joined_name)
+                    .to_string();
+                let mut changed = reconcile_presentation_name(
+                    joined_name,
+                    actual_name,
+                    &canonical_name,
+                    path,
+                    &mut self.conflicted_paths,
+                );
+                for (index, (joined_arg, actual_arg)) in
+                    joined_args.iter_mut().zip(actual_args).enumerate()
+                {
+                    path.push(index);
+                    changed |= self.merge_at(joined_arg, actual_arg, path);
+                    path.pop();
+                }
+                changed
+            }
+            (Type::Record(joined_fields), Type::Record(actual_fields)) => {
+                let mut changed = false;
+                for (index, (name, joined_field)) in joined_fields.iter_mut().enumerate() {
+                    let Some((_, actual_field)) = actual_fields
+                        .iter()
+                        .find(|(actual_name, _)| actual_name == name)
+                    else {
+                        continue;
+                    };
+                    path.push(index);
+                    changed |= self.merge_at(joined_field, actual_field, path);
+                    path.pop();
+                }
+                changed
+            }
+            (
+                Type::Function {
+                    params: joined_params,
+                    variadic: joined_variadic,
+                    return_type: joined_return,
+                    ..
+                },
+                Type::Function {
+                    params: actual_params,
+                    variadic: actual_variadic,
+                    return_type: actual_return,
+                    ..
+                },
+            ) if joined_params.len() == actual_params.len() => {
+                let mut changed = false;
+                for (index, (joined_param, actual_param)) in
+                    joined_params.iter_mut().zip(actual_params).enumerate()
+                {
+                    path.push(index);
+                    changed |= self.merge_at(joined_param, actual_param, path);
+                    path.pop();
+                }
+                if let (Some(joined_variadic), Some(actual_variadic)) =
+                    (joined_variadic.as_deref_mut(), actual_variadic.as_deref())
+                {
+                    path.push(joined_params.len());
+                    changed |= self.merge_at(joined_variadic, actual_variadic, path);
+                    path.pop();
+                }
+                path.push(joined_params.len() + 1);
+                changed |= self.merge_at(joined_return, actual_return, path);
+                path.pop();
+                changed
+            }
+            _ => false,
+        }
+    }
+}
+
+fn reconcile_presentation_name(
+    joined: &mut String,
+    actual: &str,
+    canonical: &str,
+    path: &[usize],
+    conflicted_paths: &mut HashSet<Vec<usize>>,
+) -> bool {
+    if conflicted_paths.contains(path) {
+        if joined == canonical {
+            return false;
+        }
+        joined.clear();
+        joined.push_str(canonical);
+        return true;
+    }
+    if actual == canonical {
+        return false;
+    }
+    if joined == canonical {
+        joined.clear();
+        joined.push_str(actual);
+        return true;
+    }
+    if joined == actual {
+        return false;
+    }
+    joined.clear();
+    joined.push_str(canonical);
+    conflicted_paths.insert(path.to_vec());
+    true
+}
+
 fn invariant_types_match(expected: &Type, actual: &Type) -> bool {
     match (expected, actual) {
         (Type::Unknown, _) | (_, Type::Unknown) => true,
