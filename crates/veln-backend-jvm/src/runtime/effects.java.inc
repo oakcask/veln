@@ -1009,8 +1009,8 @@
                 : category.equals("permission_denied") ? "PermissionDenied"
                 : category.equals("name_not_found") ? "NameNotFound"
                 : category.equals("invalid_endpoint") || category.equals("invalid_input") ? "InvalidAddress"
-                : "Other";
-            return netSystemError(operation, network, address, kind, failure.getMessage());
+                : null;
+            if (kind != null) return netSystemError(operation, network, address, kind, failure.getMessage());
         }
         Throwable cause = failure;
         while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
@@ -1026,6 +1026,11 @@
     }
     private static Object netSystemInvalidResource(String operation) {
         return netSystemError(operation, null, null, "InvalidResource", "resource belongs to another or expired system handler");
+    }
+    private static boolean netSystemFailureKeepsResourceOpen(Object error) {
+        Adt netError = (Adt) error;
+        Object kind = netError.payloads[3];
+        return isAdt(kind, "NetErrorKind::TimedOut") || isAdt(kind, "NetErrorKind::Cancelled");
     }
     private static HandlerFrame netSystemOwner() { return currentHandlerFrame(); }
     private static boolean netSystemOwns(NetListener listener, HandlerFrame owner) { return !owner.networkSystemClosed && listener.systemOwner == owner; }
@@ -1131,6 +1136,7 @@
     }
     public static Object netSystemListen(Object address) {
         HandlerFrame owner = netSystemOwner();
+        if (owner.networkSystemClosed) return err(netSystemInvalidResource("listen"));
         Object invalid = netSystemValidateAddress("listen", address);
         if (invalid != null) return err(invalid);
         Object network = netSystemAddressNetwork(address);
@@ -1179,6 +1185,7 @@
     }
     public static Object netSystemConnect(Object address, Object deadlineOption, Object tokenOption) {
         HandlerFrame owner = netSystemOwner();
+        if (owner.networkSystemClosed) return err(netSystemInvalidResource("connect"));
         Object invalid = netSystemValidateAddress("connect", address);
         if (invalid != null) return err(invalid);
         Object deadline = netSystemOptionValue(deadlineOption);
@@ -1224,13 +1231,15 @@
         if (!listener.accepting.compareAndSet(false, true)) return err(netSystemError("accept", null, listener.localAddress, "Busy", "another accept is active"));
         try {
             Object outcome = acceptHost(listener, netSystemOptionValue(deadlineOption), netSystemOptionValue(tokenOption), "accept");
+            if (listener.systemClosed) {
+                if (isAdt(outcome, "AcceptOutcome::AcceptStream")) {
+                    try { netCloseStream(asNetStream(((Adt) outcome).payloads[0])); } catch (Throwable ignored) { }
+                }
+                return err(netSystemError("accept", null, listener.localAddress, "Closed", "listener is closed"));
+            }
             if (isAdt(outcome, "AcceptOutcome::AcceptDeadlineExpired")) return err(netSystemError("accept", null, listener.localAddress, "TimedOut", "accept deadline elapsed"));
             if (isAdt(outcome, "AcceptOutcome::AcceptCancelled")) return err(netSystemError("accept", null, listener.localAddress, "Cancelled", "accept was cancelled"));
             NetStream stream = asNetStream(((Adt) outcome).payloads[0]);
-            if (listener.systemClosed) {
-                try { netCloseStream(stream); } catch (Throwable ignored) { }
-                return err(netSystemError("accept", null, listener.localAddress, "Closed", "listener is closed"));
-            }
             if (!netSystemRegisterStream(owner, stream)) {
                 try { netCloseStream(stream); } catch (Throwable ignored) { }
                 return err(netSystemInvalidResource("accept"));
@@ -1272,8 +1281,9 @@
         } catch (Throwable failure) {
             if (failure instanceof TaskCancellationFailure) throw (TaskCancellationFailure) failure;
             if (stream.systemClosed || stream.readShutdown) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
-            stream.readFailed = true;
-            return err(netSystemFailure("read", null, stream.peerAddress, failure));
+            Object error = netSystemFailure("read", null, stream.peerAddress, failure);
+            if (!netSystemFailureKeepsResourceOpen(error)) stream.readFailed = true;
+            return err(error);
         } finally { stream.reading.set(false); }
     }
     private static Object netSystemWriteFailure(long committed, Object error) {
@@ -1299,7 +1309,11 @@
                 if (stream.systemClosed || stream.writeShutdown) return netSystemWriteFailure(committed, netSystemError("write", null, stream.peerAddress, "Closed", "stream write side is closed"));
                 if (status.equals("deadline")) return netSystemWriteFailure(committed, netSystemError("write", null, stream.peerAddress, "TimedOut", "write deadline elapsed"));
                 if (status.equals("cancelled")) return netSystemWriteFailure(committed, netSystemError("write", null, stream.peerAddress, "Cancelled", "write was cancelled"));
-                if (status.equals("error")) return netSystemWriteFailure(committed, netSystemFailure("write", null, stream.peerAddress, networkReplyFailure(reply, "write", stream.id)));
+                if (status.equals("error")) {
+                    Object error = netSystemFailure("write", null, stream.peerAddress, networkReplyFailure(reply, "write", stream.id));
+                    if (!netSystemFailureKeepsResourceOpen(error)) stream.writeFailed = true;
+                    return netSystemWriteFailure(committed, error);
+                }
                 return adt("WriteOutcome::Written", new Object[] { byteCountObject(committed) });
             }
             failIfHostStreamClosed(stream, "write");
@@ -1309,8 +1323,9 @@
         } catch (Throwable failure) {
             if (failure instanceof TaskCancellationFailure) throw (TaskCancellationFailure) failure;
             if (stream.systemClosed || stream.writeShutdown) return netSystemWriteFailure(committed, netSystemError("write", null, stream.peerAddress, "Closed", "stream write side is closed"));
-            stream.writeFailed = true;
-            return netSystemWriteFailure(committed, netSystemFailure("write", null, stream.peerAddress, failure));
+            Object error = netSystemFailure("write", null, stream.peerAddress, failure);
+            if (!netSystemFailureKeepsResourceOpen(error)) stream.writeFailed = true;
+            return netSystemWriteFailure(committed, error);
         } finally { stream.writing.set(false); }
     }
     private static Object netSystemStreamAddress(Object value, boolean peer) {

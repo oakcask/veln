@@ -400,8 +400,8 @@
     public static Object popHandler() {
         java.util.List<HandlerFrame> stack = HANDLERS.get();
         HandlerFrame frame = stack.remove(stack.size() - 1);
+        frame.networkSystemClosed = true;
         if (frame.networkSystem) {
-            frame.networkSystemClosed = true;
             cleanupNetworkSystem(frame);
         }
         return UNIT;

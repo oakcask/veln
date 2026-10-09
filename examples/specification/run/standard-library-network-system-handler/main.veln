@@ -56,6 +56,14 @@ fn require_connect_failure(result: Result<net::Stream, net::NetError>) -> Result
 	end
 end
 
+fn require_address_in_use(result: Result<net::Listener, net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::AddressInUse, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("listen", None, None, net::Other, "duplicate loopback listener unexpectedly succeeded"))
+	end
+end
+
 fn require_full_write(outcome: net::WriteOutcome) -> Result<(), net::NetError>
 	match outcome
 		net::Written(net::ByteCount(5)) => Ok(())
@@ -162,6 +170,28 @@ fn blocked_accept_closed(context: { listener : net::Listener, ready : Sender<()>
 	end
 end
 
+fn blocked_accept_cancelled(context: { listener : net::Listener, token : CancelToken, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
+	let _ = channel::send(context.ready, ())
+	match net::accept_with(context.listener, Some(time::deadline_after_ms(1000)), Some(context.token))
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("accept", None, None, net::Other, "cancelled accept returned a stream"))
+	end
+end
+
+fn delayed_resolve_after_scope(context: { gate : Receiver<()> }) -> Result<(), net::NetError> effects [net::IO, concurrency]
+	let _ = channel::recv(context.gate)
+	match net::resolve(net::Address(net::Tcp4, "127.0.0.1", 80))
+		Err(net::NetError(_, _, _, net::InvalidResource, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("resolve", None, None, net::Other, "child used a system handler after its scope exited"))
+	end
+end
+
+fn spawn_delayed_resolve(gate: Receiver<()>) -> Task<Result<(), net::NetError>> effects [net, time, concurrency]
+	handle task::spawn_with(delayed_resolve_after_scope, { gate: gate }) with net::system()
+end
+
 fn require_closed_accept_join(result: Result<Result<(), net::NetError>, JoinError>) -> Result<(), net::NetError>
 	match result
 		Ok(Ok(())) => Ok(())
@@ -183,16 +213,30 @@ fn exercise() -> Result<(), net::NetError> effects [net::IO, net, time, concurre
 	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
 	stdio::println("listen")
 	let local = endpoint_address(net::listener_address(listener)?)?
+	let _ = require_address_in_use(net::listen(local))?
 	let _ = handle nested_listener_address(listener) with marker()?
 	let _ = require_invalid_resource(handle net::listener_address(listener) with net::system())?
 	let expired = time::deadline_after_ms(0)
 	let _ = require_kind(net::connect_with(local, Some(expired), None), "timeout")?
 	let _ = require_kind(net::accept_with(listener, Some(expired), None), "timeout")?
+	let _ = require_kind(net::accept_with(listener, Some(time::deadline_after_ms(20)), None), "timeout")?
 	let owner = time::cancel_owner()
 	let token = time::cancel_token_from(owner)
 	time::cancel_owned(owner)
 	let _ = require_kind(net::accept_with(listener, None, Some(token)), "cancelled")?
 	let _ = require_kind(net::connect_with(local, None, Some(token)), "cancelled")?
+	let blocked_owner = time::cancel_owner()
+	let blocked_token = time::cancel_token_from(blocked_owner)
+	let cancel_ready = channel::bounded<()>(1)
+	let blocked_cancel = task::spawn_with(blocked_accept_cancelled, { listener: listener, token: blocked_token, ready: cancel_ready.tx })
+	let _ = channel::recv(cancel_ready.rx)
+	time::timeout_ms(20)
+	time::cancel_owned(blocked_owner)
+	let _ = require_closed_accept_join(task::join(blocked_cancel))?
+	let late_gate = channel::bounded<()>(1)
+	let late_resolve = spawn_delayed_resolve(late_gate.rx)
+	let _ = channel::send(late_gate.tx, ())
+	let _ = require_closed_accept_join(task::join(late_resolve))?
 	stdio::println("bounded outcomes")
 	let client = net::connect_with(local, Some(time::deadline_after_ms(1000)), None)?
 	let server = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?

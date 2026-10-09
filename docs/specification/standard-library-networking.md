@@ -48,8 +48,13 @@ other kinds as ordinary failures.
 An application selects the host implementation explicitly:
 
 ```veln
+fn connect_and_close() -> Result<(), net::NetError> effects [net::IO]
+	let stream = net::connect(net::Address(net::Tcp, "example.test", 443))?
+	net::close_stream(stream)
+end
+
 pub fn main() -> Result<(), net::NetError> effects [net, time]
-	handle net::connect(net::Address(net::Tcp, "example.test", 443)) with net::system()
+	handle connect_and_close() with net::system()
 end
 ```
 

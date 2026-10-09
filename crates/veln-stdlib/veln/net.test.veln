@@ -92,9 +92,9 @@ fn scripted_system_network_reply(scenario: String, operation: String, subject: S
 		system_network_success("family-stream", "[2001:db8::30]:50000", "[2001:db8::21]:443")
 	else if (scenario == "tcp-connect" or scenario == "tcp4-connect" or scenario == "tcp6-connect") and operation == "close_stream" and subject == "family-stream"
 		system_network_success("", "", "")
-	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled") and operation == "resolve_tcp4" and subject == "write.test"
+	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled" or scenario == "write-error-deadline" or scenario == "write-error-cancelled" or scenario == "read-error-deadline" or scenario == "read-error-cancelled") and operation == "resolve_tcp4" and subject == "write.test"
 		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.10" }, list_nil()), 0, "", 0, "")
-	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled") and operation == "connect" and subject == "192.0.2.10:443"
+	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled" or scenario == "write-error-deadline" or scenario == "write-error-cancelled" or scenario == "read-error-deadline" or scenario == "read-error-cancelled") and operation == "connect" and subject == "192.0.2.10:443"
 		system_network_success("scripted-stream", "192.0.2.20:50000", "192.0.2.10:443")
 	else if scenario == "write-success" and operation == "write" and subject == "scripted-stream"
 		system_network_reply("ok", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 4, "", 1, "")
@@ -104,7 +104,15 @@ fn scripted_system_network_reply(scenario: String, operation: String, subject: S
 		system_network_reply("deadline", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 3, "", -1, "")
 	else if scenario == "write-cancelled" and operation == "write" and subject == "scripted-stream"
 		system_network_reply("cancelled", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 3, "", -1, "")
-	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled") and operation == "close_stream" and subject == "scripted-stream"
+	else if scenario == "write-error-deadline" and operation == "write" and subject == "scripted-stream"
+		system_network_reply("error", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 2, "timed_out", -1, "scripted timeout")
+	else if scenario == "write-error-cancelled" and operation == "write" and subject == "scripted-stream"
+		system_network_reply("error", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 2, "cancelled", -1, "scripted cancellation")
+	else if scenario == "read-error-deadline" and operation == "read" and subject == "scripted-stream"
+		system_network_reply("error", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 0, "timed_out", 0, "scripted timeout")
+	else if scenario == "read-error-cancelled" and operation == "read" and subject == "scripted-stream"
+		system_network_reply("error", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 0, "cancelled", 0, "scripted cancellation")
+	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled" or scenario == "write-error-deadline" or scenario == "write-error-cancelled" or scenario == "read-error-deadline" or scenario == "read-error-cancelled") and operation == "close_stream" and subject == "scripted-stream"
 		system_network_success("", "192.0.2.20:50000", "192.0.2.10:443")
 	else
 		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected scripted network request")
@@ -118,6 +126,63 @@ fn system_scripted_write() -> net::WriteOutcome effects [net::IO]
 			Err(message) => net::WriteFailed(net::ByteCount(0), net::NetError("write", None, None, net::Other, message))
 		end
 		Err(error) => net::WriteFailed(net::ByteCount(0), error)
+	end
+end
+
+fn system_scripted_write_failure_then_closed() -> Result<(), String> effects [net::IO]
+	match net::connect(net::Address(net::Tcp4, "write.test", 443))
+		Ok(stream) => match byte_chunk_from_visible_ascii_string("abcdef")
+			Ok(bytes) => match net::write(stream, bytes)
+				net::WriteFailed(net::ByteCount(4), net::NetError("write", _, Some("192.0.2.10:443"), net::ConnectionReset, _)) => match net::write(stream, bytes)
+					net::WriteFailed(net::ByteCount(0), net::NetError("write", _, Some("192.0.2.10:443"), net::Closed, _)) => Ok(())
+					_ => Err("system write did not close the failed write half")
+				end
+				_ => Err("system write did not preserve the exact failed committed count and translated failure")
+			end
+			Err(message) => Err(message)
+		end
+		Err(_) => Err("scripted stream did not connect")
+	end
+end
+
+fn is_reusable_write_failure(outcome: net::WriteOutcome, kind: String) -> Bool
+	match outcome
+		net::WriteFailed(net::ByteCount(2), net::NetError("write", _, _, net::TimedOut, _)) => kind == "timeout"
+		net::WriteFailed(net::ByteCount(2), net::NetError("write", _, _, net::Cancelled, _)) => kind == "cancelled"
+		_ => false
+	end
+end
+
+fn is_reusable_read_failure(outcome: Result<net::ReadOutcome, net::NetError>, kind: String) -> Bool
+	match outcome
+		Err(net::NetError("read", _, _, net::TimedOut, _)) => kind == "timeout"
+		Err(net::NetError("read", _, _, net::Cancelled, _)) => kind == "cancelled"
+		_ => false
+	end
+end
+
+fn system_scripted_reusable_write_failure(kind: String) -> Result<(), String> effects [net::IO]
+	match net::connect(net::Address(net::Tcp4, "write.test", 443))
+		Ok(stream) => match byte_chunk_from_visible_ascii_string("abcdef")
+			Ok(bytes) => if is_reusable_write_failure(net::write(stream, bytes), kind) and is_reusable_write_failure(net::write(stream, bytes), kind)
+				Ok(())
+			else
+				Err("system write did not preserve the stream after a timeout or cancellation")
+			end
+			Err(message) => Err(message)
+		end
+		Err(_) => Err("scripted stream did not connect")
+	end
+end
+
+fn system_scripted_reusable_read_failure(kind: String) -> Result<(), String> effects [net::IO]
+	match net::connect(net::Address(net::Tcp4, "write.test", 443))
+		Ok(stream) => if is_reusable_read_failure(net::read(stream), kind) and is_reusable_read_failure(net::read(stream), kind)
+			Ok(())
+		else
+			Err("system read did not preserve the stream after a timeout or cancellation")
+		end
+		Err(_) => Err("scripted stream did not connect")
 	end
 end
 
@@ -468,11 +533,7 @@ test system_write_uses_exact_successful_committed_count_not_commit_state() -> Re
 end
 
 test system_write_uses_exact_failed_committed_count_not_commit_state() -> Result<(), String> effects [net, time]
-	let result = handle handle system_scripted_write() with net::system() with scripted_system_network("write-failure")
-	match result
-		net::WriteFailed(net::ByteCount(4), net::NetError("write", _, Some("192.0.2.10:443"), net::ConnectionReset, _)) => Ok(())
-		_ => Err("system write did not preserve the exact failed committed count and translated failure")
-	end
+	handle handle system_scripted_write_failure_then_closed() with net::system() with scripted_system_network("write-failure")
 end
 
 test system_write_preserves_exact_deadline_and_cancellation_prefixes() -> Result<(), String> effects [net, time]
@@ -484,6 +545,23 @@ test system_write_preserves_exact_deadline_and_cancellation_prefixes() -> Result
 			_ => Err("system write did not preserve the cancellation committed prefix")
 		end
 		_ => Err("system write did not preserve the deadline committed prefix")
+	end
+end
+
+test translated_deadline_and_cancellation_failures_leave_stream_halves_reusable() -> Result<(), String> effects [net, time]
+	let write_deadline = handle handle system_scripted_reusable_write_failure("timeout") with net::system() with scripted_system_network("write-error-deadline")
+	let write_cancelled = handle handle system_scripted_reusable_write_failure("cancelled") with net::system() with scripted_system_network("write-error-cancelled")
+	let read_deadline = handle handle system_scripted_reusable_read_failure("timeout") with net::system() with scripted_system_network("read-error-deadline")
+	let read_cancelled = handle handle system_scripted_reusable_read_failure("cancelled") with net::system() with scripted_system_network("read-error-cancelled")
+	match write_deadline
+		Ok(()) => match write_cancelled
+			Ok(()) => match read_deadline
+				Ok(()) => read_cancelled
+				Err(message) => Err(message)
+			end
+			Err(message) => Err(message)
+		end
+		Err(message) => Err(message)
 	end
 end
 
