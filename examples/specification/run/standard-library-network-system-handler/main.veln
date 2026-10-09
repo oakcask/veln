@@ -120,7 +120,10 @@ fn require_busy_accept(listener: net::Listener, attempts: Int) -> Result<(), net
 	else
 		match net::accept_with(listener, Some(time::deadline_after_ms(0)), None)
 			Err(net::NetError(_, _, _, net::Busy, _)) => Ok(())
-			Err(net::NetError(_, _, _, net::TimedOut, _)) => require_busy_accept(listener, attempts - 1)
+			Err(net::NetError(_, _, _, net::TimedOut, _)) => begin
+				time::wait_until(time::deadline_after_ms(1))
+				require_busy_accept(listener, attempts - 1)
+			end
 			Err(error) => Err(error)
 			Ok(_) => Err(net::NetError("accept", None, None, net::Other, "accept unexpectedly returned a stream"))
 		end
@@ -133,7 +136,10 @@ fn require_busy_read(stream: net::Stream, attempts: Int) -> Result<(), net::NetE
 	else
 		match net::read_with(stream, Some(time::deadline_after_ms(0)), None)
 			Err(net::NetError(_, _, _, net::Busy, _)) => Ok(())
-			Err(net::NetError(_, _, _, net::TimedOut, _)) => require_busy_read(stream, attempts - 1)
+			Err(net::NetError(_, _, _, net::TimedOut, _)) => begin
+				time::wait_until(time::deadline_after_ms(1))
+				require_busy_read(stream, attempts - 1)
+			end
 			Err(error) => Err(error)
 			Ok(_) => Err(net::NetError("read", None, None, net::Other, "read unexpectedly completed"))
 		end
@@ -146,9 +152,15 @@ fn require_busy_write(stream: net::Stream, attempts: Int) -> Result<(), net::Net
 	else
 		match net::write_with(stream, bytes("")?, Some(time::deadline_after_ms(0)), None)
 			net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Busy, _)) => Ok(())
-			net::WriteFailed(_, net::NetError(_, _, _, net::TimedOut, _)) => require_busy_write(stream, attempts - 1)
+			net::WriteFailed(_, net::NetError(_, _, _, net::TimedOut, _)) => begin
+				time::wait_until(time::deadline_after_ms(1))
+				require_busy_write(stream, attempts - 1)
+			end
 			net::WriteFailed(_, error) => Err(error)
-			net::Written(_) => require_busy_write(stream, attempts - 1)
+			net::Written(_) => begin
+				time::wait_until(time::deadline_after_ms(1))
+				require_busy_write(stream, attempts - 1)
+			end
 		end
 	end
 end
