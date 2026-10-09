@@ -89,6 +89,41 @@ fn checked_bundle_publishes_system_handler_and_network_neighbors() {
 }
 
 #[test]
+fn checked_bundle_publishes_noop_observation_handler_without_private_span_constructors() {
+    let bundle = checked_bundle().unwrap();
+    let observe_module = bundle
+        .resources
+        .iter()
+        .find(|resource| resource.title == "Veln package module: observe")
+        .unwrap();
+    let noop = bundle
+        .resources
+        .iter()
+        .find(|resource| resource.title == "Veln package declaration: handler noop")
+        .unwrap();
+
+    assert!(observe_module.text.contains("[handler noop]("));
+    assert!(observe_module.text.contains("[effect Observe]("));
+    assert!(noop.text.starts_with("# Handler noop\n"));
+    assert!(noop.text.contains("- Kind: handler"));
+    assert!(
+        noop.text
+            .contains("- Signature: handler noop() for Observe")
+    );
+    assert!(!checked_artifact_bytes().contains("NoopSpanRequest"));
+    assert!(!checked_artifact_bytes().contains("NoopSpanFinish"));
+    assert!(!checked_artifact_bytes().contains("NoopSpan"));
+    assert!(bundle.search_candidates.iter().any(|candidate| {
+        candidate.uri == noop.uri
+            && candidate.name == "noop"
+            && candidate.signature.as_deref() == Some("handler noop() for Observe")
+    }));
+    assert!(bundle.declaration_locations.iter().any(|location| {
+        location.source_uri.ends_with("/observe.veln") && location.declaration_uri == noop.uri
+    }));
+}
+
+#[test]
 fn checked_digest_covers_exact_artifact_bytes() {
     assert_eq!(
         bundle_digest(checked_artifact_bytes().as_bytes()),

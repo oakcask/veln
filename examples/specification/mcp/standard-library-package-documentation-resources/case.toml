@@ -10,11 +10,13 @@ contains = [
   "# Package Documentation: std",
   "# Module prelude",
   "# Module net",
+  "# Module observe",
   "# Alias Byte",
   "# Type Network",
   "# Function join_host_port",
   "# Effect IO",
   "# Handler system",
+  "# Handler noop",
   "[alias Listener]",
   "[alias Stream]",
   "[alias ByteCount]",
@@ -26,7 +28,7 @@ contains = [
 ]
 # Integration gate for the exported network module: the public system handler
 # is published while its body and private system intrinsics remain excluded.
-not_contains = ["prelude_builtin::net_system_", "net_system_resolve"]
+not_contains = ["prelude_builtin::net_system_", "net_system_resolve", "NoopSpanRequest", "NoopSpanFinish", "NoopSpan"]
 
 [stderr]
 format = "empty"
@@ -94,12 +96,12 @@ contains = "- Package identity: std"
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/6eea8d4b391c1a8bd1b98496cb62f35909d30d1d42bbdb930429c5d332dbb58b/documentation/60deb181da15d869d8da926a3cb667054bcbb22dbd25aabc4288e34d15ef6586/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+contains = "veln-doc:///package/std/snapshot/5bc145df8f2b3cfa55c8897ac3007a14557dddf3a170bf4fea98c00d1340f4ec/documentation/ff9cea68e91ccfc8ff707e593e54fac1b24e6f2d1a8bcc564266b02a9e54bb0d/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/6eea8d4b391c1a8bd1b98496cb62f35909d30d1d42bbdb930429c5d332dbb58b/documentation/60deb181da15d869d8da926a3cb667054bcbb22dbd25aabc4288e34d15ef6586/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+contains = "veln-doc:///package/std/snapshot/5bc145df8f2b3cfa55c8897ac3007a14557dddf3a170bf4fea98c00d1340f4ec/documentation/ff9cea68e91ccfc8ff707e593e54fac1b24e6f2d1a8bcc564266b02a9e54bb0d/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 
 [[mcp_assert]]
 id = 5
@@ -109,17 +111,17 @@ contains = "- Source path: prelude.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/6eea8d4b391c1a8bd1b98496cb62f35909d30d1d42bbdb930429c5d332dbb58b/documentation/60deb181da15d869d8da926a3cb667054bcbb22dbd25aabc4288e34d15ef6586/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+contains = "veln-doc:///package/std/snapshot/5bc145df8f2b3cfa55c8897ac3007a14557dddf3a170bf4fea98c00d1340f4ec/documentation/ff9cea68e91ccfc8ff707e593e54fac1b24e6f2d1a8bcc564266b02a9e54bb0d/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/6eea8d4b391c1a8bd1b98496cb62f35909d30d1d42bbdb930429c5d332dbb58b/documentation/60deb181da15d869d8da926a3cb667054bcbb22dbd25aabc4288e34d15ef6586/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+contains = "veln-doc:///package/std/snapshot/5bc145df8f2b3cfa55c8897ac3007a14557dddf3a170bf4fea98c00d1340f4ec/documentation/ff9cea68e91ccfc8ff707e593e54fac1b24e6f2d1a8bcc564266b02a9e54bb0d/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/6eea8d4b391c1a8bd1b98496cb62f35909d30d1d42bbdb930429c5d332dbb58b/documentation/60deb181da15d869d8da926a3cb667054bcbb22dbd25aabc4288e34d15ef6586/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+contains = "veln-doc:///package/std/snapshot/5bc145df8f2b3cfa55c8897ac3007a14557dddf3a170bf4fea98c00d1340f4ec/documentation/ff9cea68e91ccfc8ff707e593e54fac1b24e6f2d1a8bcc564266b02a9e54bb0d/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 
 [[mcp_assert]]
 id = 6
@@ -298,3 +300,25 @@ contains = "# Function write_all"
 id = 18
 path = "/result/contents/0/text"
 contains = "Write the complete byte chunk through the active IO handler."
+
+# Integration contract: package documentation publishes the public no-op
+# observation handler while keeping the opaque span constructors private.
+[[mcp_assert]]
+id = 19
+path = "/result/contents/0/text"
+contains = "# Module observe"
+
+[[mcp_assert]]
+id = 19
+path = "/result/contents/0/text"
+contains = "handler noop() for Observe"
+
+[[mcp_assert]]
+id = 20
+path = "/result/contents/0/text"
+contains = "# Handler noop"
+
+[[mcp_assert]]
+id = 20
+path = "/result/contents/0/text"
+contains = "- Signature: handler noop() for Observe"

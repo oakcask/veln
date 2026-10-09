@@ -9,9 +9,9 @@ Veln programs need structured runtime evidence that tools and AI agents can
 correlate with source, tasks, requests, and external services. The language
 core must not prescribe an exporter or an external telemetry protocol.
 
-The public observation effect, typed scalar attributes, optional trace
-context, opaque span handle, and call-site-aware structured log records at
-debug, info, warning, and error severities are implemented in the
+The public observation effect and no-op handler, typed scalar attributes,
+optional trace context, opaque span handle, and call-site-aware structured log
+records at debug, info, warning, and error severities are implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
 
@@ -57,7 +57,7 @@ The remaining standard-library work supplies these groups:
 - `event`: named domain events;
 - `metric`: counter increments and histogram samples;
 - `trace`: span start, finish, and scoped `in_span` helpers;
-- `observe`: recording, no-op, JSON Lines, and configured export handlers; and
+- `observe`: recording, JSON Lines, and configured export handlers; and
 - `traced`: explicit context attachment for task and channel values.
 
 Future event helpers follow the current call-site-aware logging contract.
@@ -137,17 +137,15 @@ invent a version before a checked schema exists.
 | O10 | Counter and histogram records use the same name and attributes. | The handler preserves metric kind and values and applies configured cardinality limits. | Table-driven recording-handler cases. |
 | O11 | A trace crosses a carrier boundary. | Injection followed by extraction preserves valid trace identity and sampling state; malformed input produces no forged valid context. | Carrier conformance cases. |
 | O12 | JSON Lines export is enabled. | Each line validates against the checked schema and contains no machine-specific absolute source path. | Schema and relocation cases. |
-| O13 | The no-op handler is installed. | Program behavior is unchanged and no output destination is opened. | Run specification case. |
 | O14 | Handler shutdown follows buffered emission. | Accepted records are flushed or counted as dropped before shutdown returns. | Deterministic exporter lifecycle case. |
 
 ## Verification and Promotion
 
-The next implementation work starts with public recording and no-op handlers
-and span lifecycle. Their deterministic cases extend the current emission
-evidence before a production exporter is added. The JSON Lines schema and
-fixtures then establish the machine-readable contract. An external protocol
-adapter is verified against that protocol's conformance fixtures and remains
-replaceable.
+The next implementation work starts with a public recording handler and span
+lifecycle. Their deterministic cases extend the current emission evidence
+before a production exporter is added. The JSON Lines schema and fixtures then
+establish the machine-readable contract. An external protocol adapter is
+verified against that protocol's conformance fixtures and remains replaceable.
 
 Executable cases belong under `examples/specification/`. When implementation
 is complete, focused current specification pages must explain usage, handler
