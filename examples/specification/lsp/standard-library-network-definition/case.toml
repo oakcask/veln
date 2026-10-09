@@ -3,7 +3,7 @@ stdin_file = "case-text/root-stdin-1.raw"
 exit = 0
 
 [stdout]
-contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/3fad974556f5b9f8b1e8d6ace73ad8863b81303506207965a21892b28138eaeb/net.veln\"", "\"range\":{\"start\":{\"line\":115,\"character\":7},\"end\":{\"line\":115,\"character\":14}"]
+contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/fb5740658d174bd6c768cbc47e84e6f92cd8cfa70d3f1bfe6f4770bab508d0d8/net.veln\"", "\"range\":{\"start\":{\"line\":115,\"character\":7},\"end\":{\"line\":115,\"character\":14}"]
 not_contains = ["crates/veln-stdlib", "target/debug"]
 
 [stderr]
