@@ -1,0 +1,19 @@
+use log from "std"
+use observe from "std"
+
+# This case checks public standard-library handler lookup and JVM nominal-effect
+# dispatch. Companion tests own the handler's operation-level API contract.
+fn compute() -> Int effects [observe::Observe]
+	log::info(None, "discarded", list_nil())
+	42
+end
+
+fn preserved() -> Bool
+	let observed = handle compute() with observe::noop()
+	observed == 42
+end
+
+pub fn main() -> ()
+	require preserved()
+	()
+end

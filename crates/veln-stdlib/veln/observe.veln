@@ -1,12 +1,15 @@
 use prelude
 
 pub type SpanRequest
+	NoopSpanRequest
 end
 
 pub type Span
+	NoopSpan
 end
 
 pub type SpanFinish
+	NoopSpanFinish
 end
 
 pub type AttributeValue
@@ -42,4 +45,24 @@ pub effect Observe
 	start_span(request: SpanRequest) -> Span
 	emit(record: Observation) -> ()
 	finish_span(request: SpanFinish) -> ()
+end
+
+pub handler noop() for Observe
+	start_span(request) => NoopSpan
+	emit(record) => ()
+	finish_span(request) => ()
+end
+
+fn noop_span_request() -> SpanRequest
+	NoopSpanRequest
+end
+
+fn noop_span_finish() -> SpanFinish
+	NoopSpanFinish
+end
+
+fn is_noop_span(span: Span) -> Bool
+	match span
+		NoopSpan => true
+	end
 end

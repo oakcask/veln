@@ -17,8 +17,8 @@ also states it.
 ## Ready
 
 - Standard-library events, metrics, traces, explicit context propagation,
-  public recording and no-op handlers, production exporters, and exporter
-  lifecycle behavior:
+  a public recording handler, production exporters, and exporter lifecycle
+  behavior:
   [observability.md](observability.md).
 - Legacy compiler-known network compatibility removal after checked sources
   migrate to the exported standard module:

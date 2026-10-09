@@ -1,8 +1,8 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, structured logging, observation data model, or recording-handler evidence changes.
-specification-coverage: usage=#usage; behavior=#structured-log-records; limits=#limits
+update-when: The standard-library Observe effect, observation handlers, structured logging, or observation data model changes.
+specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
 # Standard-library Observability
@@ -30,11 +30,22 @@ end
 
 `Observe` has three operations: `start_span(SpanRequest) -> Span`,
 `emit(Observation) -> ()`, and `finish_span(SpanFinish) -> ()`. `Span` is
-opaque. This slice exposes the complete effect shape so handlers can remain
-compatible as later observation kinds are added, but only log emission has a
-public construction path.
+opaque. Install the public no-op handler when the program must discharge the
+effect without retaining or exporting observations:
 
-## Structured log records
+```veln
+pub fn main() -> ()
+	let _ = handle report() with observe::noop()
+end
+```
+
+This slice exposes the complete effect shape so handlers can remain compatible
+as later observation kinds are added, but only log emission has a public
+construction path.
+
+## Behavior
+
+### Structured log records
 
 Each log helper performs exactly one `emit` operation. The emitted
 `Observation::Log` contains the stable name `log`, the helper's severity, the
@@ -59,22 +70,34 @@ source location, so the observation identifies the outer user call rather than
 the helper implementation. The path follows the canonical relative-source
 rules of [Call-site Declarations](call-site-declarations.md).
 
+### No-op handler
+
+`observe::noop()` handles every `Observe` operation and has no retained host
+effect. It discards each emitted observation and each span finish. A span start
+returns an opaque span value, so the operation is total even though programs
+cannot construct or inspect that value through the public API. Installing the
+handler preserves the handled program's result and opens no output destination.
+
 ## Limits
 
-Events, metrics, span lifecycle helpers, propagation helpers, no-op and
-production exporters, wall-time or resource enrichment, exporter health, and
-shutdown flushing are not available. The standard package does not export a
-recording handler; repository tests install separate Veln handlers with
-isolated channel state.
+Events, metrics, span lifecycle helpers, propagation helpers, production
+exporters, wall-time or resource enrichment, exporter health, and shutdown
+flushing are not available. The standard package does not export a recording
+handler; repository tests install separate Veln handlers with isolated channel
+state. The no-op handler does not record, enrich, buffer, export, or report
+observations.
 
 An unhandled `Observe` effect follows the ordinary nominal-effect runnable
 boundary in [Effects](effects.md): a runnable entry must handle it before
-execution. The constructorless span request, handle, and finish types do not
-provide a public span lifecycle in this slice.
+execution. The span request, handle, and finish types have no public
+constructors, and this slice provides no public span lifecycle.
 
 ## References
 
 - Standard-library API coverage:
+  [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln) and
   [`log.test.veln`](../../crates/veln-stdlib/veln/log.test.veln).
 - Call-site and effect-dispatch execution evidence:
   [`observability-log-severities`](../../examples/specification/run/observability-log-severities/).
+- Public no-op handler execution evidence:
+  [`observability-noop-handler`](../../examples/specification/run/observability-noop-handler/).

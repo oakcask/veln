@@ -1,0 +1,42 @@
+use observe
+
+test noop_preserves_a_handled_body_result() -> Result<(), String>
+	let observed = handle 42 with observe::noop()
+	if observed == 42
+		Ok(())
+	else
+		Err("no-op observation handler changed the body result")
+	end
+end
+
+test noop_start_span_returns_an_opaque_span() -> Result<(), String>
+	let span = handle perform observe::Observe::start_span(observe::noop_span_request()) with observe::noop()
+	if observe::is_noop_span(span)
+		Ok(())
+	else
+		Err("no-op observation handler returned an unexpected span")
+	end
+end
+
+test noop_emit_completes_without_observation() -> Result<(), String>
+	let record = observe::Log(observe::LogRecord("log", observe::Info, "ignored", list_nil(), None, callsite_location()))
+	let completed = handle perform observe::Observe::emit(record) with observe::noop()
+	if completed == ()
+		Ok(())
+	else
+		Err("no-op observation handler did not complete emit")
+	end
+end
+
+test noop_finish_span_completes() -> Result<(), String>
+	let completed = handle perform observe::Observe::finish_span(observe::noop_span_finish()) with observe::noop()
+	if completed == ()
+		Ok(())
+	else
+		Err("no-op observation handler did not complete finish_span")
+	end
+end
+
+fn callsite_location() -> SourceLocation callsite
+	callsite
+end
