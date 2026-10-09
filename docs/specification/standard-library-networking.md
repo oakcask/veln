@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage; behavior=#network-operation-boundary; limits=#limits-and-errors
-update-when: The exported std net value types or functions, host-port helper behavior, network effect boundary, or executable network examples change.
+update-when: The exported std net values, functions, system handler, resource lifecycle, host-port behavior, effect boundary, or executable network examples change.
 ---
 
 # Standard-library Networking
@@ -162,6 +162,34 @@ stream permits one active read and one active write at the same time. A second
 operation in the same direction returns `Busy`. Closing a listener or stream
 interrupts its blocked operations with `Closed`. Read and write shutdown affect
 only the selected half, and close operations are idempotent.
+
+Listener state transitions are:
+
+| Current state | Event | Next state and result |
+| --- | --- | --- |
+| Open | `accept` succeeds | The listener stays open and returns a fresh open stream. |
+| Open | `accept` times out or is cancelled | The listener stays open and returns `TimedOut` or `Cancelled`. |
+| Open | `close_listener` | The listener becomes closed, returns `Ok(())`, and interrupts blocked accepts with `Closed`. |
+| Closed | `close_listener` | The listener stays closed and returns `Ok(())`. |
+| Closed | `accept` | The listener stays closed and returns `Closed`. |
+| Any | Another handler uses the listener | The listener does not change and the operation returns `InvalidResource`. |
+
+A stream tracks its read and write halves independently:
+
+| Current state | Event | Next state and result |
+| --- | --- | --- |
+| Read open | `read` receives bytes | The read half stays open and returns a non-empty `ReadChunk`. |
+| Read open | The peer ends its write half after buffered bytes drain | The read half becomes peer-ended and returns `ReadEnd`; later reads also return `ReadEnd`. |
+| Read open | `shutdown_read` | The read half becomes shut, unread buffered input is discarded, and a blocked or later read returns `Closed`. |
+| Read open | `read` times out or is cancelled | The read half stays open and returns `TimedOut` or `Cancelled`. |
+| Read open | `read` has another failure | The read half becomes failed and returns that error; later reads return `Closed`. |
+| Write open | `write` commits without failure | The write half stays open and returns the committed count. |
+| Write open | `write` times out or is cancelled | The write half stays open and returns the committed prefix with `TimedOut` or `Cancelled`. |
+| Write open | `write` has another failure | The write half becomes failed and returns the committed prefix with that error; later writes return zero committed with `Closed`. |
+| Write open | `shutdown_write` | The write half becomes shut, returns `Ok(())`, and a blocked or later write returns its committed prefix with `Closed`. |
+| Either half open | `close_stream` | Both halves become closed, the call returns `Ok(())`, and blocked operations return `Closed`. |
+| Both halves closed | `close_stream` | Both halves stay closed and the call returns `Ok(())`. |
+| Any | Another handler uses the stream | The stream does not change and the operation returns `InvalidResource`. |
 
 The system handler instance owns every listener and stream it creates. A
 different handler returns `InvalidResource` without changing either handler's

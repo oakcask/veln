@@ -207,7 +207,7 @@ grammar_line(380, "Match         ::= \"match\" Expr NL MatchArm+ \"end\"").
 grammar_line(390, "MatchArm      ::= Pattern \"=>\" Expr NL").
 grammar_line(400, "If            ::= \"if\" Expr NL Expr NL ElseIf* \"else\" NL Expr NL \"end\"").
 grammar_line(410, "ElseIf        ::= \"else\" \"if\" Expr NL Expr NL").
-grammar_line(420, "Pattern       ::= \"_\" | BindingName | Literal | ConstructorPattern | RecordPattern").
+grammar_line(420, "Pattern       ::= \"_\" | \"()\" | BindingName | Literal | ConstructorPattern | RecordPattern").
 grammar_line(430, "ConstructorPattern ::= ConstructorName \"(\" PatternList? \")\" | ConstructorName").
 grammar_line(440, "ConstructorName ::= UpperName | Name \"::\" Name (\"::\" Name)*").
 grammar_line(450, "RecordPattern ::= \"{\" PatternFieldList? \"}\"").
@@ -1107,6 +1107,7 @@ let_pattern --> record_pattern.
 let_pattern --> constructor_pattern.
 
 pattern --> tok(underscore).
+pattern --> tok(lparen), tok(rparen).
 pattern --> literal.
 pattern --> record_pattern.
 pattern --> constructor_pattern.

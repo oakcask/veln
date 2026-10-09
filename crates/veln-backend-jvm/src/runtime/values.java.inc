@@ -369,12 +369,15 @@
                 return new java.util.ArrayList<HandlerFrame>();
             }
         };
+    private static final ThreadLocal<HandlerFrame> INVOKED_HANDLER =
+        new ThreadLocal<HandlerFrame>();
 
     private static final class HandlerFrame {
         private final String effect;
         private final java.util.Map<String, Fn> providers;
         private final Object[] context;
         private boolean networkSystem;
+        private volatile boolean networkSystemClosed;
         private final java.util.List<NetListener> networkListeners = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
         private final java.util.List<NetStream> networkStreams = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
@@ -397,14 +400,16 @@
     public static Object popHandler() {
         java.util.List<HandlerFrame> stack = HANDLERS.get();
         HandlerFrame frame = stack.remove(stack.size() - 1);
-        if (frame.networkSystem) cleanupNetworkSystem(frame);
+        if (frame.networkSystem) {
+            frame.networkSystemClosed = true;
+            cleanupNetworkSystem(frame);
+        }
         return UNIT;
     }
 
     private static HandlerFrame currentHandlerFrame() {
-        java.util.List<HandlerFrame> stack = HANDLERS.get();
-        if (stack.isEmpty()) throw new IllegalStateException("network system intrinsic used outside a handler");
-        HandlerFrame frame = stack.get(stack.size() - 1);
+        HandlerFrame frame = INVOKED_HANDLER.get();
+        if (frame == null) throw new IllegalStateException("network system intrinsic used outside a handler operation");
         frame.networkSystem = true;
         return frame;
     }
@@ -423,7 +428,14 @@
         Object[] providerArgs = new Object[frame.context.length + args.length];
         System.arraycopy(frame.context, 0, providerArgs, 0, frame.context.length);
         System.arraycopy(args, 0, providerArgs, frame.context.length, args.length);
-        return provider.call(providerArgs);
+        HandlerFrame previous = INVOKED_HANDLER.get();
+        INVOKED_HANDLER.set(frame);
+        try {
+            return provider.call(providerArgs);
+        } finally {
+            if (previous == null) INVOKED_HANDLER.remove();
+            else INVOKED_HANDLER.set(previous);
+        }
     }
 
     public static Object perform(String effect, String operation, Object[] args) {

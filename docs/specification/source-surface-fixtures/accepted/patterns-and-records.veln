@@ -2,3 +2,9 @@ fn unpack(input: { count : Int }) -> Int
 	let { count: amount }: { count : Int } = input
 	{ count: amount }.count
 end
+
+fn accept_unit(input: ()) -> Int
+	match input
+		() => 1
+	end
+end

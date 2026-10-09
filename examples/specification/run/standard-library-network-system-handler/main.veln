@@ -1,6 +1,14 @@
 use net from "std"
 use stdio
 
+effect Marker
+	touch() -> ()
+end
+
+handler marker() for Marker
+	touch() => ()
+end
+
 fn bytes(text: String) -> Result<ByteChunk, net::NetError>
 	match byte_chunk_from_visible_ascii_string(text)
 		Ok(value) => Ok(value)
@@ -17,11 +25,17 @@ fn endpoint_address(endpoint: net::Endpoint) -> Result<net::Address, net::NetErr
 	end
 end
 
+fn nested_listener_address(listener: net::Listener) -> Result<net::Endpoint, net::NetError> effects [net::IO, Marker]
+	perform Marker::touch()
+	net::listener_address(listener)
+end
+
 fn require_kind(result: Result<net::Stream, net::NetError>, kind: String) -> Result<(), net::NetError>
 	match result
 		Ok(_) => Err(net::NetError("require_kind", None, None, net::Other, "operation unexpectedly succeeded"))
 		Err(net::NetError(_, _, _, net::TimedOut, _)) => if kind == "timeout" Ok(()) else Err(net::NetError("require_kind", None, None, net::Other, "unexpected timeout")) end
 		Err(net::NetError(_, _, _, net::Cancelled, _)) => if kind == "cancelled" Ok(()) else Err(net::NetError("require_kind", None, None, net::Other, "unexpected cancellation")) end
+		Err(net::NetError(_, _, _, net::Busy, _)) => if kind == "busy" Ok(()) else Err(net::NetError("require_kind", None, None, net::Other, "unexpected busy")) end
 		Err(error) => Err(error)
 	end
 end
@@ -54,6 +68,11 @@ end
 fn signalled_blocked_read(context: { stream : net::Stream, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, concurrency]
 	channel::send(context.ready, ())
 	blocked_read(context.stream)
+end
+
+fn signalled_cancelled_accept(context: { listener : net::Listener, token : CancelToken, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, concurrency]
+	channel::send(context.ready, ())
+	require_kind(net::accept_with(context.listener, None, Some(context.token)), "cancelled")
 end
 
 fn require_full_write(outcome: net::WriteOutcome) -> Result<(), net::NetError>
@@ -96,17 +115,32 @@ fn require_closed_join(result: Result<Result<(), net::NetError>, JoinError>) -> 
 	end
 end
 
+fn require_cancelled_join(result: Result<Result<(), net::NetError>, JoinError>) -> Result<(), net::NetError>
+	match result
+		Err(_) => Ok(())
+		Ok(_) => Err(net::NetError("join", None, None, net::Other, "cancelled network task completed normally"))
+	end
+end
+
 fn exercise() -> Result<(), net::NetError> effects [net::IO, time, concurrency, stdio]
 	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
 	stdio::println("listen")
 	let local = endpoint_address(net::listener_address(listener)?)?
+	let _ = handle nested_listener_address(listener) with marker()?
 	let _ = require_invalid_resource(handle net::listener_address(listener) with net::system())?
 	let expired = time::deadline_after_ms(0)
+	let _ = require_kind(net::connect_with(local, Some(expired), None), "timeout")?
 	let _ = require_kind(net::accept_with(listener, Some(expired), None), "timeout")?
 	let owner = time::cancel_owner()
 	let token = time::cancel_token_from(owner)
+	let accept_ready = channel::bounded<()>(1)
+	let pending_accept = task::spawn_with(signalled_cancelled_accept, { listener: listener, token: token, ready: accept_ready.tx })
+	let _ = channel::recv(accept_ready.rx)
+	time::timeout_ms(20)
+	let _ = require_kind(net::accept(listener), "busy")?
 	time::cancel_owned(owner)
-	let _ = require_kind(net::accept_with(listener, None, Some(token)), "cancelled")?
+	let _ = require_closed_join(task::join(pending_accept))?
+	let _ = require_kind(net::connect_with(local, None, Some(token)), "cancelled")?
 	stdio::println("bounded outcomes")
 	let client = net::connect(local)?
 	let server = net::accept(listener)?
@@ -116,6 +150,12 @@ fn exercise() -> Result<(), net::NetError> effects [net::IO, time, concurrency, 
 	let _ = require_end(net::read(server)?)?
 	let _ = require_end(net::read(server)?)?
 	stdio::println("duplex")
+	let cancel_ready = channel::bounded<()>(1)
+	let cancelled_read = task::spawn_with(signalled_blocked_read, { stream: client, ready: cancel_ready.tx })
+	let _ = channel::recv(cancel_ready.rx)
+	time::timeout_ms(20)
+	task::cancel(cancelled_read)
+	let _ = require_cancelled_join(task::join(cancelled_read))?
 	let ready = channel::bounded<()>(1)
 	let pending = task::spawn_with(signalled_blocked_read, { stream: client, ready: ready.tx })
 	let _ = channel::recv(ready.rx)

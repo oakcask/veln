@@ -90,12 +90,12 @@ contains = "- Package identity: std"
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+contains = "veln-doc:///package/std/snapshot/3fad974556f5b9f8b1e8d6ace73ad8863b81303506207965a21892b28138eaeb/documentation/57cda0e62c0ef5eeb610c8370933cc66c1efb7b3c7f066871028e8e40663521c/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+contains = "veln-doc:///package/std/snapshot/3fad974556f5b9f8b1e8d6ace73ad8863b81303506207965a21892b28138eaeb/documentation/57cda0e62c0ef5eeb610c8370933cc66c1efb7b3c7f066871028e8e40663521c/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 
 [[mcp_assert]]
 id = 5
@@ -105,17 +105,17 @@ contains = "- Source path: prelude.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+contains = "veln-doc:///package/std/snapshot/3fad974556f5b9f8b1e8d6ace73ad8863b81303506207965a21892b28138eaeb/documentation/57cda0e62c0ef5eeb610c8370933cc66c1efb7b3c7f066871028e8e40663521c/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+contains = "veln-doc:///package/std/snapshot/3fad974556f5b9f8b1e8d6ace73ad8863b81303506207965a21892b28138eaeb/documentation/57cda0e62c0ef5eeb610c8370933cc66c1efb7b3c7f066871028e8e40663521c/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/96dead70e94e2803afdf30da35092320037f61c6ac2bb2fa8065e2883477d18b/documentation/68d2eaa90d41f4fdf6dfe7fc9a18cae3c29e35f0c08723bdc56632e56bfb8099/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+contains = "veln-doc:///package/std/snapshot/3fad974556f5b9f8b1e8d6ace73ad8863b81303506207965a21892b28138eaeb/documentation/57cda0e62c0ef5eeb610c8370933cc66c1efb7b3c7f066871028e8e40663521c/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 
 [[mcp_assert]]
 id = 6
