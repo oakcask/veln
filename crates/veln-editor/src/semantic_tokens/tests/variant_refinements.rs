@@ -103,11 +103,12 @@ fn collector_keeps_constructor_expressions_distinct_from_refinement_variants() {
 
 #[test]
 fn collector_preserves_variant_refinements_across_presentation_parse_limit() {
-    let accepted = refinement_boundary_source(veln_syntax::PRESENTATION_PARSE_STRUCTURE_LIMIT);
-    let rejected = refinement_boundary_source(veln_syntax::PRESENTATION_PARSE_STRUCTURE_LIMIT + 1);
+    let accepted = refinement_boundary_source(veln_syntax::PRESENTATION_PARSE_STRUCTURE_LIMIT - 1);
+    let rejected = refinement_boundary_source(veln_syntax::PRESENTATION_PARSE_STRUCTURE_LIMIT);
     assert!(presentation_parse_structure_is_bounded(
         &lex(&accepted).tokens
     ));
+    assert_physical_lines_are_bounded(&rejected);
     assert_boundary_projection_is_bounded(&rejected);
 
     let accepted_prefix = refinement_prefix(&accepted);
@@ -127,8 +128,25 @@ fn assert_boundary_projection_is_bounded(source: &SourceFile) {
     ));
 }
 
+fn assert_physical_lines_are_bounded(source: &SourceFile) {
+    let tokens = lex(source).tokens;
+    let mut line_start = 0;
+    for (index, token) in tokens.iter().enumerate() {
+        if matches!(token.kind, TokenKind::Newline | TokenKind::Eof) {
+            assert!(
+                presentation_parse_structure_is_bounded(&tokens[line_start..index]),
+                "every physical line must remain independently bounded"
+            );
+            line_start = index + 1;
+        }
+    }
+}
+
 fn refinement_prefix(source: &SourceFile) -> Vec<SemanticToken> {
-    let prefix_end = source.text().find("  0 +").expect("stress expression");
+    let prefix_end = source
+        .text()
+        .find("  (\n")
+        .expect("multiline stress expression");
     collect_semantic_tokens(source)
         .into_iter()
         .filter(|token| token.span.end.offset <= prefix_end)
@@ -183,10 +201,17 @@ fn refinement_boundary_source(operator_count: usize) -> SourceFile {
     let mut text = concat!(
         "fn project(value: domain::State::Ready | alias::State::Closed) -> api::State::Ready\n",
         "  domain::State::Ready(value)\n",
-        "  0",
+        "  (\n",
     )
     .to_string();
-    text.push_str(&" + 0".repeat(operator_count));
-    text.push_str("\nend\n");
+    let mut remaining = operator_count;
+    while remaining > 0 {
+        let line_operators = remaining.min(64);
+        text.push_str("    0");
+        text.push_str(&" + 0".repeat(line_operators));
+        text.push('\n');
+        remaining -= line_operators;
+    }
+    text.push_str("  )\nend\n");
     SourceFile::new("main.veln", text)
 }

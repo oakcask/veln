@@ -195,26 +195,28 @@ impl TokenKind {
 /// operation declines to invoke the recursive parser on mutable source.
 pub const PRESENTATION_PARSE_STRUCTURE_LIMIT: usize = 256;
 
-/// Returns whether mutable source is bounded enough for presentation paths to
-/// invoke the recursive parser without trusting that delimiters are complete.
-pub fn presentation_parse_structure_is_bounded(tokens: &[Token]) -> bool {
-    let mut structure = 0usize;
-    let mut delimiter_depth = 0usize;
-    let mut block_depth = 0usize;
-    for token in tokens {
-        match token.kind {
+#[derive(Default)]
+pub struct PresentationParseStructure {
+    structure: usize,
+    delimiter_depth: usize,
+    block_depth: usize,
+}
+
+impl PresentationParseStructure {
+    pub fn observe(&mut self, kind: TokenKind) -> bool {
+        match kind {
             TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
-                delimiter_depth += 1;
-                structure += 1;
+                self.delimiter_depth += 1;
+                self.structure += 1;
             }
             TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                delimiter_depth = delimiter_depth.saturating_sub(1);
+                self.delimiter_depth = self.delimiter_depth.saturating_sub(1);
             }
             TokenKind::If | TokenKind::Match | TokenKind::Begin => {
-                block_depth += 1;
-                structure += 1;
+                self.block_depth += 1;
+                self.structure += 1;
             }
-            TokenKind::End => block_depth = block_depth.saturating_sub(1),
+            TokenKind::End => self.block_depth = self.block_depth.saturating_sub(1),
             TokenKind::Not
             | TokenKind::Minus
             | TokenKind::Tilde
@@ -240,11 +242,24 @@ pub fn presentation_parse_structure_is_bounded(tokens: &[Token]) -> bool {
             | TokenKind::ShiftRightLogical
             | TokenKind::Plus
             | TokenKind::Star
-            | TokenKind::Slash => structure += 1,
-            TokenKind::Newline if delimiter_depth == 0 && block_depth == 0 => structure = 0,
+            | TokenKind::Slash => self.structure += 1,
+            TokenKind::Newline if self.is_top_level() => self.structure = 0,
             _ => {}
         }
-        if structure > PRESENTATION_PARSE_STRUCTURE_LIMIT {
+        self.structure <= PRESENTATION_PARSE_STRUCTURE_LIMIT
+    }
+
+    pub fn is_top_level(&self) -> bool {
+        self.delimiter_depth == 0 && self.block_depth == 0
+    }
+}
+
+/// Returns whether mutable source is bounded enough for presentation paths to
+/// invoke the recursive parser without trusting that delimiters are complete.
+pub fn presentation_parse_structure_is_bounded(tokens: &[Token]) -> bool {
+    let mut structure = PresentationParseStructure::default();
+    for token in tokens {
+        if !structure.observe(token.kind) {
             return false;
         }
     }

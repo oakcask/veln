@@ -2,7 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{
-    SyntaxItem, Token, TokenKind, lex, parse, presentation_parse_structure_is_bounded,
+    PresentationParseStructure, SyntaxItem, Token, TokenKind, lex, parse,
+    presentation_parse_structure_is_bounded,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -194,23 +195,32 @@ fn bounded_variant_refinement_projection(
     tokens: &[Token],
 ) -> Option<SourceFile> {
     let mut projected = source.text().as_bytes().to_vec();
-    let mut token_line_start = 0usize;
-    let mut source_line_start = 0usize;
-    let mut masked_line = false;
+    let mut source_segment_start = 0usize;
+    let mut structure = PresentationParseStructure::default();
+    let mut segment_is_bounded = true;
+    let mut masked_segment = false;
 
-    for (index, token) in tokens.iter().enumerate() {
-        if !matches!(token.kind, TokenKind::Newline | TokenKind::Eof) {
+    for token in tokens {
+        segment_is_bounded &= structure.observe(token.kind);
+
+        let ends_segment = matches!(token.kind, TokenKind::Eof)
+            || matches!(token.kind, TokenKind::Newline) && structure.is_top_level();
+        if !ends_segment {
             continue;
         }
-        if !presentation_parse_structure_is_bounded(&tokens[token_line_start..index]) {
-            projected[source_line_start..token.range.start].fill(b' ');
-            masked_line = true;
+        if !segment_is_bounded {
+            for byte in &mut projected[source_segment_start..token.range.start] {
+                if !matches!(*byte, b'\n' | b'\r') {
+                    *byte = b' ';
+                }
+            }
+            masked_segment = true;
         }
-        token_line_start = index + 1;
-        source_line_start = token.range.end;
+        segment_is_bounded = true;
+        source_segment_start = token.range.end;
     }
 
-    if !masked_line {
+    if !masked_segment {
         return None;
     }
     let projected = SourceFile::new(
