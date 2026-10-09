@@ -825,9 +825,9 @@ private results are checked in
 rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
-Public/private exposure paths, qualified-value control-flow refinement, schema boundaries,
-package-documentation signatures, command-wide coverage, LSP, and remaining
-MCP integration remain proposal work.
+Public/private exposure paths, qualified-value control-flow refinement, schema
+boundaries, package-documentation signatures, LSP, and remaining MCP
+integration remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
