@@ -1,62 +1,27 @@
 use super::*;
 
-pub(super) fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -> String {
+pub(super) struct GeneratedDoctestSource {
+    pub(super) text: String,
+    pub(super) copied_regions: Vec<(TextRange, LineCol, LineCol)>,
+}
+
+pub(super) fn generated_doctest(name: &str, doctest: &ExtractedDoctest) -> GeneratedDoctestSource {
     let declaration_lines = declaration_line_indexes(doctest);
     let mut text = String::new();
-    for (index, line) in doctest.code.iter().enumerate() {
-        if declaration_lines.contains(&index) {
-            text.push_str(line);
-            text.push('\n');
-        }
-    }
-    text.push_str(&generated_doctest_header(name, doctest));
-    for (index, line) in doctest.code.iter().enumerate() {
-        if declaration_lines.contains(&index) {
-            continue;
-        }
-        if line.is_empty() {
-            text.push('\n');
-        } else {
-            text.push_str("  ");
-            text.push_str(line);
-            text.push('\n');
-        }
-    }
-    if doctest.error_type.is_some() {
-        text.push_str("  Ok(())\nend\n");
-    } else {
-        text.push_str("  ()\nend\n");
-    }
-    text
-}
-
-fn generated_doctest_header(name: &str, doctest: &ExtractedDoctest) -> String {
-    let return_type = doctest.error_type.as_ref().map_or_else(
-        || "()".to_string(),
-        |error_type| format!("Result<(), {error_type}>"),
-    );
-    let item_kind = if doctest.should_fail { "fn" } else { "test" };
-    format!("{item_kind} {name}() -> {return_type} effects [stdio]\n")
-}
-
-pub(super) fn generated_doctest_copied_regions(
-    name: &str,
-    doctest: &ExtractedDoctest,
-) -> Vec<(TextRange, LineCol, LineCol)> {
-    let declaration_lines = declaration_line_indexes(doctest);
-    let mut generated_line_start = 0;
-    let mut regions = Vec::with_capacity(doctest.code.len());
+    let mut copied_regions = Vec::with_capacity(doctest.code.len());
     for index in &declaration_lines {
         let line = &doctest.code[*index];
         let original = &doctest.source_locations[*index];
-        regions.push((
-            TextRange::new(generated_line_start, generated_line_start + line.len()),
+        let start = text.len();
+        text.push_str(line);
+        copied_regions.push((
+            TextRange::new(start, text.len()),
             original.start,
             original.end,
         ));
-        generated_line_start += line.len() + 1;
+        text.push('\n');
     }
-    generated_line_start += generated_doctest_header(name, doctest).len();
+    text.push_str(&generated_doctest_header(name, doctest));
     for (index, (line, original)) in doctest
         .code
         .iter()
@@ -66,18 +31,36 @@ pub(super) fn generated_doctest_copied_regions(
         if declaration_lines.contains(&index) {
             continue;
         }
-        let indent = usize::from(!line.is_empty()) * 2;
-        regions.push((
-            TextRange::new(
-                generated_line_start + indent,
-                generated_line_start + indent + line.len(),
-            ),
+        if !line.is_empty() {
+            text.push_str("  ");
+        }
+        let start = text.len();
+        text.push_str(line);
+        copied_regions.push((
+            TextRange::new(start, text.len()),
             original.start,
             original.end,
         ));
-        generated_line_start += indent + line.len() + 1;
+        text.push('\n');
     }
-    regions
+    if doctest.error_type.is_some() {
+        text.push_str("  Ok(())\nend\n");
+    } else {
+        text.push_str("  ()\nend\n");
+    }
+    GeneratedDoctestSource {
+        text,
+        copied_regions,
+    }
+}
+
+fn generated_doctest_header(name: &str, doctest: &ExtractedDoctest) -> String {
+    let return_type = doctest.error_type.as_ref().map_or_else(
+        || "()".to_string(),
+        |error_type| format!("Result<(), {error_type}>"),
+    );
+    let item_kind = if doctest.should_fail { "fn" } else { "test" };
+    format!("{item_kind} {name}() -> {return_type} effects [stdio]\n")
 }
 
 fn declaration_line_indexes(doctest: &ExtractedDoctest) -> BTreeSet<usize> {

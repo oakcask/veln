@@ -17,6 +17,9 @@ on:
       - scripts/ci-run
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - crates/veln-stdlib/veln/**
+      - examples/specification/**
+      - tests/toolchain-cases/**
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/prune-rust-test-build-caches.mjs
@@ -34,6 +37,9 @@ on:
       - scripts/ci-run
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - crates/veln-stdlib/veln/**
+      - examples/specification/**
+      - tests/toolchain-cases/**
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/prune-rust-test-build-caches.mjs

@@ -96,14 +96,13 @@ fn generated_doctest_boundaries_use_scalar_columns_and_byte_offsets() {
         ..ExtractedDoctest::default()
     };
 
-    let generated_text = generated_doctest_source("unicode", &doctest);
-    let regions = generated_doctest_copied_regions("unicode", &doctest);
-    let generated_start = regions[0].0.start;
+    let generated_doctest = generated_doctest("unicode", &doctest);
+    let generated_start = generated_doctest.copied_regions[0].0.start;
     let generated = SourceFile::generated_with_copied_regions(
         "main.veln#doctest-1_test.veln",
-        generated_text,
+        generated_doctest.text,
         SourcePath::new("main.veln"),
-        regions,
+        generated_doctest.copied_regions,
     );
     let mapped = "aé界z"
         .char_indices()
@@ -146,6 +145,63 @@ fn generated_doctest_boundaries_use_scalar_columns_and_byte_offsets() {
                 column: 2,
                 offset: 999,
             },
+        ]
+    );
+}
+
+#[test]
+fn generated_doctest_regions_follow_reordered_declarations() {
+    let code = [
+        "let chosen = Choice::Some(1)",
+        "pub type Choice",
+        "\tSome(value: Int)",
+        "end",
+        "chosen",
+    ];
+    let doctest = ExtractedDoctest {
+        code: code.iter().map(|line| (*line).to_string()).collect(),
+        source_locations: code
+            .iter()
+            .enumerate()
+            .map(|(index, line)| SourceSpan {
+                file: "main.veln".into(),
+                start: LineCol {
+                    line: index + 10,
+                    column: 3,
+                    offset: index * 100,
+                },
+                end: LineCol {
+                    line: index + 10,
+                    column: 3 + line.chars().count(),
+                    offset: index * 100 + line.len(),
+                },
+                generated_origin: None,
+            })
+            .collect(),
+        ..ExtractedDoctest::default()
+    };
+
+    let generated_doctest = generated_doctest("reordered", &doctest);
+    let copied_lines = generated_doctest
+        .copied_regions
+        .iter()
+        .map(|(range, start, _)| {
+            (
+                &generated_doctest.text[range.start..range.end],
+                start.line,
+                start.offset,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        copied_lines,
+        [
+            ("pub type Choice", 11, 100),
+            ("\tSome(value: Int)", 12, 200),
+            ("end", 13, 300),
+            ("let chosen = Choice::Some(1)", 10, 0),
+            ("chosen", 14, 400),
         ]
     );
 }
