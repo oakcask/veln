@@ -55,6 +55,10 @@ handler committed_close_system_network(commit: Int, calls: { tx : Sender<Int>, r
 	request(operation, subject, bytes, remaining_ms, cancelled) => committed_close_system_network_reply(commit, calls, operation, subject)
 end
 
+handler monotonic_lifecycle_system_network(kind: String, calls: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => monotonic_lifecycle_system_network_reply(kind, calls, operation, subject)
+end
+
 handler failing_shutdown_system_network(direction: String, commit: Int, io_ready: Sender<()>, io_release: Receiver<()>, shutdown_ready: Sender<()>, shutdown_release: Receiver<()>, shutdown_calls: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
 	request(operation, subject, bytes, remaining_ms, cancelled) => failing_shutdown_system_network_reply(direction, commit, io_ready, io_release, shutdown_ready, shutdown_release, shutdown_calls, operation, subject, bytes)
 end
@@ -210,6 +214,36 @@ fn committed_close_system_network_reply(commit: Int, calls: { tx : Sender<Int>, 
 		end
 	else
 		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected committed-close request")
+	end
+end
+
+fn monotonic_lifecycle_system_network_reply(kind: String, calls: { tx : Sender<Int>, rx : Receiver<Int> }, operation: String, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	if operation == "resolve_tcp4" and subject == "127.0.0.1"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "127.0.0.1" }, list_nil()), 0, "", 0, "")
+	else if operation == "listen" and subject == "127.0.0.1:0"
+		system_network_success("monotonic-listener", "127.0.0.1:41000", "")
+	else if operation == "resolve_tcp4" and subject == "monotonic.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.42" }, list_nil()), 0, "", 0, "")
+	else if operation == "connect" and subject == "192.0.2.42:443"
+		system_network_success("monotonic-stream", "192.0.2.43:41001", "192.0.2.42:443")
+	else if (kind == "listener" and operation == "close_listener" and subject == "monotonic-listener") or (kind == "stream" and operation == "close_stream" and subject == "monotonic-stream") or (kind == "read" and operation == "shutdown_read" and subject == "monotonic-stream") or (kind == "write" and operation == "shutdown_write" and subject == "monotonic-stream")
+		match channel::recv(calls.rx)
+			Some(count) => begin
+				let _ = channel::send(calls.tx, count + 1)
+				if count == 0
+					if kind == "read" or kind == "write" system_network_shutdown_failure(kind, -1) else system_network_close_failure(-1) end
+				else if count == 1
+					if kind == "read" or kind == "write" system_network_shutdown_failure(kind, 0) else system_network_close_failure(0) end
+				else
+					system_network_success("", "", "")
+				end
+			end
+			None => system_network_reply("error", "", "", "", list_nil(), 0, "forced_failure", 0, "missing lifecycle count")
+		end
+	else if operation == "close_stream" and subject == "monotonic-stream"
+		system_network_success("", "", "")
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected monotonic lifecycle request")
 	end
 end
 
@@ -563,6 +597,143 @@ fn close_commit_count(kind: String, commit: Int) -> Result<Int, String> effects 
 		Ok(()) => match channel::recv(calls.rx)
 			Some(count) => Ok(count)
 			None => Err("close commit count was missing")
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn system_monotonic_listener() -> Result<net::Listener, String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+		Ok(listener) => Ok(listener)
+		Err(_) => Err("scripted listener did not open")
+	end
+end
+
+fn system_monotonic_stream() -> Result<net::Stream, String> effects [net::IO]
+	match net::connect(net::Address(net::Tcp4, "monotonic.test", 443))
+		Ok(stream) => Ok(stream)
+		Err(_) => Err("scripted stream did not connect")
+	end
+end
+
+fn system_monotonic_lifecycle_case(kind: String) -> Result<(), String> effects [net::IO]
+	if kind == "listener"
+		begin
+		let listener = system_monotonic_listener()?
+		let first = net::close_listener(listener)
+		let second = net::close_listener(listener)
+		let ordinary = net::listener_address(listener)
+		let confirmed = net::close_listener(listener)
+		let idempotent = net::close_listener(listener)
+		match first
+			Err(_) => match second
+				Err(_) => match ordinary
+					Err(net::NetError(_, _, _, net::Closed, _)) => match confirmed
+						Ok(()) => match idempotent
+							Ok(()) => Ok(())
+							Err(_) => Err("confirmed listener close was not idempotent")
+						end
+						Err(_) => Err("listener close could not be confirmed")
+					end
+					_ => Err("uncommitted listener retry cleared earlier uncertainty")
+				end
+				Ok(()) => Err("uncommitted listener retry unexpectedly succeeded")
+			end
+			Ok(()) => Err("unknown listener close unexpectedly succeeded")
+		end
+		end
+	else
+		begin
+		let stream = system_monotonic_stream()?
+		if kind == "stream"
+			begin
+			let first = net::close_stream(stream)
+			let second = net::close_stream(stream)
+			let ordinary = net::local_address(stream)
+			let confirmed = net::close_stream(stream)
+			let idempotent = net::close_stream(stream)
+			match first
+				Err(_) => match second
+					Err(_) => match ordinary
+						Err(net::NetError(_, _, _, net::Closed, _)) => match confirmed
+							Ok(()) => match idempotent
+								Ok(()) => Ok(())
+								Err(_) => Err("confirmed stream close was not idempotent")
+							end
+							Err(_) => Err("stream close could not be confirmed")
+						end
+						_ => Err("uncommitted stream retry cleared earlier uncertainty")
+					end
+					Ok(()) => Err("uncommitted stream retry unexpectedly succeeded")
+				end
+				Ok(()) => Err("unknown stream close unexpectedly succeeded")
+			end
+			end
+		else if kind == "read"
+			begin
+			let first = net::shutdown_read(stream)
+			let second = net::shutdown_read(stream)
+			let ordinary = net::read(stream)
+			let confirmed = net::shutdown_read(stream)
+			let idempotent = net::shutdown_read(stream)
+			let _ = net::close_stream(stream)
+			match first
+				Err(_) => match second
+					Err(_) => match ordinary
+						Err(net::NetError(_, _, _, net::Closed, _)) => match confirmed
+							Ok(()) => match idempotent
+								Ok(()) => Ok(())
+								Err(_) => Err("confirmed read shutdown was not idempotent")
+							end
+							Err(_) => Err("read shutdown could not be confirmed")
+						end
+						_ => Err("uncommitted read-shutdown retry cleared earlier uncertainty")
+					end
+					Ok(()) => Err("uncommitted read-shutdown retry unexpectedly succeeded")
+				end
+				Ok(()) => Err("unknown read shutdown unexpectedly succeeded")
+			end
+			end
+		else
+			begin
+			let bytes = byte_chunk_from_visible_ascii_string("w")?
+			let first = net::shutdown_write(stream)
+			let second = net::shutdown_write(stream)
+			let ordinary = net::write(stream, bytes)
+			let confirmed = net::shutdown_write(stream)
+			let idempotent = net::shutdown_write(stream)
+			let _ = net::close_stream(stream)
+			match first
+				Err(_) => match second
+					Err(_) => match ordinary
+						net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Closed, _)) => match confirmed
+							Ok(()) => match idempotent
+								Ok(()) => Ok(())
+								Err(_) => Err("confirmed write shutdown was not idempotent")
+							end
+							Err(_) => Err("write shutdown could not be confirmed")
+						end
+						_ => Err("uncommitted write-shutdown retry cleared earlier uncertainty")
+					end
+					Ok(()) => Err("uncommitted write-shutdown retry unexpectedly succeeded")
+				end
+				Ok(()) => Err("unknown write shutdown unexpectedly succeeded")
+			end
+			end
+		end
+		end
+	end
+end
+
+fn monotonic_lifecycle_result(kind: String) -> Result<(), String> effects [net, time, concurrency]
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	let result = handle handle system_monotonic_lifecycle_case(kind) with net::system() with monotonic_lifecycle_system_network(kind, calls)
+	match result
+		Ok(()) => match channel::recv(calls.rx)
+			Some(3) => Ok(())
+			Some(_) => Err("lifecycle confirmation used an unexpected host call count")
+			None => Err("lifecycle confirmation count was missing")
 		end
 		Err(message) => Err(message)
 	end
@@ -1429,6 +1600,19 @@ test committed_and_unknown_close_failures_preserve_their_distinct_states() -> Re
 			_ => Err("committed stream close retried the host operation")
 		end
 		_ => Err("committed listener close retried the host operation")
+	end
+end
+
+test lifecycle_uncertainty_survives_uncommitted_retries_until_confirmation() -> Result<(), String> effects [net, time, concurrency]
+	match monotonic_lifecycle_result("listener")
+		Ok(()) => match monotonic_lifecycle_result("stream")
+			Ok(()) => match monotonic_lifecycle_result("read")
+				Ok(()) => monotonic_lifecycle_result("write")
+				Err(message) => Err(message)
+			end
+			Err(message) => Err(message)
+		end
+		Err(message) => Err(message)
 	end
 end
 

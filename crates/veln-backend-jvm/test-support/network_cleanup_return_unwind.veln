@@ -1,0 +1,48 @@
+handler failing_cleanup_network(listens: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency, stdio]
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4"
+		{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: "127.0.0.1" }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	else if operation == "listen"
+		match channel::recv(listens.rx)
+			Some(count) => begin
+				let _ = channel::send(listens.tx, count + 1)
+				{ status: "ok", value: if count == 0 "outer" else "inner" end, local: "127.0.0.1:41000", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+			end
+			None => { status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "invalid_input", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "missing listen count" }
+		end
+	else if operation == "close_listener"
+		begin
+			stdio::println(if subject == "inner" "inner close" else "outer close" end)
+			{ status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "forced_failure", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: -1, cause: "persistent close failure" }
+		end
+	else
+		{ status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "invalid_input", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "unexpected operation" }
+	end
+end
+
+fn acquire_listener() -> Result<Listener, String> effects [IO]
+	match listen(Address(Tcp4, "127.0.0.1", 0))
+		Ok(listener) => Ok(listener)
+		Err(_) => Err("listener setup failed")
+	end
+end
+
+fn fail_with_inner_resource() -> Result<(), String> effects [IO]
+	let _ = acquire_listener()?
+	Err("propagated body failure")
+end
+
+fn outer_body() -> Result<(), String> effects [IO, net, time, stdio]
+	let _ = acquire_listener()?
+	defer
+		stdio::println("outer deferred")
+	end
+	let _ = handle fail_with_inner_resource()? with system()
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
+	let listens = channel::bounded<Int>(1)
+	let _ = channel::send(listens.tx, 0)
+	let _ = handle handle outer_body()? with system() with failing_cleanup_network(listens)
+	Ok(())
+end

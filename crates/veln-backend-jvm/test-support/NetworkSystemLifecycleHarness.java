@@ -595,6 +595,54 @@ public final class NetworkSystemLifecycleHarness {
         }
     }
 
+    private static void verifyCleanupUncertaintyIsMonotonic() throws Exception {
+        java.util.concurrent.atomic.AtomicInteger closes =
+            new java.util.concurrent.atomic.AtomicInteger();
+        VelnRuntime.Fn provider = new VelnRuntime.Fn() {
+            public Object call(Object... args) {
+                String operation = (String) args[0];
+                if (!operation.equals("close_stream")) {
+                    throw new AssertionError("unexpected cleanup operation " + operation);
+                }
+                int attempt = closes.getAndIncrement();
+                if (attempt == 0) return closeReply("error", -1L);
+                if (attempt == 1) return closeReply("error", 0L);
+                return closeReply("ok", 1L);
+            }
+        };
+        VelnRuntime.pushHandler(
+            "std::host_effects::Network",
+            new Object[] { "request" },
+            new Object[] { provider },
+            new Object[0]
+        );
+        Object adapter = topHandler();
+        VelnRuntime.pushHandler(
+            "std::net::IO",
+            new Object[0],
+            new Object[0],
+            new Object[0]
+        );
+        Object owner = topHandler();
+        Object target = STREAM_CONSTRUCTOR.newInstance(
+            "target", "127.0.0.1:1", "127.0.0.1:2", null, adapter
+        );
+        register(owner, target);
+        Throwable failure = null;
+        try {
+            VelnRuntime.popHandler();
+        } catch (Throwable observed) {
+            failure = observed;
+        } finally {
+            VelnRuntime.popHandler();
+        }
+        if (failure != null || closes.get() != 3 || !resources(owner).isEmpty()) {
+            throw new AssertionError(
+                "cleanup did not retain uncertainty through an uncommitted retry"
+            );
+        }
+    }
+
     private static void verifyLateProducerPathRetriesDuringProductionCleanup(
         String producer,
         long firstCommit,
@@ -763,6 +811,7 @@ public final class NetworkSystemLifecycleHarness {
     }
 
     private static void verifyAtomicResourcePublication() throws Exception {
+        verifyCleanupUncertaintyIsMonotonic();
         for (long commit : new long[] { 0L, -1L }) {
             verifyOrdinaryPopRetriesCleanupAndFailsTerminally(commit);
             for (boolean persistent : new boolean[] { false, true }) {

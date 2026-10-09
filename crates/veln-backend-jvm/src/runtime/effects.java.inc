@@ -1237,6 +1237,9 @@
                 || stream.writeShutdown || stream.writeShutdownUncertain;
         }
     }
+    private static boolean netSystemRetainUncertainty(boolean uncertain, Boolean committed) {
+        return !Boolean.TRUE.equals(committed) && (uncertain || committed == null);
+    }
     private static boolean netSystemPublishResource(HandlerFrame owner, Object resource) {
         synchronized (owner.networkResources) {
             if (resource instanceof NetListener) ((NetListener) resource).systemOwner = owner;
@@ -1601,7 +1604,10 @@
                     listener.closeUncertain = false;
                     netSystemReleaseResource(owner, listener);
                 } else {
-                    listener.closeUncertain = committed == null;
+                    listener.closeUncertain = netSystemRetainUncertainty(
+                        listener.closeUncertain,
+                        committed
+                    );
                 }
                 return err(error);
             }
@@ -1718,10 +1724,16 @@
                 Boolean committed = netSystemFailureCommit(failure, read, !read);
                 if (read) {
                     stream.readShutdown = Boolean.TRUE.equals(committed);
-                    stream.readShutdownUncertain = committed == null;
+                    stream.readShutdownUncertain = netSystemRetainUncertainty(
+                        stream.readShutdownUncertain,
+                        committed
+                    );
                 } else {
                     stream.writeShutdown = Boolean.TRUE.equals(committed);
-                    stream.writeShutdownUncertain = committed == null;
+                    stream.writeShutdownUncertain = netSystemRetainUncertainty(
+                        stream.writeShutdownUncertain,
+                        committed
+                    );
                 }
                 return err(error);
             }
@@ -1748,7 +1760,10 @@
                     stream.readShutdown = true; stream.writeShutdown = true;
                     netSystemReleaseResource(owner, stream);
                 } else {
-                    stream.closeUncertain = committed == null;
+                    stream.closeUncertain = netSystemRetainUncertainty(
+                        stream.closeUncertain,
+                        committed
+                    );
                 }
                 return err(error);
             }
@@ -1778,7 +1793,10 @@
                         stream.readShutdown = true; stream.writeShutdown = true;
                         netSystemReleaseResource(owner, stream);
                     } else {
-                        stream.closeUncertain = committed == null;
+                        stream.closeUncertain = netSystemRetainUncertainty(
+                            stream.closeUncertain,
+                            committed
+                        );
                     }
                 }
             }
@@ -1804,7 +1822,10 @@
                     listener.systemClosed = true; listener.closeUncertain = false;
                     netSystemReleaseResource(owner, listener);
                 } else {
-                    listener.closeUncertain = committed == null;
+                    listener.closeUncertain = netSystemRetainUncertainty(
+                        listener.closeUncertain,
+                        committed
+                    );
                 }
             }
         }
