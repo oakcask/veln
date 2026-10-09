@@ -155,10 +155,15 @@ endpoints. An empty result is `NameNotFound`. The deadline and cancellation
 token supplied to `connect_with` bound both name resolution and every endpoint
 attempt. An already expired deadline or cancelled token prevents resolution
 from starting. Task cancellation also interrupts an in-progress resolution.
+Host resolution uses finite running and waiting capacity. If that capacity is
+exhausted, `connect_with` returns `Busy` without creating another resolver
+worker or retaining unbounded queued work.
 Listen on port zero reports the assigned local port. Expected address,
 resolver, socket, deadline, cancellation, and lifecycle failures are returned
-as `NetError`; an unrecognized host failure uses `Other` instead of becoming a
-runtime diagnostic.
+as `NetError`; an unrecognized failure reported through the typed host boundary
+uses `Other`. A Veln runtime failure, an unexpected unchecked host failure, or
+a JVM error remains an abrupt failure. It is not converted to `Other`, does not
+trigger another endpoint attempt, and still unwinds handler cleanup.
 
 System reads return non-empty `ReadChunk` values. They return `ReadEnd` after
 the peer write half ends and buffered bytes have been consumed; later reads
@@ -193,6 +198,9 @@ Listener state transitions are:
 | Open | `accept` succeeds | The listener stays open and returns a fresh open stream. |
 | Open | `accept` times out or is cancelled | The listener stays open and returns `TimedOut` or `Cancelled`. |
 | Open | `close_listener` | The listener becomes closed, returns `Ok(())`, and interrupts blocked accepts with `Closed`. |
+| Open | `close_listener` fails before host closure commits | The listener stays open, returns the error, retains its cleanup obligation, and a later explicit close retries the host operation. |
+| Open | `close_listener` reports failure after host closure commits | The listener becomes confirmed closed and returns the error; a later close is idempotently successful. |
+| Open | `close_listener` fails with unknown commit state | The listener becomes close-uncertain, returns the error, rejects ordinary operations with `Closed`, retains its cleanup obligation, and a later explicit close retries. |
 | Closed | `close_listener` | The listener stays closed and returns `Ok(())`. |
 | Closed | `accept` | The listener stays closed and returns `Closed`. |
 | Any | Another handler uses the listener | The listener does not change and the operation returns `InvalidResource`. |
@@ -204,13 +212,22 @@ A stream tracks its read and write halves independently:
 | Read open | `read` receives bytes | The read half stays open and returns a non-empty `ReadChunk`. |
 | Read open | The peer ends its write half after buffered bytes drain | The read half becomes peer-ended and returns `ReadEnd`; later reads also return `ReadEnd`. |
 | Read open | `shutdown_read` | The read half becomes shut, unread buffered input is discarded, and a blocked or later read returns `Closed`. |
+| Read open | `shutdown_read` fails without committing | The read half stays open and retryable. The call returns the error, and a concurrent successful read keeps its bytes. |
+| Read open | `shutdown_read` reports a committed failure | The read half becomes shut and the call returns the error; a concurrent blocked read observes `Closed`. |
+| Read open | `shutdown_read` fails with unknown commit state | The read half becomes shutdown-uncertain and unavailable to reads until an explicit shutdown retry confirms its state. |
 | Read open | `read` times out or is cancelled | The read half stays open and returns `TimedOut` or `Cancelled`. |
 | Read open | `read` has another failure | The read half becomes failed and returns that error; later reads return `Closed`. |
 | Write open | `write` commits without failure | The write half stays open and returns the committed count. |
 | Write open | `write` times out or is cancelled | The write half stays open and returns the committed prefix with `TimedOut` or `Cancelled`. |
 | Write open | `write` has another failure | The write half becomes failed and returns the committed prefix with that error; later writes return zero committed with `Closed`. |
 | Write open | `shutdown_write` | The write half becomes shut, returns `Ok(())`, and a blocked or later write returns its committed prefix with `Closed`. |
+| Write open | `shutdown_write` fails without committing | The write half stays open and retryable. The call returns the error, and a concurrent successful write keeps its exact committed prefix. |
+| Write open | `shutdown_write` reports a committed failure | The write half becomes shut and the call returns the error; a concurrent blocked write reports its committed prefix with `Closed`. |
+| Write open | `shutdown_write` fails with unknown commit state | The write half becomes shutdown-uncertain and unavailable to writes until an explicit shutdown retry confirms its state. |
 | Either half open | `close_stream` | Both halves become closed, the call returns `Ok(())`, and blocked operations return `Closed`. |
+| Not closed | `close_stream` fails before host closure commits | Both halves keep their prior state, the call returns the error, the cleanup obligation remains, and a later explicit close retries the host operation. |
+| Not closed | `close_stream` reports failure after host closure commits | Both halves become confirmed closed and the call returns the error; a later close is idempotently successful. |
+| Not closed | `close_stream` fails with unknown commit state | The stream becomes close-uncertain, the call returns the error, ordinary operations return `Closed`, the cleanup obligation remains, and a later explicit close retries. |
 | Both halves closed | `close_stream` | Both halves stay closed and the call returns `Ok(())`. |
 | Any | Another handler uses the stream | The stream does not change and the operation returns `InvalidResource`. |
 

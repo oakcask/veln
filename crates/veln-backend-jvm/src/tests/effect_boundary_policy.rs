@@ -132,3 +132,14 @@ fn network_system_cleanup_uses_one_identity_ledger_without_activation_races() {
     );
     assert!(effects.contains("owner.networkResources.clear();"));
 }
+
+#[test]
+fn network_system_resolution_has_bounded_detached_workers() {
+    let effects = include_str!("../runtime/effects.java.inc");
+
+    assert!(effects.contains("NET_SYSTEM_RESOLVER_WORKERS = 4"));
+    assert!(effects.contains("new java.util.concurrent.SynchronousQueue<Runnable>()"));
+    assert!(effects.contains("new java.util.concurrent.ThreadPoolExecutor.AbortPolicy()"));
+    assert!(effects.contains("HANDLERS.remove();"));
+    assert!(!effects.contains("new Thread(resolution"));
+}

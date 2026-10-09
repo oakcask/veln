@@ -411,6 +411,7 @@ fn exercise() -> Result<(), net::NetError> effects [net::IO, net, time, concurre
 	stdio::println("listener close interruption")
 	let _ = net::close_listener(listener)?
 	let _ = net::close_listener(listener)?
+	stdio::println("confirmed close idempotence")
 	require_connect_failure(net::connect_with(local, Some(time::deadline_after_ms(1000)), None))
 end
 

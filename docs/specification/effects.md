@@ -652,7 +652,12 @@ token state. The reply is an ordinary record with these fields:
 
 Handlers supply the complete typed reply record declared by the standard
 module. `bytes_committed` is independent of the three commit facts and never
-changes their tri-state interpretation. A scoped network handler receives
+changes their tri-state interpretation. A failed `shutdown_read` consumes
+`input_committed`, a failed `shutdown_write` consumes `output_committed`, and a
+failed listener or stream close consumes `ownership_committed`. A false fact
+leaves the affected state retryable. A true fact commits the closed state. An
+unknown fact makes the affected resource or half unavailable while retaining
+the cleanup obligation and permitting an explicit retry. A scoped network handler receives
 `resolve_tcp`, `resolve_tcp4`, or `resolve_tcp6` for system-handler resolution;
 the request carries the remaining deadline and cancellation state supplied to
 `connect_with`. Therefore deterministic resolution does not consult ambient

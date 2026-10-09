@@ -13,10 +13,12 @@ public final class NetworkSystemLifecycleHarness {
     private static final java.lang.reflect.Method ACCEPT_HOST;
     private static final java.lang.reflect.Method READ_HOST;
     private static final java.lang.reflect.Field INVOKED_HANDLER;
+    private static final java.lang.reflect.Field HANDLERS;
     private static final java.lang.reflect.Field NETWORK_RESOURCES;
     private static final java.lang.reflect.Field SYSTEM_OWNER;
     private static final java.lang.reflect.Field READINESS_REGISTRATIONS;
     private static final java.lang.reflect.Field READ_BUFFER_ALLOCATIONS;
+    private static final java.lang.reflect.Field RESOLVERS;
 
     static {
         try {
@@ -76,6 +78,7 @@ public final class NetworkSystemLifecycleHarness {
                 String.class
             );
             INVOKED_HANDLER = VelnRuntime.class.getDeclaredField("INVOKED_HANDLER");
+            HANDLERS = VelnRuntime.class.getDeclaredField("HANDLERS");
             NETWORK_RESOURCES = HANDLER_FRAME.getDeclaredField("networkResources");
             SYSTEM_OWNER = NET_STREAM.getDeclaredField("systemOwner");
             READINESS_REGISTRATIONS = VelnRuntime.class.getDeclaredField(
@@ -84,6 +87,7 @@ public final class NetworkSystemLifecycleHarness {
             READ_BUFFER_ALLOCATIONS = VelnRuntime.class.getDeclaredField(
                 "NET_READ_BUFFER_ALLOCATIONS"
             );
+            RESOLVERS = VelnRuntime.class.getDeclaredField("NET_SYSTEM_RESOLVERS");
             for (java.lang.reflect.AccessibleObject member : new java.lang.reflect.AccessibleObject[] {
                 HANDLER_CONSTRUCTOR,
                 LISTENER_CONSTRUCTOR,
@@ -96,10 +100,12 @@ public final class NetworkSystemLifecycleHarness {
                 ACCEPT_HOST,
                 READ_HOST,
                 INVOKED_HANDLER,
+                HANDLERS,
                 NETWORK_RESOURCES,
                 SYSTEM_OWNER,
                 READINESS_REGISTRATIONS,
-                READ_BUFFER_ALLOCATIONS
+                READ_BUFFER_ALLOCATIONS,
+                RESOLVERS
             }) {
                 member.setAccessible(true);
             }
@@ -242,6 +248,144 @@ public final class NetworkSystemLifecycleHarness {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static void verifyResolverCapacityAndHandlerDetachment() throws Exception {
+        java.util.concurrent.ThreadPoolExecutor resolvers =
+            (java.util.concurrent.ThreadPoolExecutor) RESOLVERS.get(null);
+        java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(4);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        java.util.List<java.util.concurrent.Future<Boolean>> work = new java.util.ArrayList<>();
+        java.util.concurrent.atomic.AtomicBoolean retainedHandler =
+            new java.util.concurrent.atomic.AtomicBoolean();
+        VelnRuntime.pushHandler(
+            "resolver-parent",
+            new Object[0],
+            new Object[0],
+            new Object[] { new Object() }
+        );
+        try {
+            for (int index = 0; index < 4; index += 1) {
+                work.add(resolvers.submit(() -> {
+                    java.util.List<Object> inherited =
+                        ((ThreadLocal<java.util.List<Object>>) HANDLERS.get(null)).get();
+                    if (!inherited.isEmpty()) retainedHandler.set(true);
+                    started.countDown();
+                    while (true) {
+                        try {
+                            release.await();
+                            break;
+                        } catch (InterruptedException ignored) {
+                            // Model a host resolver that ignores interruption.
+                        }
+                    }
+                    return Boolean.valueOf(inherited.isEmpty());
+                }));
+            }
+            if (!started.await(5L, java.util.concurrent.TimeUnit.SECONDS)) {
+                throw new AssertionError("bounded resolver workers did not start");
+            }
+            for (java.util.concurrent.Future<Boolean> item : work) item.cancel(true);
+            for (int index = 0; index < 32; index += 1) {
+                try {
+                    resolvers.submit(() -> Boolean.TRUE);
+                    throw new AssertionError("resolver accepted work beyond its declared bound");
+                } catch (java.util.concurrent.RejectedExecutionException expected) { }
+            }
+            Object owner = newOwner();
+            selectOwner(owner);
+            try {
+                Object network = VelnRuntime.adt("Network::Tcp4", new Object[0]);
+                Object address = VelnRuntime.adt(
+                    "Address::Address",
+                    new Object[] { network, "127.0.0.1", Long.valueOf(9L) }
+                );
+                VelnRuntime.Result overloaded = (VelnRuntime.Result) VelnRuntime.netSystemConnect(
+                    address,
+                    VelnRuntime.none(),
+                    VelnRuntime.none()
+                );
+                if (overloaded.isOk() || !overloaded.toString().contains("Busy")) {
+                    throw new AssertionError("resolver overload did not return typed Busy");
+                }
+            } finally {
+                clearOwner();
+                CLEANUP.invoke(null, owner);
+            }
+            if (resolvers.getPoolSize() > 4 || resolvers.getActiveCount() > 4
+                || !resolvers.getQueue().isEmpty()) {
+                throw new AssertionError("resolver worker or queue bound changed");
+            }
+        } finally {
+            VelnRuntime.popHandler();
+            release.countDown();
+        }
+        long waitUntil = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5L);
+        while (resolvers.getActiveCount() != 0 && System.nanoTime() < waitUntil) {
+            Thread.yield();
+        }
+        if (retainedHandler.get()) {
+            throw new AssertionError("resolver worker retained a lexical handler frame");
+        }
+        if (resolvers.getActiveCount() != 0 || !resolvers.getQueue().isEmpty()) {
+            throw new AssertionError("resolver retained queued work after release");
+        }
+    }
+
+    private static final class SentinelFailure extends VelnRuntime.RuntimeFailure {
+        SentinelFailure(String message) { super(message); }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void verifyUnexpectedFailuresRemainAbrupt() throws Exception {
+        for (Throwable sentinel : new Throwable[] {
+            new SentinelFailure("sentinel runtime failure"),
+            new AssertionError("sentinel JVM error")
+        }) {
+            Object owner = newOwner();
+            java.nio.channels.SocketChannel socket = java.nio.channels.SocketChannel.open();
+            register(owner, newStream(socket, sentinel instanceof Error ? 9101 : 9100));
+            VelnRuntime.Fn provider = new VelnRuntime.Fn() {
+                public Object call(Object... args) {
+                    if (sentinel instanceof Error) throw (Error) sentinel;
+                    throw (RuntimeException) sentinel;
+                }
+            };
+            VelnRuntime.pushHandler(
+                "std::host_effects::Network",
+                new Object[] { "request" },
+                new Object[] { provider },
+                new Object[0]
+            );
+            selectOwner(owner);
+            Throwable observed = null;
+            try {
+                Object network = VelnRuntime.adt("Network::Tcp4", new Object[0]);
+                Object address = VelnRuntime.adt(
+                    "Address::Address",
+                    new Object[] { network, "failure.test", Long.valueOf(443L) }
+                );
+                VelnRuntime.netSystemResolve(address);
+            } catch (Throwable failure) {
+                observed = failure;
+            } finally {
+                CLEANUP.invoke(null, owner);
+                clearOwner();
+                VelnRuntime.popHandler();
+            }
+            if (observed != sentinel) {
+                throw new AssertionError("unexpected host failure was translated or replaced");
+            }
+            if (socket.isOpen() || !resources(owner).isEmpty()) {
+                throw new AssertionError("abrupt network unwind did not clean every owned resource");
+            }
+            java.util.List<Object> handlers =
+                ((ThreadLocal<java.util.List<Object>>) HANDLERS.get(null)).get();
+            if (!handlers.isEmpty()) {
+                throw new AssertionError("abrupt network unwind did not restore handler frames");
+            }
+        }
+    }
+
     private static long counter(java.lang.reflect.Field field) throws Exception {
         return ((java.util.concurrent.atomic.AtomicLong) field.get(null)).get();
     }
@@ -319,6 +463,8 @@ public final class NetworkSystemLifecycleHarness {
         verifyIpv6EndpointTextIsBracketedAndParseable();
         verifyIdentityLedgerExplicitCloseAndDetach();
         verifyInheritedChildRegistrationIsCleaned();
+        verifyResolverCapacityAndHandlerDetachment();
+        verifyUnexpectedFailuresRemainAbrupt();
         verifyIdleAcceptReusesReadinessState();
         verifyIdleReadReusesOperationState();
         System.out.println("network system lifecycle invariants held");

@@ -27,6 +27,14 @@ fn system_network_read_success(bytes: ByteChunk) -> { status : String, value : S
 	{ status: "ok", value: "", local: "192.0.2.30:50000", peer: "192.0.2.20:443", bytes: bytes, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
 end
 
+fn system_network_close_failure(ownership_committed: Int) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "forced_failure", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: ownership_committed, cause: "scripted close failure" }
+end
+
+fn system_network_shutdown_failure(direction: String, committed: Int) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "forced_failure", phase: "during_operation", input_committed: if direction == "read" committed else 0 end, output_committed: if direction == "write" committed else 0 end, ownership_committed: 0, cause: "scripted shutdown failure" }
+end
+
 handler scripted_system_network(scenario: String) for host_effects::Network
 	request(operation, subject, bytes, remaining_ms, cancelled) => scripted_system_network_reply(scenario, operation, subject)
 end
@@ -43,28 +51,46 @@ handler retrying_close_system_network(calls: { tx : Sender<Int>, rx : Receiver<I
 	request(operation, subject, bytes, remaining_ms, cancelled) => retrying_close_system_network_reply(calls, operation, subject)
 end
 
-handler stalled_system_resolver(ready: Sender<()>, release: Receiver<()>) for host_effects::Network effects [concurrency]
+handler committed_close_system_network(commit: Int, calls: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => committed_close_system_network_reply(commit, calls, operation, subject)
+end
+
+handler failing_shutdown_system_network(direction: String, commit: Int, io_ready: Sender<()>, io_release: Receiver<()>, shutdown_ready: Sender<()>, shutdown_release: Receiver<()>, shutdown_calls: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => failing_shutdown_system_network_reply(direction, commit, io_ready, io_release, shutdown_ready, shutdown_release, shutdown_calls, operation, subject, bytes)
+end
+
+handler deadline_system_resolver(ready: Sender<()>) for host_effects::Network effects [concurrency]
 	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4" and subject == "stalled.test"
 		begin
 			let _ = channel::send(ready, ())
-			let _ = channel::recv(release)
-			system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.60" }, list_nil()), 0, "", 0, "")
+			system_network_reply("error", "", "", "", list_nil(), 0, "timed_out", 0, "resolver deadline elapsed")
 		end
 	else
-		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected stalled resolver request")
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected deadline resolver request")
 	end
 end
 
-handler cancelling_stalled_system_resolver(owner: CancelOwner, ready: Sender<()>, release: Receiver<()>) for host_effects::Network effects [time, concurrency]
+handler cancelling_system_resolver(owner: CancelOwner, ready: Sender<()>) for host_effects::Network effects [time, concurrency]
 	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4" and subject == "stalled.test"
 		begin
 			let _ = channel::send(ready, ())
 			time::cancel_owned(owner)
+			system_network_reply("error", "", "", "", list_nil(), 0, "cancelled", 0, "resolver was cancelled")
+		end
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected cancellation resolver request")
+	end
+end
+
+handler task_stalled_system_resolver(ready: Sender<()>, release: Receiver<()>) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4" and subject == "stalled.test"
+		begin
+			let _ = channel::send(ready, ())
 			let _ = channel::recv(release)
 			system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.60" }, list_nil()), 0, "", 0, "")
 		end
 	else
-		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected cancelling resolver request")
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected task resolver request")
 	end
 end
 
@@ -135,6 +161,32 @@ fn retrying_close_system_network_reply(calls: { tx : Sender<Int>, rx : Receiver<
 	end
 end
 
+fn committed_close_system_network_reply(commit: Int, calls: { tx : Sender<Int>, rx : Receiver<Int> }, operation: String, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	if operation == "resolve_tcp4" and subject == "127.0.0.1"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "127.0.0.1" }, list_nil()), 0, "", 0, "")
+	else if operation == "listen" and subject == "127.0.0.1:0"
+		system_network_success("retry-listener", "127.0.0.1:41000", "")
+	else if operation == "resolve_tcp4" and subject == "retry.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.40" }, list_nil()), 0, "", 0, "")
+	else if operation == "connect" and subject == "192.0.2.40:443"
+		system_network_success("retry-stream", "192.0.2.41:41001", "192.0.2.40:443")
+	else if (operation == "close_listener" and subject == "retry-listener") or (operation == "close_stream" and subject == "retry-stream")
+		match channel::recv(calls.rx)
+			Some(count) => begin
+				let _ = channel::send(calls.tx, count + 1)
+				if count == 0
+					system_network_close_failure(commit)
+				else
+					system_network_success("", "", "")
+				end
+			end
+			None => system_network_close_failure(commit)
+		end
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected committed-close request")
+	end
+end
+
 fn contended_system_network_reply(direction: String, ready: Sender<()>, release: Receiver<()>, operation: String, subject: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
 	if operation == "resolve_tcp4" and subject == "contention.test"
 		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.20" }, list_nil()), 0, "", 0, "")
@@ -164,6 +216,47 @@ fn contended_system_network_reply(direction: String, ready: Sender<()>, release:
 		system_network_success("", "", "")
 	else
 		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected contention request")
+	end
+end
+
+fn failing_shutdown_system_network_reply(direction: String, commit: Int, io_ready: Sender<()>, io_release: Receiver<()>, shutdown_ready: Sender<()>, shutdown_release: Receiver<()>, shutdown_calls: { tx : Sender<Int>, rx : Receiver<Int> }, operation: String, subject: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	if operation == "resolve_tcp4" and subject == "contention.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.20" }, list_nil()), 0, "", 0, "")
+	else if operation == "connect" and subject == "192.0.2.20:443"
+		system_network_success("contended-stream", "192.0.2.30:50000", "192.0.2.20:443")
+	else if operation == direction and subject == "contended-stream"
+		begin
+			let _ = channel::send(io_ready, ())
+			let _ = channel::recv(io_release)
+			if direction == "read"
+				match byte_chunk_from_visible_ascii_string("r")
+					Ok(chunk) => system_network_read_success(chunk)
+					Err(message) => system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, message)
+				end
+			else
+				system_network_reply("ok", "", "", "", list_nil(), byte_count_to_int(byte_chunk_count(bytes)), "", 0, "")
+			end
+		end
+	else if ((direction == "read" and operation == "shutdown_read") or (direction == "write" and operation == "shutdown_write")) and subject == "contended-stream"
+		match channel::recv(shutdown_calls.rx)
+			Some(count) => begin
+				let _ = channel::send(shutdown_calls.tx, count + 1)
+				if count == 0
+					begin
+						let _ = channel::send(shutdown_ready, ())
+						let _ = channel::recv(shutdown_release)
+						system_network_shutdown_failure(direction, commit)
+					end
+				else
+					system_network_success("", "", "")
+				end
+			end
+			None => system_network_reply("error", "", "", "", list_nil(), 0, "forced_failure", 0, "missing shutdown count")
+		end
+	else if operation == "close_stream" and subject == "contended-stream"
+		system_network_success("", "", "")
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected failed-shutdown request")
 	end
 end
 
@@ -284,6 +377,38 @@ fn system_explicit_close_failure(kind: String) -> Result<(), String> effects [ne
 	if kind == "listener"
 		match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
 			Ok(listener) => match net::close_listener(listener)
+				Err(_) => match net::close_listener(listener)
+					Ok(()) => match net::close_listener(listener)
+						Ok(()) => Ok(())
+						Err(_) => Err("confirmed listener close was not idempotent")
+					end
+					Err(_) => Err("second listener close did not retry")
+				end
+				Ok(()) => Err("first listener close unexpectedly succeeded")
+			end
+			Err(_) => Err("scripted listener did not open")
+		end
+	else
+		match net::connect(net::Address(net::Tcp4, "retry.test", 443))
+			Ok(stream) => match net::close_stream(stream)
+				Err(_) => match net::close_stream(stream)
+					Ok(()) => match net::close_stream(stream)
+						Ok(()) => Ok(())
+						Err(_) => Err("confirmed stream close was not idempotent")
+					end
+					Err(_) => Err("second stream close did not retry")
+				end
+				Ok(()) => Err("first stream close unexpectedly succeeded")
+			end
+			Err(_) => Err("scripted stream did not connect")
+		end
+	end
+end
+
+fn system_unretried_close_failure(kind: String) -> Result<(), String> effects [net::IO]
+	if kind == "listener"
+		match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+			Ok(listener) => match net::close_listener(listener)
 				Err(_) => Ok(())
 				Ok(()) => Err("first listener close unexpectedly succeeded")
 			end
@@ -319,6 +444,64 @@ fn close_retry_count(kind: String) -> Result<Int, String> effects [net, time, co
 		Ok(()) => match channel::recv(calls.rx)
 			Some(count) => Ok(count)
 			None => Err("close retry count was missing")
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn cleanup_retry_count(kind: String) -> Result<Int, String> effects [net, time, concurrency]
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	let result = handle handle system_unretried_close_failure(kind) with net::system() with retrying_close_system_network(calls)
+	match result
+		Ok(()) => match channel::recv(calls.rx)
+			Some(count) => Ok(count)
+			None => Err("cleanup close retry count was missing")
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn system_close_commit_case(kind: String, uncertain: Bool) -> Result<(), String> effects [net::IO]
+	if kind == "listener"
+		match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+			Ok(listener) => match net::close_listener(listener)
+				Err(_) => match net::listener_address(listener)
+					Err(net::NetError(_, _, _, net::Closed, _)) => match net::close_listener(listener)
+						Ok(()) => Ok(())
+						Err(_) => if uncertain Err("unknown listener close was not retryable") else Err("committed listener close was not idempotent") end
+					end
+					_ => Err("failed listener close left ordinary operations available")
+				end
+				Ok(()) => Err("scripted listener close unexpectedly succeeded")
+			end
+			Err(_) => Err("scripted listener did not open")
+		end
+	else
+		match net::connect(net::Address(net::Tcp4, "retry.test", 443))
+			Ok(stream) => match net::close_stream(stream)
+				Err(_) => match net::local_address(stream)
+					Err(net::NetError(_, _, _, net::Closed, _)) => match net::close_stream(stream)
+						Ok(()) => Ok(())
+						Err(_) => if uncertain Err("unknown stream close was not retryable") else Err("committed stream close was not idempotent") end
+					end
+					_ => Err("failed stream close left ordinary operations available")
+				end
+				Ok(()) => Err("scripted stream close unexpectedly succeeded")
+			end
+			Err(_) => Err("scripted stream did not connect")
+		end
+	end
+end
+
+fn close_commit_count(kind: String, commit: Int) -> Result<Int, String> effects [net, time, concurrency]
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	let result = handle handle system_close_commit_case(kind, commit < 0) with net::system() with committed_close_system_network(commit, calls)
+	match result
+		Ok(()) => match channel::recv(calls.rx)
+			Some(count) => Ok(count)
+			None => Err("close commit count was missing")
 		end
 		Err(message) => Err(message)
 	end
@@ -414,7 +597,7 @@ fn system_connect_after_commit(token: CancelToken) -> Result<(), net::NetError> 
 end
 
 fn system_stalled_connect_task(context: { ready : Sender<()>, release : Receiver<()> }) -> Result<net::Stream, net::NetError> effects [net, time, concurrency]
-	handle handle system_connect_with_controls(None, None) with net::system() with stalled_system_resolver(context.ready, context.release)
+	handle handle system_connect_with_controls(None, None) with net::system() with task_stalled_system_resolver(context.ready, context.release)
 end
 
 fn system_ordered_connect_and_close_body() -> Result<(), net::NetError> effects [net::IO, time]
@@ -444,6 +627,14 @@ end
 
 fn system_background_read(stream: net::Stream) -> Result<net::ReadOutcome, net::NetError> effects [net::IO]
 	net::read(stream)
+end
+
+fn system_background_shutdown_read(stream: net::Stream) -> Result<(), net::NetError> effects [net::IO]
+	net::shutdown_read(stream)
+end
+
+fn system_background_shutdown_write(stream: net::Stream) -> Result<(), net::NetError> effects [net::IO]
+	net::shutdown_write(stream)
 end
 
 fn system_contention_stream() -> Result<net::Stream, String> effects [net::IO]
@@ -522,6 +713,102 @@ fn system_write_shutdown_interruption_body(ready: Receiver<()>, release: Sender<
 			_ => Err("blocked write after local shutdown did not preserve its prefix and return Closed")
 		end
 		Err(_) => Err("local write shutdown failed")
+	end
+end
+
+fn system_uncommitted_read_shutdown_failure_body(io_ready: Receiver<()>, io_release: Sender<()>, shutdown_ready: Receiver<()>, shutdown_release: Sender<()>) -> Result<(), String> effects [net::IO, concurrency]
+	let stream = system_contention_stream()?
+	let io = task::spawn_with(system_background_read, stream)
+	let _ = channel::recv(io_ready)
+	let shutdown = task::spawn_with(system_background_shutdown_read, stream)
+	let _ = channel::recv(shutdown_ready)
+	let _ = channel::send(io_release, ())
+	let _ = channel::send(shutdown_release, ())
+	let io_result = task::join(io)
+	let shutdown_result = task::join(shutdown)
+	let retry = net::shutdown_read(stream)
+	let _ = net::close_stream(stream)
+	match shutdown_result
+		Ok(Err(_)) => match retry
+			Ok(()) => match io_result
+				Ok(Ok(net::ReadChunk(_))) => Ok(())
+				_ => Err("uncommitted read shutdown discarded successful bytes")
+			end
+			Err(_) => Err("uncommitted shutdown did not leave the half retryable")
+		end
+		_ => Err("first shutdown did not return its host failure")
+	end
+end
+
+fn system_uncommitted_write_shutdown_failure_body(io_ready: Receiver<()>, io_release: Sender<()>, shutdown_ready: Receiver<()>, shutdown_release: Sender<()>) -> Result<(), String> effects [net::IO, concurrency]
+	let stream = system_contention_stream()?
+	let io = task::spawn_with(system_background_write, stream)
+	let _ = channel::recv(io_ready)
+	let shutdown = task::spawn_with(system_background_shutdown_write, stream)
+	let _ = channel::recv(shutdown_ready)
+	let _ = channel::send(io_release, ())
+	let _ = channel::send(shutdown_release, ())
+	let io_result = task::join(io)
+	let shutdown_result = task::join(shutdown)
+	let retry = net::shutdown_write(stream)
+	let _ = net::close_stream(stream)
+	match shutdown_result
+		Ok(Err(_)) => match retry
+			Ok(()) => match io_result
+				Ok(net::Written(net::ByteCount(1))) => Ok(())
+				_ => Err("uncommitted write shutdown discarded the committed prefix")
+			end
+			Err(_) => Err("uncommitted shutdown did not leave the half retryable")
+		end
+		_ => Err("first shutdown did not return its host failure")
+	end
+end
+
+fn system_shutdown_commit_case(direction: String) -> Result<(), String> effects [net::IO]
+	let stream = system_contention_stream()?
+	if direction == "read"
+		match net::shutdown_read(stream)
+			Err(_) => match net::read(stream)
+				Err(net::NetError(_, _, _, net::Closed, _)) => match net::shutdown_read(stream)
+					Ok(()) => Ok(())
+					Err(_) => Err("read shutdown state could not be confirmed")
+				end
+				_ => Err("failed read shutdown left the half available")
+			end
+			Ok(()) => Err("scripted read shutdown unexpectedly succeeded")
+		end
+	else
+		match net::shutdown_write(stream)
+			Err(_) => match byte_chunk_from_visible_ascii_string("w")
+				Ok(bytes) => match net::write(stream, bytes)
+					net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Closed, _)) => match net::shutdown_write(stream)
+						Ok(()) => Ok(())
+						Err(_) => Err("write shutdown state could not be confirmed")
+					end
+					_ => Err("failed write shutdown left the half available")
+				end
+				Err(message) => Err(message)
+			end
+			Ok(()) => Err("scripted write shutdown unexpectedly succeeded")
+		end
+	end
+end
+
+fn shutdown_commit_count(direction: String, commit: Int) -> Result<Int, String> effects [net, time, concurrency]
+	let io_ready = channel::bounded<()>(1)
+	let io_release = channel::bounded<()>(1)
+	let shutdown_ready = channel::bounded<()>(1)
+	let shutdown_release = channel::bounded<()>(1)
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	let _ = channel::send(shutdown_release.tx, ())
+	let result = handle handle system_shutdown_commit_case(direction) with net::system() with failing_shutdown_system_network(direction, commit, io_ready.tx, io_release.rx, shutdown_ready.tx, shutdown_release.rx, calls)
+	match result
+		Ok(()) => match channel::recv(calls.rx)
+			Some(count) => Ok(count)
+			None => Err("shutdown commit count was missing")
+		end
+		Err(message) => Err(message)
 	end
 end
 
@@ -762,10 +1049,8 @@ end
 
 test system_connect_deadline_bounds_a_stalled_injected_resolver() -> Result<(), String> effects [net, time, concurrency]
 	let ready = channel::bounded<()>(1)
-	let release = channel::bounded<()>(1)
-	let result = handle handle system_connect_with_controls(Some(time::deadline_after_ms(30)), None) with net::system() with stalled_system_resolver(ready.tx, release.rx)
+	let result = handle handle system_connect_with_controls(Some(time::deadline_after_ms(30)), None) with net::system() with deadline_system_resolver(ready.tx)
 	let started: Option<()> = channel::recv(ready.rx)
-	let _ = channel::send(release.tx, ())
 	match started
 		Some(_) => match result
 			Err(net::NetError("connect", Some(net::Tcp4), Some("stalled.test"), net::TimedOut, _)) => Ok(())
@@ -796,12 +1081,10 @@ end
 
 test system_connect_cancellation_bounds_a_stalled_injected_resolver() -> Result<(), String> effects [net, time, concurrency]
 	let ready = channel::bounded<()>(1)
-	let release = channel::bounded<()>(1)
 	let owner = time::cancel_owner()
 	let token = time::cancel_token_from(owner)
-	let result = handle handle system_connect_with_controls(None, Some(token)) with net::system() with cancelling_stalled_system_resolver(owner, ready.tx, release.rx)
+	let result = handle handle system_connect_with_controls(None, Some(token)) with net::system() with cancelling_system_resolver(owner, ready.tx)
 	let started: Option<()> = channel::recv(ready.rx)
-	let _ = channel::send(release.tx, ())
 	match started
 		Some(_) => match result
 			Err(net::NetError("connect", Some(net::Tcp4), Some("stalled.test"), net::Cancelled, _)) => Ok(())
@@ -883,7 +1166,7 @@ test malformed_empty_host_read_becomes_a_typed_failure() -> Result<(), String> e
 	handle handle system_rejects_empty_successful_read() with net::system() with scripted_system_network("empty-read")
 end
 
-test scope_cleanup_retries_failed_explicit_closes() -> Result<(), String> effects [net, time, concurrency]
+test failed_explicit_closes_are_retried_and_then_idempotent() -> Result<(), String> effects [net, time, concurrency]
 	match close_retry_count("listener")
 		Ok(2) => match close_retry_count("stream")
 			Ok(2) => Ok(())
@@ -894,6 +1177,34 @@ test scope_cleanup_retries_failed_explicit_closes() -> Result<(), String> effect
 		Ok(1) => Err("scope cleanup observed one listener close")
 		Ok(_) => Err("scope cleanup observed an unexpected listener close count")
 		Err(message) => Err(message)
+	end
+end
+
+test scope_cleanup_retries_unreconciled_explicit_closes() -> Result<(), String> effects [net, time, concurrency]
+	match cleanup_retry_count("listener")
+		Ok(2) => match cleanup_retry_count("stream")
+			Ok(2) => Ok(())
+			Ok(_) => Err("scope cleanup did not retry the stream close")
+			Err(message) => Err(message)
+		end
+		Ok(_) => Err("scope cleanup did not retry the listener close")
+		Err(message) => Err(message)
+	end
+end
+
+test committed_and_unknown_close_failures_preserve_their_distinct_states() -> Result<(), String> effects [net, time, concurrency]
+	match close_commit_count("listener", 1)
+		Ok(1) => match close_commit_count("stream", 1)
+			Ok(1) => match close_commit_count("listener", -1)
+				Ok(2) => match close_commit_count("stream", -1)
+					Ok(2) => Ok(())
+					_ => Err("unknown stream close did not perform one explicit retry")
+				end
+				_ => Err("unknown listener close did not perform one explicit retry")
+			end
+			_ => Err("committed stream close retried the host operation")
+		end
+		_ => Err("committed listener close retried the host operation")
 	end
 end
 
@@ -957,6 +1268,43 @@ test system_stream_shutdown_interruptions_are_closed() -> Result<(), String> eff
 	match read_result
 		Ok(()) => write_result
 		Err(message) => Err(message)
+	end
+end
+
+test uncommitted_shutdown_failures_preserve_concurrent_io_and_allow_retry() -> Result<(), String> effects [net, time, concurrency]
+	let read_io_ready = channel::bounded<()>(1)
+	let read_io_release = channel::bounded<()>(1)
+	let read_shutdown_ready = channel::bounded<()>(1)
+	let read_shutdown_release = channel::bounded<()>(1)
+	let read_calls = channel::bounded<Int>(1)
+	let _ = channel::send(read_calls.tx, 0)
+	let read_result = handle handle system_uncommitted_read_shutdown_failure_body(read_io_ready.rx, read_io_release.tx, read_shutdown_ready.rx, read_shutdown_release.tx) with net::system() with failing_shutdown_system_network("read", 0, read_io_ready.tx, read_io_release.rx, read_shutdown_ready.tx, read_shutdown_release.rx, read_calls)
+	let write_io_ready = channel::bounded<()>(1)
+	let write_io_release = channel::bounded<()>(1)
+	let write_shutdown_ready = channel::bounded<()>(1)
+	let write_shutdown_release = channel::bounded<()>(1)
+	let write_calls = channel::bounded<Int>(1)
+	let _ = channel::send(write_calls.tx, 0)
+	let write_result = handle handle system_uncommitted_write_shutdown_failure_body(write_io_ready.rx, write_io_release.tx, write_shutdown_ready.rx, write_shutdown_release.tx) with net::system() with failing_shutdown_system_network("write", 0, write_io_ready.tx, write_io_release.rx, write_shutdown_ready.tx, write_shutdown_release.rx, write_calls)
+	match read_result
+		Ok(()) => write_result
+		Err(message) => Err(message)
+	end
+end
+
+test committed_and_unknown_shutdown_failures_preserve_commit_state() -> Result<(), String> effects [net, time, concurrency]
+	match shutdown_commit_count("read", 1)
+		Ok(1) => match shutdown_commit_count("write", 1)
+			Ok(1) => match shutdown_commit_count("read", -1)
+				Ok(2) => match shutdown_commit_count("write", -1)
+					Ok(2) => Ok(())
+					_ => Err("unknown write shutdown did not retry")
+				end
+				_ => Err("unknown read shutdown did not retry")
+			end
+			_ => Err("committed write shutdown retried the host operation")
+		end
+		_ => Err("committed read shutdown retried the host operation")
 	end
 end
 
