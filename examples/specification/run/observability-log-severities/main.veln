@@ -1,0 +1,66 @@
+use observe from "std"
+use recording
+use wrapper
+
+# This case checks JVM nominal-effect dispatch for distinct severity ADT values
+# and hidden call-site forwarding through a standard-library wrapper;
+# companion coverage owns the log API field-preservation contract.
+pub fn main() -> () effects [stdio, concurrency]
+	let records = recording::records(5)
+	let _ = handle wrapper::emit_all() with recording::recording(records.tx)
+	channel::close(records.tx)
+	print_debug(channel::recv(records.rx))
+	print_info(channel::recv(records.rx))
+	print_warning(channel::recv(records.rx))
+	print_error(channel::recv(records.rx))
+	match channel::recv(records.rx)
+		None => stdio::println("exactly-four")
+		Some(_) => stdio::println("extra-record")
+	end
+end
+
+fn print_debug(record: Option<Observation>) -> () effects [stdio]
+	match record
+		Some(observe::Log(observe::LogRecord("log", observe::Debug, "debugged", attributes, Some(observe::TraceContext("trace-1", "span-2")), source))) => print_record("debug", attributes, source)
+		_ => stdio::println("unexpected-debug")
+	end
+end
+
+fn print_info(record: Option<Observation>) -> () effects [stdio]
+	match record
+		Some(observe::Log(observe::LogRecord("log", observe::Info, "informed", attributes, Some(observe::TraceContext("trace-1", "span-2")), source))) => print_record("info", attributes, source)
+		_ => stdio::println("unexpected-info")
+	end
+end
+
+fn print_warning(record: Option<Observation>) -> () effects [stdio]
+	match record
+		Some(observe::Log(observe::LogRecord("log", observe::Warning, "warned", attributes, Some(observe::TraceContext("trace-1", "span-2")), source))) => print_record("warning", attributes, source)
+		_ => stdio::println("unexpected-warning")
+	end
+end
+
+fn print_error(record: Option<Observation>) -> () effects [stdio]
+	match record
+		Some(observe::Log(observe::LogRecord("log", observe::Error, "failed", attributes, Some(observe::TraceContext("trace-1", "span-2")), source))) => print_record("error", attributes, source)
+		_ => stdio::println("unexpected-error")
+	end
+end
+
+fn print_record(severity: String, attributes: List<Attribute>, source: SourceLocation) -> () effects [stdio]
+	match attributes
+		Cons(observe::Attribute("enabled", observe::BoolValue(true)), Cons(observe::Attribute("attempt", observe::IntValue(3)), Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil))) => begin
+			stdio::println(severity)
+			stdio::println(source.package)
+			stdio::println(source.module)
+			stdio::println(source.file)
+			stdio::println(int_to_string(source.start_line))
+			stdio::println(int_to_string(source.start_column))
+			stdio::println(int_to_string(source.start_offset))
+			stdio::println(int_to_string(source.end_line))
+			stdio::println(int_to_string(source.end_column))
+			stdio::println(int_to_string(source.end_offset))
+		end
+		_ => stdio::println("unexpected-attributes")
+	end
+end

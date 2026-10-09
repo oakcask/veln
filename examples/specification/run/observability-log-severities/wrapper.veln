@@ -1,0 +1,10 @@
+use log from "std"
+use observe from "std"
+
+pub fn emit_all() -> () effects [observe::Observe] callsite
+	let attributes = list_cons(observe::Attribute("enabled", observe::BoolValue(true)), list_cons(observe::Attribute("attempt", observe::IntValue(3)), list_cons(observe::Attribute("route", observe::StringValue("checkout")), list_nil())))
+	log::debug(Some(observe::TraceContext("trace-1", "span-2")), "debugged", attributes)
+	log::info(Some(observe::TraceContext("trace-1", "span-2")), "informed", attributes)
+	log::warning(Some(observe::TraceContext("trace-1", "span-2")), "warned", attributes)
+	log::error(Some(observe::TraceContext("trace-1", "span-2")), "failed", attributes)
+end

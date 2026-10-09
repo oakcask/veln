@@ -13,9 +13,30 @@ pub fn o1_context() -> Option<TraceContext>
 	Some(observe::TraceContext("trace-1", "span-2"))
 end
 
+pub fn is_o1_debug(record: Observation, expected_file: String, expected_line: Int) -> Bool
+	match record
+		observe::Log(observe::LogRecord("log", observe::Debug, "accepted", attributes, Some(observe::TraceContext("trace-1", "span-2")), source)) => has_o1_attributes(attributes) and source.file == expected_file and source.start_line == expected_line
+		_ => false
+	end
+end
+
 pub fn is_o1_info(record: Observation, expected_file: String, expected_line: Int) -> Bool
 	match record
 		observe::Log(observe::LogRecord("log", observe::Info, "accepted", attributes, Some(observe::TraceContext("trace-1", "span-2")), source)) => has_o1_attributes(attributes) and source.file == expected_file and source.start_line == expected_line
+		_ => false
+	end
+end
+
+pub fn is_o1_warning(record: Observation, expected_file: String, expected_line: Int) -> Bool
+	match record
+		observe::Log(observe::LogRecord("log", observe::Warning, "accepted", attributes, Some(observe::TraceContext("trace-1", "span-2")), source)) => has_o1_attributes(attributes) and source.file == expected_file and source.start_line == expected_line
+		_ => false
+	end
+end
+
+pub fn is_o1_error(record: Observation, expected_file: String, expected_line: Int) -> Bool
+	match record
+		observe::Log(observe::LogRecord("log", observe::Error, "accepted", attributes, Some(observe::TraceContext("trace-1", "span-2")), source)) => has_o1_attributes(attributes) and source.file == expected_file and source.start_line == expected_line
 		_ => false
 	end
 end

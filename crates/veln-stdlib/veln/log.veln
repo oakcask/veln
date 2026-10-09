@@ -1,6 +1,18 @@
 use observe
 use prelude
 
+pub fn debug(context: Option<observe::TraceContext>, message: String, attributes: List<observe::Attribute>) -> () effects [observe::Observe] callsite
+	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Debug, message, attributes, context, callsite)))
+end
+
 pub fn info(context: Option<observe::TraceContext>, message: String, attributes: List<observe::Attribute>) -> () effects [observe::Observe] callsite
 	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Info, message, attributes, context, callsite)))
+end
+
+pub fn warning(context: Option<observe::TraceContext>, message: String, attributes: List<observe::Attribute>) -> () effects [observe::Observe] callsite
+	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Warning, message, attributes, context, callsite)))
+end
+
+pub fn error(context: Option<observe::TraceContext>, message: String, attributes: List<observe::Attribute>) -> () effects [observe::Observe] callsite
+	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Error, message, attributes, context, callsite)))
 end
