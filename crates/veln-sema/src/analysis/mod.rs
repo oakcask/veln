@@ -55,6 +55,7 @@ mod body;
 pub(crate) mod boundary;
 mod handlers;
 mod repair_reasoning;
+mod variant_refinement_bases;
 
 pub(in crate::analysis) use body::FunctionChecker;
 #[cfg(test)]
@@ -75,6 +76,9 @@ pub(crate) use boundary::{
     check_schema_type_references, check_test_declaration_boundary,
 };
 pub(crate) use handlers::check_handler_declarations;
+pub(crate) use variant_refinement_bases::{
+    annotation_has_base_failure, check_variant_refinement_bases,
+};
 
 fn private_companion_effect_target_diagnostic(
     node_id: String,

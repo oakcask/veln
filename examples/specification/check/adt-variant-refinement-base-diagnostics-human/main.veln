@@ -1,6 +1,17 @@
 type Empty
 end
 
+type GenericEmpty<A>
+end
+
+type State
+	Ready
+end
+
+type Wrap
+	Wrapped(Int::Missing)
+end
+
 pub type Opaque = NetStream
 
 fn non_adt(value: Int::Missing) -> ()
@@ -16,5 +27,13 @@ fn missing_descriptor(value: Empty::Missing) -> ()
 end
 
 fn arity_precedence(value: Empty<Int>::Missing) -> ()
+	()
+end
+
+fn nested(value: GenericEmpty<State::Ready>::Missing) -> ()
+	()
+end
+
+fn recovered_casing(value: int::Missing) -> ()
 	()
 end

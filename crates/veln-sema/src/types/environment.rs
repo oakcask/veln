@@ -292,13 +292,18 @@ impl TypeEnvironment {
             self.adts
                 .descriptor_for_type_path_any_arity(lookup_base, current_module, &self.uses)
         {
-            if descriptor.type_parameters.len() != args_len || !descriptor.variants.is_empty() {
+            if descriptor.type_parameters.len() != args_len
+                || descriptor.refinement_availability
+                    == crate::adt::descriptors::VariantRefinementAvailability::Finite
+            {
                 return None;
             }
-            let reason = if descriptor.is_opaque_refinement_base() {
-                "opaque"
-            } else {
-                "variant_descriptor_unavailable"
+            let reason = match descriptor.refinement_availability {
+                crate::adt::descriptors::VariantRefinementAvailability::Finite => unreachable!(),
+                crate::adt::descriptors::VariantRefinementAvailability::Opaque => "opaque",
+                crate::adt::descriptors::VariantRefinementAvailability::Unavailable => {
+                    "variant_descriptor_unavailable"
+                }
             };
             let related_message = if reason == "opaque" {
                 format!(
@@ -369,6 +374,79 @@ impl TypeEnvironment {
     ) -> bool {
         self.resolved_non_adt_refinement_base(base, args_len, current_module)
             .is_some()
+    }
+
+    pub(crate) fn recovered_variant_refinement_candidate(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        if segments.len() < 2 {
+            return false;
+        }
+        let base = segments[..segments.len() - 1].join("::");
+        if self
+            .adts
+            .descriptor_for_type_path_any_arity(&base, current_module, &self.uses)
+            .is_some()
+            || self
+                .resolved_non_adt_refinement_base(&base, 0, current_module)
+                .is_some()
+        {
+            return false;
+        }
+        let Some(recovered) = recover_type_case(&base) else {
+            return false;
+        };
+        self.adts
+            .unique_descriptor_for_type_path_any_arity(&recovered, current_module, &self.uses)
+            .is_some()
+            || self
+                .resolved_non_adt_refinement_base(&recovered, 0, current_module)
+                .is_some()
+    }
+
+    pub(crate) fn recovered_variant_refinement_base_failure(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<VariantRefinementBaseFailure> {
+        self.recovered_variant_refinement_candidate(segments, current_module)
+            .then(|| {
+                let base = segments[..segments.len() - 1].join("::");
+                self.variant_refinement_base_failure(&base, 0, current_module)
+            })
+            .flatten()
+    }
+
+    pub(crate) fn recovered_variant_refinement_annotation_error(
+        &self,
+        paths: &[veln_ast::TypePathSegments],
+        current_module: Option<&str>,
+    ) -> Option<String> {
+        paths.iter().find_map(|path| {
+            if !self.recovered_variant_refinement_candidate(&path.segments, current_module) {
+                return None;
+            }
+            let base = path.segments[..path.segments.len() - 1].join("::");
+            let recovered = recover_type_case(&base)?;
+            let descriptor = self.adts.unique_descriptor_for_type_path_any_arity(
+                &recovered,
+                current_module,
+                &self.uses,
+            )?;
+            if descriptor.refinement_availability
+                != crate::adt::descriptors::VariantRefinementAvailability::Finite
+                || !descriptor.type_parameters.is_empty()
+            {
+                return None;
+            }
+            let variant = path.segments.last()?.clone();
+            self.variant_refinement_annotation_error(
+                &Type::variant_refinement(recovered, Vec::new(), vec![variant]),
+                current_module,
+            )
+        })
     }
 
     fn variant_refinement_annotation_error_with_canonical(

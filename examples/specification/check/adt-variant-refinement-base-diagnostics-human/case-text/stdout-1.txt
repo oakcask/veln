@@ -1,0 +1,14 @@
+main.veln:37:28: error[name.invalid_case]: type name `int` must start with an ASCII uppercase letter
+main.veln:12:10: error[type.variant_refinement_base]: variant-refinement base `Int` is not a finite ADT
+  note: Type `Int` resolves here as a non-ADT type without finite variants.
+main.veln:17:19: error[type.variant_refinement_base]: variant-refinement base `Int` is not a finite ADT
+  note: Type `Int` resolves here as a non-ADT type without finite variants.
+main.veln:21:24: error[type.variant_refinement_base]: variant-refinement base `Opaque` is opaque at this annotation
+  note: Type `Opaque` is provided as opaque and does not expose variant identities.
+main.veln:25:30: error[type.variant_refinement_base]: variant-refinement base `Empty` has no public finite variant descriptor
+  note: main.veln:1:1: The provider for `Empty` supplies no public finite variant descriptor.
+main.veln:33:18: error[type.variant_refinement_base]: variant-refinement base `GenericEmpty<State::Ready>` has no public finite variant descriptor
+  note: main.veln:4:1: The provider for `GenericEmpty` supplies no public finite variant descriptor.
+main.veln:37:28: error[type.variant_refinement_base]: variant-refinement base `int` is not a finite ADT
+  note: Type `Int` resolves here as a non-ADT type without finite variants.
+main.veln:29:21: error[type.invalid_annotation]: invalid type annotation `Empty<Int>::Missing`: `Empty` expects 0 type argument(s), found 1

@@ -14,7 +14,18 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 8
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "type name `int` must start with an ASCII uppercase letter"
+
+[diagnostics.span]
+file = "main.veln"
+line = 37
+column = 28
 
 [[diagnostics]]
 id = "type.variant_refinement_base"
@@ -24,7 +35,18 @@ message = "variant-refinement base `Int` is not a finite ADT"
 
 [diagnostics.span]
 file = "main.veln"
-line = 6
+line = 12
+column = 10
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `Int` is not a finite ADT"
+
+[diagnostics.span]
+file = "main.veln"
+line = 17
 column = 19
 
 [[diagnostics]]
@@ -35,7 +57,7 @@ message = "variant-refinement base `Opaque` is opaque at this annotation"
 
 [diagnostics.span]
 file = "main.veln"
-line = 10
+line = 21
 column = 24
 
 [[diagnostics]]
@@ -46,8 +68,30 @@ message = "variant-refinement base `Empty` has no public finite variant descript
 
 [diagnostics.span]
 file = "main.veln"
-line = 14
+line = 25
 column = 30
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `GenericEmpty<State::Ready>` has no public finite variant descriptor"
+
+[diagnostics.span]
+file = "main.veln"
+line = 33
+column = 18
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `int` is not a finite ADT"
+
+[diagnostics.span]
+file = "main.veln"
+line = 37
+column = 28
 
 [[diagnostics]]
 id = "type.invalid_annotation"
@@ -56,25 +100,57 @@ kind = "type"
 message = "invalid type annotation `Empty<Int>::Missing`: `Empty` expects 0 type argument(s), found 1"
 
 [[json_assert]]
-path = "diagnostics.0.details.written_type"
+path = "diagnostics.0.details.name"
+equals = "int"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.1.details.written_type"
 equals = "Int"
 
 [[json_assert]]
-path = "diagnostics.0.details.reason"
+path = "diagnostics.1.details.reason"
 equals = "not_adt"
 
 [[json_assert]]
-path = "diagnostics.1.details.reason"
+path = "diagnostics.2.details.reason"
+equals = "not_adt"
+
+[[json_assert]]
+path = "diagnostics.3.details.reason"
 equals = "opaque"
 
 [[json_assert]]
-path = "diagnostics.2.details.reason"
+path = "diagnostics.4.details.reason"
 equals = "variant_descriptor_unavailable"
 
 [[json_assert]]
-path = "diagnostics.2.related.0.kind"
+path = "diagnostics.4.related.0.kind"
 equals = "base_type_provider"
 
 [[json_assert]]
-path = "diagnostics.2.related.0.span.start.line"
+path = "diagnostics.4.related.0.span.start.line"
 equals = 1
+
+[[json_assert]]
+path = "diagnostics.5.details.written_type"
+equals = "GenericEmpty<State::Ready>"
+
+[[json_assert]]
+path = "diagnostics.5.details.reason"
+equals = "variant_descriptor_unavailable"
+
+[[json_assert]]
+path = "diagnostics.6.details.written_type"
+equals = "int"
+
+[[json_assert]]
+path = "diagnostics.6.details.reason"
+equals = "not_adt"
+
+[[json_assert]]
+path = "diagnostics.6.related.0.resolved_identity"
+equals = "Int"

@@ -11,7 +11,7 @@ use crate::analysis::{
     check_duplicate_type_names, check_duplicate_use_aliases, check_function_body,
     check_handler_declarations, check_module_boundary, check_public_aliases,
     check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
-    check_schema_type_references, check_test_declaration_boundary,
+    check_schema_type_references, check_test_declaration_boundary, check_variant_refinement_bases,
 };
 use crate::lowering::{
     lower_executable_surface_module_to_core, lower_project_surface_module_to_core,
@@ -180,6 +180,7 @@ fn check_module_declarations(
     let mut diagnostics = Vec::new();
 
     diagnostics.extend(check_invalid_name_casing(module, environment));
+    diagnostics.extend(check_variant_refinement_bases(module, environment));
     diagnostics.extend(check_duplicate_function_names(module));
     diagnostics.extend(check_duplicate_type_names(module));
     diagnostics.extend(check_duplicate_effect_names(module));

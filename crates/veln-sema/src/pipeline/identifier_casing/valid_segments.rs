@@ -165,6 +165,28 @@ fn collect_type_path_segments(
         if path.segments.len() < 2 {
             continue;
         }
+        if environment.recovered_variant_refinement_candidate(&path.segments, current_module) {
+            let base_index = path.segments.len() - 2;
+            for (index, (segment, span)) in
+                path.segments.iter().zip(&path.segment_spans).enumerate()
+            {
+                let role = if index == base_index {
+                    NameClass::Type
+                } else if index + 1 == path.segments.len() {
+                    NameClass::Constructor
+                } else {
+                    NameClass::Module
+                };
+                output.push(qualified_path_segment_from_parts(
+                    segment,
+                    role,
+                    span,
+                    index,
+                    QualifiedPathSegmentEvidence::UniqueRecovery,
+                ));
+            }
+            continue;
+        }
         let quarantined_import_lacks_leaf = environment
             .quarantined_import_type_path_lacks_visible_leaf(&path.segments, current_module);
         if quarantined_import_lacks_leaf

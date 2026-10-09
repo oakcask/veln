@@ -159,6 +159,7 @@ pub(super) fn valid_adt_descriptor() -> AdtDescriptor {
             visibility: Visibility::Public,
         }],
         diagnostic_name: "boxed".to_string(),
+        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
         propagation: None,
         visibility: Visibility::Public,
     }

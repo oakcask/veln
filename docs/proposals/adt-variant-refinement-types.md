@@ -232,8 +232,8 @@ navigation even though the annotation remains invalid.
 | The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
 | Generic arity is invalid after the base ADT resolves. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or visibility diagnostic. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The base declaration and, when resolved, the constructor declaration; no instantiated refinement type. |
 | The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
-| A base or final segment has invalid casing and one existing recovery identity. | `name.invalid_case`, plus independent arity or visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | Every uniquely recovered base and constructor declaration. |
-| An invalid-cased segment has no unique recovery and is independently missing, ambiguous, private, or wrong-kind. | `name.invalid_case` when the segment role is known, plus the applicable existing lookup or visibility diagnostic. | Downstream failures that require a selected identity. | Only identities selected independently of the failed segment. |
+| The final segment has invalid casing and one existing recovery identity. | `name.invalid_case`, plus independent visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | The uniquely recovered constructor declaration. |
+| An invalid-cased final segment has no unique recovery and is independently missing, ambiguous, private, or wrong-kind. | `name.invalid_case` when the segment role is known, plus the applicable existing lookup or visibility diagnostic. | Downstream failures that require a selected constructor identity. | Only identities selected independently of the failed final segment. |
 | The base or selected constructor is inaccessible. | `type.variant_refinement_private` for each exposure path defined above, plus independent casing or arity failures. | Publication and assignability diagnostics that require a valid public type. | Every uniquely resolved alias, base, and constructor declaration for source navigation. |
 | Two successfully instantiated alternatives have different base identities or generic arguments. | `type.variant_union_base`. | Assignability diagnostics that require the rejected union type. | All successfully resolved alternative identities; no union type identity. |
 
@@ -247,8 +247,10 @@ from reporting `type.variant_union_base`.
 
 Published diagnostics are ordered by primary source span. Diagnostics with the
 same primary span use the check order above, followed by union-base and
-assignability diagnostics. A uniquely recovered casing identity lets later
-independent checks run, but recovery never makes the annotation valid.
+assignability diagnostics. The current diagnostic specification owns recovered
+base casing and base eligibility. A uniquely recovered final-segment identity
+lets later independent checks run, but recovery never makes the annotation
+valid.
 
 LSP and MCP use the same retained identities. Definition, references,
 prepare-rename, and rename can select a uniquely resolved or uniquely recovered

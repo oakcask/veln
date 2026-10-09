@@ -25,6 +25,7 @@ impl<'a> FunctionChecker<'a> {
                 pattern,
                 annotation.as_deref(),
                 &annotation_structure.variant_refinements,
+                &annotation_structure.paths,
                 expr,
             ),
             BodyLineKind::Expr { expr } => self.check_expr_line(index, line, expr),
@@ -113,6 +114,7 @@ impl<'a> FunctionChecker<'a> {
                     pattern,
                     annotation.as_deref(),
                     &annotation_structure.variant_refinements,
+                    &annotation_structure.paths,
                     expr,
                 ),
                 BodyLineKind::Expr { expr } => {
@@ -181,6 +183,7 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         annotation: Option<&str>,
         annotation_refinements: &[veln_ast::VariantRefinementType],
+        annotation_paths: &[veln_ast::TypePathSegments],
         expr: &Expr,
     ) {
         let transparent_alias_group = match &pattern.kind {
@@ -199,6 +202,7 @@ impl<'a> FunctionChecker<'a> {
             self.parse_annotation(
                 annotation,
                 annotation_refinements,
+                annotation_paths,
                 line.node_id,
                 &line.span,
                 ExpectedTypeSource::LocalAnnotation,

@@ -22,6 +22,7 @@ impl<'a> FunctionChecker<'a> {
                 self.parse_annotation(
                     annotation,
                     &param.ty_refinements,
+                    &param.ty_paths,
                     param.node_id,
                     &param.span,
                     ExpectedTypeSource::DeclaredParameter,
@@ -114,6 +115,7 @@ impl<'a> FunctionChecker<'a> {
             self.parse_annotation(
                 return_type,
                 &self.function.return_type_refinements,
+                &self.function.return_type_paths,
                 self.function.node_id,
                 &self.function.span,
                 ExpectedTypeSource::DeclaredReturn,

@@ -684,6 +684,12 @@ refinable ADT, the checker rejects the annotation with
 resource types and aliases, and ADT providers that expose no finite variant
 descriptor. A base with invalid generic arity retains the existing
 `type.invalid_annotation` failure instead. The
+same eligibility rule applies recursively to parameters, results, locals, ADT
+payloads, effect and handler annotations, schema fields, and explicit call type
+arguments. A uniquely recovered invalid-cased base retains its identity and is
+checked independently; recovery is not attempted when more than one base could
+match. Any such invalid annotation prevents the containing declaration from
+being published as usable typed state. The
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
 closed failure reasons, related provider context, and downstream suppression;
 the checked

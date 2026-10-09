@@ -98,7 +98,9 @@ A structurally valid refinement whose base resolves uniquely but cannot provide 
 finite, refinable ADT reports `type.variant_refinement_base`. The primary span is
 the written base path and excludes its type arguments, `::`, and final variant
 segment. Its closed details contain only `written_type` and `reason`.
-`written_type` preserves the source spelling of the base and its type arguments.
+`written_type` preserves the source spelling of the base and recursively
+reconstructs its type arguments, including refinements nested in generic,
+record, and function positions.
 The reason is one of these values:
 
 | Reason | Failed fact |
@@ -114,11 +116,26 @@ union, visibility, or assignability diagnostics that require a refinable base.
 An independently provable generic-arity failure keeps
 `type.invalid_annotation` instead of adding the base diagnostic. Unresolved,
 ambiguous, private, and wrong-kind bases also retain their existing diagnostics.
+The checker applies this contract to function and test parameters and results,
+local annotations, ADT payloads, effect-operation parameters and results,
+handler parameters, schema fields, and explicit call type arguments. A failure
+in a declaration annotation prevents publication of usable typed state.
+
+Lowercase prospective bases remain ordinary named-type source text. If changing
+only that base leaf to the required case identifies exactly one type, the
+checker reports `name.invalid_case`, retains that identity, and performs the
+independent eligibility check. A non-ADT, opaque, or descriptor-unavailable
+identity therefore also reports `type.variant_refinement_base`; a refinable ADT
+continues to final-segment checking without an eligibility failure. If recovery
+does not identify exactly one base, the checker does not manufacture an
+eligibility diagnostic or retained identity. When casing and eligibility use
+the same base span, the casing diagnostic precedes the eligibility diagnostic.
 The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
-cases cover the three reasons, provider context, downstream suppression, and
+cases cover the three reasons, provider context, recursive written spelling,
+declaration annotations, recovered-casing overlap, downstream suppression, and
 arity precedence.
 
 A value whose complete ADT variant set is not assignable at a direct local,

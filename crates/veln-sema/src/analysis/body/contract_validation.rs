@@ -381,12 +381,34 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         annotation: &str,
         refinements: &[veln_ast::VariantRefinementType],
+        paths: &[veln_ast::TypePathSegments],
         origin_node_id: NodeId,
         origin_span: &SourceSpan,
         source: ExpectedTypeSource,
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
-        let base_failure = self.push_variant_refinement_base_diagnostics(refinements);
+        let base_failure = super::super::annotation_has_base_failure(
+            refinements,
+            paths,
+            self.function.module_name.as_deref(),
+            self.environment,
+        );
+        if !base_failure
+            && let Some(error) = self
+                .environment
+                .recovered_variant_refinement_annotation_error(
+                    paths,
+                    self.function.module_name.as_deref(),
+                )
+        {
+            self.push_invalid_type_annotation(
+                annotation,
+                &error,
+                origin_node_id,
+                origin_span.clone(),
+            );
+            return None;
+        }
         match parse_type_annotation(annotation) {
             Ok(ty) => {
                 if let Some(error) = self
