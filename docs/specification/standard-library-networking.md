@@ -154,10 +154,13 @@ preserves the host resolver's preferred order and removes exact duplicate
 endpoints. An empty result is `NameNotFound`. The deadline and cancellation
 token supplied to `connect_with` bound both name resolution and every endpoint
 attempt. An already expired deadline or cancelled token prevents resolution
-from starting. Task cancellation also interrupts an in-progress resolution.
-Host resolution uses finite running and waiting capacity. If that capacity is
-exhausted, `connect_with` returns `Busy` without creating another resolver
-worker or retaining unbounded queued work.
+from starting. The waiting caller observes task cancellation during resolution.
+When `connect_with` uses the platform resolver, resolution has finite worker
+capacity and retains no queued work. If every resolver worker is occupied,
+`connect_with` returns `Busy` without creating another worker. A platform
+resolver call that ignores interruption can keep its worker occupied after the
+waiting caller returns, but it cannot create unbounded resolver work.
+
 Listen on port zero reports the assigned local port. Expected address,
 resolver, socket, deadline, cancellation, and lifecycle failures are returned
 as `NetError`; an unrecognized failure reported through the typed host boundary

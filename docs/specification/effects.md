@@ -657,10 +657,12 @@ changes their tri-state interpretation. A failed `shutdown_read` consumes
 failed listener or stream close consumes `ownership_committed`. A false fact
 leaves the affected state retryable. A true fact commits the closed state. An
 unknown fact makes the affected resource or half unavailable while retaining
-the cleanup obligation and permitting an explicit retry. A scoped network handler receives
-`resolve_tcp`, `resolve_tcp4`, or `resolve_tcp6` for system-handler resolution;
-the request carries the remaining deadline and cancellation state supplied to
-`connect_with`. Therefore deterministic resolution does not consult ambient
+the cleanup obligation and permitting an explicit retry.
+
+A scoped network handler receives `resolve_tcp`, `resolve_tcp4`, or
+`resolve_tcp6` for system-handler resolution; the request carries the remaining
+deadline and cancellation state supplied to `connect_with`. Therefore
+deterministic resolution does not consult ambient
 DNS, and it observes the same controls as the later connection attempts. This
 adapter boundary does not expose host sockets or remove caller responsibility
 for resource lifecycle. The supported operation and outcome combinations are
