@@ -16,8 +16,8 @@ stable mismatch diagnostics, and runtime erasure.
 
 This proposal retains only the unfinished work: alias navigation and
 visibility, qualified-value match refinement, schema boundaries, package
-documentation, LSP, and remaining MCP diagnostics, navigation, rename,
-package-signature, and saved-state behavior. Qualified
+documentation catalog signatures, LSP, and remaining MCP diagnostics,
+navigation, rename, package-signature, and saved-state behavior. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
@@ -30,7 +30,7 @@ The remaining proposal has two intended outcomes:
 - Qualified immutable values gain the implemented stable-value match
   refinement only after a separate source-surface and name-resolution contract
   provides module-addressable immutable data values.
-- Package-documentation, LSP, and MCP views agree on the identity and
+- Package-documentation catalog, LSP, and MCP views agree on the identity and
   visibility of a refined variant.
 
 The feature is useful for protocol phases, compiler passes, security-sensitive

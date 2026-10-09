@@ -826,7 +826,7 @@ rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
 Public/private exposure paths, qualified-value control-flow refinement, schema
-boundaries, package-documentation signatures, LSP, and remaining MCP
+boundaries, package-documentation catalog signatures, LSP, and remaining MCP
 integration remain proposal work.
 This slice also does not add recursive generic or function variance.
 

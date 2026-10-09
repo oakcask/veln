@@ -25,8 +25,8 @@ also states it.
   [network-compatibility-removal.md](network-compatibility-removal.md).
 - Remaining ADT variant-refinement support for alias navigation and
   visibility, qualified immutable values after a separate source-surface
-  prerequisite, schema boundaries,
-  package documentation, LSP, and remaining MCP
+  prerequisite, schema boundaries, package-documentation catalog signatures,
+  LSP, and remaining MCP
   diagnostics, navigation, rename, package-signature, and saved-state behavior:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
