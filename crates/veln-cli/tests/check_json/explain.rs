@@ -80,58 +80,28 @@ fn cli_prints_version() {
 fn cli_reports_parser_errors_before_project_discovery() {
     let project = TestProject::new("cli-parser-errors");
 
-    let unknown_command = project.veln(&[], &["wat"]);
-    let unknown_doc_flag = project.veln(&["doc"], &["--wat"]);
-    let unknown_repair_flag = project.veln(&["repair"], &["--wat"]);
-    let unknown_check_flag = project.veln(&["check"], &["--wat"]);
-    let unknown_run_flag = project.veln(&["run"], &["--wat"]);
-    let unknown_test_flag = project.veln(&["test"], &["--wat"]);
-    let unknown_explain_flag = project.veln(&["explain"], &["--wat"]);
-    let unexpected_explain_argument = project.veln(&["explain"], &["hole.unfilled", "extra"]);
-    let missing_run_entry = project.veln(&["run"], &[]);
+    let cases: &[(&[&str], &[&str], &str)] = &[
+        (&[], &["wat"], "wat"),
+        (&["doc"], &["--wat"], "--wat"),
+        (&["repair"], &["--wat"], "--wat"),
+        (&["check"], &["--wat"], "--wat"),
+        (&["run"], &["--wat"], "--wat"),
+        (&["test"], &["--wat"], "--wat"),
+        (&["explain"], &["--wat"], "--wat"),
+        (&["explain"], &["hole.unfilled", "extra"], "extra"),
+        (&["run"], &[], "<ENTRY>"),
+    ];
 
-    assert_eq!(unknown_command.status.code(), Some(2));
-    assert_eq!(stdout(&unknown_command), "");
-    assert!(stderr(&unknown_command).contains("wat"));
-    assert!(stderr(&unknown_command).contains("Usage:"));
+    for &(command_args, args, expected_detail) in cases {
+        let output = project.veln(command_args, args);
+        let error = stderr(&output);
 
-    assert_eq!(unknown_doc_flag.status.code(), Some(2));
-    assert_eq!(stdout(&unknown_doc_flag), "");
-    assert!(stderr(&unknown_doc_flag).contains("--wat"));
-    assert!(stderr(&unknown_doc_flag).contains("Usage:"));
-
-    assert_eq!(unknown_repair_flag.status.code(), Some(2));
-    assert_eq!(stdout(&unknown_repair_flag), "");
-    assert!(stderr(&unknown_repair_flag).contains("--wat"));
-    assert!(stderr(&unknown_repair_flag).contains("Usage:"));
-
-    assert_eq!(unknown_check_flag.status.code(), Some(2));
-    assert_eq!(stdout(&unknown_check_flag), "");
-    assert!(stderr(&unknown_check_flag).contains("--wat"));
-    assert!(stderr(&unknown_check_flag).contains("Usage:"));
-
-    assert_eq!(unknown_run_flag.status.code(), Some(2));
-    assert_eq!(stdout(&unknown_run_flag), "");
-    assert!(stderr(&unknown_run_flag).contains("--wat"));
-    assert!(stderr(&unknown_run_flag).contains("Usage:"));
-
-    assert_eq!(unknown_test_flag.status.code(), Some(2));
-    assert_eq!(stdout(&unknown_test_flag), "");
-    assert!(stderr(&unknown_test_flag).contains("--wat"));
-    assert!(stderr(&unknown_test_flag).contains("Usage:"));
-
-    assert_eq!(unknown_explain_flag.status.code(), Some(2));
-    assert_eq!(stdout(&unknown_explain_flag), "");
-    assert!(stderr(&unknown_explain_flag).contains("--wat"));
-    assert!(stderr(&unknown_explain_flag).contains("Usage:"));
-
-    assert_eq!(unexpected_explain_argument.status.code(), Some(2));
-    assert_eq!(stdout(&unexpected_explain_argument), "");
-    assert!(stderr(&unexpected_explain_argument).contains("extra"));
-    assert!(stderr(&unexpected_explain_argument).contains("Usage:"));
-
-    assert_eq!(missing_run_entry.status.code(), Some(2));
-    assert_eq!(stdout(&missing_run_entry), "");
-    assert!(stderr(&missing_run_entry).contains("<ENTRY>"));
-    assert!(stderr(&missing_run_entry).contains("Usage:"));
+        assert_eq!(output.status.code(), Some(2), "{command_args:?} {args:?}");
+        assert_eq!(stdout(&output), "", "{command_args:?} {args:?}");
+        assert!(
+            error.contains(expected_detail),
+            "missing `{expected_detail}` in {error}"
+        );
+        assert!(error.contains("Usage:"), "missing `Usage:` in {error}");
+    }
 }
