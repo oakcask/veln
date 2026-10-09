@@ -304,11 +304,17 @@ An ordinary qualified generic type such as `Alias::Container<Int>` keeps
 does not change the existing qualified-type path records used by casing
 analysis. When a variant-refinement base resolves, casing analysis classifies
 its qualifiers as modules, its base leaf as a type, and its selected final
-segment as a constructor. Each classification retains the written segment,
-span, and segment index. This semantic casing classification does not make
-variant-refinement occurrences available to definition, references, rename,
-LSP, or MCP navigation; those language-service paths remain outside the
-current behavior.
+segment as a constructor. The same roles apply when changing only a lowercase
+base leaf to the required case identifies exactly one ADT or supported named
+non-ADT type. That recovery supplies identity evidence for the casing and
+independent base-eligibility diagnostics, but it does not make the annotation
+valid. No role is guessed when the recovered base is missing or ambiguous.
+Each classification retains the written segment, span, and segment index. The
+[diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
+resulting diagnostic overlap and order. This semantic casing classification
+does not make variant-refinement occurrences available to definition,
+references, rename, LSP, or MCP navigation; those language-service paths
+remain outside the current behavior.
 Each invalid role-fixed segment reports `name.invalid_case` at the exact
 segment token span with occurrence `path_segment` and the zero-based
 `segment_index`. A call-target diagnostic whose only cause is the resolved or

@@ -205,11 +205,12 @@ repair guidance belong in `related` notes rather than the primary message.
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
 Parser failures that cannot form a base type, `::`, and final constructor name
-remain syntax diagnostics. Once that structure exists, semantic failures use
-the table above. Existing generic arity, name ambiguity, duplicate, and
-invalid-casing diagnostics remain independently reportable. Diagnostic order
-must be deterministic, and failure must not publish a partially typed
-declaration.
+remain syntax diagnostics. Once that structure exists, the remaining semantic
+failures use the table above; current base-eligibility failures use the
+[diagnostic specification](../specification/diagnostics-json.md#diagnostic-families).
+Existing generic arity, name ambiguity, duplicate, and invalid-casing
+diagnostics remain independently reportable. Diagnostic order must be
+deterministic, and failure must not publish a partially typed declaration.
 
 ### Diagnostic Overlap And Recovery
 
@@ -239,7 +240,7 @@ navigation even though the annotation remains invalid.
 
 Within one annotation, the checker visits union alternatives in written order.
 It checks each alternative in this order: casing, base resolution, generic
-arity, final-segment resolution, and visibility. The earliest
+arity, base eligibility, final-segment resolution, and visibility. The earliest
 successfully instantiated alternative establishes the expected union base;
 each later successfully instantiated alternative is compared with it. An
 incomplete alternative does not prevent an independently complete later pair
@@ -343,8 +344,8 @@ contracts rather than variant-only implementations.
 
 The remaining MCP surface gains matching saved-snapshot behavior:
 
-- `check_project` returns the new structured diagnostics and counts them in
-  the existing summary.
+- `check_project` returns the remaining structured diagnostics and counts them
+  in the existing summary.
 - `definition`, `references`, and `rename` select the same base-type, alias,
   and constructor identities as LSP. Locations use the existing one-based
   Unicode-scalar coordinates, ordering, pagination, and cursor rules.

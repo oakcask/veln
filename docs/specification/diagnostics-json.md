@@ -134,7 +134,7 @@ The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
-cases cover the three reasons, provider context, recursive written spelling,
+cases cover the three reasons, provider context, nested generic written spelling,
 declaration annotations, recovered-casing overlap, downstream suppression, and
 arity precedence.
 
