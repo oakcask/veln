@@ -224,5 +224,10 @@ asking clients to construct resource identifiers or re-resolve by spelling.
 The public API is in
 `crates/veln-language-service/src/package_documentation.rs`; catalog identity,
 publication, and gate tests are in its `package_documentation/tests/` modules.
+The checked
+[`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
+transcript covers the public `net::system()` handler resource, its canonical
+signature and visible examples, and exclusion of its operation clauses and
+private host adapters.
 The [MCP specification](mcp.md) defines resource publication and links from
 package-backed definition results.
