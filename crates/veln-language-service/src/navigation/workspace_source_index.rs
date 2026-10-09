@@ -4,16 +4,15 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let parsed = parse(&source);
     let identity = WorkspaceSourceIdentity::new(&source);
     let imports = WorkspaceImports::new(source.text(), &parsed);
-    let syntax = WorkspaceSyntaxIndex::new(identity.navigation_isolated, &source, &parsed);
+    let syntax = WorkspaceSyntaxIndex::new(identity.source.navigation_isolated, &source, &parsed);
     let file = indexed_workspace_file(source, identity, imports, syntax);
     let declarations = workspace_file_declarations(&file, &parsed.tree);
     (file, declarations, parsed)
 }
 
 struct WorkspaceSourceIdentity {
-    module: String,
+    source: SourceIdentity,
     companion_target_module: Option<String>,
-    navigation_isolated: bool,
 }
 
 impl WorkspaceSourceIdentity {
@@ -21,37 +20,24 @@ impl WorkspaceSourceIdentity {
         let path = source.path().as_str().to_string();
         let companion_target_module = classify_companion_source(&path)
             .and_then(|companion| module_name_from_path(&companion.target_path));
-        let path_module = module_name_from_path(&path);
-        let navigation_isolated = path_module_invalid_for_navigation(path_module.as_deref());
-        let module = explicit_module_name(source.text())
-            .or(path_module)
-            .unwrap_or_default();
         Self {
-            module,
+            source: SourceIdentity::new(&path, source.text()),
             companion_target_module,
-            navigation_isolated,
         }
     }
 }
 
 struct WorkspaceImports {
-    uses: BTreeSet<String>,
-    external_uses: BTreeSet<(String, String)>,
-    import_aliases: BTreeMap<String, String>,
-    external_import_aliases: BTreeMap<String, (String, String)>,
+    modules: UseModuleIndex,
     schema_alias_external_imports: Vec<ExternalImport>,
     workspace_imports: Vec<WorkspaceImport>,
 }
 
 impl WorkspaceImports {
     fn new(source: &str, parsed: &ParseOutput) -> Self {
-        let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source);
         let use_diagnostics = UseDeclarationDiagnosticIndex::new(parsed);
         Self {
-            uses,
-            external_uses,
-            import_aliases,
-            external_import_aliases,
+            modules: UseModuleIndex::new(source),
             schema_alias_external_imports: schema_alias_external_imports(parsed, &use_diagnostics),
             workspace_imports: workspace_imports(parsed, &use_diagnostics),
         }
@@ -135,12 +121,12 @@ fn indexed_workspace_file(
     IndexedFile {
         source,
         tokens: syntax.tokens,
-        module: identity.module,
+        module: identity.source.module,
         companion_target_module: identity.companion_target_module,
-        uses: imports.uses,
-        external_uses: imports.external_uses,
-        import_aliases: imports.import_aliases,
-        external_import_aliases: imports.external_import_aliases,
+        uses: imports.modules.local_modules,
+        external_uses: imports.modules.external_modules,
+        import_aliases: imports.modules.local_aliases,
+        external_import_aliases: imports.modules.external_aliases,
         schema_alias_external_imports: imports.schema_alias_external_imports,
         workspace_imports: imports.workspace_imports,
         invalid_declaration_names: syntax.invalid_declaration_names,
@@ -158,7 +144,7 @@ fn indexed_workspace_file(
         generic_effect_binders: syntax.effects.generic_binders,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
-        navigation_isolated: identity.navigation_isolated,
+        navigation_isolated: identity.source.navigation_isolated,
         origin: IndexedOrigin::Workspace,
     }
 }

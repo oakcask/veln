@@ -116,45 +116,81 @@ fn module_name_from_path(path: &str) -> Option<String> {
     Some(path.strip_suffix(".veln")?.replace('/', "::"))
 }
 
-type UseModuleIndexes = (
-    BTreeSet<String>,
-    BTreeSet<(String, String)>,
-    BTreeMap<String, String>,
-    BTreeMap<String, (String, String)>,
-);
+struct SourceIdentity {
+    module: String,
+    navigation_isolated: bool,
+}
 
-fn use_modules(text: &str) -> UseModuleIndexes {
-    let mut local = BTreeSet::new();
-    let mut external = BTreeSet::new();
-    let mut local_aliases = BTreeMap::new();
-    let mut external_aliases = BTreeMap::new();
-    for line in text.lines() {
-        let Some(rest) = line.trim_start().strip_prefix("use ") else {
-            continue;
-        };
-        let Some(module) = leading_module_path(rest) else {
-            continue;
-        };
-        let module_name = module.to_string();
-        let alias = module_name
-            .rsplit("::")
-            .next()
-            .unwrap_or(module_name.as_str())
-            .to_string();
-        let suffix = rest[module.len()..].trim();
-        if let Some(package) = suffix
-            .strip_prefix("from ")
-            .and_then(|value| value.strip_prefix('"'))
-            .and_then(|value| value.split_once('"').map(|(package, _)| package))
-        {
-            external.insert((module_name.clone(), package.to_string()));
-            external_aliases.insert(alias, (module_name, package.to_string()));
-        } else {
-            local.insert(module_name.clone());
-            local_aliases.insert(alias, module_name);
+impl SourceIdentity {
+    fn new(path: &str, text: &str) -> Self {
+        let path_module = module_name_from_path(path);
+        let navigation_isolated = path_module_invalid_for_navigation(path_module.as_deref());
+        let module = explicit_module_name(text).or(path_module).unwrap_or_default();
+        Self {
+            module,
+            navigation_isolated,
         }
     }
-    (local, external, local_aliases, external_aliases)
+}
+
+struct UseModuleIndex {
+    local_modules: BTreeSet<String>,
+    external_modules: BTreeSet<(String, String)>,
+    local_aliases: BTreeMap<String, String>,
+    external_aliases: BTreeMap<String, (String, String)>,
+}
+
+impl UseModuleIndex {
+    fn new(text: &str) -> Self {
+        let mut index = Self {
+            local_modules: BTreeSet::new(),
+            external_modules: BTreeSet::new(),
+            local_aliases: BTreeMap::new(),
+            external_aliases: BTreeMap::new(),
+        };
+        for import in text.lines().filter_map(parse_use_module) {
+            index.insert(import);
+        }
+        index
+    }
+
+    fn insert(&mut self, import: UseModule) {
+        if let Some(package) = import.package {
+            self.external_modules
+                .insert((import.module.clone(), package.clone()));
+            self.external_aliases
+                .insert(import.alias, (import.module, package));
+        } else {
+            self.local_modules.insert(import.module.clone());
+            self.local_aliases.insert(import.alias, import.module);
+        }
+    }
+}
+
+struct UseModule {
+    module: String,
+    alias: String,
+    package: Option<String>,
+}
+
+fn parse_use_module(line: &str) -> Option<UseModule> {
+    let rest = line.trim_start().strip_prefix("use ")?;
+    let module = leading_module_path(rest)?;
+    let alias = module.rsplit("::").next().unwrap_or(module).to_string();
+    let package = rest[module.len()..]
+        .trim()
+        .strip_prefix("from ")
+        .and_then(|value| value.strip_prefix('"'))
+        .and_then(|value| {
+            value
+                .split_once('"')
+                .map(|(package, _)| package.to_string())
+        });
+    Some(UseModule {
+        module: module.to_string(),
+        alias,
+        package,
+    })
 }
 
 struct UseDeclarationDiagnosticIndex {

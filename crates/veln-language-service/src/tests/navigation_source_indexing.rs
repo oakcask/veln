@@ -100,4 +100,57 @@ mod navigation_source_indexing_tests {
             ));
         }
     }
+
+    #[test]
+    fn workspace_and_dependency_explicit_modules_share_leaf_import_resolution() {
+        let dependency = dependency_snapshot(
+            "example/dependency",
+            &[(
+                "wire.veln",
+                concat!(
+                    "mod package::wire\n\n",
+                    "pub fn remote() -> Int\n",
+                    "  2\n",
+                    "end\n",
+                ),
+            )],
+            ["wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use workspace::math\n",
+                        "use package::wire from \"example/dependency\"\n\n",
+                        "fn answer() -> Int\n",
+                        "  math::local(wire::remote())\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "helpers.veln",
+                    concat!(
+                        "mod workspace::math\n\n",
+                        "pub fn local(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        let workspace = query_snapshot(&snapshot, "main.veln", 5, 10).unwrap();
+        assert_eq!(workspace.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&workspace.definition, "helpers.veln", 3, 8);
+
+        let package = query_snapshot(&snapshot, "main.veln", 5, 22).unwrap();
+        assert_eq!(package.selected_symbol.kind, SymbolKind::Function);
+        assert_eq!(package.definition.span.file.as_str(), "wire.veln");
+        assert!(matches!(
+            package.definition.source,
+            NavigationSource::Package { .. }
+        ));
+    }
 }
