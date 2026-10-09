@@ -9,7 +9,7 @@ jdk = true
 
 [stdout]
 format = "text"
-contains = ["listen", "bounded outcomes", "wrote hello", "read hello", "read end", "duplex", "close interruption", "scope cleanup", "listener cleanup", "write close interruption", "listener close interruption", "confirmed close idempotence"]
+contains = ["listen", "bounded outcomes", "shutdown read post-state", "wrote hello", "read hello", "read end", "duplex", "close interruption", "scope cleanup", "listener cleanup", "write close interruption", "listener close interruption", "confirmed close idempotence"]
 
 [stderr]
 format = "empty"

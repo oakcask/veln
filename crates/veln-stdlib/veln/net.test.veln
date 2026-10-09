@@ -776,6 +776,68 @@ fn system_write_shutdown_interruption_body(ready: Receiver<()>, release: Sender<
 	end
 end
 
+fn system_successful_shutdown_post_states() -> Result<(), String> effects [net::IO]
+	let stream = system_contention_stream()?
+	let read_shutdown = net::shutdown_read(stream)
+	let fresh_read = net::read(stream)
+	let write_shutdown = net::shutdown_write(stream)
+	let fresh_write = match byte_chunk_from_visible_ascii_string("w")
+		Ok(bytes) => net::write(stream, bytes)
+		Err(message) => net::WriteFailed(net::ByteCount(0), net::NetError("write", None, None, net::Other, message))
+	end
+	let _ = net::close_stream(stream)
+	match read_shutdown
+		Ok(()) => match fresh_read
+			Err(net::NetError(_, _, _, net::Closed, _)) => match write_shutdown
+				Ok(()) => match fresh_write
+					net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Closed, _)) => Ok(())
+					_ => Err("fresh write after successful shutdown did not return WriteFailed(0, Closed)")
+				end
+				Err(_) => Err("local write shutdown failed")
+			end
+			_ => Err("fresh read after successful shutdown did not return Closed")
+		end
+		Err(_) => Err("local read shutdown failed")
+	end
+end
+
+fn system_successful_stream_close_post_states() -> Result<(), String> effects [net::IO]
+	let stream = system_contention_stream()?
+	let closed = net::close_stream(stream)
+	let fresh_read = net::read(stream)
+	let fresh_write = match byte_chunk_from_visible_ascii_string("w")
+		Ok(bytes) => net::write(stream, bytes)
+		Err(message) => net::WriteFailed(net::ByteCount(0), net::NetError("write", None, None, net::Other, message))
+	end
+	match closed
+		Ok(()) => match fresh_read
+			Err(net::NetError(_, _, _, net::Closed, _)) => match fresh_write
+				net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Closed, _)) => Ok(())
+				_ => Err("fresh write after successful stream close did not return WriteFailed(0, Closed)")
+			end
+			_ => Err("fresh read after successful stream close did not return Closed")
+		end
+		Err(_) => Err("stream close failed")
+	end
+end
+
+fn system_successful_listener_close_post_state() -> Result<(), String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "ended.test", 0))
+		Ok(listener) => begin
+			let closed = net::close_listener(listener)
+			let fresh_accept = net::accept(listener)
+			match closed
+				Ok(()) => match fresh_accept
+					Err(net::NetError(_, _, _, net::Closed, _)) => Ok(())
+					_ => Err("fresh accept after successful listener close did not return Closed")
+				end
+				Err(_) => Err("listener close failed")
+			end
+		end
+		Err(_) => Err("listener did not open")
+	end
+end
+
 fn system_uncommitted_read_shutdown_failure_body(io_ready: Receiver<()>, io_release: Sender<()>, shutdown_ready: Receiver<()>, shutdown_release: Sender<()>) -> Result<(), String> effects [net::IO, concurrency]
 	let stream = system_contention_stream()?
 	let io = task::spawn_with(system_background_read, stream)
@@ -1341,6 +1403,23 @@ test system_stream_shutdown_interruptions_are_closed() -> Result<(), String> eff
 	let write_result = handle handle system_write_shutdown_interruption_body(write_ready.rx, write_release.tx) with net::system() with contended_system_network("write", write_ready.tx, write_release.rx)
 	match read_result
 		Ok(()) => write_result
+		Err(message) => Err(message)
+	end
+end
+
+test successful_system_stream_shutdowns_close_fresh_operations() -> Result<(), String> effects [net, time, concurrency]
+	let ready = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	handle handle system_successful_shutdown_post_states() with net::system() with contended_system_network("read", ready.tx, release.rx)
+end
+
+test successful_system_closes_close_fresh_operations() -> Result<(), String> effects [net, time, concurrency]
+	let ready = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let stream_result = handle handle system_successful_stream_close_post_states() with net::system() with contended_system_network("read", ready.tx, release.rx)
+	let listener_result = handle handle system_successful_listener_close_post_state() with net::system() with scripted_system_network("accept-end")
+	match stream_result
+		Ok(()) => listener_result
 		Err(message) => Err(message)
 	end
 end

@@ -738,6 +738,8 @@
         new java.util.concurrent.atomic.AtomicLong();
     private static final java.util.concurrent.atomic.AtomicLong NET_READ_BUFFER_ALLOCATIONS =
         new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong NET_SYSTEM_CONNECT_ATTEMPTS =
+        new java.util.concurrent.atomic.AtomicLong();
     private static final class SocketReadiness implements AutoCloseable {
         private final java.nio.channels.Selector selector;
 
@@ -1184,21 +1186,15 @@
                 || stream.writeShutdown || stream.writeShutdownUncertain;
         }
     }
-    private static boolean netSystemRegisterListener(HandlerFrame owner, NetListener listener) {
+    private static boolean netSystemPublishResource(HandlerFrame owner, Object resource) {
         synchronized (owner.networkResources) {
-            if (owner.networkSystemClosed) return false;
-            listener.systemOwner = owner;
-            owner.networkResources.add(listener);
-            return true;
+            if (resource instanceof NetListener) ((NetListener) resource).systemOwner = owner;
+            else ((NetStream) resource).systemOwner = owner;
+            owner.networkResources.add(resource);
+            if (!owner.networkSystemClosed) return true;
         }
-    }
-    private static boolean netSystemRegisterStream(HandlerFrame owner, NetStream stream) {
-        synchronized (owner.networkResources) {
-            if (owner.networkSystemClosed) return false;
-            stream.systemOwner = owner;
-            owner.networkResources.add(stream);
-            return true;
-        }
+        netSystemCleanupResource(owner, resource);
+        return false;
     }
     private static void netSystemReleaseResource(HandlerFrame owner, Object resource) {
         synchronized (owner.networkResources) {
@@ -1267,54 +1263,47 @@
         }
         return new java.util.ArrayList<>(unique.values());
     }
-    private static java.util.List<NetSystemResolvedEndpoint> netSystemResolved(Object address, Object deadline, Object token) throws java.net.UnknownHostException {
+    private static java.util.List<NetSystemResolvedEndpoint> netSystemResolved(Object address, Object deadline, Object token, String operation) throws Throwable {
         Object network = netSystemAddressNetwork(address);
         String host = netSystemAddressHost(address);
+        netSystemResolutionControlWaitMillis(deadline, token, operation);
         HandlerFrame adapter = findHandler(NETWORK_EFFECT);
         if (adapter != null) {
-            return netSystemResolvedWithAdapter(network, host, deadline, token, adapter);
+            java.util.List<NetSystemResolvedEndpoint> resolved =
+                netSystemResolvedWithAdapter(network, host, deadline, token, adapter);
+            netSystemResolutionControlWaitMillis(deadline, token, operation);
+            return resolved;
         }
-        return netSystemResolvedOnHost(network, host);
+        java.util.concurrent.Future<java.util.List<NetSystemResolvedEndpoint>> resolution =
+            NET_SYSTEM_RESOLVERS.submit(() -> netSystemResolvedOnHost(network, host));
+        return netSystemAwaitResolution(resolution, deadline, token, operation);
     }
-    private static java.util.List<NetSystemResolvedEndpoint> netSystemResolved(Object address) throws java.net.UnknownHostException {
-        return netSystemResolved(address, null, null);
-    }
-    private static long netSystemConnectControlWaitMillis(Object deadline, Object token) throws java.net.SocketTimeoutException {
+    private static long netSystemResolutionControlWaitMillis(Object deadline, Object token, String operation) throws java.net.SocketTimeoutException {
         throwTaskCancellationIfRequested();
         if (token != null && waitCancelled(asCancelToken(token))) {
-            throw new java.util.concurrent.CancellationException("connect cancelled");
+            throw new java.util.concurrent.CancellationException(operation + " cancelled");
         }
         if (deadline == null) return 10L;
         long remaining = deadlineRemainingNanos(deadline);
-        if (remaining == 0L) throw new java.net.SocketTimeoutException("connect timed out");
+        if (remaining == 0L) throw new java.net.SocketTimeoutException(operation + " timed out");
         long roundedMillis = (remaining - 1L) / 1000000L + 1L;
         return Math.min(10L, roundedMillis);
     }
-    private static java.util.List<NetSystemResolvedEndpoint> netSystemResolvedForConnect(
-        Object address,
+    private static java.util.List<NetSystemResolvedEndpoint> netSystemAwaitResolution(
+        java.util.concurrent.Future<java.util.List<NetSystemResolvedEndpoint>> resolution,
         Object deadline,
-        Object token
+        Object token,
+        String operation
     ) throws Throwable {
-        netSystemConnectControlWaitMillis(deadline, token);
-        HandlerFrame adapter = findHandler(NETWORK_EFFECT);
-        if (adapter != null) {
-            java.util.List<NetSystemResolvedEndpoint> resolved = netSystemResolved(address, deadline, token);
-            netSystemConnectControlWaitMillis(deadline, token);
-            return resolved;
-        }
-        Object network = netSystemAddressNetwork(address);
-        String host = netSystemAddressHost(address);
-        java.util.concurrent.Future<java.util.List<NetSystemResolvedEndpoint>> resolution =
-            NET_SYSTEM_RESOLVERS.submit(() -> netSystemResolvedOnHost(network, host));
         try {
             while (true) {
-                long waitMillis = netSystemConnectControlWaitMillis(deadline, token);
+                long waitMillis = netSystemResolutionControlWaitMillis(deadline, token, operation);
                 try {
                     java.util.List<NetSystemResolvedEndpoint> resolved = resolution.get(
                         waitMillis,
                         java.util.concurrent.TimeUnit.MILLISECONDS
                     );
-                    netSystemConnectControlWaitMillis(deadline, token);
+                    netSystemResolutionControlWaitMillis(deadline, token, operation);
                     return resolved;
                 } catch (java.util.concurrent.TimeoutException pending) {
                     // Recheck cancellation, deadline, and task cancellation before waiting again.
@@ -1330,10 +1319,21 @@
             resolution.cancel(true);
         }
     }
-    private static Object netSystemEndpoints(Object address) throws java.net.UnknownHostException {
+    private static java.util.List<NetSystemResolvedEndpoint> netSystemResolvedForConnect(
+        Object address,
+        Object deadline,
+        Object token
+    ) throws Throwable {
+        netSystemResolutionControlWaitMillis(deadline, token, "connect");
+        java.util.List<NetSystemResolvedEndpoint> resolved =
+            netSystemResolved(address, deadline, token, "connect");
+        netSystemResolutionControlWaitMillis(deadline, token, "connect");
+        return resolved;
+    }
+    private static Object netSystemEndpoints(Object address) throws Throwable {
         long port = netSystemAddressPort(address);
         Object endpoints = listNil();
-        java.util.List<NetSystemResolvedEndpoint> resolved = netSystemResolved(address);
+        java.util.List<NetSystemResolvedEndpoint> resolved = netSystemResolved(address, null, null, "resolve");
         for (int index = resolved.size() - 1; index >= 0; index--) {
             NetSystemResolvedEndpoint endpoint = resolved.get(index);
             endpoints = listCons(netSystemEndpoint(endpoint.network, netSystemJoinHostPort(endpoint.address, port)), endpoints);
@@ -1369,13 +1369,12 @@
             if (netSystemAddressHost(address).isEmpty()) {
                 subject = netSystemJoinHostPort(isAdt(network, "Network::Tcp6") ? "::" : "0.0.0.0", netSystemAddressPort(address));
             } else {
-                java.util.List<NetSystemResolvedEndpoint> resolved = netSystemResolved(address);
+                java.util.List<NetSystemResolvedEndpoint> resolved = netSystemResolved(address, null, null, "listen");
                 if (resolved.isEmpty()) return err(netSystemError("listen", network, subject, "NameNotFound", "no endpoint matched the requested network"));
                 subject = netSystemJoinHostPort(resolved.get(0).address, netSystemAddressPort(address));
             }
             NetListener listener = asNetListener(netListen(subject));
-            if (!netSystemRegisterListener(owner, listener)) {
-                try { netCloseListener(listener); } catch (Throwable ignored) { }
+            if (!netSystemPublishResource(owner, listener)) {
                 return err(netSystemInvalidResource("listen"));
             }
             return ok(listener);
@@ -1399,6 +1398,7 @@
         }
     }
     private static NetStream netSystemConnectEndpoint(String subject, Object deadline, Object token) throws java.io.IOException {
+        NET_SYSTEM_CONNECT_ATTEMPTS.incrementAndGet();
         HandlerFrame adapter = findHandler(NETWORK_EFFECT);
         if (adapter != null) return adapterStream(adapter, networkRequest(adapter, "connect", subject, emptyNetworkBytes(), deadline, token));
         java.nio.channels.SocketChannel socket = java.nio.channels.SocketChannel.open();
@@ -1415,6 +1415,45 @@
             throw failure;
         }
     }
+    private static boolean netSystemConnectControlFailure(Throwable failure) {
+        if (failure instanceof java.util.concurrent.CancellationException
+            || failure instanceof java.net.SocketTimeoutException) return true;
+        if (!(failure instanceof TransportFailure)) return false;
+        String category = ((TransportFailure) failure).category;
+        return category.equals("cancelled") || category.equals("timed_out");
+    }
+    private static Object netSystemConnectResolved(
+        HandlerFrame owner,
+        Object address,
+        Object deadline,
+        Object token,
+        java.util.List<NetSystemResolvedEndpoint> resolved
+    ) {
+        Object network = netSystemAddressNetwork(address);
+        Throwable last = null;
+        for (NetSystemResolvedEndpoint endpoint : resolved) {
+            String subject = netSystemJoinHostPort(endpoint.address, netSystemAddressPort(address));
+            try {
+                NetStream stream = netSystemConnectEndpoint(subject, deadline, token);
+                if (!netSystemPublishResource(owner, stream)) {
+                    return err(netSystemInvalidResource("connect"));
+                }
+                return ok(stream);
+            } catch (java.util.concurrent.CancellationException cancelled) {
+                return err(netSystemError("connect", network, subject, "Cancelled", cancelled.getMessage()));
+            } catch (TaskCancellationFailure cancelled) {
+                throw cancelled;
+            } catch (Throwable failure) {
+                netSystemRejectUnexpectedFailure(failure);
+                if (netSystemConnectControlFailure(failure)) {
+                    return err(netSystemFailure("connect", network, subject, failure));
+                }
+                last = failure;
+            }
+        }
+        if (last == null) return err(netSystemError("connect", network, netSystemAddressHost(address), "NameNotFound", "no endpoint matched the requested network"));
+        return err(netSystemFailure("connect", network, netSystemAddressHost(address), last));
+    }
     public static Object netSystemConnect(Object address, Object deadlineOption, Object tokenOption) {
         HandlerFrame owner = netSystemOwner();
         if (owner.networkSystemClosed) return err(netSystemInvalidResource("connect"));
@@ -1423,34 +1462,14 @@
         Object deadline = netSystemOptionValue(deadlineOption);
         Object token = netSystemOptionValue(tokenOption);
         Object network = netSystemAddressNetwork(address);
-        Throwable last = null;
         try {
-            for (NetSystemResolvedEndpoint endpoint : netSystemResolvedForConnect(address, deadline, token)) {
-                String subject = netSystemJoinHostPort(endpoint.address, netSystemAddressPort(address));
-                try {
-                    NetStream stream = netSystemConnectEndpoint(subject, deadline, token);
-                    if (!netSystemRegisterStream(owner, stream)) {
-                        try { netCloseStream(stream); } catch (Throwable ignored) { }
-                        return err(netSystemInvalidResource("connect"));
-                    }
-                    return ok(stream);
-                } catch (java.util.concurrent.CancellationException cancelled) {
-                    return err(netSystemError("connect", network, subject, "Cancelled", cancelled.getMessage()));
-                } catch (TaskCancellationFailure cancelled) {
-                    throw cancelled;
-                } catch (Throwable failure) {
-                    netSystemRejectUnexpectedFailure(failure);
-                    if (failure instanceof TransportFailure) {
-                        String category = ((TransportFailure) failure).category;
-                        if (category.equals("cancelled") || category.equals("timed_out")) {
-                            return err(netSystemFailure("connect", network, subject, failure));
-                        }
-                    }
-                    last = failure;
-                }
-            }
-            if (last == null) return err(netSystemError("connect", network, netSystemAddressHost(address), "NameNotFound", "no endpoint matched the requested network"));
-            return err(netSystemFailure("connect", network, netSystemAddressHost(address), last));
+            return netSystemConnectResolved(
+                owner,
+                address,
+                deadline,
+                token,
+                netSystemResolvedForConnect(address, deadline, token)
+            );
         } catch (java.util.concurrent.CancellationException cancelled) {
             return err(netSystemError("connect", network, netSystemAddressHost(address), "Cancelled", cancelled.getMessage()));
         } catch (Throwable failure) {
@@ -1477,7 +1496,10 @@
             Object outcome = acceptHost(listener, netSystemOptionValue(deadlineOption), netSystemOptionValue(tokenOption), "accept");
             if (netSystemListenerUnavailable(listener)) {
                 if (isAdt(outcome, "AcceptOutcome::AcceptStream")) {
-                    try { netCloseStream(asNetStream(((Adt) outcome).payloads[0])); } catch (Throwable ignored) { }
+                    NetStream stream = asNetStream(((Adt) outcome).payloads[0]);
+                    if (netSystemPublishResource(owner, stream)) {
+                        netSystemCleanupResource(owner, stream);
+                    }
                 }
                 return err(netSystemError("accept", null, listener.localAddress, "Closed", "listener is closed"));
             }
@@ -1485,8 +1507,7 @@
             if (isAdt(outcome, "AcceptOutcome::AcceptCancelled")) return err(netSystemError("accept", null, listener.localAddress, "Cancelled", "accept was cancelled"));
             if (isAdt(outcome, "AcceptOutcome::AcceptEnd")) return err(netSystemError("accept", null, listener.localAddress, "Closed", "listener reached clean end"));
             NetStream stream = asNetStream(((Adt) outcome).payloads[0]);
-            if (!netSystemRegisterStream(owner, stream)) {
-                try { netCloseStream(stream); } catch (Throwable ignored) { }
+            if (!netSystemPublishResource(owner, stream)) {
                 return err(netSystemInvalidResource("accept"));
             }
             return ok(stream);
@@ -1674,30 +1695,69 @@
             }
         }
     }
+    private static void netSystemCleanupResource(HandlerFrame owner, Object resource) {
+        if (resource instanceof NetStream) {
+            NetStream stream = (NetStream) resource;
+            synchronized (stream.lifecycleLock) {
+                if (stream.systemClosed) {
+                    netSystemReleaseResource(owner, stream);
+                    return;
+                }
+                try {
+                    if (stream.adapter != null) streamRequest(stream, "close_stream", emptyNetworkBytes(), null, null);
+                    else stream.socket.close();
+                    stream.systemClosed = true; stream.closeUncertain = false;
+                    stream.readShutdown = true; stream.writeShutdown = true;
+                    netSystemReleaseResource(owner, stream);
+                } catch (Throwable failure) {
+                    Boolean committed = netSystemFailureCommit(failure, false, false);
+                    if (committed == null && stream.adapter == null) {
+                        committed = Boolean.valueOf(!stream.socket.isOpen());
+                    }
+                    if (Boolean.TRUE.equals(committed)) {
+                        stream.systemClosed = true; stream.closeUncertain = false;
+                        stream.readShutdown = true; stream.writeShutdown = true;
+                        netSystemReleaseResource(owner, stream);
+                    } else {
+                        stream.closeUncertain = committed == null;
+                    }
+                }
+            }
+            return;
+        }
+        NetListener listener = (NetListener) resource;
+        synchronized (listener.lifecycleLock) {
+            if (listener.systemClosed) {
+                netSystemReleaseResource(owner, listener);
+                return;
+            }
+            try {
+                if (listener.adapter != null) listenerRequest(listener, "close_listener", null, null);
+                else listener.server.close();
+                listener.systemClosed = true; listener.closeUncertain = false;
+                netSystemReleaseResource(owner, listener);
+            } catch (Throwable failure) {
+                Boolean committed = netSystemFailureCommit(failure, false, false);
+                if (committed == null && listener.adapter == null) {
+                    committed = Boolean.valueOf(!listener.server.isOpen());
+                }
+                if (Boolean.TRUE.equals(committed)) {
+                    listener.systemClosed = true; listener.closeUncertain = false;
+                    netSystemReleaseResource(owner, listener);
+                } else {
+                    listener.closeUncertain = committed == null;
+                }
+            }
+        }
+    }
     private static void cleanupNetworkSystem(HandlerFrame owner) {
         java.util.List<Object> resources;
         synchronized (owner.networkResources) {
             owner.networkSystemClosed = true;
             resources = new java.util.ArrayList<Object>(owner.networkResources);
-            owner.networkResources.clear();
         }
         for (Object resource : resources) {
-            if (resource instanceof NetStream) {
-                NetStream stream = (NetStream) resource;
-                synchronized (stream.lifecycleLock) {
-                    stream.systemClosed = true; stream.closeUncertain = false;
-                    stream.readShutdown = true; stream.writeShutdown = true;
-                    try { if (stream.adapter != null) streamRequest(stream, "close_stream", emptyNetworkBytes(), null, null); else stream.socket.close(); }
-                    catch (Throwable ignored) { }
-                }
-            } else {
-                NetListener listener = (NetListener) resource;
-                synchronized (listener.lifecycleLock) {
-                    listener.systemClosed = true; listener.closeUncertain = false;
-                    try { if (listener.adapter != null) listenerRequest(listener, "close_listener", null, null); else listener.server.close(); }
-                    catch (Throwable ignored) { }
-                }
-            }
+            netSystemCleanupResource(owner, resource);
         }
     }
 

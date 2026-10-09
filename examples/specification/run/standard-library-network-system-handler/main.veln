@@ -105,6 +105,14 @@ fn require_read_kind(result: Result<net::ReadOutcome, net::NetError>, kind: Stri
 	end
 end
 
+fn require_closed_read(result: Result<net::ReadOutcome, net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::Closed, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("read", None, None, net::Other, "read after shutdown_read unexpectedly succeeded"))
+	end
+end
+
 fn require_write_kind(result: net::WriteOutcome, kind: String) -> Result<(), net::NetError>
 	match result
 		net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::TimedOut, _)) => if kind == "timeout" Ok(()) else Err(net::NetError("write", None, None, net::Other, "unexpected timeout")) end
@@ -345,6 +353,15 @@ fn exercise() -> Result<(), net::NetError> effects [net::IO, net, time, concurre
 	let _ = require_read_kind(net::read_with(client, None, Some(token)), "cancelled")?
 	let _ = require_write_kind(net::write_with(client, bytes("x")?, Some(expired), None), "timeout")?
 	let _ = require_write_kind(net::write_with(client, bytes("x")?, None, Some(token)), "cancelled")?
+	let buffered_client = net::connect_with(local, Some(time::deadline_after_ms(1000)), None)?
+	let buffered_peer = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let _ = require_full_write(net::write_with(buffered_peer, bytes("hello")?, Some(time::deadline_after_ms(1000)), None))?
+	time::wait_until(time::deadline_after_ms(20))
+	let _ = net::shutdown_read(buffered_client)?
+	let _ = require_closed_read(net::read_with(buffered_client, Some(time::deadline_after_ms(1000)), None))?
+	let _ = net::close_stream(buffered_client)?
+	let _ = net::close_stream(buffered_peer)?
+	stdio::println("shutdown read post-state")
 	let _ = require_full_write(net::write_with(client, bytes("hello")?, Some(time::deadline_after_ms(1000)), None))?
 	stdio::println("wrote hello")
 	let _ = require_hello(net::read_with(server, Some(time::deadline_after_ms(1000)), None)?)?

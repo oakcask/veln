@@ -130,7 +130,9 @@ fn network_system_cleanup_uses_one_identity_ledger_without_activation_races() {
     assert!(
         effects.contains("resources = new java.util.ArrayList<Object>(owner.networkResources);")
     );
-    assert!(effects.contains("owner.networkResources.clear();"));
+    assert!(effects.contains("netSystemPublishResource(HandlerFrame owner, Object resource)"));
+    assert!(effects.contains("netSystemCleanupResource(owner, resource);"));
+    assert!(!effects.contains("owner.networkResources.clear();"));
 }
 
 #[test]
