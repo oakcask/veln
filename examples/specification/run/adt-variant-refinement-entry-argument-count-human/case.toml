@@ -1,3 +1,6 @@
+# At `veln run` entry-argument precedence, stdio::println is only an execution sentinel.
+# Absence of `forbidden` proves invalid argument count wins before execution; absence of
+# `type.variant_mismatch` proves it wins before semantic lowering.
 command = ["run", "main", "main.veln", "--", "unexpected"]
 source_errors = "expected"
 exit = 1
