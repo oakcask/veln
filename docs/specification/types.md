@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#representative-usage; behavior=#inference-rules; limits=#compatibility-and-limits
-update-when: Veln type annotations, inference, assignment compatibility, operator typing, or type-checker behavior changes.
+update-when: Veln type annotations, inference, assignment compatibility, operator typing, type-checker behavior, or the type-feature implementation boundary changes.
 ---
 
 # Types

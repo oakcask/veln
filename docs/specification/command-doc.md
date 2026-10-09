@@ -28,7 +28,9 @@ attached documentation comments, and function contract clauses. ADR-lite
 records have a separate section and retain their parsed anchor.
 
 Canonical public declaration signatures preserve accepted singleton and
-finite-union variant-refinement annotations.
+finite-union variant-refinement annotations. They also canonicalize the
+complete signature around those annotations, including rendering `Unit` as
+`()`, for function parameters, function results, and constructor fields.
 
 A documentation line comment attaches only when immediately above the nearest
 module, public type, public schema, public member alias, or public function.
