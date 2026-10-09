@@ -159,14 +159,22 @@ uses `Other` instead of becoming a runtime diagnostic.
 System reads return non-empty `ReadChunk` values. They return `ReadEnd` after
 the peer write half ends and buffered bytes have been consumed; later reads
 remain `ReadEnd`. A write reports the bytes committed by that attempt, including
-a committed prefix on failure. A deadline or cancellation failure leaves an
-otherwise reusable listener or stream open.
+a committed prefix on failure. An empty write returns `Written(ByteCount(0))`
+after resource ownership, open-state, and same-direction concurrency checks
+succeed; it does not inspect the supplied deadline or cancellation token. For
+a non-empty stream backed directly by a host socket, `write` waits through
+socket backpressure until it commits the complete chunk or an interruption or
+failure occurs. Success reports the input byte count. `WriteFailed` reports the
+exact committed prefix, including a non-zero prefix when close, shutdown,
+deadline expiration, cancellation, or another transport failure interrupts the
+write. A deadline or cancellation failure leaves an otherwise reusable
+listener or stream open.
 
-When a connect has both a deadline and a cancellation token, the first
-condition observed before connection establishment determines `TimedOut` or
-`Cancelled`. Successful connection establishment is the commit point. A
-deadline or cancellation that becomes observable only after that point does
-not replace the connected stream with a failure.
+Connection establishment is the commit point. Before an endpoint is
+established, each control check tests cancellation before deadline expiration.
+Once the host reports successful establishment, the handler returns the
+connected stream without another deadline or cancellation check. A control
+that becomes observable only at or after that commit does not replace success.
 
 Each listener permits one active accept; a second accept returns `Busy`. Each
 stream permits one active read and one active write at the same time. A second
