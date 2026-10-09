@@ -10,9 +10,26 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     ) {
         match target {
             IrCallTarget::Function(name) => self.emit_program_function_call(code, name, args),
-            IrCallTarget::SchemaDecode(name) => {
-                self.emit_schema_decode_call(code, name, args);
+            IrCallTarget::StdioBuiltin(name) => self.emit_stdio_call(code, expr, name, args),
+            IrCallTarget::CallbackBoundary { target, callsite } => {
+                self.emit_callback_boundary_call(code, target, args, callsite);
             }
+            IrCallTarget::Value(name) => self.emit_value_call(code, name, args),
+            IrCallTarget::CallsiteValue { name, callsite } => {
+                self.emit_callsite_value_call(code, name, args, callsite)
+            }
+            _ => self.emit_static_runtime_target(code, target, args),
+        }
+    }
+
+    fn emit_static_runtime_target(
+        &mut self,
+        code: &mut MethodCode,
+        target: &IrCallTarget,
+        args: &[IrExpr],
+    ) {
+        match target {
+            IrCallTarget::SchemaDecode(name) => self.emit_schema_decode_call(code, name, args),
             IrCallTarget::SchemaDecodeStep(name) => {
                 self.emit_schema_decode_step_call(code, name, args);
             }
@@ -22,16 +39,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::SchemaNeutralEncode(name) => {
                 self.emit_schema_neutral_encode_call(code, name, args);
             }
-            IrCallTarget::SchemaEncode(name) => {
-                self.emit_schema_encode_call(code, name, args);
-            }
+            IrCallTarget::SchemaEncode(name) => self.emit_schema_encode_call(code, name, args),
             IrCallTarget::SchemaEncodeStep(name) => {
                 self.emit_schema_encode_step_call(code, name, args);
             }
-            IrCallTarget::SchemaValidate(name) => {
-                self.emit_schema_validate_call(code, name, args);
-            }
-            IrCallTarget::StdioBuiltin(name) => self.emit_stdio_call(code, expr, name, args),
+            IrCallTarget::SchemaValidate(name) => self.emit_schema_validate_call(code, name, args),
             IrCallTarget::ConcurrencyBuiltin(name) => {
                 self.emit_runtime_call(code, concurrency_method(name), args);
             }
@@ -41,29 +53,33 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::PreludeBuiltin(name) => {
                 self.emit_runtime_call(code, prelude_method(name), args);
             }
-            IrCallTarget::CallbackBoundary { target, callsite } => {
-                if let IrCallbackTarget::Function(name) = target {
-                    self.emit_callback_args(code, args, callsite);
-                    code.invokestatic(
-                        &self.program.options.program_class,
-                        &self.program.function_name(name),
-                        &object_method_descriptor(args.len()),
-                    );
-                    return;
-                }
-                let method = match target {
-                    IrCallbackTarget::Function(_) => unreachable!(),
-                    IrCallbackTarget::ConcurrencyBuiltin(name) => concurrency_method(name),
-                    IrCallbackTarget::StandardLibraryBuiltin(name) => standard_library_method(name),
-                    IrCallbackTarget::PreludeBuiltin(name) => prelude_method(name),
-                };
-                self.emit_runtime_callback_call(code, method, args, callsite);
-            }
-            IrCallTarget::Value(name) => self.emit_value_call(code, name, args),
-            IrCallTarget::CallsiteValue { name, callsite } => {
-                self.emit_callsite_value_call(code, name, args, callsite)
-            }
+            _ => unreachable!(),
         }
+    }
+
+    fn emit_callback_boundary_call(
+        &mut self,
+        code: &mut MethodCode,
+        target: &IrCallbackTarget,
+        args: &[IrExpr],
+        callsite: &IrExpr,
+    ) {
+        if let IrCallbackTarget::Function(name) = target {
+            self.emit_callback_args(code, args, callsite);
+            code.invokestatic(
+                &self.program.options.program_class,
+                &self.program.function_name(name),
+                &object_method_descriptor(args.len()),
+            );
+            return;
+        }
+        let method = match target {
+            IrCallbackTarget::Function(_) => unreachable!(),
+            IrCallbackTarget::ConcurrencyBuiltin(name) => concurrency_method(name),
+            IrCallbackTarget::StandardLibraryBuiltin(name) => standard_library_method(name),
+            IrCallbackTarget::PreludeBuiltin(name) => prelude_method(name),
+        };
+        self.emit_runtime_callback_call(code, method, args, callsite);
     }
 
     fn emit_program_function_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
@@ -154,6 +170,17 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         context_args: &[IrExpr],
         body: &IrExpr,
     ) {
+        self.emit_handler_registration(code, effect, providers, context_args);
+        self.emit_handled_body(code, body);
+    }
+
+    fn emit_handler_registration(
+        &mut self,
+        code: &mut MethodCode,
+        effect: &str,
+        providers: &[IrHandlerProvider],
+        context_args: &[IrExpr],
+    ) {
         code.ldc_string(effect);
         self.emit_object_array(code, providers.len(), |_, code, index| {
             code.ldc_string(&providers[index].operation);
@@ -171,6 +198,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "(Ljava/lang/String;[Ljava/lang/Object;[Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
         );
         code.op(0x57);
+    }
+
+    fn emit_handled_body(&mut self, code: &mut MethodCode, body: &IrExpr) {
         let try_start = code.mark();
         let parent_unwind = self.push_handler_unwind(code);
         self.emit_expr(code, body);
@@ -181,10 +211,25 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_pop_handler(code);
         let done = code.new_label();
         code.branch_to(0xa7, done);
+        self.emit_handler_unwind(code, try_start, try_end);
+        code.bind(done);
+        code.aload(result_slot);
+    }
+
+    fn emit_handler_unwind(&mut self, code: &mut MethodCode, try_start: usize, try_end: usize) {
         let handler_pc = code.mark();
         let throwable_slot = self.alloc_local();
         code.astore(throwable_slot);
+        let cleanup_start = code.mark();
         self.emit_pop_handler(code);
+        let cleanup_end = code.mark();
+        let rethrow = code.new_label();
+        code.branch_wide_to(rethrow);
+        let cleanup_failure_handler = code.mark();
+        let cleanup_failure_slot = self.alloc_local();
+        code.astore(cleanup_failure_slot);
+        self.emit_attach_cleanup_failure(code, throwable_slot, cleanup_failure_slot);
+        code.bind(rethrow);
         code.aload(throwable_slot);
         code.op(0xbf);
         code.exceptions.push(ExceptionHandler {
@@ -193,8 +238,12 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             handler_pc,
             catch_type: "java/lang/Throwable".to_string(),
         });
-        code.bind(done);
-        code.aload(result_slot);
+        code.exceptions.push(ExceptionHandler {
+            start_pc: cleanup_start,
+            end_pc: cleanup_end,
+            handler_pc: cleanup_failure_handler,
+            catch_type: "java/lang/Throwable".to_string(),
+        });
     }
 
     pub(super) fn emit_pop_handler(&mut self, code: &mut MethodCode) {

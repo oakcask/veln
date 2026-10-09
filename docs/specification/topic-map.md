@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A specification topic route is added, moved, renamed, or no longer points to the smallest current behavior page.
+update-when: A specification topic route is added, moved, renamed, or its scope summary no longer points to the smallest current behavior page.
 ---
 
 # Language Topic Map
@@ -95,7 +95,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
 - Explicit HTTP/2 frame, diagnostic, HPACK, and core modules:
   [http2.md](http2.md).
 - Exported standard-library network values, pure host-port helpers, the nominal
-  network-operation boundary and direct facade, and the complete-write helper:
+  network-operation boundary and direct facade, the host system handler and
+  its resource lifecycle, and the complete-write helper:
   [standard-library-networking.md](standard-library-networking.md).
 - JVM execution behavior, values, calls, control flow, and host boundaries:
   [execution.md](execution.md).

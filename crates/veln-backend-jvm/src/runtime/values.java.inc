@@ -369,11 +369,17 @@
                 return new java.util.ArrayList<HandlerFrame>();
             }
         };
+    private static final ThreadLocal<HandlerFrame> INVOKED_HANDLER =
+        new ThreadLocal<HandlerFrame>();
 
     private static final class HandlerFrame {
         private final String effect;
         private final java.util.Map<String, Fn> providers;
         private final Object[] context;
+        private volatile boolean networkSystemClosed;
+        private int networkSystemProducers;
+        private final java.util.Set<Object> networkResources =
+            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
 
         private HandlerFrame(String effect, java.util.Map<String, Fn> providers, Object[] context) {
             this.effect = effect;
@@ -393,8 +399,15 @@
 
     public static Object popHandler() {
         java.util.List<HandlerFrame> stack = HANDLERS.get();
-        stack.remove(stack.size() - 1);
+        HandlerFrame frame = stack.remove(stack.size() - 1);
+        cleanupNetworkSystem(frame);
         return UNIT;
+    }
+
+    private static HandlerFrame currentHandlerFrame() {
+        HandlerFrame frame = INVOKED_HANDLER.get();
+        if (frame == null) throw new IllegalStateException("network system intrinsic used outside a handler operation");
+        return frame;
     }
 
     private static HandlerFrame findHandler(String effect) {
@@ -411,12 +424,21 @@
         Object[] providerArgs = new Object[frame.context.length + args.length];
         System.arraycopy(frame.context, 0, providerArgs, 0, frame.context.length);
         System.arraycopy(args, 0, providerArgs, frame.context.length, args.length);
-        return provider.call(providerArgs);
+        HandlerFrame previous = INVOKED_HANDLER.get();
+        INVOKED_HANDLER.set(frame);
+        try {
+            return provider.call(providerArgs);
+        } finally {
+            if (previous == null) INVOKED_HANDLER.remove();
+            else INVOKED_HANDLER.set(previous);
+        }
     }
 
     public static Object perform(String effect, String operation, Object[] args) {
         HandlerFrame frame = findHandler(effect);
         if (frame == null) throw new IllegalStateException("unhandled effect operation " + effect + "::" + operation);
+        Object ownershipFailure = netSystemDispatchOwnershipFailure(effect, operation, args, frame);
+        if (ownershipFailure != null) return ownershipFailure;
         return invokeHandler(frame, operation, args);
     }
     public static Result ok(Object value) {

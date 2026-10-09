@@ -1,0 +1,15 @@
+use net from "std"
+
+# Compiler integration contract: the exported system handler independently
+# retains both coarse host effects after discharging net::IO.
+pub fn resolve_with_system_missing_time(address: net::Address) -> Result<List<net::Endpoint>, net::NetError> effects [net]
+	handle net::resolve(address) with net::system()
+end
+
+pub fn resolve_with_system_missing_net(address: net::Address) -> Result<List<net::Endpoint>, net::NetError> effects [time]
+	handle net::resolve(address) with net::system()
+end
+
+pub fn resolve_with_system_missing_net_and_time(address: net::Address) -> Result<List<net::Endpoint>, net::NetError>
+	handle net::resolve(address) with net::system()
+end

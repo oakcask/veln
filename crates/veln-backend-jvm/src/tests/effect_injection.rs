@@ -361,6 +361,35 @@ end
 }
 
 #[test]
+fn network_cleanup_failure_continues_generated_return_unwind() {
+    let ir = lower_with_network_facade(include_str!(
+        "../../test-support/network_cleanup_return_unwind.veln"
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("network-cleanup-return-unwind", &program, &[])
+    else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "inner close\ninner close\ninner close\nouter deferred\nouter close\nouter close\nouter close\n"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.starts_with("network system cleanup could not confirm closure"));
+    assert_eq!(
+        stderr
+            .matches("related cleanup failure: network system cleanup could not confirm closure")
+            .count(),
+        1,
+        "{stderr}"
+    );
+    assert!(!stderr.contains("propagated body failure"), "{stderr}");
+}
+
+#[test]
 fn standard_network_write_all_handles_long_one_byte_progress_in_linear_ranges() {
     let byte_count = 512;
     let input = "a".repeat(byte_count);

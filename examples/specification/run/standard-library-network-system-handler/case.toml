@@ -1,0 +1,15 @@
+# This bounded loopback case checks the JVM host-socket integration contract.
+# Its Busy barriers prove accept/read/write operations are in flight before
+# cancellation or close, and its peer observations detect cleanup failures.
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+contains = ["listen", "bounded outcomes", "shutdown read post-state", "wrote hello", "read hello", "read end", "duplex", "close interruption", "scope cleanup", "listener cleanup", "write close interruption", "listener close interruption", "confirmed close idempotence"]
+
+[stderr]
+format = "empty"

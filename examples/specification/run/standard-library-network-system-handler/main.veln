@@ -1,0 +1,450 @@
+use net from "std"
+use stdio
+
+effect Marker
+	touch() -> ()
+end
+
+handler marker() for Marker
+	touch() => ()
+end
+
+fn bytes(text: String) -> Result<ByteChunk, net::NetError>
+	match byte_chunk_from_visible_ascii_string(text)
+		Ok(value) => Ok(value)
+		Err(message) => Err(net::NetError("test_bytes", None, None, net::Other, message))
+	end
+end
+
+fn endpoint_address(endpoint: net::Endpoint) -> Result<net::Address, net::NetError>
+	match endpoint
+		net::Endpoint(network, text) => match net::split_host_port(text)
+			Ok(parts) => Ok(net::Address(network, parts.host, parts.port))
+			Err(error) => Err(error)
+		end
+	end
+end
+
+fn nested_listener_address(listener: net::Listener) -> Result<net::Endpoint, net::NetError> effects [net::IO, Marker]
+	perform Marker::touch()
+	net::listener_address(listener)
+end
+
+fn require_kind(result: Result<net::Stream, net::NetError>, kind: String) -> Result<(), net::NetError>
+	match result
+		Ok(_) => Err(net::NetError("require_kind", None, None, net::Other, "operation unexpectedly succeeded"))
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => if kind == "timeout" Ok(()) else Err(net::NetError("require_kind", None, None, net::Other, "unexpected timeout")) end
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => if kind == "cancelled" Ok(()) else Err(net::NetError("require_kind", None, None, net::Other, "unexpected cancellation")) end
+		Err(net::NetError(_, _, _, net::Busy, _)) => if kind == "busy" Ok(()) else Err(net::NetError("require_kind", None, None, net::Other, "unexpected busy")) end
+		Err(error) => Err(error)
+	end
+end
+
+fn require_invalid_resource(result: Result<net::Endpoint, net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::InvalidResource, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("listener_address", None, None, net::Other, "another handler accepted the listener"))
+	end
+end
+
+fn require_connect_failure(result: Result<net::Stream, net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::ConnectionRefused, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("connect", None, None, net::Other, "closed loopback listener accepted a connection"))
+	end
+end
+
+fn require_address_in_use(result: Result<net::Listener, net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::AddressInUse, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("listen", None, None, net::Other, "duplicate loopback listener unexpectedly succeeded"))
+	end
+end
+
+fn require_full_write(outcome: net::WriteOutcome) -> Result<(), net::NetError>
+	match outcome
+		net::Written(net::ByteCount(5)) => Ok(())
+		net::Written(_) => Err(net::NetError("write", None, None, net::Other, "unexpected partial write"))
+		net::WriteFailed(_, error) => Err(error)
+	end
+end
+
+fn require_hello(outcome: net::ReadOutcome) -> Result<(), net::NetError>
+	match outcome
+		net::ReadChunk(observed) => match byte_chunk_to_visible_ascii_string(observed)
+			Ok("hello") => Ok(())
+			_ => Err(net::NetError("read", None, None, net::Other, "unexpected bytes"))
+		end
+		net::ReadEnd => Err(net::NetError("read", None, None, net::Other, "unexpected end"))
+	end
+end
+
+fn require_end(outcome: net::ReadOutcome) -> Result<(), net::NetError>
+	match outcome
+		net::ReadEnd => Ok(())
+		_ => Err(net::NetError("read", None, None, net::Other, "missing peer end"))
+	end
+end
+
+fn require_data(outcome: net::ReadOutcome) -> Result<(), net::NetError>
+	match outcome
+		net::ReadChunk(_) => Ok(())
+		net::ReadEnd => Err(net::NetError("read", None, None, net::Other, "write peer ended before receiving data"))
+	end
+end
+
+fn require_read_kind(result: Result<net::ReadOutcome, net::NetError>, kind: String) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => if kind == "timeout" Ok(()) else Err(net::NetError("read", None, None, net::Other, "unexpected timeout")) end
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => if kind == "cancelled" Ok(()) else Err(net::NetError("read", None, None, net::Other, "unexpected cancellation")) end
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("read", None, None, net::Other, "read unexpectedly succeeded"))
+	end
+end
+
+fn require_closed_read(result: Result<net::ReadOutcome, net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::Closed, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("read", None, None, net::Other, "read after shutdown_read unexpectedly succeeded"))
+	end
+end
+
+fn require_write_kind(result: net::WriteOutcome, kind: String) -> Result<(), net::NetError>
+	match result
+		net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::TimedOut, _)) => if kind == "timeout" Ok(()) else Err(net::NetError("write", None, None, net::Other, "unexpected timeout")) end
+		net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Cancelled, _)) => if kind == "cancelled" Ok(()) else Err(net::NetError("write", None, None, net::Other, "unexpected cancellation")) end
+		net::WriteFailed(_, error) => Err(error)
+		_ => Err(net::NetError("write", None, None, net::Other, "write unexpectedly succeeded"))
+	end
+end
+
+fn require_busy_accept(listener: net::Listener, attempts: Int) -> Result<(), net::NetError> effects [net::IO, time]
+	if attempts == 0
+		Err(net::NetError("accept", None, None, net::Other, "accept did not become active"))
+	else
+		match net::accept_with(listener, Some(time::deadline_after_ms(0)), None)
+			Err(net::NetError(_, _, _, net::Busy, _)) => Ok(())
+			Err(net::NetError(_, _, _, net::TimedOut, _)) => begin
+				time::wait_until(time::deadline_after_ms(1))
+				require_busy_accept(listener, attempts - 1)
+			end
+			Err(error) => Err(error)
+			Ok(_) => Err(net::NetError("accept", None, None, net::Other, "accept unexpectedly returned a stream"))
+		end
+	end
+end
+
+fn require_busy_read(stream: net::Stream, attempts: Int) -> Result<(), net::NetError> effects [net::IO, time]
+	if attempts == 0
+		Err(net::NetError("read", None, None, net::Other, "read did not become active"))
+	else
+		match net::read_with(stream, Some(time::deadline_after_ms(0)), None)
+			Err(net::NetError(_, _, _, net::Busy, _)) => Ok(())
+			Err(net::NetError(_, _, _, net::TimedOut, _)) => begin
+				time::wait_until(time::deadline_after_ms(1))
+				require_busy_read(stream, attempts - 1)
+			end
+			Err(error) => Err(error)
+			Ok(_) => Err(net::NetError("read", None, None, net::Other, "read unexpectedly completed"))
+		end
+	end
+end
+
+fn require_busy_write(stream: net::Stream, attempts: Int) -> Result<(), net::NetError> effects [net::IO, time]
+	if attempts == 0
+		Err(net::NetError("write", None, None, net::Other, "write did not become active"))
+	else
+		match net::write_with(stream, bytes("")?, Some(time::deadline_after_ms(0)), None)
+			net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Busy, _)) => Ok(())
+			net::WriteFailed(_, net::NetError(_, _, _, net::TimedOut, _)) => begin
+				time::wait_until(time::deadline_after_ms(1))
+				require_busy_write(stream, attempts - 1)
+			end
+			net::WriteFailed(_, error) => Err(error)
+			net::Written(_) => begin
+				time::wait_until(time::deadline_after_ms(1))
+				require_busy_write(stream, attempts - 1)
+			end
+		end
+	end
+end
+
+fn grow_chunk(chunk: ByteChunk, doublings: Int) -> ByteChunk
+	if doublings == 0 chunk else grow_chunk(byte_append(chunk, chunk), doublings - 1) end
+end
+
+fn blocked_write_closed(context: { stream : net::Stream, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
+	let bytes = grow_chunk(bytes("x")?, 23)
+	let _ = channel::send(context.ready, ())
+	match net::write_with(context.stream, bytes, Some(time::deadline_after_ms(5000)), None)
+		net::WriteFailed(net::ByteCount(committed), net::NetError(_, _, _, net::Closed, _)) => if committed > 0
+			Ok(())
+		else
+			Err(net::NetError("write", None, None, net::Other, "blocked write closed before committing a prefix"))
+		end
+		net::WriteFailed(_, error) => Err(error)
+		net::Written(_) => Err(net::NetError("write", None, None, net::Other, "write completed before close"))
+	end
+end
+
+fn require_matching_addresses(client: net::Stream, server: net::Stream) -> Result<(), net::NetError> effects [net::IO]
+	let client_local = net::local_address(client)?
+	let client_peer = net::peer_address(client)?
+	let server_local = net::local_address(server)?
+	let server_peer = net::peer_address(server)?
+	match client_local
+		net::Endpoint(_, client_local_text) => match client_peer
+			net::Endpoint(_, client_peer_text) => match server_local
+				net::Endpoint(_, server_local_text) => match server_peer
+					net::Endpoint(_, server_peer_text) => if client_local_text == server_peer_text and client_peer_text == server_local_text
+						Ok(())
+					else
+						Err(net::NetError("addresses", None, None, net::Other, "connected endpoint reports did not match"))
+					end
+				end
+			end
+		end
+	end
+end
+
+fn connect_and_escape(address: net::Address) -> Result<net::Stream, net::NetError> effects [net::IO, time]
+	net::connect_with(address, Some(time::deadline_after_ms(1000)), None)
+end
+
+fn connect_then_fail(address: net::Address) -> Result<(), net::NetError> effects [net::IO, time]
+	let _ = net::connect_with(address, Some(time::deadline_after_ms(1000)), None)?
+	Err(net::NetError("scripted", None, None, net::Other, "propagated failure"))
+end
+
+fn connect_then_unwind_body(address: net::Address) -> Int effects [net::IO, time]
+	let _ = net::connect_with(address, Some(time::deadline_after_ms(1000)), None)
+	let zero = 0
+	1 / zero
+end
+
+fn connect_then_unwind(address: net::Address) -> Int effects [net, time]
+	handle connect_then_unwind_body(address) with net::system()
+end
+
+fn create_scoped_listener_address() -> Result<net::Address, net::NetError> effects [net::IO]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	endpoint_address(net::listener_address(listener)?)
+end
+
+fn closed_scoped_listener_address() -> Result<net::Address, net::NetError> effects [net, time]
+	handle create_scoped_listener_address() with net::system()
+end
+
+fn require_propagated_failure(result: Result<(), net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError("scripted", _, _, net::Other, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("cleanup", None, None, net::Other, "failure path unexpectedly succeeded"))
+	end
+end
+
+fn require_runtime_unwind(result: Result<Int, JoinError>) -> Result<(), net::NetError>
+	match result
+		Err(_) => Ok(())
+		Ok(_) => Err(net::NetError("cleanup", None, None, net::Other, "runtime unwind task unexpectedly succeeded"))
+	end
+end
+
+fn blocked_accept_closed(context: { listener : net::Listener, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
+	let _ = channel::send(context.ready, ())
+	match net::accept_with(context.listener, Some(time::deadline_after_ms(1000)), None)
+		Err(net::NetError(_, _, _, net::Closed, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("accept", None, None, net::Other, "closed listener accepted a stream"))
+	end
+end
+
+fn blocked_accept_cancelled(context: { listener : net::Listener, token : CancelToken, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
+	let _ = channel::send(context.ready, ())
+	match net::accept_with(context.listener, Some(time::deadline_after_ms(1000)), Some(context.token))
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("accept", None, None, net::Other, "cancelled accept returned a stream"))
+	end
+end
+
+fn delayed_resolve_after_scope(context: { gate : Receiver<()> }) -> Result<(), net::NetError> effects [net::IO, concurrency]
+	let _ = channel::recv(context.gate)
+	match net::resolve(net::Address(net::Tcp4, "127.0.0.1", 80))
+		Err(net::NetError(_, _, _, net::InvalidResource, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("resolve", None, None, net::Other, "child used a system handler after its scope exited"))
+	end
+end
+
+fn spawn_delayed_resolve(gate: Receiver<()>) -> Task<Result<(), net::NetError>> effects [net, time, concurrency]
+	handle task::spawn_with(delayed_resolve_after_scope, { gate: gate }) with net::system()
+end
+
+fn require_closed_accept_join(result: Result<Result<(), net::NetError>, JoinError>) -> Result<(), net::NetError>
+	match result
+		Ok(Ok(_)) => Ok(())
+		Ok(Err(error)) => Err(error)
+		Err(_) => Err(net::NetError("accept", None, None, net::Other, "blocked accept task failed"))
+	end
+end
+
+fn blocked_read_closed(context: { stream : net::Stream, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
+	let _ = channel::send(context.ready, ())
+	match net::read_with(context.stream, Some(time::deadline_after_ms(1000)), None)
+		Err(net::NetError(_, _, _, net::Closed, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("read", None, None, net::Other, "closed stream read unexpectedly succeeded"))
+	end
+end
+
+fn exercise_nested_handler(outer_listener: net::Listener) -> Result<(), net::NetError> effects [net::IO, time]
+	let _ = require_invalid_resource(net::listener_address(outer_listener))?
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let address = endpoint_address(net::listener_address(listener)?)?
+	let client = net::connect_with(address, Some(time::deadline_after_ms(1000)), None)?
+	let server = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let _ = require_full_write(net::write_with(client, bytes("hello")?, Some(time::deadline_after_ms(1000)), None))?
+	let _ = require_hello(net::read_with(server, Some(time::deadline_after_ms(1000)), None)?)?
+	let _ = net::close_stream(client)?
+	let _ = net::close_stream(server)?
+	net::close_listener(listener)
+end
+
+fn exercise() -> Result<(), net::NetError> effects [net::IO, net, time, concurrency, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	stdio::println("listen")
+	let local = endpoint_address(net::listener_address(listener)?)?
+	let _ = require_address_in_use(net::listen(local))?
+	let _ = handle nested_listener_address(listener) with marker()?
+	let _ = handle exercise_nested_handler(listener) with net::system()?
+	let _ = net::listener_address(listener)?
+	let expired = time::deadline_after_ms(0)
+	let _ = require_kind(net::connect_with(local, Some(expired), None), "timeout")?
+	let _ = require_kind(net::accept_with(listener, Some(expired), None), "timeout")?
+	let _ = require_kind(net::accept_with(listener, Some(time::deadline_after_ms(20)), None), "timeout")?
+	let owner = time::cancel_owner()
+	let token = time::cancel_token_from(owner)
+	time::cancel_owned(owner)
+	let _ = require_kind(net::accept_with(listener, None, Some(token)), "cancelled")?
+	let _ = require_kind(net::connect_with(local, None, Some(token)), "cancelled")?
+	let blocked_owner = time::cancel_owner()
+	let blocked_token = time::cancel_token_from(blocked_owner)
+	let cancel_ready = channel::bounded<()>(1)
+	let blocked_cancel = task::spawn_with(blocked_accept_cancelled, { listener: listener, token: blocked_token, ready: cancel_ready.tx })
+	let _ = channel::recv(cancel_ready.rx)
+	let _ = require_busy_accept(listener, 1000)?
+	time::cancel_owned(blocked_owner)
+	let _ = require_closed_accept_join(task::join(blocked_cancel))?
+	let late_gate = channel::bounded<()>(1)
+	let late_resolve = spawn_delayed_resolve(late_gate.rx)
+	let _ = channel::send(late_gate.tx, ())
+	let _ = require_closed_accept_join(task::join(late_resolve))?
+	stdio::println("bounded outcomes")
+	let client = net::connect_with(local, Some(time::deadline_after_ms(1000)), None)?
+	let server = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let _ = require_invalid_resource(handle net::peer_address(client) with net::system())?
+	let _ = require_matching_addresses(client, server)?
+	let _ = require_read_kind(net::read_with(client, Some(expired), None), "timeout")?
+	let _ = require_read_kind(net::read_with(client, None, Some(token)), "cancelled")?
+	let _ = require_write_kind(net::write_with(client, bytes("x")?, Some(expired), None), "timeout")?
+	let _ = require_write_kind(net::write_with(client, bytes("x")?, None, Some(token)), "cancelled")?
+	let buffered_client = net::connect_with(local, Some(time::deadline_after_ms(1000)), None)?
+	let buffered_peer = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let _ = require_full_write(net::write_with(buffered_peer, bytes("hello")?, Some(time::deadline_after_ms(1000)), None))?
+	time::wait_until(time::deadline_after_ms(20))
+	let _ = net::shutdown_read(buffered_client)?
+	let _ = require_closed_read(net::read_with(buffered_client, Some(time::deadline_after_ms(1000)), None))?
+	let _ = net::close_stream(buffered_client)?
+	let _ = net::close_stream(buffered_peer)?
+	stdio::println("shutdown read post-state")
+	let _ = require_full_write(net::write_with(client, bytes("hello")?, Some(time::deadline_after_ms(1000)), None))?
+	stdio::println("wrote hello")
+	let _ = require_hello(net::read_with(server, Some(time::deadline_after_ms(1000)), None)?)?
+	stdio::println("read hello")
+	let _ = net::shutdown_write(client)?
+	let _ = require_end(net::read_with(server, Some(time::deadline_after_ms(1000)), None)?)?
+	stdio::println("read end")
+	let _ = require_end(net::read_with(server, Some(time::deadline_after_ms(1000)), None)?)?
+	let _ = require_full_write(net::write_with(server, bytes("hello")?, Some(time::deadline_after_ms(1000)), None))?
+	let _ = require_hello(net::read_with(client, Some(time::deadline_after_ms(1000)), None)?)?
+	stdio::println("duplex")
+	let _ = net::close_stream(client)?
+	stdio::println("close interruption")
+	let _ = net::close_stream(client)?
+	let _ = net::close_stream(server)?
+	let normal_escape = handle connect_and_escape(local) with net::system()?
+	let normal_peer = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let _ = require_end(net::read_with(normal_peer, Some(time::deadline_after_ms(1000)), None)?)?
+	let _ = require_invalid_resource(net::peer_address(normal_escape))?
+	let _ = net::close_stream(normal_peer)?
+	let _ = require_propagated_failure(handle connect_then_fail(local) with net::system())?
+	let failure_peer = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let _ = require_end(net::read_with(failure_peer, Some(time::deadline_after_ms(1000)), None)?)?
+	let _ = net::close_stream(failure_peer)?
+	let unwinding = task::spawn_with(connect_then_unwind, local)
+	let unwind_peer = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let _ = require_runtime_unwind(task::join(unwinding))?
+	let _ = require_end(net::read_with(unwind_peer, Some(time::deadline_after_ms(1000)), None)?)?
+	let _ = net::close_stream(unwind_peer)?
+	stdio::println("scope cleanup")
+	let closed_listener_address = closed_scoped_listener_address()?
+	let _ = require_connect_failure(net::connect_with(closed_listener_address, Some(time::deadline_after_ms(1000)), None))?
+	stdio::println("listener cleanup")
+	let closing_client = net::connect_with(local, Some(time::deadline_after_ms(1000)), None)?
+	let closing_peer = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let read_ready = channel::bounded<()>(1)
+	let blocked_read = task::spawn_with(blocked_read_closed, { stream: closing_client, ready: read_ready.tx })
+	let _ = channel::recv(read_ready.rx)
+	let _ = require_busy_read(closing_client, 1000)?
+	let _ = net::close_stream(closing_client)?
+	let _ = require_closed_accept_join(task::join(blocked_read))?
+	let _ = net::close_stream(closing_client)?
+	let _ = net::close_stream(closing_peer)?
+	let writing_client = net::connect_with(local, Some(time::deadline_after_ms(1000)), None)?
+	let writing_peer = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let write_ready = channel::bounded<()>(1)
+	let blocked_write = task::spawn_with(blocked_write_closed, { stream: writing_client, ready: write_ready.tx })
+	let _ = channel::recv(write_ready.rx)
+	let _ = require_data(net::read_with(writing_peer, Some(time::deadline_after_ms(1000)), None)?)?
+	let _ = require_busy_write(writing_client, 1000)?
+	let _ = net::close_stream(writing_client)?
+	let _ = require_closed_accept_join(task::join(blocked_write))?
+	let _ = net::close_stream(writing_client)?
+	let _ = net::close_stream(writing_peer)?
+	stdio::println("write close interruption")
+	let closing_listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let accept_ready = channel::bounded<()>(1)
+	let blocked_accept = task::spawn_with(blocked_accept_closed, { listener: closing_listener, ready: accept_ready.tx })
+	let _ = channel::recv(accept_ready.rx)
+	let _ = require_busy_accept(closing_listener, 1000)?
+	let _ = net::close_listener(closing_listener)?
+	let _ = require_closed_accept_join(task::join(blocked_accept))?
+	let _ = net::close_listener(closing_listener)?
+	stdio::println("listener close interruption")
+	let _ = net::close_listener(listener)?
+	let _ = net::close_listener(listener)?
+	stdio::println("confirmed close idempotence")
+	require_connect_failure(net::connect_with(local, Some(time::deadline_after_ms(1000)), None))
+end
+
+fn escaped() -> Result<net::Stream, net::NetError> effects [net::IO, time]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let address = endpoint_address(net::listener_address(listener)?)?
+	let client = net::connect_with(address, Some(time::deadline_after_ms(1000)), None)?
+	let _ = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	Ok(client)
+end
+
+pub fn main() -> Result<(), net::NetError> effects [net, time, concurrency, stdio]
+	let _ = handle exercise() with net::system()?
+	let stream = handle escaped() with net::system()?
+	match handle net::close_stream(stream) with net::system()
+		Err(net::NetError(_, _, _, net::InvalidResource, _)) => Ok(())
+		_ => Err(net::NetError("close_stream", None, None, net::Other, "escaped resource was accepted"))
+	end
+end

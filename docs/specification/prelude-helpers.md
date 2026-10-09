@@ -73,6 +73,13 @@ No `List`/`Vec` conversion helpers are part of this public helper set; names
 such as `list_to_vec` or `vec_to_list` resolve only when user declarations put
 them in scope.
 
+The private `net_system_*` compiler adapters back the operation clauses of
+`std::net::system()`. They are available through the reserved
+`prelude_builtin` route, but they are not bare prelude helpers or public
+standard-package declarations. Each adapter checks its operation arity and
+uses the enclosing handler clause's expected result type; the public
+operation parameter and result types remain owned by `std::net::IO`.
+
 `std` is owned by the toolchain. A root package named `std` is accepted only
 when its manifest, exports, and non-test sources exactly match the embedded
 bundle; extra `*_test.veln` and `.test.veln` files are allowed. Other packages

@@ -247,6 +247,19 @@ pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor
 pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 compiler_adapter_symbol_set! {
+    "net_system_resolve",
+    "net_system_listen",
+    "net_system_connect",
+    "net_system_accept",
+    "net_system_listener_address",
+    "net_system_close_listener",
+    "net_system_read",
+    "net_system_write",
+    "net_system_local_address",
+    "net_system_peer_address",
+    "net_system_shutdown_read",
+    "net_system_shutdown_write",
+    "net_system_close_stream",
     "byte",
     "byte_to_int",
     "byte_chunk",
@@ -454,7 +467,8 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
 }
 
 pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
-    name == "byte_decode_http2_frame"
+    name.starts_with("net_system_")
+        || name == "byte_decode_http2_frame"
         || name.starts_with("http2_protocol_")
         || name.starts_with("http2_peer_limit_")
         || name.starts_with("hpack_fixture_")

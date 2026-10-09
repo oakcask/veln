@@ -39,3 +39,9 @@ pub fn outcome_types(bytes: ByteChunk, count: net::ByteCount, error: net::NetErr
 	let _: net::WriteOutcome = net::WriteFailed(count, error)
 	()
 end
+
+# Compiler integration contract: selecting the exported system handler
+# discharges net::IO and retains exactly the host network and clock effects.
+pub fn resolve_with_system(address: net::Address) -> Result<List<net::Endpoint>, net::NetError> effects [net, time]
+	handle net::resolve(address) with net::system()
+end

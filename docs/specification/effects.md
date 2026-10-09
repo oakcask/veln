@@ -140,7 +140,10 @@ expressions. A cleanup registered inside a handled expression runs before that
 expression's handler frame is restored. If cleanup registered outside an inner
 handled expression performs the same effect, the cleanup observes the outer
 handler. Cleanup registrations and handler frames unwind in reverse lexical
-nesting order. Cleanup failure and task-cancellation behavior is specified by
+nesting order. If restoring a handler frame fails while `?` is propagating an
+ordinary `Err` result, the cleanup failure interrupts that result propagation;
+enclosing cleanup registrations and handler frames still unwind. Cleanup
+failure precedence and task-cancellation behavior are specified by
 [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 
 Effects in a `begin` body and in every deferred block contribute to the
@@ -241,6 +244,12 @@ carries an implementation-provided `FsError` value represented by the current
 runtime error text.
 
 ## Network And Time Boundary Calls
+
+The exported `std::net` module supplies `net::system()` as a handler for
+`net::IO`. Its clauses retain the host `net` and `time` effects. A handle
+expression using `net::system()` therefore removes `std::net::IO` and adds
+those two host effects. The handler frame owns its created network resources;
+the execution boundary closes those resources before that frame is restored.
 
 The checker recognizes these minimal transport-boundary call targets through
 the standard symbol table:
@@ -635,17 +644,35 @@ token state. The reply is an ordinary record with these fields:
 
 | Fields | Bridge interpretation |
 | --- | --- |
-| `status` | `ok` supplies a successful result; `end`, `deadline`, and `cancelled` select the corresponding accept or read outcome, or deadline/cancellation write outcome. `error` raises a transport failure. |
+| `status` | `ok` supplies a successful result; `end`, `deadline`, and `cancelled` select the corresponding accept or read outcome, or deadline/cancellation write outcome. `error` raises a transport failure at the direct bridge. When `net::system()` consumes the request, it translates that failure into the operation's typed `NetError` result. |
 | `value` | Created resource identity or endpoint/state query text. Boolean queries use `true` or `false`. |
 | `bytes` | Received bytes for a successful read. |
+| `resolved_endpoints` | Ordered resolver results. Each item names `tcp4` or `tcp6` and one numeric host address. The system handler preserves this order and removes only exact network-and-address duplicates. Other operations use an empty list. |
+| `bytes_committed` | Exact prefix length committed by a system-handler write, including deadline, cancellation, shutdown, and other failure replies. Other operations use zero. |
 | `local`, `peer` | Endpoint text; empty text means unavailable failure context. |
 | `category`, `phase`, `cause` | Failure category, lifecycle phase, and related cause. |
 | `input_committed`, `output_committed`, `ownership_committed` | Failure commit facts: `0` means false, `1` means true, and a negative value means unknown. |
 
 Handlers supply the complete typed reply record declared by the standard
-module. This adapter boundary does not expose host sockets or remove caller
-responsibility for resource lifecycle. The supported operation and outcome
-combinations are those of the network calls described above.
+module. `bytes_committed` is independent of the three commit facts and never
+changes their tri-state interpretation. A failed `shutdown_read` consumes
+`input_committed`, a failed `shutdown_write` consumes `output_committed`, and a
+failed listener or stream close consumes `ownership_committed`. A false fact
+preserves the affected prior state and leaves it retryable. A true fact commits
+the closed state. An unknown fact makes the affected resource or half
+unavailable while retaining the cleanup obligation and permitting an explicit
+retry. The resource-state transitions, including retries after an unknown fact,
+are specified by
+[standard-library-networking.md](standard-library-networking.md#network-operation-boundary).
+
+A scoped network handler receives `resolve_tcp`, `resolve_tcp4`, or
+`resolve_tcp6` for system-handler resolution; the request carries the remaining
+deadline and cancellation state supplied to `connect_with`. Therefore
+deterministic resolution does not consult ambient
+DNS, and it observes the same controls as the later connection attempts. This
+adapter boundary does not expose host sockets or remove caller responsibility
+for resource lifecycle. The supported operation and outcome combinations are
+those of the network calls described above.
 
 Nested handlers shadow the corresponding outer handler during their body.
 Leaving a handled body restores the outer handler, including after failure.

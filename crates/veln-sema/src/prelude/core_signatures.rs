@@ -1,6 +1,7 @@
 use veln_core::{CoreCallTarget, CoreType};
 
 use super::byte_signatures::core_byte_prelude_signature;
+use super::core_network_signatures::core_net_system_signature;
 use super::source_signatures::compiler_adapter_callback_signature;
 use crate::adt::type_operations as adt;
 use crate::source_less_lookup::{
@@ -57,7 +58,8 @@ fn core_compiler_adapter_signature(
     expected: Option<&CoreType>,
 ) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
     let expected = ExpectedCorePreludeParts::from_expected(expected);
-    let signature = core_prelude_float_signature(descriptor.name)
+    let signature = core_net_system_signature(descriptor.name, &expected.direct)
+        .or_else(|| core_prelude_float_signature(descriptor.name))
         .or_else(|| core_prelude_byte_signature(descriptor.name))
         .or_else(|| core_prelude_string_signature(descriptor.name))
         .or_else(|| core_prelude_vec_signature(descriptor.name, &expected))

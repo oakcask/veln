@@ -5,6 +5,8 @@ handler fixed_network(label: String, chunk: ByteChunk) for host_effects::Network
 		local: label,
 		peer: label,
 		bytes: chunk,
+		resolved_endpoints: list_nil(),
+		bytes_committed: 0,
 		category: "",
 		phase: "",
 		input_committed: 0,

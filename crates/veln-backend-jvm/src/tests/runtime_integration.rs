@@ -91,6 +91,32 @@ fn jvm_runtime_does_not_classify_runtime_failure_text_as_cancellation_when_java_
 }
 
 #[test]
+fn jvm_runtime_preserves_network_system_commit_and_ownership_invariants_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-network-system-lifecycle",
+        "NetworkSystemLifecycleHarness.java",
+        include_str!("../../test-support/NetworkSystemLifecycleHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "network system lifecycle invariants held\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_concurrent_cancellation_preserves_cleanup_before_join_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

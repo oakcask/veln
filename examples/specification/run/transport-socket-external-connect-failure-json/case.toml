@@ -22,7 +22,7 @@ equals = "connect"
 
 [[json_assert]]
 path = "error.details.category"
-equals = "io_failure"
+equals = "connection_refused"
 
 [[json_assert]]
 path = "error.details.peer_endpoint"

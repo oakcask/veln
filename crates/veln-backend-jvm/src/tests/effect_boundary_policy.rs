@@ -116,3 +116,36 @@ fn concurrent_task_cancellation_uses_one_atomic_initiation_claim() {
     assert!(source.contains("cancellationRequested.compareAndSet(false, true)"));
     assert!(!source.contains("!handle.cancellationRequested"));
 }
+
+#[test]
+fn network_system_cleanup_uses_one_identity_ledger_without_activation_races() {
+    let values = include_str!("../runtime/values.java.inc");
+    let effects = include_str!("../runtime/effects.java.inc");
+
+    assert!(values.contains("new java.util.IdentityHashMap<Object, Boolean>()"));
+    assert!(values.contains("cleanupNetworkSystem(frame);"));
+    assert!(values.contains("networkSystemProducers"));
+    assert!(!values.contains("if (frame.networkSystem)"));
+    assert!(!values.contains("networkListeners"));
+    assert!(!values.contains("networkStreams"));
+    assert!(
+        effects.contains("resources = new java.util.ArrayList<Object>(owner.networkResources);")
+    );
+    assert!(effects.contains("netSystemPublishResource(HandlerFrame owner, Object resource)"));
+    assert!(effects.contains("netSystemBeginProducer(HandlerFrame owner)"));
+    assert!(effects.contains("owner.networkSystemProducers == 0"));
+    assert!(effects.contains("attempts < 3"));
+    assert!(effects.contains("netSystemCleanupResource(owner, resource);"));
+    assert!(!effects.contains("owner.networkResources.clear();"));
+}
+
+#[test]
+fn network_system_resolution_has_bounded_detached_workers() {
+    let effects = include_str!("../runtime/effects.java.inc");
+
+    assert!(effects.contains("NET_SYSTEM_RESOLVER_WORKERS = 4"));
+    assert!(effects.contains("new java.util.concurrent.SynchronousQueue<Runnable>()"));
+    assert!(effects.contains("new java.util.concurrent.ThreadPoolExecutor.AbortPolicy()"));
+    assert!(effects.contains("HANDLERS.remove();"));
+    assert!(!effects.contains("new Thread(resolution"));
+}

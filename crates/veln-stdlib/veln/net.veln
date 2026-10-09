@@ -84,6 +84,24 @@ pub effect IO
 	close_stream(stream: Stream) -> Result<(), NetError>
 end
 
+## Use the host TCP implementation for the handled IO scope. Resources belong
+## to this handler instance and are closed when the handled scope exits.
+pub handler system() for IO effects [net, time]
+	resolve(address) => prelude_builtin::net_system_resolve(address)
+	listen(address) => prelude_builtin::net_system_listen(address)
+	connect(address, deadline, token) => prelude_builtin::net_system_connect(address, deadline, token)
+	accept(listener, deadline, token) => prelude_builtin::net_system_accept(listener, deadline, token)
+	listener_address(listener) => prelude_builtin::net_system_listener_address(listener)
+	close_listener(listener) => prelude_builtin::net_system_close_listener(listener)
+	read(stream, deadline, token) => prelude_builtin::net_system_read(stream, deadline, token)
+	write(stream, bytes, deadline, token) => prelude_builtin::net_system_write(stream, bytes, deadline, token)
+	local_address(stream) => prelude_builtin::net_system_local_address(stream)
+	peer_address(stream) => prelude_builtin::net_system_peer_address(stream)
+	shutdown_read(stream) => prelude_builtin::net_system_shutdown_read(stream)
+	shutdown_write(stream) => prelude_builtin::net_system_shutdown_write(stream)
+	close_stream(stream) => prelude_builtin::net_system_close_stream(stream)
+end
+
 ## Resolve an address through the active IO handler.
 pub fn resolve(address: Address) -> Result<List<Endpoint>, NetError> effects [IO]
 	perform IO::resolve(address)

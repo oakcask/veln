@@ -13,6 +13,34 @@ host boundaries, and observable output. HTTP/2 protocol details belong to
 
 ## Runtime readiness and host boundaries
 
+The JVM host boundary associates resources created by `net::system()` with the
+active `net::IO` handler frame. Popping that frame closes its remaining
+listeners and streams before restoring the outer handler. The cleanup runs for
+normal completion, propagated errors, and runtime exceptions. A copied handler
+stack inherited by a child task refers to the same owner, so concurrent
+operations observe the same close and ownership state. The frame becomes
+closed to resource publication before cleanup starts. A child operation that
+finishes creating a listener or stream after that transition cleans the new
+resource according to its reported commit state and returns `InvalidResource`
+instead of publishing it through the closed frame.
+The [standard-library networking specification](standard-library-networking.md#network-operation-boundary)
+owns the resolver controls, connection commit point, exact write-progress,
+concurrent-operation, and resource state transitions for this handler. Task
+cancellation stops the waiting system-handler call before join reports
+cancellation. A platform resolver that ignores interruption can remain active
+within the handler's finite resolver capacity.
+
+If network-handler cleanup cannot confirm that every retained resource is
+closed, leaving the handled scope produces a cleanup failure after attempting
+the owner's other resources. That failure becomes primary after a successful
+body. An `Err` selected for propagation by postfix `?` is still an ordinary
+return value at this boundary. If handler cleanup fails while that return is
+unwinding, the cleanup failure replaces the pending `Err`, and enclosing
+deferred blocks and handler frames continue to unwind. If a contract failure,
+runtime failure, or cancellation is already primary, it remains primary and
+the network-handler cleanup failure is attached as a related cleanup failure
+while unwinding continues.
+
 Semantic diagnostics must be error-free before the compiler produces checked
 core and typed IR. Command analysis checks readiness for the selected entry
 before applying command-specific execution or write policy. Holes, missing

@@ -58,16 +58,16 @@ fn begins(text: String, prefix: String) -> Bool
 	end
 end
 
-fn reply(status: String, value: String, local: String, peer: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	{ status: status, value: value, local: local, peer: peer, bytes: bytes, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+fn reply(status: String, value: String, local: String, peer: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: status, value: value, local: local, peer: peer, bytes: bytes, resolved_endpoints: list_nil(), bytes_committed: byte_count_to_int(byte_chunk_count(bytes)), category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
 end
 
-fn success(value: String, local: String, peer: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+fn success(value: String, local: String, peer: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
 	reply("ok", value, local, peer, byte_chunk([]))
 end
 
-fn failure(value: String, local: String, peer: String, category: String, phase: String, input: Int, output: Int, ownership: Int, cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	{ status: "error", value: value, local: local, peer: peer, bytes: byte_chunk([]), category: category, phase: phase, input_committed: input, output_committed: output, ownership_committed: ownership, cause: cause }
+fn failure(value: String, local: String, peer: String, category: String, phase: String, input: Int, output: Int, ownership: Int, cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "error", value: value, local: local, peer: peer, bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: category, phase: phase, input_committed: input, output_committed: output, ownership_committed: ownership, cause: cause }
 end
 
 fn hex_digit(value: Int) -> String
@@ -186,11 +186,11 @@ fn peer(state: Dict<String, String>, subject: String) -> String
 	end
 end
 
-fn transition(state: Dict<String, String>, result: { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } }
+fn transition(state: Dict<String, String>, result: { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } }
 	{ state: state, result: result }
 end
 
-fn accept_input(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn accept_input(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let index = number(state, "accept_index")
 	let id = stream_name(state, index)
 	let endpoint = if production(state)
@@ -206,7 +206,7 @@ fn accept_input(state: Dict<String, String>, subject: String) -> { state : Dict<
 	end
 end
 
-fn accept(state: Dict<String, String>, operation: String, subject: String, remaining: Int, cancelled: Bool) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn accept(state: Dict<String, String>, operation: String, subject: String, remaining: Int, cancelled: Bool) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	if enabled(state, join(["closed:", subject]))
 		transition(state, failure("", subject, "", "closed", "closed_handle", 0, 0, 1, "listener is closed"))
 	else if enabled(state, "accept_failed")
@@ -222,7 +222,7 @@ fn accept(state: Dict<String, String>, operation: String, subject: String, remai
 	end
 end
 
-fn listen(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn listen(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	if enabled(state, "listen_failed")
 		transition(state, failure("", subject, "", "forced_failure", "before_operation", 0, 0, 0, "injected listen failure"))
 	else if production(state) and not socket_address(subject)
@@ -236,7 +236,7 @@ fn listen(state: Dict<String, String>, subject: String) -> { state : Dict<String
 	end
 end
 
-fn connect(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn connect(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	if enabled(state, "connect_failed")
 		transition(state, failure("", "", subject, "forced_failure", "before_operation", 0, 0, 0, "injected connect failure"))
 	else if production(state) and enabled(state, join(["listener:", subject]))
@@ -259,7 +259,7 @@ fn read_input(state: Dict<String, String>, subject: String) -> Option<String>
 	end
 end
 
-fn read_value(state: Dict<String, String>, subject: String, operation: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn read_value(state: Dict<String, String>, subject: String, operation: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let next = dict_remove(dict_insert(state, join(["read_index:", subject]), int_to_string(number(state, join(["read_index:", subject])) + 1)), join(["pending:", subject]))
 	match read_input_for_operation(state, subject, operation)
 		None => read_end(next, state, subject)
@@ -274,7 +274,7 @@ fn read_value(state: Dict<String, String>, subject: String, operation: String) -
 	end
 end
 
-fn read(state: Dict<String, String>, operation: String, subject: String, remaining: Int, cancelled: Bool) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn read(state: Dict<String, String>, operation: String, subject: String, remaining: Int, cancelled: Bool) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	if enabled(state, join(["closed:", subject]))
 		transition(state, failure(subject, local(state, subject), peer(state, subject), "closed", "closed_handle", 0, 0, 1, "stream is closed"))
 	else if enabled(state, "read_failed")
@@ -290,7 +290,7 @@ fn read(state: Dict<String, String>, operation: String, subject: String, remaini
 	end
 end
 
-fn write(state: Dict<String, String>, subject: String, bytes: ByteChunk, remaining: Int, cancelled: Bool) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn write(state: Dict<String, String>, subject: String, bytes: ByteChunk, remaining: Int, cancelled: Bool) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	if enabled(state, join(["closed:", subject]))
 		transition(state, failure(subject, local(state, subject), peer(state, subject), "closed", "closed_handle", 0, 0, 0, "stream closed"))
 	else if enabled(state, join(["write_shutdown:", subject]))
@@ -306,7 +306,7 @@ fn write(state: Dict<String, String>, subject: String, bytes: ByteChunk, remaini
 	end
 end
 
-fn lifecycle(state: Dict<String, String>, operation: String, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn lifecycle(state: Dict<String, String>, operation: String, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let key = if operation == "shutdown_read"
 		"read_shutdown:"
 	else
@@ -353,7 +353,7 @@ fn lifecycle(state: Dict<String, String>, operation: String, subject: String) ->
 	end
 end
 
-fn inspect(state: Dict<String, String>, operation: String, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+fn inspect(state: Dict<String, String>, operation: String, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
 	if enabled(state, "addr_failed") and (operation == "listener_local_addr" or operation == "stream_local_addr" or operation == "stream_peer_addr")
 		failure(subject, local(state, subject), peer(state, subject), "forced_failure", "before_operation", 0, 0, 0, "injected address failure")
 	else if operation == "listener_local_addr" or operation == "stream_local_addr"
@@ -371,7 +371,7 @@ fn inspect(state: Dict<String, String>, operation: String, subject: String) -> {
 	end
 end
 
-fn network_transition(state: Dict<String, String>, operation: String, subject: String, bytes: ByteChunk, remaining: Int, cancelled: Bool) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn network_transition(state: Dict<String, String>, operation: String, subject: String, bytes: ByteChunk, remaining: Int, cancelled: Bool) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	if operation == "listen"
 		listen(state, subject)
 	else if operation == "connect"
@@ -400,7 +400,7 @@ fn network_transition(state: Dict<String, String>, operation: String, subject: S
 	end
 end
 
-fn request_network(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }, operation: String, subject: String, bytes: ByteChunk, remaining: Int, cancelled: Bool) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency, fs]
+fn request_network(state: { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> }, operation: String, subject: String, bytes: ByteChunk, remaining: Int, cancelled: Bool) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency, fs]
 	let current = take(state)
 	let changed = network_transition(current, operation, subject, bytes, remaining, cancelled)
 	put(state, changed.state)
@@ -514,7 +514,7 @@ fn clock_wait_outcome(state: Dict<String, String>) -> Result<Int, String>
 	end
 end
 
-fn stream_capability(operation: String, state: Dict<String, String>, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+fn stream_capability(operation: String, state: Dict<String, String>, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
 	let side = if operation == "stream_can_read"
 		"read_shutdown:"
 	else
@@ -527,7 +527,7 @@ fn stream_capability(operation: String, state: Dict<String, String>, subject: St
 	end, "", "")
 end
 
-fn capture_stream_writes(next: Dict<String, String>, state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn capture_stream_writes(next: Dict<String, String>, state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let count = number(state, "capture_count") + 1
 	let captured = dict_insert(dict_insert(next, "capture_count", int_to_string(count)), join(["capture:", int_to_string(number(state, join(["stream_index:", subject])))]), get(state, join(["writes:", subject])))
 	let path = get(state, "production_client_writes")
@@ -541,7 +541,7 @@ fn capture_stream_writes(next: Dict<String, String>, state: Dict<String, String>
 	transition(captured, success("", "", ""))
 end
 
-fn write_bytes(bytes: ByteChunk, state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn write_bytes(bytes: ByteChunk, state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let paired = publish_pair_write(state, subject, hex_from(bytes, 0))
 	let next = dict_insert(dict_insert(paired, join(["write_index:", subject]), int_to_string(number(state, join(["write_index:", subject])) + 1)), join(["writes:", subject]), join([get(state, join(["writes:", subject])), hex_from(bytes, 0)]))
 	if event(state, join(["write", suffix(state), " ", subject, " ", display(bytes)]))
@@ -551,32 +551,32 @@ fn write_bytes(bytes: ByteChunk, state: Dict<String, String>, subject: String) -
 	end
 end
 
-fn write_deadline(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn write_deadline(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let _ = event(state, join(["write-deadline ", subject]))
 	transition(state, reply("deadline", "", "", "", byte_chunk([])))
 end
 
-fn write_cancelled(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn write_cancelled(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let _ = event(state, join(["write-cancelled ", subject]))
 	transition(state, reply("cancelled", "", "", "", byte_chunk([])))
 end
 
-fn read_shutdown(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn read_shutdown(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let _ = event(state, join(["read-end", suffix(state), " ", subject]))
 	transition(state, reply("end", "", "", "", byte_chunk([])))
 end
 
-fn read_deadline(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn read_deadline(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let _ = event(state, join(["read-deadline ", subject]))
 	transition(state, reply("deadline", "", "", "", byte_chunk([])))
 end
 
-fn read_cancelled(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn read_cancelled(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let _ = event(state, join(["read-cancelled ", subject]))
 	transition(state, reply("cancelled", "", "", "", byte_chunk([])))
 end
 
-fn read_end(next: Dict<String, String>, state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn read_end(next: Dict<String, String>, state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let _ = event(state, join(["read-end", suffix(state), " ", subject]))
 	transition(next, reply("end", "", "", "", byte_chunk([])))
 end
@@ -595,7 +595,7 @@ fn production_read_input(index: Int, state: Dict<String, String>, subject: Strin
 	end
 end
 
-fn connect_stream(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn connect_stream(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let configured = get(state, "connect_stream")
 	let id = if production(state)
 		"production-stream"
@@ -621,17 +621,17 @@ fn connect_stream(state: Dict<String, String>, subject: String) -> { state : Dic
 	end
 end
 
-fn accept_end(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn accept_end(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let _ = event(state, join(["accept-end", suffix(state), " ", subject]))
 	transition(state, reply("end", "", "", "", byte_chunk([])))
 end
 
-fn accept_deadline(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn accept_deadline(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let _ = event(state, join(["accept-deadline ", subject]))
 	transition(state, reply("deadline", "", "", "", byte_chunk([])))
 end
 
-fn accept_cancelled(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn accept_cancelled(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let _ = event(state, join(["accept-cancelled ", subject]))
 	transition(state, reply("cancelled", "", "", "", byte_chunk([])))
 end
@@ -695,7 +695,7 @@ fn publish_pair_write(state: Dict<String, String>, subject: String, text: String
 	end
 end
 
-fn connect_pair(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
+fn connect_pair(state: Dict<String, String>, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let client = "production-client-stream"
 	let server = "production-stream"
 	let endpoint = "127.0.0.1:1"

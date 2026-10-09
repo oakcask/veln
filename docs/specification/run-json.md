@@ -117,7 +117,33 @@ A host transport failure has `error.kind: "runtime"`,
 - optional `platform_cause`.
 
 Unknown facts are omitted. The primary error message contains the failed
-operation and stable category. An invalid dynamic shift count uses
+operation and category. The direct JVM transport boundary produces these
+categories:
+
+| Condition | `category` |
+| --- | --- |
+| Host name lookup fails | `name_not_found` |
+| A host-local address cannot be bound because it is in use | `address_in_use` |
+| A connection attempt is refused | `connection_refused` |
+| A connected socket is reset | `connection_reset` |
+| A socket operation times out | `timed_out` |
+| A channel is closed or a socket reports closure or shutdown | `closed` |
+| Host access is denied | `permission_denied` |
+| Endpoint text is invalid | `invalid_endpoint` |
+| A bind address is not assigned to the host | `io_failure` |
+| Injected transport input is malformed | `invalid_input` |
+| Recording an injected network event fails | `event_record_failed` |
+| A transport reports clean end where the operation requires data | `end_of_stream` |
+| A host operation is interrupted | `interrupted` |
+| Another I/O failure has no more specific classification | `io_failure` |
+
+An injected host handler can supply another category, and the runtime preserves
+that value rather than remapping it. The category is stable as part of the
+individual failure record; the category set is therefore not closed. The
+[`net::system()` translation table](standard-library-networking.md#host-failure-translation)
+defines how its typed handler converts host categories to `NetErrorKind`.
+
+An invalid dynamic shift count uses
 `details.id: "runtime.invalid_shift_count"` with `operator`,
 `actual_count`, `minimum_count`, and `maximum_count`. Other host failures
 keep the generic runtime shape.

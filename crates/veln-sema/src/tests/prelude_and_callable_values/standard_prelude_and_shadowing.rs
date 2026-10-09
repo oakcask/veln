@@ -2,6 +2,22 @@ use super::*;
 use veln_core::CoreCallbackTarget;
 use veln_ir::IrCallbackTarget;
 
+fn combined_codec_module(app_source: &SourceFile, wire_source: &SourceFile) -> SurfaceModule {
+    let app = lower_surface_ast(&parse(app_source).tree);
+    let wire = lower_surface_ast(&parse(wire_source).tree);
+    SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: Vec::new(),
+        schemas: wire.schemas,
+        functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
+    }
+}
+
 #[test]
 fn imported_public_codec_decode_resolves_through_qualified_module_path() {
     let app_source = SourceFile::new(
@@ -33,19 +49,7 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
             "end\n",
         ),
     );
-    let app = lower_surface_ast(&parse(&app_source).tree);
-    let wire = lower_surface_ast(&parse(&wire_source).tree);
-    let module = SurfaceModule {
-        module: app.module,
-        uses: app.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        types: Vec::new(),
-        schemas: wire.schemas,
-        functions: [app.functions, wire.functions].concat(),
-        invalid_names: Vec::new(),
-    };
+    let module = combined_codec_module(&app_source, &wire_source);
 
     let lowered = lower_checked_surface_module(&module);
 
@@ -115,19 +119,7 @@ fn imported_public_codec_encode_resolves_through_qualified_module_path() {
             "end\n",
         ),
     );
-    let app = lower_surface_ast(&parse(&app_source).tree);
-    let wire = lower_surface_ast(&parse(&wire_source).tree);
-    let module = SurfaceModule {
-        module: app.module,
-        uses: app.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        types: Vec::new(),
-        schemas: wire.schemas,
-        functions: [app.functions, wire.functions].concat(),
-        invalid_names: Vec::new(),
-    };
+    let module = combined_codec_module(&app_source, &wire_source);
 
     let lowered = lower_checked_surface_module(&module);
 
@@ -397,6 +389,109 @@ fn imported_codec_decode_does_not_resolve_as_bare_call() {
     }));
 }
 
+fn expected_general_compiler_adapters() -> Vec<&'static str> {
+    crate::standard_symbols::compiler_adapter_names()
+        .filter(|name| !name.starts_with("net_system_"))
+        .filter(|name| *name != "stream_adapter_drain_actions")
+        .filter(|name| *name != "stream_adapter_accept_loop")
+        .filter(|name| *name != "stream_adapter_drain_actions_until_cancellable")
+        .collect()
+}
+
+fn assert_general_prelude_core_lowering(core: &veln_core::CheckedProgram) {
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Record(fields) = &expr.kind else {
+        panic!("prelude results should be returned in a record");
+    };
+    let first = fields
+        .first()
+        .expect("record should contain prelude result fields");
+    assert!(matches!(
+        &first.expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::PreludeBuiltin(name),
+            ..
+        } if name == "vec_len"
+    ));
+    assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
+    let core_prelude_calls = fields
+        .iter()
+        .filter_map(|field| match &field.expr.kind {
+            CoreExprKind::Call {
+                target: CoreCallTarget::PreludeBuiltin(name),
+                ..
+            }
+            | CoreExprKind::Call {
+                target:
+                    CoreCallTarget::CallbackBoundary {
+                        target: CoreCallbackTarget::PreludeBuiltin(name),
+                        ..
+                    },
+                ..
+            } => Some(name.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for name in expected_general_compiler_adapters() {
+        assert!(
+            core_prelude_calls.contains(&name),
+            "{name} should keep prelude core lowering"
+        );
+    }
+}
+
+fn assert_general_prelude_ir_lowering(ir: &veln_ir::TypedProgram) {
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    let IrExprKind::Record(fields) = &value.kind else {
+        panic!("prelude record should lower to IR");
+    };
+    assert!(matches!(
+        &fields[0].value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::PreludeBuiltin(name),
+            ..
+        } if name == "vec_len"
+    ));
+    let ir_prelude_calls = fields
+        .iter()
+        .filter_map(|field| match &field.value.kind {
+            IrExprKind::Call {
+                target: IrCallTarget::PreludeBuiltin(name),
+                ..
+            }
+            | IrExprKind::Call {
+                target:
+                    IrCallTarget::CallbackBoundary {
+                        target: IrCallbackTarget::PreludeBuiltin(name),
+                        ..
+                    },
+                ..
+            } => Some(name.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for name in expected_general_compiler_adapters() {
+        assert!(
+            ir_prelude_calls.contains(&name),
+            "{name} should keep prelude IR lowering"
+        );
+    }
+}
+
 #[test]
 fn infers_prelude_helper_calls_from_expected_types() {
     let source = SourceFile::new(
@@ -586,101 +681,13 @@ fn infers_prelude_helper_calls_from_expected_types() {
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    let CoreExprKind::Record(fields) = &expr.kind else {
-        panic!("prelude results should be returned in a record");
-    };
-    let first = fields
-        .first()
-        .expect("record should contain prelude result fields");
-    assert!(matches!(
-        &first.expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::PreludeBuiltin(name),
-            ..
-        } if name == "vec_len"
-    ));
-    assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
-    let compiler_adapter_names = crate::standard_symbols::compiler_adapter_names()
-        .filter(|name| *name != "stream_adapter_drain_actions")
-        .filter(|name| *name != "stream_adapter_accept_loop")
-        .filter(|name| *name != "stream_adapter_drain_actions_until_cancellable")
-        .collect::<Vec<_>>();
-    let core_prelude_calls = fields
-        .iter()
-        .filter_map(|field| match &field.expr.kind {
-            CoreExprKind::Call {
-                target: CoreCallTarget::PreludeBuiltin(name),
-                ..
-            }
-            | CoreExprKind::Call {
-                target:
-                    CoreCallTarget::CallbackBoundary {
-                        target: CoreCallbackTarget::PreludeBuiltin(name),
-                        ..
-                    },
-                ..
-            } => Some(name.as_str()),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    for name in &compiler_adapter_names {
-        assert!(
-            core_prelude_calls.contains(name),
-            "{name} should keep prelude core lowering"
-        );
-    }
-    let ir = lowered
-        .ir
-        .expect("complete prelude core should lower to IR");
-    let main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be in IR");
-    let IrStmtKind::Return { value } = &main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    let IrExprKind::Record(fields) = &value.kind else {
-        panic!("prelude record should lower to IR");
-    };
-    assert!(matches!(
-        &fields[0].value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::PreludeBuiltin(name),
-            ..
-        } if name == "vec_len"
-    ));
-    let ir_prelude_calls = fields
-        .iter()
-        .filter_map(|field| match &field.value.kind {
-            IrExprKind::Call {
-                target: IrCallTarget::PreludeBuiltin(name),
-                ..
-            }
-            | IrExprKind::Call {
-                target:
-                    IrCallTarget::CallbackBoundary {
-                        target: IrCallbackTarget::PreludeBuiltin(name),
-                        ..
-                    },
-                ..
-            } => Some(name.as_str()),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    for name in &compiler_adapter_names {
-        assert!(
-            ir_prelude_calls.contains(name),
-            "{name} should keep prelude IR lowering"
-        );
-    }
+    assert_general_prelude_core_lowering(
+        lowered.core.as_ref().expect("checked core should be built"),
+    );
+    assert_general_prelude_ir_lowering(
+        lowered
+            .ir
+            .as_ref()
+            .expect("complete prelude core should lower to IR"),
+    );
 }

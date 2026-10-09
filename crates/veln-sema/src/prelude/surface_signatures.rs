@@ -10,7 +10,8 @@ pub(super) fn surface_prelude_signature(
     descriptor: &StandardSymbolDescriptor,
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
-    prelude_float_signature(descriptor.name)
+    prelude_net_system_signature(descriptor.name, expected)
+        .or_else(|| prelude_float_signature(descriptor.name))
         .or_else(|| prelude_byte_signature(descriptor.name))
         .or_else(|| prelude_string_signature(descriptor.name))
         .or_else(|| prelude_vec_signature(descriptor.name, expected))
@@ -19,6 +20,27 @@ pub(super) fn surface_prelude_signature(
         .or_else(|| prelude_option_signature(descriptor.name, expected))
         .or_else(|| prelude_result_signature(descriptor.name, expected))
         .or_else(|| compiler_adapter_callback_signature(descriptor))
+}
+
+fn prelude_net_system_signature(
+    name: &str,
+    expected: &ExpectedPreludeParts,
+) -> Option<(Vec<Type>, Type)> {
+    let arity = match name {
+        "net_system_resolve"
+        | "net_system_listen"
+        | "net_system_listener_address"
+        | "net_system_close_listener"
+        | "net_system_local_address"
+        | "net_system_peer_address"
+        | "net_system_shutdown_read"
+        | "net_system_shutdown_write"
+        | "net_system_close_stream" => 1,
+        "net_system_connect" | "net_system_accept" | "net_system_read" => 3,
+        "net_system_write" => 4,
+        _ => return None,
+    };
+    Some((vec![Type::Unknown; arity], expected.direct.clone()))
 }
 
 fn prelude_float_signature(name: &str) -> Option<(Vec<Type>, Type)> {
