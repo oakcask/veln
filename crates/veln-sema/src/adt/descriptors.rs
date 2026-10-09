@@ -37,6 +37,10 @@ impl AdtDescriptor {
             Some(module) => format!("{module}::{}", self.type_name),
         }
     }
+
+    pub(crate) fn is_opaque_refinement_base(&self) -> bool {
+        matches!(self.diagnostic_name.as_str(), "netlistener" | "netstream")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
