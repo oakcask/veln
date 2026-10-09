@@ -9,6 +9,9 @@ fn collector_projects_variant_refinements_across_type_positions() {
             "type Envelope\n",
             "  Wrapped(field: model::State::Ready | model::State::Closed)\n",
             "end\n",
+            "schema Packet\n",
+            "  state: wire::State::Ready | wire::State::Closed\n",
+            "end\n",
             "effect Transition\n",
             "  move(value: api::State::Ready) -> api::State::Closed\n",
             "end\n",
@@ -23,7 +26,7 @@ fn collector_projects_variant_refinements_across_type_positions() {
     );
 
     let tokens = collect_text(&source);
-    for base_segment in ["model", "api", "alias", "domain", "State"] {
+    for base_segment in ["model", "wire", "api", "alias", "domain", "State"] {
         let matching = tokens
             .iter()
             .filter(|(text, _, _)| text == base_segment)

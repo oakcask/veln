@@ -88,8 +88,8 @@ The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
 
 Singleton and union variant-refinement annotations use these classifications
-in parameters, results, ADT and record fields, handler and effect signatures,
-local annotations, and explicit expression type arguments. Every written
+in parameters, results, ADT, record, and schema fields, handler and effect
+signatures, local annotations, and explicit expression type arguments. Every written
 segment of a qualified or alias-qualified base is a `type` token. The final
 variant is an `enumMember` token. These annotation occurrences are references,
 not synthetic declarations, so they do not receive the `declaration` modifier.
