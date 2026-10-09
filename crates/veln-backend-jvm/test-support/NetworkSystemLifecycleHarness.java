@@ -148,19 +148,38 @@ public final class NetworkSystemLifecycleHarness {
         ((ThreadLocal<Object>) INVOKED_HANDLER.get(null)).remove();
     }
 
+    private static java.nio.channels.SocketChannel awaitConnectedPeer(
+        java.nio.channels.ServerSocketChannel listener,
+        java.nio.channels.SocketChannel client
+    ) throws Exception {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5L);
+        java.nio.channels.SocketChannel peer = null;
+        boolean connected = false;
+        while (peer == null || !connected) {
+            if (peer == null) peer = listener.accept();
+            if (!connected) connected = client.finishConnect();
+            if ((peer == null || !connected) && System.nanoTime() >= deadline) {
+                if (peer != null) peer.close();
+                throw new java.net.SocketTimeoutException("loopback connection timed out");
+            }
+            Thread.yield();
+        }
+        return peer;
+    }
+
     private static void verifySuccessfulConnectIsCommitted(Object deadline, Object token) throws Exception {
         java.nio.channels.ServerSocketChannel listener = java.nio.channels.ServerSocketChannel.open();
         java.nio.channels.SocketChannel client = java.nio.channels.SocketChannel.open();
         java.nio.channels.SocketChannel peer = null;
         try {
+            listener.configureBlocking(false);
             listener.bind(new java.net.InetSocketAddress(
                 java.net.InetAddress.getByName("127.0.0.1"),
                 0
             ));
             client.configureBlocking(false);
             client.connect((java.net.InetSocketAddress) listener.getLocalAddress());
-            peer = listener.accept();
-            while (!client.finishConnect()) Thread.yield();
+            peer = awaitConnectedPeer(listener, client);
             FINISH_CONNECT.invoke(null, client, deadline, token);
         } finally {
             if (peer != null) peer.close();
@@ -241,7 +260,11 @@ public final class NetworkSystemLifecycleHarness {
             }
         });
         child.start();
-        child.join();
+        child.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(5L));
+        if (child.isAlive()) {
+            child.interrupt();
+            throw new AssertionError("child resource registration did not complete");
+        }
         CLEANUP.invoke(null, owner);
         if (socket.get() == null || socket.get().isOpen()) {
             throw new AssertionError("parent cleanup missed a child-created resource");
@@ -424,13 +447,14 @@ public final class NetworkSystemLifecycleHarness {
         java.nio.channels.SocketChannel client = java.nio.channels.SocketChannel.open();
         java.nio.channels.SocketChannel peer = null;
         try {
+            listener.configureBlocking(false);
             listener.bind(new java.net.InetSocketAddress(
                 java.net.InetAddress.getByName("127.0.0.1"),
                 0
             ));
-            client.connect((java.net.InetSocketAddress) listener.getLocalAddress());
-            peer = listener.accept();
             client.configureBlocking(false);
+            client.connect((java.net.InetSocketAddress) listener.getLocalAddress());
+            peer = awaitConnectedPeer(listener, client);
             Object stream = newStream(client, 8000);
             long registrationsBefore = counter(READINESS_REGISTRATIONS);
             long buffersBefore = counter(READ_BUFFER_ALLOCATIONS);

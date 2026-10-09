@@ -184,6 +184,8 @@ listener or stream open.
 
 Connection establishment is the commit point. During resolution and endpoint
 attempts, each control check tests cancellation before deadline expiration.
+An endpoint attempt that reports cancellation or deadline expiration ends the
+connection operation; the handler does not try a later resolved endpoint.
 Once the host reports successful establishment, the handler returns the
 connected stream without another deadline or cancellation check. A control
 that becomes observable only at or after that commit does not replace success.
@@ -200,6 +202,7 @@ Listener state transitions are:
 | --- | --- | --- |
 | Open | `accept` succeeds | The listener stays open and returns a fresh open stream. |
 | Open | `accept` times out or is cancelled | The listener stays open and returns `TimedOut` or `Cancelled`. |
+| Open | The host reports clean accept end | The listener stays open and returns `Closed`. |
 | Open | `close_listener` | The listener becomes closed, returns `Ok(())`, and interrupts blocked accepts with `Closed`. |
 | Open | `close_listener` fails before host closure commits | The listener stays open, returns the error, retains its cleanup obligation, and a later explicit close retries the host operation. |
 | Open | `close_listener` reports failure after host closure commits | The listener becomes confirmed closed and returns the error; a later close is idempotently successful. |

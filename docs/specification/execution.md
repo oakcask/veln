@@ -22,8 +22,9 @@ operations observe the same close and ownership state.
 The [standard-library networking specification](standard-library-networking.md#network-operation-boundary)
 owns the resolver controls, connection commit point, exact write-progress,
 concurrent-operation, and resource state transitions for this handler. Task
-cancellation interrupts an in-progress system-handler resolution before join
-reports cancellation.
+cancellation stops the waiting system-handler call before join reports
+cancellation. A platform resolver that ignores interruption can remain active
+within the handler's finite resolver capacity.
 
 Semantic diagnostics must be error-free before the compiler produces checked
 core and typed IR. Command analysis checks readiness for the selected entry

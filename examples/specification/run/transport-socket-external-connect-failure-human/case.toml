@@ -11,4 +11,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["transport connect failed: io_failure", "note: Peer endpoint: 127.0.0.1:0.", "note: Lifecycle phase: during_operation.", "note: Commit state: input=false, output=false, ownership=false.", "note: Platform cause: production socket failed:"]
+contains = ["transport connect failed: connection_refused", "note: Peer endpoint: 127.0.0.1:0.", "note: Lifecycle phase: during_operation.", "note: Commit state: input=false, output=false, ownership=false.", "note: Platform cause: production socket failed:"]

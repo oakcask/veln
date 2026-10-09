@@ -135,6 +135,32 @@ handler ordered_deduplicated_system_network(attempts: { tx : Sender<Int>, rx : R
 	end
 end
 
+handler controlled_endpoint_system_network(kind: String, attempts: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4" and subject == "controlled.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.80" }, list_cons({ network: "tcp4", address: "192.0.2.81" }, list_nil())), 0, "", 0, "")
+	else if operation == "connect" and subject == "192.0.2.80:443"
+		match channel::recv(attempts.rx)
+			Some(count) => begin
+				let _ = channel::send(attempts.tx, count + 1)
+				system_network_reply("error", "", "", "", list_nil(), 0, kind, 0, "first endpoint control outcome")
+			end
+			None => system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "missing endpoint attempt count")
+		end
+	else if operation == "connect" and subject == "192.0.2.81:443"
+		match channel::recv(attempts.rx)
+			Some(count) => begin
+				let _ = channel::send(attempts.tx, count + 1)
+				system_network_success("unexpected-stream", "192.0.2.82:50000", "192.0.2.81:443")
+			end
+			None => system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "missing second endpoint attempt count")
+		end
+	else if operation == "close_stream" and subject == "unexpected-stream"
+		system_network_success("", "", "")
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected controlled-connect request")
+	end
+end
+
 fn retrying_close_system_network_reply(calls: { tx : Sender<Int>, rx : Receiver<Int> }, operation: String, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
 	if operation == "resolve_tcp4" and subject == "127.0.0.1"
 		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "127.0.0.1" }, list_nil()), 0, "", 0, "")
@@ -261,7 +287,15 @@ fn failing_shutdown_system_network_reply(direction: String, commit: Int, io_read
 end
 
 fn scripted_system_network_reply(scenario: String, operation: String, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	if scenario == "resolver-order" and operation == "resolve_tcp" and subject == "ordered.test"
+	if scenario == "accept-end" and operation == "resolve_tcp4" and subject == "ended.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.90" }, list_nil()), 0, "", 0, "")
+	else if scenario == "accept-end" and operation == "listen" and subject == "192.0.2.90:0"
+		system_network_success("ended-listener", "192.0.2.90:43000", "")
+	else if scenario == "accept-end" and operation == "accept" and subject == "ended-listener"
+		system_network_reply("end", "", "", "", list_nil(), 0, "", 0, "")
+	else if scenario == "accept-end" and operation == "close_listener" and subject == "ended-listener"
+		system_network_success("", "", "")
+	else if scenario == "resolver-order" and operation == "resolve_tcp" and subject == "ordered.test"
 		system_network_reply("ok", "", "", "", list_cons({ network: "tcp6", address: "2001:db8::2" }, list_cons({ network: "tcp4", address: "192.0.2.1" }, list_cons({ network: "tcp6", address: "2001:db8::2" }, list_cons({ network: "tcp4", address: "192.0.2.2" }, list_nil())))), 0, "", 0, "")
 	else if scenario == "resolver-empty" and operation == "resolve_tcp6" and subject == "empty.test"
 		system_network_success("", "", "")
@@ -615,6 +649,32 @@ fn system_ordered_connect_and_close() -> Result<Int, String> effects [net, time,
 			None => Err("ordered connect attempt count was unavailable")
 		end
 		Err(_) => Err("ordered connect failed")
+	end
+end
+
+fn system_controlled_endpoint_attempt(kind: String) -> Result<{ error : net::NetError, attempts : Int }, String> effects [net, time, concurrency]
+	let attempts = channel::bounded<Int>(1)
+	let _ = channel::send(attempts.tx, 0)
+	let result = handle handle net::connect(net::Address(net::Tcp4, "controlled.test", 443)) with net::system() with controlled_endpoint_system_network(kind, attempts)
+	match result
+		Err(error) => match channel::recv(attempts.rx)
+			Some(count) => Ok({ error: error, attempts: count })
+			None => Err("controlled endpoint attempt count was unavailable")
+		end
+		Ok(_) => Err("connect retried after a controlling endpoint failure")
+	end
+end
+
+fn system_accept_end_is_closed() -> Result<(), String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "ended.test", 0))
+		Ok(listener) => match net::accept(listener)
+			Err(net::NetError("accept", _, _, net::Closed, _)) => match net::close_listener(listener)
+				Ok(()) => Ok(())
+				Err(_) => Err("listener could not close after clean accept end")
+			end
+			_ => Err("clean accept end was not translated to Closed")
+		end
+		Err(_) => Err("scripted listener did not open")
 	end
 end
 
@@ -1108,6 +1168,20 @@ test system_connect_preserves_endpoint_order_and_exact_deduplication() -> Result
 		Ok(2) => Ok(())
 		_ => Err("connect did not preserve resolver order with exact endpoint deduplication")
 	end
+end
+
+test system_connect_stops_after_endpoint_deadline_or_cancellation() -> Result<(), String> effects [net, time, concurrency]
+	match system_controlled_endpoint_attempt("timed_out")
+		Ok({ error: net::NetError("connect", _, _, net::TimedOut, _), attempts: 1 }) => match system_controlled_endpoint_attempt("cancelled")
+			Ok({ error: net::NetError("connect", _, _, net::Cancelled, _), attempts: 1 }) => Ok(())
+			_ => Err("connect retried after endpoint cancellation")
+		end
+		_ => Err("connect retried after endpoint deadline expiration")
+	end
+end
+
+test system_accept_translates_clean_host_end_to_closed() -> Result<(), String> effects [net, time]
+	handle handle system_accept_end_is_closed() with net::system() with scripted_system_network("accept-end")
 end
 
 test system_connect_observes_parent_task_cancellation_during_resolution() -> Result<(), String> effects [net, time, concurrency]

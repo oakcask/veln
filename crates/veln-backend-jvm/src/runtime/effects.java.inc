@@ -1440,6 +1440,12 @@
                     throw cancelled;
                 } catch (Throwable failure) {
                     netSystemRejectUnexpectedFailure(failure);
+                    if (failure instanceof TransportFailure) {
+                        String category = ((TransportFailure) failure).category;
+                        if (category.equals("cancelled") || category.equals("timed_out")) {
+                            return err(netSystemFailure("connect", network, subject, failure));
+                        }
+                    }
                     last = failure;
                 }
             }
@@ -1477,6 +1483,7 @@
             }
             if (isAdt(outcome, "AcceptOutcome::AcceptDeadlineExpired")) return err(netSystemError("accept", null, listener.localAddress, "TimedOut", "accept deadline elapsed"));
             if (isAdt(outcome, "AcceptOutcome::AcceptCancelled")) return err(netSystemError("accept", null, listener.localAddress, "Cancelled", "accept was cancelled"));
+            if (isAdt(outcome, "AcceptOutcome::AcceptEnd")) return err(netSystemError("accept", null, listener.localAddress, "Closed", "listener reached clean end"));
             NetStream stream = asNetStream(((Adt) outcome).payloads[0]);
             if (!netSystemRegisterStream(owner, stream)) {
                 try { netCloseStream(stream); } catch (Throwable ignored) { }

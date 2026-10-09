@@ -22,7 +22,7 @@ equals = "listen"
 
 [[json_assert]]
 path = "error.details.category"
-equals = "io_failure"
+equals = "address_in_use"
 
 [[json_assert]]
 path = "error.details.local_endpoint"
