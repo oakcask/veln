@@ -9,9 +9,9 @@ veln-ast.workspace = true
 veln-diagnostics.workspace = true
 veln-project.workspace = true
 veln-source.workspace = true
+veln-syntax.workspace = true
 
 [dev-dependencies]
-veln-syntax.workspace = true
 
 [lints]
 workspace = true

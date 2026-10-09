@@ -629,3 +629,25 @@ fn synchronizes_top_level_garbage_to_next_test_declaration() {
     assert_eq!(function.kind, FunctionKind::Test);
     assert_eq!(function.name.as_deref(), Some("main"));
 }
+
+#[test]
+fn synchronizes_stray_top_level_end_to_next_declaration() {
+    let source = SourceFile::new("main.veln", "end\nfn main()\nend\n");
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.expected_item")
+        .expect("expected top-level item diagnostic");
+    assert_eq!(
+        diagnostic.recovery.strategy,
+        RecoveryStrategy::SynchronizeToAnchor
+    );
+    assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("fn"));
+    assert!(diagnostic.recovery.dropped_token_count > 0);
+    assert_eq!(output.tree.items.len(), 1);
+    let function = first_function(&output);
+    assert_eq!(function.name.as_deref(), Some("main"));
+}

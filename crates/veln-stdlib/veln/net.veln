@@ -86,6 +86,18 @@ end
 
 ## Use the host TCP implementation for the handled IO scope. Resources belong
 ## to this handler instance and are closed when the handled scope exits.
+## ```veln
+## fn resolve_with_system() -> Result<List<Endpoint>, NetError> effects [net, time]
+## 	handle resolve(Address(Tcp4, "127.0.0.1", 80)) with system()
+## end
+##
+## fn listen_with_system() -> Result<(), NetError> effects [net, time]
+## 	handle begin
+## 		let listener = listen(Address(Tcp4, "127.0.0.1", 0))?
+## 		close_listener(listener)
+## 	end with system()
+## end
+## ```
 pub handler system() for IO effects [net, time]
 	resolve(address) => prelude_builtin::net_system_resolve(address)
 	listen(address) => prelude_builtin::net_system_listen(address)

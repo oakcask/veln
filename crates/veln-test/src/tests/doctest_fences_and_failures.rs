@@ -43,6 +43,36 @@ fn consecutive_veln_doctest_fences_create_separate_sources() {
 }
 
 #[test]
+fn declaration_doctest_keeps_declarations_outside_the_runner() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "## ```veln\n",
+            "## fn helper() -> Int\n",
+            "##   1\n",
+            "## end\n",
+            "## helper()\n",
+            "## ```\n",
+        ),
+    );
+
+    let doctests = doctest_sources(&[source]);
+
+    assert_eq!(
+        doctests.sources[0].text(),
+        concat!(
+            "fn helper() -> Int\n",
+            "  1\n",
+            "end\n",
+            "test doctest_1() -> () effects [stdio]\n",
+            "  helper()\n",
+            "  ()\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn doctest_output_fence_without_pending_doctest_is_ignored() {
     let source = SourceFile::new(
         "main.veln",

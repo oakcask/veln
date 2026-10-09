@@ -146,7 +146,6 @@ impl<'a> Parser<'a> {
             && !self.at(TokenKind::Schema)
             && !self.at(TokenKind::Codec)
             && !self.at(TokenKind::Test)
-            && !self.at(TokenKind::End)
         {
             self.bump();
         }
@@ -158,7 +157,6 @@ impl<'a> Parser<'a> {
             TokenKind::Schema => Some("schema".to_string()),
             TokenKind::Codec => Some("codec".to_string()),
             TokenKind::Test => Some("test".to_string()),
-            TokenKind::End => Some("end".to_string()),
             TokenKind::Eof => None,
             _ => None,
         };

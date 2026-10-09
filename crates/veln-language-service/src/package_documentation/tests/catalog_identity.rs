@@ -155,6 +155,95 @@ fn catalog_identity_digest_and_uris_are_deterministic() {
 }
 
 #[test]
+fn public_handler_has_stable_identity_signature_docs_and_resource() {
+    let manifest = "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n";
+    let source = concat!(
+        "pub effect Ask\n",
+        "\task(value: Int) -> Int\n",
+        "end\n",
+        "\n",
+        "## Answer Ask operations from a caller-supplied seed.\n",
+        "## ```veln\n",
+        "## > let hidden_setup: Int = 0\n",
+        "## fn sample() -> Int effects [stdio]\n",
+        "## \thandle perform Ask::ask(1) with answer(2)\n",
+        "## end\n",
+        "## ```\n",
+        "pub handler answer(seed: Int) for Ask effects [stdio]\n",
+        "\task(value) => value + seed\n",
+        "end\n",
+        "\n",
+        "handler private_answer() for Ask\n",
+        "\task(value) => value\n",
+        "end\n",
+    );
+    let result = generate(manifest, &[("main.veln", source)]);
+    let catalog = catalog_or_panic(&result);
+    let handler = catalog.modules[0]
+        .declarations
+        .iter()
+        .find(|declaration| declaration.kind == "handler")
+        .unwrap();
+
+    assert_eq!(handler.name, "answer");
+    assert_eq!(
+        handler.signature,
+        "handler answer(seed: Int) for Ask effects [stdio]"
+    );
+    assert_eq!(
+        handler.doc.first().map(String::as_str),
+        Some("Answer Ask operations from a caller-supplied seed.")
+    );
+    assert_eq!(handler.doctests.len(), 1);
+    assert_eq!(
+        result.declaration_uri_for("main", "handler", "answer"),
+        Some(handler.uri.as_str())
+    );
+    assert!(
+        result
+            .declaration_locations()
+            .any(|location| { location.declaration_uri == handler.uri && location.line == 12 })
+    );
+
+    let resource = render_package_documentation(&result)
+        .into_iter()
+        .find(|resource| resource.uri == handler.uri)
+        .unwrap();
+    assert!(resource.text.starts_with("# Handler answer\n"));
+    assert!(resource.text.contains("- Kind: handler"));
+    assert!(resource.text.contains("## Doctests"));
+    assert!(!resource.text.contains("hidden_setup"));
+    assert!(!resource.text.contains("value + seed"));
+
+    let canonical = std::str::from_utf8(result.canonical_bytes()).unwrap();
+    assert!(!canonical.contains("private_answer"));
+    assert!(!canonical.contains("hidden_setup"));
+    assert!(!canonical.contains("value + seed"));
+
+    let changed_body = source.replace("value + seed", "seed + value");
+    let changed = generate(manifest, &[("main.veln", &changed_body)]);
+    let changed_handler = changed.catalog().unwrap().modules[0]
+        .declarations
+        .iter()
+        .find(|declaration| declaration.kind == "handler")
+        .unwrap();
+    assert_eq!(handler.id, changed_handler.id);
+
+    let variadic_parameter = source.replace("answer(seed: Int)", "answer(seed: ...Int)");
+    let changed = generate(manifest, &[("main.veln", &variadic_parameter)]);
+    let changed_handler = changed.catalog().unwrap().modules[0]
+        .declarations
+        .iter()
+        .find(|declaration| declaration.kind == "handler")
+        .unwrap();
+    assert_eq!(
+        changed_handler.signature,
+        "handler answer(seed: ...Int) for Ask effects [stdio]"
+    );
+    assert_ne!(handler.id, changed_handler.id);
+}
+
+#[test]
 fn metadata_exported_modules_use_validated_normalized_exports() {
     let result = generate(
         "[package]\nname = \"demo\"\n[lib]\nexports = [\"./main.veln\"]\n",

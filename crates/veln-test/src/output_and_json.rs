@@ -1,8 +1,19 @@
 use super::*;
 
 pub(super) fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -> String {
-    let mut text = generated_doctest_header(name, doctest);
-    for line in &doctest.code {
+    let declaration_lines = declaration_line_indexes(doctest);
+    let mut text = String::new();
+    for (index, line) in doctest.code.iter().enumerate() {
+        if declaration_lines.contains(&index) {
+            text.push_str(line);
+            text.push('\n');
+        }
+    }
+    text.push_str(&generated_doctest_header(name, doctest));
+    for (index, line) in doctest.code.iter().enumerate() {
+        if declaration_lines.contains(&index) {
+            continue;
+        }
         if line.is_empty() {
             text.push('\n');
         } else {
@@ -32,18 +43,83 @@ pub(super) fn generated_doctest_copied_regions(
     name: &str,
     doctest: &ExtractedDoctest,
 ) -> Vec<(TextRange, LineCol, LineCol)> {
-    let mut generated_line_start = generated_doctest_header(name, doctest).len();
+    let declaration_lines = declaration_line_indexes(doctest);
+    let mut generated_line_start = 0;
     let mut regions = Vec::with_capacity(doctest.code.len());
-    for (line, original) in doctest.code.iter().zip(&doctest.source_locations) {
-        let generated_code_start = generated_line_start + usize::from(!line.is_empty()) * 2;
+    for index in &declaration_lines {
+        let line = &doctest.code[*index];
+        let original = &doctest.source_locations[*index];
         regions.push((
-            TextRange::new(generated_code_start, generated_code_start + line.len()),
+            TextRange::new(generated_line_start, generated_line_start + line.len()),
             original.start,
             original.end,
         ));
-        generated_line_start += usize::from(!line.is_empty()) * 2 + line.len() + 1;
+        generated_line_start += line.len() + 1;
+    }
+    generated_line_start += generated_doctest_header(name, doctest).len();
+    for (index, (line, original)) in doctest
+        .code
+        .iter()
+        .zip(&doctest.source_locations)
+        .enumerate()
+    {
+        if declaration_lines.contains(&index) {
+            continue;
+        }
+        let indent = usize::from(!line.is_empty()) * 2;
+        regions.push((
+            TextRange::new(
+                generated_line_start + indent,
+                generated_line_start + indent + line.len(),
+            ),
+            original.start,
+            original.end,
+        ));
+        generated_line_start += indent + line.len() + 1;
     }
     regions
+}
+
+fn declaration_line_indexes(doctest: &ExtractedDoctest) -> BTreeSet<usize> {
+    if doctest.should_fail {
+        return BTreeSet::new();
+    }
+    let mut text = String::new();
+    let mut line_ranges = Vec::with_capacity(doctest.code.len());
+    for line in &doctest.code {
+        let start = text.len();
+        text.push_str(line);
+        let end = text.len();
+        text.push('\n');
+        line_ranges.push(TextRange::new(start, end));
+    }
+    let parsed = veln_syntax::parse(&SourceFile::new("doctest.veln", text));
+    let declaration_ranges = parsed
+        .tree
+        .items
+        .iter()
+        .map(|item| {
+            let span = match item {
+                veln_syntax::SyntaxItem::PublicAlias(alias) => &alias.span,
+                veln_syntax::SyntaxItem::Effect(effect) => &effect.span,
+                veln_syntax::SyntaxItem::Handler(handler) => &handler.span,
+                veln_syntax::SyntaxItem::Type(type_decl) => &type_decl.span,
+                veln_syntax::SyntaxItem::Schema(schema) => &schema.span,
+                veln_syntax::SyntaxItem::Function(function) => &function.span,
+            };
+            TextRange::new(span.start.offset, span.end.offset)
+        })
+        .collect::<Vec<_>>();
+    line_ranges
+        .iter()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            declaration_ranges
+                .iter()
+                .any(|declaration| declaration.start < line.end && line.start < declaration.end)
+                .then_some(index)
+        })
+        .collect()
 }
 
 pub(super) fn reconstructed_stream(events: &[JsonValue], stream: &str) -> String {
