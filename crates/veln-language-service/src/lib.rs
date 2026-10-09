@@ -28,7 +28,7 @@ pub use presentation::{
 };
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::error::Error;
 use std::fmt;
 use std::sync::{Arc, OnceLock};
@@ -50,6 +50,7 @@ pub struct EffectiveProjectSnapshot {
     direct_dependency_schema_navigation_index: OnceLock<Arc<SymbolIndex>>,
     schema_navigation_index: OnceLock<Arc<SymbolIndex>>,
     navigation_index: OnceLock<Arc<SymbolIndex>>,
+    signature_function_names: OnceLock<Arc<HashSet<String>>>,
 }
 
 impl EffectiveProjectSnapshot {
@@ -63,6 +64,7 @@ impl EffectiveProjectSnapshot {
             direct_dependency_schema_navigation_index: OnceLock::new(),
             schema_navigation_index: OnceLock::new(),
             navigation_index: OnceLock::new(),
+            signature_function_names: OnceLock::new(),
         }
     }
 
@@ -79,6 +81,7 @@ impl EffectiveProjectSnapshot {
             direct_dependency_schema_navigation_index: OnceLock::new(),
             schema_navigation_index: OnceLock::new(),
             navigation_index: OnceLock::new(),
+            signature_function_names: OnceLock::new(),
         }
     }
 
@@ -86,6 +89,7 @@ impl EffectiveProjectSnapshot {
         self.standard_library = Some(standard_library);
         self.indexed_standard_library = Arc::new(OnceLock::new());
         self.navigation_index = OnceLock::new();
+        self.signature_function_names = OnceLock::new();
         self
     }
 
@@ -102,6 +106,7 @@ impl EffectiveProjectSnapshot {
             direct_dependency_schema_navigation_index: OnceLock::new(),
             schema_navigation_index: OnceLock::new(),
             navigation_index: OnceLock::new(),
+            signature_function_names: OnceLock::new(),
         }
     }
 
@@ -128,6 +133,7 @@ impl EffectiveProjectSnapshot {
             direct_dependency_schema_navigation_index: OnceLock::new(),
             schema_navigation_index: OnceLock::new(),
             navigation_index: OnceLock::new(),
+            signature_function_names: OnceLock::new(),
         }
     }
 

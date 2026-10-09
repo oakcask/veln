@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
+use std::sync::Arc;
 
 #[cfg(test)]
 use std::cell::Cell;
@@ -53,6 +54,7 @@ thread_local! {
     static SIGNATURE_NAME_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_NAVIGATION_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SIGNATURE_INDEX_OWNED_TEXT_BYTES: Cell<usize> = const { Cell::new(0) };
+    static SIGNATURE_FUNCTION_NAME_INDEX_BUILDS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -63,6 +65,7 @@ fn reset_signature_help_work() {
     SIGNATURE_NAME_LOOKUPS.set(0);
     SIGNATURE_NAVIGATION_LOOKUPS.set(0);
     SIGNATURE_INDEX_OWNED_TEXT_BYTES.set(0);
+    SIGNATURE_FUNCTION_NAME_INDEX_BUILDS.set(0);
 }
 
 #[cfg(test)]
@@ -152,6 +155,19 @@ fn signature_index_owned_text_bytes() -> usize {
     SIGNATURE_INDEX_OWNED_TEXT_BYTES.get()
 }
 
+#[cfg(test)]
+fn record_signature_function_name_index_build() {
+    SIGNATURE_FUNCTION_NAME_INDEX_BUILDS.set(SIGNATURE_FUNCTION_NAME_INDEX_BUILDS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_signature_function_name_index_build() {}
+
+#[cfg(test)]
+fn signature_function_name_index_builds() -> usize {
+    SIGNATURE_FUNCTION_NAME_INDEX_BUILDS.get()
+}
+
 pub fn signature_help_at(
     snapshot: &EffectiveProjectSnapshot,
     position: SourcePosition,
@@ -175,7 +191,9 @@ pub fn signature_help_at(
     let shadow_index = SignatureShadowIndex::new(&tokens.tokens, offset);
     let recovery_start = shadow_index.recovery_start();
     let local_signatures = local_signature_declarations(source, &significant);
-    let function_names = signature_function_names(snapshot);
+    let function_names = snapshot
+        .signature_function_names
+        .get_or_init(|| Arc::new(signature_function_names(snapshot)));
     let mut search = SignatureHelpSearch {
         snapshot,
         position: &position,
@@ -243,7 +261,7 @@ struct SignatureHelpSearch<'a, 'tokens> {
     significant: &'tokens [(usize, &'tokens Token)],
     shadow_index: SignatureShadowIndex,
     local_signatures: HashMap<String, Vec<LocalSignatureDeclaration>>,
-    function_names: HashSet<String>,
+    function_names: &'a HashSet<String>,
     navigation_parse_allowed: bool,
     recovered_function_is_callsite_aware: Option<bool>,
     navigation_lookups: usize,
@@ -396,6 +414,7 @@ fn recovered_function_has_callsite_modifier(
 }
 
 fn signature_function_names(snapshot: &EffectiveProjectSnapshot) -> HashSet<String> {
+    record_signature_function_name_index_build();
     snapshot
         .source_texts_for_signature_index()
         .flat_map(|text| {

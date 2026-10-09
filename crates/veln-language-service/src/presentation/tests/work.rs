@@ -1,5 +1,92 @@
 use super::*;
 
+#[test]
+fn repeated_signature_help_reuses_the_snapshot_function_name_index() {
+    let declarations = concat!(
+        "pub fn first(value: Int) -> Int\n",
+        "  value\n",
+        "end\n",
+        "pub fn second(value: Int) -> Int\n",
+        "  value\n",
+        "end\n",
+    );
+    let caller = concat!(
+        "use declarations\n",
+        "fn caller() -> Int\n",
+        "  let first_value = declarations::first(1)\n",
+        "  declarations::second(first_value)\n",
+        "end\n",
+    );
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new("declarations.veln", declarations),
+        SourceFile::new("main.veln", caller),
+    ]);
+    reset_signature_help_work();
+
+    for line in [3, 4] {
+        let column = caller
+            .lines()
+            .nth(line - 1)
+            .expect("call line")
+            .find(')')
+            .expect("closing parenthesis")
+            + 1;
+        signature_help_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line,
+                column,
+            },
+        )
+        .expect("signature help");
+    }
+
+    assert_eq!(signature_function_name_index_builds(), 1);
+}
+
+#[test]
+fn workspace_overlays_invalidate_the_snapshot_function_name_index() {
+    let caller = concat!(
+        "use declarations\n",
+        "fn caller() -> Int\n",
+        "  declarations::added(1)\n",
+        "end\n",
+    );
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new("declarations.veln", "mod declarations\n"),
+        SourceFile::new("main.veln", caller),
+    ]);
+    let position = || SourcePosition {
+        source: SourcePath::new("main.veln"),
+        line: 3,
+        column: caller
+            .lines()
+            .nth(2)
+            .expect("call line")
+            .find(')')
+            .expect("closing parenthesis")
+            + 1,
+    };
+    reset_signature_help_work();
+
+    assert!(signature_help_at(&snapshot, position()).is_none());
+
+    let overlaid = snapshot.with_workspace_overlays([SourceFile::new(
+        "declarations.veln",
+        concat!(
+            "mod declarations\n",
+            "pub fn added(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+        ),
+    )]);
+    let help = signature_help_at(&overlaid, position()).expect("overlaid signature help");
+
+    assert_eq!(help.label, "fn added(value: Int) -> Int");
+    assert_eq!(signature_function_name_index_builds(), 2);
+}
+
 fn rejected_nested_candidate_reference_collections(depth: usize) -> usize {
     let mut source = String::from(concat!(
         "fn located(value: Int) -> SourceLocation callsite\n",
