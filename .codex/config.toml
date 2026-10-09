@@ -1,0 +1,17 @@
+[mcp_servers.veln]
+command = "cargo"
+args = ["run", "--quiet", "--locked", "--package", "veln-cli", "--bin", "veln", "--", "mcp"]
+cwd = "."
+enabled = true
+enabled_tools = ["search_docs", "list_language_topics", "read_doc"]
+startup_timeout_sec = 180
+tool_timeout_sec = 60
+
+[mcp_servers.veln.tools.search_docs]
+approval_mode = "approve"
+
+[mcp_servers.veln.tools.list_language_topics]
+approval_mode = "approve"
+
+[mcp_servers.veln.tools.read_doc]
+approval_mode = "approve"
