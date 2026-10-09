@@ -87,6 +87,14 @@ pub(super) fn reconcile_package_expected_doctest_failures(
 }
 
 pub(super) fn generated_doctest_static_gate_source(source: &SourceFile) -> GeneratedDoctestSource {
+    let first_line_end = source.text().find('\n').unwrap_or(source.text().len());
+    if source
+        .span(TextRange::new(0, first_line_end))
+        .resolved_origin()
+        .is_some()
+    {
+        return partitioned_generated_doctest_source(source);
+    }
     let visible_lines = normalized_generated_doctest_lines(source);
     let (declarations, statements) =
         split_generated_doctest_visible_lines(source.path().as_str(), &visible_lines);
@@ -95,6 +103,35 @@ pub(super) fn generated_doctest_static_gate_source(source: &SourceFile) -> Gener
         unchanged_generated_doctest_source(source, visible_lines.len())
     } else {
         wrapped_generated_doctest_source(source, declarations, statements)
+    }
+}
+
+fn partitioned_generated_doctest_source(source: &SourceFile) -> GeneratedDoctestSource {
+    let mut line_origins = BTreeMap::new();
+    let mut offset = 0;
+    for (index, raw_line) in source.text().split_inclusive('\n').enumerate() {
+        let line = raw_line.strip_suffix('\n').unwrap_or(raw_line);
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        let leading_spaces = line
+            .find(|character| character != ' ')
+            .unwrap_or(line.len());
+        let range = TextRange::new(offset + leading_spaces, offset + line.len());
+        if range.start < range.end
+            && let Some(original_span) = source.span(range).resolved_origin()
+        {
+            line_origins.insert(
+                index + 1,
+                DoctestSourceLineOrigin {
+                    original_span,
+                    generated_content_column: leading_spaces + 1,
+                },
+            );
+        }
+        offset += raw_line.len();
+    }
+    GeneratedDoctestSource {
+        source: source.clone(),
+        line_origins,
     }
 }
 
