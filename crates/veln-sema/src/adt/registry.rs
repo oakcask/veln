@@ -232,6 +232,54 @@ impl AdtRegistry {
         self.descriptor_for_type_path_with_arity(name, None, current_module, uses)
     }
 
+    pub(crate) fn unique_descriptor_for_type_path_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        fn unique(candidates: Vec<&AdtDescriptor>) -> Option<&AdtDescriptor> {
+            let mut candidates = candidates;
+            let candidate = candidates.pop()?;
+            candidates.is_empty().then_some(candidate)
+        }
+        if !name.contains("::") {
+            let local = self
+                .descriptors_named(name)
+                .filter(|descriptor| descriptor.module_name.as_deref() == current_module)
+                .collect::<Vec<_>>();
+            if !local.is_empty() {
+                return unique(local);
+            }
+            let builtin = self
+                .descriptors_named(name)
+                .filter(|descriptor| descriptor.module_name.is_none())
+                .collect::<Vec<_>>();
+            if !builtin.is_empty() {
+                return unique(builtin);
+            }
+            return unique(
+                self.descriptors_named(name)
+                    .filter(|descriptor| {
+                        descriptor.visibility == Visibility::Public
+                            && descriptor.module_name.as_ref().is_some_and(|module| {
+                                uses.iter().any(|use_decl| &use_decl.name == module)
+                            })
+                    })
+                    .collect(),
+            );
+        }
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let type_name = segments.last()?;
+        unique(
+            self.descriptors_named(type_name)
+                .filter(|descriptor| {
+                    self.descriptor_visible(descriptor, &segments, current_module, uses, true)
+                })
+                .collect(),
+        )
+    }
+
     pub(crate) fn canonical_type_name_for_descriptor(&self, descriptor: &AdtDescriptor) -> String {
         self.descriptors_by_identity
             .get(&descriptor.identity())

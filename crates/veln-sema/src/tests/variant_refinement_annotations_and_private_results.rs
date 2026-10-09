@@ -287,6 +287,191 @@ fn non_refinable_bases_report_closed_reasons_and_preserve_arity_precedence() {
 }
 
 #[test]
+fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "type Empty\n",
+        "end\n",
+        "pub type Opaque = NetStream\n",
+        "fn refinable(value: state::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn missing(value: state::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn non_adt(value: int::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn opaque(value: opaque::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn unavailable(value: empty::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "name.invalid_case" | "type.variant_refinement_base"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 8, "{diagnostics:#?}");
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "name.invalid_case",
+            "name.invalid_case",
+            "name.invalid_case",
+            "name.invalid_case",
+            "type.variant_refinement_base",
+            "type.variant_refinement_base",
+            "type.variant_refinement_base",
+        ]
+    );
+    let base_json = relevant
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(base_json[0].contains("\"reason\":\"not_adt\""));
+    assert!(base_json[0].contains("\"resolved_identity\":\"Int\""));
+    assert!(base_json[1].contains("\"reason\":\"opaque\""));
+    assert!(base_json[2].contains("\"reason\":\"variant_descriptor_unavailable\""));
+    let recovered_final = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                && diagnostic.message.contains("state::Missing")
+        })
+        .count();
+    assert_eq!(recovered_final, 1, "{diagnostics:#?}");
+}
+
+#[test]
+fn non_unique_invalid_case_recovery_does_not_select_a_base() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "fn main(value: state::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_base"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn declaration_and_nested_carriers_report_base_failures_once() {
+    let source = concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "type Empty<A>\n",
+        "end\n",
+        "type Wrap\n",
+        "  Wrapped(Int::Missing)\n",
+        "end\n",
+        "effect Store\n",
+        "  put(value: Int::Missing) -> Int::Missing\n",
+        "end\n",
+        "handler store(context: Int::Missing) for Store\n",
+        "  put(value) => ()\n",
+        "end\n",
+        "schema Packet\n",
+        "  value: Int::Missing\n",
+        "end\n",
+        "fn sink(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main(value: Empty<State::Ready>::Missing) -> ()\n",
+        "  sink<Int::Missing>(1)\n",
+        "end\n",
+    );
+    let source_file = SourceFile::new("main.veln", source);
+    let parsed = parse(&source_file);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    let base_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+        .collect::<Vec<_>>();
+    assert_eq!(base_diagnostics.len(), 7, "{diagnostics:#?}");
+    let written = base_diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(
+        written
+            .iter()
+            .any(|json| { json.contains("\"written_type\":\"Empty<State::Ready>\"") }),
+        "{written:#?}"
+    );
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.core.is_none(),
+        "invalid declaration must not be published"
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "invalid declaration must not be lowered"
+    );
+}
+
+#[test]
+fn source_opaque_name_collisions_keep_source_provenance() {
+    let diagnostics = diagnostics_for(concat!(
+        "type NetListener\n",
+        "end\n",
+        "type NetStream\n",
+        "end\n",
+        "fn listener(value: NetListener::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn stream(value: NetStream::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let base = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert_eq!(base.len(), 2, "{diagnostics:#?}");
+    assert!(base[0].contains("\"reason\":\"variant_descriptor_unavailable\""));
+    assert!(base[0].contains("\"resolved_identity\":\"NetListener\""));
+    assert!(base[0].contains("\"span\":"), "{base:#?}");
+    assert!(base[1].contains("\"reason\":\"variant_descriptor_unavailable\""));
+    assert!(base[1].contains("\"resolved_identity\":\"NetStream\""));
+}
+
+#[test]
 fn compiler_known_refinements_require_base_type_arguments() {
     let diagnostics = diagnostics_for(concat!(
         "fn keep(value: Option::Some) -> Option::Some\n",
