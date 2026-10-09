@@ -162,6 +162,12 @@ remain `ReadEnd`. A write reports the bytes committed by that attempt, including
 a committed prefix on failure. A deadline or cancellation failure leaves an
 otherwise reusable listener or stream open.
 
+When a connect has both a deadline and a cancellation token, the first
+condition observed before connection establishment determines `TimedOut` or
+`Cancelled`. Successful connection establishment is the commit point. A
+deadline or cancellation that becomes observable only after that point does
+not replace the connected stream with a failure.
+
 Each listener permits one active accept; a second accept returns `Busy`. Each
 stream permits one active read and one active write at the same time. A second
 operation in the same direction returns `Busy`. Closing a listener or stream
@@ -241,5 +247,6 @@ unhandled runner boundary. The bounded
 `standard-library-network-system-handler` loopback case checks real JVM host
 integration for port-zero listening, addresses, byte transfer, peer end,
 deadline and cancellation reuse, half-close, ownership rejection, and
-peer-observed scope cleanup after normal return, propagated failure, and
-runtime unwind.
+peer-observed listener and stream cleanup after normal return, propagated
+failure, and runtime unwind. Same-direction `Busy` observations establish that
+the interrupted accept, read, and backpressured write operations are in flight.

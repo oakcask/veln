@@ -129,6 +129,24 @@ fn system_scripted_write() -> net::WriteOutcome effects [net::IO]
 	end
 end
 
+fn system_empty_write_ignores_expired_controls() -> Result<(), String> effects [net::IO, time]
+	match net::connect(net::Address(net::Tcp4, "write.test", 443))
+		Ok(stream) => match byte_chunk_from_visible_ascii_string("")
+			Ok(empty) => begin
+				let owner = time::cancel_owner()
+				let token = time::cancel_token_from(owner)
+				time::cancel_owned(owner)
+				match net::write_with(stream, empty, Some(time::deadline_after_ms(0)), Some(token))
+					net::Written(net::ByteCount(0)) => Ok(())
+					_ => Err("empty system write did not report zero progress")
+				end
+			end
+			Err(message) => Err(message)
+		end
+		Err(_) => Err("scripted stream did not connect")
+	end
+end
+
 fn system_scripted_write_failure_then_closed() -> Result<(), String> effects [net::IO]
 	match net::connect(net::Address(net::Tcp4, "write.test", 443))
 		Ok(stream) => match byte_chunk_from_visible_ascii_string("abcdef")
@@ -530,6 +548,10 @@ test system_write_uses_exact_successful_committed_count_not_commit_state() -> Re
 		net::Written(net::ByteCount(4)) => Ok(())
 		_ => Err("system write did not preserve the exact successful committed count")
 	end
+end
+
+test system_empty_write_reports_zero_before_expired_deadline_or_cancellation() -> Result<(), String> effects [net, time]
+	handle handle system_empty_write_ignores_expired_controls() with net::system() with scripted_system_network("write-success")
 end
 
 test system_write_uses_exact_failed_committed_count_not_commit_state() -> Result<(), String> effects [net, time]
