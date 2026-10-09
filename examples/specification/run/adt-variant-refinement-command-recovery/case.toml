@@ -1,0 +1,35 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[tools]
+java = "fake-success"
+
+[env]
+JAVA_MARKER = "java-started"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.invalid_annotation"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+contains = "State::Missing"
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
+[[file_assert]]
+path = "java-started"
+missing = true

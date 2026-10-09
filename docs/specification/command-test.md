@@ -89,6 +89,10 @@ Static diagnostics block the suite before Java execution. Selected cases become
 blocked with reason `static_gate` in JSON. Reachable `begin` and `defer` forms
 produce typed IR and execute; their cleanup behavior is specified by the
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries).
+Variant-refinement errors in the selected analysis are static diagnostics,
+including errors for which recovery retains a type or constructor identity.
+They start no test worker. Human and JSON output derive the diagnostic code,
+details, primary span, and related notes from the same diagnostic.
 A documentation source that cannot form a canonical virtual doctest path
 reports `module.invalid_source_path` and exposes no doctest case or output
 expectation for that source. Discovery and analysis continue for other selected

@@ -1,0 +1,80 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[tools]
+java = "fake-success"
+
+[env]
+JAVA_MARKER = "java-started"
+
+[stdout]
+format = "json"
+not_contains = ["forbidden"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.0.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 14
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "State::Closed"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_variants.0"
+equals = "Ready"
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.variants.0"
+equals = "Closed"
+
+[[json_assert]]
+path = "diagnostics.0.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "variant_exclusion"
+
+[[json_assert]]
+path = "diagnostics.0.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.0.related.1.message"
+equals = "Callee parameter type declared here."
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
+[[file_assert]]
+path = "java-started"
+missing = true

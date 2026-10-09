@@ -1,0 +1,30 @@
+command = ["test", "selected_test.veln"]
+source_errors = "expected"
+exit = 1
+
+[tools]
+java = "fake-success"
+
+[env]
+JAVA_MARKER = "java-started"
+
+[stdout]
+format = "text"
+contains = ["blocked selected_case"]
+not_contains = ["forbidden"]
+
+[stderr]
+format = "text"
+contains = [
+  "selected_test.veln:12:14: error[type.variant_mismatch]: value of type `State::Closed` is not assignable to variant type `State::Ready`",
+  "note: selected_test.veln:12:14: Excluded variants: Closed.",
+  "note: selected_test.veln:6:1: Callee parameter type declared here.",
+]
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
+[[file_assert]]
+path = "java-started"
+missing = true

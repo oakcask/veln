@@ -35,6 +35,11 @@ dependency declaration blocks the run; unreachable declarations in an imported
 dependency and diagnostics in an unimported manifest dependency do not. An
 unreachable local function does not block the selected entry.
 
+Variant-refinement errors inside that existing analysis boundary block backend
+launch, including errors for which recovery retains a type or constructor
+identity. Human and JSON output derive the diagnostic code, details, primary
+span, and related notes from the same diagnostic.
+
 A reachable `begin` expression or `defer` statement proceeds through
 checked-core and typed-IR readiness and executes through the JVM backend. Its
 cleanup ordering, failure precedence, and cancellation behavior are specified

@@ -111,11 +111,11 @@ fn prepare_run_program(
         return Ok(None);
     }
 
-    let Some(entry_arg_types) = checked_entry_arg_types(&analysis, entry, entry_args) else {
+    let Some(ir) = lower_run_entry(json, &analysis, entry, timings.as_mut())? else {
         write_timings(timings)?;
         return Ok(None);
     };
-    let Some(ir) = lower_run_entry(json, &analysis, entry, timings.as_mut())? else {
+    let Some(entry_arg_types) = checked_entry_arg_types(&analysis, entry, entry_args) else {
         write_timings(timings)?;
         return Ok(None);
     };

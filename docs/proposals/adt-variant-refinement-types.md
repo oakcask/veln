@@ -16,8 +16,7 @@ stable mismatch diagnostics, and runtime erasure.
 
 This proposal retains only the unfinished work: alias navigation and
 visibility, qualified-value match refinement, schema boundaries, package
-documentation, command-wide
-enforcement, LSP, and remaining MCP diagnostics, navigation, rename,
+documentation, LSP, and remaining MCP diagnostics, navigation, rename,
 package-signature, and saved-state behavior. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
@@ -26,15 +25,13 @@ that dependency.
 
 ## Outcomes And Boundaries
 
-The remaining proposal has three intended outcomes:
+The remaining proposal has two intended outcomes:
 
 - Qualified immutable values gain the implemented stable-value match
   refinement only after a separate source-surface and name-resolution contract
   provides module-addressable immutable data values.
 - Package-documentation, LSP, and MCP views agree on the identity and
   visibility of a refined variant.
-- `run`, `test`, and `doc` enforce refinements at their existing analysis and
-  recovery boundaries in human and machine-readable modes.
 
 The feature is useful for protocol phases, compiler passes, security-sensitive
 state gates, and other finite state machines. It does not prove that every
@@ -317,17 +314,6 @@ identifies the failed refined position, and the reason renders the actual
 variant and expected variant set. This is a recoverable decode failure, not a
 trap or process failure.
 
-## Command Behavior
-
-`run` and `test` will use the shared semantic analysis and will not execute a
-selected program whose analysis contains a refinement error. `doc` will use the
-same analysis and preserve written public refinements in canonical declaration
-signatures. Their machine-readable modes will use the same diagnostic codes,
-details, spans, and related notes as their human modes.
-
-These commands will not treat a recovered or unresolved refinement as a
-successful static transition.
-
 ## Language-Service Contract
 
 The semantic model, shared language service, LSP adapter, MCP adapter, and
@@ -401,7 +387,6 @@ current behavior:
 | Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Diagnostics | Each remaining semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Base-refinement reasons use only the closed values in the diagnostic contract. Remaining resolution, base-eligibility, variant, visibility, and union-base failures compose with current casing, arity, and assignability diagnostics; derivative failures are suppressed; and each new failure retains exactly the specified navigation identities. | Human and JSON command fixtures covering the remaining diagnostic rows, base-reason values, their overlaps with current diagnostics, and identity-retention outcomes. |
-| Commands | `run` and `test` share semantic analysis and preserve their no-execution boundary on refinement errors; `doc` shares semantic analysis, preserves written public refinements in canonical declaration signatures, and preserves its recovery boundary. Their machine-readable modes use the same diagnostic contract as their human modes. | Command harness cases for `run`, `test`, and `doc` with accepted, rejected, and recovered sources. |
 | LSP | Tokens, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
 | MCP | Check, navigation, pagination, rename, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 | Cross-transport identity | LSP and MCP select the same declaration and reference set from the same saved source before coordinate projection. | Shared language-service cases consumed by both adapter suites. |

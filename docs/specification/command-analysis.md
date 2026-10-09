@@ -26,6 +26,12 @@ semantic diagnostics, checked-core readiness, and selected-entry typed-IR
 readiness. Selection, output, execution, and write policy remain command
 specific.
 
+`doc` consumes the same project semantic diagnostics for its selected production
+sources, but retains its own source exclusion, parse recovery, schema-reference,
+and write boundaries. A refinement diagnostic remains an error when recovery
+retains an identity; recovery does not turn the invalid annotation into a
+successful static transition.
+
 When doctest creation is requested, a documented source path that is not a
 canonical package-relative virtual-source origin produces
 `module.invalid_source_path` against the original source. The shared pipeline

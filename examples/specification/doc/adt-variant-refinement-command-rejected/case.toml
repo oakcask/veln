@@ -1,0 +1,15 @@
+command = ["doc", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = [
+  "main.veln:7:2: error[type.variant_mismatch]: value of type `State` is not assignable to variant type `State::Ready`",
+  "note: main.veln:7:2: Excluded variants: every `State` variant except Ready.",
+  "note: main.veln:6:1: Return type declared here.",
+]
+not_contains = ["# Veln Project", "##### fn documented"]

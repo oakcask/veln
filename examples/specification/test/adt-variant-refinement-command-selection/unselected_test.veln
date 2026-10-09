@@ -1,0 +1,8 @@
+type OtherState
+	ReadyOther
+	ClosedOther
+end
+
+test unselected_rejection() -> OtherState::ReadyOther
+	ClosedOther
+end
