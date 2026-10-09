@@ -106,7 +106,10 @@ fn checked_bundle_publishes_noop_observation_handler_without_private_span_constr
     assert!(observe_module.text.contains("[effect Observe]("));
     assert!(noop.text.starts_with("# Handler noop\n"));
     assert!(noop.text.contains("- Kind: handler"));
-    assert!(noop.text.contains("- Signature: handler noop() for Observe"));
+    assert!(
+        noop.text
+            .contains("- Signature: handler noop() for Observe")
+    );
     assert!(!checked_artifact_bytes().contains("NoopSpanRequest"));
     assert!(!checked_artifact_bytes().contains("NoopSpanFinish"));
     assert!(!checked_artifact_bytes().contains("NoopSpan"));
