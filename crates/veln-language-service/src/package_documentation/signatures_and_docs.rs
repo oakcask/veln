@@ -9,6 +9,13 @@ pub(super) fn handler_signature(handler: &HandlerDecl) -> String {
         .params
         .iter()
         .map(|param| match &param.ty {
+            Some(ty) if param.is_variadic => {
+                format!(
+                    "{}: ...{}",
+                    param.name,
+                    veln_syntax::canonical_type_text(ty)
+                )
+            }
             Some(ty) => format!("{}: {}", param.name, veln_syntax::canonical_type_text(ty)),
             None => param.name.clone(),
         })

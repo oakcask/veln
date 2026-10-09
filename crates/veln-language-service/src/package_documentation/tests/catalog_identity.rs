@@ -164,6 +164,7 @@ fn public_handler_has_stable_identity_signature_docs_and_resource() {
         "\n",
         "## Answer Ask operations from a caller-supplied seed.\n",
         "## ```veln\n",
+        "## > let hidden_setup: Int = 0\n",
         "## fn sample() -> Int effects [stdio]\n",
         "## \thandle perform Ask::ask(1) with answer(2)\n",
         "## end\n",
@@ -201,7 +202,7 @@ fn public_handler_has_stable_identity_signature_docs_and_resource() {
     assert!(
         result
             .declaration_locations()
-            .any(|location| { location.declaration_uri == handler.uri && location.line == 11 })
+            .any(|location| { location.declaration_uri == handler.uri && location.line == 12 })
     );
 
     let resource = render_package_documentation(&result)
@@ -211,10 +212,12 @@ fn public_handler_has_stable_identity_signature_docs_and_resource() {
     assert!(resource.text.starts_with("# Handler answer\n"));
     assert!(resource.text.contains("- Kind: handler"));
     assert!(resource.text.contains("## Doctests"));
+    assert!(!resource.text.contains("hidden_setup"));
     assert!(!resource.text.contains("value + seed"));
 
     let canonical = std::str::from_utf8(result.canonical_bytes()).unwrap();
     assert!(!canonical.contains("private_answer"));
+    assert!(!canonical.contains("hidden_setup"));
     assert!(!canonical.contains("value + seed"));
 
     let changed_body = source.replace("value + seed", "seed + value");
@@ -225,6 +228,19 @@ fn public_handler_has_stable_identity_signature_docs_and_resource() {
         .find(|declaration| declaration.kind == "handler")
         .unwrap();
     assert_eq!(handler.id, changed_handler.id);
+
+    let variadic_parameter = source.replace("answer(seed: Int)", "answer(seed: ...Int)");
+    let changed = generate(manifest, &[("main.veln", &variadic_parameter)]);
+    let changed_handler = changed.catalog().unwrap().modules[0]
+        .declarations
+        .iter()
+        .find(|declaration| declaration.kind == "handler")
+        .unwrap();
+    assert_eq!(
+        changed_handler.signature,
+        "handler answer(seed: ...Int) for Ask effects [stdio]"
+    );
+    assert_ne!(handler.id, changed_handler.id);
 }
 
 #[test]
