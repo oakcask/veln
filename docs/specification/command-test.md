@@ -125,3 +125,7 @@ The
 [`callsite-generated-origin-runtime`](../../examples/specification/test/callsite-generated-origin-runtime/)
 case checks the doctest coordinate mapping through `veln test --json` and the
 JVM backend.
+Variant-refinement selection and recovery are checked by the
+`examples/specification/test/adt-variant-refinement-command-selection/`,
+`adt-variant-refinement-command-recovery-human/`, and
+`adt-variant-refinement-command-recovery/` cases.

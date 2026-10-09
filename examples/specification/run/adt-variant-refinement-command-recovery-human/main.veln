@@ -1,0 +1,8 @@
+type State
+	Ready
+	Closed
+end
+
+pub fn main(value: State::Missing) -> ()
+	()
+end

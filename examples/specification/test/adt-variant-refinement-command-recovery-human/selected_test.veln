@@ -1,0 +1,12 @@
+type State
+	Ready
+	Closed
+end
+
+fn accept_recovered(value: State::Missing) -> ()
+	()
+end
+
+test selected_case() -> ()
+	accept_recovered(Ready)
+end

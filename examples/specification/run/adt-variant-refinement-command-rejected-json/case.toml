@@ -36,6 +36,14 @@ path = "diagnostics.0.span.start.column"
 equals = 14
 
 [[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 20
+
+[[json_assert]]
 path = "diagnostics.0.details.actual_type"
 equals = "State::Closed"
 
@@ -64,12 +72,44 @@ path = "diagnostics.0.related.0.kind"
 equals = "variant_exclusion"
 
 [[json_assert]]
+path = "diagnostics.0.related.0.span.start.line"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.start.column"
+equals = 14
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.end.line"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.end.column"
+equals = 20
+
+[[json_assert]]
 path = "diagnostics.0.related.1.kind"
 equals = "expected_type_origin"
 
 [[json_assert]]
 path = "diagnostics.0.related.1.message"
 equals = "Callee parameter type declared here."
+
+[[json_assert]]
+path = "diagnostics.0.related.1.span.start.line"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.0.related.1.span.start.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.1.span.end.line"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.0.related.1.span.end.column"
+equals = 1
 
 [[file_assert]]
 path = ".veln-harness-cache/jvm"

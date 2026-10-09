@@ -27,6 +27,42 @@ path = "diagnostics.0.message"
 contains = "State::Missing"
 
 [[json_assert]]
+path = "diagnostics.0.span.file"
+equals = "selected_test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 21
+
+[[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 42
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "State::Missing"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "valid_type"
+
+[[json_assert]]
+path = "diagnostics.0.details.constraint"
+equals = "assignable"
+
+[[json_assert]]
+path = "diagnostics.0.related"
+equals = []
+
+[[json_assert]]
 path = "cases.0.status"
 equals = "blocked"
 

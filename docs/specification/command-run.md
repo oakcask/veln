@@ -117,3 +117,9 @@ body does not read the built-in value.
 Implementation: `crates/veln-cli/src/commands/run.rs`. JVM report projection:
 `crates/veln-cli/src/commands/run_report.rs`. Machine fields and runtime
 projections: [run-json.md](run-json.md).
+The command-boundary examples cover
+reachable acceptance under
+`examples/specification/run/adt-variant-refinement-command-reachability/`
+and recovered annotations under the adjacent
+`adt-variant-refinement-command-recovery-human/` and
+`adt-variant-refinement-command-recovery/` cases.

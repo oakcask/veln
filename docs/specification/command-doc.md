@@ -67,3 +67,6 @@ The command has no JSON output mode.
 
 Implementation: `crates/veln-cli/src/commands/doc.rs`. Documentation selection
 and metadata behavior is covered under `examples/specification/doc/`.
+The refinement-specific examples cover
+accepted canonical signatures, rejection, and recovery under
+`examples/specification/doc/adt-variant-refinement-command-*/`.

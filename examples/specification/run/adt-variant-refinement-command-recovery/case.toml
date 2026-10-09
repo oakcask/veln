@@ -26,6 +26,42 @@ equals = "type.invalid_annotation"
 path = "diagnostics.0.message"
 contains = "State::Missing"
 
+[[json_assert]]
+path = "diagnostics.0.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 34
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "State::Missing"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "valid_type"
+
+[[json_assert]]
+path = "diagnostics.0.details.constraint"
+equals = "assignable"
+
+[[json_assert]]
+path = "diagnostics.0.related"
+equals = []
+
 [[file_assert]]
 path = ".veln-harness-cache/jvm"
 missing = true
