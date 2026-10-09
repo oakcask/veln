@@ -39,6 +39,36 @@ handler contended_system_network(direction: String, ready: Sender<()>, release: 
 	request(operation, subject, bytes, remaining_ms, cancelled) => contended_system_network_reply(direction, ready, release, operation, subject, bytes)
 end
 
+handler retrying_close_system_network(calls: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => retrying_close_system_network_reply(calls, operation, subject)
+end
+
+fn retrying_close_system_network_reply(calls: { tx : Sender<Int>, rx : Receiver<Int> }, operation: String, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	if operation == "resolve_tcp4" and subject == "127.0.0.1"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "127.0.0.1" }, list_nil()), 0, "", 0, "")
+	else if operation == "listen" and subject == "127.0.0.1:0"
+		system_network_success("retry-listener", "127.0.0.1:41000", "")
+	else if operation == "resolve_tcp4" and subject == "retry.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.40" }, list_nil()), 0, "", 0, "")
+	else if operation == "connect" and subject == "192.0.2.40:443"
+		system_network_success("retry-stream", "192.0.2.41:41001", "192.0.2.40:443")
+	else if (operation == "close_listener" and subject == "retry-listener") or (operation == "close_stream" and subject == "retry-stream")
+		match channel::recv(calls.rx)
+			Some(count) => begin
+				let _ = channel::send(calls.tx, count + 1)
+				if count == 0
+					system_network_reply("error", "", "", "", list_nil(), 0, "forced_failure", 0, "first close failed")
+				else
+					system_network_success("", "", "")
+				end
+			end
+			None => system_network_reply("error", "", "", "", list_nil(), 0, "forced_failure", 0, "missing close count")
+		end
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected close-retry request")
+	end
+end
+
 fn contended_system_network_reply(direction: String, ready: Sender<()>, release: Receiver<()>, operation: String, subject: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
 	if operation == "resolve_tcp4" and subject == "contention.test"
 		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.20" }, list_nil()), 0, "", 0, "")
@@ -92,9 +122,49 @@ fn scripted_system_network_reply(scenario: String, operation: String, subject: S
 		system_network_success("family-stream", "[2001:db8::30]:50000", "[2001:db8::21]:443")
 	else if (scenario == "tcp-connect" or scenario == "tcp4-connect" or scenario == "tcp6-connect") and operation == "close_stream" and subject == "family-stream"
 		system_network_success("", "", "")
-	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled" or scenario == "write-error-deadline" or scenario == "write-error-cancelled" or scenario == "read-error-deadline" or scenario == "read-error-cancelled") and operation == "resolve_tcp4" and subject == "write.test"
+	else if scenario == "tcp-listen" and operation == "resolve_tcp" and subject == "listen.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.50" }, list_nil()), 0, "", 0, "")
+	else if scenario == "tcp4-listen" and operation == "resolve_tcp4" and subject == "listen4.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.51" }, list_nil()), 0, "", 0, "")
+	else if scenario == "tcp6-listen" and operation == "resolve_tcp6" and subject == "listen6.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp6", address: "2001:db8::51" }, list_nil()), 0, "", 0, "")
+	else if scenario == "tcp-listen" and operation == "listen" and subject == "192.0.2.50:0"
+		system_network_success("family-listener", "192.0.2.50:42000", "")
+	else if scenario == "tcp4-listen" and operation == "listen" and subject == "192.0.2.51:0"
+		system_network_success("family-listener", "192.0.2.51:42001", "")
+	else if scenario == "tcp6-listen" and operation == "listen" and subject == "[2001:db8::51]:0"
+		system_network_success("family-listener", "[2001:db8::51]:42002", "")
+	else if scenario == "tcp-listen" and operation == "listener_local_addr" and subject == "family-listener"
+		system_network_success("192.0.2.50:42000", "", "")
+	else if scenario == "tcp4-listen" and operation == "listener_local_addr" and subject == "family-listener"
+		system_network_success("192.0.2.51:42001", "", "")
+	else if scenario == "tcp6-listen" and operation == "listener_local_addr" and subject == "family-listener"
+		system_network_success("[2001:db8::51]:42002", "", "")
+	else if (scenario == "tcp-listen" or scenario == "tcp4-listen" or scenario == "tcp6-listen") and operation == "accept" and subject == "family-listener"
+		if scenario == "tcp6-listen"
+			system_network_success("family-accepted", "[2001:db8::51]:42002", "[2001:db8::52]:52002")
+		else if scenario == "tcp-listen"
+			system_network_success("family-accepted", "192.0.2.50:42000", "192.0.2.52:52000")
+		else
+			system_network_success("family-accepted", "192.0.2.51:42001", "192.0.2.52:52001")
+		end
+	else if scenario == "tcp-listen" and operation == "stream_local_addr" and subject == "family-accepted"
+		system_network_success("192.0.2.50:42000", "", "")
+	else if scenario == "tcp-listen" and operation == "stream_peer_addr" and subject == "family-accepted"
+		system_network_success("192.0.2.52:52000", "", "")
+	else if scenario == "tcp4-listen" and operation == "stream_local_addr" and subject == "family-accepted"
+		system_network_success("192.0.2.51:42001", "", "")
+	else if scenario == "tcp4-listen" and operation == "stream_peer_addr" and subject == "family-accepted"
+		system_network_success("192.0.2.52:52001", "", "")
+	else if scenario == "tcp6-listen" and operation == "stream_local_addr" and subject == "family-accepted"
+		system_network_success("[2001:db8::51]:42002", "", "")
+	else if scenario == "tcp6-listen" and operation == "stream_peer_addr" and subject == "family-accepted"
+		system_network_success("[2001:db8::52]:52002", "", "")
+	else if (scenario == "tcp-listen" or scenario == "tcp4-listen" or scenario == "tcp6-listen") and (operation == "close_stream" and subject == "family-accepted" or operation == "close_listener" and subject == "family-listener")
+		system_network_success("", "", "")
+	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled" or scenario == "write-error-deadline" or scenario == "write-error-cancelled" or scenario == "read-error-deadline" or scenario == "read-error-cancelled" or scenario == "empty-read") and operation == "resolve_tcp4" and subject == "write.test"
 		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.10" }, list_nil()), 0, "", 0, "")
-	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled" or scenario == "write-error-deadline" or scenario == "write-error-cancelled" or scenario == "read-error-deadline" or scenario == "read-error-cancelled") and operation == "connect" and subject == "192.0.2.10:443"
+	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled" or scenario == "write-error-deadline" or scenario == "write-error-cancelled" or scenario == "read-error-deadline" or scenario == "read-error-cancelled" or scenario == "empty-read") and operation == "connect" and subject == "192.0.2.10:443"
 		system_network_success("scripted-stream", "192.0.2.20:50000", "192.0.2.10:443")
 	else if scenario == "write-success" and operation == "write" and subject == "scripted-stream"
 		system_network_reply("ok", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 4, "", 1, "")
@@ -112,7 +182,9 @@ fn scripted_system_network_reply(scenario: String, operation: String, subject: S
 		system_network_reply("error", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 0, "timed_out", 0, "scripted timeout")
 	else if scenario == "read-error-cancelled" and operation == "read" and subject == "scripted-stream"
 		system_network_reply("error", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 0, "cancelled", 0, "scripted cancellation")
-	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled" or scenario == "write-error-deadline" or scenario == "write-error-cancelled" or scenario == "read-error-deadline" or scenario == "read-error-cancelled") and operation == "close_stream" and subject == "scripted-stream"
+	else if scenario == "empty-read" and operation == "read" and subject == "scripted-stream"
+		system_network_read_success(byte_chunk([]))
+	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled" or scenario == "write-error-deadline" or scenario == "write-error-cancelled" or scenario == "read-error-deadline" or scenario == "read-error-cancelled" or scenario == "empty-read") and operation == "close_stream" and subject == "scripted-stream"
 		system_network_success("", "192.0.2.20:50000", "192.0.2.10:443")
 	else
 		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected scripted network request")
@@ -126,6 +198,63 @@ fn system_scripted_write() -> net::WriteOutcome effects [net::IO]
 			Err(message) => net::WriteFailed(net::ByteCount(0), net::NetError("write", None, None, net::Other, message))
 		end
 		Err(error) => net::WriteFailed(net::ByteCount(0), error)
+	end
+end
+
+fn system_rejects_empty_successful_read() -> Result<(), String> effects [net::IO]
+	match net::connect(net::Address(net::Tcp4, "write.test", 443))
+		Ok(stream) => match net::read(stream)
+			Err(net::NetError("read", _, _, net::Other, _)) => match net::read(stream)
+				Err(net::NetError("read", _, _, net::Closed, _)) => Ok(())
+				_ => Err("malformed read did not close the failed read half")
+			end
+			_ => Err("empty successful host read was not rejected")
+		end
+		Err(_) => Err("scripted stream did not connect")
+	end
+end
+
+fn system_explicit_close_failure(kind: String) -> Result<(), String> effects [net::IO]
+	if kind == "listener"
+		match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+			Ok(listener) => match net::close_listener(listener)
+				Err(_) => Ok(())
+				Ok(()) => Err("first listener close unexpectedly succeeded")
+			end
+			Err(_) => Err("scripted listener did not open")
+		end
+	else
+		match net::connect(net::Address(net::Tcp4, "retry.test", 443))
+			Ok(stream) => match net::close_stream(stream)
+				Err(_) => Ok(())
+				Ok(()) => Err("first stream close unexpectedly succeeded")
+			end
+			Err(_) => Err("scripted stream did not connect")
+		end
+	end
+end
+
+fn system_listen_accept_addresses(address: net::Address) -> Result<{ listener : net::Endpoint, local : net::Endpoint, peer : net::Endpoint }, net::NetError> effects [net::IO]
+	let listener = net::listen(address)?
+	let listener_address = net::listener_address(listener)?
+	let stream = net::accept(listener)?
+	let local = net::local_address(stream)?
+	let peer = net::peer_address(stream)?
+	let _ = net::close_stream(stream)?
+	let _ = net::close_listener(listener)?
+	Ok({ listener: listener_address, local: local, peer: peer })
+end
+
+fn close_retry_count(kind: String) -> Result<Int, String> effects [net, time, concurrency]
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	let result = handle handle system_explicit_close_failure(kind) with net::system() with retrying_close_system_network(calls)
+	match result
+		Ok(()) => match channel::recv(calls.rx)
+			Some(count) => Ok(count)
+			None => Err("close retry count was missing")
+		end
+		Err(message) => Err(message)
 	end
 end
 
@@ -534,6 +663,22 @@ test system_handler_resolves_and_operates_tcp_tcp4_and_tcp6() -> Result<(), Stri
 	end
 end
 
+test system_handler_listens_accepts_and_reports_addresses_for_every_tcp_family() -> Result<(), String> effects [net, time]
+	let tcp = handle handle system_listen_accept_addresses(net::Address(net::Tcp, "listen.test", 0)) with net::system() with scripted_system_network("tcp-listen")
+	let tcp4 = handle handle system_listen_accept_addresses(net::Address(net::Tcp4, "listen4.test", 0)) with net::system() with scripted_system_network("tcp4-listen")
+	let tcp6 = handle handle system_listen_accept_addresses(net::Address(net::Tcp6, "listen6.test", 0)) with net::system() with scripted_system_network("tcp6-listen")
+	match tcp
+		Ok({ listener: net::Endpoint(net::Tcp4, _), local: net::Endpoint(net::Tcp4, _), peer: net::Endpoint(net::Tcp4, _) }) => match tcp4
+			Ok({ listener: net::Endpoint(net::Tcp4, _), local: net::Endpoint(net::Tcp4, _), peer: net::Endpoint(net::Tcp4, _) }) => match tcp6
+				Ok({ listener: net::Endpoint(net::Tcp6, _), local: net::Endpoint(net::Tcp6, _), peer: net::Endpoint(net::Tcp6, _) }) => Ok(())
+				_ => Err("TCP6 listen, accept, or address behavior changed")
+			end
+			_ => Err("TCP4 listen, accept, or address behavior changed")
+		end
+		_ => Err("TCP listen, accept, or address behavior changed")
+	end
+end
+
 test system_handler_translates_the_complete_host_failure_category_table() -> Result<(), String> effects [net, time]
 	if system_failure_has_kind("timed_out", "timed_out") and system_failure_has_kind("cancelled", "cancelled") and system_failure_has_kind("closed", "closed") and system_failure_has_kind("connection_refused", "connection_refused") and system_failure_has_kind("connection_reset", "connection_reset") and system_failure_has_kind("address_in_use", "address_in_use") and system_failure_has_kind("permission_denied", "permission_denied") and system_failure_has_kind("name_not_found", "name_not_found") and system_failure_has_kind("invalid_endpoint", "invalid_address") and system_failure_has_kind("invalid_input", "invalid_address") and system_failure_has_kind("unrecognized", "other")
 		Ok(())
@@ -547,6 +692,24 @@ test system_write_uses_exact_successful_committed_count_not_commit_state() -> Re
 	match result
 		net::Written(net::ByteCount(4)) => Ok(())
 		_ => Err("system write did not preserve the exact successful committed count")
+	end
+end
+
+test malformed_empty_host_read_becomes_a_typed_failure() -> Result<(), String> effects [net, time]
+	handle handle system_rejects_empty_successful_read() with net::system() with scripted_system_network("empty-read")
+end
+
+test scope_cleanup_retries_failed_explicit_closes() -> Result<(), String> effects [net, time, concurrency]
+	match close_retry_count("listener")
+		Ok(2) => match close_retry_count("stream")
+			Ok(2) => Ok(())
+			Ok(1) => Err("scope cleanup observed one stream close")
+			Ok(_) => Err("scope cleanup observed an unexpected stream close count")
+			Err(message) => Err(message)
+		end
+		Ok(1) => Err("scope cleanup observed one listener close")
+		Ok(_) => Err("scope cleanup observed an unexpected listener close count")
+		Err(message) => Err(message)
 	end
 end
 

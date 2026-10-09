@@ -6,6 +6,8 @@ public final class NetworkSystemLifecycleHarness {
     private static final java.lang.reflect.Method REGISTER_STREAM;
     private static final java.lang.reflect.Method CLEANUP;
     private static final java.lang.reflect.Method FINISH_CONNECT;
+    private static final java.lang.reflect.Method PARSE_SOCKET_ADDRESS;
+    private static final java.lang.reflect.Method FORMAT_SOCKET_ADDRESS;
     private static final java.lang.reflect.Field INVOKED_HANDLER;
     private static final java.lang.reflect.Field NETWORK_RESOURCES;
     private static final java.lang.reflect.Field SYSTEM_OWNER;
@@ -38,6 +40,14 @@ public final class NetworkSystemLifecycleHarness {
                 Object.class,
                 Object.class
             );
+            PARSE_SOCKET_ADDRESS = VelnRuntime.class.getDeclaredMethod(
+                "parseSocketAddress",
+                String.class
+            );
+            FORMAT_SOCKET_ADDRESS = VelnRuntime.class.getDeclaredMethod(
+                "formatSocketAddress",
+                java.net.SocketAddress.class
+            );
             INVOKED_HANDLER = VelnRuntime.class.getDeclaredField("INVOKED_HANDLER");
             NETWORK_RESOURCES = HANDLER_FRAME.getDeclaredField("networkResources");
             SYSTEM_OWNER = NET_STREAM.getDeclaredField("systemOwner");
@@ -47,6 +57,8 @@ public final class NetworkSystemLifecycleHarness {
                 REGISTER_STREAM,
                 CLEANUP,
                 FINISH_CONNECT,
+                PARSE_SOCKET_ADDRESS,
+                FORMAT_SOCKET_ADDRESS,
                 INVOKED_HANDLER,
                 NETWORK_RESOURCES,
                 SYSTEM_OWNER
@@ -120,6 +132,24 @@ public final class NetworkSystemLifecycleHarness {
         verifySuccessfulConnectIsCommitted(null, token);
     }
 
+    private static void verifyIpv6EndpointTextIsBracketedAndParseable() throws Exception {
+        java.net.InetSocketAddress endpoint = new java.net.InetSocketAddress(
+            java.net.InetAddress.getByName("::1"),
+            443
+        );
+        String formatted = (String) FORMAT_SOCKET_ADDRESS.invoke(null, endpoint);
+        if (!formatted.startsWith("[") || !formatted.endsWith("]:443")) {
+            throw new AssertionError("IPv6 endpoint was not bracketed: " + formatted);
+        }
+        java.net.InetSocketAddress parsed =
+            (java.net.InetSocketAddress) PARSE_SOCKET_ADDRESS.invoke(null, formatted);
+        if (parsed.isUnresolved()
+            || parsed.getPort() != 443
+            || !(parsed.getAddress() instanceof java.net.Inet6Address)) {
+            throw new AssertionError("bracketed IPv6 endpoint did not round trip: " + parsed);
+        }
+    }
+
     private static void verifyIdentityLedgerExplicitCloseAndDetach() throws Exception {
         Object owner = newOwner();
         selectOwner(owner);
@@ -176,6 +206,7 @@ public final class NetworkSystemLifecycleHarness {
 
     public static void main(String[] args) throws Exception {
         verifyConnectCommitOrdering();
+        verifyIpv6EndpointTextIsBracketedAndParseable();
         verifyIdentityLedgerExplicitCloseAndDetach();
         verifyInheritedChildRegistrationIsCleaned();
         System.out.println("network system lifecycle invariants held");

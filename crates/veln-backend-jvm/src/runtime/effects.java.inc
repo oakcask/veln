@@ -673,11 +673,15 @@
         if (separator <= 0 || separator == address.length() - 1) throw new IllegalArgumentException("missing host or port");
         int port = Integer.parseInt(address.substring(separator + 1));
         if (port < 0 || port > 65535) throw new IllegalArgumentException("port out of range");
-        return new java.net.InetSocketAddress(address.substring(0, separator), port);
+        String host = address.substring(0, separator);
+        if (host.startsWith("[") && host.endsWith("]")) host = host.substring(1, host.length() - 1);
+        else if (host.indexOf(':') >= 0) throw new IllegalArgumentException("IPv6 host must be bracketed");
+        if (host.isEmpty()) throw new IllegalArgumentException("missing host or port");
+        return new java.net.InetSocketAddress(host, port);
     }
     private static String formatSocketAddress(java.net.SocketAddress value) {
         java.net.InetSocketAddress address = (java.net.InetSocketAddress) value;
-        return address.getAddress().getHostAddress() + ":" + address.getPort();
+        return netSystemJoinHostPort(address.getAddress().getHostAddress(), address.getPort());
     }
     private static void awaitSocketReady(java.nio.channels.SelectableChannel channel, int operation, long timeoutMillis) throws java.io.IOException {
         try (java.nio.channels.Selector selector = java.nio.channels.Selector.open()) {
@@ -877,7 +881,10 @@
             if (status.equals("end")) return streamReadOutcome("ReadEnd");
             if (status.equals("deadline")) return streamReadOutcome("ReadDeadlineExpired");
             if (status.equals("cancelled")) return streamReadOutcome("ReadCancelled");
-            return streamReadOutcome("ReadChunk", recordField(reply, "bytes"));
+            if (!status.equals("ok")) throw new IllegalArgumentException("network handler returned an invalid read status");
+            Object bytes = recordField(reply, "bytes");
+            if (byteChunkToByteArray(bytes).length == 0) throw new IllegalArgumentException("network handler returned an empty successful read");
+            return streamReadOutcome("ReadChunk", bytes);
         }
         try {
             throwTaskCancellationIfRequested();
@@ -1390,13 +1397,11 @@
         for (Object resource : resources) {
             if (resource instanceof NetStream) {
                 NetStream stream = (NetStream) resource;
-                if (stream.systemClosed) continue;
                 stream.systemClosed = true; stream.readShutdown = true; stream.writeShutdown = true;
                 try { if (stream.adapter != null) streamRequest(stream, "close_stream", emptyNetworkBytes(), null, null); else stream.socket.close(); }
                 catch (Throwable ignored) { }
             } else {
                 NetListener listener = (NetListener) resource;
-                if (listener.systemClosed) continue;
                 listener.systemClosed = true;
                 try { if (listener.adapter != null) listenerRequest(listener, "close_listener", null, null); else listener.server.close(); }
                 catch (Throwable ignored) { }
