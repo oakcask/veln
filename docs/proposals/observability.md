@@ -10,8 +10,8 @@ correlate with source, tasks, requests, and external services. The language
 core must not prescribe an exporter or an external telemetry protocol.
 
 The public observation effect, typed scalar attributes, optional trace
-context, opaque span handle, and call-site-aware structured `info` record are
-implemented in the
+context, opaque span handle, and call-site-aware structured log records at
+debug, info, warning, and error severities are implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
 
@@ -52,17 +52,15 @@ information, and exporter-specific encoding.
 
 ## Library Surface
 
-The standard library supplies these groups:
+The remaining standard-library work supplies these groups:
 
-- `log`: debug, warning, and error records beyond the current surface;
 - `event`: named domain events;
 - `metric`: counter increments and histogram samples;
 - `trace`: span start, finish, and scoped `in_span` helpers;
 - `observe`: recording, no-op, JSON Lines, and configured export handlers; and
 - `traced`: explicit context attachment for task and channel values.
 
-Future logging and event helpers follow the current call-site-aware logging
-contract.
+Future event helpers follow the current call-site-aware logging contract.
 
 `trace::in_span` starts a span, registers its finish operation with `defer`,
 and invokes its body with the child context. The helper does not require a

@@ -24,7 +24,10 @@ pub type TraceContext
 end
 
 pub type Severity
+	pub Debug
 	pub Info
+	pub Warning
+	pub Error
 end
 
 pub type LogRecord
