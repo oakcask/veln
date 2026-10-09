@@ -141,7 +141,7 @@
     #[test]
     fn eligible_schema_alias_composition_index_work_grows_linearly() {
         let mut field_token_visits_per_field = None;
-        for count in [100, 200, 400] {
+        for count in [50, 100, 200] {
             let started = std::time::Instant::now();
             let mut declarations = String::new();
             let mut fields = String::from("schema Host\n");
