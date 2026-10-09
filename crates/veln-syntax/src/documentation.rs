@@ -134,7 +134,7 @@ fn documentation_type_text(
 ) -> String {
     source.map_or_else(
         || canonical_type_text(text),
-        |source| canonical_structured_type_text(text, refinements, source),
+        |source| canonical_type_text(&canonical_structured_type_text(text, refinements, source)),
     )
 }
 

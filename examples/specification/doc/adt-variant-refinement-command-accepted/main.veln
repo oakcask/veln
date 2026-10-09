@@ -5,7 +5,7 @@ pub type State
 end
 
 pub type Envelope
-	pub Live(state: State::Closed|State::Ready)
+	pub Live(marker: Unit, state: State::Closed|State::Ready)
 end
 
 pub fn keep_ready(value: State::Ready) -> State::Ready
@@ -14,4 +14,8 @@ end
 
 pub fn keep_live(value: State::Closed|State::Ready) -> State::Closed|State::Ready
 	value
+end
+
+pub fn mixed(marker: Unit, state: State::Ready) -> Unit
+	()
 end
