@@ -99,7 +99,7 @@ discovery guidance; the linked subject pages own behavior and evidence.
   its resource lifecycle, and the complete-write helper:
   [standard-library-networking.md](standard-library-networking.md).
 - Standard-library observation effect, typed attributes, trace context, and
-  call-site-aware structured info logs:
+  call-site-aware structured logs at debug, info, warning, and error severities:
   [standard-library-observability.md](standard-library-observability.md).
 - JVM execution behavior, values, calls, control flow, and host boundaries:
   [execution.md](execution.md).
