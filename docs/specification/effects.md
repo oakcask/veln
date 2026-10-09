@@ -644,14 +644,20 @@ token state. The reply is an ordinary record with these fields:
 | `status` | `ok` supplies a successful result; `end`, `deadline`, and `cancelled` select the corresponding accept or read outcome, or deadline/cancellation write outcome. `error` raises a transport failure. |
 | `value` | Created resource identity or endpoint/state query text. Boolean queries use `true` or `false`. |
 | `bytes` | Received bytes for a successful read. |
+| `resolved_endpoints` | Ordered resolver results. Each item names `tcp4` or `tcp6` and one numeric host address. The system handler preserves this order and removes only exact network-and-address duplicates. Other operations use an empty list. |
+| `bytes_committed` | Exact prefix length committed by a system-handler write, including deadline, cancellation, shutdown, and other failure replies. Other operations use zero. |
 | `local`, `peer` | Endpoint text; empty text means unavailable failure context. |
 | `category`, `phase`, `cause` | Failure category, lifecycle phase, and related cause. |
 | `input_committed`, `output_committed`, `ownership_committed` | Failure commit facts: `0` means false, `1` means true, and a negative value means unknown. |
 
 Handlers supply the complete typed reply record declared by the standard
-module. This adapter boundary does not expose host sockets or remove caller
-responsibility for resource lifecycle. The supported operation and outcome
-combinations are those of the network calls described above.
+module. `bytes_committed` is independent of the three commit facts and never
+changes their tri-state interpretation. A scoped network handler receives
+`resolve_tcp`, `resolve_tcp4`, or `resolve_tcp6` for system-handler resolution;
+therefore deterministic resolution does not consult ambient DNS. This adapter
+boundary does not expose host sockets or remove caller responsibility for
+resource lifecycle. The supported operation and outcome combinations are
+those of the network calls described above.
 
 Nested handlers shadow the corresponding outer handler during their body.
 Leaving a handled body restores the outer handler, including after failure.

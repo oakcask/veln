@@ -606,6 +606,15 @@
         public String toString() { return "NetStream(" + id + ")"; }
     }
 
+    private static final class NetSystemResolvedEndpoint {
+        final Object network;
+        final String address;
+        NetSystemResolvedEndpoint(Object network, String address) {
+            this.network = network;
+            this.address = address;
+        }
+    }
+
     private static NetListener asNetListener(Object value) { return (NetListener) value; }
     private static NetStream asNetStream(Object value) { return (NetStream) value; }
     private static Object emptyNetworkBytes() { return byteChunkObject(java.util.Collections.emptyList()); }
@@ -615,31 +624,38 @@
         return value < 0L ? null : Boolean.valueOf(value != 0L);
     }
     private static String optionalEndpoint(String value) { return value.isEmpty() ? null : value; }
-    private static Object networkRequest(HandlerFrame adapter, String operation, String subject, Object bytes, Object deadline, Object token) {
+    private static Object rawNetworkRequest(HandlerFrame adapter, String operation, String subject, Object bytes, Object deadline, Object token) {
         long remaining = deadline == null ? -1L : deadlineRemainingNanos(deadline) / 1000000L;
-        Object reply = invokeHandler(adapter, "request", new Object[] {
+        return invokeHandler(adapter, "request", new Object[] {
             operation, subject, bytes, Long.valueOf(remaining),
             Boolean.valueOf(token != null && asCancelToken(token).cancelled)
         });
+    }
+    private static RuntimeFailure networkReplyFailure(Object reply, String operation, String subject) {
+        if (operation.equals("receive") || operation.equals("send"))
+            return new RuntimeFailure("transport " + operation + " failed: " + replyText(reply, "cause"));
+        if (operation.endsWith("_addr"))
+            return new RuntimeFailure("transport address failed: " + replyText(reply, "cause"));
+        String kind = operation;
+        if (kind.startsWith("read")) kind = "read";
+        else if (kind.startsWith("write")) kind = "write";
+        else if (kind.startsWith("accept")) kind = "accept";
+        else if (kind.startsWith("resolve")) kind = "resolve";
+        else if (kind.startsWith("shutdown")) kind = "shutdown";
+        else if (kind.equals("close_stream")) kind = "stream_close";
+        else if (kind.equals("close_listener")) kind = "listener_close";
+        return transportFailure(kind, replyText(reply, "category"),
+            optionalEndpoint(replyText(reply, "local")), kind.equals("listener_close") ? null : optionalEndpoint(replyText(reply, "peer")),
+            kind.equals("listen") ? optionalEndpoint(replyText(reply, "value")) : kind.equals("accept") || kind.equals("listener_close") ? subject : null,
+            kind.equals("listen") || kind.equals("listener_close") ? null : kind.equals("connect") || kind.equals("accept") ? optionalEndpoint(replyText(reply, "value")) : optionalEndpoint(subject),
+            replyText(reply, "phase"), replyCommit(reply, "input_committed"),
+            replyCommit(reply, "output_committed"), replyCommit(reply, "ownership_committed"),
+            optionalEndpoint(replyText(reply, "cause")), null);
+    }
+    private static Object networkRequest(HandlerFrame adapter, String operation, String subject, Object bytes, Object deadline, Object token) {
+        Object reply = rawNetworkRequest(adapter, operation, subject, bytes, deadline, token);
         if (replyText(reply, "status").equals("error")) {
-            if (operation.equals("receive") || operation.equals("send"))
-                throw new RuntimeFailure("transport " + operation + " failed: " + replyText(reply, "cause"));
-            if (operation.endsWith("_addr"))
-                throw new RuntimeFailure("transport address failed: " + replyText(reply, "cause"));
-            String kind = operation;
-            if (kind.startsWith("read")) kind = "read";
-            else if (kind.startsWith("write")) kind = "write";
-            else if (kind.startsWith("accept")) kind = "accept";
-            else if (kind.startsWith("shutdown")) kind = "shutdown";
-            else if (kind.equals("close_stream")) kind = "stream_close";
-            else if (kind.equals("close_listener")) kind = "listener_close";
-            throw transportFailure(kind, replyText(reply, "category"),
-                optionalEndpoint(replyText(reply, "local")), kind.equals("listener_close") ? null : optionalEndpoint(replyText(reply, "peer")),
-                kind.equals("listen") ? optionalEndpoint(replyText(reply, "value")) : kind.equals("accept") || kind.equals("listener_close") ? subject : null,
-                kind.equals("listen") || kind.equals("listener_close") ? null : kind.equals("connect") || kind.equals("accept") ? optionalEndpoint(replyText(reply, "value")) : optionalEndpoint(subject),
-                replyText(reply, "phase"), replyCommit(reply, "input_committed"),
-                replyCommit(reply, "output_committed"), replyCommit(reply, "ownership_committed"),
-                optionalEndpoint(replyText(reply, "cause")), null);
+            throw networkReplyFailure(reply, operation, subject);
         }
         return reply;
     }
@@ -945,10 +961,10 @@
             if (operation.equals("close_stream")) stream.socket.close();
             else if (operation.equals("shutdown_read")) {
                 failIfHostStreamClosed(stream, "shutdown");
-                if (!stream.readShutdown) { stream.readShutdown = true; stream.socket.socket().shutdownInput(); }
+                if (!stream.socket.socket().isInputShutdown()) { stream.readShutdown = true; stream.socket.socket().shutdownInput(); }
             } else {
                 failIfHostStreamClosed(stream, "shutdown");
-                if (!stream.writeShutdown) { stream.writeShutdown = true; stream.socket.socket().shutdownOutput(); }
+                if (!stream.socket.socket().isOutputShutdown()) { stream.writeShutdown = true; stream.socket.socket().shutdownOutput(); }
             }
             return UNIT;
         } catch (java.io.IOException error) {
@@ -1040,26 +1056,58 @@
     private static Object netSystemAddressNetwork(Object address) { return ((Adt) address).payloads[0]; }
     private static String netSystemAddressHost(Object address) { return asString(((Adt) address).payloads[1]); }
     private static long netSystemAddressPort(Object address) { return asLong(((Adt) address).payloads[2]); }
-    private static java.util.List<java.net.InetAddress> netSystemResolved(Object address) throws java.net.UnknownHostException {
+    private static String netSystemNetworkName(Object network) {
+        if (isAdt(network, "Network::Tcp4")) return "tcp4";
+        if (isAdt(network, "Network::Tcp6")) return "tcp6";
+        return "tcp";
+    }
+    private static Object netSystemNetworkFromName(String name) {
+        if (name.equals("tcp4")) return netSystemNetwork("Tcp4");
+        if (name.equals("tcp6")) return netSystemNetwork("Tcp6");
+        throw new IllegalArgumentException("resolver returned an unsupported network");
+    }
+    private static java.util.List<NetSystemResolvedEndpoint> netSystemResolved(Object address) throws java.net.UnknownHostException {
         Object network = netSystemAddressNetwork(address);
+        HandlerFrame adapter = findHandler(NETWORK_EFFECT);
+        if (adapter != null) {
+            String operation = "resolve_" + netSystemNetworkName(network);
+            Object reply = networkRequest(adapter, operation, netSystemAddressHost(address), emptyNetworkBytes(), null, null);
+            java.util.LinkedHashMap<String, NetSystemResolvedEndpoint> unique = new java.util.LinkedHashMap<>();
+            ListValue current = asListValue(recordField(reply, "resolved_endpoints"));
+            while (current.cons) {
+                String resolvedNetwork = asString(recordField(current.head, "network"));
+                String resolvedAddress = asString(recordField(current.head, "address"));
+                Object endpointNetwork = netSystemNetworkFromName(resolvedNetwork);
+                boolean matches = isAdt(network, "Network::Tcp")
+                    || isAdt(network, "Network::Tcp4") && isAdt(endpointNetwork, "Network::Tcp4")
+                    || isAdt(network, "Network::Tcp6") && isAdt(endpointNetwork, "Network::Tcp6");
+                if (matches) unique.put(resolvedNetwork + "\u0000" + resolvedAddress,
+                    new NetSystemResolvedEndpoint(endpointNetwork, resolvedAddress));
+                current = asListValue(current.tail);
+            }
+            return new java.util.ArrayList<>(unique.values());
+        }
         java.net.InetAddress[] found = java.net.InetAddress.getAllByName(netSystemAddressHost(address));
-        java.util.LinkedHashMap<String, java.net.InetAddress> unique = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, NetSystemResolvedEndpoint> unique = new java.util.LinkedHashMap<>();
         for (java.net.InetAddress endpoint : found) {
             boolean matches = isAdt(network, "Network::Tcp")
                 || isAdt(network, "Network::Tcp4") && endpoint instanceof java.net.Inet4Address
                 || isAdt(network, "Network::Tcp6") && endpoint instanceof java.net.Inet6Address;
-            if (matches) unique.put(endpoint.getClass().getName() + ":" + endpoint.getHostAddress(), endpoint);
+            if (matches) {
+                Object endpointNetwork = endpoint instanceof java.net.Inet4Address ? netSystemNetwork("Tcp4") : netSystemNetwork("Tcp6");
+                unique.put(netSystemNetworkName(endpointNetwork) + "\u0000" + endpoint.getHostAddress(),
+                    new NetSystemResolvedEndpoint(endpointNetwork, endpoint.getHostAddress()));
+            }
         }
         return new java.util.ArrayList<>(unique.values());
     }
     private static Object netSystemEndpoints(Object address) throws java.net.UnknownHostException {
         long port = netSystemAddressPort(address);
         Object endpoints = listNil();
-        java.util.List<java.net.InetAddress> resolved = netSystemResolved(address);
+        java.util.List<NetSystemResolvedEndpoint> resolved = netSystemResolved(address);
         for (int index = resolved.size() - 1; index >= 0; index--) {
-            java.net.InetAddress endpoint = resolved.get(index);
-            Object network = endpoint instanceof java.net.Inet4Address ? netSystemNetwork("Tcp4") : netSystemNetwork("Tcp6");
-            endpoints = listCons(netSystemEndpoint(network, netSystemJoinHostPort(endpoint.getHostAddress(), port)), endpoints);
+            NetSystemResolvedEndpoint endpoint = resolved.get(index);
+            endpoints = listCons(netSystemEndpoint(endpoint.network, netSystemJoinHostPort(endpoint.address, port)), endpoints);
         }
         return endpoints;
     }
@@ -1091,9 +1139,9 @@
             if (netSystemAddressHost(address).isEmpty()) {
                 subject = netSystemJoinHostPort(isAdt(network, "Network::Tcp6") ? "::" : "0.0.0.0", netSystemAddressPort(address));
             } else {
-                java.util.List<java.net.InetAddress> resolved = netSystemResolved(address);
+                java.util.List<NetSystemResolvedEndpoint> resolved = netSystemResolved(address);
                 if (resolved.isEmpty()) return err(netSystemError("listen", network, subject, "NameNotFound", "no endpoint matched the requested network"));
-                subject = netSystemJoinHostPort(resolved.get(0).getHostAddress(), netSystemAddressPort(address));
+                subject = netSystemJoinHostPort(resolved.get(0).address, netSystemAddressPort(address));
             }
             NetListener listener = asNetListener(netListen(subject));
             if (!netSystemRegisterListener(owner, listener)) {
@@ -1138,8 +1186,8 @@
         Object network = netSystemAddressNetwork(address);
         Throwable last = null;
         try {
-            for (java.net.InetAddress endpoint : netSystemResolved(address)) {
-                String subject = netSystemJoinHostPort(endpoint.getHostAddress(), netSystemAddressPort(address));
+            for (NetSystemResolvedEndpoint endpoint : netSystemResolved(address)) {
+                String subject = netSystemJoinHostPort(endpoint.address, netSystemAddressPort(address));
                 try {
                     NetStream stream = netSystemConnectEndpoint(subject, deadline, token);
                     if (!netSystemRegisterStream(owner, stream)) {
@@ -1179,6 +1227,10 @@
             if (isAdt(outcome, "AcceptOutcome::AcceptDeadlineExpired")) return err(netSystemError("accept", null, listener.localAddress, "TimedOut", "accept deadline elapsed"));
             if (isAdt(outcome, "AcceptOutcome::AcceptCancelled")) return err(netSystemError("accept", null, listener.localAddress, "Cancelled", "accept was cancelled"));
             NetStream stream = asNetStream(((Adt) outcome).payloads[0]);
+            if (listener.systemClosed) {
+                try { netCloseStream(stream); } catch (Throwable ignored) { }
+                return err(netSystemError("accept", null, listener.localAddress, "Closed", "listener is closed"));
+            }
             if (!netSystemRegisterStream(owner, stream)) {
                 try { netCloseStream(stream); } catch (Throwable ignored) { }
                 return err(netSystemInvalidResource("accept"));
@@ -1212,6 +1264,7 @@
         if (!stream.reading.compareAndSet(false, true)) return err(netSystemError("read", null, stream.peerAddress, "Busy", "another read is active"));
         try {
             Object outcome = readHost(stream, netSystemOptionValue(deadlineOption), netSystemOptionValue(tokenOption), "read");
+            if (stream.systemClosed || stream.readShutdown) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
             if (isAdt(outcome, "StreamReadOutcome::ReadDeadlineExpired")) return err(netSystemError("read", null, stream.peerAddress, "TimedOut", "read deadline elapsed"));
             if (isAdt(outcome, "StreamReadOutcome::ReadCancelled")) return err(netSystemError("read", null, stream.peerAddress, "Cancelled", "read was cancelled"));
             if (isAdt(outcome, "StreamReadOutcome::ReadEnd")) { stream.peerEnded = true; return ok(adt("ReadOutcome::ReadEnd", new Object[] {})); }
@@ -1237,12 +1290,16 @@
             if (token != null && waitCancelled(asCancelToken(token))) return netSystemWriteFailure(0L, netSystemError("write", null, stream.peerAddress, "Cancelled", "write was cancelled"));
             if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return netSystemWriteFailure(0L, netSystemError("write", null, stream.peerAddress, "TimedOut", "write deadline elapsed"));
             if (stream.adapter != null) {
-                Object reply = streamRequest(stream, "write", bytes, deadline, token);
+                Object reply = rawNetworkRequest(stream.adapter, "write", stream.id, bytes, deadline, token);
                 String status = replyText(reply, "status");
-                long reported = asLong(recordField(reply, "output_committed"));
-                committed = Math.max(0L, reported);
+                long reported = asLong(recordField(reply, "bytes_committed"));
+                long requested = byteChunkToByteArray(bytes).length;
+                if (reported < 0L || reported > requested) throw new IllegalArgumentException("network handler returned an invalid committed byte count");
+                committed = reported;
+                if (stream.systemClosed || stream.writeShutdown) return netSystemWriteFailure(committed, netSystemError("write", null, stream.peerAddress, "Closed", "stream write side is closed"));
                 if (status.equals("deadline")) return netSystemWriteFailure(committed, netSystemError("write", null, stream.peerAddress, "TimedOut", "write deadline elapsed"));
                 if (status.equals("cancelled")) return netSystemWriteFailure(committed, netSystemError("write", null, stream.peerAddress, "Cancelled", "write was cancelled"));
+                if (status.equals("error")) return netSystemWriteFailure(committed, netSystemFailure("write", null, stream.peerAddress, networkReplyFailure(reply, "write", stream.id)));
                 return adt("WriteOutcome::Written", new Object[] { byteCountObject(committed) });
             }
             failIfHostStreamClosed(stream, "write");
@@ -1271,12 +1328,15 @@
         String operation = read ? "shutdown_read" : "shutdown_write";
         if (!netSystemOwns(stream, owner)) return err(netSystemInvalidResource(operation));
         if (stream.systemClosed || read && stream.readShutdown || !read && stream.writeShutdown) return ok(UNIT);
+        if (read) stream.readShutdown = true; else stream.writeShutdown = true;
         try {
             if (read) netShutdownRead(stream); else netShutdownWrite(stream);
-            if (read) stream.readShutdown = true; else stream.writeShutdown = true;
             return ok(UNIT);
         }
-        catch (Throwable failure) { return err(netSystemFailure(operation, null, stream.peerAddress, failure)); }
+        catch (Throwable failure) {
+            if (read) stream.readShutdown = false; else stream.writeShutdown = false;
+            return err(netSystemFailure(operation, null, stream.peerAddress, failure));
+        }
     }
     public static Object netSystemShutdownRead(Object stream) { return netSystemShutdown(stream, true); }
     public static Object netSystemShutdownWrite(Object stream) { return netSystemShutdown(stream, false); }

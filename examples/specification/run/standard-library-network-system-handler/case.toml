@@ -6,7 +6,7 @@ jdk = true
 
 [stdout]
 format = "text"
-contains = ["listen", "bounded outcomes", "duplex", "busy", "close interruption"]
+contains = ["listen", "bounded outcomes", "wrote hello", "read hello", "read end", "duplex", "close interruption", "scope cleanup", "listener close interruption"]
 
 [stderr]
 format = "empty"

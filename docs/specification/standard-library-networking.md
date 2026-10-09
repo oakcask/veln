@@ -225,12 +225,16 @@ surface remain proposal work.
 The exported implementation and companion tests are in
 `crates/veln-stdlib/veln/net.veln` and
 `crates/veln-stdlib/veln/net.test.veln`. The companion tests cover the values
-that source code can construct and the `write_all` retry and failure decisions.
+that source code can construct, `write_all`, scoped resolution and failure
+translation, exact write progress, concurrency, and interruption decisions.
 The JVM backend effect-injection tests use separate Veln test support to
 exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples
 under `examples/specification/check/` and `examples/specification/run/` cover
 the explicit standard-module identity, nominal effect requirement, and
 unhandled runner boundary. The bounded
-`standard-library-network-system-handler` loopback case covers the system
-handler's typed outcomes, resource transitions, ownership, and cleanup.
+`standard-library-network-system-handler` loopback case checks real JVM host
+integration for port-zero listening, addresses, byte transfer, peer end,
+deadline and cancellation reuse, half-close, ownership rejection, and
+peer-observed scope cleanup after normal return, propagated failure, and
+runtime unwind.

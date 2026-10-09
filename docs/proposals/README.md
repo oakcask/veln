@@ -20,10 +20,12 @@ also states it.
   propagation, and substitutable exporters, building on canonical and retained
   call-site locations:
   [observability.md](observability.md).
-- Remaining standard-library network duplex transport adapter, public handler
-  package documentation, and legacy compiler-known compatibility removal,
-  building on the implemented public network effect and system handler:
-  [standard-library-networking.md](standard-library-networking.md).
+- Legacy compiler-known network compatibility removal after checked sources
+  migrate to the exported standard module:
+  [network-compatibility-removal.md](network-compatibility-removal.md).
+- Public handler declarations in package documentation, including the exported
+  `net::system()` handler:
+  [public-handler-package-documentation.md](public-handler-package-documentation.md).
 - Remaining ADT variant-refinement support for alias navigation and
   visibility, qualified immutable values after a separate source-surface
   prerequisite, schema boundaries,
@@ -33,6 +35,9 @@ also states it.
 
 ## Blocked
 
+- The network `transport::DuplexStream` adapter is blocked until the transport
+  effect has a decided typed failure contract:
+  [network-duplex-adapter.md](network-duplex-adapter.md).
 - Generic named-type and function variance remains separate from ADT variant
   refinement and is blocked until its constructor classifications and complete
   callable composition table are decided:

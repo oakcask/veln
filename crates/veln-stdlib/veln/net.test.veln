@@ -1,4 +1,237 @@
 use net
+use host_effects from "std"
+
+fn system_network_reply(status: String, value: String, local: String, peer: String, resolved_endpoints: List<{ network : String, address : String }>, bytes_committed: Int, category: String, output_committed: Int, cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{
+		status: status,
+		value: value,
+		local: local,
+		peer: peer,
+		bytes: byte_chunk([]),
+		resolved_endpoints: resolved_endpoints,
+		bytes_committed: bytes_committed,
+		category: category,
+		phase: "during_operation",
+		input_committed: 0,
+		output_committed: output_committed,
+		ownership_committed: 0,
+		cause: cause
+	}
+end
+
+fn system_network_success(value: String, local: String, peer: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	system_network_reply("ok", value, local, peer, list_nil(), 0, "", 0, "")
+end
+
+fn system_network_read_success(bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "ok", value: "", local: "192.0.2.30:50000", peer: "192.0.2.20:443", bytes: bytes, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+handler scripted_system_network(scenario: String) for host_effects::Network
+	request(operation, subject, bytes, remaining_ms, cancelled) => scripted_system_network_reply(scenario, operation, subject)
+end
+
+handler failing_system_network(category: String) for host_effects::Network
+	request(operation, subject, bytes, remaining_ms, cancelled) => system_network_reply("error", "", "", "", list_nil(), 0, category, -1, "scripted host failure")
+end
+
+handler contended_system_network(direction: String, ready: Sender<()>, release: Receiver<()>) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => contended_system_network_reply(direction, ready, release, operation, subject, bytes)
+end
+
+fn contended_system_network_reply(direction: String, ready: Sender<()>, release: Receiver<()>, operation: String, subject: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	if operation == "resolve_tcp4" and subject == "contention.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.20" }, list_nil()), 0, "", 0, "")
+	else if operation == "connect" and subject == "192.0.2.20:443"
+		system_network_success("contended-stream", "192.0.2.30:50000", "192.0.2.20:443")
+	else if operation == direction and subject == "contended-stream"
+		begin
+			let _ = channel::send(ready, ())
+			let _ = channel::recv(release)
+			if operation == "read"
+				match byte_chunk_from_visible_ascii_string("r")
+					Ok(chunk) => system_network_read_success(chunk)
+					Err(message) => system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, message)
+				end
+			else
+				system_network_reply("ok", "", "", "", list_nil(), byte_count_to_int(byte_chunk_count(bytes)), "", 0, "")
+			end
+		end
+	else if (operation == "shutdown_read" or operation == "shutdown_write") and subject == "contended-stream"
+		system_network_success("", "", "")
+	else if operation == "read" and subject == "contended-stream"
+		match byte_chunk_from_visible_ascii_string("r")
+			Ok(chunk) => system_network_read_success(chunk)
+			Err(message) => system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, message)
+		end
+	else if operation == "close_stream" and subject == "contended-stream"
+		system_network_success("", "", "")
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected contention request")
+	end
+end
+
+fn scripted_system_network_reply(scenario: String, operation: String, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	if scenario == "resolver-order" and operation == "resolve_tcp" and subject == "ordered.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp6", address: "2001:db8::2" }, list_cons({ network: "tcp4", address: "192.0.2.1" }, list_cons({ network: "tcp6", address: "2001:db8::2" }, list_cons({ network: "tcp4", address: "192.0.2.2" }, list_nil())))), 0, "", 0, "")
+	else if scenario == "resolver-empty" and operation == "resolve_tcp6" and subject == "empty.test"
+		system_network_success("", "", "")
+	else if scenario == "resolver-failure" and operation == "resolve_tcp4" and subject == "denied.test"
+		system_network_reply("error", "", "", "", list_nil(), 0, "permission_denied", -1, "resolver access denied")
+	else if scenario == "tcp-connect" and operation == "resolve_tcp" and subject == "tcp.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.20" }, list_nil()), 0, "", 0, "")
+	else if scenario == "tcp4-connect" and operation == "resolve_tcp4" and subject == "tcp4.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.21" }, list_nil()), 0, "", 0, "")
+	else if scenario == "tcp6-connect" and operation == "resolve_tcp6" and subject == "tcp6.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp6", address: "2001:db8::21" }, list_nil()), 0, "", 0, "")
+	else if scenario == "tcp-connect" and operation == "connect" and subject == "192.0.2.20:443"
+		system_network_success("family-stream", "192.0.2.30:50000", "192.0.2.20:443")
+	else if scenario == "tcp4-connect" and operation == "connect" and subject == "192.0.2.21:443"
+		system_network_success("family-stream", "192.0.2.30:50000", "192.0.2.21:443")
+	else if scenario == "tcp6-connect" and operation == "connect" and subject == "[2001:db8::21]:443"
+		system_network_success("family-stream", "[2001:db8::30]:50000", "[2001:db8::21]:443")
+	else if (scenario == "tcp-connect" or scenario == "tcp4-connect" or scenario == "tcp6-connect") and operation == "close_stream" and subject == "family-stream"
+		system_network_success("", "", "")
+	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled") and operation == "resolve_tcp4" and subject == "write.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.10" }, list_nil()), 0, "", 0, "")
+	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled") and operation == "connect" and subject == "192.0.2.10:443"
+		system_network_success("scripted-stream", "192.0.2.20:50000", "192.0.2.10:443")
+	else if scenario == "write-success" and operation == "write" and subject == "scripted-stream"
+		system_network_reply("ok", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 4, "", 1, "")
+	else if scenario == "write-failure" and operation == "write" and subject == "scripted-stream"
+		system_network_reply("error", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 4, "connection_reset", -1, "peer reset after prefix")
+	else if scenario == "write-deadline" and operation == "write" and subject == "scripted-stream"
+		system_network_reply("deadline", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 3, "", -1, "")
+	else if scenario == "write-cancelled" and operation == "write" and subject == "scripted-stream"
+		system_network_reply("cancelled", "", "192.0.2.20:50000", "192.0.2.10:443", list_nil(), 3, "", -1, "")
+	else if (scenario == "write-success" or scenario == "write-failure" or scenario == "write-deadline" or scenario == "write-cancelled") and operation == "close_stream" and subject == "scripted-stream"
+		system_network_success("", "192.0.2.20:50000", "192.0.2.10:443")
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected scripted network request")
+	end
+end
+
+fn system_scripted_write() -> net::WriteOutcome effects [net::IO]
+	match net::connect(net::Address(net::Tcp4, "write.test", 443))
+		Ok(stream) => match byte_chunk_from_visible_ascii_string("abcdef")
+			Ok(bytes) => net::write(stream, bytes)
+			Err(message) => net::WriteFailed(net::ByteCount(0), net::NetError("write", None, None, net::Other, message))
+		end
+		Err(error) => net::WriteFailed(net::ByteCount(0), error)
+	end
+end
+
+fn system_connect_and_close(address: net::Address) -> Result<(), net::NetError> effects [net::IO]
+	let stream = net::connect(address)?
+	net::close_stream(stream)
+end
+
+fn system_background_write(stream: net::Stream) -> net::WriteOutcome effects [net::IO]
+	match byte_chunk_from_visible_ascii_string("w")
+		Ok(bytes) => net::write(stream, bytes)
+		Err(message) => net::WriteFailed(net::ByteCount(0), net::NetError("write", None, None, net::Other, message))
+	end
+end
+
+fn system_background_read(stream: net::Stream) -> Result<net::ReadOutcome, net::NetError> effects [net::IO]
+	net::read(stream)
+end
+
+fn system_contention_stream() -> Result<net::Stream, String> effects [net::IO]
+	match net::connect(net::Address(net::Tcp4, "contention.test", 443))
+		Ok(value) => Ok(value)
+		Err(_) => Err("contention stream did not connect")
+	end
+end
+
+fn system_write_contention_body(ready: Receiver<()>, release: Sender<()>) -> Result<(), String> effects [net::IO, concurrency]
+	let stream = system_contention_stream()?
+	let first = task::spawn_with(system_background_write, stream)
+	let _ = channel::recv(ready)
+	let second = system_background_write(stream)
+	let simultaneous = net::read(stream)
+	let _ = channel::send(release, ())
+	let joined = task::join(first)
+	let _ = net::close_stream(stream)
+	match second
+		net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Busy, _)) => match simultaneous
+			Ok(net::ReadChunk(_)) => match joined
+				Ok(net::Written(net::ByteCount(1))) => Ok(())
+				_ => Err("first contended write did not complete unchanged")
+			end
+			_ => Err("simultaneous read was not permitted during write")
+		end
+		_ => Err("second concurrent write did not return Busy")
+	end
+end
+
+fn system_read_contention_body(ready: Receiver<()>, release: Sender<()>) -> Result<(), String> effects [net::IO, concurrency]
+	let stream = system_contention_stream()?
+	let first = task::spawn_with(system_background_read, stream)
+	let _ = channel::recv(ready)
+	let second = net::read(stream)
+	let _ = channel::send(release, ())
+	let joined = task::join(first)
+	let _ = net::close_stream(stream)
+	match second
+		Err(net::NetError(_, _, _, net::Busy, _)) => match joined
+			Ok(Ok(net::ReadChunk(_))) => Ok(())
+			_ => Err("first contended read did not complete unchanged")
+		end
+		_ => Err("second concurrent read did not return Busy")
+	end
+end
+
+fn system_read_shutdown_interruption_body(ready: Receiver<()>, release: Sender<()>) -> Result<(), String> effects [net::IO, concurrency]
+	let stream = system_contention_stream()?
+	let pending = task::spawn_with(system_background_read, stream)
+	let _ = channel::recv(ready)
+	let shutdown = net::shutdown_read(stream)
+	let _ = channel::send(release, ())
+	let joined = task::join(pending)
+	let _ = net::close_stream(stream)
+	match shutdown
+		Ok(()) => match joined
+			Ok(Err(net::NetError(_, _, _, net::Closed, _))) => Ok(())
+			_ => Err("blocked read after local shutdown did not return Closed")
+		end
+		Err(_) => Err("local read shutdown failed")
+	end
+end
+
+fn system_write_shutdown_interruption_body(ready: Receiver<()>, release: Sender<()>) -> Result<(), String> effects [net::IO, concurrency]
+	let stream = system_contention_stream()?
+	let pending = task::spawn_with(system_background_write, stream)
+	let _ = channel::recv(ready)
+	let shutdown = net::shutdown_write(stream)
+	let _ = channel::send(release, ())
+	let joined = task::join(pending)
+	let _ = net::close_stream(stream)
+	match shutdown
+		Ok(()) => match joined
+			Ok(net::WriteFailed(net::ByteCount(1), net::NetError(_, _, _, net::Closed, _))) => Ok(())
+			_ => Err("blocked write after local shutdown did not preserve its prefix and return Closed")
+		end
+		Err(_) => Err("local write shutdown failed")
+	end
+end
+
+fn system_failure_has_kind(category: String, expected: String) -> Bool effects [net, time]
+	let result = handle handle net::resolve(net::Address(net::Tcp, "failure.test", 443)) with net::system() with failing_system_network(category)
+	match result
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => expected == "timed_out"
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => expected == "cancelled"
+		Err(net::NetError(_, _, _, net::Closed, _)) => expected == "closed"
+		Err(net::NetError(_, _, _, net::ConnectionRefused, _)) => expected == "connection_refused"
+		Err(net::NetError(_, _, _, net::ConnectionReset, _)) => expected == "connection_reset"
+		Err(net::NetError(_, _, _, net::AddressInUse, _)) => expected == "address_in_use"
+		Err(net::NetError(_, _, _, net::PermissionDenied, _)) => expected == "permission_denied"
+		Err(net::NetError(_, _, _, net::NameNotFound, _)) => expected == "name_not_found"
+		Err(net::NetError(_, _, _, net::InvalidAddress, _)) => expected == "invalid_address"
+		Err(net::NetError(_, _, _, net::Other, _)) => expected == "other"
+		_ => false
+	end
+end
 
 fn observed_failure(operation: String, message: String) -> net::NetError
 	net::NetError(operation, Some(net::Tcp4), Some("example.test:443"), net::PermissionDenied, message)
@@ -178,6 +411,107 @@ test system_handler_rejects_invalid_ports_as_typed_failures() -> Result<(), Stri
 	end
 end
 
+test system_resolver_preserves_order_and_removes_only_exact_duplicates() -> Result<(), String> effects [net, time]
+	let result = handle handle net::resolve(net::Address(net::Tcp, "ordered.test", 8443)) with net::system() with scripted_system_network("resolver-order")
+	match result
+		Ok(Cons(net::Endpoint(net::Tcp6, "[2001:db8::2]:8443"), Cons(net::Endpoint(net::Tcp4, "192.0.2.1:8443"), Cons(net::Endpoint(net::Tcp4, "192.0.2.2:8443"), Nil)))) => Ok(())
+		_ => Err("system resolver changed endpoint order or exact-deduplication")
+	end
+end
+
+test system_resolver_translates_an_empty_result_to_name_not_found() -> Result<(), String> effects [net, time]
+	let result = handle handle net::resolve(net::Address(net::Tcp6, "empty.test", 443)) with net::system() with scripted_system_network("resolver-empty")
+	match result
+		Err(net::NetError("resolve", Some(net::Tcp6), Some("empty.test"), net::NameNotFound, _)) => Ok(())
+		_ => Err("system resolver did not translate an empty result to NameNotFound")
+	end
+end
+
+test system_resolver_translates_scoped_host_failures() -> Result<(), String> effects [net, time]
+	let result = handle handle net::resolve(net::Address(net::Tcp4, "denied.test", 443)) with net::system() with scripted_system_network("resolver-failure")
+	match result
+		Err(net::NetError("resolve", Some(net::Tcp4), Some("denied.test"), net::PermissionDenied, _)) => Ok(())
+		_ => Err("system resolver did not translate the scoped host failure")
+	end
+end
+
+test system_handler_resolves_and_operates_tcp_tcp4_and_tcp6() -> Result<(), String> effects [net, time]
+	let tcp = handle handle system_connect_and_close(net::Address(net::Tcp, "tcp.test", 443)) with net::system() with scripted_system_network("tcp-connect")
+	let tcp4 = handle handle system_connect_and_close(net::Address(net::Tcp4, "tcp4.test", 443)) with net::system() with scripted_system_network("tcp4-connect")
+	let tcp6 = handle handle system_connect_and_close(net::Address(net::Tcp6, "tcp6.test", 443)) with net::system() with scripted_system_network("tcp6-connect")
+	match tcp
+		Ok(()) => match tcp4
+			Ok(()) => match tcp6
+				Ok(()) => Ok(())
+				Err(_) => Err("TCP6 system operation failed")
+			end
+			Err(_) => Err("TCP4 system operation failed")
+		end
+		Err(_) => Err("TCP system operation failed")
+	end
+end
+
+test system_handler_translates_the_complete_host_failure_category_table() -> Result<(), String> effects [net, time]
+	if system_failure_has_kind("timed_out", "timed_out") and system_failure_has_kind("cancelled", "cancelled") and system_failure_has_kind("closed", "closed") and system_failure_has_kind("connection_refused", "connection_refused") and system_failure_has_kind("connection_reset", "connection_reset") and system_failure_has_kind("address_in_use", "address_in_use") and system_failure_has_kind("permission_denied", "permission_denied") and system_failure_has_kind("name_not_found", "name_not_found") and system_failure_has_kind("invalid_endpoint", "invalid_address") and system_failure_has_kind("invalid_input", "invalid_address") and system_failure_has_kind("unrecognized", "other")
+		Ok(())
+	else
+		Err("system handler host failure translation table changed")
+	end
+end
+
+test system_write_uses_exact_successful_committed_count_not_commit_state() -> Result<(), String> effects [net, time]
+	let result = handle handle system_scripted_write() with net::system() with scripted_system_network("write-success")
+	match result
+		net::Written(net::ByteCount(4)) => Ok(())
+		_ => Err("system write did not preserve the exact successful committed count")
+	end
+end
+
+test system_write_uses_exact_failed_committed_count_not_commit_state() -> Result<(), String> effects [net, time]
+	let result = handle handle system_scripted_write() with net::system() with scripted_system_network("write-failure")
+	match result
+		net::WriteFailed(net::ByteCount(4), net::NetError("write", _, Some("192.0.2.10:443"), net::ConnectionReset, _)) => Ok(())
+		_ => Err("system write did not preserve the exact failed committed count and translated failure")
+	end
+end
+
+test system_write_preserves_exact_deadline_and_cancellation_prefixes() -> Result<(), String> effects [net, time]
+	let deadline = handle handle system_scripted_write() with net::system() with scripted_system_network("write-deadline")
+	let cancelled = handle handle system_scripted_write() with net::system() with scripted_system_network("write-cancelled")
+	match deadline
+		net::WriteFailed(net::ByteCount(3), net::NetError("write", _, _, net::TimedOut, _)) => match cancelled
+			net::WriteFailed(net::ByteCount(3), net::NetError("write", _, _, net::Cancelled, _)) => Ok(())
+			_ => Err("system write did not preserve the cancellation committed prefix")
+		end
+		_ => Err("system write did not preserve the deadline committed prefix")
+	end
+end
+
+test system_stream_allows_one_reader_and_one_writer() -> Result<(), String> effects [net, time, concurrency]
+	let write_ready = channel::bounded<()>(1)
+	let write_release = channel::bounded<()>(1)
+	let write_result = handle handle system_write_contention_body(write_ready.rx, write_release.tx) with net::system() with contended_system_network("write", write_ready.tx, write_release.rx)
+	let read_ready = channel::bounded<()>(1)
+	let read_release = channel::bounded<()>(1)
+	let read_result = handle handle system_read_contention_body(read_ready.rx, read_release.tx) with net::system() with contended_system_network("read", read_ready.tx, read_release.rx)
+	match write_result
+		Ok(()) => read_result
+		Err(message) => Err(message)
+	end
+end
+
+test system_stream_shutdown_interruptions_are_closed() -> Result<(), String> effects [net, time, concurrency]
+	let read_ready = channel::bounded<()>(1)
+	let read_release = channel::bounded<()>(1)
+	let read_result = handle handle system_read_shutdown_interruption_body(read_ready.rx, read_release.tx) with net::system() with contended_system_network("read", read_ready.tx, read_release.rx)
+	let write_ready = channel::bounded<()>(1)
+	let write_release = channel::bounded<()>(1)
+	let write_result = handle handle system_write_shutdown_interruption_body(write_ready.rx, write_release.tx) with net::system() with contended_system_network("write", write_ready.tx, write_release.rx)
+	match read_result
+		Ok(()) => write_result
+		Err(message) => Err(message)
+	end
+end
 
 test direct_facade_forwards_address_and_ordinary_failures() -> Result<(), String>
 	let address = net::Address(net::Tcp4, "example.test", 443)
