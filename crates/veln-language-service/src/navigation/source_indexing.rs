@@ -142,13 +142,9 @@ fn append_recovered_dependency_imports(
 struct ParsedDependencySource {
     source: SourceFile,
     tokens: Vec<Token>,
-    module: String,
-    uses: BTreeSet<String>,
-    external_uses: BTreeSet<(String, String)>,
-    import_aliases: BTreeMap<String, String>,
-    external_import_aliases: BTreeMap<String, (String, String)>,
+    identity: SourceIdentity,
+    imports: UseModuleIndex,
     invalid_declaration_names: Vec<SourceSpan>,
-    navigation_isolated: bool,
     parsed: ParseOutput,
 }
 
@@ -158,10 +154,6 @@ fn parse_dependency_source(
     let text =
         std::str::from_utf8(source.bytes()).expect("captured package source text is valid UTF-8");
     let source_file = SourceFile::new(source.path(), text);
-    let path_module = module_name_from_path(source.path());
-    let navigation_isolated = path_module_invalid_for_navigation(path_module.as_deref());
-    let module = explicit_module_name(text).or(path_module).unwrap_or_default();
-    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(text);
     let parsed = parse(&source_file);
     let invalid_declaration_names = invalid_name_spans(&invalid_declaration_names(&parsed));
     let tokens = lex(&source_file).tokens;
@@ -169,13 +161,9 @@ fn parse_dependency_source(
     ParsedDependencySource {
         source: source_file,
         tokens,
-        module,
-        uses,
-        external_uses,
-        import_aliases,
-        external_import_aliases,
+        identity: SourceIdentity::new(source.path(), text),
+        imports: UseModuleIndex::new(text),
         invalid_declaration_names,
-        navigation_isolated,
         parsed,
     }
 }
@@ -194,13 +182,9 @@ fn indexed_dependency_source(
     let ParsedDependencySource {
         source,
         tokens,
-        module,
-        uses,
-        external_uses,
-        import_aliases,
-        external_import_aliases,
+        identity,
+        imports,
         invalid_declaration_names,
-        navigation_isolated,
         parsed,
     } = parse_dependency_source(source);
     let schema_operation_leaf_ranges = valid_schema_operation_leaf_spans(&parsed.tree)
@@ -215,12 +199,12 @@ fn indexed_dependency_source(
     let file = IndexedFile {
         source,
         tokens,
-        module,
+        module: identity.module,
         companion_target_module: None,
-        uses,
-        external_uses,
-        import_aliases,
-        external_import_aliases,
+        uses: imports.local_modules,
+        external_uses: imports.external_modules,
+        import_aliases: imports.local_aliases,
+        external_import_aliases: imports.external_aliases,
         schema_alias_external_imports: Vec::new(),
         workspace_imports: Vec::new(),
         invalid_declaration_names,
@@ -241,7 +225,7 @@ fn indexed_dependency_source(
         generic_effect_binders: Vec::new(),
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
-        navigation_isolated,
+        navigation_isolated: identity.navigation_isolated,
         origin: IndexedOrigin::Package {
             identity: dependency.identity.as_str().to_string(),
             uri: uri.to_string(),
