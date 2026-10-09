@@ -350,7 +350,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.bind(completed);
     }
 
-    fn emit_attach_cleanup_failure(
+    pub(super) fn emit_attach_cleanup_failure(
         &self,
         code: &mut MethodCode,
         primary_failure: u16,
@@ -510,7 +510,20 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     code.branch_wide_to(target);
                 }
                 UnwindAction::PopHandler => {
+                    let cleanup_start = code.mark();
                     self.emit_pop_handler(code);
+                    let cleanup_end = code.mark();
+                    code.branch_wide_to(target);
+                    let cleanup_failure_handler = code.new_label();
+                    code.add_exception_handler_to_label(
+                        cleanup_start,
+                        cleanup_end,
+                        cleanup_failure_handler,
+                    );
+                    code.bind(cleanup_failure_handler);
+                    let cleanup_failure = self.alloc_local();
+                    code.astore(cleanup_failure);
+                    self.emit_attach_cleanup_failure(code, self.unwind_result, cleanup_failure);
                     code.branch_wide_to(target);
                 }
             }

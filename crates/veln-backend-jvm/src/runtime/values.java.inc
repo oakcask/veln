@@ -377,6 +377,7 @@
         private final java.util.Map<String, Fn> providers;
         private final Object[] context;
         private volatile boolean networkSystemClosed;
+        private int networkSystemProducers;
         private final java.util.Set<Object> networkResources =
             java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
 

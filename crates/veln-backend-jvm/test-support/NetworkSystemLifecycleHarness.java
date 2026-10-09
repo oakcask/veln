@@ -249,6 +249,68 @@ public final class NetworkSystemLifecycleHarness {
         }
     }
 
+    private static String unavailableLocalIpv4Address() throws Exception {
+        for (String candidate : new String[] {
+            "192.0.2.1", "198.51.100.1", "203.0.113.1", "240.0.0.1"
+        }) {
+            java.net.InetAddress address = java.net.InetAddress.getByName(candidate);
+            if (java.net.NetworkInterface.getByInetAddress(address) != null) continue;
+            java.nio.channels.ServerSocketChannel probe =
+                java.nio.channels.ServerSocketChannel.open();
+            try {
+                probe.bind(new java.net.InetSocketAddress(address, 0));
+            } catch (java.net.BindException expected) {
+                return candidate;
+            } finally {
+                probe.close();
+            }
+        }
+        throw new AssertionError("could not establish an unavailable local IPv4 address");
+    }
+
+    private static void requireListenFailureKind(Object result, String kind, String context) {
+        if (((VelnRuntime.Result) result).isOk() || !result.toString().contains(kind)) {
+            throw new AssertionError(context + " produced the wrong failure: " + result);
+        }
+    }
+
+    private static void verifyDirectBindFailureClassification() throws Exception {
+        Object owner = newOwner();
+        java.nio.channels.ServerSocketChannel occupied =
+            java.nio.channels.ServerSocketChannel.open();
+        selectOwner(owner);
+        try {
+            java.net.InetAddress loopback = java.net.InetAddress.getByName("127.0.0.1");
+            occupied.bind(new java.net.InetSocketAddress(loopback, 0));
+            int port = ((java.net.InetSocketAddress) occupied.getLocalAddress()).getPort();
+            Object network = VelnRuntime.adt("Network::Tcp4", new Object[0]);
+            Object duplicate = VelnRuntime.adt(
+                "Address::Address",
+                new Object[] { network, "127.0.0.1", Long.valueOf(port) }
+            );
+            requireListenFailureKind(
+                VelnRuntime.netSystemListen(duplicate),
+                "AddressInUse",
+                "duplicate loopback bind"
+            );
+
+            String unavailable = unavailableLocalIpv4Address();
+            Object nonlocal = VelnRuntime.adt(
+                "Address::Address",
+                new Object[] { network, unavailable, Long.valueOf(0L) }
+            );
+            Object result = VelnRuntime.netSystemListen(nonlocal);
+            requireListenFailureKind(result, "Other", "unavailable local-address bind");
+            if (result.toString().contains("AddressInUse")) {
+                throw new AssertionError("unavailable local address was reported as a collision");
+            }
+        } finally {
+            occupied.close();
+            CLEANUP.invoke(null, owner);
+            clearOwner();
+        }
+    }
+
     private static void verifyIdentityLedgerExplicitCloseAndDetach() throws Exception {
         Object owner = newOwner();
         selectOwner(owner);
@@ -349,17 +411,90 @@ public final class NetworkSystemLifecycleHarness {
     }
 
     @SuppressWarnings("unchecked")
-    private static Object inheritedNetworkAdapter() throws Exception {
+    private static Object topHandler() throws Exception {
         java.util.List<Object> handlers =
             ((ThreadLocal<java.util.List<Object>>) HANDLERS.get(null)).get();
         return handlers.get(handlers.size() - 1);
     }
 
-    private static void verifyLateProducerPathRetainsCleanupObligation(
-        String producer,
+    private static void verifyOrdinaryPopRetriesCleanupAndFailsTerminally(
         long firstCommit
     ) throws Exception {
-        Object owner = newOwner();
+        for (boolean persistent : new boolean[] { false, true }) {
+            java.util.concurrent.atomic.AtomicInteger targetCloses =
+                new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.atomic.AtomicInteger independentCloses =
+                new java.util.concurrent.atomic.AtomicInteger();
+            VelnRuntime.Fn provider = new VelnRuntime.Fn() {
+                public Object call(Object... args) {
+                    String operation = (String) args[0];
+                    String subject = (String) args[1];
+                    if (!operation.equals("close_stream")) {
+                        throw new AssertionError("unexpected cleanup operation " + operation);
+                    }
+                    if (subject.equals("target")) {
+                        int attempt = targetCloses.getAndIncrement();
+                        return persistent || attempt == 0
+                            ? closeReply("error", firstCommit)
+                            : closeReply("ok", 1L);
+                    }
+                    independentCloses.incrementAndGet();
+                    return closeReply("ok", 1L);
+                }
+            };
+            VelnRuntime.pushHandler(
+                "std::host_effects::Network",
+                new Object[] { "request" },
+                new Object[] { provider },
+                new Object[0]
+            );
+            Object adapter = topHandler();
+            VelnRuntime.pushHandler(
+                "std::net::IO",
+                new Object[0],
+                new Object[0],
+                new Object[0]
+            );
+            Object owner = topHandler();
+            Object target = STREAM_CONSTRUCTOR.newInstance(
+                "target", "127.0.0.1:1", "127.0.0.1:2", null, adapter
+            );
+            Object independent = STREAM_CONSTRUCTOR.newInstance(
+                "independent", "127.0.0.1:1", "127.0.0.1:2", null, adapter
+            );
+            register(owner, target);
+            register(owner, independent);
+            Throwable failure = null;
+            try {
+                VelnRuntime.popHandler();
+            } catch (Throwable observed) {
+                failure = observed;
+            } finally {
+                VelnRuntime.popHandler();
+            }
+            if (persistent) {
+                if (!(failure instanceof VelnRuntime.RuntimeFailure)
+                    || targetCloses.get() != 3
+                    || independentCloses.get() != 1
+                    || resources(owner).size() != 1) {
+                    throw new AssertionError(
+                        "persistent cleanup did not fail after bounded complete passes"
+                    );
+                }
+            } else if (failure != null
+                || targetCloses.get() != 2
+                || independentCloses.get() != 1
+                || !resources(owner).isEmpty()) {
+                throw new AssertionError("transient cleanup did not settle through popHandler");
+            }
+        }
+    }
+
+    private static void verifyLateProducerPathRetriesDuringProductionCleanup(
+        String producer,
+        long firstCommit,
+        boolean persistent
+    ) throws Exception {
         java.util.concurrent.CountDownLatch created = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.atomic.AtomicInteger closes =
@@ -384,9 +519,10 @@ public final class NetworkSystemLifecycleHarness {
                     return closeReply("ok", 1L);
                 }
                 if (operation.equals("close_listener") || operation.equals("close_stream")) {
-                    return closes.getAndIncrement() == 0
-                        ? closeReply("error", firstCommit)
-                        : closeReply("ok", 1L);
+                    int attempt = closes.getAndIncrement();
+                    return !persistent && attempt != 0
+                        ? closeReply("ok", 1L)
+                        : closeReply("error", firstCommit);
                 }
                 throw new AssertionError("unexpected " + producer + " adapter operation " + operation);
             }
@@ -397,7 +533,14 @@ public final class NetworkSystemLifecycleHarness {
             new Object[] { provider },
             new Object[0]
         );
-        Object adapter = inheritedNetworkAdapter();
+        Object adapter = topHandler();
+        VelnRuntime.pushHandler(
+            "std::net::IO",
+            new Object[0],
+            new Object[0],
+            new Object[0]
+        );
+        Object owner = topHandler();
         Object network = VelnRuntime.adt("Network::Tcp4", new Object[0]);
         Object address = VelnRuntime.adt(
             "Address::Address",
@@ -442,42 +585,92 @@ public final class NetworkSystemLifecycleHarness {
                 try { clearOwner(); } catch (Exception failure) { childFailure.set(failure); }
             }
         });
+        boolean ownerPopped = false;
         try {
             child.start();
             if (!created.await(5L, java.util.concurrent.TimeUnit.SECONDS)) {
                 throw new AssertionError(producer + " did not reach the publication barrier");
             }
-            CLEANUP.invoke(null, owner);
+            java.util.concurrent.atomic.AtomicReference<Throwable> popFailure =
+                new java.util.concurrent.atomic.AtomicReference<Throwable>();
+            Thread popper = new Thread(() -> {
+                try {
+                    VelnRuntime.popHandler();
+                } catch (Throwable failure) {
+                    popFailure.set(failure);
+                }
+            });
+            popper.start();
+            popper.join(50L);
+            if (!popper.isAlive()) {
+                throw new AssertionError(producer + " scope exit did not wait for its producer");
+            }
             release.countDown();
             child.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(5L));
+            popper.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(5L));
             if (child.isAlive()) {
                 child.interrupt();
                 throw new AssertionError(producer + " publication barrier did not complete");
             }
-            if (childFailure.get() != null) {
-                throw new AssertionError(producer + " publication failed", childFailure.get());
+            if (popper.isAlive()) {
+                popper.interrupt();
+                throw new AssertionError(producer + " scope cleanup did not complete");
             }
-            if (((VelnRuntime.Result) result.get()).isOk() || closes.get() != 1) {
-                throw new AssertionError(producer + " did not reject late publication after one close");
+            java.util.List<Object> parentHandlers =
+                ((ThreadLocal<java.util.List<Object>>) HANDLERS.get(null)).get();
+            if (parentHandlers.remove(parentHandlers.size() - 1) != owner) {
+                throw new AssertionError("production pop removed the wrong network owner");
             }
-            if (resources(owner).size() != 1) {
-                throw new AssertionError(producer + " discarded an uncommitted cleanup obligation");
-            }
-            CLEANUP.invoke(null, owner);
-            if (closes.get() != 2 || !resources(owner).isEmpty()) {
-                throw new AssertionError(producer + " cleanup retry did not commit and detach");
+            ownerPopped = true;
+            if (persistent) {
+                if (!(childFailure.get() instanceof VelnRuntime.RuntimeFailure)
+                    || !(popFailure.get() instanceof VelnRuntime.RuntimeFailure)
+                    || closes.get() < 3
+                    || closes.get() > 6
+                    || resources(owner).size() != 1) {
+                    throw new AssertionError(
+                        producer + " persistent late cleanup did not fail terminally: child="
+                            + childFailure.get() + ", pop=" + popFailure.get()
+                            + ", closes=" + closes.get()
+                            + ", retained=" + resources(owner).size()
+                    );
+                }
+            } else {
+                if (childFailure.get() != null) {
+                    throw new AssertionError(producer + " publication failed", childFailure.get());
+                }
+                if (popFailure.get() != null) {
+                    throw new AssertionError(producer + " scope cleanup failed", popFailure.get());
+                }
+                if (closes.get() != 2 || !resources(owner).isEmpty()) {
+                    throw new AssertionError(producer + " cleanup retry did not commit and detach");
+                }
+                if (((VelnRuntime.Result) result.get()).isOk()
+                    || !result.get().toString().contains("InvalidResource")) {
+                    throw new AssertionError(producer + " did not reject late publication");
+                }
             }
         } finally {
             release.countDown();
+            if (!ownerPopped) VelnRuntime.popHandler();
             VelnRuntime.popHandler();
         }
     }
 
     private static void verifyAtomicResourcePublication() throws Exception {
         for (long commit : new long[] { 0L, -1L }) {
-            verifyLateProducerPathRetainsCleanupObligation("listen", commit);
-            verifyLateProducerPathRetainsCleanupObligation("connect", commit);
-            verifyLateProducerPathRetainsCleanupObligation("accept", commit);
+            verifyOrdinaryPopRetriesCleanupAndFailsTerminally(commit);
+            for (boolean persistent : new boolean[] { false, true }) {
+                verifyLateProducerPathRetriesDuringProductionCleanup(
+                    "listen", commit, persistent
+                );
+                verifyLateProducerPathRetriesDuringProductionCleanup(
+                    "connect", commit, persistent
+                );
+                verifyLateProducerPathRetriesDuringProductionCleanup(
+                    "accept", commit, persistent
+                );
+            }
         }
     }
 
@@ -958,6 +1151,7 @@ public final class NetworkSystemLifecycleHarness {
     public static void main(String[] args) throws Exception {
         verifyConnectCommitOrdering();
         verifyIpv6EndpointTextIsBracketedAndParseable();
+        verifyDirectBindFailureClassification();
         verifyIdentityLedgerExplicitCloseAndDetach();
         verifyInheritedChildRegistrationIsCleaned();
         verifyAtomicResourcePublication();

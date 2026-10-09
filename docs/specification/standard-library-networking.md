@@ -190,7 +190,10 @@ The system handler translates a typed host failure category as follows:
 
 The direct JVM host boundary classifies the corresponding platform failures
 with the same specific kinds. Resolver-capacity exhaustion uses `Busy`.
-Resource ownership failures use `InvalidResource`.
+Resource ownership failures use `InvalidResource`. A bind failure is
+`AddressInUse` only when the requested local endpoint belongs to the host; a
+bind to an unavailable local address uses the `Other` fallback rather than
+claiming that a port collision occurred.
 
 System reads return non-empty `ReadChunk` values. They return `ReadEnd` after
 the peer write half ends and buffered bytes have been consumed; later reads
@@ -272,8 +275,11 @@ Scope exit also closes the owner to new resources before cleanup starts. If an
 inherited child operation finishes `listen`, `connect`, or `accept` after that
 point, the operation does not return the new resource. It applies the same
 committed, uncommitted, or unknown close outcome rules to that resource and
-returns `InvalidResource`. The resource never transfers to the restored outer
-handler.
+returns `InvalidResource`. Scope exit waits for already admitted resource
+producers and retries retained cleanup obligations to a fixed bound. If that
+bound cannot confirm closure, scope exit fails instead of reporting normal
+completion. Cleanup still attempts the owner's other resources before that
+failure. The resource never transfers to the restored outer handler.
 
 ## Limits And Errors
 

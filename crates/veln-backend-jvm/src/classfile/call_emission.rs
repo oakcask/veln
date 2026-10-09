@@ -184,13 +184,28 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let handler_pc = code.mark();
         let throwable_slot = self.alloc_local();
         code.astore(throwable_slot);
+        let cleanup_start = code.mark();
         self.emit_pop_handler(code);
+        let cleanup_end = code.mark();
+        let rethrow = code.new_label();
+        code.branch_wide_to(rethrow);
+        let cleanup_failure_handler = code.mark();
+        let cleanup_failure_slot = self.alloc_local();
+        code.astore(cleanup_failure_slot);
+        self.emit_attach_cleanup_failure(code, throwable_slot, cleanup_failure_slot);
+        code.bind(rethrow);
         code.aload(throwable_slot);
         code.op(0xbf);
         code.exceptions.push(ExceptionHandler {
             start_pc: try_start,
             end_pc: try_end,
             handler_pc,
+            catch_type: "java/lang/Throwable".to_string(),
+        });
+        code.exceptions.push(ExceptionHandler {
+            start_pc: cleanup_start,
+            end_pc: cleanup_end,
+            handler_pc: cleanup_failure_handler,
             catch_type: "java/lang/Throwable".to_string(),
         });
         code.bind(done);

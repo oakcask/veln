@@ -459,6 +459,20 @@ fn system_unretried_close_failure(kind: String) -> Result<(), String> effects [n
 	end
 end
 
+fn system_leave_resource_open(kind: String) -> Result<(), String> effects [net::IO]
+	if kind == "listener"
+		match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+			Ok(_) => Ok(())
+			Err(_) => Err("scripted listener did not open")
+		end
+	else
+		match net::connect(net::Address(net::Tcp4, "retry.test", 443))
+			Ok(_) => Ok(())
+			Err(_) => Err("scripted stream did not connect")
+		end
+	end
+end
+
 fn system_listen_accept_addresses(address: net::Address) -> Result<{ listener : net::Endpoint, local : net::Endpoint, peer : net::Endpoint }, net::NetError> effects [net::IO]
 	let listener = net::listen(address)?
 	let listener_address = net::listener_address(listener)?
@@ -491,6 +505,19 @@ fn cleanup_retry_count(kind: String) -> Result<Int, String> effects [net, time, 
 		Ok(()) => match channel::recv(calls.rx)
 			Some(count) => Ok(count)
 			None => Err("cleanup close retry count was missing")
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn scope_exit_cleanup_retry_count(kind: String) -> Result<Int, String> effects [net, time, concurrency]
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	let result = handle handle system_leave_resource_open(kind) with net::system() with retrying_close_system_network(calls)
+	match result
+		Ok(()) => match channel::recv(calls.rx)
+			Some(count) => Ok(count)
+			None => Err("scope-exit close retry count was missing")
 		end
 		Err(message) => Err(message)
 	end
@@ -1324,6 +1351,18 @@ test scope_cleanup_retries_unreconciled_explicit_closes() -> Result<(), String> 
 			Err(message) => Err(message)
 		end
 		Ok(_) => Err("scope cleanup did not retry the listener close")
+		Err(message) => Err(message)
+	end
+end
+
+test scope_exit_retries_failures_from_the_cleanup_pass() -> Result<(), String> effects [net, time, concurrency]
+	match scope_exit_cleanup_retry_count("listener")
+		Ok(2) => match scope_exit_cleanup_retry_count("stream")
+			Ok(2) => Ok(())
+			Ok(_) => Err("scope exit did not retry the stream cleanup failure")
+			Err(message) => Err(message)
+		end
+		Ok(_) => Err("scope exit did not retry the listener cleanup failure")
 		Err(message) => Err(message)
 	end
 end
