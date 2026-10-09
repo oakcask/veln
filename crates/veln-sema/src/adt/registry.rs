@@ -146,10 +146,7 @@ impl AdtRegistry {
         self.declaration_spans.get(&descriptor.identity())
     }
 
-    pub(crate) fn declaration_span_for_descriptor(
-        &self,
-        descriptor: &AdtDescriptor,
-    ) -> Option<&SourceSpan> {
+    pub(crate) fn declaration_span(&self, descriptor: &AdtDescriptor) -> Option<&SourceSpan> {
         self.declaration_spans.get(&descriptor.identity())
     }
 

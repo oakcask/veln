@@ -336,10 +336,7 @@ impl TypeEnvironment {
             if descriptor.type_parameters.len() != args_len || !descriptor.variants.is_empty() {
                 return None;
             }
-            let declaration_span = self
-                .adts
-                .declaration_span_for_descriptor(descriptor)
-                .cloned()?;
+            let declaration_span = self.adts.declaration_span(descriptor).cloned()?;
             return Some(VariantRefinementBaseFailure {
                 reason: "not_adt",
                 resolved_identity: descriptor.identity(),
