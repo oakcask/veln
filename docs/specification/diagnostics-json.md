@@ -94,6 +94,33 @@ recovery retains the surrounding declaration and lossless source tree. This
 diagnostic does not assert that a structurally valid base or final name resolves
 semantically.
 
+A structurally valid refinement whose base resolves uniquely but cannot provide a
+finite, refinable ADT reports `type.variant_refinement_base`. The primary span is
+the written base path and excludes its type arguments, `::`, and final variant
+segment. Its closed details contain only `written_type` and `reason`.
+`written_type` preserves the source spelling of the base and its type arguments.
+The reason is one of these values:
+
+| Reason | Failed fact |
+| --- | --- |
+| `not_adt` | The base resolves to a named non-ADT type. |
+| `opaque` | The resolved declaration intentionally hides its variant identities at the annotation. |
+| `variant_descriptor_unavailable` | The ADT identity is known, but its provider supplies no public finite variant descriptor. |
+
+Known opacity takes precedence over an unavailable descriptor. A related
+`base_type_provider` entry retains the resolved base identity and identifies the
+declaration or provider context. The failed occurrence does not emit variant,
+union, visibility, or assignability diagnostics that require a refinable base.
+An independently provable generic-arity failure keeps
+`type.invalid_annotation` instead of adding the base diagnostic. Unresolved,
+ambiguous, private, and wrong-kind bases also retain their existing diagnostics.
+The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
+cases cover the three reasons, provider context, downstream suppression, and
+arity precedence.
+
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at
 that value expression. The primary message states the actual and expected

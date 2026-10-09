@@ -31,6 +31,68 @@ fn record_retained_variant_diagnostic_key(ty: &Type) {
 }
 
 impl<'a> FunctionChecker<'a> {
+    pub(super) fn push_variant_refinement_base_diagnostics(
+        &mut self,
+        refinements: &[veln_ast::VariantRefinementType],
+    ) -> bool {
+        let mut emitted = false;
+        for refinement in refinements {
+            for alternative in &refinement.alternatives {
+                let base = alternative.base.segments.join("::");
+                if let Some(failure) = self.environment.variant_refinement_base_failure(
+                    &base,
+                    alternative.type_arguments.len(),
+                    self.function.module_name.as_deref(),
+                ) {
+                    let written_type = written_refinement_base(alternative);
+                    let span = refinement_base_span(alternative);
+                    let message = match failure.reason {
+                        "not_adt" => {
+                            format!("variant-refinement base `{written_type}` is not a finite ADT")
+                        }
+                        "opaque" => format!(
+                            "variant-refinement base `{written_type}` is opaque at this annotation"
+                        ),
+                        "variant_descriptor_unavailable" => format!(
+                            "variant-refinement base `{written_type}` has no public finite variant descriptor"
+                        ),
+                        _ => unreachable!("closed variant-refinement base reason"),
+                    };
+                    let mut diagnostic = Diagnostic::new(
+                        "type.variant_refinement_base",
+                        Severity::Error,
+                        DiagnosticKind::Type,
+                        message,
+                        Some(span),
+                        JsonValue::object([
+                            ("written_type", JsonValue::string(written_type)),
+                            ("reason", JsonValue::string(failure.reason)),
+                        ]),
+                    );
+                    let mut related = vec![
+                        ("kind", JsonValue::string("base_type_provider")),
+                        ("message", JsonValue::string(failure.related_message)),
+                        (
+                            "resolved_identity",
+                            JsonValue::string(failure.resolved_identity),
+                        ),
+                    ];
+                    if let Some(declaration_span) = failure.declaration_span {
+                        related.push(("span", span_json(&declaration_span)));
+                    }
+                    diagnostic.related.push(JsonValue::object(related));
+                    self.diagnostics.push(diagnostic);
+                    emitted = true;
+                }
+                for argument in &alternative.type_arguments {
+                    emitted |=
+                        self.push_variant_refinement_base_diagnostics(&argument.ty_refinements);
+                }
+            }
+        }
+        emitted
+    }
+
     pub(in crate::analysis) fn check_assignable(
         &mut self,
         expr: &Expr,
@@ -725,6 +787,36 @@ impl<'a> FunctionChecker<'a> {
             ContractValidation::Valid
         )
     }
+}
+
+fn refinement_base_span(alternative: &veln_ast::VariantRefinementAlternative) -> SourceSpan {
+    let first = alternative
+        .base
+        .segment_spans
+        .first()
+        .expect("variant refinement base has a segment");
+    let last = alternative
+        .base
+        .segment_spans
+        .last()
+        .expect("variant refinement base has a segment");
+    let mut span = first.clone();
+    span.end = last.end;
+    span
+}
+
+fn written_refinement_base(alternative: &veln_ast::VariantRefinementAlternative) -> String {
+    let base = alternative.base.segments.join("::");
+    if alternative.type_arguments.is_empty() {
+        return base;
+    }
+    let arguments = alternative
+        .type_arguments
+        .iter()
+        .map(|argument| argument.ty_fragments.join(""))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{base}<{arguments}>")
 }
 
 fn variant_mismatch_sets<'a>(

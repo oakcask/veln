@@ -1,0 +1,80 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"reason\":\"not_adt\"", "\"reason\":\"opaque\"", "\"reason\":\"variant_descriptor_unavailable\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `Int` is not a finite ADT"
+
+[diagnostics.span]
+file = "main.veln"
+line = 6
+column = 19
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `Opaque` is opaque at this annotation"
+
+[diagnostics.span]
+file = "main.veln"
+line = 10
+column = 24
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `Empty` has no public finite variant descriptor"
+
+[diagnostics.span]
+file = "main.veln"
+line = 14
+column = 30
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `Empty<Int>::Missing`: `Empty` expects 0 type argument(s), found 1"
+
+[[json_assert]]
+path = "diagnostics.0.details.written_type"
+equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "not_adt"
+
+[[json_assert]]
+path = "diagnostics.1.details.reason"
+equals = "opaque"
+
+[[json_assert]]
+path = "diagnostics.2.details.reason"
+equals = "variant_descriptor_unavailable"
+
+[[json_assert]]
+path = "diagnostics.2.related.0.kind"
+equals = "base_type_provider"
+
+[[json_assert]]
+path = "diagnostics.2.related.0.span.start.line"
+equals = 1

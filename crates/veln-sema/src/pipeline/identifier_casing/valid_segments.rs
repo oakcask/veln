@@ -230,6 +230,11 @@ fn collect_variant_refinement_segments(
                     &environment.uses,
                 )
                 .is_some()
+                || environment.non_adt_refinement_base_resolves(
+                    &alternative.base.segments.join("::"),
+                    alternative.type_arguments.len(),
+                    current_module,
+                )
             {
                 for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
                     let role = if index + 1 == segments.len() {

@@ -1,0 +1,17 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "main.veln:6:19: error[type.variant_refinement_base]: variant-refinement base `Int` is not a finite ADT",
+  "note: Type `Int` resolves here as a non-ADT type without finite variants.",
+  "main.veln:10:24: error[type.variant_refinement_base]: variant-refinement base `Opaque` is opaque at this annotation",
+  "note: Type `Opaque` is provided as opaque and does not expose variant identities.",
+  "main.veln:14:30: error[type.variant_refinement_base]: variant-refinement base `Empty` has no public finite variant descriptor",
+  "note: main.veln:1:1: The provider for `Empty` supplies no public finite variant descriptor.",
+  "error[type.invalid_annotation]: invalid type annotation `Empty<Int>::Missing`: `Empty` expects 0 type argument(s), found 1",
+]
+
+[stderr]
+format = "empty"

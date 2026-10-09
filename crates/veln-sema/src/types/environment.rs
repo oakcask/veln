@@ -30,6 +30,13 @@ pub(crate) struct TypeEnvironment {
     companion_effect_access_targets: BTreeMap<String, CompanionAccessTarget>,
 }
 
+pub(crate) struct VariantRefinementBaseFailure {
+    pub(crate) reason: &'static str,
+    pub(crate) resolved_identity: String,
+    pub(crate) declaration_span: Option<SourceSpan>,
+    pub(crate) related_message: String,
+}
+
 impl TypeEnvironment {
     pub(crate) fn invalid_cased_path_segment<'a>(
         &'a self,
@@ -259,6 +266,112 @@ impl TypeEnvironment {
     ) -> Option<String> {
         let canonical = self.canonicalize_type_annotation(ty.clone(), current_module);
         self.variant_refinement_annotation_error_with_canonical(ty, &canonical, current_module)
+    }
+
+    pub(crate) fn variant_refinement_base_failure(
+        &self,
+        base: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+    ) -> Option<VariantRefinementBaseFailure> {
+        let recovered_base = recover_type_case(base);
+        let lookup_base = self
+            .adts
+            .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+            .is_some()
+            .then_some(base)
+            .or_else(|| {
+                recovered_base.as_deref().filter(|candidate| {
+                    self.adts
+                        .descriptor_for_type_path_any_arity(candidate, current_module, &self.uses)
+                        .is_some()
+                })
+            })
+            .unwrap_or(base);
+        if let Some(descriptor) =
+            self.adts
+                .descriptor_for_type_path_any_arity(lookup_base, current_module, &self.uses)
+        {
+            if descriptor.type_parameters.len() != args_len || !descriptor.variants.is_empty() {
+                return None;
+            }
+            let reason = if descriptor.is_opaque_refinement_base() {
+                "opaque"
+            } else {
+                "variant_descriptor_unavailable"
+            };
+            let related_message = if reason == "opaque" {
+                format!(
+                    "Type `{}` is provided as opaque and does not expose variant identities.",
+                    descriptor.type_name
+                )
+            } else {
+                format!(
+                    "The provider for `{}` supplies no public finite variant descriptor.",
+                    descriptor.type_name
+                )
+            };
+            return Some(VariantRefinementBaseFailure {
+                reason,
+                resolved_identity: descriptor.identity(),
+                declaration_span: self
+                    .adts
+                    .declaration_span_for_descriptor(descriptor)
+                    .cloned(),
+                related_message,
+            });
+        }
+
+        let resolved = self
+            .resolved_non_adt_refinement_base(base, args_len, current_module)
+            .or_else(|| {
+                recovered_base.as_deref().and_then(|candidate| {
+                    self.resolved_non_adt_refinement_base(candidate, args_len, current_module)
+                })
+            })?;
+        let (resolved_name, resolved_identity) = match resolved {
+            Type::Named { name, identity, .. } => (name, identity),
+            _ => return None,
+        };
+        Some(VariantRefinementBaseFailure {
+            reason: "not_adt",
+            resolved_identity,
+            declaration_span: None,
+            related_message: format!(
+                "Type `{resolved_name}` resolves here as a non-ADT type without finite variants."
+            ),
+        })
+    }
+
+    fn resolved_non_adt_refinement_base(
+        &self,
+        base: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+    ) -> Option<Type> {
+        let is_builtin_type =
+            crate::source_less_lookup::with_builtin_type_syntax_registry(|registry| {
+                registry.arity(base) == Some(args_len)
+            })
+            .unwrap_or(false);
+        if !is_builtin_type && !(args_len == 0 && matches!(base, "WallTime" | "SourceLocation")) {
+            return None;
+        }
+        let resolved = self.canonicalize_type_annotation(
+            Type::named(base, vec![Type::Unknown; args_len]),
+            current_module,
+        );
+        matches!(resolved, Type::Named { .. }).then_some(resolved)
+    }
+
+    pub(crate) fn non_adt_refinement_base_resolves(
+        &self,
+        base: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+    ) -> bool {
+        self.resolved_non_adt_refinement_base(base, args_len, current_module)
+            .is_some()
     }
 
     fn variant_refinement_annotation_error_with_canonical(
@@ -656,6 +769,21 @@ impl TypeEnvironment {
             })
         })
     }
+}
+
+fn recover_type_case(name: &str) -> Option<String> {
+    let (prefix, leaf) = name.rsplit_once("::").unwrap_or(("", name));
+    let mut chars = leaf.chars();
+    let first = chars.next()?;
+    if !first.is_ascii_lowercase() {
+        return None;
+    }
+    let recovered_leaf = format!("{}{}", first.to_ascii_uppercase(), chars.as_str());
+    Some(if prefix.is_empty() {
+        recovered_leaf
+    } else {
+        format!("{prefix}::{recovered_leaf}")
+    })
 }
 
 fn type_children(ty: &Type) -> Vec<&Type> {

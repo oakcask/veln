@@ -380,23 +380,34 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn parse_annotation(
         &mut self,
         annotation: &str,
+        refinements: &[veln_ast::VariantRefinementType],
         origin_node_id: NodeId,
         origin_span: &SourceSpan,
         source: ExpectedTypeSource,
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
+        let base_failure = self.push_variant_refinement_base_diagnostics(refinements);
         match parse_type_annotation(annotation) {
             Ok(ty) => {
                 if let Some(error) = self
                     .environment
                     .variant_refinement_annotation_error(&ty, self.function.module_name.as_deref())
                 {
+                    if base_failure
+                        && error
+                            == "variant refinement alternatives must resolve to declared variants of one ADT"
+                    {
+                        return None;
+                    }
                     self.push_invalid_type_annotation(
                         annotation,
                         &error,
                         origin_node_id,
                         origin_span.clone(),
                     );
+                    return None;
+                }
+                if base_failure {
                     return None;
                 }
                 Some(ExpectedType {

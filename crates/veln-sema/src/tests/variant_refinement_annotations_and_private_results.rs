@@ -223,6 +223,70 @@ fn invalid_refinement_annotations_are_diagnosed_instead_of_becoming_unknown() {
 }
 
 #[test]
+fn non_refinable_bases_report_closed_reasons_and_preserve_arity_precedence() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "pub type Opaque = NetStream\n",
+        "fn non_adt(value: Int::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn opaque(value: Opaque::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn unavailable(value: Empty::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn arity(value: Empty<Int>::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let base_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+        .collect::<Vec<_>>();
+    assert_eq!(base_diagnostics.len(), 3, "{diagnostics:#?}");
+    let observed = base_diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(
+        observed[0].contains("\"details\":{\"written_type\":\"Int\",\"reason\":\"not_adt\"}"),
+        "{observed:#?}"
+    );
+    assert!(
+        observed[0].contains("\"resolved_identity\":\"Int\""),
+        "{observed:#?}"
+    );
+    assert!(
+        observed[1].contains("\"details\":{\"written_type\":\"Opaque\",\"reason\":\"opaque\"}"),
+        "{observed:#?}"
+    );
+    assert!(
+        observed[2].contains(
+            "\"details\":{\"written_type\":\"Empty\",\"reason\":\"variant_descriptor_unavailable\"}"
+        ),
+        "{observed:#?}"
+    );
+    assert_eq!(base_diagnostics[0].span.as_ref().unwrap().start.column, 19);
+    assert_eq!(base_diagnostics[1].span.as_ref().unwrap().start.column, 18);
+    assert_eq!(base_diagnostics[2].span.as_ref().unwrap().start.column, 23);
+
+    let arity = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                && diagnostic
+                    .message
+                    .contains("expects 0 type argument(s), found 1")
+        })
+        .count();
+    assert_eq!(arity, 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+}
+
+#[test]
 fn compiler_known_refinements_require_base_type_arguments() {
     let diagnostics = diagnostics_for(concat!(
         "fn keep(value: Option::Some) -> Option::Some\n",
