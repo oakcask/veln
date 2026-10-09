@@ -16,6 +16,7 @@ public final class NetworkSystemLifecycleHarness {
     private static final java.lang.reflect.Method READ_HOST;
     private static final java.lang.reflect.Method AWAIT_RESOLUTION;
     private static final java.lang.reflect.Method CONNECT_RESOLVED;
+    private static final java.lang.reflect.Method TRANSPORT_IO_CATEGORY;
     private static final java.lang.reflect.Field INVOKED_HANDLER;
     private static final java.lang.reflect.Field HANDLERS;
     private static final java.lang.reflect.Field NETWORK_RESOURCES;
@@ -106,6 +107,11 @@ public final class NetworkSystemLifecycleHarness {
                 Object.class,
                 java.util.List.class
             );
+            TRANSPORT_IO_CATEGORY = VelnRuntime.class.getDeclaredMethod(
+                "transportIoCategory",
+                Throwable.class,
+                String.class
+            );
             INVOKED_HANDLER = VelnRuntime.class.getDeclaredField("INVOKED_HANDLER");
             HANDLERS = VelnRuntime.class.getDeclaredField("HANDLERS");
             NETWORK_RESOURCES = HANDLER_FRAME.getDeclaredField("networkResources");
@@ -136,6 +142,7 @@ public final class NetworkSystemLifecycleHarness {
                 READ_HOST,
                 AWAIT_RESOLUTION,
                 CONNECT_RESOLVED,
+                TRANSPORT_IO_CATEGORY,
                 INVOKED_HANDLER,
                 HANDLERS,
                 NETWORK_RESOURCES,
@@ -413,6 +420,32 @@ public final class NetworkSystemLifecycleHarness {
             occupied.close();
             CLEANUP.invoke(null, owner);
             clearOwner();
+        }
+    }
+
+    private static void verifyDirectHostFailureClassification() throws Exception {
+        Object[][] cases = new Object[][] {
+            { new java.net.UnknownHostException("unknown"), "name_not_found" },
+            { new java.net.ConnectException("refused"), "connection_refused" },
+            { new java.net.SocketTimeoutException("timeout"), "timed_out" },
+            { new java.nio.channels.ClosedChannelException(), "closed" },
+            { new java.net.SocketException("socket closed"), "closed" },
+            { new java.net.SocketException("connection reset by peer"), "connection_reset" },
+            { new java.nio.file.AccessDeniedException("denied"), "permission_denied" },
+            { new SecurityException("denied"), "permission_denied" },
+        };
+        for (Object[] entry : cases) {
+            String actual = (String) TRANSPORT_IO_CATEGORY.invoke(
+                null,
+                (Throwable) entry[0],
+                null
+            );
+            if (!actual.equals(entry[1])) {
+                throw new AssertionError(
+                    entry[0].getClass().getName() + " classified as " + actual
+                        + " instead of " + entry[1]
+                );
+            }
         }
     }
 
@@ -1308,6 +1341,7 @@ public final class NetworkSystemLifecycleHarness {
         verifyOwnedResourcesDoNotCrossHandlerDispatch();
         verifyTerminalStatesDoNotBypassContention();
         verifyDirectBindFailureClassification();
+        verifyDirectHostFailureClassification();
         verifyIdentityLedgerExplicitCloseAndDetach();
         verifyInheritedChildRegistrationIsCleaned();
         verifyAtomicResourcePublication();
