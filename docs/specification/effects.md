@@ -654,9 +654,11 @@ Handlers supply the complete typed reply record declared by the standard
 module. `bytes_committed` is independent of the three commit facts and never
 changes their tri-state interpretation. A scoped network handler receives
 `resolve_tcp`, `resolve_tcp4`, or `resolve_tcp6` for system-handler resolution;
-therefore deterministic resolution does not consult ambient DNS. This adapter
-boundary does not expose host sockets or remove caller responsibility for
-resource lifecycle. The supported operation and outcome combinations are
+the request carries the remaining deadline and cancellation state supplied to
+`connect_with`. Therefore deterministic resolution does not consult ambient
+DNS, and it observes the same controls as the later connection attempts. This
+adapter boundary does not expose host sockets or remove caller responsibility
+for resource lifecycle. The supported operation and outcome combinations are
 those of the network calls described above.
 
 Nested handlers shadow the corresponding outer handler during their body.

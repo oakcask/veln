@@ -151,10 +151,14 @@ arguments that do not require constructing an opaque resource.
 
 The system handler resolves and opens TCP, TCP4, and TCP6 endpoints. Resolution
 preserves the host resolver's preferred order and removes exact duplicate
-endpoints. An empty result is `NameNotFound`. Listen on port zero reports the
-assigned local port. Expected address, resolver, socket, deadline, cancellation,
-and lifecycle failures are returned as `NetError`; an unrecognized host failure
-uses `Other` instead of becoming a runtime diagnostic.
+endpoints. An empty result is `NameNotFound`. The deadline and cancellation
+token supplied to `connect_with` bound both name resolution and every endpoint
+attempt. An already expired deadline or cancelled token prevents resolution
+from starting. Task cancellation also interrupts an in-progress resolution.
+Listen on port zero reports the assigned local port. Expected address,
+resolver, socket, deadline, cancellation, and lifecycle failures are returned
+as `NetError`; an unrecognized host failure uses `Other` instead of becoming a
+runtime diagnostic.
 
 System reads return non-empty `ReadChunk` values. They return `ReadEnd` after
 the peer write half ends and buffered bytes have been consumed; later reads
@@ -170,8 +174,8 @@ deadline expiration, cancellation, or another transport failure interrupts the
 write. A deadline or cancellation failure leaves an otherwise reusable
 listener or stream open.
 
-Connection establishment is the commit point. Before an endpoint is
-established, each control check tests cancellation before deadline expiration.
+Connection establishment is the commit point. During resolution and endpoint
+attempts, each control check tests cancellation before deadline expiration.
 Once the host reports successful establishment, the handler returns the
 connected stream without another deadline or cancellation check. A control
 that becomes observable only at or after that commit does not replace success.
