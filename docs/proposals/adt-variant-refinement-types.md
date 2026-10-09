@@ -415,8 +415,8 @@ a failed language-service request.
 
 This proposal is complete only when every remaining acceptance row passes and
 the smallest current specification pages for types, execution, diagnostics,
-editor support, package documentation, and MCP describe the implemented
-contract. Completion also requires the public examples to explain both the
+editor support, the package-documentation catalog, and MCP describe the
+implemented contract. Completion also requires the public examples to explain both the
 state-machine benefit and the testing boundary.
 
 This page remains the authority for the unimplemented rows, and no stage may
