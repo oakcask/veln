@@ -376,9 +376,11 @@ specified by [run-json.md](run-json.md).
 The envelope reports the diagnostics produced for the selected analysis set;
 it does not include diagnostics from unselected sources or unloaded
 dependencies. A static diagnostic envelope has no captured program stdout or
-stderr fields. Human rendering may place related context in stderr while the
-JSON fields remain unchanged. Diagnostic details are extensible by family, so
-consumers must tolerate omitted and newly added detail keys.
+stderr fields. Human rendering and JSON serialization consume the same ordered
+diagnostic records. JSON preserves their structured fields, while human stderr
+renders the corresponding primary messages and related notes. Diagnostic
+details are extensible by family, so consumers must tolerate omitted and newly
+added detail keys.
 
 The envelope implementation is `crates/veln-diagnostics/src/envelope.rs`;
 family producers and focused CLI assertions provide the executable contract.
