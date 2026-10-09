@@ -146,6 +146,13 @@ impl AdtRegistry {
         self.declaration_spans.get(&descriptor.identity())
     }
 
+    pub(crate) fn declaration_span_for_descriptor(
+        &self,
+        descriptor: &AdtDescriptor,
+    ) -> Option<&SourceSpan> {
+        self.declaration_spans.get(&descriptor.identity())
+    }
+
     pub(crate) fn variant_declaration_order_for_type(
         &self,
         ty: &Type,

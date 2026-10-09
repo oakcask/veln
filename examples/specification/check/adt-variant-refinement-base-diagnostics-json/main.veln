@@ -1,0 +1,20 @@
+type Empty
+end
+
+pub type Opaque = NetStream
+
+fn non_adt(value: Int::Missing) -> ()
+	()
+end
+
+fn opaque_alias(value: Opaque::Missing) -> ()
+	()
+end
+
+fn missing_descriptor(value: Empty::Missing) -> ()
+	()
+end
+
+fn arity_precedence(value: Empty<Int>::Missing) -> ()
+	()
+end
