@@ -13,6 +13,13 @@ host boundaries, and observable output. HTTP/2 protocol details belong to
 
 ## Runtime readiness and host boundaries
 
+The JVM host boundary associates resources created by `net::system()` with the
+active `net::IO` handler frame. Popping that frame closes its remaining
+listeners and streams before restoring the outer handler. The cleanup runs for
+normal completion, propagated errors, and runtime exceptions. A copied handler
+stack inherited by a child task refers to the same owner, so concurrent
+operations observe the same close and ownership state.
+
 Semantic diagnostics must be error-free before the compiler produces checked
 core and typed IR. Command analysis checks readiness for the selected entry
 before applying command-specific execution or write policy. Holes, missing

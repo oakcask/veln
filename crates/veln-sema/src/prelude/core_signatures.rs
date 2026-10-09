@@ -57,7 +57,8 @@ fn core_compiler_adapter_signature(
     expected: Option<&CoreType>,
 ) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
     let expected = ExpectedCorePreludeParts::from_expected(expected);
-    let signature = core_prelude_float_signature(descriptor.name)
+    let signature = core_net_system_signature(descriptor.name, &expected)
+        .or_else(|| core_prelude_float_signature(descriptor.name))
         .or_else(|| core_prelude_byte_signature(descriptor.name))
         .or_else(|| core_prelude_string_signature(descriptor.name))
         .or_else(|| core_prelude_vec_signature(descriptor.name, &expected))
@@ -71,6 +72,27 @@ fn core_compiler_adapter_signature(
         signature.0,
         signature.1,
     ))
+}
+
+fn core_net_system_signature(
+    name: &str,
+    expected: &ExpectedCorePreludeParts,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let arity = match name {
+        "net_system_resolve"
+        | "net_system_listen"
+        | "net_system_listener_address"
+        | "net_system_close_listener"
+        | "net_system_local_address"
+        | "net_system_peer_address"
+        | "net_system_shutdown_read"
+        | "net_system_shutdown_write"
+        | "net_system_close_stream" => 1,
+        "net_system_connect" | "net_system_accept" | "net_system_read" => 3,
+        "net_system_write" => 4,
+        _ => return None,
+    };
+    Some((vec![CoreType::Unknown; arity], expected.direct.clone()))
 }
 
 fn compiler_adapter_core_callback_signature(

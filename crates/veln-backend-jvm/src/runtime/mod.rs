@@ -27,6 +27,19 @@ runtime_method_table!(stdio_method, "stdioPrintln", {
 });
 
 runtime_method_table!(prelude_method, "vecLen", {
+    "net_system_resolve" => "netSystemResolve",
+    "net_system_listen" => "netSystemListen",
+    "net_system_connect" => "netSystemConnect",
+    "net_system_accept" => "netSystemAccept",
+    "net_system_listener_address" => "netSystemListenerAddress",
+    "net_system_close_listener" => "netSystemCloseListener",
+    "net_system_read" => "netSystemRead",
+    "net_system_write" => "netSystemWrite",
+    "net_system_local_address" => "netSystemLocalAddress",
+    "net_system_peer_address" => "netSystemPeerAddress",
+    "net_system_shutdown_read" => "netSystemShutdownRead",
+    "net_system_shutdown_write" => "netSystemShutdownWrite",
+    "net_system_close_stream" => "netSystemCloseStream",
     "float_negate" => "floatNegate",
     "float_add" => "floatAdd",
     "float_subtract" => "floatSubtract",

@@ -242,6 +242,12 @@ runtime error text.
 
 ## Network And Time Boundary Calls
 
+The exported `std::net` module supplies `net::system()` as a handler for
+`net::IO`. Its clauses retain the host `net` and `time` effects. A handle
+expression using `net::system()` therefore removes `std::net::IO` and adds
+those two host effects. The handler frame owns its created network resources;
+the execution boundary closes those resources before that frame is restored.
+
 The checker recognizes these minimal transport-boundary call targets through
 the standard symbol table:
 

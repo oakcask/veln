@@ -1,0 +1,150 @@
+use net from "std"
+use stdio
+
+fn bytes(text: String) -> Result<ByteChunk, net::NetError>
+	match byte_chunk_from_visible_ascii_string(text)
+		Ok(value) => Ok(value)
+		Err(message) => Err(net::NetError("test_bytes", None, None, net::Other, message))
+	end
+end
+
+fn endpoint_address(endpoint: net::Endpoint) -> Result<net::Address, net::NetError>
+	match endpoint
+		net::Endpoint(network, text) => match net::split_host_port(text)
+			Ok(parts) => Ok(net::Address(network, parts.host, parts.port))
+			Err(error) => Err(error)
+		end
+	end
+end
+
+fn require_kind(result: Result<net::Stream, net::NetError>, kind: String) -> Result<(), net::NetError>
+	match result
+		Ok(_) => Err(net::NetError("require_kind", None, None, net::Other, "operation unexpectedly succeeded"))
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => if kind == "timeout" Ok(()) else Err(net::NetError("require_kind", None, None, net::Other, "unexpected timeout")) end
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => if kind == "cancelled" Ok(()) else Err(net::NetError("require_kind", None, None, net::Other, "unexpected cancellation")) end
+		Err(error) => Err(error)
+	end
+end
+
+fn require_invalid_resource(result: Result<net::Endpoint, net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::InvalidResource, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("listener_address", None, None, net::Other, "another handler accepted the listener"))
+	end
+end
+
+fn require_connect_failure(result: Result<net::Stream, net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::ConnectionRefused, _)) => Ok(())
+		Err(net::NetError(_, _, _, net::Other, _)) => Ok(())
+		Err(error) => Err(error)
+		Ok(_) => Err(net::NetError("connect", None, None, net::Other, "closed loopback listener accepted a connection"))
+	end
+end
+
+fn blocked_read(stream: net::Stream) -> Result<(), net::NetError> effects [net::IO]
+	match net::read(stream)
+		Ok(_) => Ok(())
+		Err(net::NetError(_, _, _, net::Closed, _)) => Ok(())
+		Err(error) => Err(error)
+	end
+end
+
+fn signalled_blocked_read(context: { stream : net::Stream, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, concurrency]
+	channel::send(context.ready, ())
+	blocked_read(context.stream)
+end
+
+fn require_full_write(outcome: net::WriteOutcome) -> Result<(), net::NetError>
+	match outcome
+		net::Written(net::ByteCount(5)) => Ok(())
+		net::Written(_) => Err(net::NetError("write", None, None, net::Other, "unexpected partial write"))
+		net::WriteFailed(_, error) => Err(error)
+	end
+end
+
+fn require_hello(outcome: net::ReadOutcome) -> Result<(), net::NetError>
+	match outcome
+		net::ReadChunk(observed) => match byte_chunk_to_visible_ascii_string(observed)
+			Ok("hello") => Ok(())
+			_ => Err(net::NetError("read", None, None, net::Other, "unexpected bytes"))
+		end
+		net::ReadEnd => Err(net::NetError("read", None, None, net::Other, "unexpected end"))
+	end
+end
+
+fn require_end(outcome: net::ReadOutcome) -> Result<(), net::NetError>
+	match outcome
+		net::ReadEnd => Ok(())
+		_ => Err(net::NetError("read", None, None, net::Other, "missing peer end"))
+	end
+end
+
+fn require_busy(result: Result<net::ReadOutcome, net::NetError>) -> Result<(), net::NetError>
+	match result
+		Err(net::NetError(_, _, _, net::Busy, _)) => Ok(())
+		_ => Err(net::NetError("read", None, None, net::Other, "same-direction contention was not busy"))
+	end
+end
+
+fn require_closed_join(result: Result<Result<(), net::NetError>, JoinError>) -> Result<(), net::NetError>
+	match result
+		Ok(Ok(())) => Ok(())
+		Ok(Err(error)) => Err(error)
+		Err(_) => Err(net::NetError("join", None, None, net::Other, "blocked read task failed"))
+	end
+end
+
+fn exercise() -> Result<(), net::NetError> effects [net::IO, time, concurrency, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	stdio::println("listen")
+	let local = endpoint_address(net::listener_address(listener)?)?
+	let _ = require_invalid_resource(handle net::listener_address(listener) with net::system())?
+	let expired = time::deadline_after_ms(0)
+	let _ = require_kind(net::accept_with(listener, Some(expired), None), "timeout")?
+	let owner = time::cancel_owner()
+	let token = time::cancel_token_from(owner)
+	time::cancel_owned(owner)
+	let _ = require_kind(net::accept_with(listener, None, Some(token)), "cancelled")?
+	stdio::println("bounded outcomes")
+	let client = net::connect(local)?
+	let server = net::accept(listener)?
+	let _ = require_full_write(net::write(client, bytes("hello")?))?
+	let _ = require_hello(net::read(server)?)?
+	let _ = net::shutdown_write(client)?
+	let _ = require_end(net::read(server)?)?
+	let _ = require_end(net::read(server)?)?
+	stdio::println("duplex")
+	let ready = channel::bounded<()>(1)
+	let pending = task::spawn_with(signalled_blocked_read, { stream: client, ready: ready.tx })
+	let _ = channel::recv(ready.rx)
+	time::timeout_ms(20)
+	let _ = require_busy(net::read(client))?
+	stdio::println("busy")
+	let _ = net::close_stream(client)?
+	let _ = require_closed_join(task::join(pending))?
+	stdio::println("close interruption")
+	let _ = net::close_stream(client)?
+	let _ = net::close_stream(server)?
+	let _ = net::close_listener(listener)?
+	let _ = net::close_listener(listener)?
+	require_connect_failure(net::connect(local))
+end
+
+fn escaped() -> Result<net::Stream, net::NetError> effects [net::IO]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let address = endpoint_address(net::listener_address(listener)?)?
+	let client = net::connect(address)?
+	let _ = net::accept(listener)?
+	Ok(client)
+end
+
+pub fn main() -> Result<(), net::NetError> effects [net, time, concurrency, stdio]
+	let _ = handle exercise() with net::system()?
+	let stream = handle escaped() with net::system()?
+	match handle net::close_stream(stream) with net::system()
+		Err(net::NetError(_, _, _, net::InvalidResource, _)) => Ok(())
+		_ => Err(net::NetError("close_stream", None, None, net::Other, "escaped resource was accepted"))
+	end
+end

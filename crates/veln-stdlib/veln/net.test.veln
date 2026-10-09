@@ -170,6 +170,14 @@ test host_port_rejection_boundaries_are_invalid_addresses() -> Result<(), String
 	end
 end
 
+test system_handler_rejects_invalid_ports_as_typed_failures() -> Result<(), String> effects [net, time]
+	let result = handle net::resolve(net::Address(net::Tcp4, "127.0.0.1", -1)) with net::system()
+	match result
+		Err(net::NetError("resolve", Some(net::Tcp4), Some("127.0.0.1"), net::InvalidAddress, _)) => Ok(())
+		_ => Err("system handler did not return the typed invalid-address failure")
+	end
+end
+
 
 test direct_facade_forwards_address_and_ordinary_failures() -> Result<(), String>
 	let address = net::Address(net::Tcp4, "example.test", 443)

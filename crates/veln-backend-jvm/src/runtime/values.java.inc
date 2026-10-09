@@ -374,6 +374,9 @@
         private final String effect;
         private final java.util.Map<String, Fn> providers;
         private final Object[] context;
+        private boolean networkSystem;
+        private final java.util.List<NetListener> networkListeners = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        private final java.util.List<NetStream> networkStreams = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
         private HandlerFrame(String effect, java.util.Map<String, Fn> providers, Object[] context) {
             this.effect = effect;
@@ -393,8 +396,17 @@
 
     public static Object popHandler() {
         java.util.List<HandlerFrame> stack = HANDLERS.get();
-        stack.remove(stack.size() - 1);
+        HandlerFrame frame = stack.remove(stack.size() - 1);
+        if (frame.networkSystem) cleanupNetworkSystem(frame);
         return UNIT;
+    }
+
+    private static HandlerFrame currentHandlerFrame() {
+        java.util.List<HandlerFrame> stack = HANDLERS.get();
+        if (stack.isEmpty()) throw new IllegalStateException("network system intrinsic used outside a handler");
+        HandlerFrame frame = stack.get(stack.size() - 1);
+        frame.networkSystem = true;
+        return frame;
     }
 
     private static HandlerFrame findHandler(String effect) {

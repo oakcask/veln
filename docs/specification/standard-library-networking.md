@@ -45,6 +45,19 @@ Code compares a `NetError` kind rather than its explanatory message. The pure
 host-port helpers produce `InvalidAddress`. An `IO` handler can return the
 other kinds as ordinary failures.
 
+An application selects the host implementation explicitly:
+
+```veln
+pub fn main() -> Result<(), net::NetError> effects [net, time]
+	handle net::connect(net::Address(net::Tcp, "example.test", 443)) with net::system()
+end
+```
+
+`net::system()` is a public handler for `net::IO` with retained effects
+`[net, time]`. Handling removes `net::IO` and exposes the host network and
+clock boundaries. The fixed effect set also applies when one operation does
+not inspect a deadline.
+
 ## Address Values And Host-port Text
 
 The pure helper signatures are:
@@ -131,6 +144,31 @@ or receives a static missing-effect diagnostic. A runnable entry that retains
 source-defined scoped handler can return ordinary failures and can observe
 arguments that do not require constructing an opaque resource.
 
+The system handler resolves and opens TCP, TCP4, and TCP6 endpoints. Resolution
+preserves the host resolver's preferred order and removes exact duplicate
+endpoints. An empty result is `NameNotFound`. Listen on port zero reports the
+assigned local port. Expected address, resolver, socket, deadline, cancellation,
+and lifecycle failures are returned as `NetError`; an unrecognized host failure
+uses `Other` instead of becoming a runtime diagnostic.
+
+System reads return non-empty `ReadChunk` values. They return `ReadEnd` after
+the peer write half ends and buffered bytes have been consumed; later reads
+remain `ReadEnd`. A write reports the bytes committed by that attempt, including
+a committed prefix on failure. A deadline or cancellation failure leaves an
+otherwise reusable listener or stream open.
+
+Each stream permits one active read and one active write at the same time. A
+second operation in the same direction returns `Busy`. Closing a listener or
+stream interrupts its blocked operations with `Closed`. Read and write shutdown
+affect only the selected half, and close operations are idempotent.
+
+The system handler instance owns every listener and stream it creates. A
+different handler returns `InvalidResource` without changing either handler's
+state. Leaving the handled scope closes every resource still owned by that
+instance, including normal return, propagated failure, and runtime unwind. A
+resource returned from the scope is therefore closed and another handler
+rejects it as `InvalidResource`.
+
 ## Limits And Errors
 
 Both helpers return `Err(NetError(... InvalidAddress ...))` when a port is less
@@ -145,12 +183,12 @@ The helpers do not validate DNS spelling or the internal syntax of an IP
 literal. `Listener` and `Stream` are opaque; source code cannot construct a
 successful resource reference for a fake handler.
 
-The module does not yet export `net::system()`. It does not yet translate host
-failures, implement runtime resource lifecycle rules, or adapt a stream to
-`transport::DuplexStream`. Those behaviors remain in the standard-library
-networking proposal. Until a handler is supplied by the application or test
-boundary, the facade and `write_all` describe authority and composition but
-cannot perform host networking.
+The system handler supports TCP streams only. It does not provide UDP,
+Unix-domain sockets, TLS, HTTP, proxies, packet APIs, file-descriptor conversion,
+or platform-specific socket options. Prompt peer-visible cleanup still requires
+an explicit close; scope cleanup is a safety net. Adapting an owned stream to
+`transport::DuplexStream` and removing the legacy compiler-known network
+compatibility surface remain proposal work.
 
 ## References
 
@@ -163,4 +201,6 @@ exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples
 under `examples/specification/check/` and `examples/specification/run/` cover
 the explicit standard-module identity, nominal effect requirement, and
-unhandled runner boundary.
+unhandled runner boundary. The bounded
+`standard-library-network-system-handler` loopback case covers the system
+handler's typed outcomes, resource transitions, ownership, and cleanup.
