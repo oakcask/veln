@@ -4,6 +4,29 @@ pub(super) fn function_signature(function: &FunctionDecl) -> String {
     veln_syntax::declaration_function_signature(function, true)
 }
 
+pub(super) fn handler_signature(handler: &HandlerDecl) -> String {
+    let params = handler
+        .params
+        .iter()
+        .map(|param| match &param.ty {
+            Some(ty) => format!("{}: {}", param.name, veln_syntax::canonical_type_text(ty)),
+            None => param.name.clone(),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut signature = format!(
+        "handler {}({params}) for {}",
+        handler.name.as_deref().unwrap_or("<anonymous>"),
+        handler.effect.join("::")
+    );
+    if let Some(effects) = &handler.effects {
+        signature.push_str(" effects [");
+        signature.push_str(&effects.join(", "));
+        signature.push(']');
+    }
+    signature
+}
+
 pub(super) fn public_documentation_lines(tree: &veln_syntax::SyntaxTree) -> Vec<usize> {
     let mut lines = Vec::new();
     if let Some(module) = &tree.module {
@@ -30,6 +53,9 @@ pub(super) fn public_documentation_lines(tree: &veln_syntax::SyntaxTree) -> Vec<
                 }
                 SyntaxItem::Effect(effect) if effect.visibility == Visibility::Public => {
                     vec![effect.span.start.line]
+                }
+                SyntaxItem::Handler(handler) if handler.visibility == Visibility::Public => {
+                    vec![handler.span.start.line]
                 }
                 SyntaxItem::Function(function)
                     if function.kind == FunctionKind::Function

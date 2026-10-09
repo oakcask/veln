@@ -119,6 +119,15 @@ impl<'a> PackageDocBuilder<'a> {
                         schema_targets,
                     ));
                 }
+                SyntaxItem::Handler(handler) if handler.visibility == Visibility::Public => {
+                    declarations.push(self.handler_declaration(
+                        source,
+                        handler,
+                        semantic_identities,
+                        declaration_locations,
+                        schema_targets,
+                    ));
+                }
                 SyntaxItem::Function(function)
                     if function.kind == FunctionKind::Function
                         && function.visibility == Visibility::Public =>
@@ -144,6 +153,46 @@ impl<'a> PackageDocBuilder<'a> {
             }
         }
         declarations
+    }
+
+    pub(super) fn handler_declaration(
+        &mut self,
+        source: &ParsedPackageSource,
+        handler: &HandlerDecl,
+        semantic_identities: &mut BTreeMap<String, SourceSpan>,
+        declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
+        schema_targets: &SchemaDocResolver<'_>,
+    ) -> PackageDocDeclaration {
+        let name = handler.name.clone().unwrap_or_default();
+        let signature = handler_signature(handler);
+        let identity = format!("handler:{}::{name}:{signature}", source.module_name);
+        self.record_semantic_identity(&identity, &handler.span, semantic_identities);
+        let declaration_id = self.declaration_id("handler", &identity);
+        record_declaration_location(
+            &source.source,
+            &source.source_uri,
+            declaration_locations,
+            &declaration_id,
+            &handler.span,
+            handler.name.as_deref(),
+        );
+        PackageDocDeclaration {
+            id: declaration_id,
+            kind: "handler".to_string(),
+            name,
+            signature,
+            uri: String::new(),
+            doc: doc_block_before(&source.source, handler.span.start.line),
+            contracts: Vec::new(),
+            constructors: Vec::new(),
+            alias: None,
+            doctests: self.doctests_for(&source.source, handler.span.start.line),
+            references: self.references_for(
+                &source.source,
+                handler.span.start.line,
+                schema_targets,
+            ),
+        }
     }
 
     pub(super) fn type_declaration(

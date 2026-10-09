@@ -14,6 +14,7 @@ contains = [
   "# Type Network",
   "# Function join_host_port",
   "# Effect IO",
+  "# Handler system",
   "[alias Listener]",
   "[alias Stream]",
   "[alias ByteCount]",
@@ -23,9 +24,8 @@ contains = [
   "byte_view_len",
   "\"code\":\"resource_not_found\"",
 ]
-# Integration gate for the exported network module while handler declarations
-# remain outside the package-documentation model: private system intrinsics
-# must not leak into the generated catalog or MCP resources.
+# Integration gate for the exported network module: the public system handler
+# is published while its body and private system intrinsics remain excluded.
 not_contains = ["prelude_builtin::net_system_", "net_system_resolve"]
 
 [stderr]
@@ -94,12 +94,12 @@ contains = "- Package identity: std"
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/fb5740658d174bd6c768cbc47e84e6f92cd8cfa70d3f1bfe6f4770bab508d0d8/documentation/c62e445bf26b161f6d9a33927827ead649ebef24960d256c506118c2cd7dfc6e/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+contains = "veln-doc:///package/std/snapshot/1e2fb30a79feca8eca086ce7780222f16ab44061dd07d5b546c33f3d22a2dc63/documentation/7a1d983d0f57b306e4d38841b843e0fc497c9369f6d2c65327177118bd7ffaa8/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/fb5740658d174bd6c768cbc47e84e6f92cd8cfa70d3f1bfe6f4770bab508d0d8/documentation/c62e445bf26b161f6d9a33927827ead649ebef24960d256c506118c2cd7dfc6e/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+contains = "veln-doc:///package/std/snapshot/1e2fb30a79feca8eca086ce7780222f16ab44061dd07d5b546c33f3d22a2dc63/documentation/7a1d983d0f57b306e4d38841b843e0fc497c9369f6d2c65327177118bd7ffaa8/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 
 [[mcp_assert]]
 id = 5
@@ -109,17 +109,17 @@ contains = "- Source path: prelude.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/fb5740658d174bd6c768cbc47e84e6f92cd8cfa70d3f1bfe6f4770bab508d0d8/documentation/c62e445bf26b161f6d9a33927827ead649ebef24960d256c506118c2cd7dfc6e/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+contains = "veln-doc:///package/std/snapshot/1e2fb30a79feca8eca086ce7780222f16ab44061dd07d5b546c33f3d22a2dc63/documentation/7a1d983d0f57b306e4d38841b843e0fc497c9369f6d2c65327177118bd7ffaa8/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/fb5740658d174bd6c768cbc47e84e6f92cd8cfa70d3f1bfe6f4770bab508d0d8/documentation/c62e445bf26b161f6d9a33927827ead649ebef24960d256c506118c2cd7dfc6e/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+contains = "veln-doc:///package/std/snapshot/1e2fb30a79feca8eca086ce7780222f16ab44061dd07d5b546c33f3d22a2dc63/documentation/7a1d983d0f57b306e4d38841b843e0fc497c9369f6d2c65327177118bd7ffaa8/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/fb5740658d174bd6c768cbc47e84e6f92cd8cfa70d3f1bfe6f4770bab508d0d8/documentation/c62e445bf26b161f6d9a33927827ead649ebef24960d256c506118c2cd7dfc6e/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+contains = "veln-doc:///package/std/snapshot/1e2fb30a79feca8eca086ce7780222f16ab44061dd07d5b546c33f3d22a2dc63/documentation/7a1d983d0f57b306e4d38841b843e0fc497c9369f6d2c65327177118bd7ffaa8/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 
 [[mcp_assert]]
 id = 6
@@ -258,3 +258,43 @@ contains = "resolve(address: Address) -> Result<List<Endpoint>, NetError>"
 id = 16
 path = "/result/contents/0/text"
 contains = "close_stream(stream: Stream) -> Result<(), NetError>"
+
+[[mcp_assert]]
+id = 17
+path = "/result/contents/0/text"
+contains = "# Handler system"
+
+[[mcp_assert]]
+id = 17
+path = "/result/contents/0/text"
+contains = "- Declaration id: 4f9a4f61d83186052f54b164ba8e847e97638ff837b7fa90134c5ae6220e2dd3"
+
+[[mcp_assert]]
+id = 17
+path = "/result/contents/0/text"
+contains = "- Kind: handler"
+
+[[mcp_assert]]
+id = 17
+path = "/result/contents/0/text"
+contains = "- Signature: handler system() for IO effects [net, time]"
+
+[[mcp_assert]]
+id = 17
+path = "/result/contents/0/text"
+contains = "fn resolve_with_system() -> Result<List<Endpoint>, NetError> effects [net, time]"
+
+[[mcp_assert]]
+id = 17
+path = "/result/contents/0/text"
+contains = "fn listen_with_system() -> Result<(), NetError> effects [net, time]"
+
+[[mcp_assert]]
+id = 18
+path = "/result/contents/0/text"
+contains = "# Function write_all"
+
+[[mcp_assert]]
+id = 18
+path = "/result/contents/0/text"
+contains = "Write the complete byte chunk through the active IO handler."

@@ -23,9 +23,6 @@ also states it.
 - Legacy compiler-known network compatibility removal after checked sources
   migrate to the exported standard module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
-- Public handler declarations in package documentation, including the exported
-  `net::system()` handler:
-  [public-handler-package-documentation.md](public-handler-package-documentation.md).
 - Remaining ADT variant-refinement support for alias navigation and
   visibility, qualified immutable values after a separate source-surface
   prerequisite, schema boundaries,

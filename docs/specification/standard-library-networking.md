@@ -307,9 +307,8 @@ The system handler supports TCP streams only. It does not provide UDP,
 Unix-domain sockets, TLS, HTTP, proxies, packet APIs, file-descriptor conversion,
 or platform-specific socket options. Prompt peer-visible cleanup still requires
 an explicit close; scope cleanup is a safety net. Adapting an owned stream to
-`transport::DuplexStream`, publishing public handler declarations in package
-documentation, and removing the legacy compiler-known network compatibility
-surface remain proposal work.
+`transport::DuplexStream` and removing the legacy compiler-known network
+compatibility surface remain proposal work.
 
 ## References
 

@@ -38,6 +38,57 @@ fn checked_bundle_has_closed_identity_and_publication_boundary() {
 }
 
 #[test]
+fn checked_bundle_publishes_system_handler_and_network_neighbors() {
+    let bundle = checked_bundle().unwrap();
+    let net_module = bundle
+        .resources
+        .iter()
+        .find(|resource| resource.title == "Veln package module: net")
+        .unwrap();
+    let system = bundle
+        .resources
+        .iter()
+        .find(|resource| resource.title == "Veln package declaration: handler system")
+        .unwrap();
+    let write_all = bundle
+        .resources
+        .iter()
+        .find(|resource| resource.title == "Veln package declaration: function write_all")
+        .unwrap();
+
+    assert!(net_module.text.contains("[handler system]("));
+    assert!(net_module.text.contains("[effect IO]("));
+    assert!(net_module.text.contains("[function write_all]("));
+    assert!(net_module.text.contains("[type Network]("));
+    assert!(net_module.text.contains("[type NetError]("));
+    assert!(system.text.starts_with("# Handler system\n"));
+    assert!(system.text.contains("- Kind: handler"));
+    assert!(
+        system
+            .text
+            .contains("- Signature: handler system() for IO effects [net, time]")
+    );
+    assert!(system.text.contains("## Doctests"));
+    assert!(system.text.contains("resolve_with_system"));
+    assert!(system.text.contains("listen_with_system"));
+    assert!(write_all.text.starts_with("# Function write_all\n"));
+    assert!(
+        bundle
+            .search_candidates
+            .iter()
+            .any(|candidate| candidate.uri == system.uri
+                && candidate.name == "system"
+                && candidate.signature.as_deref()
+                    == Some("handler system() for IO effects [net, time]"))
+    );
+    assert!(bundle.declaration_locations.iter().any(|location| {
+        location.source_uri.ends_with("/net.veln") && location.declaration_uri == system.uri
+    }));
+    assert!(!checked_artifact_bytes().contains("prelude_builtin::net_system_"));
+    assert!(!checked_artifact_bytes().contains("net_system_resolve"));
+}
+
+#[test]
 fn checked_digest_covers_exact_artifact_bytes() {
     assert_eq!(
         bundle_digest(checked_artifact_bytes().as_bytes()),

@@ -97,31 +97,36 @@ from a `module` declaration. Declaration identity uses declaration kind, fully
 qualified semantic name, and canonical signature. Function declaration
 signatures include effect row binders such as `<effect E>`. Effect declaration
 signatures include the ordered operation names, parameter names and types, and
-result types. Declaration identity does not use source order or source byte
-offsets. A duplicate semantic identity fails the complete package
-documentation result. A detected module or declaration identifier collision
-also fails the complete package documentation result.
+result types. Handler declaration signatures include the handler name and
+parameters, the handled effect, and the retained effect row. Handler operation
+clauses and bodies do not contribute to the signature or identity. Declaration
+identity does not use source order or source byte offsets. A duplicate semantic
+identity fails the complete package documentation result. A detected module or
+declaration identifier collision also fails the complete package documentation
+result.
 
 ## Published Boundary
 
 The successful catalog includes only modules listed by `[lib].exports`. For
 those modules it includes public type declarations, public type constructors,
 public schemas, public effects and their operation signatures, public member
-aliases, public functions, attached documentation comments, public function
-contracts, visible doctest fences, expected-output fences, and resolved schema
-documentation references. Public type constructors carry their own attached
-documentation comments, visible doctest fences, expected-output fences, and
-resolved schema documentation references. An effect is one declaration in the
-catalog; its operations are represented in that declaration's canonical
-signature rather than as separate declarations.
+aliases, public handlers, public functions, attached documentation comments,
+public function contracts, visible doctest fences, expected-output fences, and
+resolved schema documentation references. Each public handler is a distinct
+`handler` declaration with its canonical signature, stable declaration
+identifier, and individually readable declaration resource. Public type
+constructors carry their own attached documentation comments, visible doctest
+fences, expected-output fences, and resolved schema documentation references.
+An effect is one declaration in the catalog; its operations are represented in
+that declaration's canonical signature rather than as separate declarations.
 
-The catalog excludes non-exported modules, private declarations, public handler
-declarations, exact test companions, integration-test sources, hidden doctest
-setup lines, ADR-lite records, raw manifests, dependency declarations,
-dependency selectors, local paths, repository and homepage URLs, tool metadata,
-unknown manifest fields, and environment-derived values. Published
-expected-output fences preserve the stream as `stdout` or `stderr` and the
-complete lines for that stream.
+The catalog excludes non-exported modules, private declarations, handler
+operation clauses and bodies, exact test companions, integration-test sources,
+hidden doctest setup lines, ADR-lite records, raw manifests, dependency
+declarations, dependency selectors, local paths, repository and homepage URLs,
+tool metadata, unknown manifest fields, and environment-derived values.
+Published expected-output fences preserve the stream as `stdout` or `stderr`
+and the complete lines for that stream.
 
 Published package metadata is limited to package identity, manifest package
 name, version, description, license, authors, keywords, and exported module
