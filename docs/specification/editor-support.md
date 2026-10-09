@@ -94,6 +94,10 @@ segment of a qualified or alias-qualified base is a `type` token. The final
 variant is an `enumMember` token. These annotation occurrences are references,
 not synthetic declarations, so they do not receive the `declaration` modifier.
 Nested refinements follow the same rules.
+If an unrelated line exceeds the presentation parse-structure limit, variant
+refinements on the remaining structurally bounded lines keep these semantic
+token classes and modifiers. A constructor expression remains distinct from a
+refinement variant at this boundary.
 
 In an ordinary function, a binding named `callsite` uses the same parameter,
 result, local, or pattern token class and modifiers as any other binding. It is
@@ -779,6 +783,10 @@ The checked
 transcript pins qualified and alias-qualified singleton, union, nested, local,
 and expression-type-argument token classes and modifiers. A non-BMP scalar
 before an expression refinement pins the encoded UTF-16 start ranges.
+The checked
+[`adt-variant-refinement-semantic-token-boundary`](../../examples/specification/lsp/adt-variant-refinement-semantic-token-boundary/)
+transcript pins those classifications when an unrelated expression line
+exceeds the presentation parse-structure limit.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect and
 effect-operation references.
