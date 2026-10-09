@@ -199,7 +199,8 @@ pub const PRESENTATION_PARSE_STRUCTURE_LIMIT: usize = 256;
 pub struct PresentationParseStructure {
     structure: usize,
     delimiter_depth: usize,
-    block_depth: usize,
+    block_stack: Vec<TokenKind>,
+    previous_non_trivia: Option<TokenKind>,
 }
 
 impl PresentationParseStructure {
@@ -212,11 +213,21 @@ impl PresentationParseStructure {
             TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                 self.delimiter_depth = self.delimiter_depth.saturating_sub(1);
             }
-            TokenKind::If | TokenKind::Match | TokenKind::Begin => {
-                self.block_depth += 1;
+            TokenKind::If => {
+                let continues_if = self.previous_non_trivia == Some(TokenKind::Else)
+                    && self.block_stack.last() == Some(&TokenKind::If);
+                if !continues_if {
+                    self.block_stack.push(kind);
+                }
                 self.structure += 1;
             }
-            TokenKind::End => self.block_depth = self.block_depth.saturating_sub(1),
+            TokenKind::Match | TokenKind::Begin => {
+                self.block_stack.push(kind);
+                self.structure += 1;
+            }
+            TokenKind::End => {
+                self.block_stack.pop();
+            }
             TokenKind::Not
             | TokenKind::Minus
             | TokenKind::Tilde
@@ -246,11 +257,14 @@ impl PresentationParseStructure {
             TokenKind::Newline if self.is_top_level() => self.structure = 0,
             _ => {}
         }
+        if !kind.is_trivia() {
+            self.previous_non_trivia = Some(kind);
+        }
         self.structure <= PRESENTATION_PARSE_STRUCTURE_LIMIT
     }
 
     pub fn is_top_level(&self) -> bool {
-        self.delimiter_depth == 0 && self.block_depth == 0
+        self.delimiter_depth == 0 && self.block_stack.is_empty()
     }
 }
 

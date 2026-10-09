@@ -57,6 +57,282 @@ id = 2
 path = "/result/data/233"
 equals = 1
 
+# The first token after the masked over-limit expression starts on the next
+# line, and the following local refinement retains exact token ranges.
+[[lsp_assert]]
+id = 2
+path = "/result/data/2930"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2931"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2946"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2947"
+equals = 6
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2948"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2949"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2966"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2967"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2968"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2969"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2971"
+equals = 6
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2972"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2973"
+equals = 11
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2974"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2976"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2977"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2978"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2979"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2996"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2997"
+equals = 6
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2998"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/2999"
+equals = 0
+
+# The pipe-forward range crosses the non-BMP scalar, so its encoded delta
+# detects byte-counting in place of UTF-16 before the following refinement.
+[[lsp_assert]]
+id = 2
+path = "/result/data/3011"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3012"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3013"
+equals = 11
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3014"
+equals = 0
+
+# Every segment and separator of the post-boundary RHS refinement has an
+# exact UTF-16 delta/length, semantic class, and empty modifier bitset.
+[[lsp_assert]]
+id = 2
+path = "/result/data/3026"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3027"
+equals = 3
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3028"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3029"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3036"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3037"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3038"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3039"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3046"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3047"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3048"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3049"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3051"
+equals = 6
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3052"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3053"
+equals = 11
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3054"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3056"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3057"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3058"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3059"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3066"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3067"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3068"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3069"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3076"
+equals = 2
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3077"
+equals = 6
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3078"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/3079"
+equals = 0
+
 [[lsp_assert]]
 id = 3
 path = "/result"

@@ -116,6 +116,7 @@ fn collector_preserves_variant_refinements_across_presentation_parse_limit() {
     assert_eq!(accepted_prefix, rejected_prefix);
     assert_refinement_prefix(&accepted, &accepted_prefix);
     assert_refinement_prefix(&rejected, &rejected_prefix);
+    assert_post_boundary_refinement(&rejected);
 }
 
 fn assert_boundary_projection_is_bounded(source: &SourceFile) {
@@ -197,10 +198,57 @@ fn assert_refinement_prefix(source: &SourceFile, tokens: &[SemanticToken]) {
     assert_eq!(constructor_ready.modifiers.bits(), 0);
 }
 
+fn assert_post_boundary_refinement(source: &SourceFile) {
+    let annotation_start = source
+        .text()
+        .find("domain::State::Ready | alias::State::Closed = value")
+        .expect("post-boundary local refinement");
+    let expected = [
+        ("domain", SemanticTokenType::Type),
+        ("State", SemanticTokenType::Type),
+        ("Ready", SemanticTokenType::EnumMember),
+        ("|", SemanticTokenType::Operator),
+        ("alias", SemanticTokenType::Type),
+        ("State", SemanticTokenType::Type),
+        ("Closed", SemanticTokenType::EnumMember),
+    ];
+    let tokens = collect_semantic_tokens(source);
+    let mut cursor = annotation_start;
+
+    for (text, token_type) in expected {
+        let relative = source.text()[cursor..]
+            .find(text)
+            .unwrap_or_else(|| panic!("missing post-boundary token `{text}`"));
+        let start = cursor + relative;
+        let end = start + text.len();
+        let token = tokens
+            .iter()
+            .find(|token| token.span.start.offset == start && token.span.end.offset == end)
+            .unwrap_or_else(|| panic!("missing exact token span for `{text}` at {start}..{end}"));
+        assert_eq!(token.kind.token_type, token_type, "token `{text}`");
+        assert_eq!(token.modifiers.bits(), 0, "token `{text}`");
+        assert_eq!(
+            token.span,
+            source.span(veln_source::TextRange::new(start, end)),
+            "token `{text}` must retain its exact source span"
+        );
+        cursor = end;
+    }
+}
+
 fn refinement_boundary_source(operator_count: usize) -> SourceFile {
     let mut text = concat!(
         "fn project(value: domain::State::Ready | alias::State::Closed) -> api::State::Ready\n",
         "  domain::State::Ready(value)\n",
+        "  if first\n",
+        "    0\n",
+        "  else if second\n",
+        "    1\n",
+        "  else if third\n",
+        "    2\n",
+        "  else\n",
+        "    3\n",
+        "  end\n",
         "  (\n",
     )
     .to_string();
@@ -212,6 +260,10 @@ fn refinement_boundary_source(operator_count: usize) -> SourceFile {
         text.push('\n');
         remaining -= line_operators;
     }
-    text.push_str("  )\nend\n");
+    text.push_str(concat!(
+        "  )\n",
+        "  let local: domain::State::Ready | alias::State::Closed = value\n",
+        "end\n",
+    ));
     SourceFile::new("main.veln", text)
 }
