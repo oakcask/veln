@@ -1,0 +1,20 @@
+use observe from "std"
+
+pub fn records(capacity: Int) -> { tx : Sender<Observation>, rx : Receiver<Observation> } effects [concurrency]
+	channel::bounded<Observation>(capacity)
+end
+
+pub handler recording(records: Sender<Observation>) for observe::Observe effects [concurrency]
+	start_span(request) => unavailable_span(request)
+	emit(record) => record_observation(records, record)
+	finish_span(request) => ()
+end
+
+fn unavailable_span(request: SpanRequest) -> Span
+	unavailable_span(request)
+end
+
+fn record_observation(records: Sender<Observation>, record: Observation) -> () effects [concurrency]
+	let _ = channel::send(records, record)
+	()
+end

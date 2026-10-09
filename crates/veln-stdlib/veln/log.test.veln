@@ -1,0 +1,19 @@
+use log
+use observe_test_support_test
+
+test info_emits_one_typed_record_with_user_callsite() -> Result<(), String> effects [concurrency]
+	let records = observe_test_support_test::records(2)
+	let _ = handle log::info(observe_test_support_test::o1_context(), "accepted", observe_test_support_test::o1_attributes()) with observe_test_support_test::recording(records.tx)
+	channel::close(records.tx)
+	match channel::recv(records.rx)
+		Some(record) => if observe_test_support_test::is_o1_info(record, "log.test.veln", 6)
+			match channel::recv(records.rx)
+				None => Ok(())
+				Some(_) => Err("info emitted more than one observation")
+			end
+		else
+			Err("info observation fields changed")
+		end
+		None => Err("info emitted no observation")
+	end
+end

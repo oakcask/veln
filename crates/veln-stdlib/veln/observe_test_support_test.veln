@@ -1,0 +1,43 @@
+use observe
+use prelude
+
+pub fn records(capacity: Int) -> { tx : Sender<Observation>, rx : Receiver<Observation> } effects [concurrency]
+	channel::bounded<Observation>(capacity)
+end
+
+pub fn o1_attributes() -> List<Attribute>
+	list_cons(observe::Attribute("enabled", observe::BoolValue(true)), list_cons(observe::Attribute("attempt", observe::IntValue(3)), list_cons(observe::Attribute("route", observe::StringValue("checkout")), list_nil())))
+end
+
+pub fn o1_context() -> Option<TraceContext>
+	Some(observe::TraceContext("trace-1", "span-2"))
+end
+
+pub fn is_o1_info(record: Observation, expected_file: String, expected_line: Int) -> Bool
+	match record
+		observe::Log(observe::LogRecord("log", observe::Info, "accepted", attributes, Some(observe::TraceContext("trace-1", "span-2")), source)) => has_o1_attributes(attributes) and source.file == expected_file and source.start_line == expected_line
+		_ => false
+	end
+end
+
+fn has_o1_attributes(attributes: List<Attribute>) -> Bool
+	match attributes
+		Cons(observe::Attribute("enabled", observe::BoolValue(true)), Cons(observe::Attribute("attempt", observe::IntValue(3)), Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil))) => true
+		_ => false
+	end
+end
+
+pub handler recording(records: Sender<Observation>) for observe::Observe effects [concurrency]
+	start_span(request) => unavailable_span(request)
+	emit(record) => record_observation(records, record)
+	finish_span(request) => ()
+end
+
+fn unavailable_span(request: SpanRequest) -> Span
+	unavailable_span(request)
+end
+
+fn record_observation(records: Sender<Observation>, record: Observation) -> () effects [concurrency]
+	let _ = channel::send(records, record)
+	()
+end
