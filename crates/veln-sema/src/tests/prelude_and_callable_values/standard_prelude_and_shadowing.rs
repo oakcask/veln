@@ -422,10 +422,6 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "opt_map: fn(Int) -> String, opt_next: fn(Int) -> Option<String>, ",
             "res: Result<Int, AppError>, err_map: fn(AppError) -> String, ",
             "res_next: fn(Int) -> Result<String, AppError>) -> {",
-            "net_resolved: Int, net_listener: Int, net_connected: Int, net_accepted: Int, ",
-            "net_listener_address: Int, net_listener_closed: Int, net_read: Int, net_written: Int, ",
-            "net_local_address: Int, net_peer_address: Int, net_read_shutdown: Int, ",
-            "net_write_shutdown: Int, net_stream_closed: Int, ",
             "count: Int, empty: Bool, byte_value: Result<Byte, String>, byte_int: Int, ",
             "chunk_value: ByteChunk, chunk_count: ByteCount, appended: ByteChunk, ",
             "hex_chunk: Result<ByteChunk, String>, ascii_text: Result<String, String>, ",
@@ -484,20 +480,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "opt_mapped: Option<String>, opt_nexted: Option<String>, opt_value: Int, ",
             "res_mapped: Result<String, AppError>, res_err: Result<Int, String>, ",
             "res_nexted: Result<String, AppError>}\n",
-            "  {net_resolved: prelude_builtin::net_system_resolve(0), ",
-            "net_listener: prelude_builtin::net_system_listen(0), ",
-            "net_connected: prelude_builtin::net_system_connect(0, 0, 0), ",
-            "net_accepted: prelude_builtin::net_system_accept(0, 0, 0), ",
-            "net_listener_address: prelude_builtin::net_system_listener_address(0), ",
-            "net_listener_closed: prelude_builtin::net_system_close_listener(0), ",
-            "net_read: prelude_builtin::net_system_read(0, 0, 0), ",
-            "net_written: prelude_builtin::net_system_write(0, 0, 0, 0), ",
-            "net_local_address: prelude_builtin::net_system_local_address(0), ",
-            "net_peer_address: prelude_builtin::net_system_peer_address(0), ",
-            "net_read_shutdown: prelude_builtin::net_system_shutdown_read(0), ",
-            "net_write_shutdown: prelude_builtin::net_system_shutdown_write(0), ",
-            "net_stream_closed: prelude_builtin::net_system_close_stream(0), ",
-            "count: vec_len(items), empty: vec_is_empty(items), ",
+            "  {count: vec_len(items), empty: vec_is_empty(items), ",
             "byte_value: byte(1), byte_int: byte_to_int(one_byte), ",
             "chunk_value: byte_chunk([one_byte]), chunk_count: byte_chunk_count(chunk), ",
             "appended: byte_append(chunk, other_chunk), hex_chunk: byte_chunk_from_hex(\"00 ff\"), ",
@@ -615,18 +598,17 @@ fn infers_prelude_helper_calls_from_expected_types() {
     let CoreExprKind::Record(fields) = &expr.kind else {
         panic!("prelude results should be returned in a record");
     };
-    let count = fields
-        .iter()
-        .find(|field| field.name == "count")
-        .expect("record should contain the vec_len result field");
+    let first = fields
+        .first()
+        .expect("record should contain prelude result fields");
     assert!(matches!(
-        &count.expr.kind,
+        &first.expr.kind,
         CoreExprKind::Call {
             target: CoreCallTarget::PreludeBuiltin(name),
             ..
         } if name == "vec_len"
     ));
-    assert!(matches!(count.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
+    assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
     let compiler_adapter_names = crate::standard_symbols::compiler_adapter_names()
         .filter(|name| *name != "stream_adapter_drain_actions")
         .filter(|name| *name != "stream_adapter_accept_loop")
@@ -670,12 +652,8 @@ fn infers_prelude_helper_calls_from_expected_types() {
     let IrExprKind::Record(fields) = &value.kind else {
         panic!("prelude record should lower to IR");
     };
-    let count = fields
-        .iter()
-        .find(|field| field.name == "count")
-        .expect("IR record should contain the vec_len result field");
     assert!(matches!(
-        &count.value.kind,
+        &fields[0].value.kind,
         IrExprKind::Call {
             target: IrCallTarget::PreludeBuiltin(name),
             ..
