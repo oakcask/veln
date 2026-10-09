@@ -420,7 +420,7 @@ Match         ::= "match" Expr NL MatchArm+ "end"
 MatchArm      ::= Pattern "=>" Expr NL
 If            ::= "if" Expr NL Expr NL ElseIf* "else" NL Expr NL "end"
 ElseIf        ::= "else" "if" Expr NL Expr NL
-Pattern       ::= "_" | "()" | BindingName | Literal | ConstructorPattern | RecordPattern
+Pattern       ::= "_" | BindingName | Literal | ConstructorPattern | RecordPattern
 ConstructorPattern ::= ConstructorName "(" PatternList? ")" | ConstructorName
 ConstructorName ::= UpperName | Name "::" Name ("::" Name)*
 RecordPattern ::= "{" PatternFieldList? "}"

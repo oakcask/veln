@@ -20,7 +20,7 @@ implemented `net::system()` ownership or TCP lifecycle contract.
 
 | Input or event | Required observation | Intended evidence |
 | --- | --- | --- |
-| The exported `std::net` module is rendered as package documentation | The catalog and MCP declaration resource include `net::system()` with its canonical handler signature and exclude private host adapters | package-documentation gate and checked standard-library resource bundle |
+| The exported `std::net` module is rendered as package documentation | The catalog and MCP declaration resource include `net::system()`, its canonical handler signature, and its effectful examples alongside the surrounding public `net` declarations and `write_all`; neither output includes private host adapters | package-documentation gate and checked standard-library resource bundle covering the handler declaration, examples, neighboring network API, complete-write helper, and private-declaration exclusion |
 
 The current
 [package-documentation specification](../specification/package-documentation.md#published-boundary)

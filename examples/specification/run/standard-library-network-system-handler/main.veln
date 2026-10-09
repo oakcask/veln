@@ -294,13 +294,27 @@ fn blocked_read_closed(context: { stream : net::Stream, ready : Sender<()> }) ->
 	end
 end
 
+fn exercise_nested_handler(outer_listener: net::Listener) -> Result<(), net::NetError> effects [net::IO, time]
+	let _ = require_invalid_resource(net::listener_address(outer_listener))?
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let address = endpoint_address(net::listener_address(listener)?)?
+	let client = net::connect_with(address, Some(time::deadline_after_ms(1000)), None)?
+	let server = net::accept_with(listener, Some(time::deadline_after_ms(1000)), None)?
+	let _ = require_full_write(net::write_with(client, bytes("hello")?, Some(time::deadline_after_ms(1000)), None))?
+	let _ = require_hello(net::read_with(server, Some(time::deadline_after_ms(1000)), None)?)?
+	let _ = net::close_stream(client)?
+	let _ = net::close_stream(server)?
+	net::close_listener(listener)
+end
+
 fn exercise() -> Result<(), net::NetError> effects [net::IO, net, time, concurrency, stdio]
 	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
 	stdio::println("listen")
 	let local = endpoint_address(net::listener_address(listener)?)?
 	let _ = require_address_in_use(net::listen(local))?
 	let _ = handle nested_listener_address(listener) with marker()?
-	let _ = require_invalid_resource(handle net::listener_address(listener) with net::system())?
+	let _ = handle exercise_nested_handler(listener) with net::system()?
+	let _ = net::listener_address(listener)?
 	let expired = time::deadline_after_ms(0)
 	let _ = require_kind(net::connect_with(local, Some(expired), None), "timeout")?
 	let _ = require_kind(net::accept_with(listener, Some(expired), None), "timeout")?

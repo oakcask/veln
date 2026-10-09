@@ -43,6 +43,72 @@ handler retrying_close_system_network(calls: { tx : Sender<Int>, rx : Receiver<I
 	request(operation, subject, bytes, remaining_ms, cancelled) => retrying_close_system_network_reply(calls, operation, subject)
 end
 
+handler stalled_system_resolver(ready: Sender<()>, release: Receiver<()>) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4" and subject == "stalled.test"
+		begin
+			let _ = channel::send(ready, ())
+			let _ = channel::recv(release)
+			system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.60" }, list_nil()), 0, "", 0, "")
+		end
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected stalled resolver request")
+	end
+end
+
+handler cancelling_stalled_system_resolver(owner: CancelOwner, ready: Sender<()>, release: Receiver<()>) for host_effects::Network effects [time, concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4" and subject == "stalled.test"
+		begin
+			let _ = channel::send(ready, ())
+			time::cancel_owned(owner)
+			let _ = channel::recv(release)
+			system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.60" }, list_nil()), 0, "", 0, "")
+		end
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected cancelling resolver request")
+	end
+end
+
+handler commit_cancelling_system_network(owner: CancelOwner) for host_effects::Network effects [time]
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4" and subject == "commit.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.61" }, list_nil()), 0, "", 0, "")
+	else if operation == "connect" and subject == "192.0.2.61:443"
+		begin
+			time::cancel_owned(owner)
+			system_network_success("committed-stream", "192.0.2.62:50000", "192.0.2.61:443")
+		end
+	else if operation == "close_stream" and subject == "committed-stream"
+		system_network_success("", "", "")
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected commit request")
+	end
+end
+
+handler ordered_deduplicated_system_network(attempts: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4" and subject == "ordered.test"
+		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "192.0.2.70" }, list_cons({ network: "tcp4", address: "192.0.2.70" }, list_cons({ network: "tcp4", address: "192.0.2.71" }, list_nil()))), 0, "", 0, "")
+	else if operation == "connect" and subject == "192.0.2.70:443"
+		match channel::recv(attempts.rx)
+			Some(0) => begin
+				let _ = channel::send(attempts.tx, 1)
+				system_network_reply("error", "", "", "", list_nil(), 0, "connection_refused", 0, "first endpoint refused")
+			end
+			_ => system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "first endpoint was retried or reordered")
+		end
+	else if operation == "connect" and subject == "192.0.2.71:443"
+		match channel::recv(attempts.rx)
+			Some(1) => begin
+				let _ = channel::send(attempts.tx, 2)
+				system_network_success("ordered-stream", "192.0.2.72:50000", "192.0.2.71:443")
+			end
+			_ => system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "second endpoint was attempted out of order")
+		end
+	else if operation == "close_stream" and subject == "ordered-stream"
+		system_network_success("", "", "")
+	else
+		system_network_reply("error", "", "", "", list_nil(), 0, "invalid_input", 0, "unexpected ordered-connect request")
+	end
+end
+
 fn retrying_close_system_network_reply(calls: { tx : Sender<Int>, rx : Receiver<Int> }, operation: String, subject: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
 	if operation == "resolve_tcp4" and subject == "127.0.0.1"
 		system_network_reply("ok", "", "", "", list_cons({ network: "tcp4", address: "127.0.0.1" }, list_nil()), 0, "", 0, "")
@@ -336,6 +402,37 @@ end
 fn system_connect_and_close(address: net::Address) -> Result<(), net::NetError> effects [net::IO]
 	let stream = net::connect(address)?
 	net::close_stream(stream)
+end
+
+fn system_connect_with_controls(deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<net::Stream, net::NetError> effects [net::IO]
+	net::connect_with(net::Address(net::Tcp4, "stalled.test", 443), deadline, token)
+end
+
+fn system_connect_after_commit(token: CancelToken) -> Result<(), net::NetError> effects [net::IO]
+	let stream = net::connect_with(net::Address(net::Tcp4, "commit.test", 443), None, Some(token))?
+	net::close_stream(stream)
+end
+
+fn system_stalled_connect_task(context: { ready : Sender<()>, release : Receiver<()> }) -> Result<net::Stream, net::NetError> effects [net, time, concurrency]
+	handle handle system_connect_with_controls(None, None) with net::system() with stalled_system_resolver(context.ready, context.release)
+end
+
+fn system_ordered_connect_and_close_body() -> Result<(), net::NetError> effects [net::IO, time]
+	let stream = net::connect_with(net::Address(net::Tcp4, "ordered.test", 443), Some(time::deadline_after_ms(1000)), None)?
+	net::close_stream(stream)
+end
+
+fn system_ordered_connect_and_close() -> Result<Int, String> effects [net, time, concurrency]
+	let attempts = channel::bounded<Int>(1)
+	let _ = channel::send(attempts.tx, 0)
+	let result = handle handle system_ordered_connect_and_close_body() with net::system() with ordered_deduplicated_system_network(attempts)
+	match result
+		Ok(()) => match channel::recv(attempts.rx)
+			Some(count) => Ok(count)
+			None => Err("ordered connect attempt count was unavailable")
+		end
+		Err(_) => Err("ordered connect failed")
+	end
 end
 
 fn system_background_write(stream: net::Stream) -> net::WriteOutcome effects [net::IO]
@@ -660,6 +757,93 @@ test system_handler_resolves_and_operates_tcp_tcp4_and_tcp6() -> Result<(), Stri
 			Err(_) => Err("TCP4 system operation failed")
 		end
 		Err(_) => Err("TCP system operation failed")
+	end
+end
+
+test system_connect_deadline_bounds_a_stalled_injected_resolver() -> Result<(), String> effects [net, time, concurrency]
+	let ready = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let result = handle handle system_connect_with_controls(Some(time::deadline_after_ms(30)), None) with net::system() with stalled_system_resolver(ready.tx, release.rx)
+	let started: Option<()> = channel::recv(ready.rx)
+	let _ = channel::send(release.tx, ())
+	match started
+		Some(_) => match result
+			Err(net::NetError("connect", Some(net::Tcp4), Some("stalled.test"), net::TimedOut, _)) => Ok(())
+			_ => Err("connect deadline did not bound stalled resolution")
+		end
+		None => Err("stalled deadline resolver did not begin")
+	end
+end
+
+test system_connect_observes_expired_controls_before_resolution() -> Result<(), String> effects [net, time]
+	let result = handle handle net::connect_with(net::Address(net::Tcp4, "precontrol.test", 443), Some(time::deadline_after_ms(0)), None) with net::system() with scripted_system_network("no-resolution")
+	match result
+		Err(net::NetError("connect", Some(net::Tcp4), Some("precontrol.test"), net::TimedOut, _)) => Ok(())
+		_ => Err("connect did not observe an expired deadline before resolution")
+	end
+end
+
+test system_connect_observes_cancelled_controls_before_resolution() -> Result<(), String> effects [net, time]
+	let owner = time::cancel_owner()
+	let token = time::cancel_token_from(owner)
+	time::cancel_owned(owner)
+	let result = handle handle net::connect_with(net::Address(net::Tcp4, "precontrol.test", 443), None, Some(token)) with net::system() with scripted_system_network("no-resolution")
+	match result
+		Err(net::NetError("connect", Some(net::Tcp4), Some("precontrol.test"), net::Cancelled, _)) => Ok(())
+		_ => Err("connect did not observe cancellation before resolution")
+	end
+end
+
+test system_connect_cancellation_bounds_a_stalled_injected_resolver() -> Result<(), String> effects [net, time, concurrency]
+	let ready = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let owner = time::cancel_owner()
+	let token = time::cancel_token_from(owner)
+	let result = handle handle system_connect_with_controls(None, Some(token)) with net::system() with cancelling_stalled_system_resolver(owner, ready.tx, release.rx)
+	let started: Option<()> = channel::recv(ready.rx)
+	let _ = channel::send(release.tx, ())
+	match started
+		Some(_) => match result
+			Err(net::NetError("connect", Some(net::Tcp4), Some("stalled.test"), net::Cancelled, _)) => Ok(())
+			_ => Err("connect cancellation did not bound stalled resolution")
+		end
+		None => Err("stalled cancellation resolver did not begin")
+	end
+end
+
+test system_connect_success_is_committed_before_a_late_control_observation() -> Result<(), String> effects [net, time]
+	let owner = time::cancel_owner()
+	let token = time::cancel_token_from(owner)
+	match handle handle system_connect_after_commit(token) with net::system() with commit_cancelling_system_network(owner)
+		Ok(_) => Ok(())
+		Err(_) => Err("connect success was replaced after establishment")
+	end
+end
+
+test system_connect_preserves_endpoint_order_and_exact_deduplication() -> Result<(), String> effects [net, time, concurrency]
+	match system_ordered_connect_and_close()
+		Ok(2) => Ok(())
+		_ => Err("connect did not preserve resolver order with exact endpoint deduplication")
+	end
+end
+
+test system_connect_observes_parent_task_cancellation_during_resolution() -> Result<(), String> effects [net, time, concurrency]
+	let ready = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let worker = task::spawn_with(system_stalled_connect_task, { ready: ready.tx, release: release.rx })
+	let started: Option<()> = channel::recv(ready.rx)
+	task::cancel(worker)
+	let _ = channel::send(release.tx, ())
+	match started
+		Some(_) => match task::join(worker)
+			Err(error) => if task::join_error_is_cancelled(error)
+				Ok(())
+			else
+				Err("cancelled connect task reported a non-cancellation join error")
+			end
+			Ok(_) => Err("cancelled connect task completed normally")
+		end
+		None => Err("stalled task-cancellation resolver did not begin")
 	end
 end
 

@@ -1,25 +1,38 @@
 public final class NetworkSystemLifecycleHarness {
     private static final Class<?> HANDLER_FRAME;
+    private static final Class<?> NET_LISTENER;
     private static final Class<?> NET_STREAM;
     private static final java.lang.reflect.Constructor<?> HANDLER_CONSTRUCTOR;
+    private static final java.lang.reflect.Constructor<?> LISTENER_CONSTRUCTOR;
     private static final java.lang.reflect.Constructor<?> STREAM_CONSTRUCTOR;
     private static final java.lang.reflect.Method REGISTER_STREAM;
     private static final java.lang.reflect.Method CLEANUP;
     private static final java.lang.reflect.Method FINISH_CONNECT;
     private static final java.lang.reflect.Method PARSE_SOCKET_ADDRESS;
     private static final java.lang.reflect.Method FORMAT_SOCKET_ADDRESS;
+    private static final java.lang.reflect.Method ACCEPT_HOST;
+    private static final java.lang.reflect.Method READ_HOST;
     private static final java.lang.reflect.Field INVOKED_HANDLER;
     private static final java.lang.reflect.Field NETWORK_RESOURCES;
     private static final java.lang.reflect.Field SYSTEM_OWNER;
+    private static final java.lang.reflect.Field READINESS_REGISTRATIONS;
+    private static final java.lang.reflect.Field READ_BUFFER_ALLOCATIONS;
 
     static {
         try {
             HANDLER_FRAME = Class.forName("VelnRuntime$HandlerFrame");
+            NET_LISTENER = Class.forName("VelnRuntime$NetListener");
             NET_STREAM = Class.forName("VelnRuntime$NetStream");
             HANDLER_CONSTRUCTOR = HANDLER_FRAME.getDeclaredConstructor(
                 String.class,
                 java.util.Map.class,
                 Object[].class
+            );
+            LISTENER_CONSTRUCTOR = NET_LISTENER.getDeclaredConstructor(
+                String.class,
+                String.class,
+                java.nio.channels.ServerSocketChannel.class,
+                HANDLER_FRAME
             );
             STREAM_CONSTRUCTOR = NET_STREAM.getDeclaredConstructor(
                 String.class,
@@ -48,20 +61,45 @@ public final class NetworkSystemLifecycleHarness {
                 "formatSocketAddress",
                 java.net.SocketAddress.class
             );
+            ACCEPT_HOST = VelnRuntime.class.getDeclaredMethod(
+                "acceptHost",
+                NET_LISTENER,
+                Object.class,
+                Object.class,
+                String.class
+            );
+            READ_HOST = VelnRuntime.class.getDeclaredMethod(
+                "readHost",
+                NET_STREAM,
+                Object.class,
+                Object.class,
+                String.class
+            );
             INVOKED_HANDLER = VelnRuntime.class.getDeclaredField("INVOKED_HANDLER");
             NETWORK_RESOURCES = HANDLER_FRAME.getDeclaredField("networkResources");
             SYSTEM_OWNER = NET_STREAM.getDeclaredField("systemOwner");
+            READINESS_REGISTRATIONS = VelnRuntime.class.getDeclaredField(
+                "SOCKET_READINESS_REGISTRATIONS"
+            );
+            READ_BUFFER_ALLOCATIONS = VelnRuntime.class.getDeclaredField(
+                "NET_READ_BUFFER_ALLOCATIONS"
+            );
             for (java.lang.reflect.AccessibleObject member : new java.lang.reflect.AccessibleObject[] {
                 HANDLER_CONSTRUCTOR,
+                LISTENER_CONSTRUCTOR,
                 STREAM_CONSTRUCTOR,
                 REGISTER_STREAM,
                 CLEANUP,
                 FINISH_CONNECT,
                 PARSE_SOCKET_ADDRESS,
                 FORMAT_SOCKET_ADDRESS,
+                ACCEPT_HOST,
+                READ_HOST,
                 INVOKED_HANDLER,
                 NETWORK_RESOURCES,
-                SYSTEM_OWNER
+                SYSTEM_OWNER,
+                READINESS_REGISTRATIONS,
+                READ_BUFFER_ALLOCATIONS
             }) {
                 member.setAccessible(true);
             }
@@ -204,11 +242,85 @@ public final class NetworkSystemLifecycleHarness {
         }
     }
 
+    private static long counter(java.lang.reflect.Field field) throws Exception {
+        return ((java.util.concurrent.atomic.AtomicLong) field.get(null)).get();
+    }
+
+    private static void verifyIdleAcceptReusesReadinessState() throws Exception {
+        java.nio.channels.ServerSocketChannel server = java.nio.channels.ServerSocketChannel.open();
+        try {
+            server.configureBlocking(false);
+            server.bind(new java.net.InetSocketAddress(
+                java.net.InetAddress.getByName("127.0.0.1"),
+                0
+            ));
+            String local = server.getLocalAddress().toString();
+            Object listener = LISTENER_CONSTRUCTOR.newInstance(local, local, server, null);
+            long registrationsBefore = counter(READINESS_REGISTRATIONS);
+            ACCEPT_HOST.invoke(
+                null,
+                listener,
+                Long.valueOf(System.nanoTime() + 55000000L),
+                null,
+                "accept"
+            );
+            long registrations = counter(READINESS_REGISTRATIONS) - registrationsBefore;
+            if (registrations != 1L) {
+                throw new AssertionError(
+                    "idle accept recreated readiness state: registrations=" + registrations
+                );
+            }
+        } finally {
+            server.close();
+        }
+    }
+
+    private static void verifyIdleReadReusesOperationState() throws Exception {
+        java.nio.channels.ServerSocketChannel listener = java.nio.channels.ServerSocketChannel.open();
+        java.nio.channels.SocketChannel client = java.nio.channels.SocketChannel.open();
+        java.nio.channels.SocketChannel peer = null;
+        try {
+            listener.bind(new java.net.InetSocketAddress(
+                java.net.InetAddress.getByName("127.0.0.1"),
+                0
+            ));
+            client.connect((java.net.InetSocketAddress) listener.getLocalAddress());
+            peer = listener.accept();
+            client.configureBlocking(false);
+            Object stream = newStream(client, 8000);
+            long registrationsBefore = counter(READINESS_REGISTRATIONS);
+            long buffersBefore = counter(READ_BUFFER_ALLOCATIONS);
+            READ_HOST.invoke(
+                null,
+                stream,
+                Long.valueOf(System.nanoTime() + 55000000L),
+                null,
+                "read"
+            );
+            long registrations = counter(READINESS_REGISTRATIONS) - registrationsBefore;
+            long buffers = counter(READ_BUFFER_ALLOCATIONS) - buffersBefore;
+            if (registrations != 1L || buffers != 1L) {
+                throw new AssertionError(
+                    "idle read recreated operation state: registrations="
+                        + registrations
+                        + ", buffers="
+                        + buffers
+                );
+            }
+        } finally {
+            if (peer != null) peer.close();
+            client.close();
+            listener.close();
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         verifyConnectCommitOrdering();
         verifyIpv6EndpointTextIsBracketedAndParseable();
         verifyIdentityLedgerExplicitCloseAndDetach();
         verifyInheritedChildRegistrationIsCleaned();
+        verifyIdleAcceptReusesReadinessState();
+        verifyIdleReadReusesOperationState();
         System.out.println("network system lifecycle invariants held");
     }
 }
