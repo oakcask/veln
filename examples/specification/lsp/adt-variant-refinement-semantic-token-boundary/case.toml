@@ -1,0 +1,63 @@
+# This fixture exercises the public stdio LSP projection independently of
+# standard-library behavior.
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/semanticTokensProvider/full"
+equals = true
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/47"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/48"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/53"
+equals = 11
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/58"
+equals = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/78"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/121"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/158"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/163"
+equals = 11
+
+[[lsp_assert]]
+id = 2
+path = "/result/data/233"
+equals = 1
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+equals = null

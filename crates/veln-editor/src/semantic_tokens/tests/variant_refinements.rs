@@ -100,3 +100,89 @@ fn collector_keeps_constructor_expressions_distinct_from_refinement_variants() {
             .all(|(_, _, modifiers)| { *modifiers == SemanticTokenModifiers::empty().bits() })
     );
 }
+
+#[test]
+fn collector_preserves_variant_refinements_across_presentation_parse_limit() {
+    let sources = [
+        refinement_boundary_source(veln_syntax::PRESENTATION_PARSE_STRUCTURE_LIMIT),
+        refinement_boundary_source(veln_syntax::PRESENTATION_PARSE_STRUCTURE_LIMIT + 1),
+    ];
+    assert!(presentation_parse_structure_is_bounded(
+        &lex(&sources[0]).tokens
+    ));
+    let rejected_tokens = lex(&sources[1]).tokens;
+    assert!(!presentation_parse_structure_is_bounded(&rejected_tokens));
+    let projected = bounded_variant_refinement_projection(&sources[1], &rejected_tokens)
+        .expect("rejected expression line has a bounded presentation projection");
+    assert!(presentation_parse_structure_is_bounded(
+        &lex(&projected).tokens
+    ));
+
+    let prefix_end = sources[0].text().find("  0 +").expect("stress expression");
+    let prefixes = sources.iter().map(|source| {
+        collect_semantic_tokens(source)
+            .into_iter()
+            .filter(|token| token.span.end.offset <= prefix_end)
+            .collect::<Vec<_>>()
+    });
+    let prefixes = prefixes.collect::<Vec<_>>();
+    assert_eq!(prefixes[0], prefixes[1]);
+
+    let expected = [
+        ("domain", SemanticTokenType::Type),
+        ("State", SemanticTokenType::Type),
+        ("Ready", SemanticTokenType::EnumMember),
+        ("|", SemanticTokenType::Operator),
+        ("alias", SemanticTokenType::Type),
+        ("State", SemanticTokenType::Type),
+        ("Closed", SemanticTokenType::EnumMember),
+        ("api", SemanticTokenType::Type),
+        ("State", SemanticTokenType::Type),
+        ("Ready", SemanticTokenType::EnumMember),
+    ];
+    for tokens in &prefixes {
+        let projected = tokens
+            .iter()
+            .filter_map(|token| {
+                let text = &sources[0].text()[token.span.start.offset..token.span.end.offset];
+                expected
+                    .iter()
+                    .any(|(expected, _)| *expected == text)
+                    .then_some((text, token.kind.token_type, token.modifiers.bits()))
+            })
+            .take(expected.len())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            projected,
+            expected
+                .iter()
+                .map(|(text, token_type)| (*text, *token_type, 0))
+                .collect::<Vec<_>>()
+        );
+
+        let constructor_ready = tokens
+            .iter()
+            .filter(|token| {
+                &sources[0].text()[token.span.start.offset..token.span.end.offset] == "Ready"
+            })
+            .nth(2)
+            .expect("constructor variant token");
+        assert_ne!(
+            constructor_ready.kind.token_type,
+            SemanticTokenType::EnumMember
+        );
+        assert_eq!(constructor_ready.modifiers.bits(), 0);
+    }
+}
+
+fn refinement_boundary_source(operator_count: usize) -> SourceFile {
+    let mut text = concat!(
+        "fn project(value: domain::State::Ready | alias::State::Closed) -> api::State::Ready\n",
+        "  domain::State::Ready(value)\n",
+        "  0",
+    )
+    .to_string();
+    text.push_str(&" + 0".repeat(operator_count));
+    text.push_str("\nend\n");
+    SourceFile::new("main.veln", text)
+}

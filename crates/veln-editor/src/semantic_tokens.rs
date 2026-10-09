@@ -169,6 +169,13 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
     let mut classifier = Classifier::new(source, &tokens, function_names);
     let mut semantic_tokens = classifier.collect();
     if !presentation_parse_structure_is_bounded(&tokens) {
+        if let Some(projected) = bounded_variant_refinement_projection(source, &tokens) {
+            let parsed = parse(&projected);
+            variant_refinements::apply_variant_refinement_classification(
+                &parsed.tree,
+                &mut semantic_tokens,
+            );
+        }
         return semantic_tokens;
     }
 
@@ -180,6 +187,37 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
     let callsite_context = collect_callsite_context(&tokens, &parsed.tree);
     callsite_context.apply(source, &mut semantic_tokens);
     semantic_tokens
+}
+
+fn bounded_variant_refinement_projection(
+    source: &SourceFile,
+    tokens: &[Token],
+) -> Option<SourceFile> {
+    let mut projected = source.text().as_bytes().to_vec();
+    let mut token_line_start = 0usize;
+    let mut source_line_start = 0usize;
+    let mut masked_line = false;
+
+    for (index, token) in tokens.iter().enumerate() {
+        if !matches!(token.kind, TokenKind::Newline | TokenKind::Eof) {
+            continue;
+        }
+        if !presentation_parse_structure_is_bounded(&tokens[token_line_start..index]) {
+            projected[source_line_start..token.range.start].fill(b' ');
+            masked_line = true;
+        }
+        token_line_start = index + 1;
+        source_line_start = token.range.end;
+    }
+
+    if !masked_line {
+        return None;
+    }
+    let projected = SourceFile::new(
+        source.path().clone(),
+        String::from_utf8(projected).expect("space-masked source remains UTF-8"),
+    );
+    presentation_parse_structure_is_bounded(&lex(&projected).tokens).then_some(projected)
 }
 
 struct CallsiteContext {
