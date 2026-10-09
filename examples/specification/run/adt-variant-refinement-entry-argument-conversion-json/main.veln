@@ -1,0 +1,14 @@
+type State
+	Ready
+	Closed
+end
+
+fn needs_ready(value: State::Ready) -> State::Ready
+	value
+end
+
+pub fn main(value: Int) -> Int effects [stdio]
+	stdio::println("forbidden")
+	needs_ready(Closed)
+	value
+end

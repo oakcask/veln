@@ -22,8 +22,10 @@ exactly `true` or `false`.
 
 A final variadic parameter may use those element types and gathers additional
 arguments into `List<T>`. Non-variadic entries require exact arity;
-variadic entries require at least their fixed parameter count. Conversion or
-arity failure blocks execution before user code.
+variadic entries require at least their fixed parameter count. An arity,
+unsupported parameter type, or conversion failure blocks execution before
+reachable lowering and user code. These failures use the human stderr form
+even when `--json` is present; they do not produce a run JSON envelope.
 
 ## Analysis and execution gates
 
@@ -38,7 +40,9 @@ unreachable local function does not block the selected entry.
 Variant-refinement errors inside that existing analysis boundary block backend
 launch, including errors for which recovery retains a type or constructor
 identity. Human and JSON output derive the diagnostic code, details, primary
-span, and related notes from the same diagnostic.
+span, and related notes from the same diagnostic. Entry resolution and argument
+validation gate reachable lowering, so an invalid invocation reports its entry
+or argument failure before a reachable refinement error.
 
 A reachable `begin` expression or `defer` statement proceeds through
 checked-core and typed-IR readiness and executes through the JVM backend. Its

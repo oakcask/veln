@@ -3,6 +3,7 @@ type State
 	Closed
 end
 
-pub fn main(value: State::Missing) -> ()
+pub fn main() -> ()
+	let value: State::Missing = Ready
 	()
 end
