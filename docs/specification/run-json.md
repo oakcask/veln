@@ -123,13 +123,14 @@ categories:
 | Condition | `category` |
 | --- | --- |
 | Host name lookup fails | `name_not_found` |
-| A local address cannot be bound because it is in use | `address_in_use` |
+| A host-local address cannot be bound because it is in use | `address_in_use` |
 | A connection attempt is refused | `connection_refused` |
 | A connected socket is reset | `connection_reset` |
 | A socket operation times out | `timed_out` |
 | A channel is closed or a socket reports closure or shutdown | `closed` |
 | Host access is denied | `permission_denied` |
 | Endpoint text is invalid | `invalid_endpoint` |
+| A bind address is not assigned to the host | `io_failure` |
 | Injected transport input is malformed | `invalid_input` |
 | Recording an injected network event fails | `event_record_failed` |
 | A transport reports clean end where the operation requires data | `end_of_stream` |

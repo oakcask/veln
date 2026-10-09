@@ -30,6 +30,13 @@ cancellation stops the waiting system-handler call before join reports
 cancellation. A platform resolver that ignores interruption can remain active
 within the handler's finite resolver capacity.
 
+If network-handler cleanup cannot confirm that every retained resource is
+closed, leaving the handled scope produces a cleanup failure after attempting
+the owner's other resources. That failure becomes primary after a successful
+body. If a contract failure, runtime failure, or cancellation is already
+primary, it remains primary and the network-handler cleanup failure is attached
+as a related cleanup failure while unwinding continues.
+
 Semantic diagnostics must be error-free before the compiler produces checked
 core and typed IR. Command analysis checks readiness for the selected entry
 before applying command-specific execution or write policy. Holes, missing
