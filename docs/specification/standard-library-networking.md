@@ -264,6 +264,14 @@ A stream tracks its read and write halves independently:
 | Both halves closed | `close_stream` | Both halves stay closed and the call returns `Ok(())`. |
 | Any | Another handler uses the stream | The stream does not change and the operation returns `InvalidResource`. |
 
+Close and shutdown uncertainty is monotonic. After an operation reports an
+unknown commit state, a retry that fails before committing does not restore the
+resource or half to its earlier open state. Ordinary operations continue to
+return `Closed`, the cleanup obligation remains, and another explicit retry is
+allowed. A successful retry or a failure that confirms the close or shutdown
+commit moves the affected state to confirmed closed or shut. Later close or
+shutdown calls then succeed idempotently.
+
 The system handler instance owns every listener and stream it creates. A
 different handler returns `InvalidResource` without changing either handler's
 state. Leaving the handled scope closes every resource still owned by that
@@ -309,7 +317,8 @@ The exported implementation and companion tests are in
 `crates/veln-stdlib/veln/net.veln` and
 `crates/veln-stdlib/veln/net.test.veln`. The companion tests cover the values
 that source code can construct, `write_all`, scoped resolution and failure
-translation, exact write progress, concurrency, and interruption decisions.
+translation, exact write progress, concurrency, interruption decisions, and
+lifecycle uncertainty across retries.
 The JVM backend effect-injection tests use separate Veln test support to
 exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples
@@ -323,4 +332,7 @@ peer-observed listener and stream cleanup after normal return, propagated
 failure, and runtime unwind. Same-direction `Busy` observations establish that
 the interrupted accept, read, and backpressured write operations are in flight.
 The JVM lifecycle harness also checks that resource creation racing with scope
-cleanup cannot publish a listener or stream after its owner closes.
+cleanup cannot publish a listener or stream after its owner closes and that an
+uncommitted retry does not clear earlier lifecycle uncertainty. The focused
+effect-injection case checks that a cleanup failure during propagated-result
+unwind still runs enclosing deferred cleanup and restores enclosing handlers.
