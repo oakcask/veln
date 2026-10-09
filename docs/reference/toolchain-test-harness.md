@@ -350,7 +350,10 @@ assertion order. The
 selector, pointer, operation, independence, and aggregation boundaries.
 
 The `publish-diagnostics`, `semantic-tokens`,
-`semantic-tokens-unsaved-change`, `saved-navigation-cross-adapter`,
+`semantic-tokens-unsaved-change`,
+`adt-variant-refinement-semantic-tokens`,
+`adt-variant-refinement-semantic-token-boundary`,
+`saved-navigation-cross-adapter`,
 `identifier-casing-snapshot-boundary`,
 `identifier-casing-overlay-boundary`, and
 `identifier-casing-recovery-navigation`,
@@ -403,6 +406,12 @@ ordinary-binding precedence over same-named functions, bare and qualified
 source signature help, the bare `handle` operator boundary, UTF-16 positions,
 invalid-position failures, and unchanged retained-source results after those
 failures.
+The `adt-variant-refinement-semantic-tokens` LSP specification case uses a
+decoded complete-token array for refinement classes, modifiers, nested and
+qualified forms, and UTF-16 coordinates. Its adjacent `-boundary` case uses
+decoded pointer assertions for classifications and exact UTF-16 ranges before
+and after an over-limit expression, including an intervening `else if`
+structure.
 
 The `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in
 `toolchain_harness.rs` cover MCP JSONL decoding, ID selection, pointer

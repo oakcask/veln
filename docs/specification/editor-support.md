@@ -96,9 +96,12 @@ not synthetic declarations, so they do not receive the `declaration` modifier.
 Nested refinements follow the same rules.
 If an unrelated single-line or continued structure exceeds the presentation
 parse-structure limit, the collector does not withhold variant-refinement
-classes from the full document. Variant refinements in the other bounded
-structures keep these token classes and modifiers. A constructor expression
-remains distinct from a refinement variant at this boundary.
+classes from the full document. Variant refinements in bounded structures
+before and after the over-limit structure keep these token classes, modifiers,
+and source ranges. An `else if` continuation belongs to its enclosing `if`
+structure for this boundary; its final `end` restores the surrounding
+top-level boundary. A constructor expression remains distinct from a
+refinement variant at this boundary.
 
 In an ordinary function, a binding named `callsite` uses the same parameter,
 result, local, or pattern token class and modifiers as any other binding. It is
@@ -788,8 +791,10 @@ The checked
 [`adt-variant-refinement-semantic-token-boundary`](../../examples/specification/lsp/adt-variant-refinement-semantic-token-boundary/)
 transcript pins those classifications when an unrelated parenthesized
 expression cumulatively exceeds the presentation parse-structure limit across
-individually bounded continuation lines. The over-limit expression does not
-suppress the earlier bounded refinement classifications.
+individually bounded continuation lines. An intervening multi-branch `if` with
+`else if` continuations does not consume the following top-level boundary. The
+over-limit expression does not suppress bounded refinement classifications or
+their UTF-16 ranges on either side of that expression.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect and
 effect-operation references.
