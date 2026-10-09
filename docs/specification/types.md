@@ -825,9 +825,12 @@ private results are checked in
 rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
-Public/private exposure paths, qualified-value control-flow refinement, schema
-boundaries, package-documentation catalog signatures, LSP, and remaining MCP
-integration remain proposal work.
+Variant-refinement semantic-token classifications are specified in
+[editor-support.md](editor-support.md#token-classes). Public/private exposure
+paths, qualified-value control-flow refinement, schema boundaries,
+package-documentation catalog signatures, remaining LSP diagnostics,
+navigation, rename, and recovery, and remaining MCP integration remain
+proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

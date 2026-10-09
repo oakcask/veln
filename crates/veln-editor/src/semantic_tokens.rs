@@ -2,7 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{
-    SyntaxItem, Token, TokenKind, lex, parse, presentation_parse_structure_is_bounded,
+    PresentationParseStructure, SyntaxItem, Token, TokenKind, lex, parse,
+    presentation_parse_structure_is_bounded,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -169,12 +170,64 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
     let mut classifier = Classifier::new(source, &tokens, function_names);
     let mut semantic_tokens = classifier.collect();
     if !presentation_parse_structure_is_bounded(&tokens) {
+        if let Some(projected) = bounded_variant_refinement_projection(source, &tokens) {
+            let parsed = parse(&projected);
+            variant_refinements::apply_variant_refinement_classification(
+                &parsed.tree,
+                &mut semantic_tokens,
+            );
+        }
         return semantic_tokens;
     }
 
-    let callsite_context = collect_callsite_context(source, &tokens);
+    let parsed = parse(source);
+    variant_refinements::apply_variant_refinement_classification(
+        &parsed.tree,
+        &mut semantic_tokens,
+    );
+    let callsite_context = collect_callsite_context(&tokens, &parsed.tree);
     callsite_context.apply(source, &mut semantic_tokens);
     semantic_tokens
+}
+
+fn bounded_variant_refinement_projection(
+    source: &SourceFile,
+    tokens: &[Token],
+) -> Option<SourceFile> {
+    let mut projected = source.text().as_bytes().to_vec();
+    let mut source_segment_start = 0usize;
+    let mut structure = PresentationParseStructure::default();
+    let mut segment_is_bounded = true;
+    let mut masked_segment = false;
+
+    for token in tokens {
+        segment_is_bounded &= structure.observe(token.kind);
+
+        let ends_segment = matches!(token.kind, TokenKind::Eof)
+            || matches!(token.kind, TokenKind::Newline) && structure.is_top_level();
+        if !ends_segment {
+            continue;
+        }
+        if !segment_is_bounded {
+            for byte in &mut projected[source_segment_start..token.range.start] {
+                if !matches!(*byte, b'\n' | b'\r') {
+                    *byte = b' ';
+                }
+            }
+            masked_segment = true;
+        }
+        segment_is_bounded = true;
+        source_segment_start = token.range.end;
+    }
+
+    if !masked_segment {
+        return None;
+    }
+    let projected = SourceFile::new(
+        source.path().clone(),
+        String::from_utf8(projected).expect("space-masked source remains UTF-8"),
+    );
+    presentation_parse_structure_is_bounded(&lex(&projected).tokens).then_some(projected)
 }
 
 struct CallsiteContext {
@@ -229,7 +282,7 @@ impl CallsiteContext {
     }
 }
 
-fn collect_callsite_context(source: &SourceFile, tokens: &[Token]) -> CallsiteContext {
+fn collect_callsite_context(tokens: &[Token], tree: &veln_syntax::SyntaxTree) -> CallsiteContext {
     let qualified_offsets = tokens
         .iter()
         .enumerate()
@@ -243,8 +296,7 @@ fn collect_callsite_context(source: &SourceFile, tokens: &[Token]) -> CallsiteCo
     let mut modifier_offsets = BTreeSet::new();
     let mut scopes = Vec::new();
     let mut modifier_line_starts = BTreeMap::new();
-    let parsed = parse(source);
-    for item in &parsed.tree.items {
+    for item in &tree.items {
         let SyntaxItem::Function(function) = item else {
             continue;
         };
@@ -402,6 +454,7 @@ struct Classifier<'a> {
 
 mod classifier_classification;
 mod classifier_collection;
+mod variant_refinements;
 
 fn collect_function_names(tokens: &[Token]) -> BTreeSet<String> {
     let mut names = BTreeSet::new();

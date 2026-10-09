@@ -66,6 +66,9 @@ The implemented semantic token types are standard LSP token types:
 | handler operation clause binding | `parameter` | `declaration`, `readonly` |
 | handler operation clause binding reference | `parameter` | `readonly` |
 | type name | `type` | none |
+| variant-refinement base path segment | `type` | none |
+| variant-refinement final variant segment | `enumMember` | none |
+| variant-refinement union separator (`|`) | `operator` | none |
 | effect label | `enumMember` | none |
 | schema format name | `enumMember` | none |
 | record or field-access field | `property` | none |
@@ -83,6 +86,22 @@ and the VSCode grammar.
 
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
+
+Singleton and union variant-refinement annotations use these classifications
+in parameters, results, ADT, record, and schema fields, handler and effect
+signatures, local annotations, and explicit expression type arguments. Every written
+segment of a qualified or alias-qualified base is a `type` token. The final
+variant is an `enumMember` token. These annotation occurrences are references,
+not synthetic declarations, so they do not receive the `declaration` modifier.
+Nested refinements follow the same rules.
+If an unrelated single-line or continued structure exceeds the presentation
+parse-structure limit, the collector does not withhold variant-refinement
+classes from the full document. Variant refinements in bounded structures
+before and after the over-limit structure keep these token classes, modifiers,
+and source ranges. An `else if` continuation belongs to its enclosing `if`
+structure for this boundary; its final `end` restores the surrounding
+top-level boundary. A constructor expression remains distinct from a
+refinement variant at this boundary.
 
 In an ordinary function, a binding named `callsite` uses the same parameter,
 result, local, or pattern token class and modifiers as any other binding. It is
@@ -763,6 +782,19 @@ signature-help requests also cover non-BMP UTF-16 positions, invalid-position
 failures, bare ordinary and qualified `handle` function calls, the bare
 `handle` operator boundary, and repeated successful results for the same
 retained source after those failures.
+The checked
+[`adt-variant-refinement-semantic-tokens`](../../examples/specification/lsp/adt-variant-refinement-semantic-tokens/)
+transcript pins qualified and alias-qualified singleton, union, nested, local,
+and expression-type-argument token classes and modifiers. A non-BMP scalar
+before an expression refinement pins the encoded UTF-16 start ranges.
+The checked
+[`adt-variant-refinement-semantic-token-boundary`](../../examples/specification/lsp/adt-variant-refinement-semantic-token-boundary/)
+transcript pins those classifications when an unrelated parenthesized
+expression cumulatively exceeds the presentation parse-structure limit across
+individually bounded continuation lines. An intervening multi-branch `if` with
+`else if` continuations does not consume the following top-level boundary. The
+over-limit expression does not suppress bounded refinement classifications or
+their UTF-16 ranges on either side of that expression.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect and
 effect-operation references.
