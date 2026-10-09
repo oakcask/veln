@@ -227,7 +227,8 @@ publication, and gate tests are in its `package_documentation/tests/` modules.
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers the public `net::system()` handler resource, its canonical
-signature and visible examples, and exclusion of its operation clauses and
-private host adapters.
+signature and visible examples, and the public `observe::noop()` handler
+resource. It also covers exclusion of handler operation clauses, private host
+adapters, and private span constructors.
 The [MCP specification](mcp.md) defines resource publication and links from
 package-backed definition results.
