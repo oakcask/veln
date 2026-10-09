@@ -314,10 +314,7 @@ impl TypeEnvironment {
             return Some(VariantRefinementBaseFailure {
                 reason,
                 resolved_identity: descriptor.identity(),
-                declaration_span: self
-                    .adts
-                    .declaration_span_for_descriptor(descriptor)
-                    .cloned(),
+                declaration_span: self.adts.declaration_span(descriptor).cloned(),
                 related_message,
             });
         }
