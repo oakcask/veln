@@ -16,9 +16,8 @@ use veln_source::SourceFile;
 use veln_syntax::{
     AdrLiteAnchor, ContractClause, ContractKind, FunctionDecl, FunctionKind, PublicAliasDecl,
     PublicAliasKind, SchemaDecl, SyntaxItem, TypeDecl, Visibility,
-    declaration_type_signature as type_signature,
-    declaration_variant_signature as variant_signature,
-    documentation_block_before as doc_block_before, extract_documentation_schema_references, parse,
+    declaration_type_signature as type_signature, documentation_block_before as doc_block_before,
+    extract_documentation_schema_references, parse,
     render_documentation_lines as rendered_doc_lines,
 };
 
@@ -289,7 +288,7 @@ fn push_public_type(out: &mut String, source: &SourceFile, type_decl: &TypeDecl)
 
     out.push_str("Public constructors:\n\n");
     for variant in public_variants {
-        out.push_str(&format!("- `{}`\n", variant_signature(variant)));
+        out.push_str(&format!("- `{}`\n", variant_signature(source, variant)));
     }
     out.push('\n');
 }
@@ -300,7 +299,7 @@ fn push_public_schema(out: &mut String, source: &SourceFile, schema: &SchemaDecl
 }
 
 fn push_public_function(out: &mut String, source: &SourceFile, function: &FunctionDecl) {
-    push_heading(out, 5, &function_signature(function));
+    push_heading(out, 5, &function_signature(source, function));
     push_doc_block(out, doc_block_before(source, function.span.start.line));
     push_contracts(out, &function.contracts);
 }
@@ -370,8 +369,8 @@ fn push_contracts(out: &mut String, contracts: &[ContractClause]) {
     out.push('\n');
 }
 
-fn function_signature(function: &FunctionDecl) -> String {
-    veln_syntax::declaration_function_signature(function, false)
+fn function_signature(source: &SourceFile, function: &FunctionDecl) -> String {
+    veln_syntax::declaration_function_signature_from_source(function, false, source)
 }
 
 fn alias_signature(alias: &PublicAliasDecl) -> String {
@@ -385,6 +384,10 @@ fn alias_signature(alias: &PublicAliasDecl) -> String {
         alias.name.as_deref().unwrap_or("<anonymous>"),
         alias.target.join("::")
     )
+}
+
+fn variant_signature(source: &SourceFile, variant: &veln_syntax::TypeVariantDecl) -> String {
+    veln_syntax::declaration_variant_signature_from_source(variant, source)
 }
 
 fn schema_signature(schema: &SchemaDecl) -> String {

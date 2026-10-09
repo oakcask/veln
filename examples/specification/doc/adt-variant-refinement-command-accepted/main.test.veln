@@ -1,0 +1,3 @@
+test excluded_rejection() -> State::Ready
+	Closed
+end

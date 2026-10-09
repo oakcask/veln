@@ -235,6 +235,12 @@ reported by that invocation and do not block the selected suite.
 Source-path-derived module identity casing follows the same gate; a blocking
 gate does not launch Java.
 
+Variant-refinement diagnostics remain blocking when recovery retains the
+referenced type or constructor identity. Each discovered selected case then
+has `status: "blocked"`, `reason: "static_gate"`, and no events. The diagnostic
+object preserves the id, details, primary span, and related notes rendered by
+human output.
+
 A parse- and semantic-clean selected case is also blocked before Java execution
 when checked-core lowering cannot produce typed IR. Reachable `begin` and
 `defer` forms produce typed IR and execute; their cleanup behavior is specified
@@ -249,9 +255,9 @@ If a parse error prevents a test declaration from being parsed, no case is
 invented for that broken declaration. Parse-clean selected cases from other
 files may still be discovered before the static gate blocks execution.
 
-When semantic diagnostics block execution, every discovered selected case is
-reported with `status: "blocked"` and `reason: "static_gate"`, including cases
-from other selected test files.
+When other semantic diagnostics block execution, every discovered selected
+case is also reported with `status: "blocked"` and `reason: "static_gate"`,
+including cases from other selected test files.
 
 ## References
 

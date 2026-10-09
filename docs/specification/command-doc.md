@@ -27,6 +27,11 @@ constructors, public schemas, public member aliases, public functions,
 attached documentation comments, and function contract clauses. ADR-lite
 records have a separate section and retain their parsed anchor.
 
+Canonical public declaration signatures preserve accepted singleton and
+finite-union variant-refinement annotations. They also canonicalize the
+complete signature around those annotations, including rendering `Unit` as
+`()`, for function parameters, function results, and constructor fields.
+
 A documentation line comment attaches only when immediately above the nearest
 module, public type, public schema, public member alias, or public function.
 The `##` marker is removed. Executable doctest and expected-output fences
@@ -48,13 +53,20 @@ errors. Diagnostics are written to stderr and the command exits unsuccessfully.
 Errors in excluded companions or excluded sources do not block the selected
 document.
 
+Variant-refinement errors remain semantic diagnostics when recovery retains a
+type or constructor identity. Such an error produces no generated document.
+
 ## Limits
 
 The command emits package/tool metadata even when source selection is empty.
 It does not include declarations, comments, ADR-lite records, or schema
 reference diagnostics from excluded companions.
+The command has no JSON output mode.
 
 ## References
 
 Implementation: `crates/veln-cli/src/commands/doc.rs`. Documentation selection
 and metadata behavior is covered under `examples/specification/doc/`.
+The refinement-specific examples cover
+accepted canonical signatures, rejection, and recovery under
+`examples/specification/doc/adt-variant-refinement-command-*/`.

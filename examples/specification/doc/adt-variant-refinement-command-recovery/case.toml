@@ -1,0 +1,13 @@
+command = ["doc", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = [
+  "error[type.invalid_annotation]: invalid type annotation `State::Missing`",
+]
+not_contains = ["# Veln Project", "##### fn recovered"]

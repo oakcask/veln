@@ -67,6 +67,11 @@ shared diagnostic envelope with `schema_version: 1`, `status: "error"`,
 program `stdout` or `stderr` fields. Any CLI diagnostic rendering on stderr is
 separate from the JSON contract.
 
+Variant-refinement diagnostics use this gate even when recovery retains the
+referenced type or constructor identity. The shared envelope preserves the
+same diagnostic id, details, primary span, and related notes as human output,
+and the rejected run creates no backend artifact or Java process.
+
 The same envelope reports the remaining call-site execution gates. A
 call-site-aware entry and a runtime contract on an ordinary function that calls
 a call-site-aware function fail before backend launch. Direct and indirect

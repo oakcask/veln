@@ -24,5 +24,6 @@ use expressions::{format_defer_statement_with_comments, format_expr_at_indent_wi
 use match_formatting::{bool_match_rewrite, literal_match_rewrite};
 use patterns::format_pattern;
 use source_layout::*;
+pub(crate) use structured_type_text::canonical_structured_type_text;
 use structured_type_text::prepare_structured_type_text;
 use type_text::{canonical_predicate_text, canonical_schema_field_type_text};

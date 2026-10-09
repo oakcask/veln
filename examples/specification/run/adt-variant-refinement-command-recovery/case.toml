@@ -1,0 +1,71 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[tools]
+java = "fake-success"
+
+[env]
+JAVA_MARKER = "java-started"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.invalid_annotation"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+contains = "State::Missing"
+
+[[json_assert]]
+path = "diagnostics.0.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 8
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "State::Missing"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "valid_type"
+
+[[json_assert]]
+path = "diagnostics.0.details.constraint"
+equals = "assignable"
+
+[[json_assert]]
+path = "diagnostics.0.related"
+equals = []
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
+[[file_assert]]
+path = "java-started"
+missing = true

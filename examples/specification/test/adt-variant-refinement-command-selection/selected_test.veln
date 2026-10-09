@@ -1,0 +1,14 @@
+type State
+	Ready
+	Closed
+end
+
+fn accept_live(value: State::Ready|State::Closed) -> State::Ready|State::Closed
+	value
+end
+
+test selected_case() -> ()
+	let ready: State::Ready = Ready
+	accept_live(ready)
+	()
+end

@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#representative-usage; behavior=#inference-rules; limits=#compatibility-and-limits
-update-when: Veln type annotations, inference, assignment compatibility, operator typing, or type-checker behavior changes.
+update-when: Veln type annotations, inference, assignment compatibility, operator typing, type-checker behavior, or the type-feature implementation boundary changes.
 ---
 
 # Types
@@ -825,9 +825,9 @@ private results are checked in
 rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
-Public/private exposure paths, qualified-value control-flow refinement, schema boundaries,
-package-documentation signatures, command-wide coverage, LSP, and remaining
-MCP integration remain proposal work.
+Public/private exposure paths, qualified-value control-flow refinement, schema
+boundaries, package-documentation catalog signatures, LSP, and remaining MCP
+integration remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

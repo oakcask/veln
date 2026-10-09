@@ -1,0 +1,18 @@
+type State
+	Ready
+	Closed
+end
+
+fn accept_live(value: State::Ready|State::Closed) -> State::Ready|State::Closed
+	value
+end
+
+fn unreachable_rejection() -> State::Ready
+	Closed
+end
+
+pub fn main() -> () effects [stdio]
+	let state: State::Ready = Ready
+	accept_live(state)
+	stdio::println("accepted")
+end

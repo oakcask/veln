@@ -36,13 +36,18 @@ pub(super) fn prepare_structured_type_text(tree: &mut SyntaxTree, source: &str) 
             SyntaxItem::Type(type_decl) => {
                 for variant in &mut type_decl.variants {
                     for field in &mut variant.fields {
-                        field.ty = structured_type_text(&field.ty, &field.ty_refinements, source);
+                        field.ty = canonical_structured_type_text(
+                            &field.ty,
+                            &field.ty_refinements,
+                            source,
+                        );
                     }
                 }
             }
             SyntaxItem::Schema(schema) => {
                 for field in &mut schema.fields {
-                    field.ty = structured_type_text(&field.ty, &field.ty_refinements, source);
+                    field.ty =
+                        canonical_structured_type_text(&field.ty, &field.ty_refinements, source);
                 }
             }
             SyntaxItem::PublicAlias(_) => {}
@@ -62,7 +67,7 @@ fn prepare_optional_type(
     source: &str,
 ) {
     if let Some(text) = text {
-        *text = structured_type_text(text, refinements, source);
+        *text = canonical_structured_type_text(text, refinements, source);
     }
 }
 
@@ -200,7 +205,11 @@ fn prepare_exprs(expressions: &mut [Expr], source: &str) {
     }
 }
 
-fn structured_type_text(text: &str, refinements: &[VariantRefinementType], source: &str) -> String {
+pub(crate) fn canonical_structured_type_text(
+    text: &str,
+    refinements: &[VariantRefinementType],
+    source: &str,
+) -> String {
     let mut output = text.to_string();
     let mut search_start = 0;
     for refinement in refinements {

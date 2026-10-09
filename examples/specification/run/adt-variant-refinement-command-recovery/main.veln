@@ -1,0 +1,9 @@
+type State
+	Ready
+	Closed
+end
+
+pub fn main() -> ()
+	let value: State::Missing = Ready
+	()
+end

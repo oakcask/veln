@@ -1,0 +1,8 @@
+pub type State
+	pub Ready
+	pub Closed
+end
+
+pub fn documented(value: State) -> State::Ready
+	value
+end

@@ -1,0 +1,16 @@
+command = ["doc", "main.veln"]
+source_errors = "expected"
+exit = 0
+
+[stdout]
+format = "text"
+contains = [
+  "##### fn keep_ready(value: State::Ready) -> State::Ready",
+  "##### fn keep_live(value: State::Closed | State::Ready) -> State::Closed | State::Ready",
+  "##### fn mixed(marker: (), state: State::Ready) -> ()",
+  "- `Live { marker: (), state: State::Closed | State::Ready }`",
+]
+not_contains = ["excluded_rejection"]
+
+[stderr]
+format = "empty"

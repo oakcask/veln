@@ -1,6 +1,9 @@
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
-use crate::{FunctionDecl, TypeDecl, TypeVariantDecl, canonical_type_text};
+use crate::{
+    FunctionDecl, TypeDecl, TypeVariantDecl, VariantRefinementType, canonical_type_text,
+    format::canonical_structured_type_text,
+};
 
 #[derive(Clone, Debug)]
 pub struct DocumentationSchemaReference {
@@ -56,6 +59,22 @@ pub fn declaration_function_signature(
     function: &FunctionDecl,
     include_effect_binder: bool,
 ) -> String {
+    declaration_function_signature_inner(function, include_effect_binder, None)
+}
+
+pub fn declaration_function_signature_from_source(
+    function: &FunctionDecl,
+    include_effect_binder: bool,
+    source: &SourceFile,
+) -> String {
+    declaration_function_signature_inner(function, include_effect_binder, Some(source.text()))
+}
+
+fn declaration_function_signature_inner(
+    function: &FunctionDecl,
+    include_effect_binder: bool,
+    source: Option<&str>,
+) -> String {
     let mut signature = String::from("fn ");
     signature.push_str(function.name.as_deref().unwrap_or("<anonymous>"));
     if include_effect_binder && let Some(binder) = &function.effect_binder {
@@ -69,10 +88,16 @@ pub fn declaration_function_signature(
             .params
             .iter()
             .map(|param| match &param.ty {
-                Some(ty) if param.is_variadic => {
-                    format!("{}: ...{}", param.name, canonical_type_text(ty))
-                }
-                Some(ty) => format!("{}: {}", param.name, canonical_type_text(ty)),
+                Some(ty) if param.is_variadic => format!(
+                    "{}: ...{}",
+                    param.name,
+                    documentation_type_text(ty, &param.ty_refinements, source)
+                ),
+                Some(ty) => format!(
+                    "{}: {}",
+                    param.name,
+                    documentation_type_text(ty, &param.ty_refinements, source)
+                ),
                 None => param.name.clone(),
             })
             .collect::<Vec<_>>()
@@ -85,7 +110,11 @@ pub fn declaration_function_signature(
             signature.push_str(&binding.name);
             signature.push_str(": ");
         }
-        signature.push_str(&canonical_type_text(return_type));
+        signature.push_str(&documentation_type_text(
+            return_type,
+            &function.return_type_refinements,
+            source,
+        ));
     }
     if let Some(effects) = &function.effects {
         signature.push_str(" effects [");
@@ -96,6 +125,17 @@ pub fn declaration_function_signature(
         signature.push_str(" callsite");
     }
     signature
+}
+
+fn documentation_type_text(
+    text: &str,
+    refinements: &[VariantRefinementType],
+    source: Option<&str>,
+) -> String {
+    source.map_or_else(
+        || canonical_type_text(text),
+        |source| canonical_type_text(&canonical_structured_type_text(text, refinements, source)),
+    )
 }
 
 pub fn declaration_type_signature(type_decl: &TypeDecl) -> String {
@@ -110,6 +150,17 @@ pub fn declaration_type_signature(type_decl: &TypeDecl) -> String {
 }
 
 pub fn declaration_variant_signature(variant: &TypeVariantDecl) -> String {
+    declaration_variant_signature_inner(variant, None)
+}
+
+pub fn declaration_variant_signature_from_source(
+    variant: &TypeVariantDecl,
+    source: &SourceFile,
+) -> String {
+    declaration_variant_signature_inner(variant, Some(source.text()))
+}
+
+fn declaration_variant_signature_inner(variant: &TypeVariantDecl, source: Option<&str>) -> String {
     let name = variant.name.as_deref().unwrap_or("<anonymous>");
     if variant.fields.is_empty() {
         return name.to_string();
@@ -118,7 +169,13 @@ pub fn declaration_variant_signature(variant: &TypeVariantDecl) -> String {
         let fields = variant
             .fields
             .iter()
-            .map(|field| format!("{}: {}", field.name, canonical_type_text(&field.ty)))
+            .map(|field| {
+                format!(
+                    "{}: {}",
+                    field.name,
+                    documentation_type_text(&field.ty, &field.ty_refinements, source)
+                )
+            })
             .collect::<Vec<_>>()
             .join(", ");
         return format!("{name} {{ {fields} }}");
@@ -126,7 +183,7 @@ pub fn declaration_variant_signature(variant: &TypeVariantDecl) -> String {
     let fields = variant
         .fields
         .iter()
-        .map(|field| canonical_type_text(&field.ty))
+        .map(|field| documentation_type_text(&field.ty, &field.ty_refinements, source))
         .collect::<Vec<_>>()
         .join(", ");
     format!("{name}({fields})")

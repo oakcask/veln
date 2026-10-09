@@ -1,0 +1,8 @@
+pub type State
+	pub Ready
+	pub Closed
+end
+
+pub fn recovered(value: State::Missing) -> ()
+	()
+end

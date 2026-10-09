@@ -1,0 +1,31 @@
+# At `veln run` entry-argument precedence, stdio::println is only an execution sentinel.
+# Absence of `forbidden` proves invalid argument count wins before execution; absence of
+# `type.variant_mismatch` proves it wins before semantic lowering.
+command = ["run", "main", "main.veln", "--", "unexpected"]
+source_errors = "expected"
+exit = 1
+
+[tools]
+java = "fake-success"
+
+[env]
+JAVA_MARKER = "java-started"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = [
+  "veln: run entry `main` expects 0 argument(s), got 1",
+  "veln: note: pass entry arguments after `--`",
+]
+not_contains = ["type.variant_mismatch", "forbidden"]
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
+[[file_assert]]
+path = "java-started"
+missing = true

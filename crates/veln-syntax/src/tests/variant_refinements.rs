@@ -550,6 +550,43 @@ fn formatter_uses_structured_refinements_instead_of_display_text() {
 }
 
 #[test]
+fn documentation_canonicalizes_complete_types_around_structured_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "type Envelope\n",
+            "  Live(value: Bundle<Unit, State::Ready, State::Ready, Unit>)\n",
+            "end\n",
+            "fn mixed(value: Bundle<Unit, State::Ready, State::Ready, Unit>) -> Unit\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let SyntaxItem::Type(envelope) = &parsed.tree.items[1] else {
+        panic!("expected envelope type declaration");
+    };
+    assert_eq!(
+        declaration_variant_signature_from_source(&envelope.variants[0], &source),
+        "Live { value: Bundle<(), State::Ready, State::Ready, ()> }"
+    );
+
+    let SyntaxItem::Function(function) = &parsed.tree.items[2] else {
+        panic!("expected mixed function declaration");
+    };
+    assert_eq!(
+        declaration_function_signature_from_source(function, false, &source),
+        "fn mixed(value: Bundle<(), State::Ready, State::Ready, ()>) -> ()"
+    );
+}
+
+#[test]
 fn rejects_lowercase_final_variants_after_generic_adt_bases() {
     let cases = [
         "fn invalid(value: State::ready) -> ()\n  ()\nend\n",

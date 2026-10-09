@@ -1,0 +1,27 @@
+command = ["test", "selected_test.veln"]
+source_errors = "expected"
+exit = 1
+
+[tools]
+java = "fake-success"
+
+[env]
+JAVA_MARKER = "java-started"
+
+[stdout]
+format = "text"
+contains = ["blocked selected_case"]
+
+[stderr]
+format = "text"
+contains = [
+  "selected_test.veln:6:21: error[type.invalid_annotation]: invalid type annotation `State::Missing`: variant refinement alternatives must resolve to declared variants of one ADT",
+]
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
+[[file_assert]]
+path = "java-started"
+missing = true
