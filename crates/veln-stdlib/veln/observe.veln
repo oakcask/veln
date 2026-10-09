@@ -1,0 +1,42 @@
+use prelude
+
+pub type SpanRequest
+end
+
+pub type Span
+end
+
+pub type SpanFinish
+end
+
+pub type AttributeValue
+	pub BoolValue(value: Bool)
+	pub IntValue(value: Int)
+	pub StringValue(value: String)
+end
+
+pub type Attribute
+	pub Attribute(name: String, value: AttributeValue)
+end
+
+pub type TraceContext
+	pub TraceContext(trace_id: String, span_id: String)
+end
+
+pub type Severity
+	pub Info
+end
+
+pub type LogRecord
+	pub LogRecord(name: String, severity: Severity, message: String, attributes: List<Attribute>, context: Option<TraceContext>, source: SourceLocation)
+end
+
+pub type Observation
+	pub Log(record: LogRecord)
+end
+
+pub effect Observe
+	start_span(request: SpanRequest) -> Span
+	emit(record: Observation) -> ()
+	finish_span(request: SpanFinish) -> ()
+end

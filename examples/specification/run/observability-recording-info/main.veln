@@ -1,0 +1,37 @@
+use observe from "std"
+use recording
+use wrapper
+
+# This case checks JVM nominal-effect dispatch and hidden call-site forwarding
+# through a standard-library wrapper; companion coverage owns the log API.
+pub fn main() -> () effects [stdio, concurrency]
+	let records = recording::records(2)
+	let _ = handle wrapper::accepted() with recording::recording(records.tx)
+	channel::close(records.tx)
+	match channel::recv(records.rx)
+		Some(observe::Log(observe::LogRecord(name, observe::Info, message, Cons(observe::Attribute("enabled", observe::BoolValue(enabled)), Cons(observe::Attribute("attempt", observe::IntValue(attempt)), Cons(observe::Attribute("route", observe::StringValue(route)), Nil))), Some(observe::TraceContext(trace_id, span_id)), source))) => begin
+			stdio::println("log")
+			stdio::println(name)
+			stdio::println(message)
+			stdio::println(if enabled "true" else "false" end)
+			stdio::println(int_to_string(attempt))
+			stdio::println(route)
+			stdio::println(trace_id)
+			stdio::println(span_id)
+			stdio::println(source.package)
+			stdio::println(source.module)
+			stdio::println(source.file)
+			stdio::println(int_to_string(source.start_line))
+			stdio::println(int_to_string(source.start_column))
+			stdio::println(int_to_string(source.start_offset))
+			stdio::println(int_to_string(source.end_line))
+			stdio::println(int_to_string(source.end_column))
+			stdio::println(int_to_string(source.end_offset))
+		end
+		_ => stdio::println("unexpected-record")
+	end
+	match channel::recv(records.rx)
+		None => stdio::println("exactly-one")
+		Some(_) => stdio::println("extra-record")
+	end
+end

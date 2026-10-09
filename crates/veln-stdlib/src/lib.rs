@@ -53,6 +53,8 @@ mod tests {
                 "net.veln",
                 "transport.veln",
                 "transport/net.veln",
+                "observe.veln",
+                "log.veln",
                 "http2/frame.veln",
                 "http2/diagnostic.veln",
                 "http2/hpack.veln",

@@ -1,0 +1,6 @@
+use observe
+use prelude
+
+pub fn info(context: Option<observe::TraceContext>, message: String, attributes: List<observe::Attribute>) -> () effects [observe::Observe] callsite
+	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Info, message, attributes, context, callsite)))
+end

@@ -16,9 +16,9 @@ also states it.
 
 ## Ready
 
-- Standard-library structured logs, events, metrics, traces, explicit context
-  propagation, and substitutable exporters, building on canonical and retained
-  call-site locations:
+- Remaining standard-library log severities, events, metrics, traces, explicit
+  context propagation, public recording and no-op handlers, production
+  exporters, and exporter lifecycle behavior:
   [observability.md](observability.md).
 - Legacy compiler-known network compatibility removal after checked sources
   migrate to the exported standard module:
