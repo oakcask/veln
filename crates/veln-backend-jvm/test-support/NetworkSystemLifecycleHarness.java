@@ -20,6 +20,10 @@ public final class NetworkSystemLifecycleHarness {
     private static final java.lang.reflect.Field HANDLERS;
     private static final java.lang.reflect.Field NETWORK_RESOURCES;
     private static final java.lang.reflect.Field SYSTEM_OWNER;
+    private static final java.lang.reflect.Field READING;
+    private static final java.lang.reflect.Field WRITING;
+    private static final java.lang.reflect.Field PEER_ENDED;
+    private static final java.lang.reflect.Field WRITE_FAILED;
     private static final java.lang.reflect.Field READINESS_REGISTRATIONS;
     private static final java.lang.reflect.Field READ_BUFFER_ALLOCATIONS;
     private static final java.lang.reflect.Field RESOLVERS;
@@ -106,6 +110,10 @@ public final class NetworkSystemLifecycleHarness {
             HANDLERS = VelnRuntime.class.getDeclaredField("HANDLERS");
             NETWORK_RESOURCES = HANDLER_FRAME.getDeclaredField("networkResources");
             SYSTEM_OWNER = NET_STREAM.getDeclaredField("systemOwner");
+            READING = NET_STREAM.getDeclaredField("reading");
+            WRITING = NET_STREAM.getDeclaredField("writing");
+            PEER_ENDED = NET_STREAM.getDeclaredField("peerEnded");
+            WRITE_FAILED = NET_STREAM.getDeclaredField("writeFailed");
             READINESS_REGISTRATIONS = VelnRuntime.class.getDeclaredField(
                 "SOCKET_READINESS_REGISTRATIONS"
             );
@@ -132,6 +140,10 @@ public final class NetworkSystemLifecycleHarness {
                 HANDLERS,
                 NETWORK_RESOURCES,
                 SYSTEM_OWNER,
+                READING,
+                WRITING,
+                PEER_ENDED,
+                WRITE_FAILED,
                 READINESS_REGISTRATIONS,
                 READ_BUFFER_ALLOCATIONS,
                 RESOLVERS,
@@ -246,6 +258,99 @@ public final class NetworkSystemLifecycleHarness {
             || parsed.getPort() != 443
             || !(parsed.getAddress() instanceof java.net.Inet6Address)) {
             throw new AssertionError("bracketed IPv6 endpoint did not round trip: " + parsed);
+        }
+    }
+
+    private static void requireResultContains(Object result, String expected, String context) {
+        if (!result.toString().contains(expected)) {
+            throw new AssertionError(context + " produced " + result);
+        }
+    }
+
+    private static void verifyOwnedResourcesDoNotCrossHandlerDispatch() throws Exception {
+        Object owner = newOwner();
+        Object stream = newStream(null, 91);
+        SYSTEM_OWNER.set(stream, owner);
+        java.util.concurrent.atomic.AtomicBoolean invoked =
+            new java.util.concurrent.atomic.AtomicBoolean();
+        VelnRuntime.Fn provider = new VelnRuntime.Fn() {
+            public Object call(Object... args) {
+                invoked.set(true);
+                return VelnRuntime.ok(VelnRuntime.UNIT);
+            }
+        };
+        VelnRuntime.pushHandler(
+            "std::net::IO",
+            new Object[] { "peer_address", "write" },
+            new Object[] { provider, provider },
+            new Object[0]
+        );
+        try {
+            requireResultContains(
+                VelnRuntime.perform(
+                    "std::net::IO", "peer_address", new Object[] { stream }
+                ),
+                "InvalidResource",
+                "cross-handler stream query"
+            );
+            requireResultContains(
+                VelnRuntime.perform(
+                    "std::net::IO",
+                    "write",
+                    new Object[] { stream, null, null, null }
+                ),
+                "WriteFailed(ByteCount(0), NetError(write, None, None, InvalidResource",
+                "cross-handler stream write"
+            );
+            if (invoked.get()) {
+                throw new AssertionError("cross-handler resource reached the selected provider");
+            }
+        } finally {
+            VelnRuntime.popHandler();
+            SYSTEM_OWNER.set(stream, null);
+        }
+    }
+
+    private static void verifyTerminalStatesDoNotBypassContention() throws Exception {
+        Object owner = newOwner();
+        Object stream = newStream(null, 92);
+        SYSTEM_OWNER.set(stream, owner);
+        selectOwner(owner);
+        try {
+            java.util.concurrent.atomic.AtomicBoolean reading =
+                (java.util.concurrent.atomic.AtomicBoolean) READING.get(stream);
+            java.util.concurrent.atomic.AtomicBoolean writing =
+                (java.util.concurrent.atomic.AtomicBoolean) WRITING.get(stream);
+            PEER_ENDED.setBoolean(stream, true);
+            reading.set(true);
+            requireResultContains(
+                VelnRuntime.netSystemRead(stream, null, null),
+                "Busy",
+                "peer-ended read while another read still owns the direction"
+            );
+            reading.set(false);
+            requireResultContains(
+                VelnRuntime.netSystemRead(stream, null, null),
+                "ReadEnd",
+                "peer-ended read after direction release"
+            );
+
+            WRITE_FAILED.setBoolean(stream, true);
+            writing.set(true);
+            requireResultContains(
+                VelnRuntime.netSystemWrite(stream, null, null, null),
+                "Busy",
+                "failed write while another write still owns the direction"
+            );
+            writing.set(false);
+            requireResultContains(
+                VelnRuntime.netSystemWrite(stream, null, null, null),
+                "Closed",
+                "failed write after direction release"
+            );
+        } finally {
+            SYSTEM_OWNER.set(stream, null);
+            clearOwner();
         }
     }
 
@@ -1151,6 +1256,8 @@ public final class NetworkSystemLifecycleHarness {
     public static void main(String[] args) throws Exception {
         verifyConnectCommitOrdering();
         verifyIpv6EndpointTextIsBracketedAndParseable();
+        verifyOwnedResourcesDoNotCrossHandlerDispatch();
+        verifyTerminalStatesDoNotBypassContention();
         verifyDirectBindFailureClassification();
         verifyIdentityLedgerExplicitCloseAndDetach();
         verifyInheritedChildRegistrationIsCleaned();

@@ -437,6 +437,8 @@
     public static Object perform(String effect, String operation, Object[] args) {
         HandlerFrame frame = findHandler(effect);
         if (frame == null) throw new IllegalStateException("unhandled effect operation " + effect + "::" + operation);
+        Object ownershipFailure = netSystemDispatchOwnershipFailure(effect, operation, args, frame);
+        if (ownershipFailure != null) return ownershipFailure;
         return invokeHandler(frame, operation, args);
     }
     public static Result ok(Object value) {

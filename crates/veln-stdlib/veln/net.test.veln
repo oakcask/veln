@@ -803,6 +803,38 @@ fn system_write_shutdown_interruption_body(ready: Receiver<()>, release: Sender<
 	end
 end
 
+fn system_read_close_interruption_body(ready: Receiver<()>, release: Sender<()>) -> Result<(), String> effects [net::IO, concurrency]
+	let stream = system_contention_stream()?
+	let pending = task::spawn_with(system_background_read, stream)
+	let _ = channel::recv(ready)
+	let closed = net::close_stream(stream)
+	let _ = channel::send(release, ())
+	let joined = task::join(pending)
+	match closed
+		Ok(()) => match joined
+			Ok(Err(net::NetError(_, _, _, net::Closed, _))) => Ok(())
+			_ => Err("blocked read after stream close did not return Closed")
+		end
+		Err(_) => Err("stream close failed while a read was blocked")
+	end
+end
+
+fn system_write_close_interruption_body(ready: Receiver<()>, release: Sender<()>) -> Result<(), String> effects [net::IO, concurrency]
+	let stream = system_contention_stream()?
+	let pending = task::spawn_with(system_background_write, stream)
+	let _ = channel::recv(ready)
+	let closed = net::close_stream(stream)
+	let _ = channel::send(release, ())
+	let joined = task::join(pending)
+	match closed
+		Ok(()) => match joined
+			Ok(net::WriteFailed(net::ByteCount(1), net::NetError(_, _, _, net::Closed, _))) => Ok(())
+			_ => Err("blocked write after stream close did not preserve its prefix and return Closed")
+		end
+		Err(_) => Err("stream close failed while a write was blocked")
+	end
+end
+
 fn system_successful_shutdown_post_states() -> Result<(), String> effects [net::IO]
 	let stream = system_contention_stream()?
 	let read_shutdown = net::shutdown_read(stream)
@@ -1020,6 +1052,23 @@ handler observing_io() for net::IO
 	shutdown_read(stream) => Err(resource_failure("shutdown_read"))
 	shutdown_write(stream) => Err(resource_failure("shutdown_write"))
 	close_stream(stream) => Err(resource_failure("close_stream"))
+end
+
+fn system_resource_rejects_nested_source_handler() -> Result<(), String> effects [net::IO]
+	let stream = system_contention_stream()?
+	let nested = handle net::close_stream(stream) with observing_io()
+	let owner = net::close_stream(stream)
+	match nested
+		Err(net::NetError(_, _, _, net::InvalidResource, _)) => match owner
+			Ok(()) => Ok(())
+			Err(_) => Err("owner could not close a resource rejected by another handler")
+		end
+		_ => Err("another source handler accepted a system-owned resource")
+	end
+end
+
+fn system_resource_escapes() -> Result<net::Stream, String> effects [net::IO]
+	system_contention_stream()
 end
 
 fn expect_observed_error(error: net::NetError, operation: String, message: String) -> Result<(), String>
@@ -1433,6 +1482,21 @@ test system_stream_allows_one_reader_and_one_writer() -> Result<(), String> effe
 	end
 end
 
+test system_resources_reject_nested_and_expired_source_handlers() -> Result<(), String> effects [net, time, concurrency]
+	let nested = handle handle system_resource_rejects_nested_source_handler() with net::system() with contended_system_network("read", channel::bounded<()>(1).tx, channel::bounded<()>(1).rx)
+	let escaped = handle handle system_resource_escapes() with net::system() with contended_system_network("read", channel::bounded<()>(1).tx, channel::bounded<()>(1).rx)
+	match nested
+		Ok(()) => match escaped
+			Ok(stream) => match handle net::close_stream(stream) with observing_io()
+				Err(net::NetError(_, _, _, net::InvalidResource, _)) => Ok(())
+				_ => Err("a source handler accepted a resource after its owner scope exited")
+			end
+			Err(message) => Err(message)
+		end
+		Err(message) => Err(message)
+	end
+end
+
 test system_stream_shutdown_interruptions_are_closed() -> Result<(), String> effects [net, time, concurrency]
 	let read_ready = channel::bounded<()>(1)
 	let read_release = channel::bounded<()>(1)
@@ -1440,6 +1504,19 @@ test system_stream_shutdown_interruptions_are_closed() -> Result<(), String> eff
 	let write_ready = channel::bounded<()>(1)
 	let write_release = channel::bounded<()>(1)
 	let write_result = handle handle system_write_shutdown_interruption_body(write_ready.rx, write_release.tx) with net::system() with contended_system_network("write", write_ready.tx, write_release.rx)
+	match read_result
+		Ok(()) => write_result
+		Err(message) => Err(message)
+	end
+end
+
+test system_stream_close_interruptions_are_closed() -> Result<(), String> effects [net, time, concurrency]
+	let read_ready = channel::bounded<()>(1)
+	let read_release = channel::bounded<()>(1)
+	let read_result = handle handle system_read_close_interruption_body(read_ready.rx, read_release.tx) with net::system() with contended_system_network("read", read_ready.tx, read_release.rx)
+	let write_ready = channel::bounded<()>(1)
+	let write_release = channel::bounded<()>(1)
+	let write_result = handle handle system_write_close_interruption_body(write_ready.rx, write_release.tx) with net::system() with contended_system_network("write", write_ready.tx, write_release.rx)
 	match read_result
 		Ok(()) => write_result
 		Err(message) => Err(message)

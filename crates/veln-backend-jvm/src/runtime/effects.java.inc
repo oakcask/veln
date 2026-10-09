@@ -1200,6 +1200,21 @@
     }
     private static boolean netSystemOwns(NetListener listener, HandlerFrame owner) { return !owner.networkSystemClosed && listener.systemOwner == owner; }
     private static boolean netSystemOwns(NetStream stream, HandlerFrame owner) { return !owner.networkSystemClosed && stream.systemOwner == owner; }
+    private static Object netSystemDispatchOwnershipFailure(
+        String effect,
+        String operation,
+        Object[] args,
+        HandlerFrame selected
+    ) {
+        if (!effect.equals("std::net::IO") || args.length == 0) return null;
+        Object resource = args[0];
+        HandlerFrame owner = null;
+        if (resource instanceof NetListener) owner = ((NetListener) resource).systemOwner;
+        else if (resource instanceof NetStream) owner = ((NetStream) resource).systemOwner;
+        if (owner == null || owner == selected) return null;
+        Object error = netSystemInvalidResource(operation);
+        return operation.equals("write") ? netSystemWriteFailure(0L, error) : err(error);
+    }
     private static boolean netSystemListenerUnavailable(NetListener listener) {
         synchronized (listener.lifecycleLock) {
             return listener.systemClosed || listener.closeUncertain;
@@ -1595,10 +1610,10 @@
     public static Object netSystemRead(Object value, Object deadlineOption, Object tokenOption) {
         HandlerFrame owner = netSystemOwner(); NetStream stream = asNetStream(value);
         if (!netSystemOwns(stream, owner)) return err(netSystemInvalidResource("read"));
-        if (netSystemReadUnavailable(stream) || stream.readFailed) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
-        if (stream.peerEnded) return ok(adt("ReadOutcome::ReadEnd", new Object[] {}));
         if (!stream.reading.compareAndSet(false, true)) return err(netSystemError("read", null, stream.peerAddress, "Busy", "another read is active"));
         try {
+            if (netSystemReadUnavailable(stream) || stream.readFailed) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
+            if (stream.peerEnded) return ok(adt("ReadOutcome::ReadEnd", new Object[] {}));
             Object outcome = readHost(stream, netSystemOptionValue(deadlineOption), netSystemOptionValue(tokenOption), "read");
             if (netSystemReadUnavailable(stream)) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
             if (isAdt(outcome, "StreamReadOutcome::ReadDeadlineExpired")) return err(netSystemError("read", null, stream.peerAddress, "TimedOut", "read deadline elapsed"));
@@ -1619,11 +1634,11 @@
     public static Object netSystemWrite(Object value, Object bytes, Object deadlineOption, Object tokenOption) {
         HandlerFrame owner = netSystemOwner(); NetStream stream = asNetStream(value);
         if (!netSystemOwns(stream, owner)) return netSystemWriteFailure(0L, netSystemInvalidResource("write"));
-        if (netSystemWriteUnavailable(stream) || stream.writeFailed) return netSystemWriteFailure(0L, netSystemError("write", null, stream.peerAddress, "Closed", "stream write side is closed"));
         if (!stream.writing.compareAndSet(false, true)) return netSystemWriteFailure(0L, netSystemError("write", null, stream.peerAddress, "Busy", "another write is active"));
         long committed = 0L;
         SocketReadiness readiness = null;
         try {
+            if (netSystemWriteUnavailable(stream) || stream.writeFailed) return netSystemWriteFailure(0L, netSystemError("write", null, stream.peerAddress, "Closed", "stream write side is closed"));
             Object deadline = netSystemOptionValue(deadlineOption); Object token = netSystemOptionValue(tokenOption);
             byte[] requestedBytes = byteChunkToByteArray(bytes);
             if (requestedBytes.length == 0) return adt("WriteOutcome::Written", new Object[] { byteCountObject(0L) });
