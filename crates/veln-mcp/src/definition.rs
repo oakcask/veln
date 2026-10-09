@@ -106,6 +106,16 @@ pub(crate) fn coordinate(value: &Value) -> Coordinate {
 }
 
 fn parse_coordinate_integer(text: &str) -> Option<usize> {
+    let (integer, fraction, exponent) = coordinate_decimal_parts(text)?;
+    let mut digits = String::with_capacity(integer.len() + fraction.len());
+    digits.push_str(integer);
+    digits.push_str(fraction);
+    let scale = i64::try_from(fraction.len()).ok()?.checked_sub(exponent)?;
+    let (digits, trailing_zeros) = normalize_coordinate_digits(&digits, scale)?;
+    parse_coordinate_digits(digits, trailing_zeros)
+}
+
+fn coordinate_decimal_parts(text: &str) -> Option<(&str, &str, i64)> {
     if text.starts_with('-') {
         return None;
     }
@@ -117,12 +127,10 @@ fn parse_coordinate_integer(text: &str) -> Option<usize> {
         Some((integer, fraction)) => (integer, fraction),
         None => (mantissa, ""),
     };
-    let mut digits = String::with_capacity(integer.len() + fraction.len());
-    digits.push_str(integer);
-    digits.push_str(fraction);
-    let scale = i64::try_from(fraction.len())
-        .ok()
-        .and_then(|fraction_len| fraction_len.checked_sub(exponent))?;
+    Some((integer, fraction, exponent))
+}
+
+fn normalize_coordinate_digits(digits: &str, scale: i64) -> Option<(&str, usize)> {
     if scale > 0 {
         let scale = scale as usize;
         if scale > digits.len()
@@ -132,17 +140,17 @@ fn parse_coordinate_integer(text: &str) -> Option<usize> {
         {
             return None;
         }
-        digits.truncate(digits.len() - scale);
+        return Some((&digits[..digits.len() - scale], 0));
     }
+    let trailing_zeros = usize::try_from(scale.unsigned_abs()).ok()?;
+    Some((digits, trailing_zeros))
+}
+
+fn parse_coordinate_digits(digits: &str, trailing_zeros: usize) -> Option<usize> {
     let trimmed = digits.trim_start_matches('0');
     if trimmed.is_empty() {
         return Some(0);
     }
-    let trailing_zeros = if scale < 0 {
-        usize::try_from(scale.unsigned_abs()).ok()?
-    } else {
-        0
-    };
     if trimmed.len() + trailing_zeros > usize::MAX.to_string().len() {
         return None;
     }
@@ -203,7 +211,7 @@ pub(crate) fn path_to_uri(path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Coordinate, coordinate, valid_position};
+    use super::{Coordinate, coordinate, parse_coordinate_integer, valid_position};
     use serde_json::json;
 
     #[test]
@@ -215,6 +223,31 @@ mod tests {
         assert!(matches!(coordinate(&non_integer), Coordinate::OutOfRange));
         let above_u64 = serde_json::from_str("18446744073709551616").unwrap();
         assert!(matches!(coordinate(&above_u64), Coordinate::OutOfRange));
+    }
+
+    #[test]
+    fn coordinate_integer_parser_preserves_decimal_scale_and_bounds() {
+        for (text, expected) in [
+            ("0", Some(0)),
+            ("1.0", Some(1)),
+            ("10e-1", Some(1)),
+            ("0.001e3", Some(1)),
+            ("12.300e1", Some(123)),
+            ("1e2", Some(100)),
+            ("1.01", None),
+            ("1e-1", None),
+            ("-1", None),
+            ("1e9223372036854775807", None),
+            ("1e-9223372036854775808", None),
+        ] {
+            assert_eq!(parse_coordinate_integer(text), expected, "{text}");
+        }
+
+        assert_eq!(
+            parse_coordinate_integer(&usize::MAX.to_string()),
+            Some(usize::MAX)
+        );
+        assert_eq!(parse_coordinate_integer(&format!("{}0", usize::MAX)), None);
     }
 
     #[test]
