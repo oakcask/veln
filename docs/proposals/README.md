@@ -20,9 +20,9 @@ also states it.
   propagation, and substitutable exporters, building on canonical and retained
   call-site locations:
   [observability.md](observability.md).
-- Remaining standard-library network duplex transport adapter and legacy
-  compiler-known compatibility removal, building on the implemented public
-  network effect and system handler:
+- Remaining standard-library network duplex transport adapter, public handler
+  package documentation, and legacy compiler-known compatibility removal,
+  building on the implemented public network effect and system handler:
   [standard-library-networking.md](standard-library-networking.md).
 - Remaining ADT variant-refinement support for alias navigation and
   visibility, qualified immutable values after a separate source-surface

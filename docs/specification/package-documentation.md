@@ -115,12 +115,13 @@ resolved schema documentation references. An effect is one declaration in the
 catalog; its operations are represented in that declaration's canonical
 signature rather than as separate declarations.
 
-The catalog excludes non-exported modules, private declarations, exact test
-companions, integration-test sources, hidden doctest setup lines, ADR-lite
-records, raw manifests, dependency declarations, dependency selectors, local
-paths, repository and homepage URLs, tool metadata, unknown manifest fields,
-and environment-derived values. Published expected-output fences preserve the
-stream as `stdout` or `stderr` and the complete lines for that stream.
+The catalog excludes non-exported modules, private declarations, public handler
+declarations, exact test companions, integration-test sources, hidden doctest
+setup lines, ADR-lite records, raw manifests, dependency declarations,
+dependency selectors, local paths, repository and homepage URLs, tool metadata,
+unknown manifest fields, and environment-derived values. Published
+expected-output fences preserve the stream as `stdout` or `stderr` and the
+complete lines for that stream.
 
 Published package metadata is limited to package identity, manifest package
 name, version, description, license, authors, keywords, and exported module

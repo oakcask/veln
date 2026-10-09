@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The planned network duplex adapter or legacy compiler-known network compatibility removal changes.
+update-when: The planned network duplex adapter, public handler package-documentation support, or legacy compiler-known network compatibility removal changes.
 ---
 
 # Remaining standard-library networking integration
@@ -10,14 +10,16 @@ update-when: The planned network duplex adapter or legacy compiler-known network
 The public `net::IO` contract and its host `net::system()` implementation are
 current behavior in the
 [standard-library networking specification](../specification/standard-library-networking.md).
-This proposal now covers only two independent follow-ups:
+This proposal now covers three independent follow-ups:
 
 - adapt one caller-owned `net::Stream` to `transport::DuplexStream`;
 - remove the legacy compiler-known `net::...` compatibility surface after
-  checked sources use the exported standard module.
+  checked sources use the exported standard module;
+- publish public handler declarations through package documentation so
+  `net::system()` is discoverable with the rest of the exported module.
 
-Neither follow-up changes the implemented system handler's ownership or TCP
-resource lifecycle.
+None of these follow-ups changes the implemented system handler's ownership or
+TCP resource lifecycle.
 
 ## Duplex transport adapter
 
@@ -44,6 +46,16 @@ one migration diagnostic that identifies the standard import, `net::IO`, and
 `net::system()` boundary. Compatibility is not a requirement for this
 experimental project.
 
+## Package documentation
+
+The current [package-documentation catalog](../specification/package-documentation.md#published-boundary)
+publishes public types, constructors, schemas, effects, aliases, and functions,
+but excludes public handler declarations. It will add a handler declaration
+kind with a stable semantic identity, canonical signature, documentation, and
+`veln-doc:` resource. The checked standard-library bundle must then expose
+`net::system()` from the exported `net` module without publishing its private
+`prelude_builtin::net_system_*` adapters.
+
 ## Non-goals
 
 This proposal does not add UDP, Unix-domain sockets, TLS, HTTP, proxies, packet
@@ -66,7 +78,7 @@ and caller-owned lifecycle rather than copy Go's method model.
 | --- | --- | --- | --- |
 | Duplex adapter | A captured `net::Stream` is handled as `transport::DuplexStream` and protocol code reads and writes | The adapter uses `net::IO` and `write_all`, maps failures through the decided transport contract, and does not close or take ownership of the stream | deterministic handler conformance test |
 | Compatibility removal | Source uses a legacy compiler-known `net::...` spelling after checked-source migration | The fallback no longer resolves, and the migration diagnostic identifies the current import, effect, and handler boundary | check and diagnostic cases |
+| Package documentation | The exported `std::net` module is rendered as package documentation | The catalog and MCP declaration resource include `net::system()` and exclude its private host adapters | package-documentation gate and checked standard-library resource bundle |
 
-Add executable evidence before promoting either row into current
-specification. Remove this page and its catalog entry after both rows are
-implemented.
+Add executable evidence before promoting any row into current specification.
+Remove this page and its catalog entry after all three rows are implemented.

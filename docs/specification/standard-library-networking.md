@@ -136,7 +136,7 @@ contract.
 `ReadOutcome` has the `ReadChunk(ByteChunk)` and `ReadEnd` shapes. The direct
 `read` and `read_with` functions return the handler's outcome unchanged,
 including `ReadChunk` with an empty `ByteChunk`. The facade does not enforce
-the proposed system handler's non-empty read-chunk rule.
+the system handler's non-empty read-chunk rule.
 
 A public caller declares `effects [net::IO]`, handles that effect explicitly,
 or receives a static missing-effect diagnostic. A runnable entry that retains
@@ -157,10 +157,11 @@ remain `ReadEnd`. A write reports the bytes committed by that attempt, including
 a committed prefix on failure. A deadline or cancellation failure leaves an
 otherwise reusable listener or stream open.
 
-Each stream permits one active read and one active write at the same time. A
-second operation in the same direction returns `Busy`. Closing a listener or
-stream interrupts its blocked operations with `Closed`. Read and write shutdown
-affect only the selected half, and close operations are idempotent.
+Each listener permits one active accept; a second accept returns `Busy`. Each
+stream permits one active read and one active write at the same time. A second
+operation in the same direction returns `Busy`. Closing a listener or stream
+interrupts its blocked operations with `Closed`. Read and write shutdown affect
+only the selected half, and close operations are idempotent.
 
 The system handler instance owns every listener and stream it creates. A
 different handler returns `InvalidResource` without changing either handler's
@@ -187,8 +188,9 @@ The system handler supports TCP streams only. It does not provide UDP,
 Unix-domain sockets, TLS, HTTP, proxies, packet APIs, file-descriptor conversion,
 or platform-specific socket options. Prompt peer-visible cleanup still requires
 an explicit close; scope cleanup is a safety net. Adapting an owned stream to
-`transport::DuplexStream` and removing the legacy compiler-known network
-compatibility surface remain proposal work.
+`transport::DuplexStream`, publishing public handler declarations in package
+documentation, and removing the legacy compiler-known network compatibility
+surface remain proposal work.
 
 ## References
 

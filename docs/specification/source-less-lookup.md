@@ -80,6 +80,12 @@ The opaque `NetListener` and `NetStream` entries let exported standard-package
 type aliases resolve to their compiler-provided resource identities without
 making either resource source-constructible.
 
+Private compiler adapters, including the `net_system_*` operations used by
+`std::net::system()`, publish only their qualified
+`prelude_builtin::name` keys. Bare prelude lookup does not publish those names.
+This keeps the host adapters out of the public prelude surface while allowing
+embedded standard-package source to resolve the reserved qualified route.
+
 ## Limits
 
 Registry publication is all-or-nothing: one invalid descriptor prevents every
