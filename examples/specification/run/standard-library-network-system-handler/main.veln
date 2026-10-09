@@ -235,7 +235,7 @@ fn require_propagated_failure(result: Result<(), net::NetError>) -> Result<(), n
 	match result
 		Err(net::NetError("scripted", _, _, net::Other, _)) => Ok(())
 		Err(error) => Err(error)
-		Ok(()) => Err(net::NetError("cleanup", None, None, net::Other, "failure path unexpectedly succeeded"))
+		Ok(_) => Err(net::NetError("cleanup", None, None, net::Other, "failure path unexpectedly succeeded"))
 	end
 end
 
@@ -279,7 +279,7 @@ end
 
 fn require_closed_accept_join(result: Result<Result<(), net::NetError>, JoinError>) -> Result<(), net::NetError>
 	match result
-		Ok(Ok(())) => Ok(())
+		Ok(Ok(_)) => Ok(())
 		Ok(Err(error)) => Err(error)
 		Err(_) => Err(net::NetError("accept", None, None, net::Other, "blocked accept task failed"))
 	end
