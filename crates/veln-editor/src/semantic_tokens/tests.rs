@@ -19,3 +19,5 @@ mod declarations;
 mod encoding;
 #[path = "tests/expressions.rs"]
 mod expressions;
+#[path = "tests/variant_refinements.rs"]
+mod variant_refinements;

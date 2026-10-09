@@ -16,8 +16,9 @@ stable mismatch diagnostics, and runtime erasure.
 
 This proposal retains only the unfinished work: alias navigation and
 visibility, qualified-value match refinement, schema boundaries, package
-documentation catalog signatures, LSP, and remaining MCP diagnostics,
-navigation, rename, package-signature, and saved-state behavior. Qualified
+documentation catalog signatures, remaining LSP diagnostics, navigation,
+rename, and recovery, and remaining MCP diagnostics, navigation, rename,
+package-signature, and saved-state behavior. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
@@ -322,11 +323,8 @@ identities without reconstructing them from display text.
 
 ### LSP
 
-The existing LSP surface gains the following behavior:
+The existing LSP surface still requires the following behavior:
 
-- Semantic tokens classify each base path as `type`, each final variant as
-  `enumMember`, and `|` as the existing operator token class. Declaration and
-  existing modifiers follow the underlying type and constructor identities.
 - Published diagnostics project the diagnostic table with the existing UTF-16
   range conversion and related information.
 - Definition on the base type goes to the type or selected type alias.
@@ -387,7 +385,7 @@ current behavior:
 | Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Diagnostics | Each remaining semantic failure has the exact code, primary span, closed JSON details, related notes, and deterministic overlap ordering. Base-refinement reasons use only the closed values in the diagnostic contract. Remaining resolution, base-eligibility, variant, visibility, and union-base failures compose with current casing, arity, and assignability diagnostics; derivative failures are suppressed; and each new failure retains exactly the specified navigation identities. | Human and JSON command fixtures covering the remaining diagnostic rows, base-reason values, their overlaps with current diagnostics, and identity-retention outcomes. |
-| LSP | Tokens, diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the LSP contract. | Editor-neutral cases and stdio LSP request/response fixtures. |
+| LSP | Diagnostics, definition, references, prepare-rename, rename, recovery, UTF-16 conversion, and unchanged-snapshot failures follow the remaining LSP contract. | Shared language-service cases and stdio LSP request/response fixtures. |
 | MCP | Check, navigation, pagination, rename, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 | Cross-transport identity | LSP and MCP select the same declaration and reference set from the same saved source before coordinate projection. | Shared language-service cases consumed by both adapter suites. |
 

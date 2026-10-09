@@ -26,8 +26,8 @@ also states it.
 - Remaining ADT variant-refinement support for alias navigation and
   visibility, qualified immutable values after a separate source-surface
   prerequisite, schema boundaries, package-documentation catalog signatures,
-  LSP, and remaining MCP
-  diagnostics, navigation, rename, package-signature, and saved-state behavior:
+  remaining LSP diagnostics, navigation, rename, and recovery, and remaining
+  MCP diagnostics, navigation, rename, package-signature, and saved-state behavior:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked

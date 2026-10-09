@@ -172,7 +172,12 @@ pub fn collect_semantic_tokens(source: &SourceFile) -> Vec<SemanticToken> {
         return semantic_tokens;
     }
 
-    let callsite_context = collect_callsite_context(source, &tokens);
+    let parsed = parse(source);
+    variant_refinements::apply_variant_refinement_classification(
+        &parsed.tree,
+        &mut semantic_tokens,
+    );
+    let callsite_context = collect_callsite_context(&tokens, &parsed.tree);
     callsite_context.apply(source, &mut semantic_tokens);
     semantic_tokens
 }
@@ -229,7 +234,7 @@ impl CallsiteContext {
     }
 }
 
-fn collect_callsite_context(source: &SourceFile, tokens: &[Token]) -> CallsiteContext {
+fn collect_callsite_context(tokens: &[Token], tree: &veln_syntax::SyntaxTree) -> CallsiteContext {
     let qualified_offsets = tokens
         .iter()
         .enumerate()
@@ -243,8 +248,7 @@ fn collect_callsite_context(source: &SourceFile, tokens: &[Token]) -> CallsiteCo
     let mut modifier_offsets = BTreeSet::new();
     let mut scopes = Vec::new();
     let mut modifier_line_starts = BTreeMap::new();
-    let parsed = parse(source);
-    for item in &parsed.tree.items {
+    for item in &tree.items {
         let SyntaxItem::Function(function) = item else {
             continue;
         };
@@ -402,6 +406,7 @@ struct Classifier<'a> {
 
 mod classifier_classification;
 mod classifier_collection;
+mod variant_refinements;
 
 fn collect_function_names(tokens: &[Token]) -> BTreeSet<String> {
     let mut names = BTreeSet::new();

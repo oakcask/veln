@@ -1,0 +1,4 @@
+fn project(value: domain::State::Ready | domain::State::Closed, nested: {state: alias::State::Ready}) -> api::State::Closed
+  let local: alias::State::Ready = value
+  "😀" |> sink<domain::State::Ready | alias::State::Closed>(local)
+end
