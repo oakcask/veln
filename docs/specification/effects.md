@@ -641,7 +641,7 @@ token state. The reply is an ordinary record with these fields:
 
 | Fields | Bridge interpretation |
 | --- | --- |
-| `status` | `ok` supplies a successful result; `end`, `deadline`, and `cancelled` select the corresponding accept or read outcome, or deadline/cancellation write outcome. `error` raises a transport failure. |
+| `status` | `ok` supplies a successful result; `end`, `deadline`, and `cancelled` select the corresponding accept or read outcome, or deadline/cancellation write outcome. `error` raises a transport failure at the direct bridge. When `net::system()` consumes the request, it translates that failure into the operation's typed `NetError` result. |
 | `value` | Created resource identity or endpoint/state query text. Boolean queries use `true` or `false`. |
 | `bytes` | Received bytes for a successful read. |
 | `resolved_endpoints` | Ordered resolver results. Each item names `tcp4` or `tcp6` and one numeric host address. The system handler preserves this order and removes only exact network-and-address duplicates. Other operations use an empty list. |

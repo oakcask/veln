@@ -19,6 +19,9 @@ listeners and streams before restoring the outer handler. The cleanup runs for
 normal completion, propagated errors, and runtime exceptions. A copied handler
 stack inherited by a child task refers to the same owner, so concurrent
 operations observe the same close and ownership state.
+The [standard-library networking specification](standard-library-networking.md#network-operation-boundary)
+owns the resolver, exact write-progress, concurrent-operation, and resource
+state transitions for this handler.
 
 Semantic diagnostics must be error-free before the compiler produces checked
 core and typed IR. Command analysis checks readiness for the selected entry
