@@ -291,6 +291,7 @@ fn validated_registry_indexes_descriptor_and_constructor_owners() {
             visibility: Visibility::Public,
         }],
         diagnostic_name: "owned".to_string(),
+        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
         propagation: None,
         visibility: Visibility::Public,
     };
