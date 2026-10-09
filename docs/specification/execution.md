@@ -18,7 +18,11 @@ active `net::IO` handler frame. Popping that frame closes its remaining
 listeners and streams before restoring the outer handler. The cleanup runs for
 normal completion, propagated errors, and runtime exceptions. A copied handler
 stack inherited by a child task refers to the same owner, so concurrent
-operations observe the same close and ownership state.
+operations observe the same close and ownership state. The frame becomes
+closed to resource publication before cleanup starts. A child operation that
+finishes creating a listener or stream after that transition cleans the new
+resource according to its reported commit state and returns `InvalidResource`
+instead of publishing it through the closed frame.
 The [standard-library networking specification](standard-library-networking.md#network-operation-boundary)
 owns the resolver controls, connection commit point, exact write-progress,
 concurrent-operation, and resource state transitions for this handler. Task

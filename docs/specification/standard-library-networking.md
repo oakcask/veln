@@ -171,6 +171,27 @@ uses `Other`. A Veln runtime failure, an unexpected unchecked host failure, or
 a JVM error remains an abrupt failure. It is not converted to `Other`, does not
 trigger another endpoint attempt, and still unwinds handler cleanup.
 
+### Host Failure Translation
+
+The system handler translates a typed host failure category as follows:
+
+| Host category | `NetErrorKind` |
+| --- | --- |
+| `timed_out` | `TimedOut` |
+| `cancelled` | `Cancelled` |
+| `closed` | `Closed` |
+| `connection_refused` | `ConnectionRefused` |
+| `connection_reset` | `ConnectionReset` |
+| `address_in_use` | `AddressInUse` |
+| `permission_denied` | `PermissionDenied` |
+| `name_not_found` | `NameNotFound` |
+| `invalid_endpoint` or `invalid_input` | `InvalidAddress` |
+| Any other category | `Other` |
+
+The direct JVM host boundary classifies the corresponding platform failures
+with the same specific kinds. Resolver-capacity exhaustion uses `Busy`.
+Resource ownership failures use `InvalidResource`.
+
 System reads return non-empty `ReadChunk` values. They return `ReadEnd` after
 the peer write half ends and buffered bytes have been consumed; later reads
 remain `ReadEnd`. A write reports the bytes committed by that attempt, including
@@ -247,6 +268,13 @@ instance, including normal return, propagated failure, and runtime unwind. A
 resource returned from the scope is therefore closed and another handler
 rejects it as `InvalidResource`.
 
+Scope exit also closes the owner to new resources before cleanup starts. If an
+inherited child operation finishes `listen`, `connect`, or `accept` after that
+point, the operation does not return the new resource. It applies the same
+committed, uncommitted, or unknown close outcome rules to that resource and
+returns `InvalidResource`. The resource never transfers to the restored outer
+handler.
+
 ## Limits And Errors
 
 Both helpers return `Err(NetError(... InvalidAddress ...))` when a port is less
@@ -288,3 +316,5 @@ deadline and cancellation reuse, half-close, ownership rejection, and
 peer-observed listener and stream cleanup after normal return, propagated
 failure, and runtime unwind. Same-direction `Busy` observations establish that
 the interrupted accept, read, and backpressured write operations are in flight.
+The JVM lifecycle harness also checks that resource creation racing with scope
+cleanup cannot publish a listener or stream after its owner closes.
