@@ -109,8 +109,7 @@ fn append_doctest_source(
     else {
         return false;
     };
-    let generated_text = generated_doctest_source(&name, &doctest);
-    let copied_regions = generated_doctest_copied_regions(&name, &doctest);
+    let generated_doctest = generated_doctest(&name, &doctest);
     if let Some(fail_span) = doctest.fail_span {
         generated
             .expected_failures
@@ -124,9 +123,9 @@ fn append_doctest_source(
         .sources
         .push(SourceFile::generated_with_copied_regions(
             generated_path,
-            generated_text,
+            generated_doctest.text,
             source.path().clone(),
-            copied_regions,
+            generated_doctest.copied_regions,
         ));
     if !doctest.should_fail {
         generated.expectations.insert(
