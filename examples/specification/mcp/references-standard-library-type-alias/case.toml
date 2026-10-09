@@ -129,7 +129,7 @@ length = 10
 [[mcp_assert]]
 id = 8
 path = "/result/structuredContent/references/9/uri"
-equals = "veln-pkg:///std/snapshot/ae3b35802f7f9ce1af8b6d9634de25ed4df6d4d4b370b57ea678f7115bf65f35/prelude.veln"
+equals = "veln-pkg:///std/snapshot/6eea8d4b391c1a8bd1b98496cb62f35909d30d1d42bbdb930429c5d332dbb58b/prelude.veln"
 
 [[mcp_assert]]
 id = 8
