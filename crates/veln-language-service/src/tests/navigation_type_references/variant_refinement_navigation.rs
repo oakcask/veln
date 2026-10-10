@@ -343,6 +343,152 @@
     }
 
     #[test]
+    fn retained_standard_alias_targets_implicit_prelude_type() {
+        let prelude_source = source(
+            "prelude.veln",
+            "pub type State\n  pub Ready\nend\n",
+        );
+        let bridge_source = source(
+            "bridge.veln",
+            concat!(
+                "pub type Alias = State\n\n",
+                "fn observe(value: Alias::Ready) -> Int\n",
+                "  0\n",
+                "end\n",
+            ),
+        );
+        let mut semantic_module = veln_ast::lower_surface_ast(&veln_syntax::parse(&prelude_source).tree);
+        for declaration in &mut semantic_module.types {
+            declaration.module_name = Some("std::prelude".to_string());
+        }
+        let mut bridge_module = veln_ast::lower_surface_ast(&veln_syntax::parse(&bridge_source).tree);
+        for alias in &mut bridge_module.aliases {
+            alias.module_name = Some("std::bridge".to_string());
+        }
+        for function in &mut bridge_module.functions {
+            function.module_name = Some("std::bridge".to_string());
+        }
+        semantic_module.aliases.extend(bridge_module.aliases);
+        semantic_module.functions.extend(bridge_module.functions);
+        let lowered = veln_sema::lower_checked_surface_module(&semantic_module);
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "prelude.veln",
+                    "pub type State\n  pub Ready\nend\n",
+                ),
+                ("bridge.veln", "pub type Alias = State\n"),
+            ],
+            ["prelude.veln", "bridge.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use bridge from \"std\"\n\n",
+                "pub fn observe(value: bridge::Alias::Ready) -> Int\n",
+                "  0\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        let base = query_snapshot(&snapshot, "main.veln", 3, 31).unwrap();
+        assert_eq!(
+            base.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_package_location(&base.definition, "bridge.veln", 1, 10);
+
+        let variant = query_snapshot(&snapshot, "main.veln", 3, 38).unwrap();
+        assert_eq!(variant.selected_symbol.kind, SymbolKind::Constructor);
+        assert_package_location(&variant.definition, "prelude.veln", 2, 7);
+        assert_eq!(
+            variant.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+    }
+
+    #[test]
+    fn retained_alias_target_prefers_declaring_module_to_implicit_prelude() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "prelude.veln",
+                    "pub type State\n  pub Ready\nend\n",
+                ),
+                (
+                    "bridge.veln",
+                    concat!(
+                        "pub type State\n",
+                        "  pub Ready\n",
+                        "end\n\n",
+                        "pub type Alias = State\n",
+                    ),
+                ),
+            ],
+            ["prelude.veln", "bridge.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use bridge from \"std\"\n\n",
+                "fn observe(value: bridge::Alias::Ready) -> Int\n",
+                "  0\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        let variant = query_snapshot(&snapshot, "main.veln", 3, 38).unwrap();
+        assert_package_location(&variant.definition, "bridge.veln", 2, 7);
+    }
+
+    #[test]
+    fn retained_dependency_alias_targets_standard_prelude_identity() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[("bridge.veln", "pub type Alias = State\n")],
+            ["bridge.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub type State\n  pub Ready\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use bridge from \"example/pkg\"\n\n",
+                    "fn observe(value: bridge::Alias::Ready) -> Int\n",
+                    "  0\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        let base = query_snapshot(&snapshot, "main.veln", 3, 31).unwrap();
+        assert_package_location(&base.definition, "bridge.veln", 1, 10);
+        assert_eq!(
+            base.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+
+        let variant = query_snapshot(&snapshot, "main.veln", 3, 38).unwrap();
+        assert_package_location(&variant.definition, "prelude.veln", 2, 7);
+        assert_eq!(
+            variant.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+    }
+
+    #[test]
     fn variant_refinement_navigation_obeys_visibility_and_owner_boundaries() {
         let sources = vec![
             source(
@@ -798,6 +944,76 @@
             assert_adjacent_alias_resolution_work(smaller, larger);
         }
         eprintln!("workspace variant-refinement alias depth evidence: {evidence:?}");
+    }
+
+    fn same_named_workspace_alias_chain_candidate_visits(
+        depth: usize,
+    ) -> (usize, std::time::Duration) {
+        let mut sources = Vec::with_capacity(depth + 1);
+        sources.push(source(
+            "layer0.veln",
+            concat!(
+                "pub type State\n",
+                "  pub Ready(Int)\n",
+                "end\n\n",
+                "pub type Alias = State\n",
+            ),
+        ));
+        for index in 1..depth {
+            let previous = format!("layer{}", index - 1);
+            sources.push(SourceFile::new(
+                format!("layer{index}.veln"),
+                format!("use {previous}\n\npub type Alias = {previous}::Alias\n"),
+            ));
+        }
+        let final_module = format!("layer{}", depth - 1);
+        let consumer = format!(
+            "use {final_module}\n\nfn observe(value: {final_module}::Alias::Ready) -> Int\n  0\nend\n"
+        );
+        let column = consumer
+            .lines()
+            .nth(2)
+            .and_then(|line| line.find("Ready"))
+            .expect("generated refinement contains Ready")
+            + 1;
+        sources.push(SourceFile::new("main.veln", consumer));
+
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+        snapshot.navigation_index();
+        crate::navigation::reset_type_namespace_candidate_visits();
+        let started = std::time::Instant::now();
+        let definition = definition_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 3,
+                column,
+            },
+        )
+        .expect("same-named qualified alias chain resolves");
+        let elapsed = started.elapsed();
+        assert_location(&definition, "layer0.veln", 2, 7);
+        (
+            crate::navigation::type_namespace_candidate_visits(),
+            elapsed,
+        )
+    }
+
+    #[test]
+    fn same_named_workspace_alias_chain_candidate_visits_are_adjacent_linear() {
+        let mut evidence = Vec::new();
+        for depth in [64, 128, 256] {
+            let (visits, elapsed) = same_named_workspace_alias_chain_candidate_visits(depth);
+            evidence.push((depth, visits, elapsed));
+        }
+        eprintln!("same-named workspace alias chain evidence: {evidence:?}");
+        for window in evidence.windows(2) {
+            let (_, smaller, _) = window[0];
+            let (_, larger, _) = window[1];
+            assert!(smaller > 0, "candidate visits must cover alias target lookup");
+            assert!(larger > smaller, "{smaller} -> {larger}");
+            assert!(larger <= smaller * 2 + 16, "{smaller} -> {larger}");
+        }
     }
 
     fn nested_generic_alias_rename_work(

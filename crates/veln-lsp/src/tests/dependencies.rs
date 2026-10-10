@@ -15,6 +15,73 @@ fn packet_standard_library() -> DirectDependencySnapshot {
     .unwrap()
 }
 
+fn implicit_prelude_alias_standard_library() -> DirectDependencySnapshot {
+    let manifest = concat!(
+        "[package]\nname = \"std\"\n\n",
+        "[lib]\nexports = [\"prelude.veln\", \"bridge.veln\"]\n",
+    );
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [
+            PackageSnapshotSource::new(
+                "prelude.veln",
+                b"pub type State\n  pub Ready\nend\n",
+            ),
+            PackageSnapshotSource::new("bridge.veln", b"pub type Alias = State\n"),
+        ],
+    )
+    .unwrap();
+    DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap()
+}
+
+#[test]
+fn standard_library_alias_to_implicit_prelude_type_projects_definitions() {
+    let mut server =
+        Server::default().with_standard_library(implicit_prelude_alias_standard_library());
+    let project = TempProject::new("standard-library-implicit-prelude-alias-navigation");
+    project.write(
+        "main.veln",
+        concat!(
+            "use bridge from \"std\"\n\n",
+            "pub fn observe(value: bridge::Alias::Ready) -> Int\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let alias = server.handle_message(&definition_request(&main_uri, 2, 30));
+    assert!(alias[0].contains("/bridge.veln"), "{}", alias[0]);
+    assert!(
+        alias[0].contains(
+            r#""range":{"start":{"line":0,"character":9},"end":{"line":0,"character":14}}"#
+        ),
+        "{}",
+        alias[0]
+    );
+
+    let variant = server.handle_message(&definition_request(&main_uri, 2, 37));
+    assert!(variant[0].contains("/prelude.veln"), "{}", variant[0]);
+    assert!(
+        variant[0].contains(
+            r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#
+        ),
+        "{}",
+        variant[0]
+    );
+
+    for character in [30, 37] {
+        let rename = server.handle_message(&rename_request(&main_uri, 2, character, "Renamed"));
+        assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+    }
+}
+
 #[test]
 fn handler_context_parameter_does_not_bind_same_named_operation_heading() {
     let mut server = Server::default();

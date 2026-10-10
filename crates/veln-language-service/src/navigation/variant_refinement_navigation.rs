@@ -4,8 +4,10 @@ enum VariantRefinementAliasTarget {
     Alias(TypeAliasSymbol),
 }
 
-type VariantRefinementAliasDeclarations =
-    BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>;
+struct VariantRefinementAliasDeclarations {
+    by_identity: BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>,
+    standard_prelude: BTreeMap<String, Vec<VariantRefinementAliasTarget>>,
+}
 type VariantRefinementAliases<'a> = BTreeMap<TypeIdentity, Vec<&'a TypeAliasSymbol>>;
 
 impl SymbolIndex {
@@ -249,21 +251,40 @@ impl SymbolIndex {
     fn variant_refinement_alias_declarations(
         &self,
     ) -> (VariantRefinementAliasDeclarations, VariantRefinementAliases<'_>) {
-        let mut declarations = BTreeMap::<TypeIdentity, Vec<VariantRefinementAliasTarget>>::new();
+        let mut declarations = VariantRefinementAliasDeclarations {
+            by_identity: BTreeMap::new(),
+            standard_prelude: BTreeMap::new(),
+        };
         for symbol in &self.types {
             record_variant_refinement_alias_index_entry();
             declarations
+                .by_identity
                 .entry(type_symbol_identity(symbol))
                 .or_default()
                 .push(VariantRefinementAliasTarget::Type(symbol.clone()));
+            if symbol.standard_prelude {
+                declarations
+                    .standard_prelude
+                    .entry(symbol.name.clone())
+                    .or_default()
+                    .push(VariantRefinementAliasTarget::Type(symbol.clone()));
+            }
         }
         let mut aliases = BTreeMap::<TypeIdentity, Vec<&TypeAliasSymbol>>::new();
         for symbol in &self.type_aliases {
             record_variant_refinement_alias_index_entry();
             declarations
+                .by_identity
                 .entry(type_alias_identity(symbol))
                 .or_default()
                 .push(VariantRefinementAliasTarget::Alias(symbol.clone()));
+            if symbol.standard_prelude {
+                declarations
+                    .standard_prelude
+                    .entry(symbol.name.clone())
+                    .or_default()
+                    .push(VariantRefinementAliasTarget::Alias(symbol.clone()));
+            }
             aliases
                 .entry(type_alias_identity(symbol))
                 .or_default()
@@ -306,11 +327,12 @@ impl SymbolIndex {
         declaring_file: &IndexedFile,
     ) -> Option<VariantRefinementAliasTarget> {
         let target = match alias.target_module.as_deref() {
-            Some(qualifier) => self.first_visible_type_namespace_for_qualified_reference(
-                declaring_file,
-                qualifier,
-                &alias.target_name,
-            ),
+            Some(qualifier) => self
+                .indexed_workspace_type_namespace_for_qualified_alias_target(
+                    declaring_file,
+                    qualifier,
+                    &alias.target_name,
+                ),
             None => self.first_visible_type_namespace_for_bare_reference(
                 declaring_file,
                 &alias.target_name,
@@ -320,6 +342,48 @@ impl SymbolIndex {
             TypeConflictCandidate::Type(symbol) => VariantRefinementAliasTarget::Type(symbol),
             TypeConflictCandidate::Alias(symbol) => VariantRefinementAliasTarget::Alias(symbol),
         })
+    }
+
+    fn indexed_workspace_type_namespace_for_qualified_alias_target(
+        &self,
+        declaring_file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<TypeConflictCandidate> {
+        let external_route = declaring_file
+            .external_uses
+            .iter()
+            .any(|(module, _)| module == qualifier)
+            || resolve_external_qualified_alias(
+                &declaring_file.external_import_aliases,
+                qualifier,
+            )
+            .is_some();
+        if external_route {
+            return self.first_visible_type_namespace_for_qualified_reference(
+                declaring_file,
+                qualifier,
+                name,
+            );
+        }
+
+        let module = if qualifier == declaring_file.module
+            || declaring_file.uses.contains(qualifier)
+        {
+            qualifier.to_string()
+        } else {
+            resolve_qualified_alias(&declaring_file.import_aliases, qualifier)?
+        };
+        self.workspace_types_in_module(&module, name)
+            .next()
+            .cloned()
+            .map(TypeConflictCandidate::Type)
+            .or_else(|| {
+                self.workspace_type_aliases_in_module(&module, name)
+                    .next()
+                    .cloned()
+                    .map(TypeConflictCandidate::Alias)
+            })
     }
 
     fn indexed_package_type_alias_target(
@@ -342,6 +406,7 @@ impl SymbolIndex {
         );
         let mut candidates = modules.into_iter().flat_map(|module| {
             declarations
+                .by_identity
                 .get(&(
                     alias.package.clone(),
                     alias.package_origin,
@@ -352,8 +417,18 @@ impl SymbolIndex {
                 .flatten()
                 .cloned()
         });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then_some(candidate)
+        match (candidates.next(), candidates.next()) {
+            (Some(candidate), None) => Some(candidate),
+            (Some(_), Some(_)) => None,
+            (None, _) if alias.target_module.is_none() => {
+                let candidates = declarations.standard_prelude.get(&alias.target_name)?;
+                let [candidate] = candidates.as_slice() else {
+                    return None;
+                };
+                Some(candidate.clone())
+            }
+            (None, _) => None,
+        }
     }
 
     fn type_alias_declaring_file(&self, alias: &TypeAliasSymbol) -> Option<&IndexedFile> {

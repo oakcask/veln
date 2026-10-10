@@ -64,7 +64,9 @@ and [MCP](../specification/mcp.md#saved-workspace-navigation).
 Current navigation requires the written generic-argument count to match the
 resolved terminal ADT. A wrong-arity refinement exposes neither its base nor
 its final segment to definition, references, or rename. The recovery work
-below does not change this wrong-arity boundary.
+below plans separate source identities for the resolved base and, when it can
+be resolved independently, the constructor without making the refinement
+valid.
 
 A refinement is valid only when the selected constructor is visible at the
 annotation. A public declaration cannot expose a private type or private
@@ -250,7 +252,7 @@ navigation even though the annotation remains invalid.
 | The base is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
 | The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
 | The base resolves uniquely but is not refinable. | `type.variant_refinement_base` with one closed reason above. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base declaration only. |
-| Generic arity is invalid after the base ADT resolves. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or visibility diagnostic. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | None for source navigation. Resolved declarations can remain diagnostic context only. |
+| Generic arity is invalid after the base ADT resolves. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or visibility diagnostic. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The base declaration and, when resolved, the constructor declaration; no instantiated refinement type. |
 | The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
 | A base or final segment has invalid casing and one existing recovery identity. | `name.invalid_case`, plus independent arity, base-eligibility, or visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | Every uniquely recovered base and constructor declaration. |
 | An invalid-cased segment has no unique recovery and is independently missing, ambiguous, private, or wrong-kind. | `name.invalid_case` when the segment role is known, plus the applicable existing lookup or visibility diagnostic. | Downstream failures that require a selected identity. | Only identities selected independently of the failed segment. |

@@ -407,6 +407,69 @@ fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliase
     assert_eq!(edits(&alias_renamed).len(), 2, "{alias_renamed:#}");
 }
 
+#[test]
+fn standard_library_alias_to_implicit_prelude_type_projects_definitions() {
+    let workspace = TempWorkspace::new("standard-library-implicit-prelude-alias-navigation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use bridge from \"std\"\n\n",
+            "pub fn observe(value: bridge::Alias::Ready) -> Int\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        concat!(
+            "[package]\nname = \"std\"\n\n",
+            "[lib]\nexports = [\"prelude.veln\", \"bridge.veln\"]\n",
+        ),
+        [
+            PackageSnapshotSource::new("prelude.veln", b"pub type State\n  pub Ready\nend\n"),
+            PackageSnapshotSource::new("bridge.veln", b"pub type Alias = State\n"),
+        ],
+    );
+
+    let alias = server.definition_tool(&json!({
+        "source":"main.veln", "line":3, "column":31
+    }));
+    assert!(
+        alias["structuredContent"]["definition"]["uri"]
+            .as_str()
+            .is_some_and(|uri| uri.ends_with("/bridge.veln")),
+        "{alias:#}"
+    );
+    assert_eq!(
+        alias["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":1,"column":10},"end":{"line":1,"column":15}}),
+        "{alias:#}"
+    );
+
+    let variant = server.definition_tool(&json!({
+        "source":"main.veln", "line":3, "column":38
+    }));
+    assert!(
+        variant["structuredContent"]["definition"]["uri"]
+            .as_str()
+            .is_some_and(|uri| uri.ends_with("/prelude.veln")),
+        "{variant:#}"
+    );
+    assert_eq!(
+        variant["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":2,"column":7},"end":{"line":2,"column":12}}),
+        "{variant:#}"
+    );
+
+    for column in [31, 38] {
+        let renamed = server.rename_tool(&json!({
+            "source":"main.veln", "line":3, "column":column, "new_name":"Renamed"
+        }));
+        assert!(edits(&renamed).is_empty(), "{renamed:#}");
+    }
+}
+
 fn edits(result: &Value) -> &Vec<Value> {
     result["structuredContent"]["edits"]
         .as_array()
