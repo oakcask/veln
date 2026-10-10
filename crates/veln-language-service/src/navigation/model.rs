@@ -875,8 +875,9 @@ struct IndexedFile {
     variant_refinement_union_final_range_groups: Vec<Vec<(usize, usize)>>,
     variant_refinement_type_argument_annotations_by_final_range:
         BTreeMap<(usize, usize), Vec<String>>,
-    variant_refinement_type_parameters_by_final_range:
-        BTreeMap<(usize, usize), Vec<String>>,
+    variant_refinement_type_parameter_contexts: Vec<Vec<String>>,
+    variant_refinement_type_parameter_context_index_by_final_range:
+        BTreeMap<(usize, usize), usize>,
     canonical_variant_refinement_type_arguments_by_final_range:
         BTreeMap<(usize, usize), Vec<veln_sema::CanonicalTypeAnnotationIdentity>>,
     constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,

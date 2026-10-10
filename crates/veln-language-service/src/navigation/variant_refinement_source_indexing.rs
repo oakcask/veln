@@ -6,7 +6,8 @@ struct VariantRefinementSourceIndex {
     union_group_index_by_final_range: BTreeMap<(usize, usize), usize>,
     union_final_range_groups: Vec<Vec<(usize, usize)>>,
     type_argument_annotations_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
-    type_parameters_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
+    type_parameter_contexts: Vec<Vec<String>>,
+    type_parameter_context_index_by_final_range: BTreeMap<(usize, usize), usize>,
 }
 fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSourceIndex {
     let mut index = VariantRefinementSourceIndex::default();
@@ -267,6 +268,16 @@ fn collect_refinement_ranges(
     index: &mut VariantRefinementSourceIndex,
 ) {
     for refinement in refinements {
+        let type_parameter_context_index = (!type_parameters.is_empty()
+            && refinement
+                .alternatives
+                .iter()
+                .any(|alternative| !alternative.type_arguments.is_empty()))
+        .then(|| {
+            let context_index = index.type_parameter_contexts.len();
+            index.type_parameter_contexts.push(type_parameters.to_vec());
+            context_index
+        });
         let union_final_ranges = refinement
             .alternatives
             .iter()
@@ -303,10 +314,14 @@ fn collect_refinement_ranges(
                         .map(variant_refinement_type_argument_annotation)
                         .collect()
                 });
-            index
-                .type_parameters_by_final_range
-                .entry(final_range)
-                .or_insert_with(|| type_parameters.to_vec());
+            if !alternative.type_arguments.is_empty()
+                && let Some(context_index) = type_parameter_context_index
+            {
+                index
+                    .type_parameter_context_index_by_final_range
+                    .entry(final_range)
+                    .or_insert(context_index);
+            }
             if let Some(base_span) = alternative.base.segment_spans.last() {
                 let base_range = (base_span.start.offset, base_span.end.offset);
                 index.final_range_by_base_range.insert(

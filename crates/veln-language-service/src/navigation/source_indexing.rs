@@ -237,8 +237,10 @@ fn indexed_dependency_source(
             .union_final_range_groups,
         variant_refinement_type_argument_annotations_by_final_range:
             variant_refinement_source_index.type_argument_annotations_by_final_range,
-        variant_refinement_type_parameters_by_final_range:
-            variant_refinement_source_index.type_parameters_by_final_range,
+        variant_refinement_type_parameter_contexts:
+            variant_refinement_source_index.type_parameter_contexts,
+        variant_refinement_type_parameter_context_index_by_final_range:
+            variant_refinement_source_index.type_parameter_context_index_by_final_range,
         canonical_variant_refinement_type_arguments_by_final_range: BTreeMap::new(),
         constructor_reference_declaration_ranges,
         classified_paths: ClassifiedPathIndex::default(),
@@ -315,7 +317,7 @@ fn attach_canonical_variant_refinement_type_arguments(
     files: &mut [IndexedFile],
     project: &veln_ast::SurfaceModule,
 ) {
-    let mut annotations = Vec::<(String, Option<String>, Vec<String>)>::new();
+    let mut annotations = Vec::<(&str, Option<&str>, &[String])>::new();
     let mut groups = Vec::<(usize, (usize, usize), usize, usize)>::new();
     for (file_index, file) in files.iter().enumerate() {
         for (range, arguments) in
@@ -323,21 +325,17 @@ fn attach_canonical_variant_refinement_type_arguments(
         {
             let start = annotations.len();
             let type_parameters = file
-                .variant_refinement_type_parameters_by_final_range
+                .variant_refinement_type_parameter_context_index_by_final_range
                 .get(range)
-                .cloned()
-                .unwrap_or_default();
+                .and_then(|context_index| {
+                    file.variant_refinement_type_parameter_contexts
+                        .get(*context_index)
+                })
+                .map_or(&[][..], Vec::as_slice);
             annotations.extend(
                 arguments
                     .iter()
-                    .cloned()
-                    .map(|argument| {
-                        (
-                            argument,
-                            Some(file.module.clone()),
-                            type_parameters.clone(),
-                        )
-                    }),
+                    .map(|argument| (argument.as_str(), Some(file.module.as_str()), type_parameters)),
             );
             groups.push((file_index, *range, start, annotations.len()));
         }

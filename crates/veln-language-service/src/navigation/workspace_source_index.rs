@@ -66,8 +66,9 @@ struct WorkspaceSyntaxIndex {
     variant_refinement_union_final_range_groups: Vec<Vec<(usize, usize)>>,
     variant_refinement_type_argument_annotations_by_final_range:
         BTreeMap<(usize, usize), Vec<String>>,
-    variant_refinement_type_parameters_by_final_range:
-        BTreeMap<(usize, usize), Vec<String>>,
+    variant_refinement_type_parameter_contexts: Vec<Vec<String>>,
+    variant_refinement_type_parameter_context_index_by_final_range:
+        BTreeMap<(usize, usize), usize>,
     constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
 }
 
@@ -134,8 +135,10 @@ impl WorkspaceSyntaxIndex {
                 variant_refinement_source_index.union_final_range_groups,
             variant_refinement_type_argument_annotations_by_final_range:
                 variant_refinement_source_index.type_argument_annotations_by_final_range,
-            variant_refinement_type_parameters_by_final_range:
-                variant_refinement_source_index.type_parameters_by_final_range,
+            variant_refinement_type_parameter_contexts:
+                variant_refinement_source_index.type_parameter_contexts,
+            variant_refinement_type_parameter_context_index_by_final_range:
+                variant_refinement_source_index.type_parameter_context_index_by_final_range,
             constructor_reference_declaration_ranges,
         }
     }
@@ -182,8 +185,10 @@ fn indexed_workspace_file(
             .variant_refinement_union_final_range_groups,
         variant_refinement_type_argument_annotations_by_final_range: syntax
             .variant_refinement_type_argument_annotations_by_final_range,
-        variant_refinement_type_parameters_by_final_range: syntax
-            .variant_refinement_type_parameters_by_final_range,
+        variant_refinement_type_parameter_contexts: syntax
+            .variant_refinement_type_parameter_contexts,
+        variant_refinement_type_parameter_context_index_by_final_range: syntax
+            .variant_refinement_type_parameter_context_index_by_final_range,
         canonical_variant_refinement_type_arguments_by_final_range: BTreeMap::new(),
         constructor_reference_declaration_ranges: syntax
             .constructor_reference_declaration_ranges,

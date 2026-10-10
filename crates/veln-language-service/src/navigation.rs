@@ -46,17 +46,36 @@ include!("navigation/token_roles.rs");
 include!("navigation/source_paths.rs");
 
 #[cfg(test)]
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct VariantRefinementSourceIndexRetention {
+    pub(crate) final_ranges: usize,
+    pub(crate) final_range_group_indices: usize,
+    pub(crate) group_ranges: usize,
+    pub(crate) type_parameter_contexts: usize,
+    pub(crate) type_parameter_names: usize,
+    pub(crate) type_parameter_context_references: usize,
+    pub(crate) type_argument_annotations: usize,
+}
+
+#[cfg(test)]
 pub(crate) fn variant_refinement_source_index_retention(
     source: &SourceFile,
-) -> (usize, usize, usize) {
+) -> VariantRefinementSourceIndexRetention {
     let parsed = parse(source);
     let index = variant_refinement_source_index(&parsed.tree);
-    let retained_group_ranges = index.union_final_range_groups.iter().map(Vec::len).sum();
-    (
-        index.final_ranges.len(),
-        index.union_group_index_by_final_range.len(),
-        retained_group_ranges,
-    )
+    VariantRefinementSourceIndexRetention {
+        final_ranges: index.final_ranges.len(),
+        final_range_group_indices: index.union_group_index_by_final_range.len(),
+        group_ranges: index.union_final_range_groups.iter().map(Vec::len).sum(),
+        type_parameter_contexts: index.type_parameter_contexts.len(),
+        type_parameter_names: index.type_parameter_contexts.iter().map(Vec::len).sum(),
+        type_parameter_context_references: index.type_parameter_context_index_by_final_range.len(),
+        type_argument_annotations: index
+            .type_argument_annotations_by_final_range
+            .values()
+            .map(Vec::len)
+            .sum(),
+    }
 }
 
 pub(crate) struct SignatureShadowIndex {

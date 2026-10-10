@@ -806,7 +806,7 @@ pub struct CanonicalTypeAnnotationIdentity {
 
 pub fn canonical_type_annotation_identities_with_context(
     project: &SurfaceModule,
-    annotations: &[(String, Option<String>, Vec<String>)],
+    annotations: &[(&str, Option<&str>, &[String])],
 ) -> Vec<Option<CanonicalTypeAnnotationIdentity>> {
     let environment = TypeEnvironment::for_path_classification(project);
     annotations
@@ -816,19 +816,14 @@ pub fn canonical_type_annotation_identities_with_context(
                 .ok()
                 .and_then(|ty| {
                     environment
-                        .type_annotation_is_fully_resolved(
-                            &ty,
-                            current_module.as_deref(),
-                            type_parameters,
-                        )
+                        .type_annotation_is_fully_resolved(&ty, *current_module, type_parameters)
                         .then(|| CanonicalTypeAnnotationIdentity {
                             type_parameter_occurrences: type_parameter_occurrences(
                                 &ty,
                                 type_parameters,
                             ),
                             canonical: canonical_identity_type(
-                                environment
-                                    .canonicalize_type_annotation(ty, current_module.as_deref()),
+                                environment.canonicalize_type_annotation(ty, *current_module),
                             ),
                         })
                 })

@@ -1216,12 +1216,23 @@
         }
     }
 
-    fn variant_refinement_union_retention(width: usize) -> (usize, usize, usize) {
-        let alternatives = std::iter::repeat_n("State::Ready", width)
+    fn variant_refinement_union_retention(
+        type_parameter_count: usize,
+        width: usize,
+    ) -> crate::navigation::VariantRefinementSourceIndexRetention {
+        let type_parameters = (0..type_parameter_count)
+            .map(|index| format!("A{index}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let variants = (0..width)
+            .map(|index| format!("  Variant{index}\n"))
+            .collect::<String>();
+        let alternatives = (0..width)
+            .map(|index| format!("State::Variant{index}"))
             .collect::<Vec<_>>()
             .join(" | ");
         let text = format!(
-            "type State\n  Ready\nend\n\nfn observe(value: {alternatives}) -> Int\n  0\nend\n"
+            "type State\n{variants}end\n\ntype Owner<{type_parameters}>\n  Wrapped({alternatives})\nend\n"
         );
         let source = source("main.veln", &text);
         let parsed = veln_syntax::parse(&source);
@@ -1231,11 +1242,66 @@
 
     #[test]
     fn variant_refinement_union_width_retention_is_adjacent_linear() {
-        let evidence = [64, 128, 256, 512]
-            .map(|width| (width, variant_refinement_union_retention(width)));
-        for (width, retained) in evidence {
-            assert_eq!(retained, (width, width, width));
+        let evidence = [64, 128, 256, 512].map(|size| {
+            (
+                size,
+                variant_refinement_union_retention(size, size),
+            )
+        });
+        for (size, retained) in evidence {
+            assert_eq!(retained.final_ranges, size);
+            assert_eq!(retained.final_range_group_indices, size);
+            assert_eq!(retained.group_ranges, size);
+            assert_eq!(retained.type_parameter_contexts, 0);
+            assert_eq!(retained.type_parameter_names, 0);
+            assert_eq!(retained.type_parameter_context_references, 0);
+            assert_eq!(retained.type_argument_annotations, 0);
+            assert!(
+                retained.final_ranges
+                    + retained.final_range_group_indices
+                    + retained.group_ranges
+                    + retained.type_parameter_names
+                    <= size * 4
+            );
         }
+    }
+
+    #[test]
+    fn generic_refinement_context_is_shared_and_preserves_union_validation() {
+        let text = concat!(
+            "type Box<T>\n  Boxed(T)\n  Empty\nend\n\n",
+            "type Owner<A, B, C, D, E, F, G, H>\n",
+            "  Same(Box<A>::Boxed | Box<A>::Empty)\n",
+            "  Different(Box<A>::Boxed | Box<B>::Empty)\n",
+            "end\n",
+        );
+        let source = source("main.veln", text);
+        let parsed = veln_syntax::parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let retained = crate::navigation::variant_refinement_source_index_retention(&source);
+        assert_eq!(retained.final_ranges, 4);
+        assert_eq!(retained.final_range_group_indices, 4);
+        assert_eq!(retained.group_ranges, 4);
+        assert_eq!(retained.type_parameter_contexts, 2);
+        assert_eq!(retained.type_parameter_names, 16);
+        assert_eq!(retained.type_parameter_context_references, 4);
+        assert_eq!(retained.type_argument_annotations, 4);
+
+        let snapshot = EffectiveProjectSnapshot::new(vec![source]);
+        let position = |line_text: &str| {
+            let (line, source_line) = text
+                .lines()
+                .enumerate()
+                .find(|(_, candidate)| candidate.contains(line_text))
+                .unwrap();
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: line + 1,
+                column: source_line.find("Boxed").unwrap() + 1,
+            }
+        };
+        assert!(navigate(&snapshot, position("Same(")).is_some());
+        assert!(navigate(&snapshot, position("Different(")).is_none());
     }
 
     fn workspace_variant_refinement_alias_depth_work(
