@@ -293,6 +293,8 @@ selection in
 [`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/)
 and generic, transitive, and imported aliases in
 [`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
+The alias case also verifies that missing and excess generic arguments expose
+no definition, references, prepare-rename range, or rename edits.
 A shared language-service package-snapshot case additionally verifies that a
 workspace alias can terminate at a direct-dependency ADT and that retained
 direct-dependency and standard-library aliases resolve their targets in their
