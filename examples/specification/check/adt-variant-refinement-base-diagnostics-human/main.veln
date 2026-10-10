@@ -37,3 +37,38 @@ end
 fn recovered_casing(value: int::Missing) -> ()
 	()
 end
+
+type Box<A>
+	Boxed(A)
+end
+
+fn explicit_call_arguments() -> ()
+	channel::bounded<Int::Missing>(1)
+	channel::bounded<int::Missing>(1)
+	()
+end
+
+fn sibling_failure(value: State::Missing | Int::Missing) -> ()
+	()
+end
+
+fn nested_arity(value: GenericEmpty<Box::Boxed>::Missing) -> ()
+	()
+end
+
+fn needs_string(value: String) -> ()
+	()
+end
+
+fn invalid_parameter(value: Int::Missing) -> ()
+	needs_string(value)
+end
+
+fn invalid_return() -> Int::Missing
+	"not an int"
+end
+
+fn observes_quarantine() -> ()
+	invalid_parameter("not an int")
+	let value: String = invalid_return()
+end

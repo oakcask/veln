@@ -4,6 +4,7 @@ exit = 1
 [stdout]
 format = "json"
 contains = ["\"reason\":\"not_adt\"", "\"reason\":\"opaque\"", "\"reason\":\"variant_descriptor_unavailable\""]
+not_contains = ["type.mismatch", "name.unresolved", "Box<unknown>"]
 
 [stderr]
 format = "empty"
@@ -14,25 +15,13 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 8
-
-[[diagnostics]]
-id = "name.invalid_case"
-severity = "error"
-kind = "name"
-message = "type name `int` must start with an ASCII uppercase letter"
-
-[diagnostics.span]
-file = "main.veln"
-line = 37
-column = 28
+equals = 17
 
 [[diagnostics]]
 id = "type.variant_refinement_base"
 severity = "error"
 kind = "type"
 message = "variant-refinement base `Int` is not a finite ADT"
-
 [diagnostics.span]
 file = "main.veln"
 line = 12
@@ -43,7 +32,6 @@ id = "type.variant_refinement_base"
 severity = "error"
 kind = "type"
 message = "variant-refinement base `Int` is not a finite ADT"
-
 [diagnostics.span]
 file = "main.veln"
 line = 17
@@ -54,7 +42,6 @@ id = "type.variant_refinement_base"
 severity = "error"
 kind = "type"
 message = "variant-refinement base `Opaque` is opaque at this annotation"
-
 [diagnostics.span]
 file = "main.veln"
 line = 21
@@ -65,92 +52,161 @@ id = "type.variant_refinement_base"
 severity = "error"
 kind = "type"
 message = "variant-refinement base `Empty` has no public finite variant descriptor"
-
 [diagnostics.span]
 file = "main.veln"
 line = 25
 column = 30
 
 [[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `Empty<Int>::Missing`: `Empty` expects 0 type argument(s), found 1"
+[diagnostics.span]
+file = "main.veln"
+line = 29
+column = 21
+
+[[diagnostics]]
 id = "type.variant_refinement_base"
 severity = "error"
 kind = "type"
 message = "variant-refinement base `GenericEmpty<State::Ready>` has no public finite variant descriptor"
-
 [diagnostics.span]
 file = "main.veln"
 line = 33
 column = 18
 
 [[diagnostics]]
-id = "type.variant_refinement_base"
+id = "name.invalid_case"
 severity = "error"
-kind = "type"
-message = "variant-refinement base `int` is not a finite ADT"
-
+kind = "name"
+message = "type name `int` must start with an ASCII uppercase letter"
 [diagnostics.span]
 file = "main.veln"
 line = 37
 column = 28
 
 [[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `int` is not a finite ADT"
+[diagnostics.span]
+file = "main.veln"
+line = 37
+column = 28
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `Int` is not a finite ADT"
+[diagnostics.span]
+file = "main.veln"
+line = 46
+column = 19
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "type name `int` must start with an ASCII uppercase letter"
+[diagnostics.span]
+file = "main.veln"
+line = 47
+column = 19
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `int` is not a finite ADT"
+[diagnostics.span]
+file = "main.veln"
+line = 47
+column = 19
+
+[[diagnostics]]
 id = "type.invalid_annotation"
 severity = "error"
 kind = "type"
-message = "invalid type annotation `Empty<Int>::Missing`: `Empty` expects 0 type argument(s), found 1"
+message = "invalid type annotation `State::Missing`: variant refinement alternatives must resolve to declared variants of one ADT"
+[diagnostics.span]
+file = "main.veln"
+line = 51
+column = 20
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `Int` is not a finite ADT"
+[diagnostics.span]
+file = "main.veln"
+line = 51
+column = 44
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `Box::Boxed`: `Box` expects 1 type argument(s), found 0"
+[diagnostics.span]
+file = "main.veln"
+line = 55
+column = 17
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `GenericEmpty<Box::Boxed>` has no public finite variant descriptor"
+[diagnostics.span]
+file = "main.veln"
+line = 55
+column = 24
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `Int` is not a finite ADT"
+[diagnostics.span]
+file = "main.veln"
+line = 63
+column = 29
+
+[[diagnostics]]
+id = "type.variant_refinement_base"
+severity = "error"
+kind = "type"
+message = "variant-refinement base `Int` is not a finite ADT"
+[diagnostics.span]
+file = "main.veln"
+line = 67
+column = 24
 
 [[json_assert]]
-path = "diagnostics.0.details.name"
-equals = "int"
-
-[[json_assert]]
-path = "diagnostics.0.details.name_class"
-equals = "type"
-
-[[json_assert]]
-path = "diagnostics.1.details.written_type"
-equals = "Int"
-
-[[json_assert]]
-path = "diagnostics.1.details.reason"
-equals = "not_adt"
-
-[[json_assert]]
-path = "diagnostics.2.details.reason"
-equals = "not_adt"
-
-[[json_assert]]
-path = "diagnostics.3.details.reason"
-equals = "opaque"
-
-[[json_assert]]
-path = "diagnostics.4.details.reason"
-equals = "variant_descriptor_unavailable"
-
-[[json_assert]]
-path = "diagnostics.4.related.0.kind"
+path = "diagnostics.3.related.0.kind"
 equals = "base_type_provider"
 
 [[json_assert]]
-path = "diagnostics.4.related.0.span.start.line"
+path = "diagnostics.3.related.0.span.start.line"
 equals = 1
 
 [[json_assert]]
-path = "diagnostics.5.details.written_type"
-equals = "GenericEmpty<State::Ready>"
-
-[[json_assert]]
-path = "diagnostics.5.details.reason"
-equals = "variant_descriptor_unavailable"
-
-[[json_assert]]
-path = "diagnostics.6.details.written_type"
+path = "diagnostics.9.details.name"
 equals = "int"
 
 [[json_assert]]
-path = "diagnostics.6.details.reason"
-equals = "not_adt"
+path = "diagnostics.10.details.written_type"
+equals = "int"
 
 [[json_assert]]
-path = "diagnostics.6.related.0.resolved_identity"
+path = "diagnostics.10.related.0.resolved_identity"
 equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.14.details.written_type"
+equals = "GenericEmpty<Box::Boxed>"

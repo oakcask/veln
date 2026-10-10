@@ -30,18 +30,18 @@ impl<'a> FunctionChecker<'a> {
             });
 
         self.check_variadic_parameter_shape(param, variadic_count, private_omitted_parameter);
-        let binding_type = signature
-            .and_then(|signature| signature.params.get(index).cloned())
+        let binding_type = declared_type
+            .as_ref()
+            .map(|expected| {
+                if param.is_variadic {
+                    Type::named("List", vec![expected.ty.clone()])
+                } else {
+                    expected.ty.clone()
+                }
+            })
+            .or_else(|| signature.and_then(|signature| signature.params.get(index).cloned()))
             .or(inferred_private_param.filter(|ty| !type_contains_unknown(ty)))
-            .unwrap_or_else(|| {
-                declared_type.as_ref().map_or(Type::Unknown, |expected| {
-                    if param.is_variadic {
-                        Type::named("List", vec![expected.ty.clone()])
-                    } else {
-                        expected.ty.clone()
-                    }
-                })
-            });
+            .unwrap_or(Type::Unknown);
         let type_origin = (declared_type.is_some()
             && matches!(binding_type, Type::Function { .. }))
         .then(|| TypeOrigin {

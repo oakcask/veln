@@ -572,6 +572,7 @@ fn collect_valid_segments_from_expr(
         }
         veln_ast::ExprKind::TypeApply {
             callee,
+            type_arg_paths,
             type_arg_refinements,
             ..
         } => {
@@ -584,6 +585,9 @@ fn collect_valid_segments_from_expr(
                 output,
             );
             if include_variant_refinements && require_valid_variant_refinements {
+                for paths in type_arg_paths {
+                    collect_type_path_segments(paths, current_module, environment, output);
+                }
                 for refinements in type_arg_refinements {
                     collect_variant_refinement_segments(
                         refinements,
