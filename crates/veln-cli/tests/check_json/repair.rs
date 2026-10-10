@@ -627,6 +627,8 @@ fn repair_apply_rolls_back_saved_multi_file_candidate_when_verification_fails() 
         stdout,
         &[
             "\"status\":\"refused\"",
+            "\"selected_candidate\":{\"repair_id\":\"repair-1\"",
+            "\"applied_edits\":[]",
             "\"refusal_reason\":\"verification failed\"",
             "\"verification\":{\"status\":\"failed\"",
             "\"id\":\"parse.expected_end\"",
