@@ -3,7 +3,8 @@ struct VariantRefinementSourceIndex {
     final_ranges: BTreeSet<(usize, usize)>,
     final_range_by_base_range: BTreeMap<(usize, usize), (usize, usize)>,
     type_argument_count_by_final_range: BTreeMap<(usize, usize), usize>,
-    union_final_ranges_by_final_range: BTreeMap<(usize, usize), Vec<(usize, usize)>>,
+    union_group_index_by_final_range: BTreeMap<(usize, usize), usize>,
+    union_final_range_groups: Vec<Vec<(usize, usize)>>,
     type_argument_annotations_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
     type_parameters_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
 }
@@ -276,6 +277,8 @@ fn collect_refinement_ranges(
                 )
             })
             .collect::<Vec<_>>();
+        let union_group_index = index.union_final_range_groups.len();
+        index.union_final_range_groups.push(union_final_ranges);
         for alternative in &refinement.alternatives {
             let final_range = (
                 alternative.variant_span.start.offset,
@@ -287,9 +290,9 @@ fn collect_refinement_ranges(
                 .entry(final_range)
                 .or_insert(alternative.type_arguments.len());
             index
-                .union_final_ranges_by_final_range
+                .union_group_index_by_final_range
                 .entry(final_range)
-                .or_insert_with(|| union_final_ranges.clone());
+                .or_insert(union_group_index);
             index
                 .type_argument_annotations_by_final_range
                 .entry(final_range)

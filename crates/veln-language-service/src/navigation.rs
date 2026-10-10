@@ -45,6 +45,20 @@ include!("navigation/local_binding_scopes.rs");
 include!("navigation/token_roles.rs");
 include!("navigation/source_paths.rs");
 
+#[cfg(test)]
+pub(crate) fn variant_refinement_source_index_retention(
+    source: &SourceFile,
+) -> (usize, usize, usize) {
+    let parsed = parse(source);
+    let index = variant_refinement_source_index(&parsed.tree);
+    let retained_group_ranges = index.union_final_range_groups.iter().map(Vec::len).sum();
+    (
+        index.final_ranges.len(),
+        index.union_group_index_by_final_range.len(),
+        retained_group_ranges,
+    )
+}
+
 pub(crate) struct SignatureShadowIndex {
     scopes: Vec<FunctionScope>,
     recovery_start: usize,

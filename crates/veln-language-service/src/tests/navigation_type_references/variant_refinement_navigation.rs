@@ -1199,7 +1199,6 @@
 
     #[test]
     fn variant_refinement_navigation_work_is_adjacent_linear() {
-
         for rename in [false, true] {
             let mut evidence = Vec::new();
             for annotation_count in [256, 512, 1024, 2048] {
@@ -1214,6 +1213,28 @@
                 assert_adjacent_variant_refinement_work(smaller, larger);
             }
             eprintln!("variant refinement navigation evidence rename={rename}: {evidence:?}");
+        }
+    }
+
+    fn variant_refinement_union_retention(width: usize) -> (usize, usize, usize) {
+        let alternatives = std::iter::repeat_n("State::Ready", width)
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let text = format!(
+            "type State\n  Ready\nend\n\nfn observe(value: {alternatives}) -> Int\n  0\nend\n"
+        );
+        let source = source("main.veln", &text);
+        let parsed = veln_syntax::parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        crate::navigation::variant_refinement_source_index_retention(&source)
+    }
+
+    #[test]
+    fn variant_refinement_union_width_retention_is_adjacent_linear() {
+        let evidence = [64, 128, 256, 512]
+            .map(|width| (width, variant_refinement_union_retention(width)));
+        for (width, retained) in evidence {
+            assert_eq!(retained, (width, width, width));
         }
     }
 

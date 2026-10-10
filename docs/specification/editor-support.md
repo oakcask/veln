@@ -261,6 +261,9 @@ ranges.
 Definition and references use the shared selected symbol and reference set.
 Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
+
+### Shared variant-refinement navigation
+
 For a valid singleton or union variant-refinement annotation, the written base
 and final variant remain separate navigation identities. A direct base segment
 selects its ADT declaration. A base segment that resolves through a visible,
@@ -288,9 +291,8 @@ Generic arguments resolve recursively; a type parameter declared by the
 enclosing ADT is resolved in that ADT's payload annotation. A union is also
 invalid when its alternatives resolve to different terminal ADT identities or
 different canonical generic arguments; none of that union's base or variant
-segments is selectable. Prepare-rename returns no range, and rename returns no
-edits. Resolving one alternative independently does not make that invalid
-refinement a type, alias, or constructor occurrence.
+segments has a shared identity. Resolving one alternative independently does
+not make that invalid refinement a type, alias, or constructor occurrence.
 Canonical generic-argument comparison uses resolved type identities rather
 than written spellings. A transparent alias and its target therefore compare
 equal. In an enclosing generic ADT, two arguments compare equal only when they
@@ -299,66 +301,71 @@ when the refinement base resolves through a retained dependency or
 standard-library alias.
 An exact `.test.veln` companion can select a private workspace ADT and its
 private constructor through a qualified refinement when it explicitly imports
-the target module. Definition, references, prepare-rename, and rename then use
-the private declarations' ordinary workspace identities. Another test module,
-including one with the same qualified spelling, receives no selection or
-edits for those private refinement segments.
+the target module. Shared selection and references then use the private
+declarations' ordinary workspace identities. Another test module, including
+one with the same qualified spelling, receives no shared identity for those
+private refinement segments.
 Its eligible references include constructor expressions, constructor patterns,
-and every direct or alias-qualified refinement occurrence for that constructor. The
-declaration-inclusion rule below determines whether the constructor declaration
-is present in the returned locations. A same-spelled variant owned by another
-ADT is not in the set.
+and every direct or alias-qualified refinement occurrence for that constructor.
+A same-spelled variant owned by another ADT is not in the set.
 
-Prepare-rename and rename on a refinement variant use that constructor
-identity. A successful rename changes its declaration, expressions, patterns,
-and singleton and union refinement occurrences in one workspace edit. The
-existing constructor casing and conflict rules apply. The base alias is not
-renamed with the constructor. A rename selected on the alias base changes the
-alias declaration and its written base occurrences without changing the target
-ADT or constructor identity. The checked LSP cases cover direct and union
-selection in
-[`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/)
-and generic, transitive, and imported aliases in
-[`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
-The alias case also verifies that missing and excess generic arguments expose
-no definition, references, prepare-rename range, or rename edits.
-The direct case verifies the same empty results for unions whose alternatives
-have different ADT identities or canonical generic arguments, and preserves
-navigation when a transparent generic argument alias resolves to the same
-canonical type.
+Rename selection on a refinement variant uses that constructor identity and
+its linked occurrences. The base alias is not part of the constructor identity.
+Rename selection on the alias base uses the alias declaration and its written
+base occurrences without selecting the target ADT or constructor.
 A shared language-service package-snapshot case additionally verifies that a
 workspace alias can terminate at a direct-dependency ADT and that retained
 direct-dependency and standard-library aliases resolve their targets in their
 own package namespaces. It also verifies the implicit standard-prelude
 fallback, the same-module precedence over that fallback, and order-independent
 rejection when two dependency packages expose the same qualified base. LSP
-adapter cases verify canonical generic-argument comparison through retained
-package aliases, exact-companion private refinement access, and that ambiguous
-direct and alias-qualified bases have no definition, references,
-prepare-rename range, or rename edits.
+adapter cases project these identities and empty selections through the LSP
+contract below.
 The shared navigation index computes and retains one terminal result for each
 distinct variant-refinement alias identity. Definition, reference, and rename
 queries reuse that result for repeated refinement occurrences. They also reuse
 an unresolved result for an alias cycle instead of traversing the cycle again.
 Instrumented language-service cases compare adjacent doubling workloads for
-annotation count and alias-chain depth. Alias indexing and target-lookup counts
-stay constant when only occurrences increase, and grow at most linearly when
-the number of alias declarations or chain hops increases. A retained-package
+annotation count, alias-chain depth, and union width. Alias indexing and
+target-lookup counts stay constant when only occurrences increase, and grow at
+most linearly when the number of alias declarations or chain hops increases.
+Each union retains one range group and one group reference per alternative, so
+retained ranges grow linearly with the written alternatives. A retained-package
 case also exercises a deep alias chain without recursive traversal. The cases
-use deterministic work counters for the regression boundary; elapsed time is
-diagnostic output rather than a threshold.
+use deterministic work counters and retained-entry counts for the regression
+boundary; elapsed time is diagnostic output rather than a threshold.
 A retained direct-dependency or standard-library type alias used as the base
 of a valid refinement is a narrow exception to the ordinary package-alias
 definition policy below. When the refinement resolves through a visible,
 finite, acyclic alias chain to the selected ADT and constructor, definition on
 the base returns the written public type-alias declaration. Its final variant
 uses the resolved package constructor identity for definition and references.
-Rename remains subject to the workspace-edit eligibility rules; a package
-constructor identity does not by itself make package source editable.
+
+### LSP variant-refinement projection
+
 Completion, signature-help, and navigation requests convert zero-based UTF-16
 LSP characters to shared one-based Unicode-scalar positions. Navigation
 responses convert shared ranges back to zero-based UTF-16 LSP ranges using the
 retained source snapshot.
+Definition and references project the shared selection and reference set.
+`includeDeclaration` determines whether references add the selected declaration.
+Prepare-rename projects the shared selection range. Rename applies the existing
+constructor or alias casing and conflict rules, then projects the shared linked
+occurrences into one workspace edit. A constructor rename edits its declaration,
+expressions, patterns, and singleton and union refinements. An alias-base rename
+edits the alias declaration and written base occurrences without editing the
+target ADT or constructor. Package source remains ineligible for workspace edits
+even when the shared service exposes its constructor identity. A refinement
+without a shared identity produces no definition or references, no
+prepare-rename range, and no rename edits.
+
+The checked LSP cases cover direct and union selection in
+[`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/)
+and generic, transitive, and imported aliases in
+[`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
+They verify empty projected results for invalid arity and union identity,
+preservation through canonically equal generic aliases, and separation of alias
+and constructor edits.
 The character position at the end of a line is valid and preserves half-open
 selection behavior. After `params.textDocument.uri` selects a retained source,
 the request must contain exactly one direct `params.position` object. That

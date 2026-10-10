@@ -75,8 +75,12 @@ impl SymbolIndex {
                 continue;
             }
             let union_ranges = file
-                .variant_refinement_union_final_ranges_by_final_range
+                .variant_refinement_union_group_index_by_final_range
                 .get(final_range)
+                .and_then(|group_index| {
+                    file.variant_refinement_union_final_range_groups
+                        .get(*group_index)
+                })
                 .map(Vec::as_slice)
                 .unwrap_or(std::slice::from_ref(final_range));
             visited.extend(union_ranges.iter().copied());

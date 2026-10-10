@@ -110,6 +110,39 @@ fn navigation_classification_excludes_invalid_refinement_unions_without_losing_c
 }
 
 #[test]
+fn expression_type_argument_refinements_are_navigation_only() {
+    let module = named_module(
+        "main",
+        concat!(
+            "type State\n  Ready\nend\n",
+            "fn inspect(value: State) -> State\n  keep<State::Ready>(value)\nend\n",
+        ),
+    );
+    let environment = TypeEnvironment::from_module(&module);
+
+    let casing_segments = classified_qualified_path_segments(&module, &environment);
+    assert!(
+        casing_segments
+            .iter()
+            .all(|segment| segment.span.start.line != 5),
+        "{casing_segments:#?}"
+    );
+
+    let navigation_segments = classified_project_qualified_path_segments(&module);
+    assert_eq!(
+        navigation_segments
+            .iter()
+            .filter(|segment| segment.span.start.line == 5)
+            .map(|segment| (segment.name.as_str(), segment.role))
+            .collect::<Vec<_>>(),
+        [
+            ("State", NameClass::Type),
+            ("Ready", NameClass::Constructor)
+        ]
+    );
+}
+
+#[test]
 fn path_classification_builds_one_adt_registry_for_schema_helpers() {
     let mut text = String::from("mod model\n");
     for index in 0..16 {

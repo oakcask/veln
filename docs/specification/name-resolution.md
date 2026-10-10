@@ -292,8 +292,8 @@ qualifier, and the constructor segment with the same module, type, and
 constructor roles. Qualified type paths in function parameters, function
 returns, local annotations, handler parameters, handler operation parameter
 types, effect operation parameter and return types, ADT positional payload
-fields, ADT record payload fields, schema fields, and explicit expression type
-arguments use the same segment records. This includes local annotations in
+fields, ADT record payload fields, and schema fields use the same segment
+records. This includes local annotations in
 nested `begin` and `defer` bodies and in a `begin` used as a handler operation
 clause. Qualified nominal effect
 paths inside function type

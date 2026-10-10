@@ -231,8 +231,10 @@ fn indexed_dependency_source(
             .final_range_by_base_range,
         variant_refinement_type_argument_count_by_final_range: variant_refinement_source_index
             .type_argument_count_by_final_range,
-        variant_refinement_union_final_ranges_by_final_range: variant_refinement_source_index
-            .union_final_ranges_by_final_range,
+        variant_refinement_union_group_index_by_final_range: variant_refinement_source_index
+            .union_group_index_by_final_range,
+        variant_refinement_union_final_range_groups: variant_refinement_source_index
+            .union_final_range_groups,
         variant_refinement_type_argument_annotations_by_final_range:
             variant_refinement_source_index.type_argument_annotations_by_final_range,
         variant_refinement_type_parameters_by_final_range:

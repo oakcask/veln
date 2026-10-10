@@ -124,6 +124,28 @@ fn type_applied_unresolved_calls_do_not_gain_function_casing_roles() {
 }
 
 #[test]
+fn expression_type_argument_refinements_do_not_emit_casing_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Ready\nend\n",
+            "fn inspect(value: State) -> State\n  keep<state::Ready>(value)\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn cleanup_region_annotations_keep_qualified_type_segments() {
     let source = SourceFile::new(
         "main.veln",

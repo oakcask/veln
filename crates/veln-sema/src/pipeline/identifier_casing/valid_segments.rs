@@ -519,7 +519,7 @@ fn collect_valid_segments_from_expr(
                 require_valid_variant_refinements,
                 output,
             );
-            if include_variant_refinements {
+            if include_variant_refinements && require_valid_variant_refinements {
                 for refinements in type_arg_refinements {
                     collect_variant_refinement_segments(
                         refinements,
