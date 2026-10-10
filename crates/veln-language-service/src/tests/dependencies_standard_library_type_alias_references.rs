@@ -314,18 +314,16 @@
         .expect("supported standard-library alias has a definition");
         assert_eq!(definition.span.file.as_str(), "prelude.veln");
 
-        for (name, column) in [("unsupported alias definition", 30)] {
-            assert_eq!(
-                definition_at(
-                    &snapshot,
-                    SourcePosition {
-                        source: SourcePath::new("main.veln"),
-                        line: 1,
-                        column,
-                    },
-                ),
-                None,
-                "{name}"
-            );
-        }
+        assert_eq!(
+            definition_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 1,
+                    column: 30,
+                },
+            ),
+            None,
+            "unsupported alias definition"
+        );
     }
