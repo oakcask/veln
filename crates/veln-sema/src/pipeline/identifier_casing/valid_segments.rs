@@ -230,6 +230,9 @@ fn collect_variant_refinement_segments(
             segments.push(alternative.variant.clone());
             let mut spans = alternative.base.segment_spans.clone();
             spans.push(alternative.variant_span.clone());
+            let base = alternative.base.segments.join("::");
+            let recovered_base =
+                environment.recovered_variant_refinement_base_resolves(&base, current_module);
             if matches!(
                 environment
                     .adts
@@ -246,18 +249,24 @@ fn collect_variant_refinement_segments(
             } else if environment
                 .adts
                 .descriptor_for_type_path(
-                    &alternative.base.segments.join("::"),
+                    &base,
                     alternative.type_arguments.len(),
                     current_module,
                     &environment.uses,
                 )
                 .is_some()
                 || environment.non_adt_refinement_base_resolves(
-                    &alternative.base.segments.join("::"),
+                    &base,
                     alternative.type_arguments.len(),
                     current_module,
                 )
+                || recovered_base
             {
+                let evidence = if recovered_base {
+                    QualifiedPathSegmentEvidence::UniqueRecovery
+                } else {
+                    QualifiedPathSegmentEvidence::Resolved
+                };
                 for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
                     let role = if index + 1 == segments.len() {
                         NameClass::Constructor
@@ -267,11 +276,7 @@ fn collect_variant_refinement_segments(
                         NameClass::Module
                     };
                     output.push(qualified_path_segment_from_parts(
-                        segment,
-                        role,
-                        span,
-                        index,
-                        QualifiedPathSegmentEvidence::Resolved,
+                        segment, role, span, index, evidence,
                     ));
                 }
             }

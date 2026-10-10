@@ -380,13 +380,16 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn parse_annotation(
         &mut self,
         annotation: &str,
-        refinements: &[veln_ast::VariantRefinementType],
-        paths: &[veln_ast::TypePathSegments],
+        structure: (
+            &[veln_ast::VariantRefinementType],
+            &[veln_ast::TypePathSegments],
+        ),
         origin_node_id: NodeId,
         origin_span: &SourceSpan,
         source: ExpectedTypeSource,
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
+        let (refinements, paths) = structure;
         let base_failure = super::super::annotation_has_base_failure(
             refinements,
             paths,

@@ -277,21 +277,26 @@ impl TypeEnvironment {
         let recovered_base = recover_type_case(base);
         let lookup_base = self
             .adts
-            .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+            .unique_descriptor_for_type_path_any_arity(base, current_module, &self.uses)
             .is_some()
             .then_some(base)
             .or_else(|| {
                 recovered_base.as_deref().filter(|candidate| {
                     self.adts
-                        .descriptor_for_type_path_any_arity(candidate, current_module, &self.uses)
+                        .unique_descriptor_for_type_path_any_arity(
+                            candidate,
+                            current_module,
+                            &self.uses,
+                        )
                         .is_some()
                 })
             })
             .unwrap_or(base);
-        if let Some(descriptor) =
-            self.adts
-                .descriptor_for_type_path_any_arity(lookup_base, current_module, &self.uses)
-        {
+        if let Some(descriptor) = self.adts.unique_descriptor_for_type_path_any_arity(
+            lookup_base,
+            current_module,
+            &self.uses,
+        ) {
             if descriptor.type_parameters.len() != args_len
                 || descriptor.refinement_availability
                     == crate::adt::descriptors::VariantRefinementAvailability::Finite
@@ -351,6 +356,13 @@ impl TypeEnvironment {
         args_len: usize,
         current_module: Option<&str>,
     ) -> Option<Type> {
+        if self
+            .adts
+            .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+            .is_some()
+        {
+            return None;
+        }
         let is_builtin_type =
             crate::source_less_lookup::with_builtin_type_syntax_registry(|registry| {
                 registry.arity(base) == Some(args_len)
@@ -398,12 +410,39 @@ impl TypeEnvironment {
         let Some(recovered) = recover_type_case(&base) else {
             return false;
         };
-        self.adts
-            .unique_descriptor_for_type_path_any_arity(&recovered, current_module, &self.uses)
+        self.variant_refinement_base_name_resolves(&recovered, current_module)
+    }
+
+    pub(crate) fn recovered_variant_refinement_base_resolves(
+        &self,
+        base: &str,
+        current_module: Option<&str>,
+    ) -> bool {
+        recover_type_case(base).is_some_and(|recovered| {
+            self.variant_refinement_base_name_resolves(&recovered, current_module)
+        })
+    }
+
+    fn variant_refinement_base_name_resolves(
+        &self,
+        base: &str,
+        current_module: Option<&str>,
+    ) -> bool {
+        if self
+            .adts
+            .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
             .is_some()
-            || self
-                .resolved_non_adt_refinement_base(&recovered, 0, current_module)
-                .is_some()
+        {
+            return self
+                .adts
+                .unique_descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+                .is_some();
+        }
+        crate::source_less_lookup::with_builtin_type_syntax_registry(|registry| {
+            registry.arity(base).is_some()
+        })
+        .unwrap_or(false)
+            || matches!(base, "WallTime" | "SourceLocation")
     }
 
     pub(crate) fn recovered_variant_refinement_base_failure(
@@ -435,9 +474,14 @@ impl TypeEnvironment {
                 current_module,
                 &self.uses,
             )?;
+            if !descriptor.type_parameters.is_empty() {
+                return Some(format!(
+                    "`{recovered}` expects {} type argument(s), found 0",
+                    descriptor.type_parameters.len()
+                ));
+            }
             if descriptor.refinement_availability
                 != crate::adt::descriptors::VariantRefinementAvailability::Finite
-                || !descriptor.type_parameters.is_empty()
             {
                 return None;
             }
@@ -501,9 +545,28 @@ impl TypeEnvironment {
         {
             return None;
         }
-        let descriptor =
-            self.adts
-                .descriptor_for_type_path_any_arity(base, current_module, &self.uses)?;
+        let descriptor = self
+            .adts
+            .unique_descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+            .or_else(|| {
+                if self
+                    .adts
+                    .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+                    .is_some()
+                {
+                    return None;
+                }
+                recover_type_case(base).and_then(|recovered| {
+                    self.adts.unique_descriptor_for_type_path_any_arity(
+                        &recovered,
+                        current_module,
+                        &self.uses,
+                    )
+                })
+            })?;
+        if descriptor.type_parameters.len() == args.len() {
+            return None;
+        }
         Some(format!(
             "`{base}` expects {} type argument(s), found {}",
             descriptor.type_parameters.len(),
