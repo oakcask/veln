@@ -1,0 +1,22 @@
+use model
+
+pub type Box<A>
+	pub Boxed(A)
+end
+pub type GenericAlias = Box
+
+fn generic(value: GenericAlias<Int>::Boxed) -> Box<Int>
+	value
+end
+
+fn transitive(value: model::B::Ready) -> model::State
+	value
+end
+
+fn imported(value: model::Alias::Ready | model::Alias::Closed) -> model::State
+	let made = model::State::Ready(1)
+	match value
+		model::State::Ready(payload) => made
+		model::State::Closed => made
+	end
+end

@@ -1,0 +1,66 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+equals = {"start":{"line":5,"character":9},"end":{"line":5,"character":21}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/range"
+equals = {"start":{"line":3,"character":5},"end":{"line":3,"character":10}}
+
+[[lsp_assert]]
+id = 4
+path = "/result/range"
+equals = {"start":{"line":1,"character":5},"end":{"line":1,"character":10}}
+
+[[lsp_assert]]
+id = 5
+path = "/result/range"
+equals = {"start":{"line":7,"character":9},"end":{"line":7,"character":14}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/0/range"
+equals = {"start":{"line":1,"character":5},"end":{"line":1,"character":10}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/4/range"
+equals = {"start":{"line":18,"character":16},"end":{"line":18,"character":21}}
+
+[[lsp_assert]]
+id = 7
+path = "/result"
+equals = {"start":{"line":15,"character":33},"end":{"line":15,"character":38}}
+
+[[lsp_assert]]
+id = 8
+path = "/result/changes/$workspace_file_uri:model.veln"
+equals = [
+  {"range":{"start":{"line":1,"character":5},"end":{"line":1,"character":10}},"newText":"Prepared"}
+]
+
+[[lsp_assert]]
+id = 8
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":11,"character":31},"end":{"line":11,"character":36}},"newText":"Prepared"},
+  {"range":{"start":{"line":15,"character":33},"end":{"line":15,"character":38}},"newText":"Prepared"},
+  {"range":{"start":{"line":16,"character":26},"end":{"line":16,"character":31}},"newText":"Prepared"},
+  {"range":{"start":{"line":18,"character":16},"end":{"line":18,"character":21}},"newText":"Prepared"}
+]
+
+[[lsp_assert]]
+id = 9
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":5,"character":9},"end":{"line":5,"character":21}},"newText":"GenericBox"},
+  {"range":{"start":{"line":7,"character":18},"end":{"line":7,"character":30}},"newText":"GenericBox"}
+]

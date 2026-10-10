@@ -276,8 +276,11 @@ and singleton and union refinement occurrences in one workspace edit. The
 existing constructor casing and conflict rules apply. The base alias is not
 renamed with the constructor. A rename selected on the alias base changes the
 alias declaration and its written base occurrences without changing the target
-ADT or constructor identity. The checked LSP case is
-[`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/).
+ADT or constructor identity. The checked LSP cases cover direct and union
+selection in
+[`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/)
+and generic, transitive, and imported aliases in
+[`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
 Completion, signature-help, and navigation requests convert zero-based UTF-16
 LSP characters to shared one-based Unicode-scalar positions. Navigation
 responses convert shared ranges back to zero-based UTF-16 LSP ranges using the

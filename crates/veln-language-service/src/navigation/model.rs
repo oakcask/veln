@@ -866,6 +866,9 @@ struct IndexedFile {
     effect_operation_ranges: BTreeSet<(usize, usize)>,
     generic_effect_binders: Vec<GenericEffectBinder>,
     classified_path_segments: Vec<QualifiedPathSegment>,
+    classified_path_segments_by_range: BTreeMap<(usize, usize), QualifiedPathSegment>,
+    variant_refinement_identities:
+        OnceLock<BTreeMap<(usize, usize), VariantRefinementNavigationIdentity>>,
     type_reference_locations: OnceLock<TypeReferenceIndex>,
     navigation_isolated: bool,
     origin: IndexedOrigin,
@@ -888,9 +891,11 @@ struct GenericEffectBinder {
 
 impl IndexedFile {
     fn token_has_classified_role(&self, token: &Token, role: NameClass) -> bool {
-        self.classified_path_segments.iter().any(|segment| {
-            segment.role == role && same_span(&segment.span, &self.source.span(token.range))
-        })
+        #[cfg(test)]
+        record_classified_role_lookup();
+        self.classified_path_segments_by_range
+            .get(&(token.range.start, token.range.end))
+            .is_some_and(|segment| segment.role == role)
     }
 
     fn inside_handler_operation_clause_body(&self, offset: usize) -> bool {
@@ -914,6 +919,18 @@ impl IndexedFile {
             offset < binder.end && binder.name == name
         })
     }
+}
+
+#[derive(Clone, Debug)]
+enum VariantRefinementBaseSymbol {
+    Type(TypeSymbol),
+    Alias(TypeAliasSymbol),
+}
+
+#[derive(Clone, Debug)]
+struct VariantRefinementNavigationIdentity {
+    base: VariantRefinementBaseSymbol,
+    constructor: ConstructorSymbol,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

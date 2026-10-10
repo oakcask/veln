@@ -115,6 +115,97 @@ fn variant_refinement_navigation_uses_shared_constructor_identity() {
     );
 }
 
+#[test]
+fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliases() {
+    let workspace = TempWorkspace::new("variant-refinement-alias-chain-navigation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "model.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready(Int)\n",
+            "  pub Closed\n",
+            "end\n\n",
+            "pub type A = State\n",
+            "pub type B = A\n",
+            "pub type Alias = State\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use model\n\n",
+            "pub type Box<A>\n",
+            "  pub Boxed(A)\n",
+            "end\n",
+            "pub type GenericAlias = Box\n\n",
+            "fn generic(value: GenericAlias<Int>::Boxed) -> Box<Int>\n  value\nend\n\n",
+            "fn transitive(value: model::B::Ready) -> model::State\n  value\nend\n\n",
+            "fn imported(value: model::Alias::Ready | model::Alias::Closed) -> model::State\n",
+            "  let made = model::State::Ready(1)\n",
+            "  match value\n",
+            "    model::State::Ready(payload) => made\n",
+            "    model::State::Closed => made\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    let generic_base = server.definition_tool(&json!({
+        "source":"main.veln", "line":8, "column":19
+    }));
+    assert_eq!(
+        generic_base["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":6,"column":10},"end":{"line":6,"column":22}}),
+        "{generic_base:#}"
+    );
+    let generic_variant = server.definition_tool(&json!({
+        "source":"main.veln", "line":8, "column":38
+    }));
+    assert_eq!(
+        generic_variant["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":4,"column":7},"end":{"line":4,"column":12}}),
+        "{generic_variant:#}"
+    );
+    let transitive = server.definition_tool(&json!({
+        "source":"main.veln", "line":12, "column":32
+    }));
+    assert_eq!(
+        transitive["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":2,"column":7},"end":{"line":2,"column":12}}),
+        "{transitive:#}"
+    );
+    let imported_base = server.definition_tool(&json!({
+        "source":"main.veln", "line":16, "column":27
+    }));
+    assert_eq!(
+        imported_base["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":8,"column":10},"end":{"line":8,"column":15}}),
+        "{imported_base:#}"
+    );
+    let references = server.references_tool(&json!({
+        "source":"main.veln", "line":16, "column":34,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        references["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        5,
+        "{references:#}"
+    );
+    let renamed = server.rename_tool(&json!({
+        "source":"main.veln", "line":12, "column":32, "new_name":"Prepared"
+    }));
+    assert_eq!(edits(&renamed).len(), 5, "{renamed:#}");
+    let alias_renamed = server.rename_tool(&json!({
+        "source":"main.veln", "line":8, "column":19, "new_name":"GenericBox"
+    }));
+    assert_eq!(edits(&alias_renamed).len(), 2, "{alias_renamed:#}");
+}
+
 fn edits(result: &Value) -> &Vec<Value> {
     result["structuredContent"]["edits"]
         .as_array()

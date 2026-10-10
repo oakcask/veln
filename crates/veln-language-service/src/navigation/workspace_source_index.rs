@@ -143,6 +143,8 @@ fn indexed_workspace_file(
         effect_operation_ranges: syntax.effects.operation_ranges,
         generic_effect_binders: syntax.effects.generic_binders,
         classified_path_segments: Vec::new(),
+        classified_path_segments_by_range: BTreeMap::new(),
+        variant_refinement_identities: OnceLock::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated: identity.source.navigation_isolated,
         origin: IndexedOrigin::Workspace,

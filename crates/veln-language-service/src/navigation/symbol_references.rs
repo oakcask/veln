@@ -224,18 +224,17 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<TypeAliasSymbol> {
-        let constructor_index = next_path_segment_index(tokens, token_index)?;
-        let alias = self.workspace_type_alias_for_reference(file, tokens, token_index, name)?;
-        let qualifier = qualifier_for_token(tokens, token_index)
-            .map(|prefix| format!("{prefix}::{name}"))
-            .unwrap_or_else(|| name.to_string());
-        let constructor = self.constructor_for_qualified_call(
-            file,
-            &qualifier,
-            &tokens[constructor_index].text,
-        )?;
-        self.workspace_type_alias_targets_constructor(&alias, &constructor)
-            .then_some(alias)
+        let constructor_index = variant_refinement_variant_index(tokens, token_index)
+            .or_else(|| next_path_segment_index(tokens, token_index))?;
+        let identity = self.variant_refinement_identity(file, &tokens[constructor_index])?;
+        match &identity.base {
+            VariantRefinementBaseSymbol::Alias(alias)
+                if alias.package.is_none() && alias.name == name =>
+            {
+                Some(alias.clone())
+            }
+            _ => None,
+        }
     }
 
     fn workspace_type_alias_targets_constructor(
@@ -243,29 +242,14 @@ impl SymbolIndex {
         alias: &TypeAliasSymbol,
         constructor: &ConstructorSymbol,
     ) -> bool {
-        if alias.package.is_some()
-            || constructor.package.is_some()
-            || alias.target_name != constructor.type_name
-        {
+        if alias.package.is_some() || constructor.package.is_some() {
             return false;
         }
-        let Some(target_module) = alias.target_module.as_deref() else {
-            return alias.module == constructor.module;
-        };
-        self.files
-            .iter()
-            .find(|file| file.source.path() == &alias.declaration.span.file)
-            .is_some_and(|declaring_file| {
-                self.visible_type_for_qualified_reference(
-                    declaring_file,
-                    target_module,
-                    &alias.target_name,
-                )
-                .is_some_and(|target| {
-                    target.package.is_none()
-                        && target.module == constructor.module
-                        && target.name == constructor.type_name
-                })
+        self.terminal_type_for_alias(alias, &mut BTreeSet::new())
+            .is_some_and(|target| {
+                target.package.is_none()
+                    && target.module == constructor.module
+                    && target.name == constructor.type_name
             })
     }
 
@@ -589,10 +573,8 @@ impl SymbolIndex {
                         .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
                     && (is_call_target_token(tokens, *index)
                         || ((symbol.package.is_some() || symbol.public)
-                            && (file.classified_path_segments.iter().any(|segment| {
-                                segment.role == NameClass::ValueBinding
-                                    && same_span(&segment.span, &file.source.span(token.range))
-                            }) || is_bare_function_value_token(tokens, *index))))
+                            && (file.token_has_classified_role(token, NameClass::ValueBinding)
+                                || is_bare_function_value_token(tokens, *index))))
                     && self
                         .symbol_for_bare_call(file, tokens, *index, &token.text)
                         .is_some_and(|candidate| {
@@ -643,10 +625,8 @@ impl SymbolIndex {
                     && qualified_reference_matches(tokens, *index, &module_segments)
                     && (is_call_target_token(tokens, *index)
                         || ((symbol.package.is_some() || symbol.public)
-                            && (file.classified_path_segments.iter().any(|segment| {
-                                segment.role == NameClass::ValueBinding
-                                    && same_span(&segment.span, &file.source.span(token.range))
-                            }) || is_qualified_function_value_token(tokens, *index))))
+                            && (file.token_has_classified_role(token, NameClass::ValueBinding)
+                                || is_qualified_function_value_token(tokens, *index))))
                     && self
                         .function_for_qualified_call(file, qualifier, &token.text)
                         .is_some_and(|candidate| same_function(&candidate, symbol))
@@ -884,11 +864,10 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<ConstructorSymbol> {
-        let qualifier = file
-            .token_has_classified_role(&tokens[token_index], NameClass::Constructor)
-            .then(|| variant_refinement_qualifier_for_token(tokens, token_index))
-            .flatten()
-            .or_else(|| qualifier_for_token(tokens, token_index));
+        if let Some(identity) = self.variant_refinement_identity(file, &tokens[token_index]) {
+            return Some(identity.constructor.clone());
+        }
+        let qualifier = qualifier_for_token(tokens, token_index);
         match qualifier {
             Some(qualifier) => self.constructor_for_qualified_call(file, &qualifier, name),
             None => self.constructor_for_bare_call(file, name),

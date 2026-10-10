@@ -1,0 +1,13 @@
+[
+  {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
+  {"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":18}}},
+  {"jsonrpc":"2.0","id":3,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":37}}},
+  {"jsonrpc":"2.0","id":4,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":11,"character":31}}},
+  {"jsonrpc":"2.0","id":5,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":15,"character":26}}},
+  {"jsonrpc":"2.0","id":6,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":15,"character":33},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":7,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":15,"character":33}}},
+  {"jsonrpc":"2.0","id":8,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":11,"character":31},"newName":"Prepared"}},
+  {"jsonrpc":"2.0","id":9,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":18},"newName":"GenericBox"}},
+  {"jsonrpc":"2.0","id":10,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","method":"exit","params":null}
+]

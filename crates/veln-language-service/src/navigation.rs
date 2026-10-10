@@ -24,6 +24,7 @@ include!("navigation/schema_navigation_indexing.rs");
 include!("navigation/index_construction.rs");
 include!("navigation/index.rs");
 include!("navigation/index_visibility.rs");
+include!("navigation/variant_refinement_navigation.rs");
 include!("navigation/selection.rs");
 include!("navigation/recovery.rs");
 include!("navigation/rename_shared.rs");
@@ -282,6 +283,7 @@ thread_local! {
     static TYPE_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static CONSTRUCTOR_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+    static CLASSIFIED_ROLE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
@@ -938,6 +940,21 @@ pub(crate) fn reset_constructor_reference_collections() {
 #[cfg(test)]
 pub(crate) fn constructor_reference_collections() -> usize {
     CONSTRUCTOR_REFERENCE_COLLECTIONS.get()
+}
+
+#[cfg(test)]
+fn record_classified_role_lookup() {
+    CLASSIFIED_ROLE_LOOKUPS.set(CLASSIFIED_ROLE_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_classified_role_lookups() {
+    CLASSIFIED_ROLE_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn classified_role_lookups() -> usize {
+    CLASSIFIED_ROLE_LOOKUPS.get()
 }
 
 #[cfg(test)]

@@ -667,6 +667,87 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
     assert_variant_refinement_alias_rename(&mut server, &main_uri);
 }
 
+#[test]
+fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliases() {
+    let mut server = Server::default();
+    let project = TempProject::new("variant-refinement-alias-chain-navigation");
+    project.write(
+        "model.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready(Int)\n",
+            "  pub Closed\n",
+            "end\n\n",
+            "pub type A = State\n",
+            "pub type B = A\n",
+            "pub type Alias = State\n",
+        ),
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "use model\n\n",
+            "pub type Box<A>\n",
+            "  pub Boxed(A)\n",
+            "end\n",
+            "pub type GenericAlias = Box\n\n",
+            "fn generic(value: GenericAlias<Int>::Boxed) -> Box<Int>\n  value\nend\n\n",
+            "fn transitive(value: model::B::Ready) -> model::State\n  value\nend\n\n",
+            "fn imported(value: model::Alias::Ready | model::Alias::Closed) -> model::State\n",
+            "  let made = model::State::Ready(1)\n",
+            "  match value\n",
+            "    model::State::Ready(payload) => made\n",
+            "    model::State::Closed => made\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let generic_base = server.handle_message(&definition_request(&main_uri, 7, 18));
+    assert!(
+        generic_base[0].contains(
+            r#""range":{"start":{"line":5,"character":9},"end":{"line":5,"character":21}}"#
+        ),
+        "{}",
+        generic_base[0]
+    );
+    let generic_variant = server.handle_message(&definition_request(&main_uri, 7, 37));
+    assert!(
+        generic_variant[0].contains(
+            r#""range":{"start":{"line":3,"character":6},"end":{"line":3,"character":11}}"#
+        ),
+        "{}",
+        generic_variant[0]
+    );
+    let transitive = server.handle_message(&definition_request(&main_uri, 11, 31));
+    assert!(
+        transitive[0].contains(
+            r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#
+        ),
+        "{}",
+        transitive[0]
+    );
+    let imported_base = server.handle_message(&definition_request(&main_uri, 15, 26));
+    assert!(
+        imported_base[0].contains(
+            r#""range":{"start":{"line":7,"character":9},"end":{"line":7,"character":14}}"#
+        ),
+        "{}",
+        imported_base[0]
+    );
+    let prepared = server.handle_message(&prepare_rename_request(&main_uri, 15, 33));
+    assert!(prepared[0].contains(r#""start":{"line":15,"character":33}"#), "{}", prepared[0]);
+    let references = server.handle_message(&references_request(&main_uri, 15, 33));
+    assert_eq!(references[0].matches(r#""start"#).count(), 5, "{}", references[0]);
+    let renamed = server.handle_message(&rename_request(&main_uri, 11, 31, "Prepared"));
+    assert_eq!(renamed[0].matches(r#""newText":"Prepared""#).count(), 5, "{}", renamed[0]);
+    let alias_renamed = server.handle_message(&rename_request(&main_uri, 7, 18, "GenericBox"));
+    assert_eq!(alias_renamed[0].matches(r#""newText":"GenericBox""#).count(), 2, "{}", alias_renamed[0]);
+}
+
 fn assert_variant_refinement_constructor_navigation(server: &mut Server, main_uri: &str) {
     let definition = server.handle_message(&definition_request(main_uri, 7, 26));
     assert!(

@@ -3,13 +3,13 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::navigation::{
-    constructor_reference_collections, dependency_path_classifications, dependency_source_indexes,
+    classified_role_lookups, constructor_reference_collections, dependency_path_classifications, dependency_source_indexes,
     dependency_source_parses, function_scope_collections, handler_clause_binding_token_visits,
     handler_clause_body_range_work, handler_clause_scope_token_visits,
     function_scope_lookup_comparisons,
     local_binding_scope_token_visits, local_reference_binding_candidate_comparisons,
     local_reference_scope_candidate_visits,
-    reset_constructor_reference_collections, reset_dependency_path_classifications,
+    reset_classified_role_lookups, reset_constructor_reference_collections, reset_dependency_path_classifications,
     reset_dependency_source_indexes, reset_dependency_source_parses,
     reset_function_scope_collections, reset_function_scope_lookup_comparisons,
     reset_handler_clause_binding_token_visits,

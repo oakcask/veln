@@ -148,6 +148,128 @@
     }
 
     #[test]
+    fn variant_refinement_navigation_resolves_generic_transitive_and_imported_aliases() {
+        let sources = vec![
+            source(
+                "model.veln",
+                concat!(
+                    "pub type State\n",
+                    "  pub Ready(Int)\n",
+                    "  pub Closed\n",
+                    "end\n\n",
+                    "pub type A = State\n",
+                    "pub type B = A\n",
+                    "pub type Alias = State\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use model\n\n",
+                    "pub type Box<A>\n",
+                    "  pub Boxed(A)\n",
+                    "end\n",
+                    "pub type GenericAlias = Box\n\n",
+                    "fn generic(value: GenericAlias<Int>::Boxed) -> Box<Int>\n",
+                    "  value\n",
+                    "end\n\n",
+                    "fn transitive(value: model::B::Ready) -> model::State\n",
+                    "  value\n",
+                    "end\n\n",
+                    "fn imported(value: model::Alias::Ready | model::Alias::Closed) -> model::State\n",
+                    "  let made = model::State::Ready(1)\n",
+                    "  match value\n",
+                    "    model::State::Ready(value) => made\n",
+                    "    model::State::Closed => made\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            ),
+        ];
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+
+        let generic_base = query_snapshot(&snapshot, "main.veln", 8, 19).unwrap();
+        assert_eq!(generic_base.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            generic_base.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_location(&generic_base.definition, "main.veln", 6, 10);
+        let generic_variant = query_snapshot(&snapshot, "main.veln", 8, 38).unwrap();
+        assert_eq!(generic_variant.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&generic_variant.definition, "main.veln", 4, 7);
+
+        let transitive_base = query_snapshot(&snapshot, "main.veln", 12, 29).unwrap();
+        assert_location(&transitive_base.definition, "model.veln", 7, 10);
+        let transitive_variant = query_snapshot(&snapshot, "main.veln", 12, 32).unwrap();
+        assert_location(&transitive_variant.definition, "model.veln", 2, 7);
+
+        let imported_base = query_snapshot(&snapshot, "main.veln", 16, 27).unwrap();
+        assert_location(&imported_base.definition, "model.veln", 8, 10);
+        let imported_variant = query_snapshot(&snapshot, "main.veln", 16, 34).unwrap();
+        assert_location(&imported_variant.definition, "model.veln", 2, 7);
+        assert_eq!(
+            locations(&imported_variant.references),
+            [
+                ("main.veln", 12, 32),
+                ("main.veln", 16, 34),
+                ("main.veln", 17, 28),
+                ("main.veln", 19, 19),
+            ]
+        );
+        assert!(validate_rename(&imported_variant, "Prepared").is_ok());
+
+        let alias_rename = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 8,
+                column: 19,
+            },
+        )
+        .unwrap();
+        assert_location(&alias_rename.definition, "main.veln", 6, 10);
+        assert_eq!(locations(&alias_rename.references), [("main.veln", 8, 19)]);
+    }
+
+    #[test]
+    fn variant_refinement_constructor_role_lookup_work_is_adjacent_linear() {
+        fn lookup_work(annotation_count: usize, rename: bool) -> usize {
+            let mut text = String::from(
+                "type State\n  Ready(Int)\nend\npub type Alias = State\n\n",
+            );
+            for index in 0..annotation_count {
+                text.push_str(&format!(
+                    "fn observe_{index}(value: Alias::Ready) -> State\n  State::Ready({index})\nend\n"
+                ));
+            }
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+            reset_classified_role_lookups();
+            let position = SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 2,
+                column: 3,
+            };
+            let result = if rename {
+                navigate_for_rename(&snapshot, position)
+            } else {
+                query_snapshot(&snapshot, "main.veln", 2, 3)
+            }
+            .expect("constructor declaration resolves");
+            assert_eq!(result.references.len(), annotation_count * 2);
+            classified_role_lookups()
+        }
+
+        for rename in [false, true] {
+            let smaller = lookup_work(128, rename);
+            let larger = lookup_work(256, rename);
+            assert!(smaller > 0);
+            assert!(larger > smaller);
+            assert!(larger <= smaller * 2 + 16, "{smaller} -> {larger}");
+        }
+    }
+
+    #[test]
     fn imported_constructor_qualified_type_segments_share_navigation() {
         let sources = vec![
             source("helper.veln", "pub type Entry\n  pub Some(Int)\nend\n"),

@@ -489,14 +489,15 @@ impl SymbolIndex {
             .is_none_or(|token| token.kind != TokenKind::DoubleColon)
             && next_non_layout_token(tokens, token_index)
                 .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+            && variant_refinement_variant_index(tokens, token_index).is_none()
         {
             return None;
         }
 
-        if let Some(segment) = file
-            .classified_path_segments
-            .iter()
-            .find(|segment| same_span(&segment.span, selection))
+        if let Some(segment) = file.classified_path_segments_by_range.get(&(
+            selection.start.offset,
+            selection.end.offset,
+        ))
         {
             let symbol = self.symbol_for_classified_segment(file, tokens, token_index, name, segment);
             return Some(ClassifiedNavigationSegment {
@@ -535,10 +536,13 @@ impl SymbolIndex {
                     .flatten()
                     .map(Symbol::TypeAlias)
                 }),
-            NameClass::Constructor => variant_refinement_qualifier_for_token(tokens, token_index)
-                .or_else(|| qualifier_for_token(tokens, token_index))
-                .and_then(|qualifier| {
-                    self.constructor_for_qualified_call(file, &qualifier, name)
+            NameClass::Constructor => self
+                .variant_refinement_identity(file, &tokens[token_index])
+                .map(|identity| identity.constructor.clone())
+                .or_else(|| {
+                    qualifier_for_token(tokens, token_index).and_then(|qualifier| {
+                        self.constructor_for_qualified_call(file, &qualifier, name)
+                    })
                 })
                 .map(Symbol::Constructor),
             NameClass::Function | NameClass::ValueBinding => self
