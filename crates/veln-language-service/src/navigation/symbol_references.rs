@@ -725,9 +725,8 @@ impl SymbolIndex {
 
     fn type_alias_definition_supported(&self, symbol: &TypeAliasSymbol) -> bool {
         match symbol.package_origin {
-            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary) => {
-                self.type_alias_target_resolves_to_type(symbol)
-            }
+            Some(PackageOrigin::DirectDependency) => self.type_alias_target_resolves_to_type(symbol),
+            Some(PackageOrigin::StandardLibrary) => false,
             None => true,
         }
     }

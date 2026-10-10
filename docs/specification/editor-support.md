@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#lsp-encoding; behavior=#lsp-completion-and-signature-help; limits=#boundaries
+specification-coverage: usage=#lsp-encoding; behavior=#lsp-navigation-formatting-and-rename; limits=#boundaries
 update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy or bounded-work evidence changes.
 ---
 
@@ -644,7 +644,11 @@ references. For a project-wide request, MCP returns those same workspace
 locations and, when `include_declaration` is true, also includes the eligible
 canonical `veln-pkg:` declaration. A single-file MCP request does not include
 that package declaration. Supported direct-dependency and standard-library
-public type aliases follow the same LSP and MCP declaration policy.
+public type aliases return workspace references under the same LSP and MCP
+declaration policy. An ordinary direct-dependency type-alias reference can also
+return its retained declaration. An ordinary standard-library type-alias
+reference cannot; only the valid-refinement exception above permits definition
+on its written base.
 Unsupported schema-alias origins or scopes and public function aliases with
 unresolved, non-function, or invalid-cased targets do not produce definition
 or reference locations. Public type aliases with transitive, unresolved,
