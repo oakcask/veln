@@ -47,16 +47,6 @@ retain explicit negative and state-preservation cases: rejected requests do
 not mutate saved snapshots, published resources, cursors, or prior successful
 results.
 
-Valid variant-refinement definition, references, prepare-rename, and rename
-through direct bases and visible finite alias chains are outside this proposal.
-Those chains can start in the workspace and resolve to a workspace ADT or an
-ADT from a direct dependency. A retained direct-dependency or standard-library
-alias resolves its target with the package and implicit standard-prelude
-precedence defined by the current navigation specifications.
-[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
-and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation)
-own that implemented behavior and its package-alias boundary.
-
 An implementation slice may be removed from this inventory only after its
 current specification page names the executable authority, the evidence
 passes independently of proposal prose, and the conformance manifest (when

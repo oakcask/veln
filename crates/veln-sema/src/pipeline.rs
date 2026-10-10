@@ -28,9 +28,9 @@ mod identifier_casing;
 
 use identifier_casing::check_invalid_name_casing;
 pub use identifier_casing::{
+    CanonicalTypeAnnotationIdentity, canonical_type_annotation_identities_with_context,
     classified_project_qualified_path_segments,
     classified_project_qualified_path_segments_with_context,
-    fully_resolved_type_annotations_with_context,
 };
 
 #[derive(Clone, Debug)]

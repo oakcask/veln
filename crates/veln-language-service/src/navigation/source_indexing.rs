@@ -233,13 +233,11 @@ fn indexed_dependency_source(
             .type_argument_count_by_final_range,
         variant_refinement_union_final_ranges_by_final_range: variant_refinement_source_index
             .union_final_ranges_by_final_range,
-        variant_refinement_type_argument_fingerprints_by_final_range:
-            variant_refinement_source_index.type_argument_fingerprints_by_final_range,
         variant_refinement_type_argument_annotations_by_final_range:
             variant_refinement_source_index.type_argument_annotations_by_final_range,
         variant_refinement_type_parameters_by_final_range:
             variant_refinement_source_index.type_parameters_by_final_range,
-        fully_resolved_variant_refinement_type_arguments: BTreeSet::new(),
+        canonical_variant_refinement_type_arguments_by_final_range: BTreeMap::new(),
         constructor_reference_declaration_ranges,
         classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),
@@ -308,10 +306,10 @@ fn attach_classified_path_segments(
             })
             .collect();
     }
-    attach_fully_resolved_variant_refinement_type_arguments(files, project);
+    attach_canonical_variant_refinement_type_arguments(files, project);
 }
 
-fn attach_fully_resolved_variant_refinement_type_arguments(
+fn attach_canonical_variant_refinement_type_arguments(
     files: &mut [IndexedFile],
     project: &veln_ast::SurfaceModule,
 ) {
@@ -343,12 +341,12 @@ fn attach_fully_resolved_variant_refinement_type_arguments(
         }
     }
     let resolved =
-        veln_sema::fully_resolved_type_annotations_with_context(project, &annotations);
+        veln_sema::canonical_type_annotation_identities_with_context(project, &annotations);
     for (file_index, range, start, end) in groups {
-        if resolved[start..end].iter().all(|resolved| *resolved) {
+        if let Some(identities) = resolved[start..end].iter().cloned().collect() {
             files[file_index]
-                .fully_resolved_variant_refinement_type_arguments
-                .insert(range);
+                .canonical_variant_refinement_type_arguments_by_final_range
+                .insert(range, identities);
         }
     }
 }

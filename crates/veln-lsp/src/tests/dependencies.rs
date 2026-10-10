@@ -38,6 +38,32 @@ fn implicit_prelude_alias_standard_library() -> DirectDependencySnapshot {
     .unwrap()
 }
 
+fn generic_implicit_prelude_standard_library() -> DirectDependencySnapshot {
+    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n";
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            concat!(
+                "pub type Box<A>\n",
+                "  pub Boxed(A)\n",
+                "  pub Empty\n",
+                "end\n",
+                "pub type Other<A>\n",
+                "  pub OtherReady(A)\n",
+                "end\n",
+            )
+            .as_bytes(),
+        )],
+    )
+    .unwrap();
+    DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap()
+}
+
 #[test]
 fn standard_library_alias_to_implicit_prelude_type_projects_definitions() {
     let mut server =
@@ -79,6 +105,73 @@ fn standard_library_alias_to_implicit_prelude_type_projects_definitions() {
     for character in [30, 37] {
         let rename = server.handle_message(&rename_request(&main_uri, 2, character, "Renamed"));
         assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+    }
+}
+
+#[test]
+fn retained_package_refinement_unions_project_canonical_generic_arguments() {
+    let mut server =
+        Server::default().with_standard_library(generic_implicit_prelude_standard_library());
+    let project = TempProject::new("retained-package-refinement-canonical-arguments");
+    project.write(
+        "veln.toml",
+        "[dependencies.\"example/bridge\"]\npath = \"vendor/bridge\"\n",
+    );
+    project.write(
+        "vendor/bridge/veln.toml",
+        "[package]\nname = \"example/bridge\"\n\n[lib]\nexports = [\"bridge.veln\"]\n",
+    );
+    project.write("vendor/bridge/bridge.veln", "pub type Alias = Box\n");
+    let source = concat!(
+        "use bridge from \"example/bridge\"\n\n",
+        "pub type Phase\n  pub Started\nend\n",
+        "pub type OtherPhase\n  pub Started\nend\n",
+        "pub type PhaseAlias = Phase\n\n",
+        "pub type Envelope<A, B>\n",
+        "  pub Same(bridge::Alias<A>::Boxed | bridge::Alias<A>::Empty)\n",
+        "  pub Different(bridge::Alias<A>::Boxed | bridge::Alias<B>::Empty)\n",
+        "end\n\n",
+        "fn direct_same(value: Box<Phase>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn direct_alias(value: Box<PhaseAlias>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn qualified_same(value: bridge::Alias<Phase>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn qualified_alias(value: bridge::Alias<PhaseAlias>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn mismatch(value: bridge::Alias<Phase>::Boxed | bridge::Alias<OtherPhase>::Empty) -> Int\n  0\nend\n\n",
+        "fn unresolved(value: bridge::Alias<Missing>::Boxed | bridge::Alias<Missing>::Empty) -> Int\n  0\nend\n\n",
+        "fn wrong_arity(value: bridge::Alias<Phase, Phase>::Boxed | bridge::Alias<Phase, Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn mixed(value: bridge::Alias<Phase>::Boxed | Other<Phase>::OtherReady) -> Int\n  0\nend\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let positions = |line_text: &str| {
+        let (line, text) = source
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        text.match_indices("Boxed")
+            .chain(text.match_indices("Empty"))
+            .map(|(column, _)| (line, column))
+            .collect::<Vec<_>>()
+    };
+
+    for line_text in ["Same(", "direct_same", "direct_alias", "qualified_same", "qualified_alias"] {
+        for (line, character) in positions(line_text) {
+            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+            assert!(definition[0].contains("/prelude.veln"), "{line_text}: {}", definition[0]);
+            let references = server.handle_message(&references_request(&main_uri, line, character));
+            assert!(references[0].contains(r#""result":[]"#), "{line_text}: {}", references[0]);
+            let prepared = server.handle_message(&prepare_rename_request(&main_uri, line, character));
+            assert!(prepared[0].contains(r#""result":null"#), "{line_text}: {}", prepared[0]);
+            let renamed = server.handle_message(&rename_request(&main_uri, line, character, "Renamed"));
+            assert!(renamed[0].contains(r#""changes":{}"#), "{line_text}: {}", renamed[0]);
+        }
+    }
+    for line_text in ["Different(", "mismatch", "unresolved", "wrong_arity", "mixed"] {
+        for (line, character) in positions(line_text) {
+            assert_refinement_navigation_unavailable(&mut server, &main_uri, line, character);
+        }
     }
 }
 

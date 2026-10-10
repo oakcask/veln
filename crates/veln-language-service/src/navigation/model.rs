@@ -873,13 +873,12 @@ struct IndexedFile {
         BTreeMap<(usize, usize), usize>,
     variant_refinement_union_final_ranges_by_final_range:
         BTreeMap<(usize, usize), Vec<(usize, usize)>>,
-    variant_refinement_type_argument_fingerprints_by_final_range:
-        BTreeMap<(usize, usize), Vec<String>>,
     variant_refinement_type_argument_annotations_by_final_range:
         BTreeMap<(usize, usize), Vec<String>>,
     variant_refinement_type_parameters_by_final_range:
         BTreeMap<(usize, usize), Vec<String>>,
-    fully_resolved_variant_refinement_type_arguments: BTreeSet<(usize, usize)>,
+    canonical_variant_refinement_type_arguments_by_final_range:
+        BTreeMap<(usize, usize), Vec<veln_sema::CanonicalTypeAnnotationIdentity>>,
     constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
     classified_paths: ClassifiedPathIndex,
     type_reference_locations: OnceLock<TypeReferenceIndex>,
@@ -965,7 +964,6 @@ enum VariantRefinementBaseSymbol {
 struct VariantRefinementNavigationIdentity {
     base: VariantRefinementBaseSymbol,
     constructor: ConstructorSymbol,
-    semantically_valid: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

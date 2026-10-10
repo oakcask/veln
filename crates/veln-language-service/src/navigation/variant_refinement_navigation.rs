@@ -117,18 +117,11 @@ impl SymbolIndex {
         }) {
             return false;
         }
-        if union_ranges.iter().all(|range| {
-            candidates
-                .get(range)
-                .is_some_and(|candidate| candidate.semantically_valid)
-        }) {
-            return true;
-        }
-        file.variant_refinement_type_argument_fingerprints_by_final_range
+        file.canonical_variant_refinement_type_arguments_by_final_range
             .get(first_range)
             .is_some_and(|first| {
                 union_ranges.iter().all(|range| {
-                    file.variant_refinement_type_argument_fingerprints_by_final_range
+                    file.canonical_variant_refinement_type_arguments_by_final_range
                         .get(range)
                         == Some(first)
                 })
@@ -159,8 +152,8 @@ impl SymbolIndex {
         if !semantically_valid
             && !(terminal.package.is_some()
                 && file
-                    .fully_resolved_variant_refinement_type_arguments
-                    .contains(final_range))
+                    .canonical_variant_refinement_type_arguments_by_final_range
+                    .contains_key(final_range))
         {
             return None;
         }
@@ -176,7 +169,6 @@ impl SymbolIndex {
             VariantRefinementNavigationIdentity {
                 base,
                 constructor,
-                semantically_valid,
             },
         ))
     }
@@ -352,7 +344,14 @@ impl SymbolIndex {
             .collect::<BTreeSet<_>>();
         let workspace_candidates = workspace_routes.iter().flat_map(|module| {
             self.workspace_types_in_module(module, name)
-                .filter(|symbol| symbol.public || symbol.module == file.module)
+                .filter(|symbol| {
+                    symbol.public
+                        || symbol.module == file.module
+                        || file
+                            .companion_target_module
+                            .as_ref()
+                            .is_some_and(|target| target == &symbol.module)
+                })
                 .cloned()
                 .map(TypeConflictCandidate::Type)
                 .chain(

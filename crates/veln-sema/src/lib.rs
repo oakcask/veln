@@ -45,12 +45,12 @@ pub(crate) use navigation::{
 #[cfg(test)]
 pub(crate) use pipeline::analyze_surface_module_with_base_for_test;
 pub use pipeline::{
-    LoweredSurfaceModule, analyze_surface_module, check_project_surface_module,
+    CanonicalTypeAnnotationIdentity, LoweredSurfaceModule, analyze_surface_module,
+    canonical_type_annotation_identities_with_context, check_project_surface_module,
     check_project_surface_module_with_standard_environment,
     check_project_surface_module_with_standard_modules_environment,
     classified_project_qualified_path_segments,
-    classified_project_qualified_path_segments_with_context,
-    fully_resolved_type_annotations_with_context, lower_analyzed_surface_module,
+    classified_project_qualified_path_segments_with_context, lower_analyzed_surface_module,
     lower_checked_surface_module, lower_project_reachable_surface_module,
     lower_project_reachable_surface_module_with_standard_environment,
     lower_project_reachable_surface_modules_with_standard_environment,

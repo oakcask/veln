@@ -564,9 +564,9 @@
             source(
                 "model.veln",
                 concat!(
-                    "pub type State\n",
+                    "type State\n",
                     "  Private(Int)\n",
-                    "  pub Ready(Int)\n",
+                    "  Ready(Int)\n",
                     "end\n\n",
                     "pub type Other\n",
                     "  pub Shared\n",
@@ -598,9 +598,24 @@
         assert!(query(sources.clone(), "main.veln", 7, 37).is_none());
         assert!(query(sources.clone(), "main.veln", 11, 38).is_none());
 
-        let companion = query(sources, "model.test.veln", 3, 43).unwrap();
-        assert_location(&companion.definition, "model.veln", 2, 3);
-        assert!(validate_rename(&companion, "Hidden").is_ok());
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+        for (column, line, declaration_column, expected_references, renamed) in [
+            (30, 1, 6, 1, "Modeled"),
+            (43, 2, 3, 1, "Hidden"),
+        ] {
+            let position = || SourcePosition {
+                source: SourcePath::new("model.test.veln"),
+                line: 3,
+                column,
+            };
+            let definition = definition_at(&snapshot, position()).unwrap();
+            assert_location(&definition, "model.veln", line, declaration_column);
+            let navigation = navigate(&snapshot, position()).unwrap();
+            assert_eq!(navigation.references.len(), expected_references);
+            let rename = navigate_for_rename(&snapshot, position()).unwrap();
+            assert_eq!(rename.references.len(), expected_references);
+            assert!(validate_rename_in_snapshot(&snapshot, &rename, renamed).is_ok());
+        }
     }
 
     #[test]
@@ -804,6 +819,95 @@
                 .iter()
                 .all(|location| location.start.line != position("different_args", "Boxed").line)
         );
+    }
+
+    #[test]
+    fn retained_package_refinement_unions_compare_canonical_generic_arguments() {
+        let dependency = dependency_snapshot(
+            "example/bridge",
+            &[("bridge.veln", "pub type Alias = Box\n")],
+            ["bridge.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                concat!(
+                    "pub type Box<A>\n",
+                    "  pub Boxed(A)\n",
+                    "  pub Empty\n",
+                    "end\n",
+                    "pub type Other<A>\n",
+                    "  pub OtherReady(A)\n",
+                    "end\n",
+                ),
+            )],
+            ["prelude.veln"],
+        );
+        let text = concat!(
+            "use bridge from \"example/bridge\"\n\n",
+            "pub type Phase\n  pub Started\nend\n",
+            "pub type OtherPhase\n  pub Started\nend\n",
+            "pub type PhaseAlias = Phase\n\n",
+            "pub type Envelope<A, B>\n",
+            "  pub Same(bridge::Alias<A>::Boxed | bridge::Alias<A>::Empty)\n",
+            "  pub Different(bridge::Alias<A>::Boxed | bridge::Alias<B>::Empty)\n",
+            "end\n\n",
+            "fn direct_same(value: Box<Phase>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
+            "fn direct_alias(value: Box<PhaseAlias>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
+            "fn qualified_same(value: bridge::Alias<Phase>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
+            "fn qualified_alias(value: bridge::Alias<PhaseAlias>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
+            "fn mismatch(value: bridge::Alias<Phase>::Boxed | bridge::Alias<OtherPhase>::Empty) -> Int\n  0\nend\n\n",
+            "fn unresolved(value: bridge::Alias<Missing>::Boxed | bridge::Alias<Missing>::Empty) -> Int\n  0\nend\n\n",
+            "fn wrong_arity(value: bridge::Alias<Phase, Phase>::Boxed | bridge::Alias<Phase, Phase>::Empty) -> Int\n  0\nend\n\n",
+            "fn mixed(value: bridge::Alias<Phase>::Boxed | Other<Phase>::OtherReady) -> Int\n  0\nend\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("main.veln", text)],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+        let positions = |line_text: &str| {
+            let (line, source_line) = text
+                .lines()
+                .enumerate()
+                .find(|(_, candidate)| candidate.contains(line_text))
+                .unwrap();
+            source_line
+                .match_indices("Boxed")
+                .map(|(column, _)| (line + 1, column + 1))
+                .chain(
+                    source_line
+                        .match_indices("Empty")
+                        .map(|(column, _)| (line + 1, column + 1)),
+                )
+                .collect::<Vec<_>>()
+        };
+
+        for line_text in ["Same(", "direct_same", "direct_alias", "qualified_same", "qualified_alias"] {
+            for (line, column) in positions(line_text) {
+                let position = || SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column,
+                };
+                assert!(definition_at(&snapshot, position()).is_some(), "{line_text}");
+                let navigation = navigate(&snapshot, position()).unwrap();
+                assert!(!navigation.references.is_empty(), "{line_text}");
+                assert!(navigate_for_rename(&snapshot, position()).is_some(), "{line_text}");
+            }
+        }
+        for line_text in ["Different(", "mismatch", "unresolved", "wrong_arity", "mixed"] {
+            for (line, column) in positions(line_text) {
+                let position = || SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column,
+                };
+                assert!(definition_at(&snapshot, position()).is_none(), "{line_text}");
+                assert!(navigate(&snapshot, position()).is_none(), "{line_text}");
+                assert!(navigate_for_rename(&snapshot, position()).is_none(), "{line_text}");
+            }
+        }
     }
 
     #[test]

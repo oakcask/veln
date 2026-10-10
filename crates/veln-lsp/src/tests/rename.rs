@@ -668,6 +668,61 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
 }
 
 #[test]
+fn private_variant_refinement_navigation_uses_exact_companion_visibility() {
+    let mut server = Server::default();
+    let project = TempProject::new("private-variant-refinement-exact-companion");
+    project.write("model.veln", "type State\n  Ready(Int)\nend\n");
+    let companion =
+        "use model\n\ntest companion(value: model::State::Ready) -> Int\n  0\nend\n";
+    let wrong = "use model\n\ntest wrong(value: model::State::Ready) -> Int\n  0\nend\n";
+    project.write("model.test.veln", companion);
+    project.write("other.test.veln", wrong);
+    let root_uri = path_to_uri(&project.root);
+    let companion_uri = path_to_uri(&project.root.join("model.test.veln"));
+    let wrong_uri = path_to_uri(&project.root.join("other.test.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let line = 2;
+    let source_line = companion.lines().nth(line).unwrap();
+    for (needle, expected_line, expected_character, new_name) in [
+        ("State", 0, 5, "Modeled"),
+        ("Ready", 1, 2, "Prepared"),
+    ] {
+        let character = source_line.find(needle).unwrap();
+        let definition = server.handle_message(&definition_request(
+            &companion_uri,
+            line,
+            character,
+        ));
+        let expected = format!(
+            r#""start":{{"line":{expected_line},"character":{expected_character}}}"#
+        );
+        assert!(definition[0].contains(&expected), "{}", definition[0]);
+        let references =
+            server.handle_message(&references_request(&companion_uri, line, character));
+        assert!(!references[0].contains(r#""result":[]"#), "{}", references[0]);
+        let prepared =
+            server.handle_message(&prepare_rename_request(&companion_uri, line, character));
+        assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+        let renamed = server.handle_message(&rename_request(
+            &companion_uri,
+            line,
+            character,
+            new_name,
+        ));
+        assert_eq!(renamed[0].matches(new_name).count(), 2, "{}", renamed[0]);
+
+        let wrong_character = wrong.lines().nth(line).unwrap().find(needle).unwrap();
+        assert_refinement_navigation_unavailable(
+            &mut server,
+            &wrong_uri,
+            line,
+            wrong_character,
+        );
+    }
+}
+
+#[test]
 fn invalid_variant_refinement_alias_bases_do_not_prepare_or_rename() {
     let mut server = Server::default();
     let project = TempProject::new("invalid-variant-refinement-alias-base");

@@ -16,8 +16,9 @@ stable mismatch diagnostics, and runtime erasure.
 
 This proposal retains only the unfinished work: alias visibility,
 qualified-value match refinement, schema boundaries, package documentation
-catalog signatures, remaining LSP diagnostics and recovery, and remaining MCP
-diagnostics, package-signature, and saved-state behavior. Qualified
+catalog signatures, remaining LSP diagnostics and invalid-refinement recovery,
+and remaining MCP diagnostics, invalid-refinement recovery, package-signature,
+and saved-state behavior. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
@@ -58,21 +59,6 @@ the unimplemented semantic and tooling behavior below.
 The current [type specification](../specification/types.md#compatibility-and-limits)
 owns alias-qualified refinement identity, assignability, and presentation. The
 remaining alias work covers public package signatures and visibility failures.
-Current source navigation and rename behavior is specified by
-[editor support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
-and [MCP](../specification/mcp.md#saved-workspace-navigation).
-Current navigation requires the written generic-argument count to match the
-resolved terminal ADT and every generic argument to resolve recursively. A
-wrong-arity refinement, an unresolved named generic argument, or an invalid
-nested refinement exposes neither its base nor its final segment to
-definition, references, or rename. A type parameter declared by the enclosing
-ADT remains resolved in that ADT's payload annotation. The recovery work below
-plans separate source identities for the resolved base and, when it can be
-resolved independently, the constructor without making the refinement valid.
-The current navigation specifications also own ambiguous package-base
-rejection: multiple imported packages that expose the same qualified base do
-not produce a selected navigation identity. This proposal retains only the
-diagnostic and recovery work described below for such an ambiguity.
 
 A refinement is valid only when the selected constructor is visible at the
 annotation. A public declaration cannot expose a private type or private

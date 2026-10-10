@@ -1,4 +1,5 @@
 use super::*;
+use crate::semantic_model::Type;
 
 pub(super) fn valid_qualified_path_segments(
     module: &SurfaceModule,
@@ -797,23 +798,151 @@ pub fn classified_project_qualified_path_segments_with_context(
     classified_qualified_path_segments_for_navigation(module, &environment)
 }
 
-pub fn fully_resolved_type_annotations_with_context(
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CanonicalTypeAnnotationIdentity {
+    canonical: Type,
+    type_parameter_occurrences: Vec<usize>,
+}
+
+pub fn canonical_type_annotation_identities_with_context(
     project: &SurfaceModule,
     annotations: &[(String, Option<String>, Vec<String>)],
-) -> Vec<bool> {
+) -> Vec<Option<CanonicalTypeAnnotationIdentity>> {
     let environment = TypeEnvironment::for_path_classification(project);
     annotations
         .iter()
         .map(|(annotation, current_module, type_parameters)| {
             crate::type_syntax::parse_type_annotation(annotation)
                 .ok()
-                .is_some_and(|ty| {
-                    environment.type_annotation_is_fully_resolved(
-                        &ty,
-                        current_module.as_deref(),
-                        type_parameters,
-                    )
+                .and_then(|ty| {
+                    environment
+                        .type_annotation_is_fully_resolved(
+                            &ty,
+                            current_module.as_deref(),
+                            type_parameters,
+                        )
+                        .then(|| CanonicalTypeAnnotationIdentity {
+                            type_parameter_occurrences: type_parameter_occurrences(
+                                &ty,
+                                type_parameters,
+                            ),
+                            canonical: canonical_identity_type(
+                                environment
+                                    .canonicalize_type_annotation(ty, current_module.as_deref()),
+                            ),
+                        })
                 })
         })
         .collect()
+}
+
+fn type_parameter_occurrences(ty: &Type, type_parameters: &[String]) -> Vec<usize> {
+    let mut occurrences = Vec::new();
+    collect_type_parameter_occurrences(ty, type_parameters, &mut occurrences);
+    occurrences
+}
+
+fn collect_type_parameter_occurrences(
+    ty: &Type,
+    type_parameters: &[String],
+    occurrences: &mut Vec<usize>,
+) {
+    match ty {
+        Type::Named { name, args, .. } => {
+            if args.is_empty()
+                && let Some(index) = type_parameters
+                    .iter()
+                    .position(|parameter| parameter == name)
+            {
+                occurrences.push(index);
+            }
+            for argument in args {
+                collect_type_parameter_occurrences(argument, type_parameters, occurrences);
+            }
+        }
+        Type::VariantRefinement {
+            args,
+            unresolved_alternatives,
+            ..
+        } => {
+            for argument in args {
+                collect_type_parameter_occurrences(argument, type_parameters, occurrences);
+            }
+            for (_, arguments, _) in unresolved_alternatives {
+                for argument in arguments {
+                    collect_type_parameter_occurrences(argument, type_parameters, occurrences);
+                }
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field) in fields {
+                collect_type_parameter_occurrences(field, type_parameters, occurrences);
+            }
+        }
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            for parameter in params {
+                collect_type_parameter_occurrences(parameter, type_parameters, occurrences);
+            }
+            if let Some(variadic) = variadic {
+                collect_type_parameter_occurrences(variadic, type_parameters, occurrences);
+            }
+            collect_type_parameter_occurrences(return_type, type_parameters, occurrences);
+        }
+        Type::Unknown => {}
+    }
+}
+
+fn canonical_identity_type(ty: Type) -> Type {
+    match ty {
+        Type::Named { identity, args, .. } => Type::Named {
+            name: identity.clone(),
+            identity,
+            args: args.into_iter().map(canonical_identity_type).collect(),
+        },
+        Type::VariantRefinement {
+            identity,
+            args,
+            variants,
+            unresolved_alternatives,
+            ..
+        } => Type::VariantRefinement {
+            name: identity.clone(),
+            identity,
+            args: args.into_iter().map(canonical_identity_type).collect(),
+            variants,
+            unresolved_alternatives: unresolved_alternatives
+                .into_iter()
+                .map(|(name, args, variant)| {
+                    (
+                        name,
+                        args.into_iter().map(canonical_identity_type).collect(),
+                        variant,
+                    )
+                })
+                .collect(),
+        },
+        Type::Record(fields) => Type::Record(
+            fields
+                .into_iter()
+                .map(|(name, ty)| (name, canonical_identity_type(ty)))
+                .collect(),
+        ),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } => Type::Function {
+            params: params.into_iter().map(canonical_identity_type).collect(),
+            variadic: variadic.map(|ty| Box::new(canonical_identity_type(*ty))),
+            return_type: Box::new(canonical_identity_type(*return_type)),
+            effects,
+        },
+        Type::Unknown => Type::Unknown,
+    }
 }

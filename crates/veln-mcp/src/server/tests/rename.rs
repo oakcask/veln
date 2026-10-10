@@ -706,6 +706,205 @@ fn standard_library_alias_to_implicit_prelude_type_projects_definitions() {
     }
 }
 
+#[test]
+fn retained_package_refinement_unions_project_canonical_generic_arguments() {
+    let workspace = TempWorkspace::new("retained-package-refinement-canonical-arguments");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/bridge\"]\npath = \"vendor/bridge\"\n",
+    );
+    workspace.write(
+        "vendor/bridge/veln.toml",
+        "[package]\nname = \"example/bridge\"\n\n[lib]\nexports = [\"bridge.veln\"]\n",
+    );
+    workspace.write("vendor/bridge/bridge.veln", "pub type Alias = Box\n");
+    let source = concat!(
+        "use bridge from \"example/bridge\"\n\n",
+        "pub type Phase\n  pub Started\nend\n",
+        "pub type OtherPhase\n  pub Started\nend\n",
+        "pub type PhaseAlias = Phase\n\n",
+        "pub type Envelope<A, B>\n",
+        "  pub Same(bridge::Alias<A>::Boxed | bridge::Alias<A>::Empty)\n",
+        "  pub Different(bridge::Alias<A>::Boxed | bridge::Alias<B>::Empty)\n",
+        "end\n\n",
+        "fn direct_same(value: Box<Phase>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn direct_alias(value: Box<PhaseAlias>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn qualified_same(value: bridge::Alias<Phase>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn qualified_alias(value: bridge::Alias<PhaseAlias>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn mismatch(value: bridge::Alias<Phase>::Boxed | bridge::Alias<OtherPhase>::Empty) -> Int\n  0\nend\n\n",
+        "fn unresolved(value: bridge::Alias<Missing>::Boxed | bridge::Alias<Missing>::Empty) -> Int\n  0\nend\n\n",
+        "fn wrong_arity(value: bridge::Alias<Phase, Phase>::Boxed | bridge::Alias<Phase, Phase>::Empty) -> Int\n  0\nend\n\n",
+        "fn mixed(value: bridge::Alias<Phase>::Boxed | Other<Phase>::OtherReady) -> Int\n  0\nend\n",
+    );
+    workspace.write("main.veln", source);
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            concat!(
+                "pub type Box<A>\n",
+                "  pub Boxed(A)\n",
+                "  pub Empty\n",
+                "end\n",
+                "pub type Other<A>\n",
+                "  pub OtherReady(A)\n",
+                "end\n",
+            )
+            .as_bytes(),
+        )],
+    );
+    let positions = |line_text: &str| {
+        let (line, text) = source
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        text.match_indices("Boxed")
+            .chain(text.match_indices("Empty"))
+            .map(|(column, _)| (line + 1, column + 1))
+            .collect::<Vec<_>>()
+    };
+
+    for line_text in [
+        "Same(",
+        "direct_same",
+        "direct_alias",
+        "qualified_same",
+        "qualified_alias",
+    ] {
+        for (line, column) in positions(line_text) {
+            let definition = server
+                .definition_tool(&json!({"source":"main.veln", "line":line, "column":column}));
+            assert!(
+                definition["structuredContent"]["definition"]["uri"]
+                    .as_str()
+                    .is_some_and(|uri| uri.ends_with("/prelude.veln")),
+                "{line_text}: {definition:#}"
+            );
+            let references = server.references_tool(&json!({
+                "source":"main.veln", "line":line, "column":column,
+                "include_declaration":true
+            }));
+            assert!(
+                !references["structuredContent"]["references"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty(),
+                "{line_text}: {references:#}"
+            );
+            let renamed = server.rename_tool(&json!({
+                "source":"main.veln", "line":line, "column":column, "new_name":"Renamed"
+            }));
+            assert!(edits(&renamed).is_empty(), "{line_text}: {renamed:#}");
+        }
+    }
+    for line_text in [
+        "Different(",
+        "mismatch",
+        "unresolved",
+        "wrong_arity",
+        "mixed",
+    ] {
+        for (line, column) in positions(line_text) {
+            let definition = server
+                .definition_tool(&json!({"source":"main.veln", "line":line, "column":column}));
+            assert!(
+                definition["structuredContent"]["definition"].is_null(),
+                "{line_text}: {definition:#}"
+            );
+            let references = server.references_tool(&json!({
+                "source":"main.veln", "line":line, "column":column,
+                "include_declaration":true
+            }));
+            assert!(
+                references["structuredContent"]["references"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty(),
+                "{line_text}: {references:#}"
+            );
+            let renamed = server.rename_tool(&json!({
+                "source":"main.veln", "line":line, "column":column, "new_name":"Renamed"
+            }));
+            assert!(edits(&renamed).is_empty(), "{line_text}: {renamed:#}");
+        }
+    }
+}
+
+#[test]
+fn private_variant_refinement_navigation_uses_exact_companion_visibility() {
+    let workspace = TempWorkspace::new("private-variant-refinement-exact-companion");
+    workspace.write("veln.toml", "");
+    workspace.write("model.veln", "type State\n  Ready(Int)\nend\n");
+    let companion = "use model\n\ntest companion(value: model::State::Ready) -> Int\n  0\nend\n";
+    let wrong = "use model\n\ntest wrong(value: model::State::Ready) -> Int\n  0\nend\n";
+    workspace.write("model.test.veln", companion);
+    workspace.write("other.test.veln", wrong);
+    let mut server = initialized_server(&workspace);
+    let line = 3;
+
+    for (needle, expected_line, expected_column, new_name) in
+        [("State", 1, 6, "Modeled"), ("Ready", 2, 3, "Prepared")]
+    {
+        let column = companion
+            .lines()
+            .nth(line - 1)
+            .unwrap()
+            .find(needle)
+            .unwrap()
+            + 1;
+        let definition = server
+            .definition_tool(&json!({"source":"model.test.veln", "line":line, "column":column}));
+        assert_eq!(
+            definition["structuredContent"]["definition"]["range"]["start"],
+            json!({"line":expected_line,"column":expected_column}),
+            "{definition:#}"
+        );
+        let references = server.references_tool(&json!({
+            "source":"model.test.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(
+            references["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2,
+            "{references:#}"
+        );
+        let renamed = server.rename_tool(&json!({
+            "source":"model.test.veln", "line":line, "column":column, "new_name":new_name
+        }));
+        assert_eq!(edits(&renamed).len(), 2, "{renamed:#}");
+
+        let wrong_column = wrong.lines().nth(line - 1).unwrap().find(needle).unwrap() + 1;
+        let wrong_definition = server.definition_tool(
+            &json!({"source":"other.test.veln", "line":line, "column":wrong_column}),
+        );
+        assert!(
+            wrong_definition["structuredContent"]["definition"].is_null(),
+            "{wrong_definition:#}"
+        );
+        let wrong_references = server.references_tool(&json!({
+            "source":"other.test.veln", "line":line, "column":wrong_column,
+            "include_declaration":true
+        }));
+        assert!(
+            wrong_references["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "{wrong_references:#}"
+        );
+        let wrong_rename = server.rename_tool(&json!({
+            "source":"other.test.veln", "line":line, "column":wrong_column,
+            "new_name":new_name
+        }));
+        assert!(edits(&wrong_rename).is_empty(), "{wrong_rename:#}");
+    }
+}
+
 fn edits(result: &Value) -> &Vec<Value> {
     result["structuredContent"]["edits"]
         .as_array()

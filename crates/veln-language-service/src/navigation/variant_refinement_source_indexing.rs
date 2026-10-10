@@ -4,7 +4,6 @@ struct VariantRefinementSourceIndex {
     final_range_by_base_range: BTreeMap<(usize, usize), (usize, usize)>,
     type_argument_count_by_final_range: BTreeMap<(usize, usize), usize>,
     union_final_ranges_by_final_range: BTreeMap<(usize, usize), Vec<(usize, usize)>>,
-    type_argument_fingerprints_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
     type_argument_annotations_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
     type_parameters_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
 }
@@ -292,16 +291,6 @@ fn collect_refinement_ranges(
                 .entry(final_range)
                 .or_insert_with(|| union_final_ranges.clone());
             index
-                .type_argument_fingerprints_by_final_range
-                .entry(final_range)
-                .or_insert_with(|| {
-                    alternative
-                        .type_arguments
-                        .iter()
-                        .map(variant_refinement_type_argument_fingerprint)
-                        .collect()
-                });
-            index
                 .type_argument_annotations_by_final_range
                 .entry(final_range)
                 .or_insert_with(|| {
@@ -327,15 +316,6 @@ fn collect_refinement_ranges(
             }
         }
     }
-}
-
-fn variant_refinement_type_argument_fingerprint(
-    argument: &veln_syntax::VariantRefinementTypeArgument,
-) -> String {
-    variant_refinement_type_argument_annotation(argument)
-        .chars()
-        .filter(|character| !character.is_whitespace())
-        .collect()
 }
 
 fn variant_refinement_type_argument_annotation(
