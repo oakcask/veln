@@ -26,6 +26,7 @@ include!("navigation/index_construction.rs");
 include!("navigation/index.rs");
 include!("navigation/index_visibility.rs");
 include!("navigation/variant_refinement_navigation.rs");
+include!("navigation/variant_refinement_namespace_resolution.rs");
 include!("navigation/selection.rs");
 include!("navigation/recovery.rs");
 include!("navigation/rename_shared.rs");
