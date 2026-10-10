@@ -69,8 +69,8 @@ fn duplicate_variadic_parameter_keeps_shape_diagnostics() {
         [
             "type.variadic_parameter_position",
             "type.variadic_parameter_duplicate",
-            "name.duplicate",
             "type.variadic_parameter_duplicate",
+            "name.duplicate",
         ]
     );
 }
