@@ -27,6 +27,7 @@ pub(crate) struct AdtRegistry {
     type_alias_identities: BTreeSet<(Option<String>, String)>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<String, SourceSpan>,
+    local_descriptor_start: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -244,22 +245,35 @@ impl AdtRegistry {
             candidates.is_empty().then_some(candidate)
         }
         if !name.contains("::") {
-            let local = self
-                .descriptors_named(name)
+            let indices = self
+                .descriptors_by_type_name
+                .get(name)
+                .map(Vec::as_slice)
+                .unwrap_or_default();
+            let local = indices
+                .iter()
+                .copied()
+                .filter(|index| *index >= self.local_descriptor_start)
+                .map(|index| &self.descriptors[index])
                 .filter(|descriptor| descriptor.module_name.as_deref() == current_module)
                 .collect::<Vec<_>>();
             if !local.is_empty() {
                 return unique(local);
             }
-            let builtin = self
-                .descriptors_named(name)
+            let builtin = indices
+                .iter()
+                .copied()
+                .filter(|index| *index < self.local_descriptor_start)
+                .map(|index| &self.descriptors[index])
                 .filter(|descriptor| descriptor.module_name.is_none())
                 .collect::<Vec<_>>();
             if !builtin.is_empty() {
                 return unique(builtin);
             }
             return unique(
-                self.descriptors_named(name)
+                indices
+                    .iter()
+                    .map(|index| &self.descriptors[*index])
                     .filter(|descriptor| {
                         descriptor.visibility == Visibility::Public
                             && descriptor.module_name.as_ref().is_some_and(|module| {

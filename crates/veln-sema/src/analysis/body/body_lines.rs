@@ -201,8 +201,7 @@ impl<'a> FunctionChecker<'a> {
         let expected = annotation.and_then(|annotation| {
             self.parse_annotation(
                 annotation,
-                annotation_refinements,
-                annotation_paths,
+                (annotation_refinements, annotation_paths),
                 line.node_id,
                 &line.span,
                 ExpectedTypeSource::LocalAnnotation,

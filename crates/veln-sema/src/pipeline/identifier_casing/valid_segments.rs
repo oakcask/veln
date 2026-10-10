@@ -283,49 +283,58 @@ fn collect_variant_refinement_segments(
             );
         let mut nested_refinements = Vec::new();
         for alternative in &refinement.alternatives {
-            if refinement_is_valid {
-                let mut segments = alternative.base.segments.clone();
-                segments.push(alternative.variant.clone());
-                let mut spans = alternative.base.segment_spans.clone();
-                spans.push(alternative.variant_span.clone());
-                if matches!(
-                    environment
-                        .adts
-                        .constructor(&segments, current_module, &environment.uses),
-                    crate::adt::registry::ConstructorLookup::Found(_)
-                ) {
-                    push_variant_refinement_path_segments(&segments, &spans, output);
-                } else if environment
+            let mut segments = alternative.base.segments.clone();
+            segments.push(alternative.variant.clone());
+            let mut spans = alternative.base.segment_spans.clone();
+            spans.push(alternative.variant_span.clone());
+            let base = alternative.base.segments.join("::");
+            let recovered_base =
+                environment.recovered_variant_refinement_base_resolves(&base, current_module);
+            if matches!(
+                environment
                     .adts
-                    .descriptor_for_type_path(
-                        &alternative.base.segments.join("::"),
-                        alternative.type_arguments.len(),
-                        current_module,
-                        &environment.uses,
-                    )
-                    .is_some()
-                    || environment.non_adt_refinement_base_resolves(
-                        &alternative.base.segments.join("::"),
-                        alternative.type_arguments.len(),
-                        current_module,
-                    )
-                {
-                    for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
-                        let role = if index + 1 == segments.len() {
-                            NameClass::Constructor
-                        } else if index + 2 == segments.len() {
-                            NameClass::Type
-                        } else {
-                            NameClass::Module
-                        };
-                        output.push(qualified_path_segment_from_parts(
-                            segment,
-                            role,
-                            span,
-                            index,
-                            QualifiedPathSegmentEvidence::Resolved,
-                        ));
-                    }
+                    .constructor(&segments, current_module, &environment.uses),
+                crate::adt::registry::ConstructorLookup::Found(_)
+            ) {
+                push_constructor_path_segments(
+                    &segments,
+                    &spans,
+                    current_module,
+                    environment,
+                    output,
+                );
+            } else if environment
+                .adts
+                .descriptor_for_type_path(
+                    &base,
+                    alternative.type_arguments.len(),
+                    current_module,
+                    &environment.uses,
+                )
+                .is_some()
+                || environment.non_adt_refinement_base_resolves(
+                    &base,
+                    alternative.type_arguments.len(),
+                    current_module,
+                )
+                || recovered_base
+            {
+                let evidence = if recovered_base {
+                    QualifiedPathSegmentEvidence::UniqueRecovery
+                } else {
+                    QualifiedPathSegmentEvidence::Resolved
+                };
+                for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
+                    let role = if index + 1 == segments.len() {
+                        NameClass::Constructor
+                    } else if index + 2 == segments.len() {
+                        NameClass::Type
+                    } else {
+                        NameClass::Module
+                    };
+                    output.push(qualified_path_segment_from_parts(
+                        segment, role, span, index, evidence,
+                    ));
                 }
             }
             for argument in &alternative.type_arguments {

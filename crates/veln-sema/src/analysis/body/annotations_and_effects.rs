@@ -21,8 +21,7 @@ impl<'a> FunctionChecker<'a> {
             .and_then(|annotation| {
                 self.parse_annotation(
                     annotation,
-                    &param.ty_refinements,
-                    &param.ty_paths,
+                    (&param.ty_refinements, &param.ty_paths),
                     param.node_id,
                     &param.span,
                     ExpectedTypeSource::DeclaredParameter,
@@ -114,8 +113,10 @@ impl<'a> FunctionChecker<'a> {
         if let Some(return_type) = &self.function.return_type {
             self.parse_annotation(
                 return_type,
-                &self.function.return_type_refinements,
-                &self.function.return_type_paths,
+                (
+                    &self.function.return_type_refinements,
+                    &self.function.return_type_paths,
+                ),
                 self.function.node_id,
                 &self.function.span,
                 ExpectedTypeSource::DeclaredReturn,
