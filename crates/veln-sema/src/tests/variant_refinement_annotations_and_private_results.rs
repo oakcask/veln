@@ -358,6 +358,70 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
 }
 
 #[test]
+fn nested_invalid_cased_bases_keep_independent_eligibility_failures() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n",
+        "  Boxed(A)\n",
+        "end\n",
+        "fn main(value: Box<int::Missing>::Boxed) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "name.invalid_case" | "type.variant_refinement_base"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 2, "{diagnostics:#?}");
+    assert_eq!(relevant[0].id, "name.invalid_case");
+    assert_eq!(relevant[1].id, "type.variant_refinement_base");
+    let base_json = veln_diagnostics::diagnostic_to_json(relevant[1]).to_json();
+    assert!(base_json.contains("\"written_type\":\"int\""));
+    assert!(base_json.contains("\"reason\":\"not_adt\""));
+    assert!(base_json.contains("\"resolved_identity\":\"Int\""));
+}
+
+#[test]
+fn invalid_cased_bases_keep_independent_generic_arity_failures() {
+    let diagnostics = diagnostics_for(concat!(
+        "type GenericEmpty<A>\n",
+        "end\n",
+        "fn missing(value: genericEmpty::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let casing = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .count();
+    assert_eq!(casing, 1, "{diagnostics:#?}");
+    let arity_messages = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(arity_messages.len(), 1, "{diagnostics:#?}");
+    assert!(
+        arity_messages
+            .iter()
+            .any(|message| message.contains("`GenericEmpty` expects 1 type argument(s), found 0")),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn non_unique_invalid_case_recovery_does_not_select_a_base() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",
@@ -381,6 +445,33 @@ fn non_unique_invalid_case_recovery_does_not_select_a_base() {
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id != "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn ambiguous_exact_and_builtin_colliding_bases_do_not_report_eligibility() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "type Empty\n",
+        "end\n",
+        "type Int\n",
+        "end\n",
+        "type Int\n",
+        "end\n",
+        "fn exact(value: Empty::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn recovered(value: int::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_base"),
         "{diagnostics:#?}"
     );
 }
