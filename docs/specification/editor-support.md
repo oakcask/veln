@@ -291,6 +291,18 @@ different canonical generic arguments; none of that union's base or variant
 segments is selectable. Prepare-rename returns no range, and rename returns no
 edits. Resolving one alternative independently does not make that invalid
 refinement a type, alias, or constructor occurrence.
+Canonical generic-argument comparison uses resolved type identities rather
+than written spellings. A transparent alias and its target therefore compare
+equal. In an enclosing generic ADT, two arguments compare equal only when they
+refer to the same declared type-parameter position. These rules also apply
+when the refinement base resolves through a retained dependency or
+standard-library alias.
+An exact `.test.veln` companion can select a private workspace ADT and its
+private constructor through a qualified refinement when it explicitly imports
+the target module. Definition, references, prepare-rename, and rename then use
+the private declarations' ordinary workspace identities. Another test module,
+including one with the same qualified spelling, receives no selection or
+edits for those private refinement segments.
 Its eligible references include constructor expressions, constructor patterns,
 and every direct or alias-qualified refinement occurrence for that constructor. The
 declaration-inclusion rule below determines whether the constructor declaration
@@ -311,15 +323,19 @@ and generic, transitive, and imported aliases in
 The alias case also verifies that missing and excess generic arguments expose
 no definition, references, prepare-rename range, or rename edits.
 The direct case verifies the same empty results for unions whose alternatives
-have different ADT identities or canonical generic arguments.
+have different ADT identities or canonical generic arguments, and preserves
+navigation when a transparent generic argument alias resolves to the same
+canonical type.
 A shared language-service package-snapshot case additionally verifies that a
 workspace alias can terminate at a direct-dependency ADT and that retained
 direct-dependency and standard-library aliases resolve their targets in their
 own package namespaces. It also verifies the implicit standard-prelude
 fallback, the same-module precedence over that fallback, and order-independent
 rejection when two dependency packages expose the same qualified base. LSP
-adapter cases verify that the ambiguous direct and alias-qualified bases have
-no definition, references, prepare-rename range, or rename edits.
+adapter cases verify canonical generic-argument comparison through retained
+package aliases, exact-companion private refinement access, and that ambiguous
+direct and alias-qualified bases have no definition, references,
+prepare-rename range, or rename edits.
 The shared navigation index computes and retains one terminal result for each
 distinct variant-refinement alias identity. Definition, reference, and rename
 queries reuse that result for repeated refinement occurrences. They also reuse

@@ -266,8 +266,14 @@ Source-derived module paths use `origin: "source_path"`,
 `occurrence: "path_segment"`, `source_path`, `source_kind`, `segment`, and
 `segment_index`; `source_kind` is `regular`, `export`, `companion`,
 `doctest`, or `generated`. Selected regular and companion sources may report
-casing diagnostics alongside parse errors. A lowercase initial followed by an
-invalid module-identifier character uses `module.invalid_source_path`.
+casing diagnostics alongside parse errors. In an explicit expression type
+argument, each resolved variant-refinement qualifier, base, or final variant
+whose initial has the wrong case reports this shape with name class `module`,
+`type`, or `constructor`, respectively. Nested generic arguments follow the
+same rule. Unresolved or ambiguous segments receive no guessed name class, as
+specified by [name resolution](name-resolution.md#resolution-rules).
+A lowercase initial followed by an invalid module-identifier character uses
+`module.invalid_source_path`.
 When a selected documentation source cannot form a canonical virtual doctest
 path, the same diagnostic reports the original documentation source. That
 origin produces no generated doctest diagnostic path. Analysis continues for

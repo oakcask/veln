@@ -453,15 +453,16 @@ does the LSP adapter.
 
 The supported definition set includes workspace functions, types,
 constructors, handler context and operation-clause parameters, exact
-test-companion private-function access, and unique class-compatible invalid
-source recovery records. Eligible package selections include public functions,
-types, constructors, schemas, and public function aliases in exported direct
-dependencies and embedded `std`; exported direct-dependency public type
-aliases are eligible when their target resolves to a type in that retained
-dependency. Invalid-cased package records, private or non-exported package
-declarations, mismatched imports, unsupported symbols, and package module
-segments return an empty definition. A public constructor selected through a
-visible type alias returns the constructor declaration, not the alias
+test-companion private-function access, exact-companion private type and
+constructor access through valid refinements, and unique class-compatible
+invalid source recovery records. Eligible package selections include public
+functions, types, constructors, schemas, and public function aliases in
+exported direct dependencies and embedded `std`; exported direct-dependency
+public type aliases are eligible when their target resolves to a type in that
+retained dependency. Invalid-cased package records, private or non-exported
+package declarations, mismatched imports, unsupported symbols, and package
+module segments return an empty definition. A public constructor selected
+through a visible type alias returns the constructor declaration, not the alias
 declaration. Definition exposes a recovery record's retained source range.
 Valid singleton and union variant-refinement annotations use the same shared
 identities as LSP navigation. A direct base segment selects the ADT
@@ -495,6 +496,16 @@ annotation. A union whose alternatives resolve to different terminal ADT
 identities or different canonical generic arguments likewise exposes none of
 its base or variant segments. Resolving one alternative independently does not
 make that invalid refinement a type, alias, or constructor occurrence.
+Canonical generic-argument comparison uses resolved type identities rather
+than written spellings. A transparent alias and its target compare equal. In
+an enclosing generic ADT, equality also requires the same declared
+type-parameter position. The same comparison applies when a refinement base
+resolves through a retained dependency or standard-library alias.
+An exact `.test.veln` companion that explicitly imports its target module can
+select a private workspace ADT and private constructor through a qualified
+refinement. Definition, references, and rename use those workspace identities.
+Another test module receives empty navigation results and no rename edits for
+the same private qualified spelling.
 Rename applies the
 shared constructor casing and conflict rules and returns edits for all of those
 occurrences without changing the alias base. A rename selected on the alias
@@ -515,8 +526,10 @@ that terminate at a direct-dependency ADT and retained direct-dependency and
 standard-library aliases whose targets resolve in their own package namespaces.
 It also verifies the implicit standard-prelude fallback and the same-module
 precedence over that fallback. Shared language-service and MCP adapter cases
-also verify order-independent empty navigation results when two dependency
-packages expose the same qualified refinement base.
+also verify canonical generic-argument comparison through retained package
+aliases, exact-companion private refinement access, and order-independent empty
+navigation results when two dependency packages expose the same qualified
+refinement base.
 MCP projects the shared ranges to positive one-based Unicode-scalar
 coordinates; it does not resolve the refinement independently.
 The checked `adt-variant-refinement-navigation` MCP case verifies shared
