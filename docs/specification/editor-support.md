@@ -330,10 +330,16 @@ annotation count, alias-chain depth, and union width. Alias indexing and
 target-lookup counts stay constant when only occurrences increase, and grow at
 most linearly when the number of alias declarations or chain hops increases.
 Each union retains one range group and one group reference per alternative, so
-retained ranges grow linearly with the written alternatives. A retained-package
-case also exercises a deep alias chain without recursive traversal. The cases
-use deterministic work counters and retained-entry counts for the regression
-boundary; elapsed time is diagnostic output rather than a threshold.
+retained ranges grow linearly with the written alternatives. A refinement with
+generic arguments retains one shared copy of its enclosing type-parameter
+context and one context reference per annotated alternative instead of copying
+the context for every alternative. An adjacent doubling workload increases the
+enclosing type-parameter count and the union width together while using
+non-generic alternatives; it retains no unused type-parameter contexts or
+argument annotations. A retained-package case also exercises a deep alias
+chain without recursive traversal. The cases use deterministic work counters
+and retained-entry counts for the regression boundary; elapsed time is
+diagnostic output rather than a threshold.
 A retained direct-dependency or standard-library type alias used as the base
 of a valid refinement is a narrow exception to the ordinary package-alias
 definition policy below. When the refinement resolves through a visible,
