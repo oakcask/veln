@@ -135,6 +135,25 @@ impl SymbolIndex {
             .flatten()
     }
 
+    fn variant_refinement_base_alias_definition_supported(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        alias: &TypeAliasSymbol,
+    ) -> bool {
+        let Some(variant_index) = variant_refinement_variant_index(tokens, token_index) else {
+            return false;
+        };
+        self.variant_refinement_identity(file, &tokens[variant_index])
+            .is_some_and(|identity| {
+                matches!(
+                    &identity.base,
+                    VariantRefinementBaseSymbol::Alias(base) if same_type_alias(base, alias)
+                )
+            })
+    }
+
     fn variant_refinement_base_for_selection(
         &self,
         file: &IndexedFile,

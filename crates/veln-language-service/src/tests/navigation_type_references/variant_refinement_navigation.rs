@@ -176,20 +176,28 @@
             &[
                 (
                     "facade.veln",
-                    "use model\n\npub type PublicState = model::State\n",
+                    concat!(
+                        "use core\n\n",
+                        "pub type A = core::State\n",
+                        "pub type B = A\n",
+                    ),
                 ),
                 (
-                    "model.veln",
+                    "core.veln",
                     "pub type State\n  pub Ready(Int)\n  pub Closed\nend\n",
                 ),
             ],
-            ["facade.veln", "model.veln"],
+            ["facade.veln", "core.veln"],
         );
         let standard_library = standard_library_snapshot(
             &[
                 (
                     "prelude.veln",
-                    "use states\n\npub type StandardState = states::State\n",
+                    concat!(
+                        "use states\n\n",
+                        "pub type StandardA = states::State\n",
+                        "pub type StandardB = StandardA\n",
+                    ),
                 ),
                 (
                     "states.veln",
@@ -203,15 +211,21 @@
                 "main.veln",
                 concat!(
                     "use facade from \"example/pkg\"\n\n",
-                    "pub type Local = facade::PublicState\n",
+                    "pub type Local = facade::B\n",
                     "pub type Transit = Local\n\n",
                     "fn local(value: Transit::Ready | Local::Closed) -> Int\n",
                     "  0\n",
                     "end\n\n",
-                    "fn dependency(value: facade::PublicState::Ready) -> Int\n",
+                    "fn dependency(value: facade::B::Ready) -> Int\n",
                     "  0\n",
                     "end\n\n",
-                    "fn standard(value: StandardState::Ready) -> Int\n",
+                    "fn standard(value: StandardB::Ready) -> Int\n",
+                    "  0\n",
+                    "end\n\n",
+                    "fn ordinary_dependency(value: facade::B) -> Int\n",
+                    "  0\n",
+                    "end\n\n",
+                    "fn ordinary_standard(value: StandardB) -> Int\n",
                     "  0\n",
                     "end\n",
                 ),
@@ -225,7 +239,7 @@
         let local_base = query_snapshot(snapshot, "main.veln", 6, 18).unwrap();
         assert_location(&local_base.definition, "main.veln", 4, 10);
         let local_variant = query_snapshot(snapshot, "main.veln", 6, 27).unwrap();
-        assert_package_location(&local_variant.definition, "model.veln", 2, 7);
+        assert_package_location(&local_variant.definition, "core.veln", 2, 7);
         assert_eq!(
             local_variant.selected_symbol.package_origin,
             Some(PackageOrigin::DirectDependency)
@@ -235,44 +249,88 @@
     fn assert_dependency_variant_refinement_target_origin(
         snapshot: &EffectiveProjectSnapshot,
     ) {
-        let dependency_base = query_snapshot(snapshot, "main.veln", 10, 37).unwrap();
+        let dependency_base = query_snapshot(snapshot, "main.veln", 10, 30).unwrap();
         assert_eq!(
             dependency_base.selected_symbol.declaration_kind,
             SymbolDeclarationKind::PublicAlias
         );
-        assert_package_location(&dependency_base.definition, "facade.veln", 3, 10);
+        assert_package_location(&dependency_base.definition, "facade.veln", 4, 10);
         let dependency_base_definition = definition_at(
             snapshot,
             SourcePosition {
                 source: SourcePath::new("main.veln"),
                 line: 10,
-                column: 37,
+                column: 30,
             },
         )
         .expect("direct dependency refinement alias has a public definition");
-        assert_package_location(&dependency_base_definition, "facade.veln", 3, 10);
-        let dependency_variant = query_snapshot(snapshot, "main.veln", 10, 44).unwrap();
-        assert_package_location(&dependency_variant.definition, "model.veln", 2, 7);
+        assert_package_location(&dependency_base_definition, "facade.veln", 4, 10);
+        let dependency_variant = query_snapshot(snapshot, "main.veln", 10, 33).unwrap();
+        assert_package_location(&dependency_variant.definition, "core.veln", 2, 7);
+        let dependency_variant_definition = definition_at(
+            snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 10,
+                column: 33,
+            },
+        )
+        .expect("direct dependency refinement variant has a public definition");
+        assert_package_location(&dependency_variant_definition, "core.veln", 2, 7);
+        assert_eq!(
+            definition_at(
+                snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 18,
+                    column: 39,
+                },
+            ),
+            None,
+            "ordinary transitive direct-dependency alias stays ineligible"
+        );
     }
 
     fn assert_standard_variant_refinement_target_origin(snapshot: &EffectiveProjectSnapshot) {
-        let standard_base = query_snapshot(snapshot, "main.veln", 14, 23).unwrap();
-        assert_package_location(&standard_base.definition, "prelude.veln", 3, 10);
+        let standard_base = query_snapshot(snapshot, "main.veln", 14, 20).unwrap();
+        assert_package_location(&standard_base.definition, "prelude.veln", 4, 10);
         let standard_base_definition = definition_at(
             snapshot,
             SourcePosition {
                 source: SourcePath::new("main.veln"),
                 line: 14,
-                column: 23,
+                column: 20,
             },
         )
         .expect("standard-library refinement alias has a public definition");
-        assert_package_location(&standard_base_definition, "prelude.veln", 3, 10);
-        let standard_variant = query_snapshot(snapshot, "main.veln", 14, 36).unwrap();
+        assert_package_location(&standard_base_definition, "prelude.veln", 4, 10);
+        let standard_variant = query_snapshot(snapshot, "main.veln", 14, 31).unwrap();
         assert_package_location(&standard_variant.definition, "states.veln", 2, 7);
+        let standard_variant_definition = definition_at(
+            snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 14,
+                column: 31,
+            },
+        )
+        .expect("standard-library refinement variant has a public definition");
+        assert_package_location(&standard_variant_definition, "states.veln", 2, 7);
         assert_eq!(
             standard_variant.selected_symbol.package_origin,
             Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(
+            definition_at(
+                snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 22,
+                    column: 29,
+                },
+            ),
+            None,
+            "ordinary transitive standard-library alias stays ineligible"
         );
     }
 

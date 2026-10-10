@@ -480,11 +480,16 @@ shared constructor casing and conflict rules and returns edits for all of those
 occurrences without changing the alias base. A rename selected on the alias
 base changes the alias declaration and written base occurrences without
 changing the target ADT or constructor identity. A retained direct-dependency
-or standard-library alias base returns its package-alias definition under the
-existing declaration policy, and its final refinement variant uses the
-resolved package constructor identity for definition and references. Rename
-remains subject to the shared workspace-edit eligibility rules; package source
-does not become editable merely because that identity is available.
+or standard-library alias used as the base of a valid refinement is a narrow
+exception to the ordinary package-alias declaration policy. When the
+refinement resolves through a visible, finite, acyclic alias chain to the
+selected ADT and constructor, definition on the base returns the written
+public type-alias declaration. This exception does not make a transitive
+package alias eligible for definition or references at an ordinary type
+reference. The final refinement variant uses the resolved package constructor
+identity for definition and references. Rename remains subject to the shared
+workspace-edit eligibility rules; package source does not become editable
+merely because that identity is available.
 The shared language-service package-snapshot case verifies workspace aliases
 that terminate at a direct-dependency ADT and retained direct-dependency and
 standard-library aliases whose targets resolve in their own package namespaces.

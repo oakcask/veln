@@ -54,6 +54,17 @@ impl SymbolIndex {
             .to_string();
         let selected =
             self.symbol_for_selection(file, tokens, token_index, &name, &selection, None)?;
+        let definition_supported = selected.symbol.definition_supported(&self)
+            || matches!(
+                &selected.symbol,
+                Symbol::TypeAlias(alias)
+                    if self.variant_refinement_base_alias_definition_supported(
+                        file,
+                        tokens,
+                        token_index,
+                        alias,
+                    )
+            );
         let references_supported = !matches!(
             &selected.symbol,
             Symbol::Schema(symbol)
@@ -78,6 +89,7 @@ impl SymbolIndex {
             symbol: selected.symbol,
             selection,
             classified_path_segment: selected.classified_path_segment,
+            definition_supported,
             references_supported,
         })
     }

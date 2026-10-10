@@ -301,11 +301,14 @@ the number of alias declarations or chain hops increases. A retained-package
 case also exercises a deep alias chain without recursive traversal. The cases
 use deterministic work counters for the regression boundary; elapsed time is
 diagnostic output rather than a threshold.
-A refinement base that selects a retained direct-dependency or standard-library
-type alias still follows the package-alias definition policy below. Its final
-variant uses the resolved package constructor identity for definition and
-references. Rename remains subject to the workspace-edit eligibility rules; a
-package constructor identity does not by itself make package source editable.
+A retained direct-dependency or standard-library type alias used as the base
+of a valid refinement is a narrow exception to the ordinary package-alias
+definition policy below. When the refinement resolves through a visible,
+finite, acyclic alias chain to the selected ADT and constructor, definition on
+the base returns the written public type-alias declaration. Its final variant
+uses the resolved package constructor identity for definition and references.
+Rename remains subject to the workspace-edit eligibility rules; a package
+constructor identity does not by itself make package source editable.
 Completion, signature-help, and navigation requests convert zero-based UTF-16
 LSP characters to shared one-based Unicode-scalar positions. Navigation
 responses convert shared ranges back to zero-based UTF-16 LSP ranges using the
@@ -642,10 +645,13 @@ locations and, when `include_declaration` is true, also includes the eligible
 canonical `veln-pkg:` declaration. A single-file MCP request does not include
 that package declaration. Supported direct-dependency and standard-library
 public type aliases follow the same LSP and MCP declaration policy.
-Unsupported schema-alias origins or scopes, public function aliases with unresolved,
-non-function, or invalid-cased targets, and public type aliases with
-transitive, unresolved, non-type, or invalid-cased targets do not produce
-definition or reference locations.
+Unsupported schema-alias origins or scopes and public function aliases with
+unresolved, non-function, or invalid-cased targets do not produce definition
+or reference locations. Public type aliases with transitive, unresolved,
+non-type, or invalid-cased targets do not produce ordinary type-reference
+definition or reference locations. The valid-refinement exception above
+permits only definition on the written base after the complete refinement
+resolves.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured

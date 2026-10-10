@@ -423,8 +423,7 @@ pub fn definition_at(
     let index = snapshot.navigation_index();
     let request = index.symbol_at_position(position.source.as_str(), &position)?;
     request
-        .symbol
-        .definition_supported(&request.index)
+        .definition_supported
         .then(|| request.symbol.definition())
 }
 
@@ -749,6 +748,7 @@ struct SymbolRequest {
     symbol: Symbol,
     selection: SourceSpan,
     classified_path_segment: Option<QualifiedPathSegment>,
+    definition_supported: bool,
     references_supported: bool,
 }
 
