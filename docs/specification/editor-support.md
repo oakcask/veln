@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#lsp-encoding; behavior=#lsp-completion-and-signature-help; limits=#boundaries
-update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy contract changes.
+update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy or bounded-work evidence changes.
 ---
 
 # Editor Support
@@ -290,6 +290,17 @@ A shared language-service package-snapshot case additionally verifies that a
 workspace alias can terminate at a direct-dependency ADT and that retained
 direct-dependency and standard-library aliases resolve their targets in their
 own package namespaces.
+The shared navigation index computes and retains one terminal result for each
+distinct variant-refinement alias identity. Definition, reference, and rename
+queries reuse that result for repeated refinement occurrences. They also reuse
+an unresolved result for an alias cycle instead of traversing the cycle again.
+Instrumented language-service cases compare adjacent doubling workloads for
+annotation count and alias-chain depth. Alias indexing and target-lookup counts
+stay constant when only occurrences increase, and grow at most linearly when
+the number of alias declarations or chain hops increases. A retained-package
+case also exercises a deep alias chain without recursive traversal. The cases
+use deterministic work counters for the regression boundary; elapsed time is
+diagnostic output rather than a threshold.
 A refinement base that selects a retained direct-dependency or standard-library
 type alias still follows the package-alias definition policy below. Its final
 variant uses the resolved package constructor identity for definition and
