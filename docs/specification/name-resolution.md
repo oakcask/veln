@@ -306,9 +306,13 @@ does not change the existing qualified-type path records used by casing
 analysis. When a variant-refinement base resolves, casing analysis classifies
 its qualifiers as modules, its base leaf as a type, and its selected final
 segment as a constructor. Each classification retains the written segment,
-span, and segment index. The shared language service uses these resolved type
-and constructor identities for variant-refinement definition, references, and
-rename. The observable LSP and MCP selection rules are specified by
+span, and segment index. An explicit expression type argument is a
+navigation-only carrier for variant refinements: casing analysis does not
+classify its qualifier, base, final variant, or nested generic arguments and
+does not emit `name.invalid_case` for those segments. The shared language
+service still uses their resolved type and constructor identities for
+variant-refinement definition, references, and rename. The observable LSP and
+MCP selection rules are specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
 [MCP](mcp.md#saved-workspace-navigation).
 Each invalid role-fixed segment reports `name.invalid_case` at the exact

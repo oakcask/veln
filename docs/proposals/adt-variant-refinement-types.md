@@ -203,6 +203,13 @@ invalid-casing diagnostics remain independently reportable. Diagnostic order
 must be deterministic, and failure must not publish a partially typed
 declaration.
 
+The casing overlap below applies only to carriers that the current
+[name-resolution contract](../specification/name-resolution.md#resolution-rules)
+classifies for casing analysis. An explicit expression type argument remains a
+navigation-only carrier: its refinement segments, including nested generic
+arguments, do not emit `name.invalid_case`. The planned diagnostics do not
+expand that current casing boundary.
+
 ### Diagnostic Overlap And Recovery
 
 `type.variant_refinement_base.details.reason` has exactly these values:
