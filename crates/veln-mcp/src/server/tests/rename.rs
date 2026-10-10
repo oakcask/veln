@@ -778,8 +778,26 @@ fn assert_retained_refinement_position_is_ineligible(
     assert!(edits(&renamed).is_empty(), "{line_text}: {renamed:#}");
 }
 
-#[test]
-fn retained_package_refinement_unions_project_canonical_generic_arguments() {
+const RETAINED_PACKAGE_REFINEMENT_SOURCE: &str = concat!(
+    "use bridge from \"example/bridge\"\n\n",
+    "pub type Phase\n  pub Started\nend\n",
+    "pub type OtherPhase\n  pub Started\nend\n",
+    "pub type PhaseAlias = Phase\n\n",
+    "pub type Envelope<A, B>\n",
+    "  pub Same(bridge::Alias<A>::Boxed | bridge::Alias<A>::Empty)\n",
+    "  pub Different(bridge::Alias<A>::Boxed | bridge::Alias<B>::Empty)\n",
+    "end\n\n",
+    "fn direct_same(value: Box<Phase>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
+    "fn direct_alias(value: Box<PhaseAlias>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
+    "fn qualified_same(value: bridge::Alias<Phase>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
+    "fn qualified_alias(value: bridge::Alias<PhaseAlias>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
+    "fn mismatch(value: bridge::Alias<Phase>::Boxed | bridge::Alias<OtherPhase>::Empty) -> Int\n  0\nend\n\n",
+    "fn unresolved(value: bridge::Alias<Missing>::Boxed | bridge::Alias<Missing>::Empty) -> Int\n  0\nend\n\n",
+    "fn wrong_arity(value: bridge::Alias<Phase, Phase>::Boxed | bridge::Alias<Phase, Phase>::Empty) -> Int\n  0\nend\n\n",
+    "fn mixed(value: bridge::Alias<Phase>::Boxed | Other<Phase>::OtherReady) -> Int\n  0\nend\n",
+);
+
+fn retained_package_refinement_workspace() -> TempWorkspace {
     let workspace = TempWorkspace::new("retained-package-refinement-canonical-arguments");
     workspace.write(
         "veln.toml",
@@ -790,26 +808,11 @@ fn retained_package_refinement_unions_project_canonical_generic_arguments() {
         "[package]\nname = \"example/bridge\"\n\n[lib]\nexports = [\"bridge.veln\"]\n",
     );
     workspace.write("vendor/bridge/bridge.veln", "pub type Alias = Box\n");
-    let source = concat!(
-        "use bridge from \"example/bridge\"\n\n",
-        "pub type Phase\n  pub Started\nend\n",
-        "pub type OtherPhase\n  pub Started\nend\n",
-        "pub type PhaseAlias = Phase\n\n",
-        "pub type Envelope<A, B>\n",
-        "  pub Same(bridge::Alias<A>::Boxed | bridge::Alias<A>::Empty)\n",
-        "  pub Different(bridge::Alias<A>::Boxed | bridge::Alias<B>::Empty)\n",
-        "end\n\n",
-        "fn direct_same(value: Box<Phase>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
-        "fn direct_alias(value: Box<PhaseAlias>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n\n",
-        "fn qualified_same(value: bridge::Alias<Phase>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
-        "fn qualified_alias(value: bridge::Alias<PhaseAlias>::Boxed | bridge::Alias<Phase>::Empty) -> Int\n  0\nend\n\n",
-        "fn mismatch(value: bridge::Alias<Phase>::Boxed | bridge::Alias<OtherPhase>::Empty) -> Int\n  0\nend\n\n",
-        "fn unresolved(value: bridge::Alias<Missing>::Boxed | bridge::Alias<Missing>::Empty) -> Int\n  0\nend\n\n",
-        "fn wrong_arity(value: bridge::Alias<Phase, Phase>::Boxed | bridge::Alias<Phase, Phase>::Empty) -> Int\n  0\nend\n\n",
-        "fn mixed(value: bridge::Alias<Phase>::Boxed | Other<Phase>::OtherReady) -> Int\n  0\nend\n",
-    );
-    workspace.write("main.veln", source);
-    let mut server = initialized_server(&workspace);
+    workspace.write("main.veln", RETAINED_PACKAGE_REFINEMENT_SOURCE);
+    workspace
+}
+
+fn install_refinement_generic_standard_library(server: &mut Server) {
     server.language_resources.replace_test_standard_library(
         "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
         [PackageSnapshotSource::new(
@@ -826,6 +829,13 @@ fn retained_package_refinement_unions_project_canonical_generic_arguments() {
             .as_bytes(),
         )],
     );
+}
+
+#[test]
+fn retained_package_refinement_unions_project_canonical_generic_arguments() {
+    let workspace = retained_package_refinement_workspace();
+    let mut server = initialized_server(&workspace);
+    install_refinement_generic_standard_library(&mut server);
     for line_text in [
         "Same(",
         "direct_same",
@@ -833,7 +843,9 @@ fn retained_package_refinement_unions_project_canonical_generic_arguments() {
         "qualified_same",
         "qualified_alias",
     ] {
-        for (line, column) in refinement_variant_positions(source, line_text) {
+        for (line, column) in
+            refinement_variant_positions(RETAINED_PACKAGE_REFINEMENT_SOURCE, line_text)
+        {
             assert_retained_refinement_position_is_navigable(&mut server, line_text, line, column);
         }
     }
@@ -844,7 +856,9 @@ fn retained_package_refinement_unions_project_canonical_generic_arguments() {
         "wrong_arity",
         "mixed",
     ] {
-        for (line, column) in refinement_variant_positions(source, line_text) {
+        for (line, column) in
+            refinement_variant_positions(RETAINED_PACKAGE_REFINEMENT_SOURCE, line_text)
+        {
             assert_retained_refinement_position_is_ineligible(&mut server, line_text, line, column);
         }
     }
