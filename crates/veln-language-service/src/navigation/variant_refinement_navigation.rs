@@ -215,7 +215,12 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<VariantRefinementBaseSymbol> {
-        match self.visible_type_conflict_for_reference(file, tokens, token_index, name)? {
+        match self.unique_variant_refinement_type_namespace_for_reference(
+            file,
+            tokens,
+            token_index,
+            name,
+        )? {
             TypeConflictCandidate::Type(symbol) => {
                 Some(VariantRefinementBaseSymbol::Type(symbol))
             }
@@ -223,6 +228,165 @@ impl SymbolIndex {
                 Some(VariantRefinementBaseSymbol::Alias(symbol))
             }
         }
+    }
+
+    fn unique_variant_refinement_type_namespace_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeConflictCandidate> {
+        if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
+            return self.unique_variant_refinement_type_namespace_for_qualified_reference(
+                file, &qualifier, name,
+            );
+        }
+        self.unique_variant_refinement_type_namespace_for_bare_reference(file, name)
+    }
+
+    fn unique_variant_refinement_type_namespace_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<TypeConflictCandidate> {
+        let local = self
+            .workspace_types_in_module(&file.module, name)
+            .cloned()
+            .map(TypeConflictCandidate::Type)
+            .chain(
+                self.workspace_type_aliases_in_module(&file.module, name)
+                    .cloned()
+                    .map(TypeConflictCandidate::Alias),
+            )
+            .collect::<Vec<_>>();
+        if !local.is_empty() {
+            return unique_variant_refinement_type_namespace(local);
+        }
+
+        let workspace_imports = file.uses.iter().flat_map(|module| {
+            self.workspace_types_in_module(module, name)
+                .filter(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
+                .cloned()
+                .map(TypeConflictCandidate::Type)
+                .chain(
+                    self.workspace_type_aliases_in_module(module, name)
+                        .filter(|symbol| {
+                            visible_imported_type_alias_for_bare_reference(file, symbol, name)
+                        })
+                        .cloned()
+                        .map(TypeConflictCandidate::Alias),
+                )
+        });
+        let package_imports = (!file.external_uses.is_empty())
+            .then(|| {
+                self.types_named(name)
+                    .filter(|symbol| {
+                        !symbol.standard_prelude
+                            && visible_imported_type_for_bare_reference(file, symbol, name)
+                    })
+                    .cloned()
+                    .map(TypeConflictCandidate::Type)
+            })
+            .into_iter()
+            .flatten();
+        let imported = workspace_imports.chain(package_imports).collect::<Vec<_>>();
+        if !imported.is_empty() {
+            return unique_variant_refinement_type_namespace(imported);
+        }
+
+        let prelude = self
+            .types_named(name)
+            .filter(|symbol| {
+                symbol.standard_prelude
+                    && visible_imported_type_for_bare_reference(file, symbol, name)
+            })
+            .cloned()
+            .map(TypeConflictCandidate::Type)
+            .chain(
+                self.type_aliases_named(name)
+                    .filter(|symbol| {
+                        symbol.standard_prelude
+                            && visible_imported_type_alias_for_bare_reference(file, symbol, name)
+                    })
+                    .cloned()
+                    .map(TypeConflictCandidate::Alias),
+            )
+            .collect::<Vec<_>>();
+        unique_variant_refinement_type_namespace(prelude)
+    }
+
+    fn unique_variant_refinement_type_namespace_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<TypeConflictCandidate> {
+        let (head, suffix) = qualifier
+            .split_once("::")
+            .map_or((qualifier, None), |(head, suffix)| (head, Some(suffix)));
+        let resolve_route = |module: &str| {
+            if qualifier == module {
+                Some(module.to_string())
+            } else if module.rsplit("::").next() == Some(head) {
+                Some(suffix.map_or_else(
+                    || module.to_string(),
+                    |suffix| format!("{module}::{suffix}"),
+                ))
+            } else {
+                None
+            }
+        };
+        let external_routes = file
+            .external_uses
+            .iter()
+            .filter_map(|(module, package)| {
+                resolve_route(module).map(|module| (module, package.clone()))
+            })
+            .collect::<BTreeSet<_>>();
+        let workspace_routes = file
+            .uses
+            .iter()
+            .filter_map(|module| resolve_route(module))
+            .chain((qualifier == file.module).then(|| file.module.clone()))
+            .collect::<BTreeSet<_>>();
+        let workspace_candidates = workspace_routes.iter().flat_map(|module| {
+            self.workspace_types_in_module(module, name)
+                .filter(|symbol| symbol.public || symbol.module == file.module)
+                .cloned()
+                .map(TypeConflictCandidate::Type)
+                .chain(
+                    self.workspace_type_aliases_in_module(module, name)
+                        .cloned()
+                        .map(TypeConflictCandidate::Alias),
+                )
+        });
+        let package_types = (!external_routes.is_empty())
+            .then(|| {
+                self.types_named(name)
+                    .filter(|symbol| {
+                        symbol.public
+                            && symbol.package.as_deref().is_some_and(|package| {
+                                external_routes
+                                    .contains(&(symbol.module.clone(), package.to_string()))
+                            })
+                    })
+                    .cloned()
+                    .map(TypeConflictCandidate::Type)
+            })
+            .into_iter()
+            .flatten();
+        let package_aliases = external_routes.iter().flat_map(|(module, package)| {
+            self.package_type_aliases_in_module(module, name)
+                .filter(|symbol| symbol.package.as_deref() == Some(package.as_str()))
+                .cloned()
+                .map(TypeConflictCandidate::Alias)
+        });
+        let candidates = workspace_candidates
+            .chain(package_types)
+            .chain(package_aliases)
+            .collect::<Vec<_>>();
+        unique_variant_refinement_type_namespace(candidates)
     }
 
     fn variant_refinement_base_alias_definition_supported(
@@ -251,22 +415,14 @@ impl SymbolIndex {
         file: &IndexedFile,
         tokens: &[Token],
         token_index: usize,
-        name: &str,
+        _name: &str,
     ) -> Option<Symbol> {
         let final_range =
             self.variant_refinement_final_range_for_base(file, &tokens[token_index])?;
         let identity = self.variant_refinement_identity_for_final_range(file, &final_range)?;
-        match (self.variant_refinement_base_symbol(file, tokens, token_index, name)?, &identity.base) {
-            (VariantRefinementBaseSymbol::Type(symbol), VariantRefinementBaseSymbol::Type(base))
-                if same_type(&symbol, base) =>
-            {
-                Some(Symbol::Type(symbol))
-            }
-            (
-                VariantRefinementBaseSymbol::Alias(symbol),
-                VariantRefinementBaseSymbol::Alias(base),
-            ) if same_type_alias(&symbol, base) => Some(Symbol::TypeAlias(symbol)),
-            _ => None,
+        match &identity.base {
+            VariantRefinementBaseSymbol::Type(symbol) => Some(Symbol::Type(symbol.clone())),
+            VariantRefinementBaseSymbol::Alias(symbol) => Some(Symbol::TypeAlias(symbol.clone())),
         }
     }
 
@@ -411,7 +567,7 @@ impl SymbolIndex {
                     qualifier,
                     &alias.target_name,
                 ),
-            None => self.first_visible_type_namespace_for_bare_reference(
+            None => self.unique_variant_refinement_type_namespace_for_bare_reference(
                 declaring_file,
                 &alias.target_name,
             ),
@@ -428,40 +584,11 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<TypeConflictCandidate> {
-        let external_route = declaring_file
-            .external_uses
-            .iter()
-            .any(|(module, _)| module == qualifier)
-            || resolve_external_qualified_alias(
-                &declaring_file.external_import_aliases,
-                qualifier,
-            )
-            .is_some();
-        if external_route {
-            return self.first_visible_type_namespace_for_qualified_reference(
-                declaring_file,
-                qualifier,
-                name,
-            );
-        }
-
-        let module = if qualifier == declaring_file.module
-            || declaring_file.uses.contains(qualifier)
-        {
-            qualifier.to_string()
-        } else {
-            resolve_qualified_alias(&declaring_file.import_aliases, qualifier)?
-        };
-        self.workspace_types_in_module(&module, name)
-            .next()
-            .cloned()
-            .map(TypeConflictCandidate::Type)
-            .or_else(|| {
-                self.workspace_type_aliases_in_module(&module, name)
-                    .next()
-                    .cloned()
-                    .map(TypeConflictCandidate::Alias)
-            })
+        self.unique_variant_refinement_type_namespace_for_qualified_reference(
+            declaring_file,
+            qualifier,
+            name,
+        )
     }
 
     fn indexed_package_type_alias_target(
@@ -520,6 +647,13 @@ impl SymbolIndex {
         };
         self.files.get(*index)
     }
+}
+
+fn unique_variant_refinement_type_namespace(
+    mut candidates: Vec<TypeConflictCandidate>,
+) -> Option<TypeConflictCandidate> {
+    let candidate = candidates.pop()?;
+    candidates.is_empty().then_some(candidate)
 }
 
 fn terminal_variant_refinement_alias_types(

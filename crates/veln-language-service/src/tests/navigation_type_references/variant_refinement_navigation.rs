@@ -343,6 +343,76 @@
     }
 
     #[test]
+    fn ambiguous_package_refinement_bases_never_publish_navigation_identity() {
+        let text = concat!(
+            "use shared from \"first/pkg\"\n",
+            "use shared from \"second/pkg\"\n\n",
+            "pub type Alias = shared::State\n",
+            "pub type Chain = Alias\n\n",
+            "fn direct_single(value: shared::State::Ready) -> Int\n  0\nend\n\n",
+            "fn direct_union(value: shared::State::Ready | shared::State::Closed) -> Int\n  0\nend\n\n",
+            "fn alias_single(value: Chain::Ready) -> Int\n  0\nend\n\n",
+            "fn alias_union(value: Chain::Ready | Chain::Closed) -> Int\n  0\nend\n",
+        );
+        let package_source = "pub type State\n  pub Ready\n  pub Closed\nend\n";
+
+        for identities in [["first/pkg", "second/pkg"], ["second/pkg", "first/pkg"]] {
+            let dependencies = identities
+                .into_iter()
+                .map(|identity| {
+                    dependency_snapshot(
+                        identity,
+                        &[("shared.veln", package_source)],
+                        ["shared.veln"],
+                    )
+                })
+                .collect();
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source("main.veln", text)],
+                dependencies,
+            );
+
+            for line_text in ["direct_single", "direct_union", "alias_single", "alias_union"] {
+                let (line, source_line) = text
+                    .lines()
+                    .enumerate()
+                    .find(|(_, candidate)| candidate.contains(line_text))
+                    .unwrap();
+                let base = if line_text.starts_with("direct") {
+                    "State"
+                } else {
+                    "Chain"
+                };
+                let mut offsets = source_line
+                    .match_indices(base)
+                    .map(|(offset, _)| offset)
+                    .chain(
+                        source_line
+                            .match_indices("Ready")
+                            .map(|(offset, _)| offset),
+                    )
+                    .chain(
+                        source_line
+                            .match_indices("Closed")
+                            .map(|(offset, _)| offset),
+                    )
+                    .collect::<Vec<_>>();
+                offsets.sort_unstable();
+                for offset in offsets {
+                    let position = || SourcePosition {
+                        source: SourcePath::new("main.veln"),
+                        line: line + 1,
+                        column: offset + 1,
+                    };
+                    assert_eq!(definition_at(&snapshot, position()), None);
+                    assert!(navigate(&snapshot, position()).is_none());
+                    assert!(navigate_for_rename(&snapshot, position()).is_none());
+                }
+            }
+        }
+    }
+
+    #[test]
     fn retained_standard_alias_targets_implicit_prelude_type() {
         let prelude_source = source(
             "prelude.veln",

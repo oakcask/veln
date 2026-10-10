@@ -715,6 +715,75 @@ fn invalid_variant_refinement_alias_bases_do_not_prepare_or_rename() {
 }
 
 #[test]
+fn ambiguous_package_refinement_bases_do_not_select_or_rename() {
+    let source = concat!(
+        "use shared from \"first/pkg\"\n",
+        "use shared from \"second/pkg\"\n\n",
+        "pub type Alias = shared::State\n",
+        "pub type Chain = Alias\n\n",
+        "fn direct_single(value: shared::State::Ready) -> Int\n  0\nend\n\n",
+        "fn direct_union(value: shared::State::Ready | shared::State::Closed) -> Int\n  0\nend\n\n",
+        "fn alias_single(value: Chain::Ready) -> Int\n  0\nend\n\n",
+        "fn alias_union(value: Chain::Ready | Chain::Closed) -> Int\n  0\nend\n",
+    );
+    let dependency_source = "pub type State\n  pub Ready\n  pub Closed\nend\n";
+
+    for (name, dependencies) in [
+        ("ambiguous-package-refinement-forward", ["first/pkg", "second/pkg"]),
+        ("ambiguous-package-refinement-reverse", ["second/pkg", "first/pkg"]),
+    ] {
+        let mut server = Server::default();
+        let project = TempProject::new(name);
+        project.write(
+            "veln.toml",
+            &format!(
+                "[dependencies.\"{}\"]\npath = \"vendor/{}\"\n\n[dependencies.\"{}\"]\npath = \"vendor/{}\"\n",
+                dependencies[0], dependencies[0], dependencies[1], dependencies[1],
+            ),
+        );
+        project.write("main.veln", source);
+        for identity in dependencies {
+            project.write(
+                &format!("vendor/{identity}/veln.toml"),
+                &format!(
+                    "[package]\nname = \"{identity}\"\n\n[lib]\nexports = [\"shared.veln\"]\n"
+                ),
+            );
+            project.write(&format!("vendor/{identity}/shared.veln"), dependency_source);
+        }
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        for line_text in ["direct_single", "direct_union", "alias_single", "alias_union"] {
+            let (line, source_line) = source
+                .lines()
+                .enumerate()
+                .find(|(_, candidate)| candidate.contains(line_text))
+                .unwrap();
+            let base = if line_text.starts_with("direct") {
+                "State"
+            } else {
+                "Chain"
+            };
+            for character in source_line
+                .match_indices(base)
+                .map(|(offset, _)| offset)
+                .chain(source_line.match_indices("Ready").map(|(offset, _)| offset))
+                .chain(source_line.match_indices("Closed").map(|(offset, _)| offset))
+            {
+                assert_refinement_navigation_unavailable(
+                    &mut server,
+                    &main_uri,
+                    line,
+                    character,
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn variant_refinement_navigation_rejects_wrong_generic_arity() {
     let mut server = Server::default();
     let project = TempProject::new("variant-refinement-generic-arity");
