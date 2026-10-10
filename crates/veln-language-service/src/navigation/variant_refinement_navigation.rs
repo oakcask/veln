@@ -34,65 +34,66 @@ impl SymbolIndex {
             })
             .collect::<BTreeMap<_, _>>();
         for final_range in &file.variant_refinement_final_ranges {
-            let Some((variant_index, variant_token)) = tokens_by_range
-                .get(final_range)
-                .copied()
-            else {
-                continue;
-            };
-            let Some(base_index) = variant_refinement_base_index(&file.tokens, variant_index)
-            else {
-                continue;
-            };
-            let base_token = &file.tokens[base_index];
-            let Some(base) = self.variant_refinement_base_symbol(
-                file,
-                &file.tokens,
-                base_index,
-                &base_token.text,
-            ) else {
-                continue;
-            };
-            let terminal = match &base {
-                VariantRefinementBaseSymbol::Type(symbol) => Some(symbol.clone()),
-                VariantRefinementBaseSymbol::Alias(symbol) => {
-                    self.terminal_type_for_alias(symbol)
-                }
-            };
-            let Some(terminal) = terminal else {
-                continue;
-            };
-            let key = (
-                terminal.package.clone(),
-                terminal.package_origin,
-                terminal.module.clone(),
-                terminal.name.clone(),
-                variant_token.text.clone(),
-            );
-            let Some(indices) = self.constructor_indices_by_identity.get(&key) else {
-                continue;
-            };
-            let mut constructors = indices
-                .iter()
-                .map(|index| &self.constructors[*index])
-                .filter(|constructor| {
-                    #[cfg(test)]
-                    record_variant_refinement_constructor_candidate_visit();
-                    constructor.declaration_kind == SymbolDeclarationKind::Declaration
-                        && self.variant_refinement_constructor_visible(file, constructor)
-                });
-            let Some(constructor) = constructors.next().cloned() else {
-                continue;
-            };
-            if constructors.next().is_some() {
-                continue;
+            if let Some((range, identity)) =
+                self.variant_refinement_identity_for_range(file, &tokens_by_range, final_range)
+            {
+                identities.insert(range, identity);
             }
-            identities.insert(
-                (variant_token.range.start, variant_token.range.end),
-                VariantRefinementNavigationIdentity { base, constructor },
-            );
         }
         identities
+    }
+
+    fn variant_refinement_identity_for_range(
+        &self,
+        file: &IndexedFile,
+        tokens_by_range: &BTreeMap<(usize, usize), (usize, &Token)>,
+        final_range: &(usize, usize),
+    ) -> Option<((usize, usize), VariantRefinementNavigationIdentity)> {
+        let (variant_index, variant_token) = tokens_by_range.get(final_range).copied()?;
+        let base_index = variant_refinement_base_index(&file.tokens, variant_index)?;
+        let base_token = &file.tokens[base_index];
+        let base = self.variant_refinement_base_symbol(
+            file,
+            &file.tokens,
+            base_index,
+            &base_token.text,
+        )?;
+        let terminal = match &base {
+            VariantRefinementBaseSymbol::Type(symbol) => symbol.clone(),
+            VariantRefinementBaseSymbol::Alias(symbol) => self.terminal_type_for_alias(symbol)?,
+        };
+        let constructor = self.unique_variant_refinement_constructor(file, &terminal, variant_token)?;
+        Some((
+            (variant_token.range.start, variant_token.range.end),
+            VariantRefinementNavigationIdentity { base, constructor },
+        ))
+    }
+
+    fn unique_variant_refinement_constructor(
+        &self,
+        file: &IndexedFile,
+        terminal: &TypeSymbol,
+        variant_token: &Token,
+    ) -> Option<ConstructorSymbol> {
+        let key = (
+            terminal.package.clone(),
+            terminal.package_origin,
+            terminal.module.clone(),
+            terminal.name.clone(),
+            variant_token.text.clone(),
+        );
+        let indices = self.constructor_indices_by_identity.get(&key)?;
+        let mut constructors = indices
+            .iter()
+            .map(|index| &self.constructors[*index])
+            .filter(|constructor| {
+                #[cfg(test)]
+                record_variant_refinement_constructor_candidate_visit();
+                constructor.declaration_kind == SymbolDeclarationKind::Declaration
+                    && self.variant_refinement_constructor_visible(file, constructor)
+            });
+        let constructor = constructors.next().cloned()?;
+        constructors.next().is_none().then_some(constructor)
     }
 
     fn variant_refinement_base_symbol(
@@ -201,6 +202,18 @@ impl SymbolIndex {
     }
 
     fn build_variant_refinement_alias_index(&self) -> VariantRefinementAliasIndex {
+        let (declarations, aliases) = self.variant_refinement_alias_declarations();
+        let targets = self.variant_refinement_alias_targets(&aliases, &declarations);
+        let terminal_types = terminal_variant_refinement_alias_types(&targets);
+        VariantRefinementAliasIndex { terminal_types }
+    }
+
+    fn variant_refinement_alias_declarations(
+        &self,
+    ) -> (
+        BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>,
+        BTreeMap<TypeIdentity, Vec<&TypeAliasSymbol>>,
+    ) {
         let mut declarations = BTreeMap::<TypeIdentity, Vec<VariantRefinementAliasTarget>>::new();
         for symbol in &self.types {
             record_variant_refinement_alias_index_entry();
@@ -221,48 +234,23 @@ impl SymbolIndex {
                 .or_default()
                 .push(symbol);
         }
+        (declarations, aliases)
+    }
 
+    fn variant_refinement_alias_targets(
+        &self,
+        aliases: &BTreeMap<TypeIdentity, Vec<&TypeAliasSymbol>>,
+        declarations: &BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>,
+    ) -> BTreeMap<TypeIdentity, Option<VariantRefinementAliasTarget>> {
         let mut targets = BTreeMap::<TypeIdentity, Option<VariantRefinementAliasTarget>>::new();
-        for (identity, candidates) in &aliases {
+        for (identity, candidates) in aliases {
             let target = match candidates.as_slice() {
                 [alias] => self.indexed_type_alias_target(alias, &declarations),
                 _ => None,
             };
             targets.insert(identity.clone(), target);
         }
-
-        let mut terminal_types = BTreeMap::<TypeIdentity, Option<TypeSymbol>>::new();
-        for start in targets.keys() {
-            if terminal_types.contains_key(start) {
-                record_variant_refinement_alias_cache_reuse();
-                continue;
-            }
-            let mut trace = Vec::new();
-            let mut positions = BTreeMap::new();
-            let mut current = start.clone();
-            let terminal = loop {
-                if let Some(terminal) = terminal_types.get(&current) {
-                    record_variant_refinement_alias_cache_reuse();
-                    break terminal.clone();
-                }
-                if positions.insert(current.clone(), trace.len()).is_some() {
-                    break None;
-                }
-                trace.push(current.clone());
-                record_variant_refinement_alias_target_lookup();
-                match targets.get(&current).cloned().flatten() {
-                    Some(VariantRefinementAliasTarget::Type(symbol)) => break Some(symbol),
-                    Some(VariantRefinementAliasTarget::Alias(symbol)) => {
-                        current = type_alias_identity(&symbol);
-                    }
-                    None => break None,
-                }
-            };
-            for identity in trace {
-                terminal_types.insert(identity, terminal.clone());
-            }
-        }
-        VariantRefinementAliasIndex { terminal_types }
+        targets
     }
 
     fn indexed_type_alias_target(
@@ -272,22 +260,39 @@ impl SymbolIndex {
     ) -> Option<VariantRefinementAliasTarget> {
         let declaring_file = self.type_alias_declaring_file(alias)?;
         if alias.package.is_none() {
-            let target = match alias.target_module.as_deref() {
-                Some(qualifier) => self.first_visible_type_namespace_for_qualified_reference(
-                    declaring_file,
-                    qualifier,
-                    &alias.target_name,
-                ),
-                None => self.first_visible_type_namespace_for_bare_reference(
-                    declaring_file,
-                    &alias.target_name,
-                ),
-            }?;
-            return Some(match target {
-                TypeConflictCandidate::Type(symbol) => VariantRefinementAliasTarget::Type(symbol),
-                TypeConflictCandidate::Alias(symbol) => VariantRefinementAliasTarget::Alias(symbol),
-            });
+            return self.indexed_workspace_type_alias_target(alias, declaring_file);
         }
+        self.indexed_package_type_alias_target(alias, declaring_file, declarations)
+    }
+
+    fn indexed_workspace_type_alias_target(
+        &self,
+        alias: &TypeAliasSymbol,
+        declaring_file: &IndexedFile,
+    ) -> Option<VariantRefinementAliasTarget> {
+        let target = match alias.target_module.as_deref() {
+            Some(qualifier) => self.first_visible_type_namespace_for_qualified_reference(
+                declaring_file,
+                qualifier,
+                &alias.target_name,
+            ),
+            None => self.first_visible_type_namespace_for_bare_reference(
+                declaring_file,
+                &alias.target_name,
+            ),
+        }?;
+        Some(match target {
+            TypeConflictCandidate::Type(symbol) => VariantRefinementAliasTarget::Type(symbol),
+            TypeConflictCandidate::Alias(symbol) => VariantRefinementAliasTarget::Alias(symbol),
+        })
+    }
+
+    fn indexed_package_type_alias_target(
+        &self,
+        alias: &TypeAliasSymbol,
+        declaring_file: &IndexedFile,
+        declarations: &BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>,
+    ) -> Option<VariantRefinementAliasTarget> {
         let modules = alias.target_module.as_deref().map_or_else(
             || vec![alias.module.clone()],
             |qualifier| {
@@ -326,6 +331,51 @@ impl SymbolIndex {
             return None;
         };
         self.files.get(*index)
+    }
+}
+
+fn terminal_variant_refinement_alias_types(
+    targets: &BTreeMap<TypeIdentity, Option<VariantRefinementAliasTarget>>,
+) -> BTreeMap<TypeIdentity, Option<TypeSymbol>> {
+    let mut terminal_types = BTreeMap::new();
+    for start in targets.keys() {
+        if terminal_types.contains_key(start) {
+            record_variant_refinement_alias_cache_reuse();
+            continue;
+        }
+        resolve_variant_refinement_alias_trace(start, targets, &mut terminal_types);
+    }
+    terminal_types
+}
+
+fn resolve_variant_refinement_alias_trace(
+    start: &TypeIdentity,
+    targets: &BTreeMap<TypeIdentity, Option<VariantRefinementAliasTarget>>,
+    terminal_types: &mut BTreeMap<TypeIdentity, Option<TypeSymbol>>,
+) {
+    let mut trace = Vec::new();
+    let mut positions = BTreeMap::new();
+    let mut current = start.clone();
+    let terminal = loop {
+        if let Some(terminal) = terminal_types.get(&current) {
+            record_variant_refinement_alias_cache_reuse();
+            break terminal.clone();
+        }
+        if positions.insert(current.clone(), trace.len()).is_some() {
+            break None;
+        }
+        trace.push(current.clone());
+        record_variant_refinement_alias_target_lookup();
+        match targets.get(&current).cloned().flatten() {
+            Some(VariantRefinementAliasTarget::Type(symbol)) => break Some(symbol),
+            Some(VariantRefinementAliasTarget::Alias(symbol)) => {
+                current = type_alias_identity(&symbol);
+            }
+            None => break None,
+        }
+    };
+    for identity in trace {
+        terminal_types.insert(identity, terminal.clone());
     }
 }
 
