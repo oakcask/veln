@@ -485,6 +485,9 @@ existing declaration policy, and its final refinement variant uses the
 resolved package constructor identity for definition and references. Rename
 remains subject to the shared workspace-edit eligibility rules; package source
 does not become editable merely because that identity is available.
+The shared language-service package-snapshot case verifies workspace aliases
+that terminate at a direct-dependency ADT and retained direct-dependency and
+standard-library aliases whose targets resolve in their own package namespaces.
 MCP projects the shared ranges to positive one-based Unicode-scalar
 coordinates; it does not resolve the refinement independently.
 

@@ -286,6 +286,10 @@ selection in
 [`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/)
 and generic, transitive, and imported aliases in
 [`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
+A shared language-service package-snapshot case additionally verifies that a
+workspace alias can terminate at a direct-dependency ADT and that retained
+direct-dependency and standard-library aliases resolve their targets in their
+own package namespaces.
 A refinement base that selects a retained direct-dependency or standard-library
 type alias still follows the package-alias definition policy below. Its final
 variant uses the resolved package constructor identity for definition and
