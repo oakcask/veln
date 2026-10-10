@@ -804,19 +804,64 @@ pub struct CanonicalTypeAnnotationIdentity {
     type_parameter_occurrences: Vec<usize>,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CanonicalTypeAnnotationWork {
+    pub type_parameter_contexts: usize,
+    pub type_parameter_names: usize,
+    pub type_parameter_lookups: usize,
+}
+
 pub fn canonical_type_annotation_identities_with_context(
     project: &SurfaceModule,
     annotations: &[(&str, Option<&str>, &[String])],
 ) -> Vec<Option<CanonicalTypeAnnotationIdentity>> {
+    canonical_type_annotation_identities_with_context_impl(project, annotations, false).0
+}
+
+pub fn canonical_type_annotation_identities_with_context_and_work(
+    project: &SurfaceModule,
+    annotations: &[(&str, Option<&str>, &[String])],
+) -> (
+    Vec<Option<CanonicalTypeAnnotationIdentity>>,
+    CanonicalTypeAnnotationWork,
+) {
+    canonical_type_annotation_identities_with_context_impl(project, annotations, true)
+}
+
+fn canonical_type_annotation_identities_with_context_impl(
+    project: &SurfaceModule,
+    annotations: &[(&str, Option<&str>, &[String])],
+    record_work: bool,
+) -> (
+    Vec<Option<CanonicalTypeAnnotationIdentity>>,
+    CanonicalTypeAnnotationWork,
+) {
     let environment = TypeEnvironment::for_path_classification(project);
-    annotations
+    let mut type_parameter_contexts = BTreeMap::new();
+    for (_, _, type_parameters) in annotations {
+        let key = (type_parameters.as_ptr() as usize, type_parameters.len());
+        type_parameter_contexts.entry(key).or_insert_with(|| {
+            if record_work {
+                crate::types::TypeParameterIdentityContext::recording(type_parameters)
+            } else {
+                crate::types::TypeParameterIdentityContext::new(type_parameters)
+            }
+        });
+    }
+    let identities = annotations
         .iter()
         .map(|(annotation, current_module, type_parameters)| {
+            let key = (type_parameters.as_ptr() as usize, type_parameters.len());
+            let type_parameters = &type_parameter_contexts[&key];
             crate::type_syntax::parse_type_annotation(annotation)
                 .ok()
                 .and_then(|ty| {
                     environment
-                        .type_annotation_is_fully_resolved(&ty, *current_module, type_parameters)
+                        .type_annotation_is_fully_resolved_with_context(
+                            &ty,
+                            *current_module,
+                            type_parameters,
+                        )
                         .then(|| CanonicalTypeAnnotationIdentity {
                             type_parameter_occurrences: type_parameter_occurrences(
                                 &ty,
@@ -828,10 +873,25 @@ pub fn canonical_type_annotation_identities_with_context(
                         })
                 })
         })
-        .collect()
+        .collect();
+    let work = CanonicalTypeAnnotationWork {
+        type_parameter_contexts: type_parameter_contexts.len(),
+        type_parameter_names: type_parameter_contexts
+            .values()
+            .map(crate::types::TypeParameterIdentityContext::name_count)
+            .sum(),
+        type_parameter_lookups: type_parameter_contexts
+            .values()
+            .map(crate::types::TypeParameterIdentityContext::lookup_count)
+            .sum(),
+    };
+    (identities, work)
 }
 
-fn type_parameter_occurrences(ty: &Type, type_parameters: &[String]) -> Vec<usize> {
+fn type_parameter_occurrences(
+    ty: &Type,
+    type_parameters: &crate::types::TypeParameterIdentityContext<'_>,
+) -> Vec<usize> {
     let mut occurrences = Vec::new();
     collect_type_parameter_occurrences(ty, type_parameters, &mut occurrences);
     occurrences
@@ -839,15 +899,13 @@ fn type_parameter_occurrences(ty: &Type, type_parameters: &[String]) -> Vec<usiz
 
 fn collect_type_parameter_occurrences(
     ty: &Type,
-    type_parameters: &[String],
+    type_parameters: &crate::types::TypeParameterIdentityContext<'_>,
     occurrences: &mut Vec<usize>,
 ) {
     match ty {
         Type::Named { name, args, .. } => {
             if args.is_empty()
-                && let Some(index) = type_parameters
-                    .iter()
-                    .position(|parameter| parameter == name)
+                && let Some(index) = type_parameters.ordinal(name)
             {
                 occurrences.push(index);
             }

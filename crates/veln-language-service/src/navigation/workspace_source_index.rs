@@ -64,8 +64,8 @@ struct WorkspaceSyntaxIndex {
         BTreeMap<(usize, usize), usize>,
     variant_refinement_union_group_index_by_final_range: BTreeMap<(usize, usize), usize>,
     variant_refinement_union_final_range_groups: Vec<Vec<(usize, usize)>>,
-    variant_refinement_type_argument_annotations_by_final_range:
-        BTreeMap<(usize, usize), Vec<String>>,
+    variant_refinement_type_argument_ranges_by_final_range:
+        BTreeMap<(usize, usize), Vec<(usize, usize)>>,
     variant_refinement_type_parameter_contexts: Vec<Vec<String>>,
     variant_refinement_type_parameter_context_index_by_final_range:
         BTreeMap<(usize, usize), usize>,
@@ -133,8 +133,8 @@ impl WorkspaceSyntaxIndex {
                 variant_refinement_source_index.union_group_index_by_final_range,
             variant_refinement_union_final_range_groups:
                 variant_refinement_source_index.union_final_range_groups,
-            variant_refinement_type_argument_annotations_by_final_range:
-                variant_refinement_source_index.type_argument_annotations_by_final_range,
+            variant_refinement_type_argument_ranges_by_final_range:
+                variant_refinement_source_index.type_argument_ranges_by_final_range,
             variant_refinement_type_parameter_contexts:
                 variant_refinement_source_index.type_parameter_contexts,
             variant_refinement_type_parameter_context_index_by_final_range:
@@ -183,8 +183,8 @@ fn indexed_workspace_file(
             .variant_refinement_union_group_index_by_final_range,
         variant_refinement_union_final_range_groups: syntax
             .variant_refinement_union_final_range_groups,
-        variant_refinement_type_argument_annotations_by_final_range: syntax
-            .variant_refinement_type_argument_annotations_by_final_range,
+        variant_refinement_type_argument_ranges_by_final_range: syntax
+            .variant_refinement_type_argument_ranges_by_final_range,
         variant_refinement_type_parameter_contexts: syntax
             .variant_refinement_type_parameter_contexts,
         variant_refinement_type_parameter_context_index_by_final_range: syntax

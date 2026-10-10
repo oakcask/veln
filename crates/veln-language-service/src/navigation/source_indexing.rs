@@ -235,8 +235,8 @@ fn indexed_dependency_source(
             .union_group_index_by_final_range,
         variant_refinement_union_final_range_groups: variant_refinement_source_index
             .union_final_range_groups,
-        variant_refinement_type_argument_annotations_by_final_range:
-            variant_refinement_source_index.type_argument_annotations_by_final_range,
+        variant_refinement_type_argument_ranges_by_final_range:
+            variant_refinement_source_index.type_argument_ranges_by_final_range,
         variant_refinement_type_parameter_contexts:
             variant_refinement_source_index.type_parameter_contexts,
         variant_refinement_type_parameter_context_index_by_final_range:
@@ -320,8 +320,8 @@ fn attach_canonical_variant_refinement_type_arguments(
     let mut annotations = Vec::<(&str, Option<&str>, &[String])>::new();
     let mut groups = Vec::<(usize, (usize, usize), usize, usize)>::new();
     for (file_index, file) in files.iter().enumerate() {
-        for (range, arguments) in
-            &file.variant_refinement_type_argument_annotations_by_final_range
+        for (range, argument_ranges) in
+            &file.variant_refinement_type_argument_ranges_by_final_range
         {
             let start = annotations.len();
             let type_parameters = file
@@ -332,11 +332,13 @@ fn attach_canonical_variant_refinement_type_arguments(
                         .get(*context_index)
                 })
                 .map_or(&[][..], Vec::as_slice);
-            annotations.extend(
-                arguments
-                    .iter()
-                    .map(|argument| (argument.as_str(), Some(file.module.as_str()), type_parameters)),
-            );
+            annotations.extend(argument_ranges.iter().map(|(start, end)| {
+                (
+                    &file.source.text()[*start..*end],
+                    Some(file.module.as_str()),
+                    type_parameters,
+                )
+            }));
             groups.push((file_index, *range, start, annotations.len()));
         }
     }
@@ -364,7 +366,7 @@ fn append_parsed_surface_module(
     append_surface_module(merged, module);
 }
 
-fn empty_surface_module() -> veln_ast::SurfaceModule {
+pub(crate) fn empty_surface_module() -> veln_ast::SurfaceModule {
     veln_ast::SurfaceModule {
         module: None,
         uses: Vec::new(),

@@ -5,38 +5,42 @@ struct VariantRefinementSourceIndex {
     type_argument_count_by_final_range: BTreeMap<(usize, usize), usize>,
     union_group_index_by_final_range: BTreeMap<(usize, usize), usize>,
     union_final_range_groups: Vec<Vec<(usize, usize)>>,
-    type_argument_annotations_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
+    type_argument_ranges_by_final_range: BTreeMap<(usize, usize), Vec<(usize, usize)>>,
     type_parameter_contexts: Vec<Vec<String>>,
     type_parameter_context_index_by_final_range: BTreeMap<(usize, usize), usize>,
 }
 fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSourceIndex {
     let mut index = VariantRefinementSourceIndex::default();
-    let no_type_parameters = Vec::new();
     for item in &syntax.items {
+        let mut no_type_parameters = TypeParameterContext::default();
         match item {
             SyntaxItem::Function(function) => {
                 collect_param_refinement_ranges(
                     &function.params,
-                    &no_type_parameters,
+                    &mut no_type_parameters,
                     &mut index,
                 );
                 collect_refinement_ranges(
                     &function.return_type_refinements,
-                    &no_type_parameters,
+                    &mut no_type_parameters,
                     &mut index,
                 );
-                collect_body_refinement_ranges(&function.body, &no_type_parameters, &mut index);
+                collect_body_refinement_ranges(
+                    &function.body,
+                    &mut no_type_parameters,
+                    &mut index,
+                );
             }
             SyntaxItem::Effect(effect) => {
                 for operation in &effect.operations {
                     collect_param_refinement_ranges(
                         &operation.params,
-                        &no_type_parameters,
+                        &mut no_type_parameters,
                         &mut index,
                     );
                     collect_refinement_ranges(
                         &operation.return_type_refinements,
-                        &no_type_parameters,
+                        &mut no_type_parameters,
                         &mut index,
                     );
                 }
@@ -44,26 +48,31 @@ fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSour
             SyntaxItem::Handler(handler) => {
                 collect_param_refinement_ranges(
                     &handler.params,
-                    &no_type_parameters,
+                    &mut no_type_parameters,
                     &mut index,
                 );
                 for clause in &handler.operation_clauses {
                     collect_param_refinement_ranges(
                         &clause.params,
-                        &no_type_parameters,
+                        &mut no_type_parameters,
                         &mut index,
                     );
                     collect_expr_refinement_ranges(
                         &clause.body,
-                        &no_type_parameters,
+                        &mut no_type_parameters,
                         &mut index,
                     );
                 }
             }
             SyntaxItem::Type(ty) => {
+                let mut type_parameters = TypeParameterContext::new(&ty.params);
                 for variant in &ty.variants {
                     for field in &variant.fields {
-                        collect_refinement_ranges(&field.ty_refinements, &ty.params, &mut index);
+                        collect_refinement_ranges(
+                            &field.ty_refinements,
+                            &mut type_parameters,
+                            &mut index,
+                        );
                     }
                 }
             }
@@ -71,7 +80,7 @@ fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSour
                 for field in &schema.fields {
                     collect_refinement_ranges(
                         &field.ty_refinements,
-                        &no_type_parameters,
+                        &mut no_type_parameters,
                         &mut index,
                     );
                 }
@@ -80,6 +89,32 @@ fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSour
         }
     }
     index
+}
+
+#[derive(Default)]
+struct TypeParameterContext<'a> {
+    parameters: &'a [String],
+    retained_index: Option<usize>,
+}
+
+impl<'a> TypeParameterContext<'a> {
+    fn new(parameters: &'a [String]) -> Self {
+        Self {
+            parameters,
+            retained_index: None,
+        }
+    }
+
+    fn retained_index(&mut self, index: &mut VariantRefinementSourceIndex) -> Option<usize> {
+        if self.parameters.is_empty() {
+            return None;
+        }
+        Some(*self.retained_index.get_or_insert_with(|| {
+            let context_index = index.type_parameter_contexts.len();
+            index.type_parameter_contexts.push(self.parameters.to_vec());
+            context_index
+        }))
+    }
 }
 fn constructor_reference_declaration_ranges(
     syntax: &SyntaxTree,
@@ -133,7 +168,7 @@ fn constructor_reference_declaration_ranges(
 
 fn collect_param_refinement_ranges(
     params: &[veln_syntax::Param],
-    type_parameters: &[String],
+    type_parameters: &mut TypeParameterContext<'_>,
     index: &mut VariantRefinementSourceIndex,
 ) {
     for param in params {
@@ -143,7 +178,7 @@ fn collect_param_refinement_ranges(
 
 fn collect_body_refinement_ranges(
     body: &[BodyLine],
-    type_parameters: &[String],
+    type_parameters: &mut TypeParameterContext<'_>,
     index: &mut VariantRefinementSourceIndex,
 ) {
     for line in body {
@@ -168,7 +203,7 @@ fn collect_body_refinement_ranges(
 
 fn collect_expr_refinement_ranges(
     expr: &Expr,
-    type_parameters: &[String],
+    type_parameters: &mut TypeParameterContext<'_>,
     index: &mut VariantRefinementSourceIndex,
 ) {
     match &expr.kind {
@@ -254,7 +289,7 @@ fn collect_expr_refinement_ranges(
 
 fn collect_exprs_refinement_ranges(
     exprs: &[Expr],
-    type_parameters: &[String],
+    type_parameters: &mut TypeParameterContext<'_>,
     index: &mut VariantRefinementSourceIndex,
 ) {
     for expr in exprs {
@@ -264,20 +299,17 @@ fn collect_exprs_refinement_ranges(
 
 fn collect_refinement_ranges(
     refinements: &[veln_syntax::VariantRefinementType],
-    type_parameters: &[String],
+    type_parameters: &mut TypeParameterContext<'_>,
     index: &mut VariantRefinementSourceIndex,
 ) {
-    for refinement in refinements {
-        let type_parameter_context_index = (!type_parameters.is_empty()
-            && refinement
-                .alternatives
-                .iter()
-                .any(|alternative| !alternative.type_arguments.is_empty()))
-        .then(|| {
-            let context_index = index.type_parameter_contexts.len();
-            index.type_parameter_contexts.push(type_parameters.to_vec());
-            context_index
-        });
+    let mut pending = refinements.iter().rev().collect::<Vec<_>>();
+    while let Some(refinement) = pending.pop() {
+        let type_parameter_context_index = refinement
+            .alternatives
+            .iter()
+            .any(|alternative| !alternative.type_arguments.is_empty())
+            .then(|| type_parameters.retained_index(index))
+            .flatten();
         let union_final_ranges = refinement
             .alternatives
             .iter()
@@ -290,6 +322,7 @@ fn collect_refinement_ranges(
             .collect::<Vec<_>>();
         let union_group_index = index.union_final_range_groups.len();
         index.union_final_range_groups.push(union_final_ranges);
+        let mut nested_refinements = Vec::new();
         for alternative in &refinement.alternatives {
             let final_range = (
                 alternative.variant_span.start.offset,
@@ -305,13 +338,15 @@ fn collect_refinement_ranges(
                 .entry(final_range)
                 .or_insert(union_group_index);
             index
-                .type_argument_annotations_by_final_range
+                .type_argument_ranges_by_final_range
                 .entry(final_range)
                 .or_insert_with(|| {
                     alternative
                         .type_arguments
                         .iter()
-                        .map(variant_refinement_type_argument_annotation)
+                        .map(|argument| {
+                            (argument.span.start.offset, argument.span.end.offset)
+                        })
                         .collect()
                 });
             if !alternative.type_arguments.is_empty()
@@ -330,47 +365,9 @@ fn collect_refinement_ranges(
                 );
             }
             for argument in &alternative.type_arguments {
-                collect_refinement_ranges(&argument.ty_refinements, type_parameters, index);
+                nested_refinements.extend(&argument.ty_refinements);
             }
         }
+        pending.extend(nested_refinements.into_iter().rev());
     }
-}
-
-fn variant_refinement_type_argument_annotation(
-    argument: &veln_syntax::VariantRefinementTypeArgument,
-) -> String {
-    let mut text = String::new();
-    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
-        text.push_str(fragment);
-        if let Some(refinement) = argument.ty_refinements.get(index) {
-            text.push_str(&variant_refinement_annotation(refinement));
-        }
-    }
-    text
-}
-
-fn variant_refinement_annotation(refinement: &veln_syntax::VariantRefinementType) -> String {
-    refinement
-        .alternatives
-        .iter()
-        .map(|alternative| {
-            let mut text = alternative.base.segments.join("::");
-            if !alternative.type_arguments.is_empty() {
-                text.push('<');
-                text.push_str(
-                    &alternative
-                        .type_arguments
-                        .iter()
-                        .map(variant_refinement_type_argument_annotation)
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                );
-                text.push('>');
-            }
-            text.push_str("::");
-            text.push_str(&alternative.variant);
-            text
-        })
-        .collect::<Vec<_>>()
-        .join(" | ")
 }

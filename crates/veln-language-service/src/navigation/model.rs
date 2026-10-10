@@ -873,8 +873,8 @@ struct IndexedFile {
         BTreeMap<(usize, usize), usize>,
     variant_refinement_union_group_index_by_final_range: BTreeMap<(usize, usize), usize>,
     variant_refinement_union_final_range_groups: Vec<Vec<(usize, usize)>>,
-    variant_refinement_type_argument_annotations_by_final_range:
-        BTreeMap<(usize, usize), Vec<String>>,
+    variant_refinement_type_argument_ranges_by_final_range:
+        BTreeMap<(usize, usize), Vec<(usize, usize)>>,
     variant_refinement_type_parameter_contexts: Vec<Vec<String>>,
     variant_refinement_type_parameter_context_index_by_final_range:
         BTreeMap<(usize, usize), usize>,

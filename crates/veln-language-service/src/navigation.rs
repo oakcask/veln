@@ -55,6 +55,7 @@ pub(crate) struct VariantRefinementSourceIndexRetention {
     pub(crate) type_parameter_names: usize,
     pub(crate) type_parameter_context_references: usize,
     pub(crate) type_argument_annotations: usize,
+    pub(crate) type_argument_range_bytes: usize,
 }
 
 #[cfg(test)]
@@ -71,9 +72,15 @@ pub(crate) fn variant_refinement_source_index_retention(
         type_parameter_names: index.type_parameter_contexts.iter().map(Vec::len).sum(),
         type_parameter_context_references: index.type_parameter_context_index_by_final_range.len(),
         type_argument_annotations: index
-            .type_argument_annotations_by_final_range
+            .type_argument_ranges_by_final_range
             .values()
             .map(Vec::len)
+            .sum(),
+        type_argument_range_bytes: index
+            .type_argument_ranges_by_final_range
+            .values()
+            .flatten()
+            .map(|_| std::mem::size_of::<(usize, usize)>())
             .sum(),
     }
 }

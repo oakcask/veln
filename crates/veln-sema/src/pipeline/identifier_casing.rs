@@ -33,7 +33,9 @@ use recovered_traversal::*;
 use role_resolution::*;
 use valid_segments::valid_qualified_path_segments;
 pub use valid_segments::{
-    CanonicalTypeAnnotationIdentity, canonical_type_annotation_identities_with_context,
+    CanonicalTypeAnnotationIdentity, CanonicalTypeAnnotationWork,
+    canonical_type_annotation_identities_with_context,
+    canonical_type_annotation_identities_with_context_and_work,
     classified_project_qualified_path_segments,
     classified_project_qualified_path_segments_with_context,
 };

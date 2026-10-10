@@ -1282,10 +1282,14 @@
         assert_eq!(retained.final_ranges, 4);
         assert_eq!(retained.final_range_group_indices, 4);
         assert_eq!(retained.group_ranges, 4);
-        assert_eq!(retained.type_parameter_contexts, 2);
-        assert_eq!(retained.type_parameter_names, 16);
+        assert_eq!(retained.type_parameter_contexts, 1);
+        assert_eq!(retained.type_parameter_names, 8);
         assert_eq!(retained.type_parameter_context_references, 4);
         assert_eq!(retained.type_argument_annotations, 4);
+        assert_eq!(
+            retained.type_argument_range_bytes,
+            4 * std::mem::size_of::<(usize, usize)>(),
+        );
 
         let snapshot = EffectiveProjectSnapshot::new(vec![source]);
         let position = |line_text: &str| {
@@ -1302,6 +1306,105 @@
         };
         assert!(navigate(&snapshot, position("Same(")).is_some());
         assert!(navigate(&snapshot, position("Different(")).is_none());
+    }
+
+    fn declaration_wide_generic_refinement_retention(
+        size: usize,
+    ) -> crate::navigation::VariantRefinementSourceIndexRetention {
+        let type_parameters = (0..size)
+            .map(|index| format!("A{index}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let fields = (0..size)
+            .map(|index| format!("  Field{index}(Box<A{index}>::Boxed)\n"))
+            .collect::<String>();
+        let text = format!(
+            "type Box<T>\n  Boxed(T)\nend\n\ntype Owner<{type_parameters}>\n{fields}end\n"
+        );
+        let source = source("main.veln", &text);
+        let parsed = veln_syntax::parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        crate::navigation::variant_refinement_source_index_retention(&source)
+    }
+
+    #[test]
+    fn declaration_wide_generic_context_retention_is_additive() {
+        for size in [32, 64, 128, 256] {
+            let retained = declaration_wide_generic_refinement_retention(size);
+            assert_eq!(retained.final_ranges, size);
+            assert_eq!(retained.type_parameter_contexts, 1);
+            assert_eq!(retained.type_parameter_names, size);
+            assert_eq!(retained.type_parameter_context_references, size);
+            assert_eq!(retained.type_argument_annotations, size);
+            assert_eq!(
+                retained.type_parameter_names
+                    + retained.type_parameter_context_references
+                    + retained.type_argument_annotations,
+                size * 3,
+            );
+        }
+    }
+
+    #[test]
+    fn canonical_type_parameter_lookup_work_is_additive() {
+        for size in [32, 64, 128, 256] {
+            let type_parameters = (0..size)
+                .map(|index| format!("A{index}"))
+                .collect::<Vec<_>>();
+            let annotation = type_parameters.last().unwrap().as_str();
+            let annotations = (0..size)
+                .map(|_| (annotation, Some("main"), type_parameters.as_slice()))
+                .collect::<Vec<_>>();
+            let (identities, work) =
+                veln_sema::canonical_type_annotation_identities_with_context_and_work(
+                    &crate::navigation::empty_surface_module(),
+                    &annotations,
+                );
+            assert!(identities.iter().all(Option::is_some));
+            assert_eq!(work.type_parameter_contexts, 1);
+            assert_eq!(work.type_parameter_names, size);
+            assert_eq!(work.type_parameter_lookups, size * 2);
+        }
+    }
+
+    fn nested_refinement_source(depth: usize) -> SourceFile {
+        let mut annotation = "Int".to_string();
+        for _ in 0..depth {
+            annotation = format!("Box<{annotation}>::Boxed");
+        }
+        source(
+            "main.veln",
+            &format!(
+                "type Box<T>\n  Boxed(T)\nend\n\ntype Owner\n  Wrapped({annotation})\nend\n"
+            ),
+        )
+    }
+
+    #[test]
+    fn nested_refinement_range_retention_is_adjacent_linear() {
+        for depth in [16, 32, 64, 128] {
+            let source = nested_refinement_source(depth);
+            let parsed = veln_syntax::parse(&source);
+            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+            let retained = crate::navigation::variant_refinement_source_index_retention(&source);
+            assert_eq!(retained.final_ranges, depth);
+            assert_eq!(retained.type_argument_annotations, depth);
+            assert_eq!(
+                retained.type_argument_range_bytes,
+                depth * std::mem::size_of::<(usize, usize)>(),
+            );
+        }
+    }
+
+    #[test]
+    fn deep_nested_refinement_source_indexing_uses_a_bounded_stack() {
+        let depth = 128;
+        let source = nested_refinement_source(depth);
+        let parsed = veln_syntax::parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let retained = crate::navigation::variant_refinement_source_index_retention(&source);
+        assert_eq!(retained.final_ranges, depth);
+        assert_eq!(retained.type_argument_annotations, depth);
     }
 
     fn workspace_variant_refinement_alias_depth_work(
