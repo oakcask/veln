@@ -477,9 +477,10 @@ captures, and pagination retain the failure and state-preservation rules of the
 corresponding MCP tool.
 
 The checked `adt-variant-refinement-navigation` MCP case asserts the exact
-ordered constructor references and rename edits, alias separation, exclusion of
-a same-spelled constructor from another ADT, and empty results for an invalid
-mixed-ADT union.
+ordered constructor references and rename edits across direct and
+alias-qualified refinements. It also asserts alias-base definition and rename
+edits without target-ADT or constructor edits, exclusion of a same-spelled
+constructor from another ADT, and empty results for an invalid mixed-ADT union.
 
 ### Source presentation
 
