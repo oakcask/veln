@@ -113,11 +113,13 @@ fn is_bare_function_reference_token(
             || is_codec_implementation_function_reference(tokens, index, name))
 }
 
-fn is_constructor_reference_token(tokens: &[Token], index: usize) -> bool {
+fn is_constructor_reference_token(
+    tokens: &[Token],
+    index: usize,
+    is_declaration: bool,
+) -> bool {
     tokens[index].kind == TokenKind::Ident
-        && !is_effect_operation_declaration_name(tokens, index)
-        && !is_constructor_declaration_name(tokens, index)
-        && !is_handler_operation_clause_operation_name(tokens, index)
+        && !is_declaration
         && (is_call_target_token(tokens, index)
             || is_bare_nullary_constructor_expression(tokens, index)
             || is_bare_nullary_constructor_pattern(tokens, index))
@@ -133,11 +135,9 @@ fn is_bare_nullary_constructor_expression(tokens: &[Token], index: usize) -> boo
         && !is_type_position_token(tokens, index)
         && !is_function_declaration_name(tokens, index)
         && !is_type_declaration_name(tokens, index)
-        && !is_constructor_declaration_name(tokens, index)
         && !is_parameter_name(tokens, index)
         && !is_local_binding_name(tokens, index)
         && !is_field_name(tokens, index)
-        && !is_handler_operation_clause_operation_name(tokens, index)
 }
 
 fn is_bare_nullary_constructor_pattern(tokens: &[Token], index: usize) -> bool {
@@ -190,16 +190,6 @@ fn constructor_declaration_prefix_is_visible(tokens: &[Token], index: usize) -> 
 fn is_type_position_token(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index)
         .is_some_and(|previous| matches!(previous.kind, TokenKind::Colon | TokenKind::Arrow))
-}
-
-fn is_effect_operation_declaration_name(tokens: &[Token], index: usize) -> bool {
-    tokens[index].kind == TokenKind::Ident
-        && inside_top_level_block(tokens, index, TokenKind::Effect)
-        && line_tokens_before(tokens, index)
-            .iter()
-            .all(|token| matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
-        && next_non_whitespace_token(tokens, index)
-            .is_some_and(|next| next.kind == TokenKind::LParen)
 }
 
 fn is_schema_operation_path_leaf_token(file: &IndexedFile, index: usize) -> bool {

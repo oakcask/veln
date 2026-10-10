@@ -720,8 +720,9 @@ impl SymbolIndex {
 
     fn type_alias_definition_supported(&self, symbol: &TypeAliasSymbol) -> bool {
         match symbol.package_origin {
-            Some(PackageOrigin::DirectDependency) => self.type_alias_target_resolves_to_type(symbol),
-            Some(PackageOrigin::StandardLibrary) => false,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary) => {
+                self.type_alias_target_resolves_to_type(symbol)
+            }
             None => true,
         }
     }
@@ -856,6 +857,8 @@ impl SymbolIndex {
                     .iter()
                     .enumerate()
                     .filter(|(index, token)| {
+                        #[cfg(test)]
+                        record_variant_refinement_reference_token_visit();
                         let refinement = file
                             .variant_refinement_final_ranges
                             .contains(&(token.range.start, token.range.end));
@@ -863,7 +866,7 @@ impl SymbolIndex {
                             && token.text == symbol.name
                             && !same_span(&file.source.span(token.range), &symbol.declaration.span)
                             && (refinement
-                                || is_constructor_reference_token(tokens, *index)
+                                || file.token_is_constructor_reference(*index)
                                 || file.token_has_classified_role(token, NameClass::Constructor))
                             && self
                                 .constructor_symbol_for_call(file, tokens, *index, &token.text)

@@ -38,6 +38,56 @@ fn variant_refinement_final_ranges(syntax: &SyntaxTree) -> BTreeSet<(usize, usiz
     ranges
 }
 
+fn constructor_reference_declaration_ranges(
+    syntax: &SyntaxTree,
+    tokens: &[Token],
+) -> BTreeSet<(usize, usize)> {
+    let mut ranges = BTreeSet::new();
+    for item in &syntax.items {
+        match item {
+            SyntaxItem::Type(ty) => {
+                for variant in &ty.variants {
+                    let Some(name) = variant.name.as_deref() else {
+                        continue;
+                    };
+                    if let Some(span) = variant.name_span.as_ref() {
+                        ranges.insert((span.start.offset, span.end.offset));
+                    } else if let Some(token) = tokens.iter().find(|token| {
+                        token.kind == TokenKind::Ident
+                            && token.text == name
+                            && token.range.start >= variant.span.start.offset
+                            && token.range.end <= variant.span.end.offset
+                    }) {
+                        ranges.insert((token.range.start, token.range.end));
+                    }
+                }
+            }
+            SyntaxItem::Effect(effect) => {
+                for operation in &effect.operations {
+                    if operation.name.is_some() {
+                        ranges.insert((
+                            operation.name_span.start.offset,
+                            operation.name_span.end.offset,
+                        ));
+                    }
+                }
+            }
+            SyntaxItem::Handler(handler) => {
+                for clause in &handler.operation_clauses {
+                    if clause.operation.is_some() {
+                        ranges.insert((
+                            clause.operation_span.start.offset,
+                            clause.operation_span.end.offset,
+                        ));
+                    }
+                }
+            }
+            SyntaxItem::Function(_) | SyntaxItem::Schema(_) | SyntaxItem::PublicAlias(_) => {}
+        }
+    }
+    ranges
+}
+
 fn collect_param_refinement_ranges(
     params: &[veln_syntax::Param],
     ranges: &mut BTreeSet<(usize, usize)>,

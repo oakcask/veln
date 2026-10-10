@@ -15,3 +15,11 @@ end
 fn label(text: String, state: State) -> State
 	state
 end
+
+pub type Other
+	pub Ready
+end
+
+fn observe_other(value: Other::Ready) -> Other
+	Other::Ready
+end

@@ -49,6 +49,12 @@ fn variant_refinement_navigation_uses_shared_constructor_identity() {
             "    State::Ready(payload) => made\n",
             "    State::Closed => made\n",
             "  end\n",
+            "end\n\n",
+            "pub type Other\n",
+            "  pub Ready\n",
+            "end\n\n",
+            "fn observe_other(value: Other::Ready) -> Other\n",
+            "  Other::Ready\n",
             "end\n",
         ),
     );

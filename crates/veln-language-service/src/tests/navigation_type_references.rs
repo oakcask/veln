@@ -325,11 +325,31 @@
             SymbolDeclarationKind::PublicAlias
         );
         assert_package_location(&dependency_base.definition, "facade.veln", 3, 10);
+        let dependency_base_definition = definition_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 10,
+                column: 37,
+            },
+        )
+        .expect("direct dependency refinement alias has a public definition");
+        assert_package_location(&dependency_base_definition, "facade.veln", 3, 10);
         let dependency_variant = query_snapshot(&snapshot, "main.veln", 10, 44).unwrap();
         assert_package_location(&dependency_variant.definition, "model.veln", 2, 7);
 
         let standard_base = query_snapshot(&snapshot, "main.veln", 14, 23).unwrap();
         assert_package_location(&standard_base.definition, "prelude.veln", 3, 10);
+        let standard_base_definition = definition_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 14,
+                column: 23,
+            },
+        )
+        .expect("standard-library refinement alias has a public definition");
+        assert_package_location(&standard_base_definition, "prelude.veln", 3, 10);
         let standard_variant = query_snapshot(&snapshot, "main.veln", 14, 36).unwrap();
         assert_package_location(&standard_variant.definition, "states.veln", 2, 7);
         assert_eq!(
@@ -433,9 +453,12 @@
     }
 
     #[test]
-    fn variant_refinement_identity_index_work_is_adjacent_linear() {
-        fn lookup_work(annotation_count: usize, rename: bool) -> (usize, usize, usize) {
-            reset_variant_refinement_index_work();
+    fn variant_refinement_navigation_work_is_adjacent_linear() {
+        fn lookup_work(
+            annotation_count: usize,
+            rename: bool,
+        ) -> (usize, usize, usize, usize, usize) {
+            reset_variant_refinement_navigation_work();
             let mut text = String::from(
                 "type State\n  Ready(Int)\nend\npub type Alias = State\n\n",
             );
@@ -467,7 +490,7 @@
             eprintln!(
                 "variant refinement stages count={annotation_count} rename={rename}: snapshot={snapshot_elapsed:?} index={index_elapsed:?} query={query_elapsed:?}"
             );
-            variant_refinement_index_work()
+            variant_refinement_navigation_work()
         }
 
         for rename in [false, true] {
@@ -480,21 +503,31 @@
             for window in evidence.windows(2) {
                 let (_, smaller, _) = window[0];
                 let (_, larger, _) = window[1];
-                assert!(smaller.0 > 0 && smaller.1 > 0 && smaller.2 > 0);
+                assert!(
+                    smaller.0 > 0
+                        && smaller.1 > 0
+                        && smaller.2 > 0
+                        && smaller.3 > 0
+                        && smaller.4 > 0
+                );
                 assert!(larger.0 > smaller.0);
                 assert!(larger.2 > smaller.2);
+                assert!(larger.3 > smaller.3);
+                assert!(larger.4 > smaller.4);
                 assert!(larger.0 <= smaller.0 * 2 + 32, "{smaller:?} -> {larger:?}");
                 assert_eq!(larger.1, smaller.1, "{smaller:?} -> {larger:?}");
                 assert!(larger.2 <= smaller.2 * 2 + 16, "{smaller:?} -> {larger:?}");
+                assert!(larger.3 <= smaller.3 * 2 + 32, "{smaller:?} -> {larger:?}");
+                assert!(larger.4 <= smaller.4 * 2 + 16, "{smaller:?} -> {larger:?}");
             }
-            eprintln!("variant refinement index evidence rename={rename}: {evidence:?}");
+            eprintln!("variant refinement navigation evidence rename={rename}: {evidence:?}");
         }
     }
 
     #[test]
     fn variant_refinement_constructor_bucket_ignores_unrelated_constructors() {
         fn candidate_work(unrelated_count: usize) -> usize {
-            reset_variant_refinement_index_work();
+            reset_variant_refinement_navigation_work();
             let mut text = String::from("type State\n  Ready(Int)\nend\n");
             for index in 0..unrelated_count {
                 text.push_str(&format!("type Other{index}\n  Ready(Int)\nend\n"));
@@ -503,7 +536,7 @@
             let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
             let line = unrelated_count * 3 + 4;
             query_snapshot(&snapshot, "main.veln", line, 27).unwrap();
-            variant_refinement_index_work().2
+            variant_refinement_navigation_work().2
         }
 
         assert_eq!(candidate_work(16), candidate_work(256));

@@ -303,10 +303,18 @@
             );
         }
 
-        for (name, column) in [
-            ("supported alias definition", 15),
-            ("unsupported alias definition", 30),
-        ] {
+        let definition = definition_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 1,
+                column: 15,
+            },
+        )
+        .expect("supported standard-library alias has a definition");
+        assert_eq!(definition.span.file.as_str(), "prelude.veln");
+
+        for (name, column) in [("unsupported alias definition", 30)] {
             assert_eq!(
                 definition_at(
                     &snapshot,

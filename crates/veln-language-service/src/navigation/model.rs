@@ -866,6 +866,7 @@ struct IndexedFile {
     effect_operation_ranges: BTreeSet<(usize, usize)>,
     generic_effect_binders: Vec<GenericEffectBinder>,
     variant_refinement_final_ranges: BTreeSet<(usize, usize)>,
+    constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
     classified_paths: ClassifiedPathIndex,
     type_reference_locations: OnceLock<TypeReferenceIndex>,
     navigation_isolated: bool,
@@ -896,6 +897,18 @@ struct GenericEffectBinder {
 }
 
 impl IndexedFile {
+    fn token_is_constructor_reference(&self, index: usize) -> bool {
+        #[cfg(test)]
+        record_constructor_reference_role_lookup();
+        let token = &self.tokens[index];
+        is_constructor_reference_token(
+            &self.tokens,
+            index,
+            self.constructor_reference_declaration_ranges
+                .contains(&(token.range.start, token.range.end)),
+        )
+    }
+
     fn token_has_classified_role(&self, token: &Token, role: NameClass) -> bool {
         #[cfg(test)]
         record_classified_role_lookup();

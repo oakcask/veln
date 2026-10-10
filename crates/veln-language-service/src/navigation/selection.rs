@@ -287,7 +287,7 @@ impl SymbolIndex {
         }
         if is_qualified_path_token(tokens, token_index)
             && !is_call_target_token(tokens, token_index)
-            && !is_constructor_reference_token(tokens, token_index)
+            && !file.token_is_constructor_reference(token_index)
         {
             return self
                 .qualified_function_value_selection(file, tokens, token_index, name)
@@ -467,7 +467,7 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<SelectedNavigationSymbol> {
-        is_constructor_reference_token(tokens, token_index)
+        file.token_is_constructor_reference(token_index)
             .then(|| self.constructor_symbol_for_call(file, tokens, token_index, name))
             .flatten()
             .map(Symbol::Constructor)

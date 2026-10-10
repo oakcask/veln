@@ -288,6 +288,8 @@ thread_local! {
     static VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
@@ -969,18 +971,33 @@ fn record_variant_refinement_constructor_candidate_visit() {
 }
 
 #[cfg(test)]
-pub(crate) fn reset_variant_refinement_index_work() {
-    VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.set(0);
-    VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.set(0);
-    VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.set(0);
+fn record_variant_refinement_reference_token_visit() {
+    VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS
+        .set(VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS.get() + 1);
 }
 
 #[cfg(test)]
-pub(crate) fn variant_refinement_index_work() -> (usize, usize, usize) {
+fn record_constructor_reference_role_lookup() {
+    CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.set(CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_variant_refinement_navigation_work() {
+    VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.set(0);
+    VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.set(0);
+    VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.set(0);
+    VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS.set(0);
+    CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn variant_refinement_navigation_work() -> (usize, usize, usize, usize, usize) {
     (
         VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.get(),
         VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.get(),
         VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.get(),
+        VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS.get(),
+        CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.get(),
     )
 }
 
