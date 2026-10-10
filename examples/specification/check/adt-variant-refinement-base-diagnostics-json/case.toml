@@ -18,6 +18,26 @@ path = "summary.diagnostic_count"
 equals = 17
 
 [[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "type name `int` must start with an ASCII uppercase letter"
+[diagnostics.span]
+file = "main.veln"
+line = 37
+column = 28
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "type name `int` must start with an ASCII uppercase letter"
+[diagnostics.span]
+file = "main.veln"
+line = 47
+column = 19
+
+[[diagnostics]]
 id = "type.variant_refinement_base"
 severity = "error"
 kind = "type"
@@ -58,16 +78,6 @@ line = 25
 column = 30
 
 [[diagnostics]]
-id = "type.invalid_annotation"
-severity = "error"
-kind = "type"
-message = "invalid type annotation `Empty<Int>::Missing`: `Empty` expects 0 type argument(s), found 1"
-[diagnostics.span]
-file = "main.veln"
-line = 29
-column = 21
-
-[[diagnostics]]
 id = "type.variant_refinement_base"
 severity = "error"
 kind = "type"
@@ -76,16 +86,6 @@ message = "variant-refinement base `GenericEmpty<State::Ready>` has no public fi
 file = "main.veln"
 line = 33
 column = 18
-
-[[diagnostics]]
-id = "name.invalid_case"
-severity = "error"
-kind = "name"
-message = "type name `int` must start with an ASCII uppercase letter"
-[diagnostics.span]
-file = "main.veln"
-line = 37
-column = 28
 
 [[diagnostics]]
 id = "type.variant_refinement_base"
@@ -108,16 +108,6 @@ line = 46
 column = 19
 
 [[diagnostics]]
-id = "name.invalid_case"
-severity = "error"
-kind = "name"
-message = "type name `int` must start with an ASCII uppercase letter"
-[diagnostics.span]
-file = "main.veln"
-line = 47
-column = 19
-
-[[diagnostics]]
 id = "type.variant_refinement_base"
 severity = "error"
 kind = "type"
@@ -128,16 +118,6 @@ line = 47
 column = 19
 
 [[diagnostics]]
-id = "type.invalid_annotation"
-severity = "error"
-kind = "type"
-message = "invalid type annotation `State::Missing`: variant refinement alternatives must resolve to declared variants of one ADT"
-[diagnostics.span]
-file = "main.veln"
-line = 51
-column = 20
-
-[[diagnostics]]
 id = "type.variant_refinement_base"
 severity = "error"
 kind = "type"
@@ -146,16 +126,6 @@ message = "variant-refinement base `Int` is not a finite ADT"
 file = "main.veln"
 line = 51
 column = 44
-
-[[diagnostics]]
-id = "type.invalid_annotation"
-severity = "error"
-kind = "type"
-message = "invalid type annotation `Box::Boxed`: `Box` expects 1 type argument(s), found 0"
-[diagnostics.span]
-file = "main.veln"
-line = 55
-column = 17
 
 [[diagnostics]]
 id = "type.variant_refinement_base"
@@ -187,26 +157,56 @@ file = "main.veln"
 line = 67
 column = 24
 
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `Empty<Int>::Missing`: `Empty` expects 0 type argument(s), found 1"
+[diagnostics.span]
+file = "main.veln"
+line = 29
+column = 21
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `State::Missing`: variant refinement alternatives must resolve to declared variants of one ADT"
+[diagnostics.span]
+file = "main.veln"
+line = 51
+column = 20
+
+[[diagnostics]]
+id = "type.invalid_annotation"
+severity = "error"
+kind = "type"
+message = "invalid type annotation `Box::Boxed`: `Box` expects 1 type argument(s), found 0"
+[diagnostics.span]
+file = "main.veln"
+line = 55
+column = 17
+
 [[json_assert]]
-path = "diagnostics.3.related.0.kind"
+path = "diagnostics.5.related.0.kind"
 equals = "base_type_provider"
 
 [[json_assert]]
-path = "diagnostics.3.related.0.span.start.line"
+path = "diagnostics.5.related.0.span.start.line"
 equals = 1
 
 [[json_assert]]
-path = "diagnostics.9.details.name"
+path = "diagnostics.1.details.name"
 equals = "int"
 
 [[json_assert]]
-path = "diagnostics.10.details.written_type"
+path = "diagnostics.9.details.written_type"
 equals = "int"
 
 [[json_assert]]
-path = "diagnostics.10.related.0.resolved_identity"
+path = "diagnostics.9.related.0.resolved_identity"
 equals = "Int"
 
 [[json_assert]]
-path = "diagnostics.14.details.written_type"
+path = "diagnostics.11.details.written_type"
 equals = "GenericEmpty<Box::Boxed>"
