@@ -1,7 +1,7 @@
 use veln_ast::{
     BinaryOp, BodyLine, BodyLineKind, DictEntry, EffectDecl, EffectOperationDecl, Expr, ExprKind,
-    Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, Pattern, PatternKind, RecordField,
-    SurfaceModule, Visibility,
+    Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, Pattern, PatternField, PatternKind,
+    RecordField, SurfaceModule, Visibility,
 };
 use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreCallbackTarget,

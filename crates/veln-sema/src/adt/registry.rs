@@ -295,7 +295,7 @@ impl AdtRegistry {
         })
     }
 
-    fn constructor_for_core_type(
+    pub(crate) fn constructor_for_core_type(
         &self,
         segments: &[String],
         ty: &CoreType,
