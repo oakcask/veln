@@ -1,3 +1,4 @@
+#[derive(Clone)]
 enum VariantRefinementAliasTarget {
     Type(TypeSymbol),
     Alias(TypeAliasSymbol),
@@ -55,7 +56,7 @@ impl SymbolIndex {
             let terminal = match &base {
                 VariantRefinementBaseSymbol::Type(symbol) => Some(symbol.clone()),
                 VariantRefinementBaseSymbol::Alias(symbol) => {
-                    self.terminal_type_for_alias(symbol, &mut BTreeSet::new())
+                    self.terminal_type_for_alias(symbol)
                 }
             };
             let Some(terminal) = terminal else {
@@ -186,57 +187,90 @@ impl SymbolIndex {
     fn terminal_type_for_alias(
         &self,
         alias: &TypeAliasSymbol,
-        visited: &mut BTreeSet<(Option<String>, Option<PackageOrigin>, String, String)>,
     ) -> Option<TypeSymbol> {
-        let identity = (
-            alias.package.clone(),
-            alias.package_origin,
-            alias.module.clone(),
-            alias.name.clone(),
-        );
-        if !visited.insert(identity) {
-            return None;
+        let identity = type_alias_identity(alias);
+        let terminal = self
+            .variant_refinement_alias_index
+            .get_or_init(|| self.build_variant_refinement_alias_index())
+            .terminal_types
+            .get(&identity)
+            .cloned()
+            .flatten();
+        record_variant_refinement_alias_cache_reuse();
+        terminal
+    }
+
+    fn build_variant_refinement_alias_index(&self) -> VariantRefinementAliasIndex {
+        let mut declarations = BTreeMap::<TypeIdentity, Vec<VariantRefinementAliasTarget>>::new();
+        for symbol in &self.types {
+            record_variant_refinement_alias_index_entry();
+            declarations
+                .entry(type_symbol_identity(symbol))
+                .or_default()
+                .push(VariantRefinementAliasTarget::Type(symbol.clone()));
         }
-        let declaring_file = self.type_alias_declaring_file(alias)?;
-        match self.unique_type_alias_target(alias, declaring_file)? {
-            VariantRefinementAliasTarget::Type(symbol) => Some(symbol),
-            VariantRefinementAliasTarget::Alias(symbol) => {
-                self.terminal_type_for_alias(&symbol, visited)
+        let mut aliases = BTreeMap::<TypeIdentity, Vec<&TypeAliasSymbol>>::new();
+        for symbol in &self.type_aliases {
+            record_variant_refinement_alias_index_entry();
+            declarations
+                .entry(type_alias_identity(symbol))
+                .or_default()
+                .push(VariantRefinementAliasTarget::Alias(symbol.clone()));
+            aliases
+                .entry(type_alias_identity(symbol))
+                .or_default()
+                .push(symbol);
+        }
+
+        let mut targets = BTreeMap::<TypeIdentity, Option<VariantRefinementAliasTarget>>::new();
+        for (identity, candidates) in &aliases {
+            let target = match candidates.as_slice() {
+                [alias] => self.indexed_type_alias_target(alias, &declarations),
+                _ => None,
+            };
+            targets.insert(identity.clone(), target);
+        }
+
+        let mut terminal_types = BTreeMap::<TypeIdentity, Option<TypeSymbol>>::new();
+        for start in targets.keys() {
+            if terminal_types.contains_key(start) {
+                record_variant_refinement_alias_cache_reuse();
+                continue;
+            }
+            let mut trace = Vec::new();
+            let mut positions = BTreeMap::new();
+            let mut current = start.clone();
+            let terminal = loop {
+                if let Some(terminal) = terminal_types.get(&current) {
+                    record_variant_refinement_alias_cache_reuse();
+                    break terminal.clone();
+                }
+                if positions.insert(current.clone(), trace.len()).is_some() {
+                    break None;
+                }
+                trace.push(current.clone());
+                record_variant_refinement_alias_target_lookup();
+                match targets.get(&current).cloned().flatten() {
+                    Some(VariantRefinementAliasTarget::Type(symbol)) => break Some(symbol),
+                    Some(VariantRefinementAliasTarget::Alias(symbol)) => {
+                        current = type_alias_identity(&symbol);
+                    }
+                    None => break None,
+                }
+            };
+            for identity in trace {
+                terminal_types.insert(identity, terminal.clone());
             }
         }
+        VariantRefinementAliasIndex { terminal_types }
     }
 
-    fn type_alias_declaring_file(&self, alias: &TypeAliasSymbol) -> Option<&IndexedFile> {
-        self.files.iter().find(|file| {
-            file.source.path() == &alias.declaration.span.file
-                && match (&file.origin, alias.package.as_deref()) {
-                    (IndexedOrigin::Workspace, None) => true,
-                    (
-                        IndexedOrigin::Package {
-                            identity,
-                            standard_library,
-                            ..
-                        },
-                        Some(package),
-                    ) => {
-                        identity == package
-                            && alias.package_origin
-                                == Some(if *standard_library {
-                                    PackageOrigin::StandardLibrary
-                                } else {
-                                    PackageOrigin::DirectDependency
-                                })
-                    }
-                    _ => false,
-                }
-        })
-    }
-
-    fn unique_type_alias_target(
+    fn indexed_type_alias_target(
         &self,
         alias: &TypeAliasSymbol,
-        declaring_file: &IndexedFile,
+        declarations: &BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>,
     ) -> Option<VariantRefinementAliasTarget> {
+        let declaring_file = self.type_alias_declaring_file(alias)?;
         if alias.package.is_none() {
             let target = match alias.target_module.as_deref() {
                 Some(qualifier) => self.first_visible_type_namespace_for_qualified_reference(
@@ -266,29 +300,49 @@ impl SymbolIndex {
                 }
             },
         );
-        let package_matches = |package: &Option<String>, origin: Option<PackageOrigin>| {
-            package == &alias.package && origin == alias.package_origin
-        };
-        let matching_module = |module: &str| modules.iter().any(|candidate| candidate == module);
-        let types = self.types.iter().filter(|candidate| {
-            candidate.name == alias.target_name
-                && matching_module(&candidate.module)
-                && package_matches(&candidate.package, candidate.package_origin)
+        let mut candidates = modules.into_iter().flat_map(|module| {
+            declarations
+                .get(&(
+                    alias.package.clone(),
+                    alias.package_origin,
+                    module,
+                    alias.target_name.clone(),
+                ))
+                .into_iter()
+                .flatten()
+                .cloned()
         });
-        let aliases = self.type_aliases.iter().filter(|candidate| {
-            candidate.name == alias.target_name
-                && matching_module(&candidate.module)
-                && package_matches(&candidate.package, candidate.package_origin)
-        });
-        let mut candidates = types
-            .cloned()
-            .map(VariantRefinementAliasTarget::Type)
-            .chain(
-                aliases
-                    .cloned()
-                    .map(VariantRefinementAliasTarget::Alias),
-            );
         let candidate = candidates.next()?;
         candidates.next().is_none().then_some(candidate)
     }
+
+    fn type_alias_declaring_file(&self, alias: &TypeAliasSymbol) -> Option<&IndexedFile> {
+        let key = (
+            alias.package.clone(),
+            alias.package_origin,
+            alias.declaration.span.file.as_str().to_string(),
+        );
+        let [index] = self.file_indices_by_identity.get(&key)?.as_slice() else {
+            return None;
+        };
+        self.files.get(*index)
+    }
+}
+
+fn type_alias_identity(alias: &TypeAliasSymbol) -> TypeIdentity {
+    (
+        alias.package.clone(),
+        alias.package_origin,
+        alias.module.clone(),
+        alias.name.clone(),
+    )
+}
+
+fn type_symbol_identity(symbol: &TypeSymbol) -> TypeIdentity {
+    (
+        symbol.package.clone(),
+        symbol.package_origin,
+        symbol.module.clone(),
+        symbol.name.clone(),
+    )
 }

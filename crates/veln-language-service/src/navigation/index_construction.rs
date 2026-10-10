@@ -148,6 +148,7 @@ impl SymbolIndex {
             workspace_type_indices_by_module_and_name,
             workspace_type_alias_indices_by_module_and_name,
             package_type_alias_indices_by_module_and_name,
+            variant_refinement_alias_index: OnceLock::new(),
             eligible_workspace_effect_indices,
             eligible_workspace_effect_operation_indices,
             schema_composition_references,
@@ -278,7 +279,7 @@ fn index_workspace_input(
 
 fn file_indices_by_identity(
     files: &[IndexedFile],
-) -> HashMap<IndexedFileIdentity, usize> {
+) -> HashMap<IndexedFileIdentity, Vec<usize>> {
     let mut indices = HashMap::new();
     for (index, file) in files.iter().enumerate() {
         let (package, origin) = match &file.origin {
@@ -298,7 +299,8 @@ fn file_indices_by_identity(
         };
         indices
             .entry((package, origin, file.source.path().as_str().to_string()))
-            .or_insert(index);
+            .or_insert_with(Vec::new)
+            .push(index);
     }
     indices
 }

@@ -262,7 +262,7 @@ impl SymbolIndex {
         if alias.package.is_some() || constructor.package.is_some() {
             return false;
         }
-        self.terminal_type_for_alias(alias, &mut BTreeSet::new())
+        self.terminal_type_for_alias(alias)
             .is_some_and(|target| {
                 target.package.is_none()
                     && target.module == constructor.module
@@ -562,7 +562,12 @@ impl SymbolIndex {
         let declaring_file = self
             .file_indices_by_identity
             .get(&key)
-            .and_then(|index| self.files.get(*index));
+            .and_then(|indices| {
+                let [index] = indices.as_slice() else {
+                    return None;
+                };
+                self.files.get(*index)
+            });
         match declaring_file {
             None => None,
             Some(file) => {

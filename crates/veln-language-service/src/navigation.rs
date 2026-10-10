@@ -290,6 +290,9 @@ thread_local! {
     static VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_ALIAS_CACHE_REUSES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
@@ -977,6 +980,30 @@ fn record_variant_refinement_reference_token_visit() {
 }
 
 #[cfg(test)]
+fn record_variant_refinement_alias_index_entry() {
+    VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.set(VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_variant_refinement_alias_index_entry() {}
+
+#[cfg(test)]
+fn record_variant_refinement_alias_target_lookup() {
+    VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.set(VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_variant_refinement_alias_target_lookup() {}
+
+#[cfg(test)]
+fn record_variant_refinement_alias_cache_reuse() {
+    VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.set(VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_variant_refinement_alias_cache_reuse() {}
+
+#[cfg(test)]
 fn record_constructor_reference_role_lookup() {
     CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.set(CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.get() + 1);
 }
@@ -988,16 +1015,23 @@ pub(crate) fn reset_variant_refinement_navigation_work() {
     VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.set(0);
     VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS.set(0);
     CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.set(0);
+    VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.set(0);
+    VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.set(0);
+    VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.set(0);
 }
 
 #[cfg(test)]
-pub(crate) fn variant_refinement_navigation_work() -> (usize, usize, usize, usize, usize) {
+pub(crate) fn variant_refinement_navigation_work()
+-> (usize, usize, usize, usize, usize, usize, usize, usize) {
     (
         VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.get(),
         VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.get(),
         VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.get(),
         VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS.get(),
         CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.get(),
+        VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.get(),
+        VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.get(),
+        VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.get(),
     )
 }
 

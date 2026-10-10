@@ -1081,7 +1081,7 @@ pub(crate) struct SymbolIndex {
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
     function_indices_by_identity: HashMap<FunctionIdentity, Vec<usize>>,
-    file_indices_by_identity: HashMap<IndexedFileIdentity, usize>,
+    file_indices_by_identity: HashMap<IndexedFileIdentity, Vec<usize>>,
     package_function_targets: Vec<PackageFunctionTarget>,
     package_type_targets: Vec<PackageTypeTarget>,
     package_constructor_targets: Vec<PackageConstructorTarget>,
@@ -1095,6 +1095,7 @@ pub(crate) struct SymbolIndex {
     workspace_type_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
+    variant_refinement_alias_index: OnceLock<VariantRefinementAliasIndex>,
     eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
     eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,
     schema_composition_references: Vec<SchemaCompositionReference>,
@@ -1113,6 +1114,12 @@ type ConstructorIdentity = (
     String,
 );
 type IndexedFileIdentity = (Option<String>, Option<PackageOrigin>, String);
+type TypeIdentity = (Option<String>, Option<PackageOrigin>, String, String);
+
+#[derive(Debug)]
+struct VariantRefinementAliasIndex {
+    terminal_types: BTreeMap<TypeIdentity, Option<TypeSymbol>>,
+}
 
 #[derive(Debug)]
 struct FunctionRenameIndex {

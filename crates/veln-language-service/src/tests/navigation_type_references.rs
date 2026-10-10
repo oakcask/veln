@@ -457,7 +457,7 @@
         fn lookup_work(
             annotation_count: usize,
             rename: bool,
-        ) -> (usize, usize, usize, usize, usize) {
+        ) -> (usize, usize, usize, usize, usize, usize, usize, usize) {
             reset_variant_refinement_navigation_work();
             let mut text = String::from(
                 "type State\n  Ready(Int)\nend\npub type Alias = State\n\n",
@@ -509,6 +509,9 @@
                         && smaller.2 > 0
                         && smaller.3 > 0
                         && smaller.4 > 0
+                        && smaller.5 > 0
+                        && smaller.6 > 0
+                        && smaller.7 > 0
                 );
                 assert!(larger.0 > smaller.0);
                 assert!(larger.2 > smaller.2);
@@ -519,9 +522,182 @@
                 assert!(larger.2 <= smaller.2 * 2 + 16, "{smaller:?} -> {larger:?}");
                 assert!(larger.3 <= smaller.3 * 2 + 32, "{smaller:?} -> {larger:?}");
                 assert!(larger.4 <= smaller.4 * 2 + 16, "{smaller:?} -> {larger:?}");
+                assert_eq!(larger.5, smaller.5, "{smaller:?} -> {larger:?}");
+                assert_eq!(larger.6, smaller.6, "{smaller:?} -> {larger:?}");
+                assert!(larger.7 <= smaller.7 * 2 + 16, "{smaller:?} -> {larger:?}");
             }
             eprintln!("variant refinement navigation evidence rename={rename}: {evidence:?}");
         }
+    }
+
+    #[test]
+    fn workspace_variant_refinement_alias_depth_has_bounded_work_and_shared_results() {
+        fn depth_work(
+            depth: usize,
+        ) -> (usize, usize, usize, usize, usize, usize, usize, usize) {
+            reset_variant_refinement_navigation_work();
+            let mut text = String::from("type State\n  Ready(Int)\nend\n");
+            for index in 0..depth {
+                let target = if index == 0 {
+                    "State".to_string()
+                } else {
+                    format!("Alias{}", index - 1)
+                };
+                text.push_str(&format!("pub type Alias{index} = {target}\n"));
+            }
+            let alias = format!("Alias{}", depth - 1);
+            text.push_str(&format!(
+                "\nfn observe(value: {alias}::Ready | {alias}::Ready) -> State\n  let made = {alias}::Ready(1)\n  match made\n    {alias}::Ready(inner) => made\n  end\nend\n"
+            ));
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+            let position = || SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: depth + 5,
+                column: 21 + alias.len(),
+            };
+            let definition = definition_at(&snapshot, position()).unwrap();
+            assert_location(&definition, "main.veln", 2, 3);
+            let navigation = navigate(&snapshot, position()).unwrap();
+            assert_eq!(navigation.selected_symbol.kind, SymbolKind::Constructor);
+            assert_eq!(navigation.references.len(), 4);
+            let rename = navigate_for_rename(&snapshot, position()).unwrap();
+            assert!(validate_rename_in_snapshot(&snapshot, &rename, "Prepared").is_ok());
+            variant_refinement_navigation_work()
+        }
+
+        let mut evidence = Vec::new();
+        for depth in [64, 128, 256] {
+            let started = std::time::Instant::now();
+            evidence.push((depth, depth_work(depth), started.elapsed()));
+        }
+        for window in evidence.windows(2) {
+            let (_, smaller, _) = window[0];
+            let (_, larger, _) = window[1];
+            assert!(smaller.5 > 0 && smaller.6 > 0 && smaller.7 > 0);
+            assert!(larger.5 <= smaller.5 * 2 + 8, "{smaller:?} -> {larger:?}");
+            assert!(larger.6 <= smaller.6 * 2 + 8, "{smaller:?} -> {larger:?}");
+            assert!(larger.7 <= smaller.7 * 2 + 16, "{smaller:?} -> {larger:?}");
+        }
+        eprintln!("workspace variant-refinement alias depth evidence: {evidence:?}");
+    }
+
+    #[test]
+    fn retained_variant_refinement_alias_depth_is_iterative_and_namespace_aware() {
+        fn retained_snapshot(depth: usize) -> (EffectiveProjectSnapshot, usize) {
+            let boundaries = [depth / 4, depth / 2, depth * 3 / 4, depth];
+            let modules = ["core", "layer_a", "layer_b", "facade"];
+            let mut contents = [
+                String::from("mod core\n\npub type State\n  pub Ready(Int)\nend\n\n"),
+                String::from("mod layer_a\nuse core\n\n"),
+                String::from("mod layer_b\nuse layer_a\n\n"),
+                String::from("mod facade\nuse layer_b\n\n"),
+            ];
+            let mut start = 0;
+            for (part, end) in boundaries.into_iter().enumerate() {
+                for index in start..end {
+                    let target = if index == 0 {
+                        "State".to_string()
+                    } else if index == start {
+                        format!("{}::Alias{}", modules[part - 1], index - 1)
+                    } else {
+                        format!("Alias{}", index - 1)
+                    };
+                    contents[part].push_str(&format!("pub type Alias{index} = {target}\n"));
+                }
+                start = end;
+            }
+            let dependency = dependency_snapshot(
+                "example/dep",
+                &[
+                    ("core.veln", &contents[0]),
+                    ("layer_a.veln", &contents[1]),
+                    ("layer_b.veln", &contents[2]),
+                    ("facade.veln", &contents[3]),
+                ],
+                ["core.veln", "layer_a.veln", "layer_b.veln", "facade.veln"],
+            );
+            let alias = format!("Alias{}", depth - 1);
+            let base = format!("facade::{alias}");
+            let text = format!(
+                "use facade from \"example/dep\"\n\nfn observe(value: {base}::Ready | {base}::Ready) -> Int\n  0\nend\n"
+            );
+            (
+                EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![source("main.veln", &text)],
+                    vec![dependency],
+                ),
+                21 + base.len(),
+            )
+        }
+
+        fn depth_work(
+            depth: usize,
+        ) -> (usize, usize, usize, usize, usize, usize, usize, usize) {
+            reset_variant_refinement_navigation_work();
+            let (snapshot, column) = retained_snapshot(depth);
+            let position = || SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 3,
+                column,
+            };
+            let result = navigate(&snapshot, position()).unwrap_or_else(|| {
+                panic!(
+                    "retained depth {depth} did not resolve; base={:?} work={:?}",
+                    query_snapshot(&snapshot, "main.veln", 3, column - 9),
+                    variant_refinement_navigation_work()
+                )
+            });
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+            assert_eq!(result.selected_symbol.package_origin, Some(PackageOrigin::DirectDependency));
+            assert_eq!(result.references.len(), 2);
+            assert!(definition_at(&snapshot, position()).is_some());
+            assert!(navigate_for_rename(&snapshot, position()).is_some());
+            variant_refinement_navigation_work()
+        }
+
+        let mut evidence = Vec::new();
+        for depth in [64, 128, 256] {
+            let started = std::time::Instant::now();
+            evidence.push((depth, depth_work(depth), started.elapsed()));
+        }
+        for window in evidence.windows(2) {
+            let (_, smaller, _) = window[0];
+            let (_, larger, _) = window[1];
+            assert!(smaller.5 > 0 && smaller.6 > 0 && smaller.7 > 0);
+            assert!(larger.5 <= smaller.5 * 2 + 8, "{smaller:?} -> {larger:?}");
+            assert!(larger.6 <= smaller.6 * 2 + 8, "{smaller:?} -> {larger:?}");
+            assert!(larger.7 <= smaller.7 * 2 + 16, "{smaller:?} -> {larger:?}");
+        }
+        let started = std::time::Instant::now();
+        let deep = depth_work(2048);
+        let deep_elapsed = started.elapsed();
+        assert!(deep.6 <= 2056, "unexpected terminal work: {deep:?}");
+        eprintln!(
+            "retained variant-refinement alias depth evidence: {evidence:?}, deep=(2048, {deep:?}, {deep_elapsed:?})"
+        );
+    }
+
+    #[test]
+    fn variant_refinement_alias_cycles_cache_terminal_failure() {
+        reset_variant_refinement_navigation_work();
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "type State\n",
+                "  Ready(Int)\n",
+                "end\n",
+                "pub type A = B\n",
+                "pub type B = A\n\n",
+                "fn observe(first: A::Ready, second: B::Ready) -> Int\n",
+                "  0\n",
+                "end\n",
+            ),
+        )]);
+        assert!(query_snapshot(&snapshot, "main.veln", 7, 25).is_none());
+        assert!(query_snapshot(&snapshot, "main.veln", 7, 43).is_none());
+        let work = variant_refinement_navigation_work();
+        assert_eq!(work.6, 2, "each cyclic alias target is inspected once: {work:?}");
+        assert!(work.7 >= 2, "cycle failures should be reused: {work:?}");
     }
 
     #[test]
