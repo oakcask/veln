@@ -826,11 +826,14 @@ rejected nested widening and generic argument mismatch are checked in its
 `-diagnostics` companion.
 
 Variant-refinement semantic-token classifications are specified in
-[editor-support.md](editor-support.md#token-classes). Public/private exposure
-paths, qualified-value control-flow refinement, schema boundaries,
-package-documentation catalog signatures, remaining LSP diagnostics,
-navigation, rename, and recovery, and remaining MCP integration remain
-proposal work.
+[editor-support.md](editor-support.md#token-classes), and its navigation and
+rename behavior is specified by
+[editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
+[MCP](mcp.md#saved-workspace-navigation). Public/private exposure paths,
+qualified-value control-flow refinement, schema boundaries,
+package-documentation catalog signatures, remaining LSP diagnostics and
+recovery, and remaining MCP diagnostics, package-signature, and saved-state
+behavior remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
