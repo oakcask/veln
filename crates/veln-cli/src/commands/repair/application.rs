@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use veln_analysis::{DoctestMode, checked_project_diagnostics};
+use veln_diagnostics::Diagnostic;
 use veln_project::Project;
 
 use crate::diagnostics::has_error;
@@ -10,8 +11,10 @@ use super::candidates::{
     CandidateIdMatch, RepairCandidate, find_candidate_by_id, has_current_applicable_match,
     safe_unapplied_candidates,
 };
-use super::editing::build_edit_plan;
-use super::outcome::{RepairConfirmation, RepairOutcome, RepairOverride, Verification};
+use super::editing::{EditPlan, build_edit_plan};
+use super::outcome::{
+    AppliedEdit, RepairConfirmation, RepairOutcome, RepairOverride, Verification,
+};
 use super::{
     APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED, APPLICATION_STATUS_UNAPPLIED,
     REFUSAL_CANDIDATE_NOT_AUTOMATIC, REFUSAL_MULTIPLE_SAFE_CANDIDATES, REFUSAL_NO_SAFE_CANDIDATES,
@@ -59,56 +62,91 @@ pub(super) fn apply_candidate(
         Ok(edit_plan) => edit_plan,
         Err(reason) => return Ok(RepairOutcome::refused(candidates, Some(selected), reason)),
     };
+    write_repaired_files(&edit_plan)?;
+
+    let verification_diagnostics = verify_repair(project.root, &inputs)?;
+    if has_error(&verification_diagnostics) {
+        restore_original_files(&edit_plan)?;
+        return Ok(verification_refusal(
+            candidates,
+            selected,
+            verification_diagnostics,
+        ));
+    }
+
+    Ok(applied_outcome(
+        candidates,
+        selected,
+        edit_plan.applied_edits,
+        options,
+        verification_diagnostics,
+    ))
+}
+
+fn write_repaired_files(edit_plan: &EditPlan) -> Result<(), String> {
     for file_edit in &edit_plan.files {
         fs::write(&file_edit.path, &file_edit.repaired).map_err(|error| error.to_string())?;
     }
+    Ok(())
+}
 
-    let verify_project =
-        Project::discover(project.root.clone(), &inputs).map_err(|error| error.to_string())?;
-    let verification_diagnostics =
-        checked_project_diagnostics(verify_project, DoctestMode::Include);
-    if has_error(&verification_diagnostics) {
-        for file_edit in &edit_plan.files {
-            fs::write(&file_edit.path, &file_edit.original).map_err(|error| error.to_string())?;
-        }
-        let mut outcome =
-            RepairOutcome::refused(candidates, Some(selected), REFUSAL_VERIFICATION_FAILED);
-        outcome.verification = Verification {
-            status: VERIFICATION_STATUS_FAILED,
-            command: outcome
-                .selected
-                .as_ref()
-                .and_then(|candidate| candidate.verification_command.clone()),
-            diagnostics: verification_diagnostics,
-        };
-        return Ok(outcome);
+fn restore_original_files(edit_plan: &EditPlan) -> Result<(), String> {
+    for file_edit in &edit_plan.files {
+        fs::write(&file_edit.path, &file_edit.original).map_err(|error| error.to_string())?;
     }
+    Ok(())
+}
 
-    Ok(RepairOutcome {
+fn verify_repair(project_root: PathBuf, inputs: &[PathBuf]) -> Result<Vec<Diagnostic>, String> {
+    let project = Project::discover(project_root, inputs).map_err(|error| error.to_string())?;
+    Ok(checked_project_diagnostics(project, DoctestMode::Include))
+}
+
+fn verification_refusal(
+    candidates: Vec<RepairCandidate>,
+    selected: RepairCandidate,
+    diagnostics: Vec<Diagnostic>,
+) -> RepairOutcome {
+    let verification_command = selected.verification_command.clone();
+    let mut outcome =
+        RepairOutcome::refused(candidates, Some(selected), REFUSAL_VERIFICATION_FAILED);
+    outcome.verification = Verification {
+        status: VERIFICATION_STATUS_FAILED,
+        command: verification_command,
+        diagnostics,
+    };
+    outcome
+}
+
+fn applied_outcome(
+    candidates: Vec<RepairCandidate>,
+    selected: RepairCandidate,
+    applied_edits: Vec<AppliedEdit>,
+    options: RepairApplyOptions,
+    diagnostics: Vec<Diagnostic>,
+) -> RepairOutcome {
+    let RepairApplyOptions {
+        confirmed_candidate_id,
+        override_requested,
+        ..
+    } = options;
+    RepairOutcome {
         mode: REPAIR_MODE_APPLY,
         status: REPAIR_STATUS_APPLIED,
         candidates,
         selected: Some(selected.clone()),
-        applied_edits: edit_plan.applied_edits,
+        applied_edits,
         verification: Verification {
             status: VERIFICATION_STATUS_PASSED,
             command: selected.verification_command.clone(),
-            diagnostics: verification_diagnostics,
+            diagnostics,
         },
-        confirmation: options
-            .confirmed_candidate_id
-            .map(|confirmed_candidate_id| {
-                RepairConfirmation::new(
-                    confirmed_candidate_id,
-                    &selected,
-                    options.override_requested,
-                )
-            }),
-        override_record: options
-            .override_requested
-            .then(|| RepairOverride::from_candidate(&selected)),
+        confirmation: confirmed_candidate_id.map(|confirmed_candidate_id| {
+            RepairConfirmation::new(confirmed_candidate_id, &selected, override_requested)
+        }),
+        override_record: override_requested.then(|| RepairOverride::from_candidate(&selected)),
         refusal_reason: None,
-    })
+    }
 }
 
 fn select_candidate_for_apply(
