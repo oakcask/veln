@@ -663,7 +663,12 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let definition = server.handle_message(&definition_request(&main_uri, 7, 26));
+    assert_variant_refinement_constructor_navigation(&mut server, &main_uri);
+    assert_variant_refinement_alias_rename(&mut server, &main_uri);
+}
+
+fn assert_variant_refinement_constructor_navigation(server: &mut Server, main_uri: &str) {
+    let definition = server.handle_message(&definition_request(main_uri, 7, 26));
     assert!(
         definition[0].contains(
             r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#
@@ -671,9 +676,9 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
         "{}",
         definition[0]
     );
-    let references = server.handle_message(&references_request(&main_uri, 7, 26));
+    let references = server.handle_message(&references_request(main_uri, 7, 26));
     assert_eq!(references[0].matches(r#""start""#).count(), 5, "{}", references[0]);
-    let prepared = server.handle_message(&prepare_rename_request(&main_uri, 7, 47));
+    let prepared = server.handle_message(&prepare_rename_request(main_uri, 7, 47));
     assert!(
         prepared[0].contains(
             r#""start":{"line":7,"character":46},"end":{"line":7,"character":51}"#
@@ -681,10 +686,12 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
         "{}",
         prepared[0]
     );
-    let renamed = server.handle_message(&rename_request(&main_uri, 7, 47, "Prepared"));
+    let renamed = server.handle_message(&rename_request(main_uri, 7, 47, "Prepared"));
     assert_eq!(renamed[0].matches(r#""newText":"Prepared""#).count(), 5, "{}", renamed[0]);
+}
 
-    let alias_prepared = server.handle_message(&prepare_rename_request(&main_uri, 7, 40));
+fn assert_variant_refinement_alias_rename(server: &mut Server, main_uri: &str) {
+    let alias_prepared = server.handle_message(&prepare_rename_request(main_uri, 7, 40));
     assert!(
         alias_prepared[0].contains(
             r#""start":{"line":7,"character":39},"end":{"line":7,"character":44}"#
@@ -692,7 +699,7 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
         "{}",
         alias_prepared[0]
     );
-    let alias_renamed = server.handle_message(&rename_request(&main_uri, 7, 40, "Phase"));
+    let alias_renamed = server.handle_message(&rename_request(main_uri, 7, 40, "Phase"));
     assert_eq!(
         alias_renamed[0].matches(r#""newText":"Phase""#).count(),
         3,
