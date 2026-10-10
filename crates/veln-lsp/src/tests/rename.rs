@@ -751,30 +751,17 @@ fn variant_refinement_navigation_rejects_wrong_generic_arity() {
     ] {
         for needle in [base, "Boxed"] {
             let (line, character) = position(line_text, needle);
-            let definition =
-                server.handle_message(&definition_request(&main_uri, line, character));
-            assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
-            let references =
-                server.handle_message(&references_request(&main_uri, line, character));
-            assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);
-            let prepared =
-                server.handle_message(&prepare_rename_request(&main_uri, line, character));
-            assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
-            let renamed =
-                server.handle_message(&rename_request(&main_uri, line, character, "Packed"));
-            assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+            assert_refinement_navigation_unavailable(
+                &mut server,
+                &main_uri,
+                line,
+                character,
+            );
         }
     }
 
     let (line, character) = position("fn valid(", "Boxed");
-    let definition = server.handle_message(&definition_request(&main_uri, line, character));
-    assert!(!definition[0].contains(r#""result":null"#), "{}", definition[0]);
-    let references = server.handle_message(&references_request(&main_uri, line, character));
-    assert_eq!(references[0].matches(r#""start""#).count(), 4, "{}", references[0]);
-    let prepared = server.handle_message(&prepare_rename_request(&main_uri, line, character));
-    assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
-    let renamed = server.handle_message(&rename_request(&main_uri, line, character, "Packed"));
-    assert_eq!(renamed[0].matches(r#""newText":"Packed""#).count(), 4, "{}", renamed[0]);
+    assert_refinement_navigation_available(&mut server, &main_uri, line, character, 4);
 }
 
 #[test]
@@ -812,16 +799,7 @@ fn variant_refinement_navigation_rejects_invalid_union_identity() {
         ("different_args", "Empty"),
     ] {
         let (line, character) = position(line_text, needle);
-        let definition = server.handle_message(&definition_request(&main_uri, line, character));
-        assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
-        let references = server.handle_message(&references_request(&main_uri, line, character));
-        assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);
-        let prepared =
-            server.handle_message(&prepare_rename_request(&main_uri, line, character));
-        assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
-        let renamed =
-            server.handle_message(&rename_request(&main_uri, line, character, "Renamed"));
-        assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+        assert_refinement_navigation_unavailable(&mut server, &main_uri, line, character);
     }
 }
 
@@ -859,22 +837,17 @@ fn variant_refinement_navigation_rejects_unresolved_generic_arguments() {
     ] {
         for needle in [base, "Boxed"] {
             let (line, character) = position(line_text, needle);
-            let definition = server.handle_message(&definition_request(&main_uri, line, character));
-            assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
-            let references = server.handle_message(&references_request(&main_uri, line, character));
-            assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);
-            let prepared = server.handle_message(&prepare_rename_request(&main_uri, line, character));
-            assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
-            let renamed = server.handle_message(&rename_request(&main_uri, line, character, "Packed"));
-            assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+            assert_refinement_navigation_unavailable(
+                &mut server,
+                &main_uri,
+                line,
+                character,
+            );
         }
     }
 
     let (line, character) = position("fn valid(", "Boxed");
-    let references = server.handle_message(&references_request(&main_uri, line, character));
-    assert_eq!(references[0].matches(r#""start""#).count(), 2, "{}", references[0]);
-    let renamed = server.handle_message(&rename_request(&main_uri, line, character, "Packed"));
-    assert_eq!(renamed[0].matches(r#""newText":"Packed""#).count(), 2, "{}", renamed[0]);
+    assert_refinement_navigation_available(&mut server, &main_uri, line, character, 2);
 }
 
 #[test]
@@ -1017,6 +990,49 @@ fn assert_definition_contains(
 ) {
     let response = server.handle_message(&definition_request(uri, line, character));
     assert!(response[0].contains(expected_range), "{}", response[0]);
+}
+
+fn assert_refinement_navigation_unavailable(
+    server: &mut Server,
+    uri: &str,
+    line: usize,
+    character: usize,
+) {
+    let definition = server.handle_message(&definition_request(uri, line, character));
+    assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
+    let references = server.handle_message(&references_request(uri, line, character));
+    assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);
+    let prepared = server.handle_message(&prepare_rename_request(uri, line, character));
+    assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+    let renamed = server.handle_message(&rename_request(uri, line, character, "Packed"));
+    assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+}
+
+fn assert_refinement_navigation_available(
+    server: &mut Server,
+    uri: &str,
+    line: usize,
+    character: usize,
+    expected_occurrences: usize,
+) {
+    let definition = server.handle_message(&definition_request(uri, line, character));
+    assert!(!definition[0].contains(r#""result":null"#), "{}", definition[0]);
+    let references = server.handle_message(&references_request(uri, line, character));
+    assert_eq!(
+        references[0].matches(r#""start""#).count(),
+        expected_occurrences,
+        "{}",
+        references[0]
+    );
+    let prepared = server.handle_message(&prepare_rename_request(uri, line, character));
+    assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+    let renamed = server.handle_message(&rename_request(uri, line, character, "Packed"));
+    assert_eq!(
+        renamed[0].matches(r#""newText":"Packed""#).count(),
+        expected_occurrences,
+        "{}",
+        renamed[0]
+    );
 }
 
 fn assert_variant_refinement_constructor_navigation(server: &mut Server, main_uri: &str) {

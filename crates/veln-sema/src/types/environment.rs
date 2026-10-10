@@ -269,79 +269,132 @@ impl TypeEnvironment {
     ) -> bool {
         match ty {
             Type::Unknown => false,
-            Type::Named { name, args, .. } => {
-                args.iter().all(|arg| {
-                    self.type_annotation_is_fully_resolved(arg, current_module, type_parameters)
-                }) && (args.is_empty() && type_parameters.iter().any(|parameter| parameter == name)
-                    || crate::type_syntax::builtin_type_syntax_arity(name)
-                        .is_some_and(|arity| arity == args.len())
-                    || self
-                        .adts
-                        .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
-                        .is_some()
-                    || self.is_variant_refinement_candidate(ty, current_module)
-                        && self.canonicalize_type_annotation(ty.clone(), current_module)
-                            != Type::Unknown)
-            }
+            Type::Named { name, args, .. } => self.named_type_annotation_is_fully_resolved(
+                ty,
+                name,
+                args,
+                current_module,
+                type_parameters,
+            ),
             Type::VariantRefinement {
                 name,
                 args,
                 unresolved_alternatives,
                 ..
-            } => {
-                self.variant_refinement_annotation_error(ty, current_module)
-                    .is_none()
-                    && self
-                        .adts
-                        .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
-                        .is_some()
-                    && args.iter().all(|arg| {
-                        self.type_annotation_is_fully_resolved(arg, current_module, type_parameters)
-                    })
-                    && unresolved_alternatives.iter().all(
-                        |(alternative_name, alternative_args, _)| {
-                            self.adts
-                                .descriptor_for_type_path(
-                                    alternative_name,
-                                    alternative_args.len(),
-                                    current_module,
-                                    &self.uses,
-                                )
-                                .is_some()
-                                && alternative_args.iter().all(|arg| {
-                                    self.type_annotation_is_fully_resolved(
-                                        arg,
-                                        current_module,
-                                        type_parameters,
-                                    )
-                                })
-                        },
-                    )
-            }
-            Type::Record(fields) => fields.iter().all(|(_, field)| {
-                self.type_annotation_is_fully_resolved(field, current_module, type_parameters)
-            }),
+            } => self.variant_refinement_is_fully_resolved(
+                ty,
+                name,
+                args,
+                unresolved_alternatives,
+                current_module,
+                type_parameters,
+            ),
+            Type::Record(fields) => self.type_annotations_are_fully_resolved(
+                fields.iter().map(|(_, field)| field),
+                current_module,
+                type_parameters,
+            ),
             Type::Function {
                 params,
                 variadic,
                 return_type,
                 ..
-            } => {
-                params.iter().all(|param| {
-                    self.type_annotation_is_fully_resolved(param, current_module, type_parameters)
-                }) && variadic.as_deref().is_none_or(|variadic| {
-                    self.type_annotation_is_fully_resolved(
-                        variadic,
+            } => self.function_type_annotation_is_fully_resolved(
+                params,
+                variadic.as_deref(),
+                return_type,
+                current_module,
+                type_parameters,
+            ),
+        }
+    }
+
+    fn named_type_annotation_is_fully_resolved(
+        &self,
+        ty: &Type,
+        name: &str,
+        args: &[Type],
+        current_module: Option<&str>,
+        type_parameters: &[String],
+    ) -> bool {
+        self.type_annotations_are_fully_resolved(args, current_module, type_parameters)
+            && (args.is_empty() && type_parameters.iter().any(|parameter| parameter == name)
+                || crate::type_syntax::builtin_type_syntax_arity(name)
+                    .is_some_and(|arity| arity == args.len())
+                || self
+                    .adts
+                    .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
+                    .is_some()
+                || self.is_variant_refinement_candidate(ty, current_module)
+                    && self.canonicalize_type_annotation(ty.clone(), current_module)
+                        != Type::Unknown)
+    }
+
+    fn variant_refinement_is_fully_resolved(
+        &self,
+        ty: &Type,
+        name: &str,
+        args: &[Type],
+        unresolved_alternatives: &[(String, Vec<Type>, String)],
+        current_module: Option<&str>,
+        type_parameters: &[String],
+    ) -> bool {
+        self.variant_refinement_annotation_error(ty, current_module)
+            .is_none()
+            && self
+                .adts
+                .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
+                .is_some()
+            && self.type_annotations_are_fully_resolved(args, current_module, type_parameters)
+            && unresolved_alternatives
+                .iter()
+                .all(|(alternative_name, alternative_args, _)| {
+                    self.variant_refinement_alternative_is_fully_resolved(
+                        alternative_name,
+                        alternative_args,
                         current_module,
                         type_parameters,
                     )
-                }) && self.type_annotation_is_fully_resolved(
-                    return_type,
-                    current_module,
-                    type_parameters,
-                )
-            }
-        }
+                })
+    }
+
+    fn variant_refinement_alternative_is_fully_resolved(
+        &self,
+        name: &str,
+        args: &[Type],
+        current_module: Option<&str>,
+        type_parameters: &[String],
+    ) -> bool {
+        self.adts
+            .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
+            .is_some()
+            && self.type_annotations_are_fully_resolved(args, current_module, type_parameters)
+    }
+
+    fn function_type_annotation_is_fully_resolved(
+        &self,
+        params: &[Type],
+        variadic: Option<&Type>,
+        return_type: &Type,
+        current_module: Option<&str>,
+        type_parameters: &[String],
+    ) -> bool {
+        self.type_annotations_are_fully_resolved(params, current_module, type_parameters)
+            && variadic.is_none_or(|variadic| {
+                self.type_annotation_is_fully_resolved(variadic, current_module, type_parameters)
+            })
+            && self.type_annotation_is_fully_resolved(return_type, current_module, type_parameters)
+    }
+
+    fn type_annotations_are_fully_resolved<'a>(
+        &self,
+        types: impl IntoIterator<Item = &'a Type>,
+        current_module: Option<&str>,
+        type_parameters: &[String],
+    ) -> bool {
+        types
+            .into_iter()
+            .all(|ty| self.type_annotation_is_fully_resolved(ty, current_module, type_parameters))
     }
 
     fn variant_refinement_annotation_error_with_canonical(
