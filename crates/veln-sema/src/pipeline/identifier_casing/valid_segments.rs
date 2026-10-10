@@ -214,13 +214,7 @@ fn collect_variant_refinement_segments(
                     .constructor(&segments, current_module, &environment.uses),
                 crate::adt::registry::ConstructorLookup::Found(_)
             ) {
-                push_constructor_path_segments(
-                    &segments,
-                    &spans,
-                    current_module,
-                    environment,
-                    output,
-                );
+                push_variant_refinement_path_segments(&segments, &spans, output);
             } else if environment
                 .adts
                 .descriptor_for_type_path(
@@ -258,6 +252,29 @@ fn collect_variant_refinement_segments(
                 );
             }
         }
+    }
+}
+
+fn push_variant_refinement_path_segments(
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    output: &mut Vec<QualifiedPathSegment>,
+) {
+    for (index, (segment, span)) in segments.iter().zip(segment_spans).enumerate() {
+        let role = if index + 1 == segments.len() {
+            NameClass::Constructor
+        } else if index + 2 == segments.len() {
+            NameClass::Type
+        } else {
+            NameClass::Module
+        };
+        output.push(qualified_path_segment_from_parts(
+            segment,
+            role,
+            span,
+            index,
+            QualifiedPathSegmentEvidence::Resolved,
+        ));
     }
 }
 
@@ -632,61 +649,5 @@ pub fn classified_project_qualified_path_segments_with_context(
     project: &SurfaceModule,
 ) -> Vec<QualifiedPathSegment> {
     let environment = TypeEnvironment::for_path_classification(project);
-    let refinement_locations = variant_refinement_segment_locations(module, &environment);
-    let mut segments = classified_qualified_path_segments_for_navigation(module, &environment);
-    segments.retain(|segment| {
-        !refinement_locations.contains(&(
-            segment.span.file.as_str().to_string(),
-            segment.span.start.offset,
-            segment.span.end.offset,
-            segment.segment_index,
-        ))
-    });
-    segments
-}
-
-fn variant_refinement_segment_locations(
-    module: &SurfaceModule,
-    environment: &TypeEnvironment,
-) -> BTreeSet<(String, usize, usize, usize)> {
-    let mut ordinary_counts = BTreeMap::<_, usize>::new();
-    for segment in valid_qualified_path_segments(module, environment, false) {
-        *ordinary_counts
-            .entry(classified_segment_key(&segment))
-            .or_default() += 1;
-    }
-    let mut locations = BTreeSet::new();
-    for segment in valid_qualified_path_segments(module, environment, true) {
-        let key = classified_segment_key(&segment);
-        if let Some(count) = ordinary_counts.get_mut(&key)
-            && *count > 0
-        {
-            *count -= 1;
-            continue;
-        }
-        locations.insert((
-            segment.span.file.as_str().to_string(),
-            segment.span.start.offset,
-            segment.span.end.offset,
-            segment.segment_index,
-        ));
-    }
-    locations
-}
-
-fn classified_segment_key(
-    segment: &QualifiedPathSegment,
-) -> (String, usize, usize, usize, &'static str, u8) {
-    (
-        segment.span.file.as_str().to_string(),
-        segment.span.start.offset,
-        segment.span.end.offset,
-        segment.segment_index,
-        segment.role.as_str(),
-        match segment.evidence {
-            QualifiedPathSegmentEvidence::Syntax => 0,
-            QualifiedPathSegmentEvidence::Resolved => 1,
-            QualifiedPathSegmentEvidence::UniqueRecovery => 2,
-        },
-    )
+    classified_qualified_path_segments_for_navigation(module, &environment)
 }

@@ -641,6 +641,51 @@ fn constructor_rename_covers_bare_nullary_expression_and_pattern() {
 }
 
 #[test]
+fn variant_refinement_constructor_navigation_projects_shared_edits() {
+    let mut server = Server::default();
+    let project = TempProject::new("variant-refinement-constructor-navigation");
+    let source = concat!(
+        "pub type State\n",
+        "  pub Ready(Int)\n",
+        "  pub Closed\n",
+        "end\n\n",
+        "pub type Alias = State\n\n",
+        "fn use(value: State::Ready, other: Alias::Ready | Alias::Closed) -> State\n",
+        "  let made = State::Ready(1)\n",
+        "  match value\n",
+        "    State::Ready(payload) => made\n",
+        "    State::Closed => made\n",
+        "  end\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let definition = server.handle_message(&definition_request(&main_uri, 7, 22));
+    assert!(
+        definition[0].contains(
+            r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#
+        ),
+        "{}",
+        definition[0]
+    );
+    let references = server.handle_message(&references_request(&main_uri, 7, 22));
+    assert_eq!(references[0].matches(r#""start""#).count(), 5, "{}", references[0]);
+    let prepared = server.handle_message(&prepare_rename_request(&main_uri, 7, 43));
+    assert!(
+        prepared[0].contains(
+            r#""start":{"line":7,"character":42},"end":{"line":7,"character":47}"#
+        ),
+        "{}",
+        prepared[0]
+    );
+    let renamed = server.handle_message(&rename_request(&main_uri, 7, 43, "Prepared"));
+    assert_eq!(renamed[0].matches(r#""newText":"Prepared""#).count(), 5, "{}", renamed[0]);
+}
+
+#[test]
 fn rename_rejects_class_changing_replacements_for_cased_symbols() {
     let mut server = Server::default();
     let project = TempProject::new("rename-cased-symbol-invalid-case");

@@ -463,6 +463,17 @@ declarations, mismatched imports, unsupported symbols, and package module
 segments return an empty definition. A public constructor selected through a
 visible type alias returns the constructor declaration, not the alias
 declaration. Definition exposes a recovery record's retained source range.
+Valid singleton and union variant-refinement annotations use the same shared
+identities as LSP navigation. A direct base segment selects the ADT
+declaration, while an alias-qualified base segment selects the written public
+type-alias declaration. A final variant segment selects its resolved
+constructor. References for that constructor combine its declaration,
+constructor expressions, constructor patterns, and direct and alias-qualified
+refinement occurrences, while excluding same-spelled variants from other
+ADTs. Rename applies the shared constructor casing and conflict rules and
+returns edits for all of those occurrences without changing the alias base.
+MCP projects the shared ranges to positive one-based Unicode-scalar
+coordinates; it does not resolve the refinement independently.
 
 ### Source presentation
 

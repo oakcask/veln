@@ -29,6 +29,73 @@ fn qualifier_for_token(tokens: &[Token], name_index: usize) -> Option<String> {
     Some(segments.join("::"))
 }
 
+fn variant_refinement_qualifier_for_token(tokens: &[Token], name_index: usize) -> Option<String> {
+    let separator_index = previous_non_layout_index(tokens, name_index)?;
+    if tokens[separator_index].kind != TokenKind::DoubleColon {
+        return None;
+    }
+    let mut segment_index = previous_non_layout_index(tokens, separator_index)?;
+    if tokens[segment_index].kind == TokenKind::Greater {
+        let mut depth = 1usize;
+        while depth > 0 {
+            segment_index = previous_non_layout_index(tokens, segment_index)?;
+            match tokens[segment_index].kind {
+                TokenKind::Greater => depth += 1,
+                TokenKind::Less => depth -= 1,
+                _ => {}
+            }
+        }
+        segment_index = previous_non_layout_index(tokens, segment_index)?;
+    }
+    if !tokens[segment_index].kind.is_contextual_identifier()
+        || !is_identifier(&tokens[segment_index].text)
+    {
+        return None;
+    }
+    let mut segments = vec![tokens[segment_index].text.as_str()];
+    let mut cursor = segment_index;
+    while let Some(previous_separator) = previous_non_layout_index(tokens, cursor) {
+        if tokens[previous_separator].kind != TokenKind::DoubleColon {
+            break;
+        }
+        let Some(previous_segment) = previous_non_layout_index(tokens, previous_separator) else {
+            break;
+        };
+        if !tokens[previous_segment].kind.is_contextual_identifier()
+            || !is_identifier(&tokens[previous_segment].text)
+        {
+            break;
+        }
+        segments.push(tokens[previous_segment].text.as_str());
+        cursor = previous_segment;
+    }
+    segments.reverse();
+    Some(segments.join("::"))
+}
+
+fn variant_refinement_variant_index(tokens: &[Token], base_index: usize) -> Option<usize> {
+    let mut cursor = next_non_layout_index(tokens, base_index)?;
+    if tokens[cursor].kind == TokenKind::Less {
+        let mut depth = 1usize;
+        while depth > 0 {
+            cursor = next_non_layout_index(tokens, cursor)?;
+            match tokens[cursor].kind {
+                TokenKind::Less => depth += 1,
+                TokenKind::Greater => depth -= 1,
+                _ => {}
+            }
+        }
+        cursor = next_non_layout_index(tokens, cursor)?;
+    }
+    if tokens[cursor].kind != TokenKind::DoubleColon {
+        return None;
+    }
+    let variant_index = next_non_layout_index(tokens, cursor)?;
+    (tokens[variant_index].kind.is_contextual_identifier()
+        && is_identifier(&tokens[variant_index].text))
+    .then_some(variant_index)
+}
+
 fn qualified_reference_matches(
     tokens: &[Token],
     name_index: usize,

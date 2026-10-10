@@ -873,6 +873,12 @@ struct GenericEffectBinder {
 }
 
 impl IndexedFile {
+    fn token_has_classified_role(&self, token: &Token, role: NameClass) -> bool {
+        self.classified_path_segments.iter().any(|segment| {
+            segment.role == role && same_span(&segment.span, &self.source.span(token.range))
+        })
+    }
+
     fn inside_handler_operation_clause_body(&self, offset: usize) -> bool {
         #[cfg(test)]
         record_handler_clause_body_membership_lookup();

@@ -261,6 +261,21 @@ ranges.
 Definition and references use the shared selected symbol and reference set.
 Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
+For a valid singleton or union variant-refinement annotation, the written base
+and final variant remain separate navigation identities. A direct base segment
+selects its ADT declaration. An alias base segment selects the written public
+type-alias declaration. The final variant segment selects the constructor of
+the resolved target ADT. Its references include the constructor declaration,
+constructor expressions, constructor patterns, and every direct or
+alias-qualified refinement occurrence for that constructor. A same-spelled
+variant owned by another ADT is not in the set.
+
+Prepare-rename and rename on a refinement variant use that constructor
+identity. A successful rename changes its declaration, expressions, patterns,
+and singleton and union refinement occurrences in one workspace edit. The
+existing constructor casing and conflict rules apply. The base alias is not
+renamed with the constructor. The checked LSP case is
+[`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/).
 Completion, signature-help, and navigation requests convert zero-based UTF-16
 LSP characters to shared one-based Unicode-scalar positions. Navigation
 responses convert shared ranges back to zero-based UTF-16 LSP ranges using the

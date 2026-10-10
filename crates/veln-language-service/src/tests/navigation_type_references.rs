@@ -89,6 +89,65 @@
     }
 
     #[test]
+    fn valid_variant_refinements_share_base_and_constructor_navigation() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "pub type State\n",
+                "  pub Ready(Int)\n",
+                "  pub Closed\n",
+                "end\n\n",
+                "pub type Other\n",
+                "  pub Ready\n",
+                "end\n\n",
+                "pub type PublicState = State\n\n",
+                "fn observe(direct: State::Ready, alias: PublicState::Ready | PublicState::Closed) -> Int\n",
+                "  let made = State::Ready(1)\n",
+                "  match direct\n",
+                "    State::Ready(value) => value\n",
+                "    State::Closed => 0\n",
+                "  end\n",
+                "end\n\n",
+                "fn other(value: Other::Ready) -> Other\n",
+                "  Other::Ready\n",
+                "end\n",
+            ),
+        )];
+
+        let parsed = veln_syntax::parse(&sources[0]);
+        assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+        let snapshot = EffectiveProjectSnapshot::new(sources.clone());
+        let direct_base = query_snapshot(&snapshot, "main.veln", 12, 21).unwrap();
+        assert_eq!(direct_base.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&direct_base.definition, "main.veln", 1, 10);
+
+        let alias_base = query(sources.clone(), "main.veln", 12, 41).unwrap();
+        assert_eq!(alias_base.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            alias_base.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_location(&alias_base.definition, "main.veln", 10, 10);
+
+        let singleton_variant = query(sources.clone(), "main.veln", 12, 28).unwrap();
+        let union_variant = query(sources.clone(), "main.veln", 12, 54).unwrap();
+        for result in [&singleton_variant, &union_variant] {
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+            assert_location(&result.definition, "main.veln", 2, 7);
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("main.veln", 12, 27),
+                    ("main.veln", 12, 54),
+                    ("main.veln", 13, 21),
+                    ("main.veln", 15, 12),
+                ]
+            );
+            assert!(validate_rename(result, "Prepared").is_ok());
+        }
+    }
+
+    #[test]
     fn imported_constructor_qualified_type_segments_share_navigation() {
         let sources = vec![
             source("helper.veln", "pub type Entry\n  pub Some(Int)\nend\n"),

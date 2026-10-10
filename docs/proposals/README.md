@@ -27,12 +27,12 @@ also states it.
 - Legacy compiler-known network compatibility removal after checked sources
   migrate to the exported standard module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
-- Remaining ADT variant-refinement support for alias navigation and
-  visibility, qualified immutable values after a separate source-surface
+- Remaining ADT variant-refinement support for alias visibility, qualified
+  immutable values after a separate source-surface
   prerequisite, base diagnostics that do not require a missing-descriptor
   provider, schema boundaries, package-documentation catalog signatures,
-  remaining LSP diagnostics, navigation, rename, and recovery, and remaining
-  MCP diagnostics, navigation, rename, package-signature, and saved-state
+  remaining LSP diagnostics and recovery, and remaining MCP diagnostics,
+  package-signature, and saved-state
   behavior. The provider-dependent base reason requires a separate production
   provider contract before selection:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).

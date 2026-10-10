@@ -95,7 +95,7 @@ fn classified_qualified_path_segments_for_navigation(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<QualifiedPathSegment> {
-    classified_qualified_path_segments_with_refinements(module, environment, false)
+    classified_qualified_path_segments_with_refinements(module, environment, true)
 }
 
 fn classified_qualified_path_segments_with_refinements(

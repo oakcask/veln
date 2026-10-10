@@ -862,7 +862,8 @@ impl SymbolIndex {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
                             && !same_span(&file.source.span(token.range), &symbol.declaration.span)
-                            && is_constructor_reference_token(tokens, *index)
+                            && (is_constructor_reference_token(tokens, *index)
+                                || file.token_has_classified_role(token, NameClass::Constructor))
                             && self
                                 .constructor_symbol_for_call(file, tokens, *index, &token.text)
                                 .is_some_and(|candidate| {
@@ -883,7 +884,12 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<ConstructorSymbol> {
-        match qualifier_for_token(tokens, token_index) {
+        let qualifier = file
+            .token_has_classified_role(&tokens[token_index], NameClass::Constructor)
+            .then(|| variant_refinement_qualifier_for_token(tokens, token_index))
+            .flatten()
+            .or_else(|| qualifier_for_token(tokens, token_index));
+        match qualifier {
             Some(qualifier) => self.constructor_for_qualified_call(file, &qualifier, name),
             None => self.constructor_for_bare_call(file, name),
         }

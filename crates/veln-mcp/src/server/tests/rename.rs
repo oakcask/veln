@@ -30,6 +30,53 @@ fn rename_result(
     }))
 }
 
+#[test]
+fn variant_refinement_navigation_uses_shared_constructor_identity() {
+    let workspace = TempWorkspace::new("variant-refinement-navigation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready(Int)\n",
+            "  pub Closed\n",
+            "end\n\n",
+            "pub type Alias = State\n\n",
+            "fn use(value: State::Ready, other: Alias::Ready | Alias::Closed) -> State\n",
+            "  let made = State::Ready(1)\n",
+            "  match value\n",
+            "    State::Ready(payload) => made\n",
+            "    State::Closed => made\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    let definition = server.definition_tool(&json!({"source":"main.veln","line":8,"column":23}));
+    assert_eq!(
+        definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":2,"column":7},"end":{"line":2,"column":12}}),
+        "{definition:#}"
+    );
+    let references = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":44,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        references["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        5,
+        "{references:#}"
+    );
+    let renamed = server.rename_tool(&json!({
+        "source":"main.veln", "line":8, "column":44, "new_name":"Prepared"
+    }));
+    assert_eq!(edits(&renamed).len(), 5, "{renamed:#}");
+}
+
 fn edits(result: &Value) -> &Vec<Value> {
     result["structuredContent"]["edits"]
         .as_array()
