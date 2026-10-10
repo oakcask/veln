@@ -299,14 +299,28 @@ pub fn navigate_for_rename(
             is_recovery: false,
         });
     }
-    let mut result = navigate_in_index(Arc::clone(&index), &position)?;
+    let result = navigate_in_index(Arc::clone(&index), &position)?;
+    Some(navigation_result_for_rename(snapshot, result))
+}
+
+pub fn navigation_result_for_rename(
+    snapshot: &EffectiveProjectSnapshot,
+    mut result: NavigationResult,
+) -> NavigationResult {
+    let index = snapshot.navigation_index();
+    if let Some(alias) = index.selected_type_alias(&result)
+        && result.selected_symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
+    {
+        result.references = index.workspace_type_alias_references(&alias);
+        sort_locations(&mut result.references);
+    }
     if let Some(symbol) = index.selected_function(&result)
         && symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
     {
         result.references = index.workspace_function_alias_references(&symbol);
         sort_locations(&mut result.references);
     }
-    Some(result)
+    result
 }
 
 fn navigation_selection_is_unsupported(

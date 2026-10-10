@@ -109,6 +109,16 @@ impl SymbolIndex {
             })
     }
 
+    fn selected_type_alias(&self, result: &NavigationResult) -> Option<TypeAliasSymbol> {
+        self.type_aliases
+            .iter()
+            .find(|symbol| {
+                symbol.package.is_none()
+                    && symbol.declaration == result.selected_symbol.declaration
+            })
+            .cloned()
+    }
+
     fn selected_constructor(&self, result: &NavigationResult) -> Option<ConstructorSymbol> {
         self.constructors
             .iter()

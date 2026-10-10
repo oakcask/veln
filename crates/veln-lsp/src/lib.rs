@@ -15,10 +15,12 @@ use veln_analysis::{
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::Diagnostic;
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
+#[cfg(test)]
+use veln_language_service::navigate_for_rename;
 use veln_language_service::{
     DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, NavigationSource,
-    SourcePosition, completion_at, definition_at, navigate, navigate_for_rename, signature_help_at,
-    validate_rename_in_snapshot,
+    SourcePosition, completion_at, definition_at, navigate, navigation_result_for_rename,
+    signature_help_at, validate_rename_in_snapshot,
 };
 use veln_project::{
     PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
@@ -592,7 +594,8 @@ impl Server {
         #[cfg(test)]
         self.test_rename_navigations
             .set(self.test_rename_navigations.get() + 1);
-        let result = navigate_for_rename(&snapshot, position)?;
+        let result = navigate(&snapshot, position)?;
+        let result = navigation_result_for_rename(&snapshot, result);
         Some(NavigationRequest {
             root,
             snapshot,
