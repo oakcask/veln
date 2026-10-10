@@ -469,10 +469,14 @@ declaration, while a base segment that resolves through a visible, finite,
 acyclic alias chain selects the written public type-alias declaration. Each
 alias target resolves in the alias declaration's type namespace, including a
 workspace alias target in a dependency and retained dependency or
-standard-library alias targets in their own package. A final variant segment
-selects its visible resolved constructor. References for that constructor
-combine constructor expressions, constructor patterns, and direct and
-alias-qualified refinement occurrences, while excluding
+standard-library alias targets in their own package. A bare retained-package
+alias target selects a same-module type or alias first. If that module has no
+matching declaration, one public implicit `std::prelude` type or alias with
+that spelling is eligible. Multiple matching prelude declarations leave the
+target unresolved. A qualified target has no implicit-prelude fallback. A
+final variant segment selects its visible resolved constructor. References
+for that constructor combine constructor expressions, constructor patterns,
+and direct and alias-qualified refinement occurrences, while excluding
 same-spelled variants from other ADTs. The declaration-inclusion option below
 determines whether the constructor declaration is added to those locations.
 The complete refinement must resolve before either segment is selectable. If
@@ -500,6 +504,8 @@ merely because that identity is available.
 The shared language-service package-snapshot case verifies workspace aliases
 that terminate at a direct-dependency ADT and retained direct-dependency and
 standard-library aliases whose targets resolve in their own package namespaces.
+It also verifies the implicit standard-prelude fallback and the same-module
+precedence over that fallback.
 MCP projects the shared ranges to positive one-based Unicode-scalar
 coordinates; it does not resolve the refinement independently.
 

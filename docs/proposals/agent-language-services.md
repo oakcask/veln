@@ -51,7 +51,8 @@ Valid variant-refinement definition, references, prepare-rename, and rename
 through direct bases and visible finite alias chains are outside this proposal.
 Those chains can start in the workspace and resolve to a workspace ADT or an
 ADT from a direct dependency. A retained direct-dependency or standard-library
-alias resolves its target in its own package snapshot.
+alias resolves its target with the package and implicit standard-prelude
+precedence defined by the current navigation specifications.
 [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
 and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation)
 own that implemented behavior and its package-alias boundary.

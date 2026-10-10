@@ -267,8 +267,13 @@ selects its ADT declaration. A base segment that resolves through a visible,
 finite, acyclic alias chain selects the written public type-alias declaration.
 Each alias target resolves in the alias declaration's type namespace, so a
 workspace alias can target a dependency ADT and a retained dependency or
-standard-library alias can target an ADT from its own package. The final
-variant segment selects the visible constructor of the resolved target ADT.
+standard-library alias can target an ADT from its own package. A bare target
+in a retained package alias selects a same-module type or alias first. If that
+module has no matching declaration, one public implicit `std::prelude` type or
+alias with that spelling is eligible. Multiple matching prelude declarations
+leave the target unresolved. A qualified target has no implicit-prelude
+fallback. The final variant segment selects the visible constructor of the
+resolved target ADT.
 The complete refinement must resolve before either segment is selectable. If
 the written generic-argument count differs from the resolved terminal ADT's
 declared parameter count, the final segment is missing, names a constructor
@@ -298,7 +303,8 @@ no definition, references, prepare-rename range, or rename edits.
 A shared language-service package-snapshot case additionally verifies that a
 workspace alias can terminate at a direct-dependency ADT and that retained
 direct-dependency and standard-library aliases resolve their targets in their
-own package namespaces.
+own package namespaces. It also verifies the implicit standard-prelude
+fallback and the same-module precedence over that fallback.
 The shared navigation index computes and retains one terminal result for each
 distinct variant-refinement alias identity. Definition, reference, and rename
 queries reuse that result for repeated refinement occurrences. They also reuse
