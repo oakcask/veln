@@ -7,9 +7,10 @@ update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, sign
 
 # Editor Support
 
-This page specifies implemented editor-facing classification. It covers the
-compiler-owned records, LSP semantic-token transport, and VSCode integration
-used by editor integrations.
+This page specifies implemented editor-facing classification and interaction.
+It covers compiler-owned editor records, LSP diagnostics, navigation,
+completion, signature help, formatting, rename, semantic-token transport, and
+VSCode integration.
 
 ## Read First
 
