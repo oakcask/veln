@@ -69,6 +69,10 @@ definition, references, or rename. A type parameter declared by the enclosing
 ADT remains resolved in that ADT's payload annotation. The recovery work below
 plans separate source identities for the resolved base and, when it can be
 resolved independently, the constructor without making the refinement valid.
+The current navigation specifications also own ambiguous package-base
+rejection: multiple imported packages that expose the same qualified base do
+not produce a selected navigation identity. This proposal retains only the
+diagnostic and recovery work described below for such an ambiguity.
 
 A refinement is valid only when the selected constructor is visible at the
 annotation. A public declaration cannot expose a private type or private

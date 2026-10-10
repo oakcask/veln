@@ -479,6 +479,10 @@ for that constructor combine constructor expressions, constructor patterns,
 and direct and alias-qualified refinement occurrences, while excluding
 same-spelled variants from other ADTs. The declaration-inclusion option below
 determines whether the constructor declaration is added to those locations.
+When imports from multiple packages expose the same qualified module and type
+spelling, the base is ambiguous. Neither a direct refinement nor an alias chain
+through that base exposes a definition, references, or rename edits,
+regardless of import order.
 The complete refinement must resolve before either segment is selectable. If
 the written generic-argument count differs from the resolved terminal ADT's
 declared parameter count, any generic argument contains an unresolved named
@@ -510,7 +514,9 @@ The shared language-service package-snapshot case verifies workspace aliases
 that terminate at a direct-dependency ADT and retained direct-dependency and
 standard-library aliases whose targets resolve in their own package namespaces.
 It also verifies the implicit standard-prelude fallback and the same-module
-precedence over that fallback.
+precedence over that fallback. Shared language-service and MCP adapter cases
+also verify order-independent empty navigation results when two dependency
+packages expose the same qualified refinement base.
 MCP projects the shared ranges to positive one-based Unicode-scalar
 coordinates; it does not resolve the refinement independently.
 The checked `adt-variant-refinement-navigation` MCP case verifies shared

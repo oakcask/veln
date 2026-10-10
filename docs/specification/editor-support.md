@@ -274,6 +274,10 @@ alias with that spelling is eligible. Multiple matching prelude declarations
 leave the target unresolved. A qualified target has no implicit-prelude
 fallback. The final variant segment selects the visible constructor of the
 resolved target ADT.
+When the same qualified module and type spelling is reachable through imports
+from multiple packages, the base is ambiguous. The direct base, an alias chain
+that depends on it, and their final variants expose no navigation identity,
+regardless of import order.
 The complete refinement must resolve before either segment is selectable. If
 the written generic-argument count differs from the resolved terminal ADT's
 declared parameter count, any generic argument contains an unresolved named
@@ -312,7 +316,10 @@ A shared language-service package-snapshot case additionally verifies that a
 workspace alias can terminate at a direct-dependency ADT and that retained
 direct-dependency and standard-library aliases resolve their targets in their
 own package namespaces. It also verifies the implicit standard-prelude
-fallback and the same-module precedence over that fallback.
+fallback, the same-module precedence over that fallback, and order-independent
+rejection when two dependency packages expose the same qualified base. LSP
+adapter cases verify that the ambiguous direct and alias-qualified bases have
+no definition, references, prepare-rename range, or rename edits.
 The shared navigation index computes and retains one terminal result for each
 distinct variant-refinement alias identity. Definition, reference, and rename
 queries reuse that result for repeated refinement occurrences. They also reuse
