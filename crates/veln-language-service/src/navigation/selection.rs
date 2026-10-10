@@ -265,6 +265,21 @@ impl SymbolIndex {
         selection: &SourceSpan,
         prepared_scopes: Option<&[FunctionScope]>,
     ) -> Option<SelectedNavigationSymbol> {
+        let token = &tokens[token_index];
+        if file
+            .variant_refinement_final_ranges
+            .contains(&(token.range.start, token.range.end))
+        {
+            return self
+                .variant_refinement_constructor_for_selection(file, token)
+                .map(Symbol::Constructor)
+                .map(SelectedNavigationSymbol::bare);
+        }
+        if let Some(symbol) =
+            self.variant_refinement_base_for_selection(file, tokens, token_index, name)
+        {
+            return Some(SelectedNavigationSymbol::bare(symbol));
+        }
         if let Some(symbol) =
             self.qualified_segment_selection(file, tokens, token_index, name, selection)
         {

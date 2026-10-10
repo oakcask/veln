@@ -465,21 +465,26 @@ visible type alias returns the constructor declaration, not the alias
 declaration. Definition exposes a recovery record's retained source range.
 Valid singleton and union variant-refinement annotations use the same shared
 identities as LSP navigation. A direct base segment selects the ADT
-declaration, while a base segment that resolves through a finite, acyclic
-workspace alias chain selects the written public type-alias declaration. A
-final variant segment selects its resolved constructor. References for that
-constructor combine constructor expressions, constructor patterns, and direct
-and workspace alias-qualified refinement occurrences, while excluding
+declaration, while a base segment that resolves through a visible, finite,
+acyclic alias chain selects the written public type-alias declaration. Each
+alias target resolves in the alias declaration's type namespace, including a
+workspace alias target in a dependency and retained dependency or
+standard-library alias targets in their own package. A final variant segment
+selects its visible resolved constructor. References for that constructor
+combine constructor expressions, constructor patterns, and direct and
+alias-qualified refinement occurrences, while excluding
 same-spelled variants from other ADTs. The declaration-inclusion option below
 determines whether the constructor declaration is added to those locations.
 Rename applies the
 shared constructor casing and conflict rules and returns edits for all of those
 occurrences without changing the alias base. A rename selected on the alias
 base changes the alias declaration and written base occurrences without
-changing the target ADT or constructor identity. A retained
-direct-dependency or standard-library alias base can return its package-alias
-definition under the existing declaration policy, but its final refinement
-variant has no definition or reference result and cannot produce rename edits.
+changing the target ADT or constructor identity. A retained direct-dependency
+or standard-library alias base returns its package-alias definition under the
+existing declaration policy, and its final refinement variant uses the
+resolved package constructor identity for definition and references. Rename
+remains subject to the shared workspace-edit eligibility rules; package source
+does not become editable merely because that identity is available.
 MCP projects the shared ranges to positive one-based Unicode-scalar
 coordinates; it does not resolve the refinement independently.
 

@@ -14,6 +14,7 @@ use veln_syntax::{
 
 include!("navigation/model.rs");
 include!("navigation/source_indexing.rs");
+include!("navigation/variant_refinement_source_indexing.rs");
 include!("navigation/effect_source_indexing.rs");
 include!("navigation/handler_source_indexing.rs");
 include!("navigation/schema_source_indexing.rs");
@@ -284,6 +285,9 @@ thread_local! {
     static TYPE_REFERENCE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static CONSTRUCTOR_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static CLASSIFIED_ROLE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
@@ -948,13 +952,36 @@ fn record_classified_role_lookup() {
 }
 
 #[cfg(test)]
-pub(crate) fn reset_classified_role_lookups() {
-    CLASSIFIED_ROLE_LOOKUPS.set(0);
+fn record_variant_refinement_token_index_entry() {
+    VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.set(VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.get() + 1);
 }
 
 #[cfg(test)]
-pub(crate) fn classified_role_lookups() -> usize {
-    CLASSIFIED_ROLE_LOOKUPS.get()
+fn record_variant_refinement_constructor_index_entry() {
+    VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES
+        .set(VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_constructor_candidate_visit() {
+    VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS
+        .set(VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_variant_refinement_index_work() {
+    VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.set(0);
+    VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.set(0);
+    VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn variant_refinement_index_work() -> (usize, usize, usize) {
+    (
+        VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.get(),
+        VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.get(),
+        VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.get(),
+    )
 }
 
 #[cfg(test)]

@@ -223,6 +223,7 @@ fn indexed_dependency_source(
         effect_reference_ranges: BTreeSet::new(),
         effect_operation_ranges: BTreeSet::new(),
         generic_effect_binders: Vec::new(),
+        variant_refinement_final_ranges: variant_refinement_final_ranges(&parsed.tree),
         classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated: identity.navigation_isolated,

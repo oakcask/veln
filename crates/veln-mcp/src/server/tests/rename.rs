@@ -12,7 +12,8 @@ use veln_source::{SourceFile, SourcePath};
 
 use super::dependency_resources::fill_dependency_resource_capacity_completely;
 use super::references_support::{
-    dependency_resource_is_listed, write_workspace_with_dependency_and_sources,
+    assert_reference_ranges, dependency_resource_is_listed,
+    write_workspace_with_dependency_and_sources,
 };
 
 fn rename_result(
@@ -112,6 +113,61 @@ fn variant_refinement_navigation_uses_shared_constructor_identity() {
             .collect::<Vec<_>>(),
         vec![6, 8, 8],
         "{alias_renamed:#}"
+    );
+}
+
+#[test]
+fn variant_refinement_navigation_projects_unicode_scalar_ranges() {
+    let workspace = TempWorkspace::new("variant-refinement-unicode-scalar-ranges");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready(Int)\n",
+            "end\n\n",
+            "fn observe(value: State::Ready) -> {label: String, state: State}\n",
+            "  {label: \"😀\", state: keep<State::Ready>(\"x\", value)}\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    let definition = server.definition_tool(&json!({
+        "source":"main.veln", "line":6, "column":36
+    }));
+    assert_eq!(
+        definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":2,"column":7},"end":{"line":2,"column":12}}),
+        "{definition:#}"
+    );
+    let references = server.references_tool(&json!({
+        "source":"main.veln", "line":6, "column":36,
+        "include_declaration":true
+    }));
+    assert_reference_ranges(
+        &references,
+        &[
+            ("main.veln", 2, 7, 2, 12),
+            ("main.veln", 5, 26, 5, 31),
+            ("main.veln", 6, 35, 6, 40),
+        ],
+        "variant refinement Unicode-scalar references",
+    );
+    let renamed = server.rename_tool(&json!({
+        "source":"main.veln", "line":6, "column":36, "new_name":"Prepared"
+    }));
+    assert_eq!(
+        edits(&renamed)
+            .iter()
+            .map(|edit| edit["range"].clone())
+            .collect::<Vec<_>>(),
+        vec![
+            json!({"start":{"line":2,"column":7},"end":{"line":2,"column":12}}),
+            json!({"start":{"line":5,"column":26},"end":{"line":5,"column":31}}),
+            json!({"start":{"line":6,"column":35},"end":{"line":6,"column":40}}),
+        ],
+        "{renamed:#}"
     );
 }
 

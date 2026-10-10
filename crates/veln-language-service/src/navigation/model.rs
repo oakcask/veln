@@ -865,6 +865,7 @@ struct IndexedFile {
     effect_reference_ranges: BTreeSet<(usize, usize)>,
     effect_operation_ranges: BTreeSet<(usize, usize)>,
     generic_effect_binders: Vec<GenericEffectBinder>,
+    variant_refinement_final_ranges: BTreeSet<(usize, usize)>,
     classified_paths: ClassifiedPathIndex,
     type_reference_locations: OnceLock<TypeReferenceIndex>,
     navigation_isolated: bool,
@@ -1073,6 +1074,7 @@ pub(crate) struct SymbolIndex {
     package_constructor_targets: Vec<PackageConstructorTarget>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
+    constructor_indices_by_identity: BTreeMap<ConstructorIdentity, Vec<usize>>,
     type_aliases: Vec<TypeAliasSymbol>,
     type_indices_by_name: BTreeMap<String, Vec<usize>>,
     type_alias_indices_by_name: BTreeMap<String, Vec<usize>>,
@@ -1090,6 +1092,13 @@ pub(crate) struct SymbolIndex {
 }
 
 type FunctionIdentity = (Option<String>, Option<PackageOrigin>, String, String);
+type ConstructorIdentity = (
+    Option<String>,
+    Option<PackageOrigin>,
+    String,
+    String,
+    String,
+);
 type IndexedFileIdentity = (Option<String>, Option<PackageOrigin>, String);
 
 #[derive(Debug)]

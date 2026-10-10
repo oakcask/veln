@@ -263,12 +263,14 @@ Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
 For a valid singleton or union variant-refinement annotation, the written base
 and final variant remain separate navigation identities. A direct base segment
-selects its ADT declaration. A base segment that resolves through a finite,
-acyclic workspace alias chain selects the written public type-alias
-declaration. The final variant segment selects the constructor of the resolved
-target ADT. Its eligible references include constructor expressions,
-constructor patterns, and every direct or workspace
-alias-qualified refinement occurrence for that constructor. The
+selects its ADT declaration. A base segment that resolves through a visible,
+finite, acyclic alias chain selects the written public type-alias declaration.
+Each alias target resolves in the alias declaration's type namespace, so a
+workspace alias can target a dependency ADT and a retained dependency or
+standard-library alias can target an ADT from its own package. The final
+variant segment selects the visible constructor of the resolved target ADT.
+Its eligible references include constructor expressions, constructor patterns,
+and every direct or alias-qualified refinement occurrence for that constructor. The
 declaration-inclusion rule below determines whether the constructor declaration
 is present in the returned locations. A same-spelled variant owned by another
 ADT is not in the set.
@@ -285,10 +287,10 @@ selection in
 and generic, transitive, and imported aliases in
 [`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
 A refinement base that selects a retained direct-dependency or standard-library
-type alias still follows the package-alias definition policy below. That alias
-does not establish a refinement constructor identity in this slice, so the
-final variant segment has no definition or reference result and cannot be
-prepared or renamed through that alias.
+type alias still follows the package-alias definition policy below. Its final
+variant uses the resolved package constructor identity for definition and
+references. Rename remains subject to the workspace-edit eligibility rules; a
+package constructor identity does not by itself make package source editable.
 Completion, signature-help, and navigation requests convert zero-based UTF-16
 LSP characters to shared one-based Unicode-scalar positions. Navigation
 responses convert shared ranges back to zero-based UTF-16 LSP ranges using the

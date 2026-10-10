@@ -668,6 +668,60 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
 }
 
 #[test]
+fn variant_refinement_navigation_projects_utf16_ranges() {
+    let mut server = Server::default();
+    let project = TempProject::new("variant-refinement-utf16-ranges");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready(Int)\n",
+            "end\n\n",
+            "fn observe(value: State::Ready) -> {label: String, state: State}\n",
+            "  {label: \"😀\", state: keep<State::Ready>(\"x\", value)}\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let escaped_uri = escape_json(&main_uri);
+    server.handle_message(&initialize_request(&root_uri));
+
+    let definition = server.handle_message(&definition_request(&main_uri, 5, 36));
+    assert!(
+        definition[0].contains(
+            r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#
+        ),
+        "{}",
+        definition[0]
+    );
+    let references = server.handle_message(&references_request(&main_uri, 5, 36));
+    let expected_references = concat!(
+        r#""result":[{"uri":"$URI","range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}},"#,
+        r#"{"uri":"$URI","range":{"start":{"line":4,"character":25},"end":{"line":4,"character":30}}},"#,
+        r#"{"uri":"$URI","range":{"start":{"line":5,"character":35},"end":{"line":5,"character":40}}}]"#,
+    )
+    .replace("$URI", &escaped_uri);
+    assert!(references[0].contains(&expected_references), "{}", references[0]);
+
+    let prepared = server.handle_message(&prepare_rename_request(&main_uri, 5, 36));
+    assert!(
+        prepared[0].contains(
+            r#""result":{"start":{"line":5,"character":35},"end":{"line":5,"character":40}}"#
+        ),
+        "{}",
+        prepared[0]
+    );
+    let renamed = server.handle_message(&rename_request(&main_uri, 5, 36, "Prepared"));
+    let expected_edits = concat!(
+        r#"{"range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}},"newText":"Prepared"},"#,
+        r#"{"range":{"start":{"line":4,"character":25},"end":{"line":4,"character":30}},"newText":"Prepared"},"#,
+        r#"{"range":{"start":{"line":5,"character":35},"end":{"line":5,"character":40}},"newText":"Prepared"}"#,
+    );
+    assert!(renamed[0].contains(expected_edits), "{}", renamed[0]);
+}
+
+#[test]
 fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliases() {
     let mut server = Server::default();
     let project = TempProject::new("variant-refinement-alias-chain-navigation");

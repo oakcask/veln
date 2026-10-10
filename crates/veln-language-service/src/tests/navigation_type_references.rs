@@ -246,8 +246,196 @@
     }
 
     #[test]
-    fn variant_refinement_constructor_role_lookup_work_is_adjacent_linear() {
-        fn lookup_work(annotation_count: usize, rename: bool) -> usize {
+    fn variant_refinement_aliases_resolve_target_origins_independently() {
+        fn assert_package_location(
+            location: &NavigationLocation,
+            path: &str,
+            line: usize,
+            column: usize,
+        ) {
+            assert!(matches!(location.source, NavigationSource::Package { .. }));
+            assert_eq!(location.span.file.as_str(), path);
+            assert_eq!(
+                (location.span.start.line, location.span.start.column),
+                (line, column)
+            );
+        }
+
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[
+                (
+                    "facade.veln",
+                    "use model\n\npub type PublicState = model::State\n",
+                ),
+                (
+                    "model.veln",
+                    "pub type State\n  pub Ready(Int)\n  pub Closed\nend\n",
+                ),
+            ],
+            ["facade.veln", "model.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "prelude.veln",
+                    "use states\n\npub type StandardState = states::State\n",
+                ),
+                (
+                    "states.veln",
+                    "pub type State\n  pub Ready(Int)\nend\n",
+                ),
+            ],
+            ["prelude.veln", "states.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use facade from \"example/pkg\"\n\n",
+                    "pub type Local = facade::PublicState\n",
+                    "pub type Transit = Local\n\n",
+                    "fn local(value: Transit::Ready | Local::Closed) -> Int\n",
+                    "  0\n",
+                    "end\n\n",
+                    "fn dependency(value: facade::PublicState::Ready) -> Int\n",
+                    "  0\n",
+                    "end\n\n",
+                    "fn standard(value: StandardState::Ready) -> Int\n",
+                    "  0\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        let local_base = query_snapshot(&snapshot, "main.veln", 6, 18).unwrap();
+        assert_location(&local_base.definition, "main.veln", 4, 10);
+        let local_variant = query_snapshot(&snapshot, "main.veln", 6, 27).unwrap();
+        assert_package_location(&local_variant.definition, "model.veln", 2, 7);
+        assert_eq!(
+            local_variant.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+
+        let dependency_base = query_snapshot(&snapshot, "main.veln", 10, 37).unwrap();
+        assert_eq!(
+            dependency_base.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_package_location(&dependency_base.definition, "facade.veln", 3, 10);
+        let dependency_variant = query_snapshot(&snapshot, "main.veln", 10, 44).unwrap();
+        assert_package_location(&dependency_variant.definition, "model.veln", 2, 7);
+
+        let standard_base = query_snapshot(&snapshot, "main.veln", 14, 23).unwrap();
+        assert_package_location(&standard_base.definition, "prelude.veln", 3, 10);
+        let standard_variant = query_snapshot(&snapshot, "main.veln", 14, 36).unwrap();
+        assert_package_location(&standard_variant.definition, "states.veln", 2, 7);
+        assert_eq!(
+            standard_variant.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+    }
+
+    #[test]
+    fn variant_refinement_navigation_obeys_visibility_and_owner_boundaries() {
+        let sources = vec![
+            source(
+                "model.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Private(Int)\n",
+                    "  pub Ready(Int)\n",
+                    "end\n\n",
+                    "pub type Other\n",
+                    "  pub Shared\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use model\n\n",
+                    "fn private(value: model::State::Private) -> Int\n",
+                    "  0\n",
+                    "end\n\n",
+                    "fn unresolved(value: model::State::Missing) -> Int\n",
+                    "  0\n",
+                    "end\n\n",
+                    "fn wrong_owner(value: model::State::Shared) -> Int\n",
+                    "  0\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "model.test.veln",
+                "use model\n\ntest companion(value: model::State::Private) -> Int\n  0\nend\n",
+            ),
+        ];
+
+        assert!(query(sources.clone(), "main.veln", 3, 34).is_none());
+        assert!(query(sources.clone(), "main.veln", 7, 37).is_none());
+        assert!(query(sources.clone(), "main.veln", 11, 38).is_none());
+
+        let companion = query(sources, "model.test.veln", 3, 43).unwrap();
+        assert_location(&companion.definition, "model.veln", 2, 3);
+        assert!(validate_rename(&companion, "Hidden").is_ok());
+    }
+
+    #[test]
+    fn variant_refinement_navigation_preserves_unicode_scalar_ranges() {
+        let source_text = concat!(
+            "pub type State\n",
+            "  pub Ready(Int)\n",
+            "end\n\n",
+            "fn observe(value: State::Ready) -> {label: String, state: State}\n",
+            "  {label: \"😀\", state: keep<State::Ready>(\"x\", value)}\n",
+            "end\n",
+        );
+        let parsed = veln_syntax::parse(&source("main.veln", source_text));
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", source_text)]);
+        let result = query_snapshot(&snapshot, "main.veln", 6, 36).unwrap();
+
+        assert_eq!(
+            (
+                result.selection.start.line,
+                result.selection.start.column,
+                result.selection.end.line,
+                result.selection.end.column,
+            ),
+            (6, 35, 6, 40)
+        );
+        assert_eq!(
+            (
+                result.definition.span.start.line,
+                result.definition.span.start.column,
+                result.definition.span.end.line,
+                result.definition.span.end.column,
+            ),
+            (2, 7, 2, 12)
+        );
+        assert_eq!(
+            result
+                .references
+                .iter()
+                .map(|span| (
+                    span.start.line,
+                    span.start.column,
+                    span.end.line,
+                    span.end.column,
+                ))
+                .collect::<Vec<_>>(),
+            vec![(5, 26, 5, 31), (6, 35, 6, 40)]
+        );
+        assert!(validate_rename(&result, "Prepared").is_ok());
+    }
+
+    #[test]
+    fn variant_refinement_identity_index_work_is_adjacent_linear() {
+        fn lookup_work(annotation_count: usize, rename: bool) -> (usize, usize, usize) {
+            reset_variant_refinement_index_work();
             let mut text = String::from(
                 "type State\n  Ready(Int)\nend\npub type Alias = State\n\n",
             );
@@ -256,30 +444,69 @@
                     "fn observe_{index}(value: Alias::Ready) -> State\n  State::Ready({index})\nend\n"
                 ));
             }
+            let snapshot_started = std::time::Instant::now();
             let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
-            reset_classified_role_lookups();
+            let snapshot_elapsed = snapshot_started.elapsed();
+            let index_started = std::time::Instant::now();
+            snapshot.navigation_index();
+            let index_elapsed = index_started.elapsed();
             let position = SourcePosition {
                 source: SourcePath::new("main.veln"),
                 line: 2,
                 column: 3,
             };
+            let query_started = std::time::Instant::now();
             let result = if rename {
                 navigate_for_rename(&snapshot, position)
             } else {
                 query_snapshot(&snapshot, "main.veln", 2, 3)
             }
             .expect("constructor declaration resolves");
+            let query_elapsed = query_started.elapsed();
             assert_eq!(result.references.len(), annotation_count * 2);
-            classified_role_lookups()
+            eprintln!(
+                "variant refinement stages count={annotation_count} rename={rename}: snapshot={snapshot_elapsed:?} index={index_elapsed:?} query={query_elapsed:?}"
+            );
+            variant_refinement_index_work()
         }
 
         for rename in [false, true] {
-            let smaller = lookup_work(128, rename);
-            let larger = lookup_work(256, rename);
-            assert!(smaller > 0);
-            assert!(larger > smaller);
-            assert!(larger <= smaller * 2 + 16, "{smaller} -> {larger}");
+            let mut evidence = Vec::new();
+            for annotation_count in [256, 512, 1024, 2048] {
+                let started = std::time::Instant::now();
+                let work = lookup_work(annotation_count, rename);
+                evidence.push((annotation_count, work, started.elapsed()));
+            }
+            for window in evidence.windows(2) {
+                let (_, smaller, _) = window[0];
+                let (_, larger, _) = window[1];
+                assert!(smaller.0 > 0 && smaller.1 > 0 && smaller.2 > 0);
+                assert!(larger.0 > smaller.0);
+                assert!(larger.2 > smaller.2);
+                assert!(larger.0 <= smaller.0 * 2 + 32, "{smaller:?} -> {larger:?}");
+                assert_eq!(larger.1, smaller.1, "{smaller:?} -> {larger:?}");
+                assert!(larger.2 <= smaller.2 * 2 + 16, "{smaller:?} -> {larger:?}");
+            }
+            eprintln!("variant refinement index evidence rename={rename}: {evidence:?}");
         }
+    }
+
+    #[test]
+    fn variant_refinement_constructor_bucket_ignores_unrelated_constructors() {
+        fn candidate_work(unrelated_count: usize) -> usize {
+            reset_variant_refinement_index_work();
+            let mut text = String::from("type State\n  Ready(Int)\nend\n");
+            for index in 0..unrelated_count {
+                text.push_str(&format!("type Other{index}\n  Ready(Int)\nend\n"));
+            }
+            text.push_str("fn observe(value: State::Ready) -> Int\n  0\nend\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+            let line = unrelated_count * 3 + 4;
+            query_snapshot(&snapshot, "main.veln", line, 27).unwrap();
+            variant_refinement_index_work().2
+        }
+
+        assert_eq!(candidate_work(16), candidate_work(256));
     }
 
     #[test]

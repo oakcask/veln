@@ -57,6 +57,7 @@ struct WorkspaceSyntaxIndex {
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effects: WorkspaceEffectIndex,
+    variant_refinement_final_ranges: BTreeSet<(usize, usize)>,
 }
 
 impl WorkspaceSyntaxIndex {
@@ -70,6 +71,7 @@ impl WorkspaceSyntaxIndex {
         let schema_composition_leaf_spans =
             valid_schema_composition_leaf_spans(source, &tokens, parsed);
         let effects = WorkspaceEffectIndex::new(&tokens, parsed);
+        let variant_refinement_final_ranges = variant_refinement_final_ranges(&parsed.tree);
         let handler_diagnostics = HandlerDiagnosticIndex::new(parsed);
         let recovery_symbols = workspace_recovery_symbols(
             navigation_isolated,
@@ -108,6 +110,7 @@ impl WorkspaceSyntaxIndex {
             schema_operation_leaf_ranges,
             schema_composition_leaf_spans,
             effects,
+            variant_refinement_final_ranges,
         }
     }
 }
@@ -142,6 +145,7 @@ fn indexed_workspace_file(
         effect_reference_ranges: syntax.effects.reference_ranges,
         effect_operation_ranges: syntax.effects.operation_ranges,
         generic_effect_binders: syntax.effects.generic_binders,
+        variant_refinement_final_ranges: syntax.variant_refinement_final_ranges,
         classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated: identity.source.navigation_isolated,

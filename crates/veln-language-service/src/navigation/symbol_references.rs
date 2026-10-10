@@ -226,15 +226,32 @@ impl SymbolIndex {
     ) -> Option<TypeAliasSymbol> {
         let constructor_index = variant_refinement_variant_index(tokens, token_index)
             .or_else(|| next_path_segment_index(tokens, token_index))?;
-        let identity = self.variant_refinement_identity(file, &tokens[constructor_index])?;
-        match &identity.base {
-            VariantRefinementBaseSymbol::Alias(alias)
-                if alias.package.is_none() && alias.name == name =>
-            {
-                Some(alias.clone())
-            }
-            _ => None,
+        if file.variant_refinement_final_ranges.contains(&(
+            tokens[constructor_index].range.start,
+            tokens[constructor_index].range.end,
+        )) {
+            let identity = self.variant_refinement_identity(file, &tokens[constructor_index])?;
+            return match &identity.base {
+                VariantRefinementBaseSymbol::Alias(alias)
+                    if alias.package.is_none() && alias.name == name =>
+                {
+                    Some(alias.clone())
+                }
+                _ => None,
+            };
         }
+        let alias = self.workspace_type_alias_for_reference(file, tokens, token_index, name)?;
+        if alias.package.is_some() {
+            return None;
+        }
+        let qualifier = qualifier_for_token(tokens, constructor_index)?;
+        self.constructor_for_qualified_call(
+            file,
+            &qualifier,
+            &tokens[constructor_index].text,
+        )
+        .filter(|constructor| self.workspace_type_alias_targets_constructor(&alias, constructor))
+        .map(|_| alias)
     }
 
     fn workspace_type_alias_targets_constructor(
@@ -839,10 +856,14 @@ impl SymbolIndex {
                     .iter()
                     .enumerate()
                     .filter(|(index, token)| {
+                        let refinement = file
+                            .variant_refinement_final_ranges
+                            .contains(&(token.range.start, token.range.end));
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
                             && !same_span(&file.source.span(token.range), &symbol.declaration.span)
-                            && (is_constructor_reference_token(tokens, *index)
+                            && (refinement
+                                || is_constructor_reference_token(tokens, *index)
                                 || file.token_has_classified_role(token, NameClass::Constructor))
                             && self
                                 .constructor_symbol_for_call(file, tokens, *index, &token.text)
@@ -866,6 +887,9 @@ impl SymbolIndex {
     ) -> Option<ConstructorSymbol> {
         if let Some(identity) = self.variant_refinement_identity(file, &tokens[token_index]) {
             return Some(identity.constructor.clone());
+        }
+        if self.is_variant_refinement_final_token(file, tokens, token_index) {
+            return None;
         }
         let qualifier = qualifier_for_token(tokens, token_index);
         match qualifier {
