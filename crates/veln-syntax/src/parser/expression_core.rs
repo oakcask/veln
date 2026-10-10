@@ -1,5 +1,14 @@
 use super::*;
 
+struct ParsedTypeArgumentList {
+    arguments: Vec<String>,
+    argument_spans: Vec<SourceSpan>,
+    paths: Vec<Vec<TypePathSegments>>,
+    refinements: Vec<Vec<VariantRefinementType>>,
+    surplus_closers: usize,
+    end: TextRange,
+}
+
 impl<'a> ExprParser<'a> {
     pub(super) fn new(source: &'a SourceFile, context: &'static str, tokens: &'a [Token]) -> Self {
         Self {
@@ -156,8 +165,14 @@ impl<'a> ExprParser<'a> {
         start: TextRange,
         closing: TokenKind,
     ) -> Expr {
-        let (type_args, type_arg_spans, type_arg_paths, type_arg_refinements, surplus_closers, end) =
-            self.parse_type_argument_list(closing);
+        let ParsedTypeArgumentList {
+            arguments: type_args,
+            argument_spans: type_arg_spans,
+            paths: type_arg_paths,
+            refinements: type_arg_refinements,
+            surplus_closers,
+            end,
+        } = self.parse_type_argument_list(closing);
         Expr {
             span: self.source.span(start.cover(end)),
             kind: ExprKind::TypeApply {
@@ -280,17 +295,7 @@ impl<'a> ExprParser<'a> {
         false
     }
 
-    pub(super) fn parse_type_argument_list(
-        &mut self,
-        close: TokenKind,
-    ) -> (
-        Vec<String>,
-        Vec<SourceSpan>,
-        Vec<Vec<TypePathSegments>>,
-        Vec<Vec<VariantRefinementType>>,
-        usize,
-        TextRange,
-    ) {
+    fn parse_type_argument_list(&mut self, close: TokenKind) -> ParsedTypeArgumentList {
         let start = self.bump();
         let mut state = TypeArgumentListState::default();
         let mut end = start.range;
@@ -326,14 +331,7 @@ impl<'a> ExprParser<'a> {
         state: TypeArgumentListState,
         end: TextRange,
         report_refinement_errors: bool,
-    ) -> (
-        Vec<String>,
-        Vec<SourceSpan>,
-        Vec<Vec<TypePathSegments>>,
-        Vec<Vec<VariantRefinementType>>,
-        usize,
-        TextRange,
-    ) {
+    ) -> ParsedTypeArgumentList {
         let (arguments, argument_ranges, argument_tokens, surplus_closers) = state.finish();
         let argument_spans = argument_ranges
             .into_iter()
@@ -347,14 +345,14 @@ impl<'a> ExprParser<'a> {
             .iter()
             .map(|tokens| super::type_paths::type_paths_from_tokens(self.source, tokens))
             .collect();
-        (
+        ParsedTypeArgumentList {
             arguments,
             argument_spans,
             paths,
             refinements,
             surplus_closers,
             end,
-        )
+        }
     }
 
     fn build_type_argument_refinements(
