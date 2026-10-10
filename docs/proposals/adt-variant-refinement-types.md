@@ -53,7 +53,7 @@ proposal. The current
 specifications own those contracts and their limits. This proposal owns only
 the unimplemented semantic and tooling behavior below.
 
-## Alias Navigation And Visibility
+## Alias Visibility
 
 The current [type specification](../specification/types.md#compatibility-and-limits)
 owns alias-qualified refinement identity, assignability, and presentation. The
@@ -326,9 +326,13 @@ trap or process failure.
 
 ## Language-Service Contract
 
-The semantic model, shared language service, LSP adapter, MCP adapter, and
-package-documentation catalog must carry the resolved base-type and constructor
-identities without reconstructing them from display text.
+For invalid and recovered refinements, the semantic model and shared language
+service must carry every unambiguous base-type or constructor identity without
+reconstructing it from display text. Package-documentation signatures must
+preserve those identities when the visibility and publication work below makes
+them eligible. Navigation and rename for valid refinements are current behavior
+specified by [editor support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
+and [MCP](../specification/mcp.md#saved-workspace-navigation).
 
 ### LSP
 

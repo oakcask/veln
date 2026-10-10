@@ -42,7 +42,7 @@ fn variant_refinement_navigation_uses_shared_constructor_identity() {
             "  pub Closed\n",
             "end\n\n",
             "pub type Alias = State\n\n",
-            "fn use(value: State::Ready, other: Alias::Ready | Alias::Closed) -> State\n",
+            "fn observe(value: State::Ready, other: Alias::Ready | Alias::Closed) -> State\n",
             "  let made = State::Ready(1)\n",
             "  match value\n",
             "    State::Ready(payload) => made\n",
@@ -53,14 +53,30 @@ fn variant_refinement_navigation_uses_shared_constructor_identity() {
     );
     let mut server = initialized_server(&workspace);
 
-    let definition = server.definition_tool(&json!({"source":"main.veln","line":8,"column":23}));
+    let direct_base = server.definition_tool(&json!({
+        "source":"main.veln", "line":8, "column":20
+    }));
+    assert_eq!(
+        direct_base["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":1,"column":10},"end":{"line":1,"column":15}}),
+        "{direct_base:#}"
+    );
+    let alias_base = server.definition_tool(&json!({
+        "source":"main.veln", "line":8, "column":41
+    }));
+    assert_eq!(
+        alias_base["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":6,"column":10},"end":{"line":6,"column":15}}),
+        "{alias_base:#}"
+    );
+    let definition = server.definition_tool(&json!({"source":"main.veln","line":8,"column":27}));
     assert_eq!(
         definition["structuredContent"]["definition"]["range"],
         json!({"start":{"line":2,"column":7},"end":{"line":2,"column":12}}),
         "{definition:#}"
     );
     let references = server.references_tool(&json!({
-        "source":"main.veln", "line":8, "column":44,
+        "source":"main.veln", "line":8, "column":48,
         "include_declaration":true
     }));
     assert_eq!(
@@ -71,10 +87,32 @@ fn variant_refinement_navigation_uses_shared_constructor_identity() {
         5,
         "{references:#}"
     );
+    let direct_references = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":27,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        direct_references["structuredContent"]["references"],
+        references["structuredContent"]["references"],
+        "direct={direct_references:#}\nalias={references:#}"
+    );
     let renamed = server.rename_tool(&json!({
-        "source":"main.veln", "line":8, "column":44, "new_name":"Prepared"
+        "source":"main.veln", "line":8, "column":48, "new_name":"Prepared"
     }));
     assert_eq!(edits(&renamed).len(), 5, "{renamed:#}");
+
+    let alias_renamed = server.rename_tool(&json!({
+        "source":"main.veln", "line":8, "column":41, "new_name":"Phase"
+    }));
+    assert_eq!(edits(&alias_renamed).len(), 3, "{alias_renamed:#}");
+    assert_eq!(
+        edits(&alias_renamed)
+            .iter()
+            .map(|edit| edit["range"]["start"]["line"].as_u64().unwrap())
+            .collect::<Vec<_>>(),
+        vec![6, 8, 8],
+        "{alias_renamed:#}"
+    );
 }
 
 fn edits(result: &Value) -> &Vec<Value> {
