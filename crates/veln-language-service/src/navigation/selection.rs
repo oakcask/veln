@@ -15,7 +15,20 @@ impl SymbolIndex {
         let selection = file.source.span(token.range);
         let name = token.text.as_str();
         let alias = self.type_alias_declared_at(name, &selection).or_else(|| {
-            if is_type_reference_token(file, name, &selection) {
+            if file
+                .variant_refinement_final_range_by_base_range
+                .contains_key(&(token.range.start, token.range.end))
+            {
+                match self.variant_refinement_base_for_selection(
+                    file,
+                    &file.tokens,
+                    token_index,
+                    name,
+                ) {
+                    Some(Symbol::TypeAlias(alias)) => Some(alias),
+                    _ => None,
+                }
+            } else if is_type_reference_token(file, name, &selection) {
                 self.workspace_type_alias_for_reference(file, &file.tokens, token_index, name)
             } else {
                 self.workspace_type_alias_for_constructor_qualifier_token(
@@ -504,7 +517,9 @@ impl SymbolIndex {
             .is_none_or(|token| token.kind != TokenKind::DoubleColon)
             && next_non_layout_token(tokens, token_index)
                 .is_none_or(|token| token.kind != TokenKind::DoubleColon)
-            && variant_refinement_variant_index(tokens, token_index).is_none()
+            && !file
+                .variant_refinement_final_range_by_base_range
+                .contains_key(&(tokens[token_index].range.start, tokens[token_index].range.end))
         {
             return None;
         }
@@ -532,14 +547,18 @@ impl SymbolIndex {
         segment: &QualifiedPathSegment,
     ) -> Option<Symbol> {
         match segment.role {
+            NameClass::Type
+                if file
+                    .variant_refinement_final_range_by_base_range
+                    .contains_key(&(
+                        tokens[token_index].range.start,
+                        tokens[token_index].range.end,
+                    )) =>
+            {
+                self.variant_refinement_base_for_selection(file, tokens, token_index, name)
+            }
             NameClass::Type => self
-                .type_namespace_symbol_for_reference(file, tokens, token_index, name)
-                .or_else(|| {
-                    self.variant_refinement_base_alias_for_selection(
-                        file, tokens, token_index, name,
-                    )
-                    .map(Symbol::TypeAlias)
-                }),
+                .type_namespace_symbol_for_reference(file, tokens, token_index, name),
             NameClass::Constructor => self
                 .variant_refinement_constructor_for_selection(file, &tokens[token_index])
                 .or_else(|| {

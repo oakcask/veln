@@ -224,13 +224,10 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<TypeAliasSymbol> {
-        let constructor_index = variant_refinement_variant_index(tokens, token_index)
-            .or_else(|| next_path_segment_index(tokens, token_index))?;
-        if file.variant_refinement_final_ranges.contains(&(
-            tokens[constructor_index].range.start,
-            tokens[constructor_index].range.end,
-        )) {
-            let identity = self.variant_refinement_identity(file, &tokens[constructor_index])?;
+        if let Some(final_range) =
+            self.variant_refinement_final_range_for_base(file, &tokens[token_index])
+        {
+            let identity = self.variant_refinement_identity_for_final_range(file, &final_range)?;
             return match &identity.base {
                 VariantRefinementBaseSymbol::Alias(alias)
                     if alias.package.is_none() && alias.name == name =>
@@ -240,6 +237,7 @@ impl SymbolIndex {
                 _ => None,
             };
         }
+        let constructor_index = next_path_segment_index(tokens, token_index)?;
         let alias = self.workspace_type_alias_for_reference(file, tokens, token_index, name)?;
         if alias.package.is_some() {
             return None;

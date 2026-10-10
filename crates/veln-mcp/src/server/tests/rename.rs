@@ -123,6 +123,57 @@ fn variant_refinement_navigation_uses_shared_constructor_identity() {
 }
 
 #[test]
+fn invalid_variant_refinement_alias_bases_do_not_select_or_rename() {
+    let workspace = TempWorkspace::new("invalid-variant-refinement-alias-base");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "end\n\n",
+            "type Other\n",
+            "  Shared\n",
+            "end\n\n",
+            "type Helper\n",
+            "end\n\n",
+            "pub type Alias = State\n\n",
+            "fn valid_single(value: Alias::Ready) -> Int\n  0\nend\n\n",
+            "fn valid_union(value: Alias::Ready | Alias::Ready) -> Int\n  0\nend\n\n",
+            "fn missing(value: Alias::Missing) -> Int\n  0\nend\n\n",
+            "fn wrong_owner(value: Alias::Shared) -> Int\n  0\nend\n\n",
+            "fn non_constructor(value: Alias::Helper) -> Int\n  0\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    for (line, column) in [(22, 19), (26, 23), (30, 27)] {
+        let definition = server.definition_tool(&json!({
+            "source": "main.veln", "line": line, "column": column
+        }));
+        assert_eq!(
+            definition["structuredContent"]["definition"],
+            Value::Null,
+            "{definition:#}"
+        );
+
+        let renamed = server.rename_tool(&json!({
+            "source": "main.veln", "line": line, "column": column,
+            "new_name": "RenamedAlias"
+        }));
+        assert!(edits(&renamed).is_empty(), "{renamed:#}");
+    }
+
+    for (line, column) in [(14, 24), (18, 23), (18, 38)] {
+        let renamed = server.rename_tool(&json!({
+            "source": "main.veln", "line": line, "column": column,
+            "new_name": "RenamedAlias"
+        }));
+        assert!(!edits(&renamed).is_empty(), "{renamed:#}");
+    }
+}
+
+#[test]
 fn variant_refinement_navigation_projects_unicode_scalar_ranges() {
     let workspace = TempWorkspace::new("variant-refinement-unicode-scalar-ranges");
     workspace.write("veln.toml", "");

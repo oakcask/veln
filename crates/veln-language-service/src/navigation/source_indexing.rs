@@ -198,6 +198,7 @@ fn indexed_dependency_source(
     let handler_clause_bindings_by_name = handler_clause_bindings_by_name(&parsed.tree);
     let constructor_reference_declaration_ranges =
         constructor_reference_declaration_ranges(&parsed.tree, &tokens);
+    let variant_refinement_source_index = variant_refinement_source_index(&parsed.tree);
     let file = IndexedFile {
         source,
         tokens,
@@ -225,7 +226,9 @@ fn indexed_dependency_source(
         effect_reference_ranges: BTreeSet::new(),
         effect_operation_ranges: BTreeSet::new(),
         generic_effect_binders: Vec::new(),
-        variant_refinement_final_ranges: variant_refinement_final_ranges(&parsed.tree),
+        variant_refinement_final_ranges: variant_refinement_source_index.final_ranges,
+        variant_refinement_final_range_by_base_range: variant_refinement_source_index
+            .final_range_by_base_range,
         constructor_reference_declaration_ranges,
         classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),

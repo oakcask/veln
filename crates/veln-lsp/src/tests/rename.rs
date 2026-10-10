@@ -668,6 +668,53 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
 }
 
 #[test]
+fn invalid_variant_refinement_alias_bases_do_not_prepare_or_rename() {
+    let mut server = Server::default();
+    let project = TempProject::new("invalid-variant-refinement-alias-base");
+    project.write(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "end\n\n",
+            "type Other\n",
+            "  Shared\n",
+            "end\n\n",
+            "type Helper\n",
+            "end\n\n",
+            "pub type Alias = State\n\n",
+            "fn valid_single(value: Alias::Ready) -> Int\n  0\nend\n\n",
+            "fn valid_union(value: Alias::Ready | Alias::Ready) -> Int\n  0\nend\n\n",
+            "fn missing(value: Alias::Missing) -> Int\n  0\nend\n\n",
+            "fn wrong_owner(value: Alias::Shared) -> Int\n  0\nend\n\n",
+            "fn non_constructor(value: Alias::Helper) -> Int\n  0\nend\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for (line, character) in [(21, 18), (25, 22), (29, 26)] {
+        let definition = server.handle_message(&definition_request(&main_uri, line, character));
+        assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
+
+        let prepared =
+            server.handle_message(&prepare_rename_request(&main_uri, line, character));
+        assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+
+        let renamed =
+            server.handle_message(&rename_request(&main_uri, line, character, "RenamedAlias"));
+        assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+    }
+
+    for (line, character) in [(13, 23), (17, 22), (17, 37)] {
+        let prepared =
+            server.handle_message(&prepare_rename_request(&main_uri, line, character));
+        assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+    }
+}
+
+#[test]
 fn variant_refinement_navigation_projects_utf16_ranges() {
     let mut server = Server::default();
     let project = TempProject::new("variant-refinement-utf16-ranges");

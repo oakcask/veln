@@ -14,12 +14,34 @@ impl SymbolIndex {
         file: &'a IndexedFile,
         token: &Token,
     ) -> Option<&'a VariantRefinementNavigationIdentity> {
+        self.variant_refinement_identity_for_final_range(
+            file,
+            &(token.range.start, token.range.end),
+        )
+    }
+
+    fn variant_refinement_identity_for_final_range<'a>(
+        &self,
+        file: &'a IndexedFile,
+        final_range: &(usize, usize),
+    ) -> Option<&'a VariantRefinementNavigationIdentity> {
         #[cfg(test)]
         record_classified_role_lookup();
         file.classified_paths
             .variant_refinement_identities
             .get_or_init(|| self.variant_refinement_identities(file))
+            .get(final_range)
+    }
+
+    fn variant_refinement_final_range_for_base(
+        &self,
+        file: &IndexedFile,
+        token: &Token,
+    ) -> Option<(usize, usize)> {
+        record_variant_refinement_base_final_lookup();
+        file.variant_refinement_final_range_by_base_range
             .get(&(token.range.start, token.range.end))
+            .copied()
     }
 
     fn variant_refinement_identities(
@@ -117,24 +139,6 @@ impl SymbolIndex {
         }
     }
 
-    fn variant_refinement_base_alias_for_selection(
-        &self,
-        file: &IndexedFile,
-        tokens: &[Token],
-        token_index: usize,
-        name: &str,
-    ) -> Option<TypeAliasSymbol> {
-        let variant_index = variant_refinement_variant_index(tokens, token_index)?;
-        file.token_has_classified_role(&tokens[variant_index], NameClass::Constructor)
-            .then(|| {
-                match self.visible_type_conflict_for_reference(file, tokens, token_index, name) {
-                    Some(TypeConflictCandidate::Alias(alias)) => Some(alias),
-                    _ => None,
-                }
-            })
-            .flatten()
-    }
-
     fn variant_refinement_base_alias_definition_supported(
         &self,
         file: &IndexedFile,
@@ -142,10 +146,12 @@ impl SymbolIndex {
         token_index: usize,
         alias: &TypeAliasSymbol,
     ) -> bool {
-        let Some(variant_index) = variant_refinement_variant_index(tokens, token_index) else {
+        let Some(final_range) =
+            self.variant_refinement_final_range_for_base(file, &tokens[token_index])
+        else {
             return false;
         };
-        self.variant_refinement_identity(file, &tokens[variant_index])
+        self.variant_refinement_identity_for_final_range(file, &final_range)
             .is_some_and(|identity| {
                 matches!(
                     &identity.base,
@@ -161,17 +167,20 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<Symbol> {
-        let variant_index = variant_refinement_variant_index(tokens, token_index)?;
-        let variant = &tokens[variant_index];
-        if !file
-            .variant_refinement_final_ranges
-            .contains(&(variant.range.start, variant.range.end))
-        {
-            return None;
-        }
-        match self.variant_refinement_base_symbol(file, tokens, token_index, name)? {
-            VariantRefinementBaseSymbol::Type(symbol) => Some(Symbol::Type(symbol)),
-            VariantRefinementBaseSymbol::Alias(symbol) => Some(Symbol::TypeAlias(symbol)),
+        let final_range =
+            self.variant_refinement_final_range_for_base(file, &tokens[token_index])?;
+        let identity = self.variant_refinement_identity_for_final_range(file, &final_range)?;
+        match (self.variant_refinement_base_symbol(file, tokens, token_index, name)?, &identity.base) {
+            (VariantRefinementBaseSymbol::Type(symbol), VariantRefinementBaseSymbol::Type(base))
+                if same_type(&symbol, base) =>
+            {
+                Some(Symbol::Type(symbol))
+            }
+            (
+                VariantRefinementBaseSymbol::Alias(symbol),
+                VariantRefinementBaseSymbol::Alias(base),
+            ) if same_type_alias(&symbol, base) => Some(Symbol::TypeAlias(symbol)),
+            _ => None,
         }
     }
 

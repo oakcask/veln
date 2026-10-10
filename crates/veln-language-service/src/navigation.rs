@@ -293,6 +293,7 @@ thread_local! {
     static VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_ALIAS_CACHE_REUSES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
@@ -1000,6 +1001,14 @@ fn record_variant_refinement_alias_cache_reuse() {
     VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.set(VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.get() + 1);
 }
 
+#[cfg(test)]
+fn record_variant_refinement_base_final_lookup() {
+    VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.set(VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_variant_refinement_base_final_lookup() {}
+
 #[cfg(not(test))]
 fn record_variant_refinement_alias_cache_reuse() {}
 
@@ -1018,11 +1027,21 @@ pub(crate) fn reset_variant_refinement_navigation_work() {
     VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.set(0);
     VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.set(0);
     VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.set(0);
+    VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.set(0);
 }
 
 #[cfg(test)]
-pub(crate) fn variant_refinement_navigation_work()
--> (usize, usize, usize, usize, usize, usize, usize, usize) {
+pub(crate) fn variant_refinement_navigation_work() -> (
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+) {
     (
         VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.get(),
         VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.get(),
@@ -1032,6 +1051,7 @@ pub(crate) fn variant_refinement_navigation_work()
         VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.get(),
         VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.get(),
         VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.get(),
+        VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.get(),
     )
 }
 

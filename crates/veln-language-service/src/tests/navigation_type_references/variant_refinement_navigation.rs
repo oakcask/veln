@@ -388,6 +388,70 @@
     }
 
     #[test]
+    fn invalid_variant_refinement_bases_require_complete_identity() {
+        let text = concat!(
+            "type State\n",
+            "  Ready\n",
+            "end\n\n",
+            "type Other\n",
+            "  Shared\n",
+            "end\n\n",
+            "type Helper\n",
+            "end\n\n",
+            "pub type Alias = State\n\n",
+            "fn valid_single(value: Alias::Ready) -> Int\n",
+            "  0\n",
+            "end\n\n",
+            "fn valid_union(value: Alias::Ready | Alias::Ready) -> Int\n",
+            "  0\n",
+            "end\n\n",
+            "fn missing(value: Alias::Missing) -> Int\n",
+            "  0\n",
+            "end\n\n",
+            "fn wrong_owner(value: Alias::Shared) -> Int\n",
+            "  0\n",
+            "end\n\n",
+            "fn non_constructor(value: Alias::Helper) -> Int\n",
+            "  0\n",
+            "end\n",
+            "\nfn direct_missing(value: State::Missing) -> Int\n",
+            "  0\n",
+            "end\n",
+            "\nfn direct_wrong_owner(value: State::Shared) -> Int\n",
+            "  0\n",
+            "end\n",
+            "\nfn direct_non_constructor(value: State::Helper) -> Int\n",
+            "  0\n",
+            "end\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
+        let position = |line: usize, needle: &str| SourcePosition {
+            source: SourcePath::new("main.veln"),
+            line,
+            column: text.lines().nth(line - 1).unwrap().find(needle).unwrap() + 1,
+        };
+
+        for (line, needle) in [
+            (22, "Alias::"),
+            (26, "Alias::"),
+            (30, "Alias::"),
+            (34, "State::"),
+            (38, "State::"),
+            (42, "State::"),
+        ] {
+            assert!(definition_at(&snapshot, position(line, needle)).is_none());
+            assert!(navigate(&snapshot, position(line, needle)).is_none());
+            assert!(navigate_for_rename(&snapshot, position(line, needle)).is_none());
+        }
+
+        for (line, needle) in [(14, "Alias::"), (18, "Alias::")] {
+            let result = navigate(&snapshot, position(line, needle)).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+            assert!(navigate_for_rename(&snapshot, position(line, needle)).is_some());
+        }
+    }
+
+    #[test]
     fn variant_refinement_navigation_preserves_unicode_scalar_ranges() {
         let source_text = concat!(
             "pub type State\n",
@@ -437,7 +501,7 @@
     }
 
     type VariantRefinementNavigationWork =
-        (usize, usize, usize, usize, usize, usize, usize, usize);
+        (usize, usize, usize, usize, usize, usize, usize, usize, usize);
 
     fn variant_refinement_lookup_work(
         annotation_count: usize,
@@ -506,6 +570,7 @@
         assert_eq!(larger.5, smaller.5, "{smaller:?} -> {larger:?}");
         assert_eq!(larger.6, smaller.6, "{smaller:?} -> {larger:?}");
         assert!(larger.7 <= smaller.7 * 2 + 16, "{smaller:?} -> {larger:?}");
+        assert!(larger.8 <= smaller.8 * 2 + 16, "{smaller:?} -> {larger:?}");
     }
 
     #[test]
@@ -589,6 +654,58 @@
             assert_adjacent_alias_resolution_work(smaller, larger);
         }
         eprintln!("workspace variant-refinement alias depth evidence: {evidence:?}");
+    }
+
+    fn nested_generic_alias_rename_work(
+        depth: usize,
+        close_suffix: bool,
+    ) -> (VariantRefinementNavigationWork, std::time::Duration) {
+        reset_variant_refinement_navigation_work();
+        let mut nested = "Alias<".repeat(depth);
+        nested.push_str("Int");
+        if close_suffix {
+            nested.push_str(&">".repeat(depth));
+            nested.push_str("::Ready");
+        }
+        let text = format!(
+            "type Box<A>\n  Ready(A)\nend\n\npub type Alias = Box\n\nfn observe(value: {nested}) -> Int\n  0\nend\n"
+        );
+        let started = std::time::Instant::now();
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+        let result = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 5,
+                column: 10,
+            },
+        )
+        .expect("alias declaration remains renameable");
+        if close_suffix {
+            assert!(result.references.len() >= depth);
+        }
+        (variant_refinement_navigation_work(), started.elapsed())
+    }
+
+    #[test]
+    fn nested_generic_refinement_alias_rename_has_linear_lookup_work() {
+        for (label, close_suffix, depths) in [
+            ("valid", true, [64, 128]),
+            ("bounded-malformed", false, [64, 128]),
+        ] {
+            let smaller = nested_generic_alias_rename_work(depths[0], close_suffix);
+            let larger = nested_generic_alias_rename_work(depths[1], close_suffix);
+            assert!(smaller.0.8 >= depths[0], "{label}: {smaller:?}");
+            assert!(larger.0.8 > smaller.0.8, "{label}: {smaller:?} -> {larger:?}");
+            assert!(
+                larger.0.8 <= smaller.0.8 * 2 + 8,
+                "{label}: {smaller:?} -> {larger:?}"
+            );
+            eprintln!(
+                "nested generic refinement alias rename {label}: {}=({:?}, {:?}), {}=({:?}, {:?})",
+                depths[0], smaller.0.8, smaller.1, depths[1], larger.0.8, larger.1
+            );
+        }
     }
 
     fn retained_variant_refinement_alias_snapshot(

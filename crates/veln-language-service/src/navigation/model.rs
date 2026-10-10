@@ -866,6 +866,8 @@ struct IndexedFile {
     effect_operation_ranges: BTreeSet<(usize, usize)>,
     generic_effect_binders: Vec<GenericEffectBinder>,
     variant_refinement_final_ranges: BTreeSet<(usize, usize)>,
+    variant_refinement_final_range_by_base_range:
+        BTreeMap<(usize, usize), (usize, usize)>,
     constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
     classified_paths: ClassifiedPathIndex,
     type_reference_locations: OnceLock<TypeReferenceIndex>,
