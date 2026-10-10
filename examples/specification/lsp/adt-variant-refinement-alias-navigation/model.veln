@@ -1,0 +1,8 @@
+pub type State
+	pub Ready(Int)
+	pub Closed
+end
+
+pub type A = State
+pub type B = A
+pub type Alias = State

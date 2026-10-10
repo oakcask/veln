@@ -359,7 +359,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
 }
 
 #[test]
-fn navigation_classifier_excludes_variant_refinement_segments() {
+fn navigation_classifier_includes_valid_variant_refinement_segments() {
     let main = SourceFile::new(
         "main.veln",
         concat!(
@@ -407,6 +407,24 @@ fn navigation_classifier_excludes_variant_refinement_segments() {
                 "type",
                 veln_ast::QualifiedPathSegmentEvidence::Syntax,
                 1,
+            ),
+            (
+                "helper".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                0,
+            ),
+            (
+                "Item".to_string(),
+                "type",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                1,
+            ),
+            (
+                "Ready".to_string(),
+                "constructor",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                2,
             ),
         ]
     );

@@ -79,6 +79,70 @@ fn path_classification_preserves_dependency_alias_constructor_and_recovery_roles
 }
 
 #[test]
+fn navigation_classification_excludes_invalid_refinement_unions_without_losing_casing_roles() {
+    let module = named_module(
+        "main",
+        concat!(
+            "pub type Left\n  pub LeftReady\nend\n",
+            "pub type Right\n  pub RightReady\nend\n",
+            "fn inspect(value: Left::LeftReady | Right::RightReady) -> Int\n  0\nend\n",
+        ),
+    );
+    let environment = TypeEnvironment::from_module(&module);
+
+    let casing_segments = classified_qualified_path_segments(&module, &environment);
+    assert_eq!(
+        casing_segments
+            .iter()
+            .filter(|segment| segment.role == NameClass::Constructor)
+            .count(),
+        2
+    );
+
+    let navigation_segments = classified_project_qualified_path_segments(&module);
+    assert!(
+        navigation_segments
+            .iter()
+            .filter(|segment| segment.name == "LeftReady" || segment.name == "RightReady")
+            .all(|segment| segment.role != NameClass::Constructor),
+        "{navigation_segments:#?}"
+    );
+}
+
+#[test]
+fn expression_type_argument_refinements_are_navigation_only() {
+    let module = named_module(
+        "main",
+        concat!(
+            "type State\n  Ready\nend\n",
+            "fn inspect(value: State) -> State\n  keep<State::Ready>(value)\nend\n",
+        ),
+    );
+    let environment = TypeEnvironment::from_module(&module);
+
+    let casing_segments = classified_qualified_path_segments(&module, &environment);
+    assert!(
+        casing_segments
+            .iter()
+            .all(|segment| segment.span.start.line != 5),
+        "{casing_segments:#?}"
+    );
+
+    let navigation_segments = classified_project_qualified_path_segments(&module);
+    assert_eq!(
+        navigation_segments
+            .iter()
+            .filter(|segment| segment.span.start.line == 5)
+            .map(|segment| (segment.name.as_str(), segment.role))
+            .collect::<Vec<_>>(),
+        [
+            ("State", NameClass::Type),
+            ("Ready", NameClass::Constructor)
+        ]
+    );
+}
+
+#[test]
 fn path_classification_builds_one_adt_registry_for_schema_helpers() {
     let mut text = String::from("mod model\n");
     for index in 0..16 {

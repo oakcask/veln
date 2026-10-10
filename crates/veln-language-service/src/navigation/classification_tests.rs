@@ -67,7 +67,7 @@ fn unqualified_workspace_navigation_does_not_build_a_classification_context() {
         )],
         ["helper.veln"],
     )]);
-    assert!(!dependencies.files[0].classified_path_segments.is_empty());
+    assert!(!dependencies.files[0].classified_paths.segments.is_empty());
     let standard_library = IndexedDependencies::new_standard_library(None);
     for name in ["good", "Bad"] {
         let source = SourceFile::new(
@@ -129,13 +129,14 @@ fn dependency_path_classification_stays_with_its_source() {
             .iter()
             .find(|file| file.source.path().as_str() == path)
             .expect("dependency source should be indexed");
-        assert!(!file.classified_path_segments.is_empty());
+        assert!(!file.classified_paths.segments.is_empty());
         assert!(
-            file.classified_path_segments
+            file.classified_paths
+                .segments
                 .iter()
                 .all(|segment| segment.span.file.as_str() == path)
         );
-        assert!(file.classified_path_segments.iter().any(|segment| {
+        assert!(file.classified_paths.segments.iter().any(|segment| {
             &file.source.text()[segment.span.start.offset..segment.span.end.offset] == qualifier
         }));
     }
@@ -282,6 +283,6 @@ fn workspace_classification_matches_sema_for_qualified_and_invalid_paths() {
         let expected = veln_sema::classified_project_qualified_path_segments(&module);
         assert!(!expected.is_empty(), "fixture must classify a path: {text}");
         let index = SymbolIndex::new(vec![source], &dependencies, &standard_library);
-        assert_eq!(index.files[0].classified_path_segments, expected, "{text}");
+        assert_eq!(index.files[0].classified_paths.segments, expected, "{text}");
     }
 }

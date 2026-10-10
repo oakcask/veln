@@ -267,7 +267,8 @@ Source-derived module paths use `origin: "source_path"`,
 `segment_index`; `source_kind` is `regular`, `export`, `companion`,
 `doctest`, or `generated`. Selected regular and companion sources may report
 casing diagnostics alongside parse errors. A lowercase initial followed by an
-invalid module-identifier character uses `module.invalid_source_path`.
+invalid module-identifier character uses
+`module.invalid_source_path`.
 When a selected documentation source cannot form a canonical virtual doctest
 path, the same diagnostic reports the original documentation source. That
 origin produces no generated doctest diagnostic path. Analysis continues for

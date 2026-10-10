@@ -15,7 +15,20 @@ impl SymbolIndex {
         let selection = file.source.span(token.range);
         let name = token.text.as_str();
         let alias = self.type_alias_declared_at(name, &selection).or_else(|| {
-            if is_type_reference_token(file, name, &selection) {
+            if file
+                .variant_refinement_final_range_by_base_range
+                .contains_key(&(token.range.start, token.range.end))
+            {
+                match self.variant_refinement_base_for_selection(
+                    file,
+                    &file.tokens,
+                    token_index,
+                    name,
+                ) {
+                    Some(Symbol::TypeAlias(alias)) => Some(alias),
+                    _ => None,
+                }
+            } else if is_type_reference_token(file, name, &selection) {
                 self.workspace_type_alias_for_reference(file, &file.tokens, token_index, name)
             } else {
                 self.workspace_type_alias_for_constructor_qualifier_token(
@@ -265,6 +278,24 @@ impl SymbolIndex {
         selection: &SourceSpan,
         prepared_scopes: Option<&[FunctionScope]>,
     ) -> Option<SelectedNavigationSymbol> {
+        let token = &tokens[token_index];
+        if file
+            .variant_refinement_final_ranges
+            .contains(&(token.range.start, token.range.end))
+        {
+            return self
+                .variant_refinement_constructor_for_selection(file, token)
+                .map(Symbol::Constructor)
+                .map(SelectedNavigationSymbol::bare);
+        }
+        if file
+            .variant_refinement_final_range_by_base_range
+            .contains_key(&(token.range.start, token.range.end))
+        {
+            return self
+                .variant_refinement_base_for_selection(file, tokens, token_index, name)
+                .map(SelectedNavigationSymbol::bare);
+        }
         if let Some(symbol) =
             self.qualified_segment_selection(file, tokens, token_index, name, selection)
         {
@@ -272,7 +303,7 @@ impl SymbolIndex {
         }
         if is_qualified_path_token(tokens, token_index)
             && !is_call_target_token(tokens, token_index)
-            && !is_constructor_reference_token(tokens, token_index)
+            && !file.token_is_constructor_reference(token_index)
         {
             return self
                 .qualified_function_value_selection(file, tokens, token_index, name)
@@ -452,7 +483,7 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<SelectedNavigationSymbol> {
-        is_constructor_reference_token(tokens, token_index)
+        file.token_is_constructor_reference(token_index)
             .then(|| self.constructor_symbol_for_call(file, tokens, token_index, name))
             .flatten()
             .map(Symbol::Constructor)
@@ -489,14 +520,17 @@ impl SymbolIndex {
             .is_none_or(|token| token.kind != TokenKind::DoubleColon)
             && next_non_layout_token(tokens, token_index)
                 .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+            && !file
+                .variant_refinement_final_range_by_base_range
+                .contains_key(&(tokens[token_index].range.start, tokens[token_index].range.end))
         {
             return None;
         }
 
-        if let Some(segment) = file
-            .classified_path_segments
-            .iter()
-            .find(|segment| same_span(&segment.span, selection))
+        if let Some(segment) = file.classified_paths.by_range.get(&(
+            selection.start.offset,
+            selection.end.offset,
+        ))
         {
             let symbol = self.symbol_for_classified_segment(file, tokens, token_index, name, segment);
             return Some(ClassifiedNavigationSegment {
@@ -516,9 +550,25 @@ impl SymbolIndex {
         segment: &QualifiedPathSegment,
     ) -> Option<Symbol> {
         match segment.role {
-            NameClass::Type => self.type_namespace_symbol_for_reference(file, tokens, token_index, name),
+            NameClass::Type
+                if file
+                    .variant_refinement_final_range_by_base_range
+                    .contains_key(&(
+                        tokens[token_index].range.start,
+                        tokens[token_index].range.end,
+                    )) =>
+            {
+                self.variant_refinement_base_for_selection(file, tokens, token_index, name)
+            }
+            NameClass::Type => self
+                .type_namespace_symbol_for_reference(file, tokens, token_index, name),
             NameClass::Constructor => self
-                .qualified_call_symbol(file, tokens, token_index, name, SymbolIndex::constructor_symbol)
+                .variant_refinement_constructor_for_selection(file, &tokens[token_index])
+                .or_else(|| {
+                    qualifier_for_token(tokens, token_index).and_then(|qualifier| {
+                        self.constructor_for_qualified_call(file, &qualifier, name)
+                    })
+                })
                 .map(Symbol::Constructor),
             NameClass::Function | NameClass::ValueBinding => self
                 .qualified_call_symbol(file, tokens, token_index, name, SymbolIndex::function_symbol)
@@ -537,15 +587,6 @@ impl SymbolIndex {
     ) -> Option<T> {
         let qualifier = qualifier_for_token(tokens, token_index)?;
         lookup(self, file, &qualifier, name)
-    }
-
-    fn constructor_symbol(
-        &self,
-        file: &IndexedFile,
-        qualifier: &str,
-        name: &str,
-    ) -> Option<ConstructorSymbol> {
-        self.constructor_for_qualified_call(file, qualifier, name)
     }
 
     fn function_symbol(

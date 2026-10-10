@@ -29,6 +29,29 @@ fn qualifier_for_token(tokens: &[Token], name_index: usize) -> Option<String> {
     Some(segments.join("::"))
 }
 
+fn variant_refinement_base_index(tokens: &[Token], variant_index: usize) -> Option<usize> {
+    let separator_index = previous_non_layout_index(tokens, variant_index)?;
+    if tokens[separator_index].kind != TokenKind::DoubleColon {
+        return None;
+    }
+    let mut base_index = previous_non_layout_index(tokens, separator_index)?;
+    if tokens[base_index].kind == TokenKind::Greater {
+        let mut depth = 1usize;
+        while depth > 0 {
+            base_index = previous_non_layout_index(tokens, base_index)?;
+            match tokens[base_index].kind {
+                TokenKind::Greater => depth += 1,
+                TokenKind::Less => depth -= 1,
+                _ => {}
+            }
+        }
+        base_index = previous_non_layout_index(tokens, base_index)?;
+    }
+    (tokens[base_index].kind.is_contextual_identifier()
+        && is_identifier(&tokens[base_index].text))
+    .then_some(base_index)
+}
+
 fn qualified_reference_matches(
     tokens: &[Token],
     name_index: usize,

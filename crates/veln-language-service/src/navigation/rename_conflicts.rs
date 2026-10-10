@@ -150,7 +150,7 @@ impl SymbolIndex {
                         token.kind == TokenKind::Ident
                             && token.text == requested_name
                             && qualifier_for_token(&file.tokens, *index).is_none()
-                            && is_constructor_reference_token(&file.tokens, *index)
+                            && file.token_is_constructor_reference(*index)
                     })
                     .find_map(|(token_index, _)| {
                         if self.constructor_local_resolution_unchanged(

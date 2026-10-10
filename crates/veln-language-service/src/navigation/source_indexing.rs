@@ -196,6 +196,9 @@ fn indexed_dependency_source(
     let handler_operation_clause_body_ranges =
         handler_operation_clause_body_ranges(&source, &tokens);
     let handler_clause_bindings_by_name = handler_clause_bindings_by_name(&parsed.tree);
+    let constructor_reference_declaration_ranges =
+        constructor_reference_declaration_ranges(&parsed.tree, &tokens);
+    let variant_refinement_source_index = variant_refinement_source_index(&parsed.tree);
     let file = IndexedFile {
         source,
         tokens,
@@ -223,7 +226,24 @@ fn indexed_dependency_source(
         effect_reference_ranges: BTreeSet::new(),
         effect_operation_ranges: BTreeSet::new(),
         generic_effect_binders: Vec::new(),
-        classified_path_segments: Vec::new(),
+        variant_refinement_final_ranges: variant_refinement_source_index.final_ranges,
+        variant_refinement_final_range_by_base_range: variant_refinement_source_index
+            .final_range_by_base_range,
+        variant_refinement_type_argument_count_by_final_range: variant_refinement_source_index
+            .type_argument_count_by_final_range,
+        variant_refinement_union_group_index_by_final_range: variant_refinement_source_index
+            .union_group_index_by_final_range,
+        variant_refinement_union_final_range_groups: variant_refinement_source_index
+            .union_final_range_groups,
+        variant_refinement_type_argument_ranges_by_final_range:
+            variant_refinement_source_index.type_argument_ranges_by_final_range,
+        variant_refinement_type_parameter_contexts:
+            variant_refinement_source_index.type_parameter_contexts,
+        variant_refinement_type_parameter_context_index_by_final_range:
+            variant_refinement_source_index.type_parameter_context_index_by_final_range,
+        canonical_variant_refinement_type_arguments_by_final_range: BTreeMap::new(),
+        constructor_reference_declaration_ranges,
+        classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated: identity.navigation_isolated,
         origin: IndexedOrigin::Package {
@@ -265,6 +285,16 @@ fn attach_classified_path_segments(
             .filter(|file| matches!(file.origin, IndexedOrigin::Package { .. }))
             .count(),
     );
+    #[cfg(test)]
+    let segments = {
+        let (segments, work) =
+            veln_sema::classified_project_qualified_path_segments_with_context_and_work(
+                module, project,
+            );
+        record_variant_refinement_classification_work(work);
+        segments
+    };
+    #[cfg(not(test))]
     let segments =
         veln_sema::classified_project_qualified_path_segments_with_context(module, project);
     let mut segments_by_file = BTreeMap::<String, Vec<QualifiedPathSegment>>::new();
@@ -274,10 +304,74 @@ fn attach_classified_path_segments(
             .or_default()
             .push(segment);
     }
-    for file in files {
-        file.classified_path_segments = segments_by_file
+    for file in files.iter_mut() {
+        file.classified_paths.segments = segments_by_file
             .remove(file.source.path().as_str())
             .unwrap_or_default();
+        file.classified_paths.by_range = file
+            .classified_paths
+            .segments
+            .iter()
+            .map(|segment| {
+                (
+                    (segment.span.start.offset, segment.span.end.offset),
+                    segment.clone(),
+                )
+            })
+            .collect();
+    }
+    attach_canonical_variant_refinement_type_arguments(files, project);
+}
+
+fn attach_canonical_variant_refinement_type_arguments(
+    files: &mut [IndexedFile],
+    project: &veln_ast::SurfaceModule,
+) {
+    let mut annotations = Vec::<(&str, Option<&str>, &[String])>::new();
+    let mut groups = Vec::<(usize, (usize, usize), usize, usize)>::new();
+    for (file_index, file) in files.iter().enumerate() {
+        for (range, argument_ranges) in
+            &file.variant_refinement_type_argument_ranges_by_final_range
+        {
+            if file
+                .classified_paths
+                .by_range
+                .get(range)
+                .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
+            {
+                continue;
+            }
+            let start = annotations.len();
+            let type_parameters = file
+                .variant_refinement_type_parameter_context_index_by_final_range
+                .get(range)
+                .and_then(|context_index| {
+                    file.variant_refinement_type_parameter_contexts
+                        .get(*context_index)
+                })
+                .map_or(&[][..], Vec::as_slice);
+            annotations.extend(argument_ranges.iter().map(|(start, end)| {
+                (
+                    &file.source.text()[*start..*end],
+                    Some(file.module.as_str()),
+                    type_parameters,
+                )
+            }));
+            groups.push((file_index, *range, start, annotations.len()));
+        }
+    }
+    #[cfg(test)]
+    record_variant_refinement_canonical_annotation_bytes(
+        annotations.iter().map(|(annotation, _, _)| annotation.len()).sum(),
+    );
+    let resolved =
+        veln_sema::canonical_type_annotation_identities_with_context(project, &annotations);
+    for (file_index, range, start, end) in groups {
+        if let Some(identities) = resolved[start..end].iter().cloned().collect() {
+            files[file_index]
+                .canonical_variant_refinement_type_arguments_by_final_range
+                .insert(range, identities);
+        }
     }
 }
 
@@ -294,7 +388,7 @@ fn append_parsed_surface_module(
     append_surface_module(merged, module);
 }
 
-fn empty_surface_module() -> veln_ast::SurfaceModule {
+pub(crate) fn empty_surface_module() -> veln_ast::SurfaceModule {
     veln_ast::SurfaceModule {
         module: None,
         uses: Vec::new(),

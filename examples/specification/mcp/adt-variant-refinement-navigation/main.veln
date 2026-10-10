@@ -1,0 +1,33 @@
+pub type State
+  pub Ready(Int)
+  pub Closed
+end
+
+pub type Alias = State
+
+fn observe(value: State::Ready) -> State
+  let made = State::Ready(1)
+  match value
+    State::Ready(payload) => made
+  end
+end
+
+fn alias_single(value: Alias::Ready) -> Int
+  0
+end
+
+fn alias_union(value: Alias::Ready | Alias::Closed) -> Int
+  0
+end
+
+pub type Other
+  pub Ready
+end
+
+fn observe_other(value: Other::Ready) -> Other
+  Other::Ready
+end
+
+fn invalid(value: State::Ready | Other::Ready) -> Int
+  0
+end

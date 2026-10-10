@@ -299,14 +299,28 @@ pub fn navigate_for_rename(
             is_recovery: false,
         });
     }
-    let mut result = navigate_in_index(Arc::clone(&index), &position)?;
+    let result = navigate_in_index(Arc::clone(&index), &position)?;
+    Some(navigation_result_for_rename(snapshot, result))
+}
+
+pub fn navigation_result_for_rename(
+    snapshot: &EffectiveProjectSnapshot,
+    mut result: NavigationResult,
+) -> NavigationResult {
+    let index = snapshot.navigation_index();
+    if let Some(alias) = index.selected_type_alias(&result)
+        && result.selected_symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
+    {
+        result.references = index.workspace_type_alias_references(&alias);
+        sort_locations(&mut result.references);
+    }
     if let Some(symbol) = index.selected_function(&result)
         && symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
     {
         result.references = index.workspace_function_alias_references(&symbol);
         sort_locations(&mut result.references);
     }
-    Some(result)
+    result
 }
 
 fn navigation_selection_is_unsupported(
@@ -409,8 +423,7 @@ pub fn definition_at(
     let index = snapshot.navigation_index();
     let request = index.symbol_at_position(position.source.as_str(), &position)?;
     request
-        .symbol
-        .definition_supported(&request.index)
+        .definition_supported
         .then(|| request.symbol.definition())
 }
 
@@ -621,6 +634,7 @@ struct TypeSymbol {
     package_origin: Option<PackageOrigin>,
     public: bool,
     standard_prelude: bool,
+    generic_arity: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -735,6 +749,7 @@ struct SymbolRequest {
     symbol: Symbol,
     selection: SourceSpan,
     classified_path_segment: Option<QualifiedPathSegment>,
+    definition_supported: bool,
     references_supported: bool,
 }
 
@@ -851,10 +866,33 @@ struct IndexedFile {
     effect_reference_ranges: BTreeSet<(usize, usize)>,
     effect_operation_ranges: BTreeSet<(usize, usize)>,
     generic_effect_binders: Vec<GenericEffectBinder>,
-    classified_path_segments: Vec<QualifiedPathSegment>,
+    variant_refinement_final_ranges: BTreeSet<(usize, usize)>,
+    variant_refinement_final_range_by_base_range:
+        BTreeMap<(usize, usize), (usize, usize)>,
+    variant_refinement_type_argument_count_by_final_range:
+        BTreeMap<(usize, usize), usize>,
+    variant_refinement_union_group_index_by_final_range: BTreeMap<(usize, usize), usize>,
+    variant_refinement_union_final_range_groups: Vec<Vec<(usize, usize)>>,
+    variant_refinement_type_argument_ranges_by_final_range:
+        BTreeMap<(usize, usize), Vec<(usize, usize)>>,
+    variant_refinement_type_parameter_contexts: Vec<Vec<String>>,
+    variant_refinement_type_parameter_context_index_by_final_range:
+        BTreeMap<(usize, usize), usize>,
+    canonical_variant_refinement_type_arguments_by_final_range:
+        BTreeMap<(usize, usize), Vec<veln_sema::CanonicalTypeAnnotationIdentity>>,
+    constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
+    classified_paths: ClassifiedPathIndex,
     type_reference_locations: OnceLock<TypeReferenceIndex>,
     navigation_isolated: bool,
     origin: IndexedOrigin,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ClassifiedPathIndex {
+    segments: Vec<QualifiedPathSegment>,
+    by_range: BTreeMap<(usize, usize), QualifiedPathSegment>,
+    variant_refinement_identities:
+        OnceLock<BTreeMap<(usize, usize), VariantRefinementNavigationIdentity>>,
 }
 
 #[derive(Clone, Debug)]
@@ -873,6 +911,27 @@ struct GenericEffectBinder {
 }
 
 impl IndexedFile {
+    fn token_is_constructor_reference(&self, index: usize) -> bool {
+        #[cfg(test)]
+        record_constructor_reference_role_lookup();
+        let token = &self.tokens[index];
+        is_constructor_reference_token(
+            &self.tokens,
+            index,
+            self.constructor_reference_declaration_ranges
+                .contains(&(token.range.start, token.range.end)),
+        )
+    }
+
+    fn token_has_classified_role(&self, token: &Token, role: NameClass) -> bool {
+        #[cfg(test)]
+        record_classified_role_lookup();
+        self.classified_paths
+            .by_range
+            .get(&(token.range.start, token.range.end))
+            .is_some_and(|segment| segment.role == role)
+    }
+
     fn inside_handler_operation_clause_body(&self, offset: usize) -> bool {
         #[cfg(test)]
         record_handler_clause_body_membership_lookup();
@@ -894,6 +953,18 @@ impl IndexedFile {
             offset < binder.end && binder.name == name
         })
     }
+}
+
+#[derive(Clone, Debug)]
+enum VariantRefinementBaseSymbol {
+    Type(TypeSymbol),
+    Alias(TypeAliasSymbol),
+}
+
+#[derive(Clone, Debug)]
+struct VariantRefinementNavigationIdentity {
+    base: VariantRefinementBaseSymbol,
+    constructor: ConstructorSymbol,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1024,12 +1095,13 @@ pub(crate) struct SymbolIndex {
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
     function_indices_by_identity: HashMap<FunctionIdentity, Vec<usize>>,
-    file_indices_by_identity: HashMap<IndexedFileIdentity, usize>,
+    file_indices_by_identity: HashMap<IndexedFileIdentity, Vec<usize>>,
     package_function_targets: Vec<PackageFunctionTarget>,
     package_type_targets: Vec<PackageTypeTarget>,
     package_constructor_targets: Vec<PackageConstructorTarget>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
+    constructor_indices_by_identity: BTreeMap<ConstructorIdentity, Vec<usize>>,
     type_aliases: Vec<TypeAliasSymbol>,
     type_indices_by_name: BTreeMap<String, Vec<usize>>,
     type_alias_indices_by_name: BTreeMap<String, Vec<usize>>,
@@ -1037,6 +1109,7 @@ pub(crate) struct SymbolIndex {
     workspace_type_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
+    variant_refinement_alias_index: OnceLock<VariantRefinementAliasIndex>,
     eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
     eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,
     schema_composition_references: Vec<SchemaCompositionReference>,
@@ -1047,7 +1120,20 @@ pub(crate) struct SymbolIndex {
 }
 
 type FunctionIdentity = (Option<String>, Option<PackageOrigin>, String, String);
+type ConstructorIdentity = (
+    Option<String>,
+    Option<PackageOrigin>,
+    String,
+    String,
+    String,
+);
 type IndexedFileIdentity = (Option<String>, Option<PackageOrigin>, String);
+type TypeIdentity = (Option<String>, Option<PackageOrigin>, String, String);
+
+#[derive(Debug)]
+struct VariantRefinementAliasIndex {
+    terminal_types: BTreeMap<TypeIdentity, Option<TypeSymbol>>,
+}
 
 #[derive(Debug)]
 struct FunctionRenameIndex {

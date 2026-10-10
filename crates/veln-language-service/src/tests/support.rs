@@ -18,6 +18,8 @@ use crate::navigation::{
     reset_local_reference_scope_candidate_visits,
     reset_schema_alias_import_work, reset_type_reference_collections, schema_alias_import_work,
     type_reference_candidate_visits, type_reference_collections, type_reference_token_visits,
+    reset_variant_refinement_navigation_work, variant_refinement_navigation_work,
+    variant_refinement_construction_work,
 };
 use veln_ast::{NameClass, NameOccurrence, QualifiedPathSegmentEvidence};
 use veln_project::{capture_package_snapshot, parse_manifest_text};

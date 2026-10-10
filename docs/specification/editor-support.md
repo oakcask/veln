@@ -1,15 +1,16 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#lsp-encoding; behavior=#lsp-completion-and-signature-help; limits=#boundaries
-update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy contract changes.
+specification-coverage: usage=#lsp-encoding; behavior=#lsp-navigation-formatting-and-rename; limits=#boundaries
+update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy or bounded-work evidence changes.
 ---
 
 # Editor Support
 
-This page specifies implemented editor-facing classification. It covers the
-compiler-owned records, LSP semantic-token transport, and VSCode integration
-used by editor integrations.
+This page specifies implemented editor-facing classification and interaction.
+It covers compiler-owned editor records, LSP diagnostics, navigation,
+completion, signature help, formatting, rename, semantic-token transport, and
+VSCode integration.
 
 ## Read First
 
@@ -261,10 +262,94 @@ ranges.
 Definition and references use the shared selected symbol and reference set.
 Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
+
+### Shared variant-refinement navigation
+
+For a valid singleton or union variant-refinement annotation, the written base
+and final variant remain separate navigation identities. A direct base segment
+selects its ADT declaration. A base segment that resolves through a visible,
+finite, acyclic alias chain selects the written public type-alias declaration.
+Each alias target resolves in the alias declaration's type namespace, so a
+workspace alias can target a dependency ADT and a retained dependency or
+standard-library alias can target an ADT from its own package. A bare target
+in a retained package alias selects a same-module type or alias first. If that
+module has no matching declaration, one public implicit `std::prelude` type or
+alias with that spelling is eligible. Multiple matching prelude declarations
+leave the target unresolved. A qualified target has no implicit-prelude
+fallback. The final variant segment selects the visible constructor of the
+resolved target ADT.
+When the same qualified module and type spelling is reachable through imports
+from multiple packages, the base is ambiguous. The direct base, an alias chain
+that depends on it, and their final variants expose no navigation identity,
+regardless of import order.
+The complete refinement must resolve before either segment is selectable. If
+the written generic-argument count differs from the resolved terminal ADT's
+declared parameter count, any generic argument contains an unresolved named
+type or invalid nested refinement, the final segment is missing, names a
+constructor from another ADT, or names a non-constructor declaration,
+definition and references return no selection for the direct or alias base.
+Generic arguments resolve recursively; a type parameter declared by the
+enclosing ADT is resolved in that ADT's payload annotation. A union is also
+invalid when its alternatives resolve to different terminal ADT identities or
+different canonical generic arguments; none of that union's base or variant
+segments has a shared identity. Resolving one alternative independently does
+not make that invalid refinement a type, alias, or constructor occurrence.
+Canonical generic-argument comparison uses resolved type identities rather
+than written spellings. A transparent alias and its target therefore compare
+equal. In an enclosing generic ADT, two arguments compare equal only when they
+refer to the same declared type-parameter position. These rules also apply
+when the refinement base resolves through a retained dependency or
+standard-library alias.
+An exact `.test.veln` companion can select a private workspace ADT and its
+private constructor through a qualified refinement when it explicitly imports
+the target module. Shared selection and references then use the private
+declarations' ordinary workspace identities. Another test module, including
+one with the same qualified spelling, receives no shared identity for those
+private refinement segments.
+Its eligible references include constructor expressions, constructor patterns,
+and every direct or alias-qualified refinement occurrence for that constructor.
+A same-spelled variant owned by another ADT is not in the set.
+
+Rename selection on a refinement variant uses that constructor identity and
+its linked occurrences. The base alias is not part of the constructor identity.
+Rename selection on the alias base uses the alias declaration and its written
+base occurrences without selecting the target ADT or constructor.
+Navigation-index construction remains bounded as valid refinement occurrence
+count, alias-chain depth, union width, generic parameter count, or nesting depth
+grows. The checked workloads use deterministic work and retained-size measures;
+elapsed time is diagnostic and does not define a conformance threshold.
+A retained direct-dependency or standard-library type alias used as the base
+of a valid refinement is a narrow exception to the ordinary package-alias
+definition policy below. When the refinement resolves through a visible,
+finite, acyclic alias chain to the selected ADT and constructor, definition on
+the base returns the written public type-alias declaration. Its final variant
+uses the resolved package constructor identity for definition and references.
+
+### LSP variant-refinement projection
+
 Completion, signature-help, and navigation requests convert zero-based UTF-16
 LSP characters to shared one-based Unicode-scalar positions. Navigation
 responses convert shared ranges back to zero-based UTF-16 LSP ranges using the
 retained source snapshot.
+Definition and references project the shared selection and reference set.
+`includeDeclaration` determines whether references add the selected declaration.
+Prepare-rename projects the shared selection range. Rename applies the existing
+constructor or alias casing and conflict rules, then projects the shared linked
+occurrences into one workspace edit. A constructor rename edits its declaration,
+expressions, patterns, and singleton and union refinements. An alias-base rename
+edits the alias declaration and written base occurrences without editing the
+target ADT or constructor. Package source remains ineligible for workspace edits
+even when the shared service exposes its constructor identity. A refinement
+without a shared identity produces no definition or references, no
+prepare-rename range, and no rename edits.
+
+The checked LSP cases cover direct and union selection in
+[`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/)
+and generic, transitive, and imported aliases in
+[`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
+They verify empty projected results for invalid arity and union identity,
+preservation through canonically equal generic aliases, and separation of alias
+and constructor edits.
 The character position at the end of a line is valid and preserves half-open
 selection behavior. After `params.textDocument.uri` selects a retained source,
 the request must contain exactly one direct `params.position` object. That
@@ -535,8 +620,11 @@ For a workspace public function alias, prepare-rename and rename select the
 alias identity at its declaration and at calls that resolve through the alias.
 Rename edits the alias declaration and those alias calls. It does not edit the
 target function declaration or direct calls to that target. Workspace type
-aliases remain unsupported by LSP prepare-rename and rename, even though the
-MCP rename tool supports their separate alias identity as specified in
+aliases remain unsupported by general LSP prepare-rename and rename. The valid
+variant-refinement exception above permits both operations when the selected
+alias is the written base of a complete refinement identity; the edit retains
+the alias identity and does not rename the target ADT or constructor. The MCP
+rename tool supports the separate alias identity as specified in
 [mcp.md](mcp.md#rename).
 
 A rename request without a selected supported workspace symbol returns an empty
@@ -596,11 +684,18 @@ references. For a project-wide request, MCP returns those same workspace
 locations and, when `include_declaration` is true, also includes the eligible
 canonical `veln-pkg:` declaration. A single-file MCP request does not include
 that package declaration. Supported direct-dependency and standard-library
-public type aliases follow the same LSP and MCP declaration policy.
-Unsupported schema-alias origins or scopes, public function aliases with unresolved,
-non-function, or invalid-cased targets, and public type aliases with
-transitive, unresolved, non-type, or invalid-cased targets do not produce
-definition or reference locations.
+public type aliases return workspace references under the same LSP and MCP
+declaration policy. An ordinary direct-dependency type-alias reference can also
+return its retained declaration. An ordinary standard-library type-alias
+reference cannot; only the valid-refinement exception above permits definition
+on its written base.
+Unsupported schema-alias origins or scopes and public function aliases with
+unresolved, non-function, or invalid-cased targets do not produce definition
+or reference locations. Public type aliases with transitive, unresolved,
+non-type, or invalid-cased targets do not produce ordinary type-reference
+definition or reference locations. The valid-refinement exception above
+permits only definition on the written base after the complete refinement
+resolves.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured

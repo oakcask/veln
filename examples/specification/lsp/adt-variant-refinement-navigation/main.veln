@@ -1,0 +1,38 @@
+pub type State
+	pub Ready(Int)
+	pub Closed
+end
+
+pub type Alias = State
+
+fn observe(value: State::Ready, other: Alias::Ready | Alias::Closed) -> State
+	let made = label("😀", State::Ready(1))
+	match value
+		State::Ready(payload) => made
+	end
+end
+
+fn label(text: String, state: State) -> State
+	state
+end
+
+pub type Other
+	pub Ready
+end
+
+fn observe_other(value: Other::Ready) -> Other
+	Other::Ready
+end
+
+pub type Box<A>
+	pub Boxed(A)
+	pub Empty
+end
+
+fn invalid_base(value: State::Ready | Other::Ready) -> Int
+	0
+end
+
+fn invalid_args(value: Box<Int>::Boxed | Box<String>::Empty) -> Int
+	0
+end

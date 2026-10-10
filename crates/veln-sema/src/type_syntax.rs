@@ -9,6 +9,12 @@ fn with_builtin_type_syntax_registry<R>(
     crate::source_less_lookup::with_builtin_type_syntax_registry(lookup)
 }
 
+pub(crate) fn builtin_type_syntax_arity(name: &str) -> Option<usize> {
+    with_builtin_type_syntax_registry(|registry| registry.arity(name))
+        .ok()
+        .flatten()
+}
+
 pub fn type_annotation_reference_names(text: &str) -> Result<Vec<String>, String> {
     Ok(type_annotation_reference_paths(text)?
         .into_iter()

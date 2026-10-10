@@ -57,6 +57,19 @@ struct WorkspaceSyntaxIndex {
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effects: WorkspaceEffectIndex,
+    variant_refinement_final_ranges: BTreeSet<(usize, usize)>,
+    variant_refinement_final_range_by_base_range:
+        BTreeMap<(usize, usize), (usize, usize)>,
+    variant_refinement_type_argument_count_by_final_range:
+        BTreeMap<(usize, usize), usize>,
+    variant_refinement_union_group_index_by_final_range: BTreeMap<(usize, usize), usize>,
+    variant_refinement_union_final_range_groups: Vec<Vec<(usize, usize)>>,
+    variant_refinement_type_argument_ranges_by_final_range:
+        BTreeMap<(usize, usize), Vec<(usize, usize)>>,
+    variant_refinement_type_parameter_contexts: Vec<Vec<String>>,
+    variant_refinement_type_parameter_context_index_by_final_range:
+        BTreeMap<(usize, usize), usize>,
+    constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
 }
 
 impl WorkspaceSyntaxIndex {
@@ -70,6 +83,9 @@ impl WorkspaceSyntaxIndex {
         let schema_composition_leaf_spans =
             valid_schema_composition_leaf_spans(source, &tokens, parsed);
         let effects = WorkspaceEffectIndex::new(&tokens, parsed);
+        let variant_refinement_source_index = variant_refinement_source_index(&parsed.tree);
+        let constructor_reference_declaration_ranges =
+            constructor_reference_declaration_ranges(&parsed.tree, &tokens);
         let handler_diagnostics = HandlerDiagnosticIndex::new(parsed);
         let recovery_symbols = workspace_recovery_symbols(
             navigation_isolated,
@@ -108,6 +124,22 @@ impl WorkspaceSyntaxIndex {
             schema_operation_leaf_ranges,
             schema_composition_leaf_spans,
             effects,
+            variant_refinement_final_ranges: variant_refinement_source_index.final_ranges,
+            variant_refinement_final_range_by_base_range: variant_refinement_source_index
+                .final_range_by_base_range,
+            variant_refinement_type_argument_count_by_final_range:
+                variant_refinement_source_index.type_argument_count_by_final_range,
+            variant_refinement_union_group_index_by_final_range:
+                variant_refinement_source_index.union_group_index_by_final_range,
+            variant_refinement_union_final_range_groups:
+                variant_refinement_source_index.union_final_range_groups,
+            variant_refinement_type_argument_ranges_by_final_range:
+                variant_refinement_source_index.type_argument_ranges_by_final_range,
+            variant_refinement_type_parameter_contexts:
+                variant_refinement_source_index.type_parameter_contexts,
+            variant_refinement_type_parameter_context_index_by_final_range:
+                variant_refinement_source_index.type_parameter_context_index_by_final_range,
+            constructor_reference_declaration_ranges,
         }
     }
 }
@@ -142,7 +174,25 @@ fn indexed_workspace_file(
         effect_reference_ranges: syntax.effects.reference_ranges,
         effect_operation_ranges: syntax.effects.operation_ranges,
         generic_effect_binders: syntax.effects.generic_binders,
-        classified_path_segments: Vec::new(),
+        variant_refinement_final_ranges: syntax.variant_refinement_final_ranges,
+        variant_refinement_final_range_by_base_range: syntax
+            .variant_refinement_final_range_by_base_range,
+        variant_refinement_type_argument_count_by_final_range: syntax
+            .variant_refinement_type_argument_count_by_final_range,
+        variant_refinement_union_group_index_by_final_range: syntax
+            .variant_refinement_union_group_index_by_final_range,
+        variant_refinement_union_final_range_groups: syntax
+            .variant_refinement_union_final_range_groups,
+        variant_refinement_type_argument_ranges_by_final_range: syntax
+            .variant_refinement_type_argument_ranges_by_final_range,
+        variant_refinement_type_parameter_contexts: syntax
+            .variant_refinement_type_parameter_contexts,
+        variant_refinement_type_parameter_context_index_by_final_range: syntax
+            .variant_refinement_type_parameter_context_index_by_final_range,
+        canonical_variant_refinement_type_arguments_by_final_range: BTreeMap::new(),
+        constructor_reference_declaration_ranges: syntax
+            .constructor_reference_declaration_ranges,
+        classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated: identity.source.navigation_isolated,
         origin: IndexedOrigin::Workspace,

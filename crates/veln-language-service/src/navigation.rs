@@ -14,6 +14,7 @@ use veln_syntax::{
 
 include!("navigation/model.rs");
 include!("navigation/source_indexing.rs");
+include!("navigation/variant_refinement_source_indexing.rs");
 include!("navigation/effect_source_indexing.rs");
 include!("navigation/handler_source_indexing.rs");
 include!("navigation/schema_source_indexing.rs");
@@ -24,6 +25,8 @@ include!("navigation/schema_navigation_indexing.rs");
 include!("navigation/index_construction.rs");
 include!("navigation/index.rs");
 include!("navigation/index_visibility.rs");
+include!("navigation/variant_refinement_navigation.rs");
+include!("navigation/variant_refinement_namespace_resolution.rs");
 include!("navigation/selection.rs");
 include!("navigation/recovery.rs");
 include!("navigation/rename_shared.rs");
@@ -42,6 +45,46 @@ include!("navigation/scopes.rs");
 include!("navigation/local_binding_scopes.rs");
 include!("navigation/token_roles.rs");
 include!("navigation/source_paths.rs");
+
+#[cfg(test)]
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct VariantRefinementSourceIndexRetention {
+    pub(crate) final_ranges: usize,
+    pub(crate) final_range_group_indices: usize,
+    pub(crate) group_ranges: usize,
+    pub(crate) type_parameter_contexts: usize,
+    pub(crate) type_parameter_names: usize,
+    pub(crate) type_parameter_context_references: usize,
+    pub(crate) type_argument_annotations: usize,
+    pub(crate) type_argument_range_bytes: usize,
+}
+
+#[cfg(test)]
+pub(crate) fn variant_refinement_source_index_retention(
+    source: &SourceFile,
+) -> VariantRefinementSourceIndexRetention {
+    let parsed = parse(source);
+    let index = variant_refinement_source_index(&parsed.tree);
+    VariantRefinementSourceIndexRetention {
+        final_ranges: index.final_ranges.len(),
+        final_range_group_indices: index.union_group_index_by_final_range.len(),
+        group_ranges: index.union_final_range_groups.iter().map(Vec::len).sum(),
+        type_parameter_contexts: index.type_parameter_contexts.len(),
+        type_parameter_names: index.type_parameter_contexts.iter().map(Vec::len).sum(),
+        type_parameter_context_references: index.type_parameter_context_index_by_final_range.len(),
+        type_argument_annotations: index
+            .type_argument_ranges_by_final_range
+            .values()
+            .map(Vec::len)
+            .sum(),
+        type_argument_range_bytes: index
+            .type_argument_ranges_by_final_range
+            .values()
+            .flatten()
+            .map(|_| std::mem::size_of::<(usize, usize)>())
+            .sum(),
+    }
+}
 
 pub(crate) struct SignatureShadowIndex {
     scopes: Vec<FunctionScope>,
@@ -282,6 +325,19 @@ thread_local! {
     static TYPE_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static CONSTRUCTOR_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+    static CLASSIFIED_ROLE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_ALIAS_CACHE_REUSES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_RENDERED_ANNOTATIONS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_RENDERED_BYTES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
@@ -938,6 +994,137 @@ pub(crate) fn reset_constructor_reference_collections() {
 #[cfg(test)]
 pub(crate) fn constructor_reference_collections() -> usize {
     CONSTRUCTOR_REFERENCE_COLLECTIONS.get()
+}
+
+#[cfg(test)]
+fn record_classified_role_lookup() {
+    CLASSIFIED_ROLE_LOOKUPS.set(CLASSIFIED_ROLE_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_token_index_entry() {
+    VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.set(VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_constructor_index_entry() {
+    VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES
+        .set(VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_constructor_candidate_visit() {
+    VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS
+        .set(VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_reference_token_visit() {
+    VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS
+        .set(VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_alias_index_entry() {
+    VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.set(VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_variant_refinement_alias_index_entry() {}
+
+#[cfg(test)]
+fn record_variant_refinement_alias_target_lookup() {
+    VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.set(VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_variant_refinement_alias_target_lookup() {}
+
+#[cfg(test)]
+fn record_variant_refinement_alias_cache_reuse() {
+    VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.set(VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.get() + 1);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_base_final_lookup() {
+    VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.set(VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_variant_refinement_base_final_lookup() {}
+
+#[cfg(not(test))]
+fn record_variant_refinement_alias_cache_reuse() {}
+
+#[cfg(test)]
+fn record_constructor_reference_role_lookup() {
+    CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.set(CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_variant_refinement_navigation_work() {
+    VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.set(0);
+    VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.set(0);
+    VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.set(0);
+    VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS.set(0);
+    CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.set(0);
+    VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.set(0);
+    VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.set(0);
+    VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.set(0);
+    VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.set(0);
+    VARIANT_REFINEMENT_RENDERED_ANNOTATIONS.set(0);
+    VARIANT_REFINEMENT_RENDERED_BYTES.set(0);
+    VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES.set(0);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_classification_work(
+    work: veln_sema::VariantRefinementClassificationWork,
+) {
+    VARIANT_REFINEMENT_RENDERED_ANNOTATIONS
+        .set(VARIANT_REFINEMENT_RENDERED_ANNOTATIONS.get() + work.rendered_annotations);
+    VARIANT_REFINEMENT_RENDERED_BYTES
+        .set(VARIANT_REFINEMENT_RENDERED_BYTES.get() + work.rendered_bytes);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_canonical_annotation_bytes(bytes: usize) {
+    VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES
+        .set(VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES.get() + bytes);
+}
+
+#[cfg(test)]
+pub(crate) fn variant_refinement_construction_work() -> (usize, usize, usize) {
+    (
+        VARIANT_REFINEMENT_RENDERED_ANNOTATIONS.get(),
+        VARIANT_REFINEMENT_RENDERED_BYTES.get(),
+        VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES.get(),
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn variant_refinement_navigation_work() -> (
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+) {
+    (
+        VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.get(),
+        VARIANT_REFINEMENT_CONSTRUCTOR_INDEX_ENTRIES.get(),
+        VARIANT_REFINEMENT_CONSTRUCTOR_CANDIDATE_VISITS.get(),
+        VARIANT_REFINEMENT_REFERENCE_TOKEN_VISITS.get(),
+        CONSTRUCTOR_REFERENCE_ROLE_LOOKUPS.get(),
+        VARIANT_REFINEMENT_ALIAS_INDEX_ENTRIES.get(),
+        VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.get(),
+        VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.get(),
+        VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.get(),
+    )
 }
 
 #[cfg(test)]

@@ -411,7 +411,12 @@ fn declaration_name_after_keyword(
 }
 
 fn visible_workspace_constructor_from(file: &IndexedFile, symbol: &ConstructorSymbol) -> bool {
-    symbol.public || symbol.module == file.module
+    symbol.public
+        || symbol.module == file.module
+        || file
+            .companion_target_module
+            .as_ref()
+            .is_some_and(|target| target == &symbol.module)
 }
 
 fn constructor_qualifier_matches(symbol: &ConstructorSymbol, qualifier: &str) -> bool {
@@ -582,6 +587,7 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     package_origin: origin.package_origin,
                     public,
                     standard_prelude: origin.standard_prelude,
+                    generic_arity: type_decl.params.len(),
                 })
             }
             _ => None,

@@ -28,8 +28,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
   calls: [effects.md](effects.md).
 - Compiler-known descriptor metadata and prelude helpers:
   [prelude-helpers.md](prelude-helpers.md).
-- Editor lexical fallback, semantic token classes, LSP completion and signature
-  help, and full-token encoding:
+- Editor lexical fallback, semantic token classes, LSP completion, signature
+  help, definition, references, rename, and full-token encoding:
   [editor-support.md](editor-support.md).
 
 ## Contracts And Holes

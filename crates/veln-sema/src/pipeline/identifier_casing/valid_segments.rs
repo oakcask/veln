@@ -1,9 +1,32 @@
 use super::*;
+use crate::semantic_model::Type;
+
+thread_local! {
+    static VARIANT_REFINEMENT_CLASSIFICATION_WORK:
+        std::cell::Cell<Option<VariantRefinementClassificationWork>> = const { std::cell::Cell::new(None) };
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct VariantRefinementClassificationWork {
+    pub rendered_annotations: usize,
+    pub rendered_bytes: usize,
+}
+
+fn record_variant_refinement_classification_work(bytes: usize) {
+    VARIANT_REFINEMENT_CLASSIFICATION_WORK.with(|work| {
+        if let Some(mut current) = work.get() {
+            current.rendered_annotations += 1;
+            current.rendered_bytes += bytes;
+            work.set(Some(current));
+        }
+    });
+}
 
 pub(super) fn valid_qualified_path_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     include_variant_refinements: bool,
+    require_valid_variant_refinements: bool,
 ) -> Vec<QualifiedPathSegment> {
     let mut segments = Vec::new();
     for type_decl in &module.types {
@@ -21,6 +44,8 @@ pub(super) fn valid_qualified_path_segments(
                         &field.ty_refinements,
                         current_module,
                         environment,
+                        &type_decl.params,
+                        require_valid_variant_refinements,
                         &mut segments,
                     );
                 }
@@ -42,6 +67,8 @@ pub(super) fn valid_qualified_path_segments(
                         &param.ty_refinements,
                         current_module,
                         environment,
+                        &[],
+                        require_valid_variant_refinements,
                         &mut segments,
                     );
                 }
@@ -57,6 +84,8 @@ pub(super) fn valid_qualified_path_segments(
                     &operation.return_type_refinements,
                     current_module,
                     environment,
+                    &[],
+                    require_valid_variant_refinements,
                     &mut segments,
                 );
             }
@@ -71,6 +100,8 @@ pub(super) fn valid_qualified_path_segments(
                     &field.ty_refinements,
                     current_module,
                     environment,
+                    &[],
+                    require_valid_variant_refinements,
                     &mut segments,
                 );
             }
@@ -89,6 +120,8 @@ pub(super) fn valid_qualified_path_segments(
                 &function.return_type_refinements,
                 current_module,
                 environment,
+                &[],
+                require_valid_variant_refinements,
                 &mut segments,
             );
         }
@@ -99,6 +132,8 @@ pub(super) fn valid_qualified_path_segments(
                     &param.ty_refinements,
                     current_module,
                     environment,
+                    &[],
+                    require_valid_variant_refinements,
                     &mut segments,
                 );
             }
@@ -109,6 +144,7 @@ pub(super) fn valid_qualified_path_segments(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 &mut segments,
             );
         }
@@ -122,6 +158,8 @@ pub(super) fn valid_qualified_path_segments(
                     &param.ty_refinements,
                     current_module,
                     environment,
+                    &[],
+                    require_valid_variant_refinements,
                     &mut segments,
                 );
             }
@@ -139,6 +177,8 @@ pub(super) fn valid_qualified_path_segments(
                         &param.ty_refinements,
                         current_module,
                         environment,
+                        &[],
+                        require_valid_variant_refinements,
                         &mut segments,
                     );
                 }
@@ -148,6 +188,7 @@ pub(super) fn valid_qualified_path_segments(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 &mut segments,
             );
         }
@@ -200,64 +241,175 @@ fn collect_variant_refinement_segments(
     refinements: &[veln_ast::VariantRefinementType],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    type_parameters: &[String],
+    require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
-    for refinement in refinements {
+    let mut pending = refinements
+        .iter()
+        .rev()
+        .map(|refinement| (refinement, false))
+        .collect::<Vec<_>>();
+    while let Some((refinement, valid_ancestor)) = pending.pop() {
+        let refinement_is_valid = !require_valid_variant_refinements
+            || valid_ancestor
+            || variant_refinement_is_valid(
+                refinement,
+                current_module,
+                environment,
+                type_parameters,
+            );
+        let mut nested_refinements = Vec::new();
         for alternative in &refinement.alternatives {
-            let mut segments = alternative.base.segments.clone();
-            segments.push(alternative.variant.clone());
-            let mut spans = alternative.base.segment_spans.clone();
-            spans.push(alternative.variant_span.clone());
-            if matches!(
-                environment
+            if refinement_is_valid {
+                let mut segments = alternative.base.segments.clone();
+                segments.push(alternative.variant.clone());
+                let mut spans = alternative.base.segment_spans.clone();
+                spans.push(alternative.variant_span.clone());
+                if matches!(
+                    environment
+                        .adts
+                        .constructor(&segments, current_module, &environment.uses),
+                    crate::adt::registry::ConstructorLookup::Found(_)
+                ) {
+                    push_variant_refinement_path_segments(&segments, &spans, output);
+                } else if environment
                     .adts
-                    .constructor(&segments, current_module, &environment.uses),
-                crate::adt::registry::ConstructorLookup::Found(_)
-            ) {
-                push_constructor_path_segments(
-                    &segments,
-                    &spans,
-                    current_module,
-                    environment,
-                    output,
-                );
-            } else if environment
-                .adts
-                .descriptor_for_type_path(
-                    &alternative.base.segments.join("::"),
-                    alternative.type_arguments.len(),
-                    current_module,
-                    &environment.uses,
-                )
-                .is_some()
-            {
-                for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
-                    let role = if index + 1 == segments.len() {
-                        NameClass::Constructor
-                    } else if index + 2 == segments.len() {
-                        NameClass::Type
-                    } else {
-                        NameClass::Module
-                    };
-                    output.push(qualified_path_segment_from_parts(
-                        segment,
-                        role,
-                        span,
-                        index,
-                        QualifiedPathSegmentEvidence::Resolved,
-                    ));
+                    .descriptor_for_type_path(
+                        &alternative.base.segments.join("::"),
+                        alternative.type_arguments.len(),
+                        current_module,
+                        &environment.uses,
+                    )
+                    .is_some()
+                {
+                    for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
+                        let role = if index + 1 == segments.len() {
+                            NameClass::Constructor
+                        } else if index + 2 == segments.len() {
+                            NameClass::Type
+                        } else {
+                            NameClass::Module
+                        };
+                        output.push(qualified_path_segment_from_parts(
+                            segment,
+                            role,
+                            span,
+                            index,
+                            QualifiedPathSegmentEvidence::Resolved,
+                        ));
+                    }
                 }
             }
             for argument in &alternative.type_arguments {
                 collect_type_path_segments(&argument.ty_paths, current_module, environment, output);
-                collect_variant_refinement_segments(
-                    &argument.ty_refinements,
-                    current_module,
-                    environment,
-                    output,
-                );
+                nested_refinements.extend(&argument.ty_refinements);
             }
         }
+        pending.extend(
+            nested_refinements
+                .into_iter()
+                .rev()
+                .map(|nested| (nested, refinement_is_valid)),
+        );
+    }
+}
+
+fn variant_refinement_is_valid(
+    refinement: &veln_ast::VariantRefinementType,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    type_parameters: &[String],
+) -> bool {
+    let text = render_variant_refinement(refinement);
+    record_variant_refinement_classification_work(text.len());
+    crate::type_syntax::parse_type_annotation(&text)
+        .ok()
+        .is_some_and(|ty| {
+            environment
+                .variant_refinement_annotation_error(&ty, current_module)
+                .is_none()
+                && refinement.alternatives.iter().all(|alternative| {
+                    alternative.type_arguments.iter().all(|argument| {
+                        crate::type_syntax::parse_type_annotation(
+                            &render_variant_refinement_type_argument(argument),
+                        )
+                        .ok()
+                        .is_some_and(|argument| {
+                            environment.type_annotation_is_fully_resolved(
+                                &argument,
+                                current_module,
+                                type_parameters,
+                            )
+                        })
+                    })
+                })
+        })
+}
+
+fn render_variant_refinement(refinement: &veln_ast::VariantRefinementType) -> String {
+    refinement
+        .alternatives
+        .iter()
+        .map(render_variant_refinement_alternative)
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+fn render_variant_refinement_alternative(
+    alternative: &veln_ast::VariantRefinementAlternative,
+) -> String {
+    let mut text = alternative.base.segments.join("::");
+    if !alternative.type_arguments.is_empty() {
+        text.push('<');
+        text.push_str(
+            &alternative
+                .type_arguments
+                .iter()
+                .map(render_variant_refinement_type_argument)
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        text.push('>');
+    }
+    text.push_str("::");
+    text.push_str(&alternative.variant);
+    text
+}
+
+fn render_variant_refinement_type_argument(
+    argument: &veln_ast::VariantRefinementTypeArgument,
+) -> String {
+    let mut text = String::new();
+    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
+        text.push_str(fragment);
+        if let Some(refinement) = argument.ty_refinements.get(index) {
+            text.push_str(&render_variant_refinement(refinement));
+        }
+    }
+    text
+}
+
+fn push_variant_refinement_path_segments(
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    output: &mut Vec<QualifiedPathSegment>,
+) {
+    for (index, (segment, span)) in segments.iter().zip(segment_spans).enumerate() {
+        let role = if index + 1 == segments.len() {
+            NameClass::Constructor
+        } else if index + 2 == segments.len() {
+            NameClass::Type
+        } else {
+            NameClass::Module
+        };
+        output.push(qualified_path_segment_from_parts(
+            segment,
+            role,
+            span,
+            index,
+            QualifiedPathSegmentEvidence::Resolved,
+        ));
     }
 }
 
@@ -266,6 +418,7 @@ fn collect_valid_segments_from_body_line(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     include_variant_refinements: bool,
+    require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
     match &line.kind {
@@ -287,6 +440,8 @@ fn collect_valid_segments_from_body_line(
                     &annotation_structure.variant_refinements,
                     current_module,
                     environment,
+                    &[],
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -295,6 +450,7 @@ fn collect_valid_segments_from_body_line(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 output,
             );
         }
@@ -304,6 +460,7 @@ fn collect_valid_segments_from_body_line(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 output,
             );
         }
@@ -314,6 +471,7 @@ fn collect_valid_segments_from_body_line(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -326,6 +484,7 @@ fn collect_valid_segments_from_expr(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     include_variant_refinements: bool,
+    require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
     match &expr.kind {
@@ -360,6 +519,7 @@ fn collect_valid_segments_from_expr(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -369,8 +529,35 @@ fn collect_valid_segments_from_expr(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
+            }
+        }
+        veln_ast::ExprKind::TypeApply {
+            callee,
+            type_arg_refinements,
+            ..
+        } => {
+            collect_valid_segments_from_expr(
+                callee,
+                current_module,
+                environment,
+                include_variant_refinements,
+                require_valid_variant_refinements,
+                output,
+            );
+            if include_variant_refinements && require_valid_variant_refinements {
+                for refinements in type_arg_refinements {
+                    collect_variant_refinement_segments(
+                        refinements,
+                        current_module,
+                        environment,
+                        &[],
+                        require_valid_variant_refinements,
+                        output,
+                    );
+                }
             }
         }
         veln_ast::ExprKind::Match { scrutinee, arms } => {
@@ -379,6 +566,7 @@ fn collect_valid_segments_from_expr(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 output,
             );
             for arm in arms {
@@ -393,6 +581,7 @@ fn collect_valid_segments_from_expr(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -404,6 +593,7 @@ fn collect_valid_segments_from_expr(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -414,6 +604,7 @@ fn collect_valid_segments_from_expr(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 output,
             );
         }),
@@ -632,61 +823,222 @@ pub fn classified_project_qualified_path_segments_with_context(
     project: &SurfaceModule,
 ) -> Vec<QualifiedPathSegment> {
     let environment = TypeEnvironment::for_path_classification(project);
-    let refinement_locations = variant_refinement_segment_locations(module, &environment);
-    let mut segments = classified_qualified_path_segments_for_navigation(module, &environment);
-    segments.retain(|segment| {
-        !refinement_locations.contains(&(
-            segment.span.file.as_str().to_string(),
-            segment.span.start.offset,
-            segment.span.end.offset,
-            segment.segment_index,
-        ))
-    });
-    segments
+    classified_qualified_path_segments_for_navigation(module, &environment)
 }
 
-fn variant_refinement_segment_locations(
+pub fn classified_project_qualified_path_segments_with_context_and_work(
     module: &SurfaceModule,
-    environment: &TypeEnvironment,
-) -> BTreeSet<(String, usize, usize, usize)> {
-    let mut ordinary_counts = BTreeMap::<_, usize>::new();
-    for segment in valid_qualified_path_segments(module, environment, false) {
-        *ordinary_counts
-            .entry(classified_segment_key(&segment))
-            .or_default() += 1;
-    }
-    let mut locations = BTreeSet::new();
-    for segment in valid_qualified_path_segments(module, environment, true) {
-        let key = classified_segment_key(&segment);
-        if let Some(count) = ordinary_counts.get_mut(&key)
-            && *count > 0
-        {
-            *count -= 1;
-            continue;
-        }
-        locations.insert((
-            segment.span.file.as_str().to_string(),
-            segment.span.start.offset,
-            segment.span.end.offset,
-            segment.segment_index,
-        ));
-    }
-    locations
+    project: &SurfaceModule,
+) -> (
+    Vec<QualifiedPathSegment>,
+    VariantRefinementClassificationWork,
+) {
+    VARIANT_REFINEMENT_CLASSIFICATION_WORK
+        .with(|work| work.set(Some(VariantRefinementClassificationWork::default())));
+    let segments = classified_project_qualified_path_segments_with_context(module, project);
+    let work =
+        VARIANT_REFINEMENT_CLASSIFICATION_WORK.with(|work| work.replace(None).unwrap_or_default());
+    (segments, work)
 }
 
-fn classified_segment_key(
-    segment: &QualifiedPathSegment,
-) -> (String, usize, usize, usize, &'static str, u8) {
-    (
-        segment.span.file.as_str().to_string(),
-        segment.span.start.offset,
-        segment.span.end.offset,
-        segment.segment_index,
-        segment.role.as_str(),
-        match segment.evidence {
-            QualifiedPathSegmentEvidence::Syntax => 0,
-            QualifiedPathSegmentEvidence::Resolved => 1,
-            QualifiedPathSegmentEvidence::UniqueRecovery => 2,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CanonicalTypeAnnotationIdentity {
+    canonical: Type,
+    type_parameter_occurrences: Vec<usize>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CanonicalTypeAnnotationWork {
+    pub type_parameter_contexts: usize,
+    pub type_parameter_names: usize,
+    pub type_parameter_lookups: usize,
+}
+
+pub fn canonical_type_annotation_identities_with_context(
+    project: &SurfaceModule,
+    annotations: &[(&str, Option<&str>, &[String])],
+) -> Vec<Option<CanonicalTypeAnnotationIdentity>> {
+    canonical_type_annotation_identities_with_context_impl(project, annotations, false).0
+}
+
+pub fn canonical_type_annotation_identities_with_context_and_work(
+    project: &SurfaceModule,
+    annotations: &[(&str, Option<&str>, &[String])],
+) -> (
+    Vec<Option<CanonicalTypeAnnotationIdentity>>,
+    CanonicalTypeAnnotationWork,
+) {
+    canonical_type_annotation_identities_with_context_impl(project, annotations, true)
+}
+
+fn canonical_type_annotation_identities_with_context_impl(
+    project: &SurfaceModule,
+    annotations: &[(&str, Option<&str>, &[String])],
+    record_work: bool,
+) -> (
+    Vec<Option<CanonicalTypeAnnotationIdentity>>,
+    CanonicalTypeAnnotationWork,
+) {
+    let environment = TypeEnvironment::for_path_classification(project);
+    let mut type_parameter_contexts = BTreeMap::new();
+    for (_, _, type_parameters) in annotations {
+        let key = (type_parameters.as_ptr() as usize, type_parameters.len());
+        type_parameter_contexts.entry(key).or_insert_with(|| {
+            if record_work {
+                crate::types::TypeParameterIdentityContext::recording(type_parameters)
+            } else {
+                crate::types::TypeParameterIdentityContext::new(type_parameters)
+            }
+        });
+    }
+    let identities = annotations
+        .iter()
+        .map(|(annotation, current_module, type_parameters)| {
+            let key = (type_parameters.as_ptr() as usize, type_parameters.len());
+            let type_parameters = &type_parameter_contexts[&key];
+            crate::type_syntax::parse_type_annotation(annotation)
+                .ok()
+                .and_then(|ty| {
+                    environment
+                        .type_annotation_is_fully_resolved_with_context(
+                            &ty,
+                            *current_module,
+                            type_parameters,
+                        )
+                        .then(|| CanonicalTypeAnnotationIdentity {
+                            type_parameter_occurrences: type_parameter_occurrences(
+                                &ty,
+                                type_parameters,
+                            ),
+                            canonical: canonical_identity_type(
+                                environment.canonicalize_type_annotation(ty, *current_module),
+                            ),
+                        })
+                })
+        })
+        .collect();
+    let work = CanonicalTypeAnnotationWork {
+        type_parameter_contexts: type_parameter_contexts.len(),
+        type_parameter_names: type_parameter_contexts
+            .values()
+            .map(crate::types::TypeParameterIdentityContext::name_count)
+            .sum(),
+        type_parameter_lookups: type_parameter_contexts
+            .values()
+            .map(crate::types::TypeParameterIdentityContext::lookup_count)
+            .sum(),
+    };
+    (identities, work)
+}
+
+fn type_parameter_occurrences(
+    ty: &Type,
+    type_parameters: &crate::types::TypeParameterIdentityContext<'_>,
+) -> Vec<usize> {
+    let mut occurrences = Vec::new();
+    collect_type_parameter_occurrences(ty, type_parameters, &mut occurrences);
+    occurrences
+}
+
+fn collect_type_parameter_occurrences(
+    ty: &Type,
+    type_parameters: &crate::types::TypeParameterIdentityContext<'_>,
+    occurrences: &mut Vec<usize>,
+) {
+    match ty {
+        Type::Named { name, args, .. } => {
+            if args.is_empty()
+                && let Some(index) = type_parameters.ordinal(name)
+            {
+                occurrences.push(index);
+            }
+            for argument in args {
+                collect_type_parameter_occurrences(argument, type_parameters, occurrences);
+            }
+        }
+        Type::VariantRefinement {
+            args,
+            unresolved_alternatives,
+            ..
+        } => {
+            for argument in args {
+                collect_type_parameter_occurrences(argument, type_parameters, occurrences);
+            }
+            for (_, arguments, _) in unresolved_alternatives {
+                for argument in arguments {
+                    collect_type_parameter_occurrences(argument, type_parameters, occurrences);
+                }
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field) in fields {
+                collect_type_parameter_occurrences(field, type_parameters, occurrences);
+            }
+        }
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            for parameter in params {
+                collect_type_parameter_occurrences(parameter, type_parameters, occurrences);
+            }
+            if let Some(variadic) = variadic {
+                collect_type_parameter_occurrences(variadic, type_parameters, occurrences);
+            }
+            collect_type_parameter_occurrences(return_type, type_parameters, occurrences);
+        }
+        Type::Unknown => {}
+    }
+}
+
+fn canonical_identity_type(ty: Type) -> Type {
+    match ty {
+        Type::Named { identity, args, .. } => Type::Named {
+            name: identity.clone(),
+            identity,
+            args: args.into_iter().map(canonical_identity_type).collect(),
         },
-    )
+        Type::VariantRefinement {
+            identity,
+            args,
+            variants,
+            unresolved_alternatives,
+            ..
+        } => Type::VariantRefinement {
+            name: identity.clone(),
+            identity,
+            args: args.into_iter().map(canonical_identity_type).collect(),
+            variants,
+            unresolved_alternatives: unresolved_alternatives
+                .into_iter()
+                .map(|(name, args, variant)| {
+                    (
+                        name,
+                        args.into_iter().map(canonical_identity_type).collect(),
+                        variant,
+                    )
+                })
+                .collect(),
+        },
+        Type::Record(fields) => Type::Record(
+            fields
+                .into_iter()
+                .map(|(name, ty)| (name, canonical_identity_type(ty)))
+                .collect(),
+        ),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } => Type::Function {
+            params: params.into_iter().map(canonical_identity_type).collect(),
+            variadic: variadic.map(|ty| Box::new(canonical_identity_type(*ty))),
+            return_type: Box::new(canonical_identity_type(*return_type)),
+            effects,
+        },
+        Type::Unknown => Type::Unknown,
+    }
 }

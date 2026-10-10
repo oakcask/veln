@@ -87,6 +87,7 @@
             RenameRequiredInitial::AsciiUppercase,
         );
     }
+    include!("navigation_type_references/variant_refinement_navigation.rs");
 
     #[test]
     fn imported_constructor_qualified_type_segments_share_navigation() {

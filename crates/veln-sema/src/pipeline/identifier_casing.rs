@@ -33,8 +33,12 @@ use recovered_traversal::*;
 use role_resolution::*;
 use valid_segments::valid_qualified_path_segments;
 pub use valid_segments::{
+    CanonicalTypeAnnotationIdentity, CanonicalTypeAnnotationWork,
+    VariantRefinementClassificationWork, canonical_type_annotation_identities_with_context,
+    canonical_type_annotation_identities_with_context_and_work,
     classified_project_qualified_path_segments,
     classified_project_qualified_path_segments_with_context,
+    classified_project_qualified_path_segments_with_context_and_work,
 };
 
 pub(super) fn check_invalid_name_casing(
@@ -88,23 +92,28 @@ fn classified_qualified_path_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<QualifiedPathSegment> {
-    classified_qualified_path_segments_with_refinements(module, environment, true)
+    classified_qualified_path_segments_with_refinements(module, environment, true, false)
 }
 
 fn classified_qualified_path_segments_for_navigation(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<QualifiedPathSegment> {
-    classified_qualified_path_segments_with_refinements(module, environment, false)
+    classified_qualified_path_segments_with_refinements(module, environment, true, true)
 }
 
 fn classified_qualified_path_segments_with_refinements(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     include_variant_refinements: bool,
+    require_valid_variant_refinements: bool,
 ) -> Vec<QualifiedPathSegment> {
-    let mut segments =
-        valid_qualified_path_segments(module, environment, include_variant_refinements);
+    let mut segments = valid_qualified_path_segments(
+        module,
+        environment,
+        include_variant_refinements,
+        require_valid_variant_refinements,
+    );
     segments.extend(recovered_qualified_type_segments(module, environment));
     segments.extend(recovered_qualified_module_segments(module, environment));
     segments.extend(recovered_qualified_function_segments(module, environment));

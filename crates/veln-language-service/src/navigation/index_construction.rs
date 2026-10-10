@@ -103,6 +103,8 @@ impl SymbolIndex {
             operation_lookup: schema_operation_lookup_index,
         } = index_schema_navigation(&files, &workspace_module, &mut declarations);
         let type_indices_by_name = symbol_indices_by_name(&declarations.types);
+        let constructor_indices_by_identity =
+            constructor_indices_by_identity(&declarations.constructors);
         let function_indices_by_identity = function_indices_by_identity(&declarations.functions);
         let type_alias_indices_by_name = symbol_indices_by_name(&declarations.type_aliases);
         let package_type_alias_indices_by_name =
@@ -138,6 +140,7 @@ impl SymbolIndex {
             package_constructor_targets: declarations.package_constructor_targets,
             types: declarations.types,
             constructors: declarations.constructors,
+            constructor_indices_by_identity,
             type_aliases: declarations.type_aliases,
             type_indices_by_name,
             type_alias_indices_by_name,
@@ -145,6 +148,7 @@ impl SymbolIndex {
             workspace_type_indices_by_module_and_name,
             workspace_type_alias_indices_by_module_and_name,
             package_type_alias_indices_by_module_and_name,
+            variant_refinement_alias_index: OnceLock::new(),
             eligible_workspace_effect_indices,
             eligible_workspace_effect_operation_indices,
             schema_composition_references,
@@ -155,6 +159,27 @@ impl SymbolIndex {
             function_rename_index: OnceLock::new(),
         }
     }
+}
+
+fn constructor_indices_by_identity(
+    constructors: &[ConstructorSymbol],
+) -> BTreeMap<ConstructorIdentity, Vec<usize>> {
+    let mut indices = BTreeMap::new();
+    for (index, constructor) in constructors.iter().enumerate() {
+        #[cfg(test)]
+        record_variant_refinement_constructor_index_entry();
+        indices
+            .entry((
+                constructor.package.clone(),
+                constructor.package_origin,
+                constructor.module.clone(),
+                constructor.type_name.clone(),
+                constructor.name.clone(),
+            ))
+            .or_insert_with(Vec::new)
+            .push(index);
+    }
+    indices
 }
 
 fn eligible_workspace_effect_operation_indices(
@@ -254,7 +279,7 @@ fn index_workspace_input(
 
 fn file_indices_by_identity(
     files: &[IndexedFile],
-) -> HashMap<IndexedFileIdentity, usize> {
+) -> HashMap<IndexedFileIdentity, Vec<usize>> {
     let mut indices = HashMap::new();
     for (index, file) in files.iter().enumerate() {
         let (package, origin) = match &file.origin {
@@ -274,7 +299,8 @@ fn file_indices_by_identity(
         };
         indices
             .entry((package, origin, file.source.path().as_str().to_string()))
-            .or_insert(index);
+            .or_insert_with(Vec::new)
+            .push(index);
     }
     indices
 }
