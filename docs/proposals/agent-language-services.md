@@ -47,6 +47,12 @@ retain explicit negative and state-preservation cases: rejected requests do
 not mutate saved snapshots, published resources, cursors, or prior successful
 results.
 
+Valid variant-refinement definition, references, prepare-rename, and rename
+through direct bases and finite workspace alias chains are outside this
+proposal. [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
+and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation)
+own that implemented behavior and its package-alias boundary.
+
 An implementation slice may be removed from this inventory only after its
 current specification page names the executable authority, the evidence
 passes independently of proposal prose, and the conformance manifest (when

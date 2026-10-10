@@ -465,15 +465,19 @@ visible type alias returns the constructor declaration, not the alias
 declaration. Definition exposes a recovery record's retained source range.
 Valid singleton and union variant-refinement annotations use the same shared
 identities as LSP navigation. A direct base segment selects the ADT
-declaration, while an alias-qualified base segment selects the written public
-type-alias declaration. A final variant segment selects its resolved
-constructor. References for that constructor combine its declaration,
-constructor expressions, constructor patterns, and direct and alias-qualified
-refinement occurrences, while excluding same-spelled variants from other
-ADTs. Rename applies the shared constructor casing and conflict rules and
-returns edits for all of those occurrences without changing the alias base.
-A rename selected on the alias base changes the alias declaration and written
-base occurrences without changing the target ADT or constructor identity.
+declaration, while a base segment that resolves through a finite, acyclic
+workspace alias chain selects the written public type-alias declaration. A
+final variant segment selects its resolved constructor. References for that
+constructor combine its declaration, constructor expressions, constructor
+patterns, and direct and workspace alias-qualified refinement occurrences,
+while excluding same-spelled variants from other ADTs. Rename applies the
+shared constructor casing and conflict rules and returns edits for all of those
+occurrences without changing the alias base. A rename selected on the alias
+base changes the alias declaration and written base occurrences without
+changing the target ADT or constructor identity. A retained
+direct-dependency or standard-library alias base can return its package-alias
+definition under the existing declaration policy, but its final refinement
+variant has no definition or reference result and cannot produce rename edits.
 MCP projects the shared ranges to positive one-based Unicode-scalar
 coordinates; it does not resolve the refinement independently.
 
