@@ -16,6 +16,10 @@ also states it.
 
 ## Ready
 
+- Integer `%` remainder with signed results, zero-divisor diagnostics, contract
+  support, and compiler/backend acceptance cases:
+  [remainder-operator.md](remainder-operator.md).
+
 - Standard-library events, metrics, traces, explicit context propagation,
   a public recording handler, production exporters, and exporter lifecycle
   behavior:
