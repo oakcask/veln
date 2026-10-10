@@ -235,6 +235,11 @@ fn indexed_dependency_source(
             .union_final_ranges_by_final_range,
         variant_refinement_type_argument_fingerprints_by_final_range:
             variant_refinement_source_index.type_argument_fingerprints_by_final_range,
+        variant_refinement_type_argument_annotations_by_final_range:
+            variant_refinement_source_index.type_argument_annotations_by_final_range,
+        variant_refinement_type_parameters_by_final_range:
+            variant_refinement_source_index.type_parameters_by_final_range,
+        fully_resolved_variant_refinement_type_arguments: BTreeSet::new(),
         constructor_reference_declaration_ranges,
         classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),
@@ -287,7 +292,7 @@ fn attach_classified_path_segments(
             .or_default()
             .push(segment);
     }
-    for file in files {
+    for file in files.iter_mut() {
         file.classified_paths.segments = segments_by_file
             .remove(file.source.path().as_str())
             .unwrap_or_default();
@@ -302,6 +307,49 @@ fn attach_classified_path_segments(
                 )
             })
             .collect();
+    }
+    attach_fully_resolved_variant_refinement_type_arguments(files, project);
+}
+
+fn attach_fully_resolved_variant_refinement_type_arguments(
+    files: &mut [IndexedFile],
+    project: &veln_ast::SurfaceModule,
+) {
+    let mut annotations = Vec::<(String, Option<String>, Vec<String>)>::new();
+    let mut groups = Vec::<(usize, (usize, usize), usize, usize)>::new();
+    for (file_index, file) in files.iter().enumerate() {
+        for (range, arguments) in
+            &file.variant_refinement_type_argument_annotations_by_final_range
+        {
+            let start = annotations.len();
+            let type_parameters = file
+                .variant_refinement_type_parameters_by_final_range
+                .get(range)
+                .cloned()
+                .unwrap_or_default();
+            annotations.extend(
+                arguments
+                    .iter()
+                    .cloned()
+                    .map(|argument| {
+                        (
+                            argument,
+                            Some(file.module.clone()),
+                            type_parameters.clone(),
+                        )
+                    }),
+            );
+            groups.push((file_index, *range, start, annotations.len()));
+        }
+    }
+    let resolved =
+        veln_sema::fully_resolved_type_annotations_with_context(project, &annotations);
+    for (file_index, range, start, end) in groups {
+        if resolved[start..end].iter().all(|resolved| *resolved) {
+            files[file_index]
+                .fully_resolved_variant_refinement_type_arguments
+                .insert(range);
+        }
     }
 }
 

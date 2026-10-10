@@ -826,6 +826,58 @@ fn variant_refinement_navigation_rejects_invalid_union_identity() {
 }
 
 #[test]
+fn variant_refinement_navigation_rejects_unresolved_generic_arguments() {
+    let mut server = Server::default();
+    let project = TempProject::new("variant-refinement-unresolved-generic-arguments");
+    let source = concat!(
+        "pub type Box<A>\n  pub Boxed(A)\n  pub Empty\nend\n\n",
+        "pub type GenericAlias = Box\n\n",
+        "fn valid(value: Box<Int>::Boxed) -> Int\n  0\nend\n\n",
+        "fn direct_single(value: Box<Missing>::Boxed) -> Int\n  0\nend\n\n",
+        "fn direct_union(value: Box<Missing>::Boxed | Box<Missing>::Empty) -> Int\n  0\nend\n\n",
+        "fn alias_single(value: GenericAlias<Missing>::Boxed) -> Int\n  0\nend\n\n",
+        "fn alias_union(value: GenericAlias<Missing>::Boxed | GenericAlias<Missing>::Empty) -> Int\n  0\nend\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let position = |line_text: &str, needle: &str| {
+        let (line, source_line) = source
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        (line, source_line.find(needle).unwrap())
+    };
+
+    for (line_text, base) in [
+        ("direct_single", "Box<Missing>"),
+        ("direct_union", "Box<Missing>"),
+        ("alias_single", "GenericAlias<Missing>"),
+        ("alias_union", "GenericAlias<Missing>"),
+    ] {
+        for needle in [base, "Boxed"] {
+            let (line, character) = position(line_text, needle);
+            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+            assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
+            let references = server.handle_message(&references_request(&main_uri, line, character));
+            assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);
+            let prepared = server.handle_message(&prepare_rename_request(&main_uri, line, character));
+            assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+            let renamed = server.handle_message(&rename_request(&main_uri, line, character, "Packed"));
+            assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+        }
+    }
+
+    let (line, character) = position("fn valid(", "Boxed");
+    let references = server.handle_message(&references_request(&main_uri, line, character));
+    assert_eq!(references[0].matches(r#""start""#).count(), 2, "{}", references[0]);
+    let renamed = server.handle_message(&rename_request(&main_uri, line, character, "Packed"));
+    assert_eq!(renamed[0].matches(r#""newText":"Packed""#).count(), 2, "{}", renamed[0]);
+}
+
+#[test]
 fn variant_refinement_navigation_projects_utf16_ranges() {
     let mut server = Server::default();
     let project = TempProject::new("variant-refinement-utf16-ranges");

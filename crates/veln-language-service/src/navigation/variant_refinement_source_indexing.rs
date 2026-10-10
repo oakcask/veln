@@ -5,40 +5,74 @@ struct VariantRefinementSourceIndex {
     type_argument_count_by_final_range: BTreeMap<(usize, usize), usize>,
     union_final_ranges_by_final_range: BTreeMap<(usize, usize), Vec<(usize, usize)>>,
     type_argument_fingerprints_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
+    type_argument_annotations_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
+    type_parameters_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
 }
-
 fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSourceIndex {
     let mut index = VariantRefinementSourceIndex::default();
+    let no_type_parameters = Vec::new();
     for item in &syntax.items {
         match item {
             SyntaxItem::Function(function) => {
-                collect_param_refinement_ranges(&function.params, &mut index);
-                collect_refinement_ranges(&function.return_type_refinements, &mut index);
-                collect_body_refinement_ranges(&function.body, &mut index);
+                collect_param_refinement_ranges(
+                    &function.params,
+                    &no_type_parameters,
+                    &mut index,
+                );
+                collect_refinement_ranges(
+                    &function.return_type_refinements,
+                    &no_type_parameters,
+                    &mut index,
+                );
+                collect_body_refinement_ranges(&function.body, &no_type_parameters, &mut index);
             }
             SyntaxItem::Effect(effect) => {
                 for operation in &effect.operations {
-                    collect_param_refinement_ranges(&operation.params, &mut index);
-                    collect_refinement_ranges(&operation.return_type_refinements, &mut index);
+                    collect_param_refinement_ranges(
+                        &operation.params,
+                        &no_type_parameters,
+                        &mut index,
+                    );
+                    collect_refinement_ranges(
+                        &operation.return_type_refinements,
+                        &no_type_parameters,
+                        &mut index,
+                    );
                 }
             }
             SyntaxItem::Handler(handler) => {
-                collect_param_refinement_ranges(&handler.params, &mut index);
+                collect_param_refinement_ranges(
+                    &handler.params,
+                    &no_type_parameters,
+                    &mut index,
+                );
                 for clause in &handler.operation_clauses {
-                    collect_param_refinement_ranges(&clause.params, &mut index);
-                    collect_expr_refinement_ranges(&clause.body, &mut index);
+                    collect_param_refinement_ranges(
+                        &clause.params,
+                        &no_type_parameters,
+                        &mut index,
+                    );
+                    collect_expr_refinement_ranges(
+                        &clause.body,
+                        &no_type_parameters,
+                        &mut index,
+                    );
                 }
             }
             SyntaxItem::Type(ty) => {
                 for variant in &ty.variants {
                     for field in &variant.fields {
-                        collect_refinement_ranges(&field.ty_refinements, &mut index);
+                        collect_refinement_ranges(&field.ty_refinements, &ty.params, &mut index);
                     }
                 }
             }
             SyntaxItem::Schema(schema) => {
                 for field in &schema.fields {
-                    collect_refinement_ranges(&field.ty_refinements, &mut index);
+                    collect_refinement_ranges(
+                        &field.ty_refinements,
+                        &no_type_parameters,
+                        &mut index,
+                    );
                 }
             }
             SyntaxItem::PublicAlias(_) => {}
@@ -46,7 +80,6 @@ fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSour
     }
     index
 }
-
 fn constructor_reference_declaration_ranges(
     syntax: &SyntaxTree,
     tokens: &[Token],
@@ -99,14 +132,19 @@ fn constructor_reference_declaration_ranges(
 
 fn collect_param_refinement_ranges(
     params: &[veln_syntax::Param],
+    type_parameters: &[String],
     index: &mut VariantRefinementSourceIndex,
 ) {
     for param in params {
-        collect_refinement_ranges(&param.ty_refinements, index);
+        collect_refinement_ranges(&param.ty_refinements, type_parameters, index);
     }
 }
 
-fn collect_body_refinement_ranges(body: &[BodyLine], index: &mut VariantRefinementSourceIndex) {
+fn collect_body_refinement_ranges(
+    body: &[BodyLine],
+    type_parameters: &[String],
+    index: &mut VariantRefinementSourceIndex,
+) {
     for line in body {
         match line {
             BodyLine::Let {
@@ -114,63 +152,71 @@ fn collect_body_refinement_ranges(body: &[BodyLine], index: &mut VariantRefineme
                 expr,
                 ..
             } => {
-                collect_refinement_ranges(annotation_refinements, index);
-                collect_expr_refinement_ranges(expr, index);
+                collect_refinement_ranges(annotation_refinements, type_parameters, index);
+                collect_expr_refinement_ranges(expr, type_parameters, index);
             }
-            BodyLine::Expr { expr, .. } => collect_expr_refinement_ranges(expr, index),
-            BodyLine::Defer { body, .. } => collect_body_refinement_ranges(body, index),
+            BodyLine::Expr { expr, .. } => {
+                collect_expr_refinement_ranges(expr, type_parameters, index)
+            }
+            BodyLine::Defer { body, .. } => {
+                collect_body_refinement_ranges(body, type_parameters, index)
+            }
         }
     }
 }
 
-fn collect_expr_refinement_ranges(expr: &Expr, index: &mut VariantRefinementSourceIndex) {
+fn collect_expr_refinement_ranges(
+    expr: &Expr,
+    type_parameters: &[String],
+    index: &mut VariantRefinementSourceIndex,
+) {
     match &expr.kind {
         ExprKind::TypeApply {
             callee,
             type_arg_refinements,
             ..
         } => {
-            collect_expr_refinement_ranges(callee, index);
+            collect_expr_refinement_ranges(callee, type_parameters, index);
             for refinements in type_arg_refinements {
-                collect_refinement_ranges(refinements, index);
+                collect_refinement_ranges(refinements, type_parameters, index);
             }
         }
         ExprKind::Call { callee, args } => {
-            collect_expr_refinement_ranges(callee, index);
-            collect_exprs_refinement_ranges(args, index);
+            collect_expr_refinement_ranges(callee, type_parameters, index);
+            collect_exprs_refinement_ranges(args, type_parameters, index);
         }
         ExprKind::Perform { args, .. } | ExprKind::List(args) => {
-            collect_exprs_refinement_ranges(args, index);
+            collect_exprs_refinement_ranges(args, type_parameters, index);
         }
         ExprKind::Handle { body, args, .. } => {
-            collect_expr_refinement_ranges(body, index);
-            collect_exprs_refinement_ranges(args, index);
+            collect_expr_refinement_ranges(body, type_parameters, index);
+            collect_exprs_refinement_ranges(args, type_parameters, index);
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            collect_expr_refinement_ranges(input, index);
-            collect_expr_refinement_ranges(base, index);
+            collect_expr_refinement_ranges(input, type_parameters, index);
+            collect_expr_refinement_ranges(base, type_parameters, index);
         }
         ExprKind::SchemaEncode { value, .. }
         | ExprKind::Prefix { expr: value, .. }
         | ExprKind::Try { expr: value, .. }
         | ExprKind::FieldAccess { base: value, .. } => {
-            collect_expr_refinement_ranges(value, index);
+            collect_expr_refinement_ranges(value, type_parameters, index);
         }
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_expr_refinement_ranges(&field.expr, index);
+                collect_expr_refinement_ranges(&field.expr, type_parameters, index);
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_expr_refinement_ranges(&entry.key, index);
-                collect_expr_refinement_ranges(&entry.value, index);
+                collect_expr_refinement_ranges(&entry.key, type_parameters, index);
+                collect_expr_refinement_ranges(&entry.value, type_parameters, index);
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_expr_refinement_ranges(scrutinee, index);
+            collect_expr_refinement_ranges(scrutinee, type_parameters, index);
             for arm in arms {
-                collect_expr_refinement_ranges(&arm.expr, index);
+                collect_expr_refinement_ranges(&arm.expr, type_parameters, index);
             }
         }
         ExprKind::If {
@@ -179,18 +225,20 @@ fn collect_expr_refinement_ranges(expr: &Expr, index: &mut VariantRefinementSour
             else_if_branches,
             else_branch,
         } => {
-            collect_expr_refinement_ranges(condition, index);
-            collect_expr_refinement_ranges(then_branch, index);
+            collect_expr_refinement_ranges(condition, type_parameters, index);
+            collect_expr_refinement_ranges(then_branch, type_parameters, index);
             for branch in else_if_branches {
-                collect_expr_refinement_ranges(&branch.condition, index);
-                collect_expr_refinement_ranges(&branch.expr, index);
+                collect_expr_refinement_ranges(&branch.condition, type_parameters, index);
+                collect_expr_refinement_ranges(&branch.expr, type_parameters, index);
             }
-            collect_expr_refinement_ranges(else_branch, index);
+            collect_expr_refinement_ranges(else_branch, type_parameters, index);
         }
-        ExprKind::Begin { body, .. } => collect_body_refinement_ranges(body, index),
+        ExprKind::Begin { body, .. } => {
+            collect_body_refinement_ranges(body, type_parameters, index)
+        }
         ExprKind::Binary { left, right, .. } => {
-            collect_expr_refinement_ranges(left, index);
-            collect_expr_refinement_ranges(right, index);
+            collect_expr_refinement_ranges(left, type_parameters, index);
+            collect_expr_refinement_ranges(right, type_parameters, index);
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -203,14 +251,19 @@ fn collect_expr_refinement_ranges(expr: &Expr, index: &mut VariantRefinementSour
     }
 }
 
-fn collect_exprs_refinement_ranges(exprs: &[Expr], index: &mut VariantRefinementSourceIndex) {
+fn collect_exprs_refinement_ranges(
+    exprs: &[Expr],
+    type_parameters: &[String],
+    index: &mut VariantRefinementSourceIndex,
+) {
     for expr in exprs {
-        collect_expr_refinement_ranges(expr, index);
+        collect_expr_refinement_ranges(expr, type_parameters, index);
     }
 }
 
 fn collect_refinement_ranges(
     refinements: &[veln_syntax::VariantRefinementType],
+    type_parameters: &[String],
     index: &mut VariantRefinementSourceIndex,
 ) {
     for refinement in refinements {
@@ -248,6 +301,20 @@ fn collect_refinement_ranges(
                         .map(variant_refinement_type_argument_fingerprint)
                         .collect()
                 });
+            index
+                .type_argument_annotations_by_final_range
+                .entry(final_range)
+                .or_insert_with(|| {
+                    alternative
+                        .type_arguments
+                        .iter()
+                        .map(variant_refinement_type_argument_annotation)
+                        .collect()
+                });
+            index
+                .type_parameters_by_final_range
+                .entry(final_range)
+                .or_insert_with(|| type_parameters.to_vec());
             if let Some(base_span) = alternative.base.segment_spans.last() {
                 let base_range = (base_span.start.offset, base_span.end.offset);
                 index.final_range_by_base_range.insert(
@@ -256,7 +323,7 @@ fn collect_refinement_ranges(
                 );
             }
             for argument in &alternative.type_arguments {
-                collect_refinement_ranges(&argument.ty_refinements, index);
+                collect_refinement_ranges(&argument.ty_refinements, type_parameters, index);
             }
         }
     }
@@ -265,19 +332,26 @@ fn collect_refinement_ranges(
 fn variant_refinement_type_argument_fingerprint(
     argument: &veln_syntax::VariantRefinementTypeArgument,
 ) -> String {
-    let mut text = String::new();
-    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
-        text.push_str(fragment);
-        if let Some(refinement) = argument.ty_refinements.get(index) {
-            text.push_str(&variant_refinement_fingerprint(refinement));
-        }
-    }
-    text.chars()
+    variant_refinement_type_argument_annotation(argument)
+        .chars()
         .filter(|character| !character.is_whitespace())
         .collect()
 }
 
-fn variant_refinement_fingerprint(refinement: &veln_syntax::VariantRefinementType) -> String {
+fn variant_refinement_type_argument_annotation(
+    argument: &veln_syntax::VariantRefinementTypeArgument,
+) -> String {
+    let mut text = String::new();
+    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
+        text.push_str(fragment);
+        if let Some(refinement) = argument.ty_refinements.get(index) {
+            text.push_str(&variant_refinement_annotation(refinement));
+        }
+    }
+    text
+}
+
+fn variant_refinement_annotation(refinement: &veln_syntax::VariantRefinementType) -> String {
     refinement
         .alternatives
         .iter()
@@ -289,9 +363,9 @@ fn variant_refinement_fingerprint(refinement: &veln_syntax::VariantRefinementTyp
                     &alternative
                         .type_arguments
                         .iter()
-                        .map(variant_refinement_type_argument_fingerprint)
+                        .map(variant_refinement_type_argument_annotation)
                         .collect::<Vec<_>>()
-                        .join(","),
+                        .join(", "),
                 );
                 text.push('>');
             }
@@ -300,5 +374,5 @@ fn variant_refinement_fingerprint(refinement: &veln_syntax::VariantRefinementTyp
             text
         })
         .collect::<Vec<_>>()
-        .join("|")
+        .join(" | ")
 }

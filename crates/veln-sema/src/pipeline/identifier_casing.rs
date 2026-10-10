@@ -35,6 +35,7 @@ use valid_segments::valid_qualified_path_segments;
 pub use valid_segments::{
     classified_project_qualified_path_segments,
     classified_project_qualified_path_segments_with_context,
+    fully_resolved_type_annotations_with_context,
 };
 
 pub(super) fn check_invalid_name_casing(

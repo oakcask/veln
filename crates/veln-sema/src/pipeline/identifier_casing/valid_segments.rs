@@ -22,6 +22,7 @@ pub(super) fn valid_qualified_path_segments(
                         &field.ty_refinements,
                         current_module,
                         environment,
+                        &type_decl.params,
                         require_valid_variant_refinements,
                         &mut segments,
                     );
@@ -44,6 +45,7 @@ pub(super) fn valid_qualified_path_segments(
                         &param.ty_refinements,
                         current_module,
                         environment,
+                        &[],
                         require_valid_variant_refinements,
                         &mut segments,
                     );
@@ -60,6 +62,7 @@ pub(super) fn valid_qualified_path_segments(
                     &operation.return_type_refinements,
                     current_module,
                     environment,
+                    &[],
                     require_valid_variant_refinements,
                     &mut segments,
                 );
@@ -75,6 +78,7 @@ pub(super) fn valid_qualified_path_segments(
                     &field.ty_refinements,
                     current_module,
                     environment,
+                    &[],
                     require_valid_variant_refinements,
                     &mut segments,
                 );
@@ -94,6 +98,7 @@ pub(super) fn valid_qualified_path_segments(
                 &function.return_type_refinements,
                 current_module,
                 environment,
+                &[],
                 require_valid_variant_refinements,
                 &mut segments,
             );
@@ -105,6 +110,7 @@ pub(super) fn valid_qualified_path_segments(
                     &param.ty_refinements,
                     current_module,
                     environment,
+                    &[],
                     require_valid_variant_refinements,
                     &mut segments,
                 );
@@ -130,6 +136,7 @@ pub(super) fn valid_qualified_path_segments(
                     &param.ty_refinements,
                     current_module,
                     environment,
+                    &[],
                     require_valid_variant_refinements,
                     &mut segments,
                 );
@@ -148,6 +155,7 @@ pub(super) fn valid_qualified_path_segments(
                         &param.ty_refinements,
                         current_module,
                         environment,
+                        &[],
                         require_valid_variant_refinements,
                         &mut segments,
                     );
@@ -211,12 +219,18 @@ fn collect_variant_refinement_segments(
     refinements: &[veln_ast::VariantRefinementType],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    type_parameters: &[String],
     require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
     for refinement in refinements {
         let refinement_is_valid = !require_valid_variant_refinements
-            || variant_refinement_is_valid(refinement, current_module, environment);
+            || variant_refinement_is_valid(
+                refinement,
+                current_module,
+                environment,
+                type_parameters,
+            );
         for alternative in &refinement.alternatives {
             if refinement_is_valid {
                 let mut segments = alternative.base.segments.clone();
@@ -264,6 +278,7 @@ fn collect_variant_refinement_segments(
                     &argument.ty_refinements,
                     current_module,
                     environment,
+                    type_parameters,
                     require_valid_variant_refinements,
                     output,
                 );
@@ -276,6 +291,7 @@ fn variant_refinement_is_valid(
     refinement: &veln_ast::VariantRefinementType,
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    type_parameters: &[String],
 ) -> bool {
     let text = render_variant_refinement(refinement);
     crate::type_syntax::parse_type_annotation(&text)
@@ -284,6 +300,21 @@ fn variant_refinement_is_valid(
             environment
                 .variant_refinement_annotation_error(&ty, current_module)
                 .is_none()
+                && refinement.alternatives.iter().all(|alternative| {
+                    alternative.type_arguments.iter().all(|argument| {
+                        crate::type_syntax::parse_type_annotation(
+                            &render_variant_refinement_type_argument(argument),
+                        )
+                        .ok()
+                        .is_some_and(|argument| {
+                            environment.type_annotation_is_fully_resolved(
+                                &argument,
+                                current_module,
+                                type_parameters,
+                            )
+                        })
+                    })
+                })
         })
 }
 
@@ -380,6 +411,7 @@ fn collect_valid_segments_from_body_line(
                     &annotation_structure.variant_refinements,
                     current_module,
                     environment,
+                    &[],
                     require_valid_variant_refinements,
                     output,
                 );
@@ -471,6 +503,32 @@ fn collect_valid_segments_from_expr(
                     require_valid_variant_refinements,
                     output,
                 );
+            }
+        }
+        veln_ast::ExprKind::TypeApply {
+            callee,
+            type_arg_refinements,
+            ..
+        } => {
+            collect_valid_segments_from_expr(
+                callee,
+                current_module,
+                environment,
+                include_variant_refinements,
+                require_valid_variant_refinements,
+                output,
+            );
+            if include_variant_refinements {
+                for refinements in type_arg_refinements {
+                    collect_variant_refinement_segments(
+                        refinements,
+                        current_module,
+                        environment,
+                        &[],
+                        require_valid_variant_refinements,
+                        output,
+                    );
+                }
             }
         }
         veln_ast::ExprKind::Match { scrutinee, arms } => {
@@ -737,4 +795,25 @@ pub fn classified_project_qualified_path_segments_with_context(
 ) -> Vec<QualifiedPathSegment> {
     let environment = TypeEnvironment::for_path_classification(project);
     classified_qualified_path_segments_for_navigation(module, &environment)
+}
+
+pub fn fully_resolved_type_annotations_with_context(
+    project: &SurfaceModule,
+    annotations: &[(String, Option<String>, Vec<String>)],
+) -> Vec<bool> {
+    let environment = TypeEnvironment::for_path_classification(project);
+    annotations
+        .iter()
+        .map(|(annotation, current_module, type_parameters)| {
+            crate::type_syntax::parse_type_annotation(annotation)
+                .ok()
+                .is_some_and(|ty| {
+                    environment.type_annotation_is_fully_resolved(
+                        &ty,
+                        current_module.as_deref(),
+                        type_parameters,
+                    )
+                })
+        })
+        .collect()
 }

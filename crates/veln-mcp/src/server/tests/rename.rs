@@ -320,6 +320,83 @@ fn variant_refinement_navigation_rejects_invalid_union_identity() {
 }
 
 #[test]
+fn variant_refinement_navigation_rejects_unresolved_generic_arguments() {
+    let workspace = TempWorkspace::new("variant-refinement-unresolved-generic-arguments");
+    workspace.write("veln.toml", "");
+    let source = concat!(
+        "pub type Box<A>\n  pub Boxed(A)\n  pub Empty\nend\n\n",
+        "pub type GenericAlias = Box\n\n",
+        "fn valid(value: Box<Int>::Boxed) -> Int\n  0\nend\n\n",
+        "fn direct_single(value: Box<Missing>::Boxed) -> Int\n  0\nend\n\n",
+        "fn direct_union(value: Box<Missing>::Boxed | Box<Missing>::Empty) -> Int\n  0\nend\n\n",
+        "fn alias_single(value: GenericAlias<Missing>::Boxed) -> Int\n  0\nend\n\n",
+        "fn alias_union(value: GenericAlias<Missing>::Boxed | GenericAlias<Missing>::Empty) -> Int\n  0\nend\n",
+    );
+    workspace.write("main.veln", source);
+    let mut server = initialized_server(&workspace);
+    let position = |line_text: &str, needle: &str| {
+        let (line, source_line) = source
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        (line + 1, source_line.find(needle).unwrap() + 1)
+    };
+
+    for (line_text, base) in [
+        ("direct_single", "Box<Missing>"),
+        ("direct_union", "Box<Missing>"),
+        ("alias_single", "GenericAlias<Missing>"),
+        ("alias_union", "GenericAlias<Missing>"),
+    ] {
+        for needle in [base, "Boxed"] {
+            let (line, column) = position(line_text, needle);
+            let definition = server.definition_tool(&json!({
+                "source": "main.veln", "line": line, "column": column
+            }));
+            assert_eq!(
+                definition["structuredContent"]["definition"],
+                Value::Null,
+                "{definition:#}"
+            );
+            let references = server.references_tool(&json!({
+                "source": "main.veln", "line": line, "column": column,
+                "include_declaration": true
+            }));
+            assert_eq!(
+                references["structuredContent"]["references"],
+                json!([]),
+                "{references:#}"
+            );
+            let renamed = server.rename_tool(&json!({
+                "source": "main.veln", "line": line, "column": column,
+                "new_name": "Packed"
+            }));
+            assert!(edits(&renamed).is_empty(), "{renamed:#}");
+        }
+    }
+
+    let (line, column) = position("fn valid(", "Boxed");
+    let references = server.references_tool(&json!({
+        "source": "main.veln", "line": line, "column": column,
+        "include_declaration": true
+    }));
+    assert_eq!(
+        references["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2,
+        "{references:#}"
+    );
+    let renamed = server.rename_tool(&json!({
+        "source": "main.veln", "line": line, "column": column,
+        "new_name": "Packed"
+    }));
+    assert_eq!(edits(&renamed).len(), 2, "{renamed:#}");
+}
+
+#[test]
 fn variant_refinement_navigation_projects_unicode_scalar_ranges() {
     let workspace = TempWorkspace::new("variant-refinement-unicode-scalar-ranges");
     workspace.write("veln.toml", "");

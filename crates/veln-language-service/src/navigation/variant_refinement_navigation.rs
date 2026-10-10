@@ -80,7 +80,7 @@ impl SymbolIndex {
                 .map(Vec::as_slice)
                 .unwrap_or(std::slice::from_ref(final_range));
             visited.extend(union_ranges.iter().copied());
-            if self.variant_refinement_union_is_valid(file, &tokens_by_range, &candidates, union_ranges)
+            if self.variant_refinement_union_is_valid(file, &candidates, union_ranges)
             {
                 for range in union_ranges {
                     if let Some(identity) = candidates.get(range) {
@@ -95,7 +95,6 @@ impl SymbolIndex {
     fn variant_refinement_union_is_valid(
         &self,
         file: &IndexedFile,
-        tokens_by_range: &BTreeMap<(usize, usize), (usize, &Token)>,
         candidates: &BTreeMap<(usize, usize), VariantRefinementNavigationIdentity>,
         union_ranges: &[(usize, usize)],
     ) -> bool {
@@ -118,21 +117,20 @@ impl SymbolIndex {
         }) {
             return false;
         }
-
-        let fingerprints_match = file
-            .variant_refinement_type_argument_fingerprints_by_final_range
+        if union_ranges.iter().all(|range| {
+            candidates
+                .get(range)
+                .is_some_and(|candidate| candidate.semantically_valid)
+        }) {
+            return true;
+        }
+        file.variant_refinement_type_argument_fingerprints_by_final_range
             .get(first_range)
             .is_some_and(|first| {
                 union_ranges.iter().all(|range| {
                     file.variant_refinement_type_argument_fingerprints_by_final_range
                         .get(range)
                         == Some(first)
-                })
-            });
-        fingerprints_match
-            || union_ranges.iter().all(|range| {
-                tokens_by_range.get(range).is_some_and(|(_, token)| {
-                    file.token_has_classified_role(token, NameClass::Constructor)
                 })
             })
     }
@@ -144,6 +142,8 @@ impl SymbolIndex {
         final_range: &(usize, usize),
     ) -> Option<((usize, usize), VariantRefinementNavigationIdentity)> {
         let (variant_index, variant_token) = tokens_by_range.get(final_range).copied()?;
+        let semantically_valid =
+            file.token_has_classified_role(variant_token, NameClass::Constructor);
         let base_index = variant_refinement_base_index(&file.tokens, variant_index)?;
         let base_token = &file.tokens[base_index];
         let base = self.variant_refinement_base_symbol(
@@ -156,6 +156,14 @@ impl SymbolIndex {
             VariantRefinementBaseSymbol::Type(symbol) => symbol.clone(),
             VariantRefinementBaseSymbol::Alias(symbol) => self.terminal_type_for_alias(symbol)?,
         };
+        if !semantically_valid
+            && !(terminal.package.is_some()
+                && file
+                    .fully_resolved_variant_refinement_type_arguments
+                    .contains(final_range))
+        {
+            return None;
+        }
         let written_generic_arity = file
             .variant_refinement_type_argument_count_by_final_range
             .get(final_range)?;
@@ -165,7 +173,11 @@ impl SymbolIndex {
         let constructor = self.unique_variant_refinement_constructor(file, &terminal, variant_token)?;
         Some((
             (variant_token.range.start, variant_token.range.end),
-            VariantRefinementNavigationIdentity { base, constructor },
+            VariantRefinementNavigationIdentity {
+                base,
+                constructor,
+                semantically_valid,
+            },
         ))
     }
 

@@ -737,6 +737,85 @@
     }
 
     #[test]
+    fn variant_refinement_navigation_rejects_unresolved_generic_arguments() {
+        let text = concat!(
+            "pub type Box<A>\n  pub Boxed(A)\n  pub Empty\nend\n\n",
+            "pub type GenericAlias = Box\n\n",
+            "pub type Envelope<A>\n  pub Wrapped(Box<A>::Boxed)\nend\n\n",
+            "fn valid(value: Box<Int>::Boxed) -> Int\n  0\nend\n\n",
+            "fn direct_single(value: Box<Missing>::Boxed) -> Int\n  0\nend\n\n",
+            "fn direct_union(value: Box<Missing>::Boxed | Box<Missing>::Empty) -> Int\n  0\nend\n\n",
+            "fn alias_single(value: GenericAlias<Missing>::Boxed) -> Int\n  0\nend\n\n",
+            "fn alias_union(value: GenericAlias<Missing>::Boxed | GenericAlias<Missing>::Empty) -> Int\n  0\nend\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
+        let position = |line_text: &str, needle: &str| {
+            let (line, source_line) = text
+                .lines()
+                .enumerate()
+                .find(|(_, candidate)| candidate.contains(line_text))
+                .unwrap();
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: line + 1,
+                column: source_line.find(needle).unwrap() + 1,
+            }
+        };
+        let last_position = |line_text: &str, needle: &str| {
+            let (line, source_line) = text
+                .lines()
+                .enumerate()
+                .find(|(_, candidate)| candidate.contains(line_text))
+                .unwrap();
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: line + 1,
+                column: source_line.rfind(needle).unwrap() + 1,
+            }
+        };
+
+        for (line_text, base) in [
+            ("direct_single", "Box<Missing>"),
+            ("direct_union", "Box<Missing>"),
+            ("alias_single", "GenericAlias<Missing>"),
+            ("alias_union", "GenericAlias<Missing>"),
+        ] {
+            for needle in [base, "Boxed"] {
+                assert!(definition_at(&snapshot, position(line_text, needle)).is_none());
+                assert!(navigate(&snapshot, position(line_text, needle)).is_none());
+                assert!(navigate_for_rename(&snapshot, position(line_text, needle)).is_none());
+            }
+        }
+        for (line_text, base) in [
+            ("direct_union", "Box<Missing>"),
+            ("alias_union", "GenericAlias<Missing>"),
+        ] {
+            for needle in [base, "Empty"] {
+                assert!(
+                    definition_at(&snapshot, last_position(line_text, needle)).is_none()
+                );
+                assert!(navigate(&snapshot, last_position(line_text, needle)).is_none());
+                assert!(
+                    navigate_for_rename(&snapshot, last_position(line_text, needle)).is_none()
+                );
+            }
+        }
+
+        assert!(navigate(&snapshot, position("Wrapped", "Boxed")).is_some());
+        let valid = navigate(&snapshot, position("fn valid(", "Boxed")).unwrap();
+        assert_eq!(
+            locations(&valid.references),
+            [("main.veln", 9, 23), ("main.veln", 12, 27)]
+        );
+        let rename = navigate_for_rename(&snapshot, position("fn valid(", "Boxed")).unwrap();
+        assert_eq!(
+            locations(&rename.references),
+            [("main.veln", 9, 23), ("main.veln", 12, 27)]
+        );
+        assert!(validate_rename_in_snapshot(&snapshot, &rename, "Packed").is_ok());
+    }
+
+    #[test]
     fn retained_package_refinement_aliases_use_terminal_adt_arity() {
         let dependency = dependency_snapshot(
             "example/pkg",
@@ -761,7 +840,17 @@
         );
         let text = concat!(
             "use facade from \"example/pkg\"\n\n",
+            "pub type State\n  pub Ready\nend\n\n",
+            "pub type Other\n  pub Shared\nend\n\n",
+            "pub type Inner<A>\n  pub Inner(A)\nend\n\n",
+            "effect Choose\n  choose() -> Int\nend\n\n",
+            "pub type Envelope<A>\n  pub Wrapped(facade::Alias<A>::Boxed)\nend\n\n",
             "fn dependency_valid(value: facade::Alias<Int>::Boxed) -> Int\n  0\nend\n\n",
+            "fn dependency_function(value: facade::Alias<fn() -> Int>::Boxed) -> Int\n  0\nend\n\n",
+            "fn dependency_nested(value: facade::Alias<State::Ready>::Boxed) -> Int\n  0\nend\n\n",
+            "fn dependency_nested_function(value: facade::Alias<Inner<fn() -> Int effects [Choose]>::Inner>::Boxed) -> Int\n  0\nend\n\n",
+            "fn dependency_unknown_variant(value: facade::Alias<State::Missing>::Boxed) -> Int\n  0\nend\n\n",
+            "fn dependency_mixed_union(value: facade::Alias<State::Ready | Other::Shared>::Boxed) -> Int\n  0\nend\n\n",
             "fn dependency_missing(value: facade::Alias::Boxed) -> Int\n  0\nend\n\n",
             "fn dependency_excess(value: facade::Alias<Int, Int>::Boxed) -> Int\n  0\nend\n\n",
             "fn standard_valid(value: StandardAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
@@ -786,16 +875,29 @@
             }
         };
 
-        for line_text in ["dependency_valid", "standard_valid"] {
+        for line_text in [
+            "Wrapped",
+            "dependency_valid",
+            "dependency_function",
+            "dependency_nested",
+            "dependency_nested_function",
+            "standard_valid",
+        ] {
             assert!(navigate(&snapshot, position(line_text, "Boxed")).is_some());
         }
         for line_text in [
+            "dependency_unknown_variant",
+            "dependency_mixed_union",
             "dependency_missing",
             "dependency_excess",
             "standard_missing",
             "standard_excess",
         ] {
-            assert!(navigate(&snapshot, position(line_text, "Boxed")).is_none());
+            for needle in ["Alias", "Boxed"] {
+                assert!(definition_at(&snapshot, position(line_text, needle)).is_none());
+                assert!(navigate(&snapshot, position(line_text, needle)).is_none());
+                assert!(navigate_for_rename(&snapshot, position(line_text, needle)).is_none());
+            }
         }
     }
 

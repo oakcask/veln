@@ -66,6 +66,10 @@ struct WorkspaceSyntaxIndex {
         BTreeMap<(usize, usize), Vec<(usize, usize)>>,
     variant_refinement_type_argument_fingerprints_by_final_range:
         BTreeMap<(usize, usize), Vec<String>>,
+    variant_refinement_type_argument_annotations_by_final_range:
+        BTreeMap<(usize, usize), Vec<String>>,
+    variant_refinement_type_parameters_by_final_range:
+        BTreeMap<(usize, usize), Vec<String>>,
     constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
 }
 
@@ -130,6 +134,10 @@ impl WorkspaceSyntaxIndex {
                 variant_refinement_source_index.union_final_ranges_by_final_range,
             variant_refinement_type_argument_fingerprints_by_final_range:
                 variant_refinement_source_index.type_argument_fingerprints_by_final_range,
+            variant_refinement_type_argument_annotations_by_final_range:
+                variant_refinement_source_index.type_argument_annotations_by_final_range,
+            variant_refinement_type_parameters_by_final_range:
+                variant_refinement_source_index.type_parameters_by_final_range,
             constructor_reference_declaration_ranges,
         }
     }
@@ -174,6 +182,11 @@ fn indexed_workspace_file(
             .variant_refinement_union_final_ranges_by_final_range,
         variant_refinement_type_argument_fingerprints_by_final_range: syntax
             .variant_refinement_type_argument_fingerprints_by_final_range,
+        variant_refinement_type_argument_annotations_by_final_range: syntax
+            .variant_refinement_type_argument_annotations_by_final_range,
+        variant_refinement_type_parameters_by_final_range: syntax
+            .variant_refinement_type_parameters_by_final_range,
+        fully_resolved_variant_refinement_type_arguments: BTreeSet::new(),
         constructor_reference_declaration_ranges: syntax
             .constructor_reference_declaration_ranges,
         classified_paths: ClassifiedPathIndex::default(),
