@@ -526,36 +526,36 @@ fn public_alias_target_leaf_casing_reports_before_independent_target_failures() 
         alias_target_observations(&diagnostics),
         vec![
             (
-                "name.invalid_case",
-                "function alias target `Document` must start with an ASCII lowercase letter"
-            ),
-            (
-                "name.invalid_case",
-                "type alias target `parse` must start with an ASCII uppercase letter"
-            ),
-            (
-                "name.invalid_case",
-                "function alias target `Missing` must start with an ASCII lowercase letter"
-            ),
-            (
-                "name.invalid_case",
-                "type alias target `missing_type` must start with an ASCII uppercase letter"
-            ),
-            (
                 "name.kind_mismatch",
                 "public alias target `Document` is a type, not a function"
+            ),
+            (
+                "name.invalid_case",
+                "function alias target `Document` must start with an ASCII lowercase letter"
             ),
             (
                 "name.kind_mismatch",
                 "public alias target `parse` is a function, not a type"
             ),
             (
+                "name.invalid_case",
+                "type alias target `parse` must start with an ASCII uppercase letter"
+            ),
+            (
                 "name.unresolved",
                 "unresolved function alias target `Missing`"
             ),
             (
+                "name.invalid_case",
+                "function alias target `Missing` must start with an ASCII lowercase letter"
+            ),
+            (
                 "name.unresolved",
                 "unresolved type alias target `missing_type`"
+            ),
+            (
+                "name.invalid_case",
+                "type alias target `missing_type` must start with an ASCII uppercase letter"
             ),
             (
                 "name.unresolved",

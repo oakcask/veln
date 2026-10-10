@@ -1,4 +1,5 @@
 use super::*;
+use crate::semantic_model::Type;
 use crate::types::TypeEnvironment;
 
 fn diagnostics_for(source: &str) -> Vec<Diagnostic> {
@@ -331,10 +332,10 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
             "name.invalid_case",
             "name.invalid_case",
             "name.invalid_case",
-            "name.invalid_case",
+            "type.variant_refinement_base",
             "name.invalid_case",
             "type.variant_refinement_base",
-            "type.variant_refinement_base",
+            "name.invalid_case",
             "type.variant_refinement_base",
         ]
     );
@@ -355,6 +356,145 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
         })
         .count();
     assert_eq!(recovered_final, 1, "{diagnostics:#?}");
+}
+
+#[test]
+fn explicit_call_type_arguments_recover_lowercase_bases_and_publish_in_source_order() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn sink(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn main() -> ()\n",
+        "  sink<Int::Missing>(1)\n",
+        "  sink<int::Missing>(1)\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "name.invalid_case" | "type.variant_refinement_base"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 3, "{diagnostics:#?}");
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.variant_refinement_base",
+            "name.invalid_case",
+            "type.variant_refinement_base",
+        ]
+    );
+    assert_eq!(relevant[1].span, relevant[2].span);
+    let recovered = veln_diagnostics::diagnostic_to_json(relevant[2]).to_json();
+    assert!(recovered.contains("\"written_type\":\"int\""));
+    assert!(recovered.contains("\"resolved_identity\":\"Int\""));
+}
+
+#[test]
+fn base_failures_preserve_independent_sibling_and_nested_annotation_errors() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "type Empty<A>\n",
+        "end\n",
+        "type Box<A>\n",
+        "  Boxed(A)\n",
+        "end\n",
+        "fn sibling(value: State::Missing | Int::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn nested(value: Empty<Box::Boxed>::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    let annotation_messages = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(annotation_messages.len(), 2, "{diagnostics:#?}");
+    assert!(
+        annotation_messages
+            .iter()
+            .any(|message| message.contains("State::Missing")),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        annotation_messages
+            .iter()
+            .any(|message| message.contains("`Box` expects 1 type argument(s), found 0")),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_declaration_annotations_quarantine_body_and_caller_types() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn needs_string(value: String) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn invalid_param(value: Int::Missing) -> ()\n",
+        "  needs_string(value)\n",
+        "end\n",
+        "fn invalid_return() -> Int::Missing\n",
+        "  \"not an int\"\n",
+        "end\n",
+        "fn caller() -> ()\n",
+        "  invalid_param(\"not an int\")\n",
+        "  let value: String = invalid_return()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_refinement_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_return_is_quarantined_before_private_return_inference() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn invalid_return() -> Int::Missing\n",
+            "  \"not an int\"\n",
+            "end\n",
+            "fn inferred_caller()\n",
+            "  invalid_return()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let inferred = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("inferred_caller"))
+        .and_then(|function| environment.function_for(function))
+        .expect("inferred caller signature");
+    assert_eq!(inferred.return_type, Type::Unknown);
 }
 
 #[test]

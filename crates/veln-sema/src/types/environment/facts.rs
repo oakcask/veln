@@ -96,16 +96,13 @@ fn finish_environment(
     let symbols = symbol_facts(module, base, &declarations.adts);
     let aliases = function_alias_signatures(module, &callables.functions);
     callables.functions.extend(aliases);
-    let functions_by_name = function_name_index(&callables.functions);
-    let recovery = recovery_facts(module, &callables.functions);
-
-    TypeEnvironment {
+    let mut environment = TypeEnvironment {
         functions: callables.functions,
-        functions_by_name,
-        function_recovery_signatures: recovery.function_signatures,
-        function_recoveries: recovery.functions,
-        constructor_recoveries: recovery.constructors,
-        import_constructor_recoveries: recovery.import_constructors,
+        functions_by_name: HashMap::new(),
+        function_recovery_signatures: Vec::new(),
+        function_recoveries: BTreeMap::new(),
+        constructor_recoveries: BTreeMap::new(),
+        import_constructor_recoveries: BTreeMap::new(),
         effects: declarations.effects,
         handlers: callables.handlers,
         schema_symbols: symbols.schema_symbols,
@@ -117,6 +114,67 @@ fn finish_environment(
         companion_function_access_targets: symbols.companion_function_access_targets,
         companion_schema_access_targets: symbols.companion_schema_access_targets,
         companion_effect_access_targets: declarations.companion_effect_access_targets,
+    };
+    quarantine_invalid_variant_refinement_signatures(module, &mut environment);
+    environment.functions_by_name = function_name_index(&environment.functions);
+    let recovery = recovery_facts(module, &environment.functions);
+    environment.function_recovery_signatures = recovery.function_signatures;
+    environment.function_recoveries = recovery.functions;
+    environment.constructor_recoveries = recovery.constructors;
+    environment.import_constructor_recoveries = recovery.import_constructors;
+    environment
+}
+
+fn quarantine_invalid_variant_refinement_signatures(
+    module: &SurfaceModule,
+    environment: &mut TypeEnvironment,
+) {
+    let validation_environment = environment.clone();
+    quarantine_invalid_variant_refinement_signature_types(
+        module,
+        &validation_environment,
+        &mut environment.functions,
+    );
+}
+
+fn quarantine_invalid_variant_refinement_signature_types(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    functions: &mut [FunctionSignature],
+) {
+    let invalid = module
+        .functions
+        .iter()
+        .filter(|function| {
+            function.params.iter().any(|param| {
+                crate::analysis::annotation_has_base_failure(
+                    &param.ty_refinements,
+                    &param.ty_paths,
+                    function.module_name.as_deref(),
+                    environment,
+                )
+            }) || crate::analysis::annotation_has_base_failure(
+                &function.return_type_refinements,
+                &function.return_type_paths,
+                function.module_name.as_deref(),
+                environment,
+            )
+        })
+        .map(|function| (function.node_id, function.span.clone()))
+        .collect::<Vec<_>>();
+
+    for signature in functions {
+        if !invalid
+            .iter()
+            .any(|(node_id, span)| signature.node_id == *node_id && signature.span == *span)
+        {
+            continue;
+        }
+        signature.params.fill(Type::Unknown);
+        if let Some(variadic) = &mut signature.variadic {
+            *variadic = Type::Unknown;
+        }
+        signature.return_type = Type::Unknown;
     }
 }
 
@@ -367,6 +425,12 @@ fn callable_facts(
         mut functions,
         mut handlers,
     } = declared_callable_facts(module, base, declarations);
+    let validation_environment = TypeEnvironment::for_path_classification(module);
+    quarantine_invalid_variant_refinement_signature_types(
+        module,
+        &validation_environment,
+        &mut functions,
+    );
     infer_private_function_body_return_types(module, &mut functions, &declarations.adts);
     infer_private_function_call_site_signature_types(module, &mut functions, &declarations.adts);
     infer_private_function_body_return_types(module, &mut functions, &declarations.adts);

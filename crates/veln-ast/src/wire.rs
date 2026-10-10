@@ -12,7 +12,7 @@ use crate::{
     VariantRefinementTypeArgument, Visibility,
 };
 
-const MAGIC: &[u8; 9] = b"VLNAST10\n";
+const MAGIC: &[u8; 9] = b"VLNAST11\n";
 
 mod decoder;
 mod encoder;

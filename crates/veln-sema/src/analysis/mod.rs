@@ -77,7 +77,7 @@ pub(crate) use boundary::{
 };
 pub(crate) use handlers::check_handler_declarations;
 pub(crate) use variant_refinement_bases::{
-    annotation_has_base_failure, check_variant_refinement_bases,
+    annotation_has_base_failure, check_variant_refinement_bases, independent_annotation_errors,
 };
 
 fn private_companion_effect_target_diagnostic(

@@ -523,7 +523,7 @@ impl TypeEnvironment {
             })
     }
 
-    fn variant_refinement_arity_error(
+    pub(crate) fn variant_refinement_arity_error(
         &self,
         ty: &Type,
         current_module: Option<&str>,

@@ -156,7 +156,7 @@ impl<'a> ExprParser<'a> {
         start: TextRange,
         closing: TokenKind,
     ) -> Expr {
-        let (type_args, type_arg_spans, type_arg_refinements, surplus_closers, end) =
+        let (type_args, type_arg_spans, type_arg_paths, type_arg_refinements, surplus_closers, end) =
             self.parse_type_argument_list(closing);
         Expr {
             span: self.source.span(start.cover(end)),
@@ -164,6 +164,7 @@ impl<'a> ExprParser<'a> {
                 callee: Box::new(expr),
                 type_args,
                 type_arg_spans,
+                type_arg_paths,
                 type_arg_refinements,
                 surplus_closers,
             },
@@ -285,6 +286,7 @@ impl<'a> ExprParser<'a> {
     ) -> (
         Vec<String>,
         Vec<SourceSpan>,
+        Vec<Vec<TypePathSegments>>,
         Vec<Vec<VariantRefinementType>>,
         usize,
         TextRange,
@@ -327,6 +329,7 @@ impl<'a> ExprParser<'a> {
     ) -> (
         Vec<String>,
         Vec<SourceSpan>,
+        Vec<Vec<TypePathSegments>>,
         Vec<Vec<VariantRefinementType>>,
         usize,
         TextRange,
@@ -340,7 +343,18 @@ impl<'a> ExprParser<'a> {
             .iter()
             .map(|tokens| self.build_type_argument_refinements(tokens, report_refinement_errors))
             .collect();
-        (arguments, argument_spans, refinements, surplus_closers, end)
+        let paths = argument_tokens
+            .iter()
+            .map(|tokens| super::type_paths::type_paths_from_tokens(self.source, tokens))
+            .collect();
+        (
+            arguments,
+            argument_spans,
+            paths,
+            refinements,
+            surplus_closers,
+            end,
+        )
     }
 
     fn build_type_argument_refinements(

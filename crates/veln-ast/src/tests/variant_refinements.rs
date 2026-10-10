@@ -198,12 +198,14 @@ fn assert_refinement_positions(decoded: &SurfaceModule) {
         panic!("expected call expression");
     };
     let ExprKind::TypeApply {
+        type_arg_paths,
         type_arg_refinements,
         ..
     } = &callee.kind
     else {
         panic!("expected type application");
     };
+    assert_eq!(type_arg_paths[0][0].segments, ["State", "Ready"]);
     assert_eq!(type_arg_refinements[0][0].alternatives.len(), 2);
 }
 

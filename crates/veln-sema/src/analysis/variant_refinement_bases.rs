@@ -3,6 +3,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::diagnostics::span_json;
+use crate::type_syntax::parse_type_annotation;
 use crate::types::{TypeEnvironment, VariantRefinementBaseFailure};
 
 pub(crate) fn check_variant_refinement_bases(
@@ -145,6 +146,88 @@ pub(crate) fn annotation_has_base_failure(
     })
 }
 
+pub(crate) fn independent_annotation_errors(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> Vec<(String, String)> {
+    let mut errors = Vec::new();
+    collect_independent_refinement_errors(
+        refinements,
+        paths,
+        current_module,
+        environment,
+        &mut errors,
+    );
+    errors
+}
+
+fn collect_independent_refinement_errors(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    errors: &mut Vec<(String, String)>,
+) {
+    for path in paths {
+        if environment
+            .recovered_variant_refinement_base_failure(&path.segments, current_module)
+            .is_none()
+            && let Some(error) = environment.recovered_variant_refinement_annotation_error(
+                std::slice::from_ref(path),
+                current_module,
+            )
+        {
+            errors.push((path.segments.join("::"), error));
+        }
+    }
+    for refinement in refinements {
+        for alternative in &refinement.alternatives {
+            let base = alternative.base.segments.join("::");
+            let own_base_failure = environment
+                .variant_refinement_base_failure(
+                    &base,
+                    alternative.type_arguments.len(),
+                    current_module,
+                )
+                .is_some();
+
+            let child_errors_start = errors.len();
+            for argument in &alternative.type_arguments {
+                collect_independent_refinement_errors(
+                    &argument.ty_refinements,
+                    &argument.ty_paths,
+                    current_module,
+                    environment,
+                    errors,
+                );
+            }
+
+            let written = format!(
+                "{}::{}",
+                written_refinement_base(alternative),
+                alternative.variant
+            );
+            let Some(ty) = parse_type_annotation(&written).ok() else {
+                continue;
+            };
+            if let Some(error) = environment.variant_refinement_arity_error(&ty, current_module) {
+                errors.push((written, error));
+                continue;
+            }
+            if own_base_failure || errors.len() != child_errors_start {
+                continue;
+            }
+            if let Some(error) =
+                environment.variant_refinement_annotation_error(&ty, current_module)
+            {
+                errors.push((written, error));
+            }
+        }
+    }
+}
+
 fn collect_annotation(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[TypePathSegments],
@@ -236,12 +319,13 @@ fn collect_expr(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if let ExprKind::TypeApply {
+        type_arg_paths,
         type_arg_refinements,
         ..
     } = &expr.kind
     {
-        for refinements in type_arg_refinements {
-            collect_refinements(refinements, current_module, environment, diagnostics);
+        for (refinements, paths) in type_arg_refinements.iter().zip(type_arg_paths) {
+            collect_annotation(refinements, paths, current_module, environment, diagnostics);
         }
     }
     if let ExprKind::Begin { body, .. } = &expr.kind {

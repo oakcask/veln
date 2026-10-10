@@ -405,6 +405,33 @@ fn collect_valid_segments_from_expr(
                 );
             }
         }
+        veln_ast::ExprKind::TypeApply {
+            callee,
+            type_arg_paths,
+            type_arg_refinements,
+            ..
+        } => {
+            collect_valid_segments_from_expr(
+                callee,
+                current_module,
+                environment,
+                include_variant_refinements,
+                output,
+            );
+            for paths in type_arg_paths {
+                collect_type_path_segments(paths, current_module, environment, output);
+            }
+            if include_variant_refinements {
+                for refinements in type_arg_refinements {
+                    collect_variant_refinement_segments(
+                        refinements,
+                        current_module,
+                        environment,
+                        output,
+                    );
+                }
+            }
+        }
         veln_ast::ExprKind::Match { scrutinee, arms } => {
             collect_valid_segments_from_expr(
                 scrutinee,

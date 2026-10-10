@@ -487,6 +487,7 @@ pub enum ExprKind {
     TypeApply {
         callee: Box<Expr>,
         type_args: Vec<String>,
+        type_arg_paths: Vec<Vec<TypePathSegments>>,
         type_arg_refinements: Vec<Vec<VariantRefinementType>>,
     },
     Call {

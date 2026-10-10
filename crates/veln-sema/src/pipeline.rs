@@ -170,6 +170,16 @@ fn analyze_surface_module_with_environment(
         ));
     }
 
+    diagnostics.sort_by(|left, right| match (&left.span, &right.span) {
+        (Some(left), Some(right)) => left
+            .file
+            .cmp(&right.file)
+            .then_with(|| left.start.offset.cmp(&right.start.offset))
+            .then_with(|| left.end.offset.cmp(&right.end.offset)),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    });
     diagnostics
 }
 

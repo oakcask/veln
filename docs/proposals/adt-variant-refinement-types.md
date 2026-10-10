@@ -246,10 +246,10 @@ each later successfully instantiated alternative is compared with it. An
 incomplete alternative does not prevent an independently complete later pair
 from reporting `type.variant_union_base`.
 
-Published diagnostics are ordered by primary source span. Diagnostics with the
+The current diagnostic specification owns publication order, recovered base
+casing, and base eligibility. For the remaining checks, diagnostics with the
 same primary span use the check order above, followed by union-base and
-assignability diagnostics. The current diagnostic specification owns recovered
-base casing and base eligibility. A uniquely recovered final-segment identity
+assignability diagnostics. A uniquely recovered final-segment identity
 lets later independent checks run, but recovery never makes the annotation
 valid.
 

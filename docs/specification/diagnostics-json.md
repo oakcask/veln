@@ -40,6 +40,11 @@ the source path. Each position has one-based `line` and Unicode-scalar
 value and may be `null`. `related` is always an array of producer-supplied
 JSON values.
 
+Published diagnostics are ordered by primary file and source span. Diagnostics
+with the same primary span retain checker order. A recovered base-casing
+failure therefore precedes the eligibility failure at that same span. Spanless
+diagnostics follow diagnostics that have a primary span.
+
 The primary message names the failed fact at its reported span. Causes,
 provenance, repair hints, and other locations belong in `related` or
 structured `details`. Producers omit detail keys when the fact is unavailable;
@@ -113,13 +118,20 @@ Known opacity takes precedence over an unavailable descriptor. A related
 `base_type_provider` entry retains the resolved base identity and identifies the
 declaration or provider context. The failed occurrence does not emit variant,
 union, visibility, or assignability diagnostics that require a refinable base.
+The checker continues with sibling alternatives and nested type positions. It
+retains a name, constructor, or generic-arity diagnostic when that fact is
+provable without treating the failed base as refinable.
 An independently provable generic-arity failure keeps
 `type.invalid_annotation` instead of adding the base diagnostic. Unresolved,
 ambiguous, private, and wrong-kind bases also retain their existing diagnostics.
 The checker applies this contract to function and test parameters and results,
 local annotations, ADT payloads, effect-operation parameters and results,
 handler parameters, schema fields, and explicit call type arguments. A failure
-in a declaration annotation prevents publication of usable typed state.
+in a declaration annotation prevents publication of usable typed state. An
+invalid parameter supplies no expected argument types to callers and is unknown
+inside its declaration body. An invalid result supplies no return expectation
+to its body and no result type to callers. These quarantined types do not cause
+derivative assignability diagnostics.
 
 Lowercase prospective bases remain ordinary named-type source text. If changing
 only that base leaf to the required case identifies exactly one type, the
@@ -135,8 +147,9 @@ The checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
 cases cover the three reasons, provider context, nested generic written spelling,
-declaration annotations, recovered-casing overlap, downstream suppression, and
-arity precedence.
+declaration annotations and explicit call arguments, recovered-casing overlap,
+occurrence-scoped downstream suppression, declaration quarantine, source-order
+publication, and arity precedence.
 
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at
