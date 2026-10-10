@@ -1109,11 +1109,11 @@ fn invalid_casing_recovery_distinguishes_ordinary_and_refined_coverage() {
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["type.match_non_exhaustive", "name.invalid_case"],
+        ["name.invalid_case", "type.match_non_exhaustive"],
         "{refined:#?}"
     );
     assert_eq!(
-        refined[0].message, "match is missing case Ready",
+        refined[1].message, "match is missing case Ready",
         "{refined:#?}"
     );
 }
@@ -1139,18 +1139,18 @@ fn wrong_arity_does_not_consume_refined_coverage_and_keeps_payload_and_body_chec
     assert_eq!(
         ids,
         [
-            "type.match_non_exhaustive",
-            "type.constructor_pattern_arity",
             "name.invalid_case",
+            "type.constructor_pattern_arity",
             "name.unresolved",
+            "type.match_non_exhaustive",
         ],
         "{diagnostics:#?}"
     );
     assert_eq!(
-        diagnostics[2].message,
+        diagnostics[0].message,
         "binding name `BadBinding` must start with an ASCII lowercase letter"
     );
-    assert_eq!(diagnostics[3].message, "unresolved value `missing_body`");
+    assert_eq!(diagnostics[2].message, "unresolved value `missing_body`");
     assert!(diagnostics.iter().all(|diagnostic| {
         diagnostic.id != "type.match_impossible_variant"
             && diagnostic.id != "type.match_redundant_arm"

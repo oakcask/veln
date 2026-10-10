@@ -25,7 +25,7 @@ fn invalid_implicit_import_alias_suppresses_only_quarantine_cascade() {
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["module.missing_identity", "name.invalid_case"],
+        ["name.invalid_case", "module.missing_identity"],
         "{diagnostics:#?}"
     );
     assert!(
@@ -66,7 +66,7 @@ fn invalid_implicit_import_alias_suppresses_public_effect_quarantine_cascade() {
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["module.missing_identity", "name.invalid_case"],
+        ["name.invalid_case", "module.missing_identity"],
         "{diagnostics:#?}"
     );
     assert!(
@@ -125,8 +125,8 @@ fn invalid_implicit_import_alias_preserves_missing_private_and_wrong_kind_effect
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
         [
-            "module.missing_identity",
             "name.invalid_case",
+            "module.missing_identity",
             "effect.unknown",
             "effect.unknown",
             "effect.unknown",
@@ -172,7 +172,7 @@ fn invalid_implicit_import_alias_suppresses_public_handler_quarantine_cascade() 
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["module.missing_identity", "name.invalid_case"],
+        ["name.invalid_case", "module.missing_identity"],
         "{diagnostics:#?}"
     );
     assert!(
@@ -230,8 +230,8 @@ fn invalid_implicit_import_alias_preserves_missing_private_and_wrong_kind_handle
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
         [
-            "module.missing_identity",
             "name.invalid_case",
+            "module.missing_identity",
             "handler.unknown",
             "handler.unknown",
             "handler.unknown",
@@ -266,8 +266,8 @@ fn invalid_implicit_import_alias_preserves_private_call_target() {
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
         [
-            "module.missing_identity",
             "name.invalid_case",
+            "module.missing_identity",
             "name.unresolved"
         ],
         "{diagnostics:#?}"
@@ -409,8 +409,8 @@ fn invalid_implicit_import_alias_preserves_private_schema_composition() {
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
         [
-            "module.missing_identity",
             "name.invalid_case",
+            "module.missing_identity",
             "schema.composition_reference"
         ],
         "{diagnostics:#?}"
@@ -488,8 +488,8 @@ fn invalid_implicit_import_alias_preserves_missing_type_export() {
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
         [
-            "module.missing_identity",
             "name.invalid_case",
+            "module.missing_identity",
             "type.mismatch"
         ],
         "{diagnostics:#?}"
@@ -582,11 +582,11 @@ fn duplicate_invalid_implicit_import_aliases_stay_in_duplicate_analysis() {
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["name.invalid_case", "name.duplicate", "name.invalid_case"],
+        ["name.invalid_case", "name.invalid_case", "name.duplicate"],
         "{diagnostics:#?}"
     );
     assert_eq!(
-        diagnostics[1].message, "duplicate import alias name `HTTP`",
+        diagnostics[2].message, "duplicate import alias name `HTTP`",
         "{diagnostics:#?}"
     );
 }
