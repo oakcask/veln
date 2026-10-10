@@ -344,27 +344,27 @@ fn lowercase_qualified_constructor_pattern_reports_independent_descriptor_mismat
         .iter()
         .map(|diagnostic| diagnostic.id.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(ids, ["type.mismatch", "name.invalid_case"]);
-    assert_eq!(
-        lowered.diagnostics[1].message,
-        "constructor name `some` must start with an ASCII uppercase letter"
-    );
-    assert_eq!(lowered.diagnostics[1].span.as_ref().unwrap().start.line, 11);
-    assert_eq!(
-        lowered.diagnostics[1].span.as_ref().unwrap().start.column,
-        12
-    );
-    assert_eq!(lowered.diagnostics[1].span.as_ref().unwrap().end.column, 16);
+    assert_eq!(ids, ["name.invalid_case", "type.mismatch"]);
     assert_eq!(
         lowered.diagnostics[0].message,
-        "expected `Item`, but found `Other`"
+        "constructor name `some` must start with an ASCII uppercase letter"
     );
     assert_eq!(lowered.diagnostics[0].span.as_ref().unwrap().start.line, 11);
     assert_eq!(
         lowered.diagnostics[0].span.as_ref().unwrap().start.column,
-        5
+        12
     );
     assert_eq!(lowered.diagnostics[0].span.as_ref().unwrap().end.column, 16);
+    assert_eq!(
+        lowered.diagnostics[1].message,
+        "expected `Item`, but found `Other`"
+    );
+    assert_eq!(lowered.diagnostics[1].span.as_ref().unwrap().start.line, 11);
+    assert_eq!(
+        lowered.diagnostics[1].span.as_ref().unwrap().start.column,
+        5
+    );
+    assert_eq!(lowered.diagnostics[1].span.as_ref().unwrap().end.column, 16);
     assert!(lowered.core.is_none());
     assert!(lowered.ir.is_none());
 }

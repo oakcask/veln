@@ -332,10 +332,10 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
             "name.invalid_case",
             "name.invalid_case",
             "name.invalid_case",
-            "type.variant_refinement_base",
+            "name.invalid_case",
             "name.invalid_case",
             "type.variant_refinement_base",
-            "name.invalid_case",
+            "type.variant_refinement_base",
             "type.variant_refinement_base",
         ]
     );
@@ -359,7 +359,7 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
 }
 
 #[test]
-fn explicit_call_type_arguments_recover_lowercase_bases_and_publish_in_source_order() {
+fn explicit_call_type_arguments_keep_casing_before_eligibility_at_shared_span() {
     let diagnostics = diagnostics_for(concat!(
         "fn sink(value: Int) -> ()\n",
         "  ()\n",
@@ -386,12 +386,12 @@ fn explicit_call_type_arguments_recover_lowercase_bases_and_publish_in_source_or
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
         [
-            "type.variant_refinement_base",
             "name.invalid_case",
+            "type.variant_refinement_base",
             "type.variant_refinement_base",
         ]
     );
-    assert_eq!(relevant[1].span, relevant[2].span);
+    assert_eq!(relevant[0].span, relevant[2].span);
     let recovered = veln_diagnostics::diagnostic_to_json(relevant[2]).to_json();
     assert!(recovered.contains("\"written_type\":\"int\""));
     assert!(recovered.contains("\"resolved_identity\":\"Int\""));

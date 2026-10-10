@@ -66,8 +66,8 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
         [
-            "type.match_non_exhaustive",
-            "type.constructor_pattern_arity"
+            "type.constructor_pattern_arity",
+            "type.match_non_exhaustive"
         ],
         "{direct_wrong_arity:#?}"
     );
@@ -89,8 +89,8 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
         [
-            "type.match_non_exhaustive",
-            "type.constructor_pattern_arity"
+            "type.constructor_pattern_arity",
+            "type.match_non_exhaustive"
         ],
         "{parenthesized_wrong_arity:#?}"
     );
@@ -132,7 +132,7 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["type.match_non_exhaustive", "name.unresolved"],
+        ["name.unresolved", "type.match_non_exhaustive"],
         "{direct_unresolved:#?}"
     );
 
@@ -152,7 +152,7 @@ fn direct_refined_validation_does_not_change_other_match_boundaries() {
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["type.match_non_exhaustive", "name.unresolved"],
+        ["name.unresolved", "type.match_non_exhaustive"],
         "{parenthesized_unresolved:#?}"
     );
 }
