@@ -314,50 +314,10 @@ Rename selection on a refinement variant uses that constructor identity and
 its linked occurrences. The base alias is not part of the constructor identity.
 Rename selection on the alias base uses the alias declaration and its written
 base occurrences without selecting the target ADT or constructor.
-A shared language-service package-snapshot case additionally verifies that a
-workspace alias can terminate at a direct-dependency ADT and that retained
-direct-dependency and standard-library aliases resolve their targets in their
-own package namespaces. It also verifies the implicit standard-prelude
-fallback, the same-module precedence over that fallback, and order-independent
-rejection when two dependency packages expose the same qualified base. LSP
-adapter cases project these identities and empty selections through the LSP
-contract below.
-The shared navigation index computes and retains one terminal result for each
-distinct variant-refinement alias identity. Definition, reference, and rename
-queries reuse that result for repeated refinement occurrences. They also reuse
-an unresolved result for an alias cycle instead of traversing the cycle again.
-Instrumented language-service cases compare adjacent doubling workloads for
-annotation count, alias-chain depth, and union width. Alias indexing and
-target-lookup counts stay constant when only occurrences increase, and grow at
-most linearly when the number of alias declarations or chain hops increases.
-Each union retains one range group and one group reference per alternative, so
-retained ranges grow linearly with the written alternatives. A refinement with
-generic arguments retains one shared copy of its enclosing declaration's
-type-parameter context and one context reference per annotated alternative.
-Separate payload annotations in that declaration do not copy the context.
-Annotations without generic arguments retain no unused context. Canonical
-argument validation constructs one name-to-declared-position index per retained
-context and reuses it for resolution and identity collection.
-Type arguments are retained as fixed-size source-range records rather than
-rendered annotation copies. The source-range collector visits nested
-refinements with an explicit pending stack. Separate retention cases show that
-the range records grow linearly with accepted nesting depth.
-
-Full navigation-index cases construct an effective project snapshot, force its
-shared symbol index, and request a constructor definition from a valid nested
-refinement. When an enclosing refinement is valid, semantic classification
-renders and parses that annotation once and reuses its validity for every
-nested refinement. The language service reuses those classified constructor
-roles for singleton and union identity and does not separately canonicalize
-the overlapping argument ranges. Adjacent doubling cases count rendered
-annotations, rendered bytes, and separately canonicalized source bytes through
-the complete construction path. They also verify the selected constructor at
-the supported deep-nesting boundary. Other adjacent workloads grow the
-parameter count and distinct generic annotation count together, use the last
-declared parameter, and measure retained context names, context references,
-argument-range records, context construction, and parameter lookups. The cases
-use deterministic work counters and retained-entry sizes for the regression
-boundary; elapsed time is diagnostic output rather than a threshold.
+Navigation-index construction remains bounded as valid refinement occurrence
+count, alias-chain depth, union width, generic parameter count, or nesting depth
+grows. The checked workloads use deterministic work and retained-size measures;
+elapsed time is diagnostic and does not define a conformance threshold.
 A retained direct-dependency or standard-library type alias used as the base
 of a valid refinement is a narrow exception to the ordinary package-alias
 definition policy below. When the refinement resolves through a visible,
