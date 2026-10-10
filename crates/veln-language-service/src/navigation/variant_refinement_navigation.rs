@@ -4,6 +4,10 @@ enum VariantRefinementAliasTarget {
     Alias(TypeAliasSymbol),
 }
 
+type VariantRefinementAliasDeclarations =
+    BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>;
+type VariantRefinementAliases<'a> = BTreeMap<TypeIdentity, Vec<&'a TypeAliasSymbol>>;
+
 impl SymbolIndex {
     fn variant_refinement_identity<'a>(
         &self,
@@ -210,10 +214,7 @@ impl SymbolIndex {
 
     fn variant_refinement_alias_declarations(
         &self,
-    ) -> (
-        BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>,
-        BTreeMap<TypeIdentity, Vec<&TypeAliasSymbol>>,
-    ) {
+    ) -> (VariantRefinementAliasDeclarations, VariantRefinementAliases<'_>) {
         let mut declarations = BTreeMap::<TypeIdentity, Vec<VariantRefinementAliasTarget>>::new();
         for symbol in &self.types {
             record_variant_refinement_alias_index_entry();
@@ -239,13 +240,13 @@ impl SymbolIndex {
 
     fn variant_refinement_alias_targets(
         &self,
-        aliases: &BTreeMap<TypeIdentity, Vec<&TypeAliasSymbol>>,
-        declarations: &BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>,
+        aliases: &VariantRefinementAliases<'_>,
+        declarations: &VariantRefinementAliasDeclarations,
     ) -> BTreeMap<TypeIdentity, Option<VariantRefinementAliasTarget>> {
         let mut targets = BTreeMap::<TypeIdentity, Option<VariantRefinementAliasTarget>>::new();
         for (identity, candidates) in aliases {
             let target = match candidates.as_slice() {
-                [alias] => self.indexed_type_alias_target(alias, &declarations),
+                [alias] => self.indexed_type_alias_target(alias, declarations),
                 _ => None,
             };
             targets.insert(identity.clone(), target);
@@ -256,7 +257,7 @@ impl SymbolIndex {
     fn indexed_type_alias_target(
         &self,
         alias: &TypeAliasSymbol,
-        declarations: &BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>,
+        declarations: &VariantRefinementAliasDeclarations,
     ) -> Option<VariantRefinementAliasTarget> {
         let declaring_file = self.type_alias_declaring_file(alias)?;
         if alias.package.is_none() {
@@ -291,7 +292,7 @@ impl SymbolIndex {
         &self,
         alias: &TypeAliasSymbol,
         declaring_file: &IndexedFile,
-        declarations: &BTreeMap<TypeIdentity, Vec<VariantRefinementAliasTarget>>,
+        declarations: &VariantRefinementAliasDeclarations,
     ) -> Option<VariantRefinementAliasTarget> {
         let modules = alias.target_module.as_deref().map_or_else(
             || vec![alias.module.clone()],
