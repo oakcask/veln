@@ -494,7 +494,7 @@ impl SymbolIndex {
             return None;
         }
 
-        if let Some(segment) = file.classified_path_segments_by_range.get(&(
+        if let Some(segment) = file.classified_paths.by_range.get(&(
             selection.start.offset,
             selection.end.offset,
         ))
@@ -520,25 +520,13 @@ impl SymbolIndex {
             NameClass::Type => self
                 .type_namespace_symbol_for_reference(file, tokens, token_index, name)
                 .or_else(|| {
-                    let variant_index = variant_refinement_variant_index(tokens, token_index)?;
-                    file.token_has_classified_role(
-                        &tokens[variant_index],
-                        NameClass::Constructor,
+                    self.variant_refinement_base_alias_for_selection(
+                        file, tokens, token_index, name,
                     )
-                    .then(|| {
-                        match self.visible_type_conflict_for_reference(
-                            file, tokens, token_index, name,
-                        ) {
-                            Some(TypeConflictCandidate::Alias(alias)) => Some(alias),
-                            _ => None,
-                        }
-                    })
-                    .flatten()
                     .map(Symbol::TypeAlias)
                 }),
             NameClass::Constructor => self
-                .variant_refinement_identity(file, &tokens[token_index])
-                .map(|identity| identity.constructor.clone())
+                .variant_refinement_constructor_for_selection(file, &tokens[token_index])
                 .or_else(|| {
                     qualifier_for_token(tokens, token_index).and_then(|qualifier| {
                         self.constructor_for_qualified_call(file, &qualifier, name)

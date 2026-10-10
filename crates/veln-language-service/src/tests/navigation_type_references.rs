@@ -148,8 +148,65 @@
     }
 
     #[test]
-    fn variant_refinement_navigation_resolves_generic_transitive_and_imported_aliases() {
-        let sources = vec![
+    fn variant_refinement_navigation_resolves_generic_aliases() {
+        let snapshot = variant_refinement_alias_snapshot();
+        let base = query_snapshot(&snapshot, "main.veln", 8, 19).unwrap();
+        assert_eq!(base.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            base.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_location(&base.definition, "main.veln", 6, 10);
+
+        let variant = query_snapshot(&snapshot, "main.veln", 8, 38).unwrap();
+        assert_eq!(variant.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&variant.definition, "main.veln", 4, 7);
+    }
+
+    #[test]
+    fn variant_refinement_navigation_resolves_transitive_aliases() {
+        let snapshot = variant_refinement_alias_snapshot();
+        let base = query_snapshot(&snapshot, "main.veln", 12, 29).unwrap();
+        assert_location(&base.definition, "model.veln", 7, 10);
+
+        let variant = query_snapshot(&snapshot, "main.veln", 12, 32).unwrap();
+        assert_location(&variant.definition, "model.veln", 2, 7);
+    }
+
+    #[test]
+    fn variant_refinement_navigation_resolves_imported_aliases() {
+        let snapshot = variant_refinement_alias_snapshot();
+        let base = query_snapshot(&snapshot, "main.veln", 16, 27).unwrap();
+        assert_location(&base.definition, "model.veln", 8, 10);
+
+        let variant = query_snapshot(&snapshot, "main.veln", 16, 34).unwrap();
+        assert_location(&variant.definition, "model.veln", 2, 7);
+        assert_eq!(
+            locations(&variant.references),
+            [
+                ("main.veln", 12, 32),
+                ("main.veln", 16, 34),
+                ("main.veln", 17, 28),
+                ("main.veln", 19, 19),
+            ]
+        );
+        assert!(validate_rename(&variant, "Prepared").is_ok());
+
+        let alias_rename = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 8,
+                column: 19,
+            },
+        )
+        .unwrap();
+        assert_location(&alias_rename.definition, "main.veln", 6, 10);
+        assert_eq!(locations(&alias_rename.references), [("main.veln", 8, 19)]);
+    }
+
+    fn variant_refinement_alias_snapshot() -> EffectiveProjectSnapshot {
+        EffectiveProjectSnapshot::new(vec![
             source(
                 "model.veln",
                 concat!(
@@ -185,51 +242,7 @@
                     "end\n",
                 ),
             ),
-        ];
-        let snapshot = EffectiveProjectSnapshot::new(sources);
-
-        let generic_base = query_snapshot(&snapshot, "main.veln", 8, 19).unwrap();
-        assert_eq!(generic_base.selected_symbol.kind, SymbolKind::Type);
-        assert_eq!(
-            generic_base.selected_symbol.declaration_kind,
-            SymbolDeclarationKind::PublicAlias
-        );
-        assert_location(&generic_base.definition, "main.veln", 6, 10);
-        let generic_variant = query_snapshot(&snapshot, "main.veln", 8, 38).unwrap();
-        assert_eq!(generic_variant.selected_symbol.kind, SymbolKind::Constructor);
-        assert_location(&generic_variant.definition, "main.veln", 4, 7);
-
-        let transitive_base = query_snapshot(&snapshot, "main.veln", 12, 29).unwrap();
-        assert_location(&transitive_base.definition, "model.veln", 7, 10);
-        let transitive_variant = query_snapshot(&snapshot, "main.veln", 12, 32).unwrap();
-        assert_location(&transitive_variant.definition, "model.veln", 2, 7);
-
-        let imported_base = query_snapshot(&snapshot, "main.veln", 16, 27).unwrap();
-        assert_location(&imported_base.definition, "model.veln", 8, 10);
-        let imported_variant = query_snapshot(&snapshot, "main.veln", 16, 34).unwrap();
-        assert_location(&imported_variant.definition, "model.veln", 2, 7);
-        assert_eq!(
-            locations(&imported_variant.references),
-            [
-                ("main.veln", 12, 32),
-                ("main.veln", 16, 34),
-                ("main.veln", 17, 28),
-                ("main.veln", 19, 19),
-            ]
-        );
-        assert!(validate_rename(&imported_variant, "Prepared").is_ok());
-
-        let alias_rename = navigate_for_rename(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line: 8,
-                column: 19,
-            },
-        )
-        .unwrap();
-        assert_location(&alias_rename.definition, "main.veln", 6, 10);
-        assert_eq!(locations(&alias_rename.references), [("main.veln", 8, 19)]);
+        ])
     }
 
     #[test]

@@ -706,37 +706,33 @@ fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliase
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let generic_base = server.handle_message(&definition_request(&main_uri, 7, 18));
-    assert!(
-        generic_base[0].contains(
-            r#""range":{"start":{"line":5,"character":9},"end":{"line":5,"character":21}}"#
-        ),
-        "{}",
-        generic_base[0]
+    assert_definition_contains(
+        &mut server,
+        &main_uri,
+        7,
+        18,
+        r#""range":{"start":{"line":5,"character":9},"end":{"line":5,"character":21}}"#,
     );
-    let generic_variant = server.handle_message(&definition_request(&main_uri, 7, 37));
-    assert!(
-        generic_variant[0].contains(
-            r#""range":{"start":{"line":3,"character":6},"end":{"line":3,"character":11}}"#
-        ),
-        "{}",
-        generic_variant[0]
+    assert_definition_contains(
+        &mut server,
+        &main_uri,
+        7,
+        37,
+        r#""range":{"start":{"line":3,"character":6},"end":{"line":3,"character":11}}"#,
     );
-    let transitive = server.handle_message(&definition_request(&main_uri, 11, 31));
-    assert!(
-        transitive[0].contains(
-            r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#
-        ),
-        "{}",
-        transitive[0]
+    assert_definition_contains(
+        &mut server,
+        &main_uri,
+        11,
+        31,
+        r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#,
     );
-    let imported_base = server.handle_message(&definition_request(&main_uri, 15, 26));
-    assert!(
-        imported_base[0].contains(
-            r#""range":{"start":{"line":7,"character":9},"end":{"line":7,"character":14}}"#
-        ),
-        "{}",
-        imported_base[0]
+    assert_definition_contains(
+        &mut server,
+        &main_uri,
+        15,
+        26,
+        r#""range":{"start":{"line":7,"character":9},"end":{"line":7,"character":14}}"#,
     );
     let prepared = server.handle_message(&prepare_rename_request(&main_uri, 15, 33));
     assert!(prepared[0].contains(r#""start":{"line":15,"character":33}"#), "{}", prepared[0]);
@@ -746,6 +742,17 @@ fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliase
     assert_eq!(renamed[0].matches(r#""newText":"Prepared""#).count(), 5, "{}", renamed[0]);
     let alias_renamed = server.handle_message(&rename_request(&main_uri, 7, 18, "GenericBox"));
     assert_eq!(alias_renamed[0].matches(r#""newText":"GenericBox""#).count(), 2, "{}", alias_renamed[0]);
+}
+
+fn assert_definition_contains(
+    server: &mut Server,
+    uri: &str,
+    line: usize,
+    character: usize,
+    expected_range: &str,
+) {
+    let response = server.handle_message(&definition_request(uri, line, character));
+    assert!(response[0].contains(expected_range), "{}", response[0]);
 }
 
 fn assert_variant_refinement_constructor_navigation(server: &mut Server, main_uri: &str) {

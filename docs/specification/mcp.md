@@ -468,9 +468,11 @@ identities as LSP navigation. A direct base segment selects the ADT
 declaration, while a base segment that resolves through a finite, acyclic
 workspace alias chain selects the written public type-alias declaration. A
 final variant segment selects its resolved constructor. References for that
-constructor combine its declaration, constructor expressions, constructor
-patterns, and direct and workspace alias-qualified refinement occurrences,
-while excluding same-spelled variants from other ADTs. Rename applies the
+constructor combine constructor expressions, constructor patterns, and direct
+and workspace alias-qualified refinement occurrences, while excluding
+same-spelled variants from other ADTs. The declaration-inclusion option below
+determines whether the constructor declaration is added to those locations.
+Rename applies the
 shared constructor casing and conflict rules and returns edits for all of those
 occurrences without changing the alias base. A rename selected on the alias
 base changes the alias declaration and written base occurrences without

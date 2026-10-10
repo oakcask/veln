@@ -223,9 +223,7 @@ fn indexed_dependency_source(
         effect_reference_ranges: BTreeSet::new(),
         effect_operation_ranges: BTreeSet::new(),
         generic_effect_binders: Vec::new(),
-        classified_path_segments: Vec::new(),
-        classified_path_segments_by_range: BTreeMap::new(),
-        variant_refinement_identities: OnceLock::new(),
+        classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated: identity.navigation_isolated,
         origin: IndexedOrigin::Package {
@@ -277,11 +275,12 @@ fn attach_classified_path_segments(
             .push(segment);
     }
     for file in files {
-        file.classified_path_segments = segments_by_file
+        file.classified_paths.segments = segments_by_file
             .remove(file.source.path().as_str())
             .unwrap_or_default();
-        file.classified_path_segments_by_range = file
-            .classified_path_segments
+        file.classified_paths.by_range = file
+            .classified_paths
+            .segments
             .iter()
             .map(|segment| {
                 (

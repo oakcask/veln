@@ -266,10 +266,12 @@ and final variant remain separate navigation identities. A direct base segment
 selects its ADT declaration. A base segment that resolves through a finite,
 acyclic workspace alias chain selects the written public type-alias
 declaration. The final variant segment selects the constructor of the resolved
-target ADT. Its references include the constructor declaration, constructor
-expressions, constructor patterns, and every direct or workspace
-alias-qualified refinement occurrence for that constructor. A same-spelled
-variant owned by another ADT is not in the set.
+target ADT. Its eligible references include constructor expressions,
+constructor patterns, and every direct or workspace
+alias-qualified refinement occurrence for that constructor. The
+declaration-inclusion rule below determines whether the constructor declaration
+is present in the returned locations. A same-spelled variant owned by another
+ADT is not in the set.
 
 Prepare-rename and rename on a refinement variant use that constructor
 identity. A successful rename changes its declaration, expressions, patterns,

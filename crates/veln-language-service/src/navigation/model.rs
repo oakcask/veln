@@ -865,13 +865,18 @@ struct IndexedFile {
     effect_reference_ranges: BTreeSet<(usize, usize)>,
     effect_operation_ranges: BTreeSet<(usize, usize)>,
     generic_effect_binders: Vec<GenericEffectBinder>,
-    classified_path_segments: Vec<QualifiedPathSegment>,
-    classified_path_segments_by_range: BTreeMap<(usize, usize), QualifiedPathSegment>,
-    variant_refinement_identities:
-        OnceLock<BTreeMap<(usize, usize), VariantRefinementNavigationIdentity>>,
+    classified_paths: ClassifiedPathIndex,
     type_reference_locations: OnceLock<TypeReferenceIndex>,
     navigation_isolated: bool,
     origin: IndexedOrigin,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ClassifiedPathIndex {
+    segments: Vec<QualifiedPathSegment>,
+    by_range: BTreeMap<(usize, usize), QualifiedPathSegment>,
+    variant_refinement_identities:
+        OnceLock<BTreeMap<(usize, usize), VariantRefinementNavigationIdentity>>,
 }
 
 #[derive(Clone, Debug)]
@@ -893,7 +898,8 @@ impl IndexedFile {
     fn token_has_classified_role(&self, token: &Token, role: NameClass) -> bool {
         #[cfg(test)]
         record_classified_role_lookup();
-        self.classified_path_segments_by_range
+        self.classified_paths
+            .by_range
             .get(&(token.range.start, token.range.end))
             .is_some_and(|segment| segment.role == role)
     }
