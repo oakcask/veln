@@ -871,6 +871,10 @@ struct IndexedFile {
         BTreeMap<(usize, usize), (usize, usize)>,
     variant_refinement_type_argument_count_by_final_range:
         BTreeMap<(usize, usize), usize>,
+    variant_refinement_union_final_ranges_by_final_range:
+        BTreeMap<(usize, usize), Vec<(usize, usize)>>,
+    variant_refinement_type_argument_fingerprints_by_final_range:
+        BTreeMap<(usize, usize), Vec<String>>,
     constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
     classified_paths: ClassifiedPathIndex,
     type_reference_locations: OnceLock<TypeReferenceIndex>,

@@ -3,6 +3,8 @@ struct VariantRefinementSourceIndex {
     final_ranges: BTreeSet<(usize, usize)>,
     final_range_by_base_range: BTreeMap<(usize, usize), (usize, usize)>,
     type_argument_count_by_final_range: BTreeMap<(usize, usize), usize>,
+    union_final_ranges_by_final_range: BTreeMap<(usize, usize), Vec<(usize, usize)>>,
+    type_argument_fingerprints_by_final_range: BTreeMap<(usize, usize), Vec<String>>,
 }
 
 fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSourceIndex {
@@ -212,6 +214,16 @@ fn collect_refinement_ranges(
     index: &mut VariantRefinementSourceIndex,
 ) {
     for refinement in refinements {
+        let union_final_ranges = refinement
+            .alternatives
+            .iter()
+            .map(|alternative| {
+                (
+                    alternative.variant_span.start.offset,
+                    alternative.variant_span.end.offset,
+                )
+            })
+            .collect::<Vec<_>>();
         for alternative in &refinement.alternatives {
             let final_range = (
                 alternative.variant_span.start.offset,
@@ -222,6 +234,20 @@ fn collect_refinement_ranges(
                 .type_argument_count_by_final_range
                 .entry(final_range)
                 .or_insert(alternative.type_arguments.len());
+            index
+                .union_final_ranges_by_final_range
+                .entry(final_range)
+                .or_insert_with(|| union_final_ranges.clone());
+            index
+                .type_argument_fingerprints_by_final_range
+                .entry(final_range)
+                .or_insert_with(|| {
+                    alternative
+                        .type_arguments
+                        .iter()
+                        .map(variant_refinement_type_argument_fingerprint)
+                        .collect()
+                });
             if let Some(base_span) = alternative.base.segment_spans.last() {
                 let base_range = (base_span.start.offset, base_span.end.offset);
                 index.final_range_by_base_range.insert(
@@ -234,4 +260,45 @@ fn collect_refinement_ranges(
             }
         }
     }
+}
+
+fn variant_refinement_type_argument_fingerprint(
+    argument: &veln_syntax::VariantRefinementTypeArgument,
+) -> String {
+    let mut text = String::new();
+    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
+        text.push_str(fragment);
+        if let Some(refinement) = argument.ty_refinements.get(index) {
+            text.push_str(&variant_refinement_fingerprint(refinement));
+        }
+    }
+    text.chars()
+        .filter(|character| !character.is_whitespace())
+        .collect()
+}
+
+fn variant_refinement_fingerprint(refinement: &veln_syntax::VariantRefinementType) -> String {
+    refinement
+        .alternatives
+        .iter()
+        .map(|alternative| {
+            let mut text = alternative.base.segments.join("::");
+            if !alternative.type_arguments.is_empty() {
+                text.push('<');
+                text.push_str(
+                    &alternative
+                        .type_arguments
+                        .iter()
+                        .map(variant_refinement_type_argument_fingerprint)
+                        .collect::<Vec<_>>()
+                        .join(","),
+                );
+                text.push('>');
+            }
+            text.push_str("::");
+            text.push_str(&alternative.variant);
+            text
+        })
+        .collect::<Vec<_>>()
+        .join("|")
 }

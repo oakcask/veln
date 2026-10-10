@@ -484,8 +484,10 @@ the written generic-argument count differs from the resolved terminal ADT's
 declared parameter count, the final segment is missing, names a constructor
 from another ADT, or names a non-constructor declaration, definition and
 references return no selection for the direct or alias base, and rename returns
-no edits. Resolving the base independently does not make that invalid
-refinement a type or alias occurrence.
+no edits. A union whose alternatives resolve to different terminal ADT
+identities or different canonical generic arguments likewise exposes none of
+its base or variant segments. Resolving one alternative independently does not
+make that invalid refinement a type, alias, or constructor occurrence.
 Rename applies the
 shared constructor casing and conflict rules and returns edits for all of those
 occurrences without changing the alias base. A rename selected on the alias
@@ -508,6 +510,9 @@ It also verifies the implicit standard-prelude fallback and the same-module
 precedence over that fallback.
 MCP projects the shared ranges to positive one-based Unicode-scalar
 coordinates; it does not resolve the refinement independently.
+The checked `adt-variant-refinement-navigation` MCP case verifies shared
+definition, references, rename, alias separation, and empty results for an
+invalid mixed-base union.
 
 ### Source presentation
 

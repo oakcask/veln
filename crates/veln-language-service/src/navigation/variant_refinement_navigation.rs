@@ -50,7 +50,6 @@ impl SymbolIndex {
         &self,
         file: &IndexedFile,
     ) -> BTreeMap<(usize, usize), VariantRefinementNavigationIdentity> {
-        let mut identities = BTreeMap::new();
         let tokens_by_range = file
             .tokens
             .iter()
@@ -61,14 +60,81 @@ impl SymbolIndex {
                 ((token.range.start, token.range.end), (index, token))
             })
             .collect::<BTreeMap<_, _>>();
+        let mut candidates = BTreeMap::new();
         for final_range in &file.variant_refinement_final_ranges {
             if let Some((range, identity)) =
                 self.variant_refinement_identity_for_range(file, &tokens_by_range, final_range)
             {
-                identities.insert(range, identity);
+                candidates.insert(range, identity);
+            }
+        }
+        let mut identities = BTreeMap::new();
+        let mut visited = BTreeSet::new();
+        for final_range in &file.variant_refinement_final_ranges {
+            if visited.contains(final_range) {
+                continue;
+            }
+            let union_ranges = file
+                .variant_refinement_union_final_ranges_by_final_range
+                .get(final_range)
+                .map(Vec::as_slice)
+                .unwrap_or(std::slice::from_ref(final_range));
+            visited.extend(union_ranges.iter().copied());
+            if self.variant_refinement_union_is_valid(file, &tokens_by_range, &candidates, union_ranges)
+            {
+                for range in union_ranges {
+                    if let Some(identity) = candidates.get(range) {
+                        identities.insert(*range, identity.clone());
+                    }
+                }
             }
         }
         identities
+    }
+
+    fn variant_refinement_union_is_valid(
+        &self,
+        file: &IndexedFile,
+        tokens_by_range: &BTreeMap<(usize, usize), (usize, &Token)>,
+        candidates: &BTreeMap<(usize, usize), VariantRefinementNavigationIdentity>,
+        union_ranges: &[(usize, usize)],
+    ) -> bool {
+        let Some(first_range) = union_ranges.first() else {
+            return false;
+        };
+        let Some(first) = candidates.get(first_range) else {
+            return false;
+        };
+        if union_ranges.len() == 1 {
+            return true;
+        }
+        if !union_ranges.iter().all(|range| {
+            candidates.get(range).is_some_and(|candidate| {
+                candidate.constructor.package == first.constructor.package
+                    && candidate.constructor.package_origin == first.constructor.package_origin
+                    && candidate.constructor.module == first.constructor.module
+                    && candidate.constructor.type_name == first.constructor.type_name
+            })
+        }) {
+            return false;
+        }
+
+        let fingerprints_match = file
+            .variant_refinement_type_argument_fingerprints_by_final_range
+            .get(first_range)
+            .is_some_and(|first| {
+                union_ranges.iter().all(|range| {
+                    file.variant_refinement_type_argument_fingerprints_by_final_range
+                        .get(range)
+                        == Some(first)
+                })
+            });
+        fingerprints_match
+            || union_ranges.iter().all(|range| {
+                tokens_by_range.get(range).is_some_and(|(_, token)| {
+                    file.token_has_classified_role(token, NameClass::Constructor)
+                })
+            })
     }
 
     fn variant_refinement_identity_for_range(

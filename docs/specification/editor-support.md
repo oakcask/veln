@@ -278,9 +278,12 @@ The complete refinement must resolve before either segment is selectable. If
 the written generic-argument count differs from the resolved terminal ADT's
 declared parameter count, the final segment is missing, names a constructor
 from another ADT, or names a non-constructor declaration, definition and
-references return no selection for the direct or alias base. Prepare-rename
-returns no range, and rename returns no edits. Resolving the base independently
-does not make that invalid refinement a type or alias occurrence.
+references return no selection for the direct or alias base. A union is also
+invalid when its alternatives resolve to different terminal ADT identities or
+different canonical generic arguments; none of that union's base or variant
+segments is selectable. Prepare-rename returns no range, and rename returns no
+edits. Resolving one alternative independently does not make that invalid
+refinement a type, alias, or constructor occurrence.
 Its eligible references include constructor expressions, constructor patterns,
 and every direct or alias-qualified refinement occurrence for that constructor. The
 declaration-inclusion rule below determines whether the constructor declaration
@@ -300,6 +303,8 @@ and generic, transitive, and imported aliases in
 [`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
 The alias case also verifies that missing and excess generic arguments expose
 no definition, references, prepare-rename range, or rename edits.
+The direct case verifies the same empty results for unions whose alternatives
+have different ADT identities or canonical generic arguments.
 A shared language-service package-snapshot case additionally verifies that a
 workspace alias can terminate at a direct-dependency ADT and that retained
 direct-dependency and standard-library aliases resolve their targets in their

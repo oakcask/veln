@@ -79,6 +79,37 @@ fn path_classification_preserves_dependency_alias_constructor_and_recovery_roles
 }
 
 #[test]
+fn navigation_classification_excludes_invalid_refinement_unions_without_losing_casing_roles() {
+    let module = named_module(
+        "main",
+        concat!(
+            "pub type Left\n  pub LeftReady\nend\n",
+            "pub type Right\n  pub RightReady\nend\n",
+            "fn inspect(value: Left::LeftReady | Right::RightReady) -> Int\n  0\nend\n",
+        ),
+    );
+    let environment = TypeEnvironment::from_module(&module);
+
+    let casing_segments = classified_qualified_path_segments(&module, &environment);
+    assert_eq!(
+        casing_segments
+            .iter()
+            .filter(|segment| segment.role == NameClass::Constructor)
+            .count(),
+        2
+    );
+
+    let navigation_segments = classified_project_qualified_path_segments(&module);
+    assert!(
+        navigation_segments
+            .iter()
+            .filter(|segment| segment.name == "LeftReady" || segment.name == "RightReady")
+            .all(|segment| segment.role != NameClass::Constructor),
+        "{navigation_segments:#?}"
+    );
+}
+
+#[test]
 fn path_classification_builds_one_adt_registry_for_schema_helpers() {
     let mut text = String::from("mod model\n");
     for index in 0..16 {

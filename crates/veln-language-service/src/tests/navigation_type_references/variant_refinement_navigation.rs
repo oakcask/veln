@@ -605,7 +605,7 @@
             "end\n\n",
             "pub type GenericAlias = Box\n\n",
             "fn valid_direct(value: Box<Int>::Boxed) -> Int\n  0\nend\n\n",
-            "fn valid_union(value: GenericAlias<Box<Int>::Boxed>::Boxed | GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
+            "fn valid_union(value: GenericAlias<Int>::Boxed | GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
             "fn missing_direct(value: Box::Boxed) -> Int\n  0\nend\n\n",
             "fn excess_direct(value: Box<Int, Int>::Boxed) -> Int\n  0\nend\n\n",
             "fn missing_alias(value: GenericAlias::Boxed) -> Int\n  0\nend\n\n",
@@ -650,7 +650,7 @@
         for (line_text, needle) in [
             ("valid_direct", "Box<Int"),
             ("valid_direct", "Boxed"),
-            ("valid_union", "GenericAlias<Box"),
+            ("valid_union", "GenericAlias<Int>"),
             ("valid_union", "Boxed"),
         ] {
             assert!(definition_at(&snapshot, position(line_text, needle)).is_some());
@@ -664,18 +664,76 @@
             .iter()
             .map(|location| location.start.line)
             .collect::<Vec<_>>();
-        assert_eq!(reference_lines, [7, 11, 11, 11]);
+        assert_eq!(reference_lines, [7, 11, 11]);
         let rename = navigate_for_rename(&snapshot, position("valid_direct", "Boxed")).unwrap();
-        assert_eq!(rename.references.len(), 4);
+        assert_eq!(rename.references.len(), 3);
         assert!(validate_rename_in_snapshot(&snapshot, &rename, "Packed").is_ok());
 
         let alias_rename = navigate_for_rename(
             &snapshot,
-            position("valid_union", "GenericAlias<Box"),
+            position("valid_union", "GenericAlias<Int>"),
         )
         .unwrap();
         assert_eq!(alias_rename.references.len(), 2);
         assert!(validate_rename_in_snapshot(&snapshot, &alias_rename, "GenericBox").is_ok());
+    }
+
+    #[test]
+    fn variant_refinement_navigation_requires_a_valid_union_identity() {
+        let text = concat!(
+            "pub type Left\n  pub LeftReady\nend\n\n",
+            "pub type Right\n  pub RightReady\nend\n\n",
+            "pub type Box<A>\n  pub Boxed(A)\n  pub Empty\nend\n\n",
+            "pub type Phase\n  pub Started\nend\n",
+            "pub type PhaseAlias = Phase\n\n",
+            "fn cross_base(value: Left::LeftReady | Right::RightReady) -> Int\n  0\nend\n\n",
+            "fn different_args(value: Box<Int>::Boxed | Box<String>::Empty) -> Int\n  0\nend\n\n",
+            "fn valid_alias_args(value: Box<PhaseAlias>::Boxed | Box<Phase>::Empty) -> Int\n  0\nend\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
+        let position = |line_text: &str, needle: &str| {
+            let (line, source_line) = text
+                .lines()
+                .enumerate()
+                .find(|(_, candidate)| candidate.contains(line_text))
+                .unwrap();
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: line + 1,
+                column: source_line.find(needle).unwrap() + 1,
+            }
+        };
+
+        for (line_text, needle) in [
+            ("cross_base", "Left::"),
+            ("cross_base", "LeftReady"),
+            ("cross_base", "Right::"),
+            ("cross_base", "RightReady"),
+            ("different_args", "Box<Int>"),
+            ("different_args", "Boxed"),
+            ("different_args", "Box<String>"),
+            ("different_args", "Empty"),
+        ] {
+            assert!(definition_at(&snapshot, position(line_text, needle)).is_none());
+            assert!(navigate(&snapshot, position(line_text, needle)).is_none());
+            assert!(navigate_for_rename(&snapshot, position(line_text, needle)).is_none());
+        }
+
+        for needle in ["Box<PhaseAlias>", "Boxed", "Box<Phase>", "Empty"] {
+            assert!(definition_at(&snapshot, position("valid_alias_args", needle)).is_some());
+            assert!(navigate(&snapshot, position("valid_alias_args", needle)).is_some());
+            assert!(
+                navigate_for_rename(&snapshot, position("valid_alias_args", needle)).is_some()
+            );
+        }
+
+        let valid = navigate(&snapshot, position("valid_alias_args", "Boxed")).unwrap();
+        assert!(
+            valid
+                .references
+                .iter()
+                .all(|location| location.start.line != position("different_args", "Boxed").line)
+        );
     }
 
     #[test]

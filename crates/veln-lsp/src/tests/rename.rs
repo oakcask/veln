@@ -724,7 +724,7 @@ fn variant_refinement_navigation_rejects_wrong_generic_arity() {
         "end\n\n",
         "pub type GenericAlias = Box\n\n",
         "fn valid(value: GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
-        "fn valid_union(value: GenericAlias<Box<Int>::Boxed>::Boxed | GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
+        "fn valid_union(value: GenericAlias<Int>::Boxed | GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
         "fn missing_direct(value: Box::Boxed) -> Int\n  0\nend\n\n",
         "fn excess_direct(value: Box<Int, Int>::Boxed) -> Int\n  0\nend\n\n",
         "fn missing_alias(value: GenericAlias::Boxed) -> Int\n  0\nend\n\n",
@@ -770,11 +770,59 @@ fn variant_refinement_navigation_rejects_wrong_generic_arity() {
     let definition = server.handle_message(&definition_request(&main_uri, line, character));
     assert!(!definition[0].contains(r#""result":null"#), "{}", definition[0]);
     let references = server.handle_message(&references_request(&main_uri, line, character));
-    assert_eq!(references[0].matches(r#""start""#).count(), 5, "{}", references[0]);
+    assert_eq!(references[0].matches(r#""start""#).count(), 4, "{}", references[0]);
     let prepared = server.handle_message(&prepare_rename_request(&main_uri, line, character));
     assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
     let renamed = server.handle_message(&rename_request(&main_uri, line, character, "Packed"));
-    assert_eq!(renamed[0].matches(r#""newText":"Packed""#).count(), 5, "{}", renamed[0]);
+    assert_eq!(renamed[0].matches(r#""newText":"Packed""#).count(), 4, "{}", renamed[0]);
+}
+
+#[test]
+fn variant_refinement_navigation_rejects_invalid_union_identity() {
+    let mut server = Server::default();
+    let project = TempProject::new("variant-refinement-invalid-union-identity");
+    let source = concat!(
+        "pub type Left\n  pub LeftReady\nend\n\n",
+        "pub type Right\n  pub RightReady\nend\n\n",
+        "pub type Box<A>\n  pub Boxed(A)\n  pub Empty\nend\n\n",
+        "fn cross_base(value: Left::LeftReady | Right::RightReady) -> Int\n  0\nend\n\n",
+        "fn different_args(value: Box<Int>::Boxed | Box<String>::Empty) -> Int\n  0\nend\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let position = |line_text: &str, needle: &str| {
+        let (line, source_line) = source
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        (line, source_line.find(needle).unwrap())
+    };
+
+    for (line_text, needle) in [
+        ("cross_base", "Left::"),
+        ("cross_base", "LeftReady"),
+        ("cross_base", "Right::"),
+        ("cross_base", "RightReady"),
+        ("different_args", "Box<Int>"),
+        ("different_args", "Boxed"),
+        ("different_args", "Box<String>"),
+        ("different_args", "Empty"),
+    ] {
+        let (line, character) = position(line_text, needle);
+        let definition = server.handle_message(&definition_request(&main_uri, line, character));
+        assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
+        let references = server.handle_message(&references_request(&main_uri, line, character));
+        assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);
+        let prepared =
+            server.handle_message(&prepare_rename_request(&main_uri, line, character));
+        assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+        let renamed =
+            server.handle_message(&rename_request(&main_uri, line, character, "Renamed"));
+        assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+    }
 }
 
 #[test]

@@ -4,6 +4,7 @@ pub(super) fn valid_qualified_path_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     include_variant_refinements: bool,
+    require_valid_variant_refinements: bool,
 ) -> Vec<QualifiedPathSegment> {
     let mut segments = Vec::new();
     for type_decl in &module.types {
@@ -21,6 +22,7 @@ pub(super) fn valid_qualified_path_segments(
                         &field.ty_refinements,
                         current_module,
                         environment,
+                        require_valid_variant_refinements,
                         &mut segments,
                     );
                 }
@@ -42,6 +44,7 @@ pub(super) fn valid_qualified_path_segments(
                         &param.ty_refinements,
                         current_module,
                         environment,
+                        require_valid_variant_refinements,
                         &mut segments,
                     );
                 }
@@ -57,6 +60,7 @@ pub(super) fn valid_qualified_path_segments(
                     &operation.return_type_refinements,
                     current_module,
                     environment,
+                    require_valid_variant_refinements,
                     &mut segments,
                 );
             }
@@ -71,6 +75,7 @@ pub(super) fn valid_qualified_path_segments(
                     &field.ty_refinements,
                     current_module,
                     environment,
+                    require_valid_variant_refinements,
                     &mut segments,
                 );
             }
@@ -89,6 +94,7 @@ pub(super) fn valid_qualified_path_segments(
                 &function.return_type_refinements,
                 current_module,
                 environment,
+                require_valid_variant_refinements,
                 &mut segments,
             );
         }
@@ -99,6 +105,7 @@ pub(super) fn valid_qualified_path_segments(
                     &param.ty_refinements,
                     current_module,
                     environment,
+                    require_valid_variant_refinements,
                     &mut segments,
                 );
             }
@@ -109,6 +116,7 @@ pub(super) fn valid_qualified_path_segments(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 &mut segments,
             );
         }
@@ -122,6 +130,7 @@ pub(super) fn valid_qualified_path_segments(
                     &param.ty_refinements,
                     current_module,
                     environment,
+                    require_valid_variant_refinements,
                     &mut segments,
                 );
             }
@@ -139,6 +148,7 @@ pub(super) fn valid_qualified_path_segments(
                         &param.ty_refinements,
                         current_module,
                         environment,
+                        require_valid_variant_refinements,
                         &mut segments,
                     );
                 }
@@ -148,6 +158,7 @@ pub(super) fn valid_qualified_path_segments(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 &mut segments,
             );
         }
@@ -200,46 +211,51 @@ fn collect_variant_refinement_segments(
     refinements: &[veln_ast::VariantRefinementType],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
     for refinement in refinements {
+        let refinement_is_valid = !require_valid_variant_refinements
+            || variant_refinement_is_valid(refinement, current_module, environment);
         for alternative in &refinement.alternatives {
-            let mut segments = alternative.base.segments.clone();
-            segments.push(alternative.variant.clone());
-            let mut spans = alternative.base.segment_spans.clone();
-            spans.push(alternative.variant_span.clone());
-            if matches!(
-                environment
+            if refinement_is_valid {
+                let mut segments = alternative.base.segments.clone();
+                segments.push(alternative.variant.clone());
+                let mut spans = alternative.base.segment_spans.clone();
+                spans.push(alternative.variant_span.clone());
+                if matches!(
+                    environment
+                        .adts
+                        .constructor(&segments, current_module, &environment.uses),
+                    crate::adt::registry::ConstructorLookup::Found(_)
+                ) {
+                    push_variant_refinement_path_segments(&segments, &spans, output);
+                } else if environment
                     .adts
-                    .constructor(&segments, current_module, &environment.uses),
-                crate::adt::registry::ConstructorLookup::Found(_)
-            ) {
-                push_variant_refinement_path_segments(&segments, &spans, output);
-            } else if environment
-                .adts
-                .descriptor_for_type_path(
-                    &alternative.base.segments.join("::"),
-                    alternative.type_arguments.len(),
-                    current_module,
-                    &environment.uses,
-                )
-                .is_some()
-            {
-                for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
-                    let role = if index + 1 == segments.len() {
-                        NameClass::Constructor
-                    } else if index + 2 == segments.len() {
-                        NameClass::Type
-                    } else {
-                        NameClass::Module
-                    };
-                    output.push(qualified_path_segment_from_parts(
-                        segment,
-                        role,
-                        span,
-                        index,
-                        QualifiedPathSegmentEvidence::Resolved,
-                    ));
+                    .descriptor_for_type_path(
+                        &alternative.base.segments.join("::"),
+                        alternative.type_arguments.len(),
+                        current_module,
+                        &environment.uses,
+                    )
+                    .is_some()
+                {
+                    for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
+                        let role = if index + 1 == segments.len() {
+                            NameClass::Constructor
+                        } else if index + 2 == segments.len() {
+                            NameClass::Type
+                        } else {
+                            NameClass::Module
+                        };
+                        output.push(qualified_path_segment_from_parts(
+                            segment,
+                            role,
+                            span,
+                            index,
+                            QualifiedPathSegmentEvidence::Resolved,
+                        ));
+                    }
                 }
             }
             for argument in &alternative.type_arguments {
@@ -248,11 +264,70 @@ fn collect_variant_refinement_segments(
                     &argument.ty_refinements,
                     current_module,
                     environment,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
         }
     }
+}
+
+fn variant_refinement_is_valid(
+    refinement: &veln_ast::VariantRefinementType,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    let text = render_variant_refinement(refinement);
+    crate::type_syntax::parse_type_annotation(&text)
+        .ok()
+        .is_some_and(|ty| {
+            environment
+                .variant_refinement_annotation_error(&ty, current_module)
+                .is_none()
+        })
+}
+
+fn render_variant_refinement(refinement: &veln_ast::VariantRefinementType) -> String {
+    refinement
+        .alternatives
+        .iter()
+        .map(render_variant_refinement_alternative)
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+fn render_variant_refinement_alternative(
+    alternative: &veln_ast::VariantRefinementAlternative,
+) -> String {
+    let mut text = alternative.base.segments.join("::");
+    if !alternative.type_arguments.is_empty() {
+        text.push('<');
+        text.push_str(
+            &alternative
+                .type_arguments
+                .iter()
+                .map(render_variant_refinement_type_argument)
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        text.push('>');
+    }
+    text.push_str("::");
+    text.push_str(&alternative.variant);
+    text
+}
+
+fn render_variant_refinement_type_argument(
+    argument: &veln_ast::VariantRefinementTypeArgument,
+) -> String {
+    let mut text = String::new();
+    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
+        text.push_str(fragment);
+        if let Some(refinement) = argument.ty_refinements.get(index) {
+            text.push_str(&render_variant_refinement(refinement));
+        }
+    }
+    text
 }
 
 fn push_variant_refinement_path_segments(
@@ -283,6 +358,7 @@ fn collect_valid_segments_from_body_line(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     include_variant_refinements: bool,
+    require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
     match &line.kind {
@@ -304,6 +380,7 @@ fn collect_valid_segments_from_body_line(
                     &annotation_structure.variant_refinements,
                     current_module,
                     environment,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -312,6 +389,7 @@ fn collect_valid_segments_from_body_line(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 output,
             );
         }
@@ -321,6 +399,7 @@ fn collect_valid_segments_from_body_line(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 output,
             );
         }
@@ -331,6 +410,7 @@ fn collect_valid_segments_from_body_line(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -343,6 +423,7 @@ fn collect_valid_segments_from_expr(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     include_variant_refinements: bool,
+    require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
     match &expr.kind {
@@ -377,6 +458,7 @@ fn collect_valid_segments_from_expr(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -386,6 +468,7 @@ fn collect_valid_segments_from_expr(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -396,6 +479,7 @@ fn collect_valid_segments_from_expr(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 output,
             );
             for arm in arms {
@@ -410,6 +494,7 @@ fn collect_valid_segments_from_expr(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -421,6 +506,7 @@ fn collect_valid_segments_from_expr(
                     current_module,
                     environment,
                     include_variant_refinements,
+                    require_valid_variant_refinements,
                     output,
                 );
             }
@@ -431,6 +517,7 @@ fn collect_valid_segments_from_expr(
                 current_module,
                 environment,
                 include_variant_refinements,
+                require_valid_variant_refinements,
                 output,
             );
         }),

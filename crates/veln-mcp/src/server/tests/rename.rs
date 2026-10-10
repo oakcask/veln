@@ -183,7 +183,7 @@ fn variant_refinement_navigation_rejects_wrong_generic_arity() {
         "end\n\n",
         "pub type GenericAlias = Box\n\n",
         "fn valid(value: GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
-        "fn valid_union(value: GenericAlias<Box<Int>::Boxed>::Boxed | GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
+        "fn valid_union(value: GenericAlias<Int>::Boxed | GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
         "fn missing_direct(value: Box::Boxed) -> Int\n  0\nend\n\n",
         "fn excess_direct(value: Box<Int, Int>::Boxed) -> Int\n  0\nend\n\n",
         "fn missing_alias(value: GenericAlias::Boxed) -> Int\n  0\nend\n\n",
@@ -251,14 +251,72 @@ fn variant_refinement_navigation_rejects_wrong_generic_arity() {
             .as_array()
             .unwrap()
             .len(),
-        5,
+        4,
         "{references:#}"
     );
     let renamed = server.rename_tool(&json!({
         "source": "main.veln", "line": line, "column": column,
         "new_name": "Packed"
     }));
-    assert_eq!(edits(&renamed).len(), 5, "{renamed:#}");
+    assert_eq!(edits(&renamed).len(), 4, "{renamed:#}");
+}
+
+#[test]
+fn variant_refinement_navigation_rejects_invalid_union_identity() {
+    let workspace = TempWorkspace::new("variant-refinement-invalid-union-identity");
+    workspace.write("veln.toml", "");
+    let source = concat!(
+        "pub type Left\n  pub LeftReady\nend\n\n",
+        "pub type Right\n  pub RightReady\nend\n\n",
+        "pub type Box<A>\n  pub Boxed(A)\n  pub Empty\nend\n\n",
+        "fn cross_base(value: Left::LeftReady | Right::RightReady) -> Int\n  0\nend\n\n",
+        "fn different_args(value: Box<Int>::Boxed | Box<String>::Empty) -> Int\n  0\nend\n",
+    );
+    workspace.write("main.veln", source);
+    let mut server = initialized_server(&workspace);
+    let position = |line_text: &str, needle: &str| {
+        let (line, source_line) = source
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        (line + 1, source_line.find(needle).unwrap() + 1)
+    };
+
+    for (line_text, needle) in [
+        ("cross_base", "Left::"),
+        ("cross_base", "LeftReady"),
+        ("cross_base", "Right::"),
+        ("cross_base", "RightReady"),
+        ("different_args", "Box<Int>"),
+        ("different_args", "Boxed"),
+        ("different_args", "Box<String>"),
+        ("different_args", "Empty"),
+    ] {
+        let (line, column) = position(line_text, needle);
+        let definition = server.definition_tool(&json!({
+            "source": "main.veln", "line": line, "column": column
+        }));
+        assert_eq!(
+            definition["structuredContent"]["definition"],
+            Value::Null,
+            "{definition:#}"
+        );
+        let references = server.references_tool(&json!({
+            "source": "main.veln", "line": line, "column": column,
+            "include_declaration": true
+        }));
+        assert_eq!(
+            references["structuredContent"]["references"],
+            json!([]),
+            "{references:#}"
+        );
+        let renamed = server.rename_tool(&json!({
+            "source": "main.veln", "line": line, "column": column,
+            "new_name": "Renamed"
+        }));
+        assert!(edits(&renamed).is_empty(), "{renamed:#}");
+    }
 }
 
 #[test]

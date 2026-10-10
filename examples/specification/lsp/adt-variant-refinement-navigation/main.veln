@@ -23,3 +23,16 @@ end
 fn observe_other(value: Other::Ready) -> Other
 	Other::Ready
 end
+
+pub type Box<A>
+	pub Boxed(A)
+	pub Empty
+end
+
+fn invalid_base(value: State::Ready | Other::Ready) -> Int
+	0
+end
+
+fn invalid_args(value: Box<Int>::Boxed | Box<String>::Empty) -> Int
+	0
+end

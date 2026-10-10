@@ -1,0 +1,18 @@
+pub type State
+  pub Ready(Int)
+  pub Closed
+end
+
+pub type Alias = State
+
+fn observe(value: State::Ready, other: Alias::Ready | Alias::Closed) -> State
+  0
+end
+
+pub type Other
+  pub Ready
+end
+
+fn invalid(value: State::Ready | Other::Ready) -> Int
+  0
+end
