@@ -270,11 +270,12 @@ workspace alias can target a dependency ADT and a retained dependency or
 standard-library alias can target an ADT from its own package. The final
 variant segment selects the visible constructor of the resolved target ADT.
 The complete refinement must resolve before either segment is selectable. If
-the final segment is missing, names a constructor from another ADT, or names a
-non-constructor declaration, definition and references return no selection for
-the direct or alias base. Prepare-rename returns no range, and rename returns
-no edits. Resolving the base independently does not make that invalid
-refinement a type or alias occurrence.
+the written generic-argument count differs from the resolved terminal ADT's
+declared parameter count, the final segment is missing, names a constructor
+from another ADT, or names a non-constructor declaration, definition and
+references return no selection for the direct or alias base. Prepare-rename
+returns no range, and rename returns no edits. Resolving the base independently
+does not make that invalid refinement a type or alias occurrence.
 Its eligible references include constructor expressions, constructor patterns,
 and every direct or alias-qualified refinement occurrence for that constructor. The
 declaration-inclusion rule below determines whether the constructor declaration

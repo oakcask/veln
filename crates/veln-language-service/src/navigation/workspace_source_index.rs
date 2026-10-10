@@ -60,6 +60,8 @@ struct WorkspaceSyntaxIndex {
     variant_refinement_final_ranges: BTreeSet<(usize, usize)>,
     variant_refinement_final_range_by_base_range:
         BTreeMap<(usize, usize), (usize, usize)>,
+    variant_refinement_type_argument_count_by_final_range:
+        BTreeMap<(usize, usize), usize>,
     constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
 }
 
@@ -118,6 +120,8 @@ impl WorkspaceSyntaxIndex {
             variant_refinement_final_ranges: variant_refinement_source_index.final_ranges,
             variant_refinement_final_range_by_base_range: variant_refinement_source_index
                 .final_range_by_base_range,
+            variant_refinement_type_argument_count_by_final_range:
+                variant_refinement_source_index.type_argument_count_by_final_range,
             constructor_reference_declaration_ranges,
         }
     }
@@ -156,6 +160,8 @@ fn indexed_workspace_file(
         variant_refinement_final_ranges: syntax.variant_refinement_final_ranges,
         variant_refinement_final_range_by_base_range: syntax
             .variant_refinement_final_range_by_base_range,
+        variant_refinement_type_argument_count_by_final_range: syntax
+            .variant_refinement_type_argument_count_by_final_range,
         constructor_reference_declaration_ranges: syntax
             .constructor_reference_declaration_ranges,
         classified_paths: ClassifiedPathIndex::default(),

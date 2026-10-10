@@ -715,6 +715,69 @@ fn invalid_variant_refinement_alias_bases_do_not_prepare_or_rename() {
 }
 
 #[test]
+fn variant_refinement_navigation_rejects_wrong_generic_arity() {
+    let mut server = Server::default();
+    let project = TempProject::new("variant-refinement-generic-arity");
+    let source = concat!(
+        "pub type Box<A>\n",
+        "  pub Boxed(A)\n",
+        "end\n\n",
+        "pub type GenericAlias = Box\n\n",
+        "fn valid(value: GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
+        "fn valid_union(value: GenericAlias<Box<Int>::Boxed>::Boxed | GenericAlias<Int>::Boxed) -> Int\n  0\nend\n\n",
+        "fn missing_direct(value: Box::Boxed) -> Int\n  0\nend\n\n",
+        "fn excess_direct(value: Box<Int, Int>::Boxed) -> Int\n  0\nend\n\n",
+        "fn missing_alias(value: GenericAlias::Boxed) -> Int\n  0\nend\n\n",
+        "fn excess_alias(value: GenericAlias<Int, Int>::Boxed) -> Int\n  0\nend\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let position = |line_text: &str, needle: &str| {
+        let (line, source_line) = source
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        (line, source_line.find(needle).unwrap())
+    };
+
+    for (line_text, base) in [
+        ("missing_direct", "Box::"),
+        ("excess_direct", "Box<Int"),
+        ("missing_alias", "GenericAlias::"),
+        ("excess_alias", "GenericAlias<Int"),
+    ] {
+        for needle in [base, "Boxed"] {
+            let (line, character) = position(line_text, needle);
+            let definition =
+                server.handle_message(&definition_request(&main_uri, line, character));
+            assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
+            let references =
+                server.handle_message(&references_request(&main_uri, line, character));
+            assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);
+            let prepared =
+                server.handle_message(&prepare_rename_request(&main_uri, line, character));
+            assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+            let renamed =
+                server.handle_message(&rename_request(&main_uri, line, character, "Packed"));
+            assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+        }
+    }
+
+    let (line, character) = position("fn valid(", "Boxed");
+    let definition = server.handle_message(&definition_request(&main_uri, line, character));
+    assert!(!definition[0].contains(r#""result":null"#), "{}", definition[0]);
+    let references = server.handle_message(&references_request(&main_uri, line, character));
+    assert_eq!(references[0].matches(r#""start""#).count(), 5, "{}", references[0]);
+    let prepared = server.handle_message(&prepare_rename_request(&main_uri, line, character));
+    assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+    let renamed = server.handle_message(&rename_request(&main_uri, line, character, "Packed"));
+    assert_eq!(renamed[0].matches(r#""newText":"Packed""#).count(), 5, "{}", renamed[0]);
+}
+
+#[test]
 fn variant_refinement_navigation_projects_utf16_ranges() {
     let mut server = Server::default();
     let project = TempProject::new("variant-refinement-utf16-ranges");

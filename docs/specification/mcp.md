@@ -476,10 +476,12 @@ alias-qualified refinement occurrences, while excluding
 same-spelled variants from other ADTs. The declaration-inclusion option below
 determines whether the constructor declaration is added to those locations.
 The complete refinement must resolve before either segment is selectable. If
-the final segment is missing, names a constructor from another ADT, or names a
-non-constructor declaration, definition and references return no selection for
-the direct or alias base, and rename returns no edits. Resolving the base
-independently does not make that invalid refinement a type or alias occurrence.
+the written generic-argument count differs from the resolved terminal ADT's
+declared parameter count, the final segment is missing, names a constructor
+from another ADT, or names a non-constructor declaration, definition and
+references return no selection for the direct or alias base, and rename returns
+no edits. Resolving the base independently does not make that invalid
+refinement a type or alias occurrence.
 Rename applies the
 shared constructor casing and conflict rules and returns edits for all of those
 occurrences without changing the alias base. A rename selected on the alias

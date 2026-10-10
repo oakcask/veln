@@ -229,6 +229,8 @@ fn indexed_dependency_source(
         variant_refinement_final_ranges: variant_refinement_source_index.final_ranges,
         variant_refinement_final_range_by_base_range: variant_refinement_source_index
             .final_range_by_base_range,
+        variant_refinement_type_argument_count_by_final_range: variant_refinement_source_index
+            .type_argument_count_by_final_range,
         constructor_reference_declaration_ranges,
         classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),

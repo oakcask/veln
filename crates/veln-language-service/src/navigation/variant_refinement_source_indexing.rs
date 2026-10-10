@@ -2,6 +2,7 @@
 struct VariantRefinementSourceIndex {
     final_ranges: BTreeSet<(usize, usize)>,
     final_range_by_base_range: BTreeMap<(usize, usize), (usize, usize)>,
+    type_argument_count_by_final_range: BTreeMap<(usize, usize), usize>,
 }
 
 fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSourceIndex {
@@ -217,9 +218,14 @@ fn collect_refinement_ranges(
                 alternative.variant_span.end.offset,
             );
             index.final_ranges.insert(final_range);
+            index
+                .type_argument_count_by_final_range
+                .entry(final_range)
+                .or_insert(alternative.type_arguments.len());
             if let Some(base_span) = alternative.base.segment_spans.last() {
+                let base_range = (base_span.start.offset, base_span.end.offset);
                 index.final_range_by_base_range.insert(
-                    (base_span.start.offset, base_span.end.offset),
+                    base_range,
                     final_range,
                 );
             }

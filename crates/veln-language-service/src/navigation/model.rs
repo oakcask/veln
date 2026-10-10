@@ -634,6 +634,7 @@ struct TypeSymbol {
     package_origin: Option<PackageOrigin>,
     public: bool,
     standard_prelude: bool,
+    generic_arity: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -868,6 +869,8 @@ struct IndexedFile {
     variant_refinement_final_ranges: BTreeSet<(usize, usize)>,
     variant_refinement_final_range_by_base_range:
         BTreeMap<(usize, usize), (usize, usize)>,
+    variant_refinement_type_argument_count_by_final_range:
+        BTreeMap<(usize, usize), usize>,
     constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
     classified_paths: ClassifiedPathIndex,
     type_reference_locations: OnceLock<TypeReferenceIndex>,

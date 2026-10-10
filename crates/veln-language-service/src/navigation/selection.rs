@@ -288,10 +288,13 @@ impl SymbolIndex {
                 .map(Symbol::Constructor)
                 .map(SelectedNavigationSymbol::bare);
         }
-        if let Some(symbol) =
-            self.variant_refinement_base_for_selection(file, tokens, token_index, name)
+        if file
+            .variant_refinement_final_range_by_base_range
+            .contains_key(&(token.range.start, token.range.end))
         {
-            return Some(SelectedNavigationSymbol::bare(symbol));
+            return self
+                .variant_refinement_base_for_selection(file, tokens, token_index, name)
+                .map(SelectedNavigationSymbol::bare);
         }
         if let Some(symbol) =
             self.qualified_segment_selection(file, tokens, token_index, name, selection)

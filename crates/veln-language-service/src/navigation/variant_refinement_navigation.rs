@@ -88,6 +88,12 @@ impl SymbolIndex {
             VariantRefinementBaseSymbol::Type(symbol) => symbol.clone(),
             VariantRefinementBaseSymbol::Alias(symbol) => self.terminal_type_for_alias(symbol)?,
         };
+        let written_generic_arity = file
+            .variant_refinement_type_argument_count_by_final_range
+            .get(final_range)?;
+        if *written_generic_arity != terminal.generic_arity {
+            return None;
+        }
         let constructor = self.unique_variant_refinement_constructor(file, &terminal, variant_token)?;
         Some((
             (variant_token.range.start, variant_token.range.end),

@@ -1,4 +1,5 @@
 command = ["lsp"]
+source_errors = "expected"
 stdin_jsonrpc_file = "requests.json"
 exit = 0
 
@@ -64,3 +65,43 @@ equals = [
   {"range":{"start":{"line":5,"character":9},"end":{"line":5,"character":21}},"newText":"GenericBox"},
   {"range":{"start":{"line":7,"character":18},"end":{"line":7,"character":30}},"newText":"GenericBox"}
 ]
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 11
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 14
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 15
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 16
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 17
+path = "/result/changes"
+equals = {}

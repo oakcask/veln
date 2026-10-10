@@ -184,6 +184,23 @@ impl SymbolIndex {
                     .type_reference_spans(&symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
+                        if file
+                            .variant_refinement_final_range_by_base_range
+                            .contains_key(&(
+                                tokens[token_index].range.start,
+                                tokens[token_index].range.end,
+                            ))
+                        {
+                            return self
+                                .workspace_type_alias_for_constructor_qualifier_token(
+                                    file,
+                                    tokens,
+                                    token_index,
+                                    &symbol.name,
+                                )
+                                .is_some_and(|candidate| same_type_alias(&candidate, symbol))
+                                .then_some(span);
+                        }
                         self.workspace_type_alias_for_reference(
                             file,
                             tokens,
@@ -668,6 +685,20 @@ impl SymbolIndex {
                         if is_field_name(tokens, token_index) {
                             return None;
                         }
+                        if let Some(final_range) = self
+                            .variant_refinement_final_range_for_base(file, &tokens[token_index])
+                        {
+                            return self
+                                .variant_refinement_identity_for_final_range(file, &final_range)
+                                .is_some_and(|identity| {
+                                    matches!(
+                                        &identity.base,
+                                        VariantRefinementBaseSymbol::Type(candidate)
+                                            if same_type(candidate, symbol)
+                                    )
+                                })
+                                .then_some(span);
+                        }
                         self.visible_type_for_reference(file, tokens, token_index, &symbol.name)
                             .is_some_and(|candidate| same_type(&candidate, symbol))
                             .then_some(span)
@@ -692,6 +723,23 @@ impl SymbolIndex {
                     .type_reference_spans(&symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
+                        if file
+                            .variant_refinement_final_range_by_base_range
+                            .contains_key(&(
+                                tokens[token_index].range.start,
+                                tokens[token_index].range.end,
+                            ))
+                        {
+                            return self
+                                .type_alias_for_constructor_qualifier_token(
+                                    file,
+                                    tokens,
+                                    token_index,
+                                    &symbol.name,
+                                )
+                                .is_some_and(|candidate| same_type_alias(&candidate, symbol))
+                                .then_some(span);
+                        }
                         self.type_namespace_symbol_for_reference(
                             file,
                             tokens,
@@ -784,6 +832,19 @@ impl SymbolIndex {
             .enumerate()
             .filter(|(_, token)| token.kind == TokenKind::Ident && token.text == symbol.name)
             .filter(|(index, token)| {
+                if let Some(final_range) =
+                    self.variant_refinement_final_range_for_base(file, &tokens[*index])
+                {
+                    return self
+                        .variant_refinement_identity_for_final_range(file, &final_range)
+                        .is_some_and(|identity| {
+                            matches!(
+                                &identity.base,
+                                VariantRefinementBaseSymbol::Type(candidate)
+                                    if same_type(candidate, symbol)
+                            )
+                        });
+                }
                 if self
                     .visible_type_alias_for_reference(file, tokens, *index, &token.text)
                     .is_some()
@@ -822,6 +883,19 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<TypeAliasSymbol> {
+        if let Some(final_range) =
+            self.variant_refinement_final_range_for_base(file, &tokens[token_index])
+        {
+            let identity = self.variant_refinement_identity_for_final_range(file, &final_range)?;
+            return match &identity.base {
+                VariantRefinementBaseSymbol::Alias(alias)
+                    if alias.package.is_some() && alias.name == name =>
+                {
+                    Some(alias.clone())
+                }
+                _ => None,
+            };
+        }
         let constructor_index = next_path_segment_index(tokens, token_index)?;
         let Symbol::TypeAlias(alias) =
             self.type_namespace_symbol_for_reference(file, tokens, token_index, name)?

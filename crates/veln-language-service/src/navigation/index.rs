@@ -117,6 +117,7 @@ impl SymbolIndex {
                         package_origin: None,
                         public: true,
                         standard_prelude: symbol.standard_prelude,
+                        generic_arity: 0,
                     })
             })
     }

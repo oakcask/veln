@@ -20,3 +20,11 @@ fn imported(value: model::Alias::Ready | model::Alias::Closed) -> model::State
 		model::State::Closed => made
 	end
 end
+
+fn missing_arguments(value: GenericAlias::Boxed) -> Int
+	0
+end
+
+fn excess_arguments(value: GenericAlias<Int, Int>::Boxed) -> Int
+	0
+end

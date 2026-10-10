@@ -587,6 +587,7 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     package_origin: origin.package_origin,
                     public,
                     standard_prelude: origin.standard_prelude,
+                    generic_arity: type_decl.params.len(),
                 })
             }
             _ => None,
