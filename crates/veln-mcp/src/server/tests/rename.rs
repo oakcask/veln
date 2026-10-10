@@ -706,6 +706,78 @@ fn standard_library_alias_to_implicit_prelude_type_projects_definitions() {
     }
 }
 
+fn refinement_variant_positions(source: &str, line_text: &str) -> Vec<(usize, usize)> {
+    let (line, text) = source
+        .lines()
+        .enumerate()
+        .find(|(_, candidate)| candidate.contains(line_text))
+        .unwrap();
+    text.match_indices("Boxed")
+        .chain(text.match_indices("Empty"))
+        .map(|(column, _)| (line + 1, column + 1))
+        .collect()
+}
+
+fn assert_retained_refinement_position_is_navigable(
+    server: &mut Server,
+    line_text: &str,
+    line: usize,
+    column: usize,
+) {
+    let definition =
+        server.definition_tool(&json!({"source":"main.veln", "line":line, "column":column}));
+    assert!(
+        definition["structuredContent"]["definition"]["uri"]
+            .as_str()
+            .is_some_and(|uri| uri.ends_with("/prelude.veln")),
+        "{line_text}: {definition:#}"
+    );
+    let references = server.references_tool(&json!({
+        "source":"main.veln", "line":line, "column":column,
+        "include_declaration":true
+    }));
+    assert!(
+        !references["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "{line_text}: {references:#}"
+    );
+    let renamed = server.rename_tool(&json!({
+        "source":"main.veln", "line":line, "column":column, "new_name":"Renamed"
+    }));
+    assert!(edits(&renamed).is_empty(), "{line_text}: {renamed:#}");
+}
+
+fn assert_retained_refinement_position_is_ineligible(
+    server: &mut Server,
+    line_text: &str,
+    line: usize,
+    column: usize,
+) {
+    let definition =
+        server.definition_tool(&json!({"source":"main.veln", "line":line, "column":column}));
+    assert!(
+        definition["structuredContent"]["definition"].is_null(),
+        "{line_text}: {definition:#}"
+    );
+    let references = server.references_tool(&json!({
+        "source":"main.veln", "line":line, "column":column,
+        "include_declaration":true
+    }));
+    assert!(
+        references["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "{line_text}: {references:#}"
+    );
+    let renamed = server.rename_tool(&json!({
+        "source":"main.veln", "line":line, "column":column, "new_name":"Renamed"
+    }));
+    assert!(edits(&renamed).is_empty(), "{line_text}: {renamed:#}");
+}
+
 #[test]
 fn retained_package_refinement_unions_project_canonical_generic_arguments() {
     let workspace = TempWorkspace::new("retained-package-refinement-canonical-arguments");
@@ -754,18 +826,6 @@ fn retained_package_refinement_unions_project_canonical_generic_arguments() {
             .as_bytes(),
         )],
     );
-    let positions = |line_text: &str| {
-        let (line, text) = source
-            .lines()
-            .enumerate()
-            .find(|(_, candidate)| candidate.contains(line_text))
-            .unwrap();
-        text.match_indices("Boxed")
-            .chain(text.match_indices("Empty"))
-            .map(|(column, _)| (line + 1, column + 1))
-            .collect::<Vec<_>>()
-    };
-
     for line_text in [
         "Same(",
         "direct_same",
@@ -773,30 +833,8 @@ fn retained_package_refinement_unions_project_canonical_generic_arguments() {
         "qualified_same",
         "qualified_alias",
     ] {
-        for (line, column) in positions(line_text) {
-            let definition = server
-                .definition_tool(&json!({"source":"main.veln", "line":line, "column":column}));
-            assert!(
-                definition["structuredContent"]["definition"]["uri"]
-                    .as_str()
-                    .is_some_and(|uri| uri.ends_with("/prelude.veln")),
-                "{line_text}: {definition:#}"
-            );
-            let references = server.references_tool(&json!({
-                "source":"main.veln", "line":line, "column":column,
-                "include_declaration":true
-            }));
-            assert!(
-                !references["structuredContent"]["references"]
-                    .as_array()
-                    .unwrap()
-                    .is_empty(),
-                "{line_text}: {references:#}"
-            );
-            let renamed = server.rename_tool(&json!({
-                "source":"main.veln", "line":line, "column":column, "new_name":"Renamed"
-            }));
-            assert!(edits(&renamed).is_empty(), "{line_text}: {renamed:#}");
+        for (line, column) in refinement_variant_positions(source, line_text) {
+            assert_retained_refinement_position_is_navigable(&mut server, line_text, line, column);
         }
     }
     for line_text in [
@@ -806,28 +844,8 @@ fn retained_package_refinement_unions_project_canonical_generic_arguments() {
         "wrong_arity",
         "mixed",
     ] {
-        for (line, column) in positions(line_text) {
-            let definition = server
-                .definition_tool(&json!({"source":"main.veln", "line":line, "column":column}));
-            assert!(
-                definition["structuredContent"]["definition"].is_null(),
-                "{line_text}: {definition:#}"
-            );
-            let references = server.references_tool(&json!({
-                "source":"main.veln", "line":line, "column":column,
-                "include_declaration":true
-            }));
-            assert!(
-                references["structuredContent"]["references"]
-                    .as_array()
-                    .unwrap()
-                    .is_empty(),
-                "{line_text}: {references:#}"
-            );
-            let renamed = server.rename_tool(&json!({
-                "source":"main.veln", "line":line, "column":column, "new_name":"Renamed"
-            }));
-            assert!(edits(&renamed).is_empty(), "{line_text}: {renamed:#}");
+        for (line, column) in refinement_variant_positions(source, line_text) {
+            assert_retained_refinement_position_is_ineligible(&mut server, line_text, line, column);
         }
     }
 }
