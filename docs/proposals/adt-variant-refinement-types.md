@@ -62,11 +62,13 @@ Current source navigation and rename behavior is specified by
 [editor support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
 and [MCP](../specification/mcp.md#saved-workspace-navigation).
 Current navigation requires the written generic-argument count to match the
-resolved terminal ADT. A wrong-arity refinement exposes neither its base nor
-its final segment to definition, references, or rename. The recovery work
-below plans separate source identities for the resolved base and, when it can
-be resolved independently, the constructor without making the refinement
-valid.
+resolved terminal ADT and every generic argument to resolve recursively. A
+wrong-arity refinement, an unresolved named generic argument, or an invalid
+nested refinement exposes neither its base nor its final segment to
+definition, references, or rename. A type parameter declared by the enclosing
+ADT remains resolved in that ADT's payload annotation. The recovery work below
+plans separate source identities for the resolved base and, when it can be
+resolved independently, the constructor without making the refinement valid.
 
 A refinement is valid only when the selected constructor is visible at the
 annotation. A public declaration cannot expose a private type or private

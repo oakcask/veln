@@ -481,10 +481,13 @@ same-spelled variants from other ADTs. The declaration-inclusion option below
 determines whether the constructor declaration is added to those locations.
 The complete refinement must resolve before either segment is selectable. If
 the written generic-argument count differs from the resolved terminal ADT's
-declared parameter count, the final segment is missing, names a constructor
-from another ADT, or names a non-constructor declaration, definition and
-references return no selection for the direct or alias base, and rename returns
-no edits. A union whose alternatives resolve to different terminal ADT
+declared parameter count, any generic argument contains an unresolved named
+type or invalid nested refinement, the final segment is missing, names a
+constructor from another ADT, or names a non-constructor declaration,
+definition and references return no selection for the direct or alias base,
+and rename returns no edits. Generic arguments resolve recursively; a type
+parameter declared by the enclosing ADT is resolved in that ADT's payload
+annotation. A union whose alternatives resolve to different terminal ADT
 identities or different canonical generic arguments likewise exposes none of
 its base or variant segments. Resolving one alternative independently does not
 make that invalid refinement a type, alias, or constructor occurrence.

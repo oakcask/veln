@@ -276,9 +276,12 @@ fallback. The final variant segment selects the visible constructor of the
 resolved target ADT.
 The complete refinement must resolve before either segment is selectable. If
 the written generic-argument count differs from the resolved terminal ADT's
-declared parameter count, the final segment is missing, names a constructor
-from another ADT, or names a non-constructor declaration, definition and
-references return no selection for the direct or alias base. A union is also
+declared parameter count, any generic argument contains an unresolved named
+type or invalid nested refinement, the final segment is missing, names a
+constructor from another ADT, or names a non-constructor declaration,
+definition and references return no selection for the direct or alias base.
+Generic arguments resolve recursively; a type parameter declared by the
+enclosing ADT is resolved in that ADT's payload annotation. A union is also
 invalid when its alternatives resolve to different terminal ADT identities or
 different canonical generic arguments; none of that union's base or variant
 segments is selectable. Prepare-rename returns no range, and rename returns no
