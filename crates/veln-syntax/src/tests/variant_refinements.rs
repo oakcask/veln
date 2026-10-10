@@ -766,6 +766,7 @@ fn parses_variant_refinements_in_explicit_call_type_arguments() {
         panic!("expected call");
     };
     let ExprKind::TypeApply {
+        type_arg_paths,
         type_arg_refinements,
         ..
     } = &callee.kind
@@ -773,6 +774,9 @@ fn parses_variant_refinements_in_explicit_call_type_arguments() {
         panic!("expected explicit type application");
     };
     assert_eq!(type_arg_refinements.len(), 2);
+    assert_eq!(type_arg_paths.len(), 2);
+    assert_eq!(type_arg_paths[0][0].segments, ["State", "Ready"]);
+    assert!(type_arg_paths[1].is_empty());
     assert_eq!(type_arg_refinements[0][0].alternatives.len(), 2);
     assert_eq!(type_arg_refinements[1][0].alternatives[0].variant, "Ok");
     assert!(
