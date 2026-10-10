@@ -40,11 +40,6 @@ the source path. Each position has one-based `line` and Unicode-scalar
 value and may be `null`. `related` is always an array of producer-supplied
 JSON values.
 
-Published diagnostics are ordered by primary file and source span. Diagnostics
-with the same primary span retain checker order. A recovered base-casing
-failure therefore precedes the eligibility failure at that same span. Spanless
-diagnostics follow diagnostics that have a primary span.
-
 The primary message names the failed fact at its reported span. Causes,
 provenance, repair hints, and other locations belong in `related` or
 structured `details`. Producers omit detail keys when the fact is unavailable;
@@ -148,8 +143,8 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
 cases cover the three reasons, provider context, nested generic written spelling,
 declaration annotations and explicit call arguments, recovered-casing overlap,
-occurrence-scoped downstream suppression, declaration quarantine, source-order
-publication, and arity precedence.
+occurrence-scoped downstream suppression, declaration quarantine,
+casing-before-eligibility precedence at a shared span, and arity precedence.
 
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at
