@@ -6,6 +6,7 @@
   {"jsonrpc":"2.0","id":5,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":47},"context":{"includeDeclaration":true}}},
   {"jsonrpc":"2.0","id":6,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":47}}},
   {"jsonrpc":"2.0","id":7,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":47},"newName":"Prepared"}},
-  {"jsonrpc":"2.0","id":8,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":8,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":40},"newName":"Phase"}},
+  {"jsonrpc":"2.0","id":9,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

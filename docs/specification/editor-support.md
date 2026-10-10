@@ -274,7 +274,9 @@ Prepare-rename and rename on a refinement variant use that constructor
 identity. A successful rename changes its declaration, expressions, patterns,
 and singleton and union refinement occurrences in one workspace edit. The
 existing constructor casing and conflict rules apply. The base alias is not
-renamed with the constructor. The checked LSP case is
+renamed with the constructor. A rename selected on the alias base changes the
+alias declaration and its written base occurrences without changing the target
+ADT or constructor identity. The checked LSP case is
 [`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/).
 Completion, signature-help, and navigation requests convert zero-based UTF-16
 LSP characters to shared one-based Unicode-scalar positions. Navigation

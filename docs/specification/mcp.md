@@ -472,6 +472,8 @@ constructor expressions, constructor patterns, and direct and alias-qualified
 refinement occurrences, while excluding same-spelled variants from other
 ADTs. Rename applies the shared constructor casing and conflict rules and
 returns edits for all of those occurrences without changing the alias base.
+A rename selected on the alias base changes the alias declaration and written
+base occurrences without changing the target ADT or constructor identity.
 MCP projects the shared ranges to positive one-based Unicode-scalar
 coordinates; it does not resolve the refinement independently.
 

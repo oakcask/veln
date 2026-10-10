@@ -598,8 +598,11 @@ impl Server {
             column: position.column,
         };
         let result = navigate(&snapshot, position)?;
-        let result = if result.selected_symbol.kind == SymbolKind::Function
-            && result.selected_symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
+        let result = if matches!(
+            result.selected_symbol.kind,
+            SymbolKind::Function | SymbolKind::Type
+        ) && result.selected_symbol.declaration_kind
+            == SymbolDeclarationKind::PublicAlias
         {
             navigate_for_rename(&snapshot, rename_position)?
         } else {

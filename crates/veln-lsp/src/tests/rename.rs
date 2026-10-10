@@ -650,7 +650,7 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
         "  pub Closed\n",
         "end\n\n",
         "pub type Alias = State\n\n",
-        "fn use(value: State::Ready, other: Alias::Ready | Alias::Closed) -> State\n",
+        "fn observe(value: State::Ready, other: Alias::Ready | Alias::Closed) -> State\n",
         "  let made = State::Ready(1)\n",
         "  match value\n",
         "    State::Ready(payload) => made\n",
@@ -663,7 +663,7 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let definition = server.handle_message(&definition_request(&main_uri, 7, 22));
+    let definition = server.handle_message(&definition_request(&main_uri, 7, 26));
     assert!(
         definition[0].contains(
             r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":11}}"#
@@ -671,18 +671,39 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
         "{}",
         definition[0]
     );
-    let references = server.handle_message(&references_request(&main_uri, 7, 22));
+    let references = server.handle_message(&references_request(&main_uri, 7, 26));
     assert_eq!(references[0].matches(r#""start""#).count(), 5, "{}", references[0]);
-    let prepared = server.handle_message(&prepare_rename_request(&main_uri, 7, 43));
+    let prepared = server.handle_message(&prepare_rename_request(&main_uri, 7, 47));
     assert!(
         prepared[0].contains(
-            r#""start":{"line":7,"character":42},"end":{"line":7,"character":47}"#
+            r#""start":{"line":7,"character":46},"end":{"line":7,"character":51}"#
         ),
         "{}",
         prepared[0]
     );
-    let renamed = server.handle_message(&rename_request(&main_uri, 7, 43, "Prepared"));
+    let renamed = server.handle_message(&rename_request(&main_uri, 7, 47, "Prepared"));
     assert_eq!(renamed[0].matches(r#""newText":"Prepared""#).count(), 5, "{}", renamed[0]);
+
+    let alias_prepared = server.handle_message(&prepare_rename_request(&main_uri, 7, 40));
+    assert!(
+        alias_prepared[0].contains(
+            r#""start":{"line":7,"character":39},"end":{"line":7,"character":44}"#
+        ),
+        "{}",
+        alias_prepared[0]
+    );
+    let alias_renamed = server.handle_message(&rename_request(&main_uri, 7, 40, "Phase"));
+    assert_eq!(
+        alias_renamed[0].matches(r#""newText":"Phase""#).count(),
+        3,
+        "{}",
+        alias_renamed[0]
+    );
+    assert!(
+        !alias_renamed[0].contains(r#""line":0,"character":9"#),
+        "{}",
+        alias_renamed[0]
+    );
 }
 
 #[test]

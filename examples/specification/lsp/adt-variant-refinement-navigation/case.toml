@@ -45,3 +45,12 @@ equals = [
   {"range":{"start":{"line":8,"character":19},"end":{"line":8,"character":24}},"newText":"Prepared"},
   {"range":{"start":{"line":10,"character":9},"end":{"line":10,"character":14}},"newText":"Prepared"}
 ]
+
+[[lsp_assert]]
+id = 8
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":5,"character":9},"end":{"line":5,"character":14}},"newText":"Phase"},
+  {"range":{"start":{"line":7,"character":39},"end":{"line":7,"character":44}},"newText":"Phase"},
+  {"range":{"start":{"line":7,"character":54},"end":{"line":7,"character":59}},"newText":"Phase"}
+]
