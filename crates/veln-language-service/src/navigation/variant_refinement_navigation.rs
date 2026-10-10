@@ -121,6 +121,14 @@ impl SymbolIndex {
         }) {
             return false;
         }
+        if union_ranges.iter().all(|range| {
+            file.classified_paths
+                .by_range
+                .get(range)
+                .is_some_and(|segment| segment.role == NameClass::Constructor)
+        }) {
+            return true;
+        }
         file.canonical_variant_refinement_type_arguments_by_final_range
             .get(first_range)
             .is_some_and(|first| {

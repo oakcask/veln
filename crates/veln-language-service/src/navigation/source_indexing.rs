@@ -285,6 +285,16 @@ fn attach_classified_path_segments(
             .filter(|file| matches!(file.origin, IndexedOrigin::Package { .. }))
             .count(),
     );
+    #[cfg(test)]
+    let segments = {
+        let (segments, work) =
+            veln_sema::classified_project_qualified_path_segments_with_context_and_work(
+                module, project,
+            );
+        record_variant_refinement_classification_work(work);
+        segments
+    };
+    #[cfg(not(test))]
     let segments =
         veln_sema::classified_project_qualified_path_segments_with_context(module, project);
     let mut segments_by_file = BTreeMap::<String, Vec<QualifiedPathSegment>>::new();
@@ -323,6 +333,14 @@ fn attach_canonical_variant_refinement_type_arguments(
         for (range, argument_ranges) in
             &file.variant_refinement_type_argument_ranges_by_final_range
         {
+            if file
+                .classified_paths
+                .by_range
+                .get(range)
+                .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
+            {
+                continue;
+            }
             let start = annotations.len();
             let type_parameters = file
                 .variant_refinement_type_parameter_context_index_by_final_range
@@ -342,6 +360,10 @@ fn attach_canonical_variant_refinement_type_arguments(
             groups.push((file_index, *range, start, annotations.len()));
         }
     }
+    #[cfg(test)]
+    record_variant_refinement_canonical_annotation_bytes(
+        annotations.iter().map(|(annotation, _, _)| annotation.len()).sum(),
+    );
     let resolved =
         veln_sema::canonical_type_annotation_identities_with_context(project, &annotations);
     for (file_index, range, start, end) in groups {

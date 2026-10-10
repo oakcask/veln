@@ -339,15 +339,25 @@ Annotations without generic arguments retain no unused context. Canonical
 argument validation constructs one name-to-declared-position index per retained
 context and reuses it for resolution and identity collection.
 Type arguments are retained as fixed-size source-range records rather than
-rendered annotation copies, and nested refinement indexing uses a bounded
-iterative traversal. Adjacent doubling workloads grow the parameter count and
-distinct generic annotation count together, use the last declared parameter,
-and grow retained context names, context references, argument-range records,
-context construction, and parameter lookups additively. Separate workloads
-cover union width, accepted nested-refinement depth, and a deep retained-package
-alias chain. The cases use deterministic work counters and retained-entry sizes
-for the regression boundary; elapsed time is diagnostic output rather than a
-threshold.
+rendered annotation copies. The source-range collector visits nested
+refinements with an explicit pending stack. Separate retention cases show that
+the range records grow linearly with accepted nesting depth.
+
+Full navigation-index cases construct an effective project snapshot, force its
+shared symbol index, and request a constructor definition from a valid nested
+refinement. When an enclosing refinement is valid, semantic classification
+renders and parses that annotation once and reuses its validity for every
+nested refinement. The language service reuses those classified constructor
+roles for singleton and union identity and does not separately canonicalize
+the overlapping argument ranges. Adjacent doubling cases count rendered
+annotations, rendered bytes, and separately canonicalized source bytes through
+the complete construction path. They also verify the selected constructor at
+the supported deep-nesting boundary. Other adjacent workloads grow the
+parameter count and distinct generic annotation count together, use the last
+declared parameter, and measure retained context names, context references,
+argument-range records, context construction, and parameter lookups. The cases
+use deterministic work counters and retained-entry sizes for the regression
+boundary; elapsed time is diagnostic output rather than a threshold.
 A retained direct-dependency or standard-library type alias used as the base
 of a valid refinement is a narrow exception to the ordinary package-alias
 definition policy below. When the refinement resolves through a visible,

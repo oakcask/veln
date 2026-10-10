@@ -1,6 +1,27 @@
 use super::*;
 use crate::semantic_model::Type;
 
+thread_local! {
+    static VARIANT_REFINEMENT_CLASSIFICATION_WORK:
+        std::cell::Cell<Option<VariantRefinementClassificationWork>> = const { std::cell::Cell::new(None) };
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct VariantRefinementClassificationWork {
+    pub rendered_annotations: usize,
+    pub rendered_bytes: usize,
+}
+
+fn record_variant_refinement_classification_work(bytes: usize) {
+    VARIANT_REFINEMENT_CLASSIFICATION_WORK.with(|work| {
+        if let Some(mut current) = work.get() {
+            current.rendered_annotations += 1;
+            current.rendered_bytes += bytes;
+            work.set(Some(current));
+        }
+    });
+}
+
 pub(super) fn valid_qualified_path_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
@@ -224,14 +245,21 @@ fn collect_variant_refinement_segments(
     require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
-    for refinement in refinements {
+    let mut pending = refinements
+        .iter()
+        .rev()
+        .map(|refinement| (refinement, false))
+        .collect::<Vec<_>>();
+    while let Some((refinement, valid_ancestor)) = pending.pop() {
         let refinement_is_valid = !require_valid_variant_refinements
+            || valid_ancestor
             || variant_refinement_is_valid(
                 refinement,
                 current_module,
                 environment,
                 type_parameters,
             );
+        let mut nested_refinements = Vec::new();
         for alternative in &refinement.alternatives {
             if refinement_is_valid {
                 let mut segments = alternative.base.segments.clone();
@@ -275,16 +303,15 @@ fn collect_variant_refinement_segments(
             }
             for argument in &alternative.type_arguments {
                 collect_type_path_segments(&argument.ty_paths, current_module, environment, output);
-                collect_variant_refinement_segments(
-                    &argument.ty_refinements,
-                    current_module,
-                    environment,
-                    type_parameters,
-                    require_valid_variant_refinements,
-                    output,
-                );
+                nested_refinements.extend(&argument.ty_refinements);
             }
         }
+        pending.extend(
+            nested_refinements
+                .into_iter()
+                .rev()
+                .map(|nested| (nested, refinement_is_valid)),
+        );
     }
 }
 
@@ -295,6 +322,7 @@ fn variant_refinement_is_valid(
     type_parameters: &[String],
 ) -> bool {
     let text = render_variant_refinement(refinement);
+    record_variant_refinement_classification_work(text.len());
     crate::type_syntax::parse_type_annotation(&text)
         .ok()
         .is_some_and(|ty| {
@@ -796,6 +824,21 @@ pub fn classified_project_qualified_path_segments_with_context(
 ) -> Vec<QualifiedPathSegment> {
     let environment = TypeEnvironment::for_path_classification(project);
     classified_qualified_path_segments_for_navigation(module, &environment)
+}
+
+pub fn classified_project_qualified_path_segments_with_context_and_work(
+    module: &SurfaceModule,
+    project: &SurfaceModule,
+) -> (
+    Vec<QualifiedPathSegment>,
+    VariantRefinementClassificationWork,
+) {
+    VARIANT_REFINEMENT_CLASSIFICATION_WORK
+        .with(|work| work.set(Some(VariantRefinementClassificationWork::default())));
+    let segments = classified_project_qualified_path_segments_with_context(module, project);
+    let work =
+        VARIANT_REFINEMENT_CLASSIFICATION_WORK.with(|work| work.replace(None).unwrap_or_default());
+    (segments, work)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

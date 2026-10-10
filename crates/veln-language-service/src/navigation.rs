@@ -335,6 +335,9 @@ thread_local! {
     static VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_ALIAS_CACHE_REUSES: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_RENDERED_ANNOTATIONS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_RENDERED_BYTES: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
@@ -1069,6 +1072,34 @@ pub(crate) fn reset_variant_refinement_navigation_work() {
     VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.set(0);
     VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.set(0);
     VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.set(0);
+    VARIANT_REFINEMENT_RENDERED_ANNOTATIONS.set(0);
+    VARIANT_REFINEMENT_RENDERED_BYTES.set(0);
+    VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES.set(0);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_classification_work(
+    work: veln_sema::VariantRefinementClassificationWork,
+) {
+    VARIANT_REFINEMENT_RENDERED_ANNOTATIONS
+        .set(VARIANT_REFINEMENT_RENDERED_ANNOTATIONS.get() + work.rendered_annotations);
+    VARIANT_REFINEMENT_RENDERED_BYTES
+        .set(VARIANT_REFINEMENT_RENDERED_BYTES.get() + work.rendered_bytes);
+}
+
+#[cfg(test)]
+fn record_variant_refinement_canonical_annotation_bytes(bytes: usize) {
+    VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES
+        .set(VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES.get() + bytes);
+}
+
+#[cfg(test)]
+pub(crate) fn variant_refinement_construction_work() -> (usize, usize, usize) {
+    (
+        VARIANT_REFINEMENT_RENDERED_ANNOTATIONS.get(),
+        VARIANT_REFINEMENT_RENDERED_BYTES.get(),
+        VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES.get(),
+    )
 }
 
 #[cfg(test)]

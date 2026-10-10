@@ -1407,6 +1407,56 @@
         assert_eq!(retained.type_argument_annotations, depth);
     }
 
+    fn nested_refinement_production_navigation_work(
+        depth: usize,
+    ) -> ((usize, usize, usize), std::time::Duration) {
+        reset_variant_refinement_navigation_work();
+        let source = nested_refinement_source(depth);
+        let column = source
+            .text()
+            .lines()
+            .nth(5)
+            .and_then(|line| line.rfind("Boxed"))
+            .expect("generated annotation has an outer variant")
+            + 1;
+        let snapshot = EffectiveProjectSnapshot::new(vec![source]);
+        let started = std::time::Instant::now();
+        snapshot.navigation_index();
+        let definition = definition_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 6,
+                column,
+            },
+        )
+        .unwrap_or_else(|| {
+            panic!(
+                "deep valid refinement at depth {depth} resolves through the production index; work={:?}",
+                variant_refinement_construction_work()
+            )
+        });
+        assert_location(&definition, "main.veln", 2, 3);
+        (variant_refinement_construction_work(), started.elapsed())
+    }
+
+    #[test]
+    fn nested_refinement_production_construction_reuses_descendant_validity() {
+        let evidence = [64, 128, 256].map(|depth| {
+            let (work, elapsed) = nested_refinement_production_navigation_work(depth);
+            assert_eq!(work.0, 1, "depth={depth}: {work:?}");
+            assert_eq!(work.2, 0, "depth={depth}: {work:?}");
+            (depth, work, elapsed)
+        });
+        for window in evidence.windows(2) {
+            let (_, smaller, _) = window[0];
+            let (_, larger, _) = window[1];
+            assert!(larger.1 > smaller.1, "{smaller:?} -> {larger:?}");
+            assert!(larger.1 <= smaller.1 * 2 + 32, "{smaller:?} -> {larger:?}");
+        }
+        eprintln!("nested refinement production construction evidence: {evidence:?}");
+    }
+
     fn workspace_variant_refinement_alias_depth_work(
         depth: usize,
     ) -> VariantRefinementNavigationWork {
