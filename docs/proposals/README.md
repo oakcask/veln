@@ -25,9 +25,12 @@ also states it.
   [network-compatibility-removal.md](network-compatibility-removal.md).
 - Remaining ADT variant-refinement support for alias navigation and
   visibility, qualified immutable values after a separate source-surface
-  prerequisite, schema boundaries, package-documentation catalog signatures,
+  prerequisite, base diagnostics that do not require a missing-descriptor
+  provider, schema boundaries, package-documentation catalog signatures,
   remaining LSP diagnostics, navigation, rename, and recovery, and remaining
-  MCP diagnostics, navigation, rename, package-signature, and saved-state behavior:
+  MCP diagnostics, navigation, rename, package-signature, and saved-state
+  behavior. The provider-dependent base reason requires a separate production
+  provider contract before selection:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked
