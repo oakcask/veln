@@ -317,19 +317,9 @@ impl<'a> CoreLowerer<'a> {
                 })
                 .collect(),
             PatternKind::Constructor { name, args, .. } => {
-                let Some(descriptor) = self
-                    .environment
-                    .adts
-                    .descriptor_for_core_type(scrutinee_type)
-                else {
-                    return args
-                        .iter()
-                        .flat_map(|pattern| self.pattern_bindings(pattern, &CoreType::Unknown))
-                        .collect();
-                };
-                let Some(constructor) = self.environment.adts.constructor_for_descriptor(
+                let Some(constructor) = self.environment.adts.constructor_for_core_type(
                     name,
-                    descriptor,
+                    scrutinee_type,
                     self.function.module_name.as_deref(),
                     &self.environment.uses,
                 ) else {
@@ -369,56 +359,70 @@ impl<'a> CoreLowerer<'a> {
                 PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(value.clone()),
                 PatternKind::BoolLiteral(value) => CorePatternKind::BoolLiteral(*value),
                 PatternKind::Unit => CorePatternKind::Unit,
-                PatternKind::Record(fields) => CorePatternKind::Record(
-                    fields
-                        .iter()
-                        .map(|field| CorePatternField {
-                            node_id: field.node_id,
-                            name: field.name.clone(),
-                            pattern: self.lower_pattern(
-                                &field.pattern,
-                                scrutinee_type.and_then(|ty| ty.record_field(&field.name)),
-                            ),
-                            span: field.span.clone(),
-                        })
-                        .collect(),
-                ),
+                PatternKind::Record(fields) => self.lower_record_pattern(fields, scrutinee_type),
                 PatternKind::Constructor { name, args, .. } => {
-                    let constructor = scrutinee_type
-                        .and_then(|ty| self.environment.adts.descriptor_for_core_type(ty))
-                        .and_then(|descriptor| {
-                            self.environment.adts.constructor_for_descriptor(
-                                name,
-                                descriptor,
-                                self.function.module_name.as_deref(),
-                                &self.environment.uses,
-                            )
-                        });
-                    CorePatternKind::Constructor {
-                        name: constructor
-                            .map(|constructor| {
-                                vec![
-                                    constructor.descriptor.type_name.clone(),
-                                    constructor.variant.name.clone(),
-                                ]
-                            })
-                            .unwrap_or_else(|| self.canonical_constructor_name(name)),
-                        args: args
-                            .iter()
-                            .enumerate()
-                            .map(|(index, arg)| {
-                                let payload_type = scrutinee_type.and_then(|ty| {
-                                    constructor.and_then(|constructor| {
-                                        adt::core_payload_type(ty, constructor, index)
-                                    })
-                                });
-                                self.lower_pattern(arg, payload_type.as_ref())
-                            })
-                            .collect(),
-                    }
+                    self.lower_constructor_pattern(name, args, scrutinee_type)
                 }
             },
             span: pattern.span.clone(),
+        }
+    }
+
+    fn lower_record_pattern(
+        &self,
+        fields: &[PatternField],
+        scrutinee_type: Option<&CoreType>,
+    ) -> CorePatternKind {
+        CorePatternKind::Record(
+            fields
+                .iter()
+                .map(|field| CorePatternField {
+                    node_id: field.node_id,
+                    name: field.name.clone(),
+                    pattern: self.lower_pattern(
+                        &field.pattern,
+                        scrutinee_type.and_then(|ty| ty.record_field(&field.name)),
+                    ),
+                    span: field.span.clone(),
+                })
+                .collect(),
+        )
+    }
+
+    fn lower_constructor_pattern(
+        &self,
+        name: &[String],
+        args: &[Pattern],
+        scrutinee_type: Option<&CoreType>,
+    ) -> CorePatternKind {
+        let constructor = scrutinee_type.and_then(|ty| {
+            self.environment.adts.constructor_for_core_type(
+                name,
+                ty,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            )
+        });
+        CorePatternKind::Constructor {
+            name: constructor
+                .map(|constructor| {
+                    vec![
+                        constructor.descriptor.type_name.clone(),
+                        constructor.variant.name.clone(),
+                    ]
+                })
+                .unwrap_or_else(|| self.canonical_constructor_name(name)),
+            args: args
+                .iter()
+                .enumerate()
+                .map(|(index, arg)| {
+                    let payload_type = scrutinee_type.and_then(|ty| {
+                        constructor
+                            .and_then(|constructor| adt::core_payload_type(ty, constructor, index))
+                    });
+                    self.lower_pattern(arg, payload_type.as_ref())
+                })
+                .collect(),
         }
     }
 

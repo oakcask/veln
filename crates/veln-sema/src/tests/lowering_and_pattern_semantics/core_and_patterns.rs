@@ -313,6 +313,53 @@ fn match_expression_binds_qualified_constructor_payloads() {
 }
 
 #[test]
+fn match_pattern_lowering_uses_scrutinee_descriptor_for_ambiguous_constructor_names() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  Some(Int)\n",
+            "end\n",
+            "\n",
+            "type Other\n",
+            "  Some(String)\n",
+            "end\n",
+            "\n",
+            "fn main(input: Item) -> Int\n",
+            "  match input\n",
+            "    Some(value) => value\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("tail expression should lower as match");
+    };
+    assert!(matches!(
+        &arms[0].pattern.kind,
+        CorePatternKind::Constructor { name, args }
+            if name == &["Item".to_string(), "Some".to_string()]
+                && matches!(&args[0].kind, CorePatternKind::Binding(name) if name == "value")
+    ));
+}
+
+#[test]
 fn lowercase_qualified_constructor_pattern_reports_independent_descriptor_mismatch() {
     let source = SourceFile::new(
         "main.veln",
