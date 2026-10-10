@@ -292,10 +292,10 @@ qualifier, and the constructor segment with the same module, type, and
 constructor roles. Qualified type paths in function parameters, function
 returns, local annotations, handler parameters, handler operation parameter
 types, effect operation parameter and return types, ADT positional payload
-fields, ADT record payload fields, and schema fields use the same segment
-records. This includes local annotations in nested `begin` and `defer` bodies
-and in a `begin` used as a handler operation clause. Qualified nominal effect
-paths inside function type
+fields, ADT record payload fields, schema fields, and explicit call type
+arguments use the same segment records. This includes local annotations in
+nested `begin` and `defer` bodies and in a `begin` used as a handler operation
+clause. Qualified nominal effect paths inside function type
 `effects [...]` annotations are effect paths, not qualified type paths, and do
 not produce source identifier casing diagnostics. An unresolved or
 ambiguous intermediate segment is not assigned a role from spelling alone.
@@ -315,6 +315,17 @@ resulting diagnostic overlap and order. This semantic casing classification
 does not make variant-refinement occurrences available to definition,
 references, rename, LSP, or MCP navigation; those language-service paths
 remain outside the current behavior.
+
+For base-eligibility diagnostics and base-casing recovery, an unqualified
+refinement base selects candidates from the first nonempty tier: same-module
+source types, compiler-provided built-in ADTs, then public types from imported
+modules. The selected tier must contain exactly one candidate. Multiple
+candidates in that tier leave the base unselected even when a lower tier has
+one candidate. A qualified base likewise requires exactly one visible
+descriptor for its written path. A same-module source type therefore supplies
+the provider identity and declaration span instead of a same-named opaque
+built-in descriptor.
+
 Each invalid role-fixed segment reports `name.invalid_case` at the exact
 segment token span with occurrence `path_segment` and the zero-based
 `segment_index`. A call-target diagnostic whose only cause is the resolved or

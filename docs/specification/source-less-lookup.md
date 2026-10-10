@@ -76,9 +76,17 @@ selecting a compiler-adapter descriptor. Public type-annotation reference
 helpers and internal type annotation parsing check built-in type constructor
 arity through the published built-in type-syntax registry. Built-in ADT lookup
 seeds application registry state from the published built-in ADT registry.
-The opaque `NetListener` and `NetStream` entries let exported standard-package
-type aliases resolve to their compiler-provided resource identities without
-making either resource source-constructible.
+Each built-in ADT descriptor also classifies its variant-refinement
+availability. A finite descriptor publishes the variants that can participate
+in refinement typing. An opaque descriptor publishes only its type identity;
+it remains ineligible as a refinement base through an exported alias. The
+opaque `NetListener` and `NetStream` entries therefore let standard-package
+aliases resolve to their compiler-provided resource identities without making
+either resource source-constructible or refinable. The
+[type specification](types.md#compatibility-and-limits) owns refinement-base
+eligibility, and the
+[diagnostic specification](diagnostics-json.md#diagnostic-families) owns its
+failure contract.
 
 Private compiler adapters, including the `net_system_*` operations used by
 `std::net::system()`, publish only their qualified
@@ -97,5 +105,5 @@ provider details; they never masquerade as source `name.invalid_case` errors.
 ## References
 
 - Registry validation and publication: `crates/veln-sema/src/source_less_lookup.rs`.
-- Descriptor providers: `crates/veln-sema/src/standard_symbols/` and
-  `crates/veln-syntax/src/`.
+- Descriptor providers: `crates/veln-sema/src/adt/`,
+  `crates/veln-sema/src/standard_symbols/`, and `crates/veln-syntax/src/`.

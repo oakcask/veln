@@ -678,8 +678,9 @@ case covers transitive singleton, union, and generic aliases together with
 mutual assignment, inference, finite joins, and complete-domain joins. An
 unknown variant, invalid base arity, or union of different resolved ADTs is an
 invalid type annotation; it does not become an assignable `unknown` contract.
-If a structurally valid refinement base resolves uniquely but is not a finite,
-refinable ADT, the checker rejects the annotation with
+If a structurally valid refinement base resolves uniquely under the
+[refinement-base selection rules](name-resolution.md#casing-and-recovery) but
+is not a finite, refinable ADT, the checker rejects the annotation with
 `type.variant_refinement_base`. This includes named non-ADT types, opaque
 resource types and aliases, and ADT providers that expose no finite variant
 descriptor. A base with invalid generic arity retains the existing
