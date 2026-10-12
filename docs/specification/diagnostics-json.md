@@ -93,9 +93,11 @@ reject `%` as unsupported syntax.
 An invalid remainder operand preserves the diagnostic for the operand itself.
 A missing field in a contract predicate uses `contract.field_missing`; the
 same failure in `satisfy` uses `hole.satisfy_field_missing`. A prefixed
-non-`Int` operand uses `type.mismatch`. These failures do not add a generic
-contract or `satisfy` type-mismatch or unsupported-construct diagnostic merely
-because the operand appears inside `%` or a call argument.
+non-`Int` operand uses `type.mismatch`. When the operand appears inside `%` in
+a call argument, that specific failure is selected before checking whether the
+enclosing call result is a valid Boolean predicate. These failures do not add a
+generic contract or `satisfy` type-mismatch or unsupported-construct
+diagnostic.
 
 An unresolved public type-alias target reports `name.unresolved` at that alias
 declaration. Its details contain `phase: "name"`, the alias `node_id`,

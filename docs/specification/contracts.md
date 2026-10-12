@@ -47,11 +47,17 @@ runtime obligation. A non-`Int` zero such as `0.0` reports only the operand
 operator contract is specified in
 [Operators and diagnostics](types.md#operators-and-diagnostics).
 
+Grouping, numeric prefix operators, comparisons, Boolean composition, and pure
+call arguments preserve this typing. They do not reassociate or reject an
+otherwise valid remainder chain.
+
 Each operand keeps the most specific diagnostic available for its expression.
 For example, a missing record field reports `contract.field_missing`, and a
 prefixed `Bool` operand reports `type.mismatch` for the required `Int`. A
-surrounding remainder comparison or call argument does not replace either
-diagnostic with `contract.type_mismatch` or
+surrounding remainder comparison does not replace either diagnostic. When a
+remainder occurs inside a pure call argument, its invalid operand is diagnosed
+before the enclosing call result is checked as the Boolean predicate. Neither
+context replaces the specific failure with `contract.type_mismatch` or
 `contract.unsupported_construct`.
 
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
