@@ -367,105 +367,130 @@ impl<'a> FunctionChecker<'a> {
                 self.report_contract_literal_zero_remainder(remainder);
             }
             let validation = self.validate_contract_predicate(contract);
-            match validation {
-                ContractValidation::Valid => {}
-                ContractValidation::InvalidRemainderOperands => {
-                    self.report_predicate_remainder_operand_mismatches(
-                        &contract.remainder_spans,
-                        &self.contract_bindings(contract.kind),
-                        contract.node_id,
-                    );
-                }
-                ContractValidation::NonBoolean { actual_type } => {
-                    self.diagnostics.push(Diagnostic::new(
-                        "contract.type_mismatch",
-                        Severity::Error,
-                        DiagnosticKind::Contract,
-                        "contract predicate is not `Bool`",
-                        Some(contract.span.clone()),
-                        contract_details(
-                            contract.node_id.display("contract"),
-                            contract.kind,
-                            &contract.text,
-                            "invalid",
-                            "failed_static",
-                            "non_boolean_predicate",
-                            false,
-                            self.contract_referenced_bindings(contract.kind, &contract.text),
-                        ),
-                    ));
-                    self.diagnostics.push(Diagnostic::new(
-                        "type.mismatch",
-                        Severity::Error,
-                        DiagnosticKind::Type,
-                        format!("expected `Bool`, but found `{actual_type}`"),
-                        Some(contract.span.clone()),
-                        type_details(
-                            contract.node_id.display("contract"),
-                            "Bool",
-                            actual_type,
-                            "contract_predicate",
-                            "inferred_expression",
-                            "contract_predicate",
-                            [
-                                self.function.node_id.display("fn"),
-                                contract.node_id.display("contract"),
-                            ],
-                        ),
-                    ));
-                }
-                ContractValidation::UnsupportedConstruct { reason } => {
-                    self.diagnostics.push(Diagnostic::new(
-                        "contract.unsupported_construct",
-                        Severity::Error,
-                        DiagnosticKind::Contract,
-                        "contract predicate contains an unsupported construct",
-                        Some(contract.span.clone()),
-                        contract_details(
-                            contract.node_id.display("contract"),
-                            contract.kind,
-                            &contract.text,
-                            "invalid",
-                            "failed_static",
-                            reason,
-                            false,
-                            self.contract_referenced_bindings(contract.kind, &contract.text),
-                        ),
-                    ));
-                }
-                ContractValidation::MissingField { base_type, field } => {
-                    self.diagnostics.push(Diagnostic::new(
-                        "contract.field_missing",
-                        Severity::Error,
-                        DiagnosticKind::Contract,
-                        format!("contract field `{field}` is not present on `{base_type}`"),
-                        Some(contract.span.clone()),
-                        contract_details(
-                            contract.node_id.display("contract"),
-                            contract.kind,
-                            &contract.text,
-                            "invalid",
-                            "failed_static",
-                            "missing_field",
-                            false,
-                            self.contract_referenced_bindings(contract.kind, &contract.text),
-                        ),
-                    ));
-                }
-                ContractValidation::UnresolvedName { name } => {
-                    let span = if name == "callsite" {
-                        contract
-                            .callsite_reference_spans
-                            .first()
-                            .cloned()
-                            .unwrap_or_else(|| contract.span.clone())
-                    } else {
-                        contract.span.clone()
-                    };
-                    self.push_unresolved_name(contract.node_id, span, &name, "contract_predicate");
-                }
+            self.report_contract_validation(contract, validation);
+        }
+    }
+
+    fn report_contract_validation(&mut self, contract: &Contract, validation: ContractValidation) {
+        match validation {
+            ContractValidation::Valid => {}
+            ContractValidation::InvalidRemainderOperands => {
+                self.report_predicate_remainder_operand_mismatches(
+                    &contract.remainder_spans,
+                    &self.contract_bindings(contract.kind),
+                    contract.node_id,
+                );
+            }
+            ContractValidation::NonBoolean { actual_type } => {
+                self.report_non_boolean_contract(contract, actual_type);
+            }
+            ContractValidation::UnsupportedConstruct { reason } => {
+                self.report_unsupported_contract_construct(contract, reason);
+            }
+            ContractValidation::MissingField { base_type, field } => {
+                self.report_missing_contract_field(contract, base_type, field);
+            }
+            ContractValidation::UnresolvedName { name } => {
+                self.report_unresolved_contract_name(contract, name);
             }
         }
+    }
+
+    fn report_non_boolean_contract(&mut self, contract: &Contract, actual_type: String) {
+        self.diagnostics.push(Diagnostic::new(
+            "contract.type_mismatch",
+            Severity::Error,
+            DiagnosticKind::Contract,
+            "contract predicate is not `Bool`",
+            Some(contract.span.clone()),
+            contract_details(
+                contract.node_id.display("contract"),
+                contract.kind,
+                &contract.text,
+                "invalid",
+                "failed_static",
+                "non_boolean_predicate",
+                false,
+                self.contract_referenced_bindings(contract.kind, &contract.text),
+            ),
+        ));
+        self.diagnostics.push(Diagnostic::new(
+            "type.mismatch",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("expected `Bool`, but found `{actual_type}`"),
+            Some(contract.span.clone()),
+            type_details(
+                contract.node_id.display("contract"),
+                "Bool",
+                actual_type,
+                "contract_predicate",
+                "inferred_expression",
+                "contract_predicate",
+                [
+                    self.function.node_id.display("fn"),
+                    contract.node_id.display("contract"),
+                ],
+            ),
+        ));
+    }
+
+    fn report_unsupported_contract_construct(&mut self, contract: &Contract, reason: &'static str) {
+        self.diagnostics.push(Diagnostic::new(
+            "contract.unsupported_construct",
+            Severity::Error,
+            DiagnosticKind::Contract,
+            "contract predicate contains an unsupported construct",
+            Some(contract.span.clone()),
+            contract_details(
+                contract.node_id.display("contract"),
+                contract.kind,
+                &contract.text,
+                "invalid",
+                "failed_static",
+                reason,
+                false,
+                self.contract_referenced_bindings(contract.kind, &contract.text),
+            ),
+        ));
+    }
+
+    fn report_missing_contract_field(
+        &mut self,
+        contract: &Contract,
+        base_type: String,
+        field: String,
+    ) {
+        self.diagnostics.push(Diagnostic::new(
+            "contract.field_missing",
+            Severity::Error,
+            DiagnosticKind::Contract,
+            format!("contract field `{field}` is not present on `{base_type}`"),
+            Some(contract.span.clone()),
+            contract_details(
+                contract.node_id.display("contract"),
+                contract.kind,
+                &contract.text,
+                "invalid",
+                "failed_static",
+                "missing_field",
+                false,
+                self.contract_referenced_bindings(contract.kind, &contract.text),
+            ),
+        ));
+    }
+
+    fn report_unresolved_contract_name(&mut self, contract: &Contract, name: String) {
+        let span = if name == "callsite" {
+            contract
+                .callsite_reference_spans
+                .first()
+                .cloned()
+                .unwrap_or_else(|| contract.span.clone())
+        } else {
+            contract.span.clone()
+        };
+        self.push_unresolved_name(contract.node_id, span, &name, "contract_predicate");
     }
 
     pub(in crate::analysis) fn report_contract_literal_zero_remainder(
