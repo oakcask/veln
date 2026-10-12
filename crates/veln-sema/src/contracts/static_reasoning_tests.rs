@@ -112,6 +112,8 @@ fn static_contract_reasoning_evaluates_signed_integer_remainder() {
         "-9223372036854775808 % -1 == 0",
         "20 % 6 % 4 == 2",
         "20 % (6 % 4) == 0",
+        "(5 / 2) % 2 == 0",
+        "5 % (3 / 2) == 0",
         "1 + 8 % 3 * 2 == 5",
     ] {
         assert!(

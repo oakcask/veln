@@ -46,7 +46,10 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
     predicate: &str,
     remainders: &[PredicateRemainder],
 ) -> bool {
-    if remainder_flows_into_division(predicate) {
+    let Some(flow_shape) = predicate_with_remainder_markers(predicate, remainders) else {
+        return false;
+    };
+    if remainder_flows_into_division(&flow_shape) {
         return false;
     }
     let Some(folded) = predicate_with_folded_remainder_chains(predicate, remainders) else {
@@ -55,30 +58,63 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
     static_boolean_value_for_contract(&folded) == StaticBooleanValue::True
 }
 
-fn remainder_flows_into_division(predicate: &str) -> bool {
-    let mut in_string = false;
-    let mut escaped = false;
-    let mut has_remainder = false;
-    let mut has_division = false;
-    for character in predicate.chars() {
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if character == '\\' {
-                escaped = true;
-            } else if character == '"' {
-                in_string = false;
-            }
+fn predicate_with_remainder_markers(
+    predicate: &str,
+    remainders: &[PredicateRemainder],
+) -> Option<String> {
+    let chains = veln_ast::index_predicate_remainder_chains(predicate, remainders)?;
+    let mut marked = String::with_capacity(predicate.len());
+    let mut cursor = 0;
+    for chain in chains {
+        if chain.predicate_range.start < cursor {
             continue;
         }
-        match character {
-            '"' => in_string = true,
-            '%' => has_remainder = true,
-            '/' => has_division = true,
-            _ => {}
-        }
+        marked.push_str(&predicate[cursor..chain.predicate_range.start]);
+        marked.push_str("0%1");
+        cursor = chain.predicate_range.end;
     }
-    has_remainder && has_division
+    marked.push_str(&predicate[cursor..]);
+    Some(marked)
+}
+
+fn remainder_flows_into_division(predicate: &str) -> bool {
+    if !predicate.contains('/') {
+        return false;
+    }
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    for operators in [
+        &["or"][..],
+        &["and"][..],
+        &["|"][..],
+        &["^"][..],
+        &["&"][..],
+        &["==", "!="][..],
+        &["<=", ">=", "<", ">"][..],
+        &[">>>", ">>", "<<"][..],
+        &["+", "-"][..],
+        &["*", "/", "%"][..],
+    ] {
+        let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        else {
+            continue;
+        };
+        if operator == "/" && (left.contains('%') || right.contains('%')) {
+            return true;
+        }
+        return remainder_flows_into_division(left) || remainder_flows_into_division(right);
+    }
+    if let Some(rest) = predicate
+        .strip_prefix('-')
+        .or_else(|| predicate.strip_prefix('~'))
+        .or_else(|| predicate.strip_prefix("not "))
+    {
+        return remainder_flows_into_division(rest);
+    }
+    contract_calls(predicate).into_iter().any(|call| {
+        call.args
+            .iter()
+            .any(|arg| remainder_flows_into_division(arg))
+    })
 }
 
 fn predicate_with_folded_remainder_chains(
@@ -107,9 +143,9 @@ fn predicate_with_folded_remainder_chains(
 
 fn flat_remainder_chain_value(remainders: &[PredicateRemainder]) -> Option<StaticNumber> {
     let first = remainders.first()?;
-    let mut value = static_numeric_expression(&first.left_text)?;
+    let mut value = StaticNumber::integer(static_integer_expression(&first.left_text)?);
     for remainder in remainders {
-        let right = static_numeric_expression(&remainder.right_text)?;
+        let right = StaticNumber::integer(static_integer_expression(&remainder.right_text)?);
         value = static_multiplicative_operation(value, "%", right)?;
     }
     Some(value)

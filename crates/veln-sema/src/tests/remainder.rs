@@ -46,14 +46,14 @@ fn flat_remainder_validation_types_each_leaf_once() {
 fn flat_remainder_complete_pipeline_is_stack_safe_beyond_prior_failure() {
     fn lower_chain(operator_count: usize, literal: bool) -> ContractObligationStatus {
         let mut predicate = if literal {
-            "7".to_string()
+            "(5 / 2)".to_string()
         } else {
             "value".to_string()
         };
         for _ in 0..operator_count {
             predicate.push_str(" % 3");
         }
-        let expected = if literal { 1 } else { 0 };
+        let expected = if literal { 2 } else { 0 };
         let source = SourceFile::new(
             "main.veln",
             format!(
@@ -981,7 +981,9 @@ fn literal_remainder_contracts_are_statically_proven_in_each_clause() {
             "fn checked() -> output: Int\n",
             "require -7 % 3 == -1\n",
             "require 1 % 9223372036854775807 == 1\n",
+            "ensure (5 / 2) % 2 == 0\n",
             "ensure 7 % -3 == 1\n",
+            "invariant 5 % (3 / 2) == 0\n",
             "invariant (-9223372036854775807 - 1) % -1 == 0\n",
             "  0\n",
             "end\n",

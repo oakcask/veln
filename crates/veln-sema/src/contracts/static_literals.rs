@@ -108,6 +108,9 @@ pub(super) fn static_numeric_expression(predicate: &str) -> Option<StaticNumber>
     if let Some(number) = StaticNumber::parse(predicate) {
         return Some(number);
     }
+    if predicate.contains('%') {
+        return Some(StaticNumber::integer(static_integer_expression(predicate)?));
+    }
     if contains_binary_bitwise_operator(predicate) {
         for operators in [&["|"][..], &["^"][..], &["&"][..]] {
             if let Some(value) =
@@ -145,6 +148,94 @@ pub(super) fn static_numeric_expression(predicate: &str) -> Option<StaticNumber>
         ));
     }
     None
+}
+
+pub(super) fn static_integer_expression(predicate: &str) -> Option<i64> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate.is_empty() {
+        return None;
+    }
+    if let Some(number) = StaticNumber::parse(predicate) {
+        return number.as_i64();
+    }
+    for operators in [
+        &["|"][..],
+        &["^"][..],
+        &["&"][..],
+        &[">>>", ">>", "<<"][..],
+        &["+", "-"][..],
+        &["*", "/", "%"][..],
+    ] {
+        let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        else {
+            continue;
+        };
+        let left = static_integer_expression(left)?;
+        let right = static_integer_expression(right)?;
+        return static_integer_binary_operation(left, operator, right);
+    }
+    if let Some(rest) = predicate.strip_prefix('-') {
+        return Some(static_integer_expression(rest)?.wrapping_neg());
+    }
+    if let Some(rest) = predicate.strip_prefix('~') {
+        return Some(!static_integer_expression(rest)?);
+    }
+    None
+}
+
+fn static_integer_binary_operation(left: i64, operator: &str, right: i64) -> Option<i64> {
+    match operator {
+        "|" | "^" | "&" => static_integer_bitwise_operation(left, operator, right),
+        ">>>" | ">>" | "<<" => static_integer_shift_operation(left, operator, right),
+        "+" | "-" | "*" => static_integer_arithmetic_operation(left, operator, right),
+        "/" => static_integer_division(left, right),
+        "%" => static_integer_remainder(left, right),
+        _ => None,
+    }
+}
+
+fn static_integer_bitwise_operation(left: i64, operator: &str, right: i64) -> Option<i64> {
+    Some(match operator {
+        "|" => left | right,
+        "^" => left ^ right,
+        "&" => left & right,
+        _ => return None,
+    })
+}
+
+fn static_integer_shift_operation(left: i64, operator: &str, right: i64) -> Option<i64> {
+    let count = integer_shift_count(right)?;
+    Some(match operator {
+        ">>>" => ((left as u64) >> count) as i64,
+        ">>" => left >> count,
+        "<<" => left.wrapping_shl(count),
+        _ => return None,
+    })
+}
+
+fn static_integer_arithmetic_operation(left: i64, operator: &str, right: i64) -> Option<i64> {
+    Some(match operator {
+        "+" => left.wrapping_add(right),
+        "-" => left.wrapping_sub(right),
+        "*" => left.wrapping_mul(right),
+        _ => return None,
+    })
+}
+
+fn static_integer_division(left: i64, right: i64) -> Option<i64> {
+    (right != 0).then(|| left.wrapping_div(right))
+}
+
+fn static_integer_remainder(left: i64, right: i64) -> Option<i64> {
+    match right {
+        0 => None,
+        -1 => Some(0),
+        _ => Some(left % right),
+    }
+}
+
+fn integer_shift_count(value: i64) -> Option<u32> {
+    u32::try_from(value).ok().filter(|count| *count <= 63)
 }
 
 pub(super) fn static_binary_numeric_expression(
