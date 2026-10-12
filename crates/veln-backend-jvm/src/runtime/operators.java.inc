@@ -76,6 +76,44 @@
         return Long.valueOf(asLong(left) / asLong(right));
     }
 
+    public static Object remainder(
+        Object left,
+        Object right,
+        String sourceFile,
+        int divisorStartLine,
+        int divisorStartColumn,
+        int divisorStartOffset,
+        int divisorEndLine,
+        int divisorEndColumn,
+        int divisorEndOffset,
+        int operationStartLine,
+        int operationStartColumn,
+        int operationStartOffset,
+        int operationEndLine,
+        int operationEndColumn,
+        int operationEndOffset
+    ) {
+        long divisor = asLong(right);
+        if (divisor == 0L) {
+            throw new RemainderFailure(
+                sourceFile,
+                divisorStartLine,
+                divisorStartColumn,
+                divisorStartOffset,
+                divisorEndLine,
+                divisorEndColumn,
+                divisorEndOffset,
+                operationStartLine,
+                operationStartColumn,
+                operationStartOffset,
+                operationEndLine,
+                operationEndColumn,
+                operationEndOffset
+            );
+        }
+        return Long.valueOf(asLong(left) % divisor);
+    }
+
     public static Object equal(Object left, Object right) {
         return Boolean.valueOf(java.util.Objects.equals(
             diagnosticResultValue(left),

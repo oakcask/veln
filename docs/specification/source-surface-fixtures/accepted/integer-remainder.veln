@@ -1,0 +1,7 @@
+fn remainder(value: Int, divisor: Int) -> Int
+	value % divisor
+end
+
+fn precedence() -> Int
+	2 + 7 % 3 * 4
+end

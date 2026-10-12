@@ -229,6 +229,53 @@
         }
     }
 
+    private static final class RemainderFailure extends RuntimeFailure {
+        private final String sourceFile;
+        private final int divisorStartLine;
+        private final int divisorStartColumn;
+        private final int divisorStartOffset;
+        private final int divisorEndLine;
+        private final int divisorEndColumn;
+        private final int divisorEndOffset;
+        private final int operationStartLine;
+        private final int operationStartColumn;
+        private final int operationStartOffset;
+        private final int operationEndLine;
+        private final int operationEndColumn;
+        private final int operationEndOffset;
+
+        private RemainderFailure(
+            String sourceFile,
+            int divisorStartLine,
+            int divisorStartColumn,
+            int divisorStartOffset,
+            int divisorEndLine,
+            int divisorEndColumn,
+            int divisorEndOffset,
+            int operationStartLine,
+            int operationStartColumn,
+            int operationStartOffset,
+            int operationEndLine,
+            int operationEndColumn,
+            int operationEndOffset
+        ) {
+            super("remainder divisor is zero");
+            this.sourceFile = sourceFile;
+            this.divisorStartLine = divisorStartLine;
+            this.divisorStartColumn = divisorStartColumn;
+            this.divisorStartOffset = divisorStartOffset;
+            this.divisorEndLine = divisorEndLine;
+            this.divisorEndColumn = divisorEndColumn;
+            this.divisorEndOffset = divisorEndOffset;
+            this.operationStartLine = operationStartLine;
+            this.operationStartColumn = operationStartColumn;
+            this.operationStartOffset = operationStartOffset;
+            this.operationEndLine = operationEndLine;
+            this.operationEndColumn = operationEndColumn;
+            this.operationEndOffset = operationEndOffset;
+        }
+    }
+
     private static final class TransportFailure extends RuntimeFailure {
         private final String operation;
         private final String category;

@@ -1,0 +1,4 @@
+fn even(value: Int) -> Bool
+require value % 2 == 0
+	true
+end

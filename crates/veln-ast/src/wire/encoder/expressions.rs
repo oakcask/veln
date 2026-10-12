@@ -286,6 +286,7 @@ impl Writer {
             BinaryOp::Subtract => 16,
             BinaryOp::Multiply => 17,
             BinaryOp::Divide => 18,
+            BinaryOp::Remainder => 19,
         });
     }
 

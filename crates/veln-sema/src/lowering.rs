@@ -467,6 +467,7 @@ fn binary_operand_and_result(op: BinaryOp, numeric_type: CoreType) -> (CoreType,
         BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
             (numeric_type.clone(), numeric_type)
         }
+        BinaryOp::Remainder => (CoreType::int(), CoreType::int()),
         BinaryOp::PipeGreater => unreachable!("pipeline handled before binary lowering"),
     }
 }

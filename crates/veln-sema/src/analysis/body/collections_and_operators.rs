@@ -1,5 +1,7 @@
 use super::*;
 
+mod operator_diagnostics;
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_record(
         &mut self,
@@ -379,24 +381,15 @@ impl<'a> FunctionChecker<'a> {
             return self.infer_pipeline(left, right, expected_result);
         }
 
-        if let Some(count) = invalid_literal_shift_count(op, right) {
-            let operator = shift_operator_text(op).expect("shift operator should have text");
-            self.diagnostics.push(Diagnostic::new(
-                "type.invalid_shift_count",
-                Severity::Error,
-                DiagnosticKind::Type,
-                format!("shift count {count} is outside the permitted range 0 through 63"),
-                Some(right.span.clone()),
-                JsonValue::object([
-                    ("operator", JsonValue::string(operator)),
-                    ("actual_count", JsonValue::Number(count)),
-                    ("minimum_count", JsonValue::Number(0)),
-                    ("maximum_count", JsonValue::Number(63)),
-                ]),
-            ));
+        if op == BinaryOp::Remainder {
+            self.report_literal_zero_remainder(left, right);
         }
 
-        let numeric_type = if is_ordering_op(op) {
+        self.report_invalid_literal_shift_count(op, right);
+
+        let numeric_type = if op == BinaryOp::Remainder {
+            Type::int()
+        } else if is_ordering_op(op) {
             self.numeric_operand_type(None, &[left, right])
         } else {
             self.numeric_operand_type(expected_result, &[left, right])
@@ -424,6 +417,7 @@ impl<'a> FunctionChecker<'a> {
             BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
                 (numeric_type.clone(), numeric_type)
             }
+            BinaryOp::Remainder => (Type::int(), Type::int()),
             BinaryOp::PipeGreater => unreachable!("pipeline handled before binary operators"),
         };
         let expected = ExpectedType {

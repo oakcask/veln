@@ -53,6 +53,38 @@ fn parses_records_lists_and_formats_precedence() {
 }
 
 #[test]
+fn parses_and_formats_remainder_precedence_and_associativity() {
+    let source = SourceFile::new("main.veln", "fn main() -> Int\n  2+20%6*2%3\nend\n");
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        "fn main() -> Int\n\t2 + 20 % 6 * 2 % 3\nend\n"
+    );
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Binary {
+            op: BinaryOp::Add,
+            right,
+            ..
+        } if matches!(
+            &right.kind,
+            ExprKind::Binary {
+                op: BinaryOp::Remainder,
+                left,
+                ..
+            } if matches!(&left.kind, ExprKind::Binary { op: BinaryOp::Multiply, .. })
+        )
+    ));
+}
+
+#[test]
 fn parses_the_complete_binary_precedence_ladder() {
     let source = SourceFile::new(
         "main.veln",

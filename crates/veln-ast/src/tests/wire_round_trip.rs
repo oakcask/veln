@@ -75,6 +75,7 @@ fn surface_wire_round_trip_preserves_expression_families() {
             "  end\n",
             "end\n",
         ),
+        "fn remainder(value: Int) -> Int\n  value % 3\nend\n",
     ];
 
     for source in sources {

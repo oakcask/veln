@@ -79,11 +79,12 @@ The implemented semantic token types are standard LSP token types:
 Lexical fallback also classifies `#` comments, strings, numbers, keywords, and
 operators with the matching standard LSP token types. Decimal, lowercase `0b`
 binary, and lowercase `0x` hexadecimal integer literals are each one `number`
-token. The contextual `satisfy` marker and boolean literals are highlighted as
-keywords. `begin` and `defer` are keyword tokens in the lexical fallback and
-the VSCode grammar. A handler declaration classifies its `for` separator as a
-keyword. `handles` is an ordinary identifier in both semantic-token fallback
-and the VSCode grammar.
+token. The remainder token `%` is an `operator` without modifiers in semantic
+fallback and in the VSCode TextMate grammar. The contextual `satisfy` marker
+and boolean literals are highlighted as keywords. `begin` and `defer` are
+keyword tokens in the lexical fallback and the VSCode grammar. A handler
+declaration classifies its `for` separator as a keyword. `handles` is an
+ordinary identifier in both semantic-token fallback and the VSCode grammar.
 
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.

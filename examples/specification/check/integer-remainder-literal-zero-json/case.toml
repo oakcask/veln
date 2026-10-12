@@ -1,0 +1,21 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.remainder_by_zero\"", "\"message\":\"remainder divisor is zero\"", "\"operator\":\"%\"", "\"divisor\":0"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.remainder_by_zero"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "operation"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.message"
+equals = "Remainder operation is here."

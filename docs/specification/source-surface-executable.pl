@@ -186,7 +186,7 @@ grammar_line(250, "ExprLine      ::= Expr NL").
 grammar_line(260, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
 grammar_line(265, "BinaryOp      ::= \"|>\" | \"or\" | \"and\" | \"|\" | \"^\" | \"&\" | \"==\" | \"!=\"").
 grammar_line(266, "                  | \"<\" | \"<=\" | \">\" | \">=\" | \"<<\" | \">>\" | \">>>\"").
-grammar_line(267, "                  | \"+\" | \"-\" | \"*\" | \"/\"").
+grammar_line(267, "                  | \"+\" | \"-\" | \"*\" | \"/\" | \"%\"").
 grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\" | \"~\") PrefixExpr | PostfixExpr").
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
 grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | \"(\" Expr \")\" | \"()\"").
@@ -267,6 +267,7 @@ one_token(t(plus, "+")) --> ['+'].
 one_token(t(minus, "-")) --> ['-'].
 one_token(t(star, "*")) --> ['*'].
 one_token(t(slash, "/")) --> ['/'].
+one_token(t(percent, "%")) --> ['%'].
 one_token(t(pipe, "|")) --> ['|'].
 one_token(t(caret, "^")) --> ['^'].
 one_token(t(ampersand, "&")) --> ['&'].
@@ -650,6 +651,7 @@ valid_contract_tokens(Tokens) :-
     \+ member(t(hole, _), Tokens),
     \+ member(t(underscore, _), Tokens),
     \+ member(t(lbracket, _), Tokens),
+    \+ member(t(percent, _), Tokens),
     phrase(expr, Tokens).
 
 valid_schema_field_where_tokens(Tokens) :-
@@ -1013,8 +1015,14 @@ primary_expr --> begin_expr.
 
 begin_expr --> tok(begin), nl, body, tok(end).
 
-satisfy_opt --> ident_text("satisfy"), ident, tok(fat_arrow), expr, !.
+satisfy_opt(S0, S) :-
+    phrase(satisfy_clause, S0, S),
+    append(Consumed, S, S0),
+    \+ member(t(percent, _), Consumed),
+    !.
 satisfy_opt --> [].
+
+satisfy_clause --> ident_text("satisfy"), ident, tok(fat_arrow), expr.
 
 schema_decode_expr -->
     tok(decode),
@@ -1178,6 +1186,7 @@ binary_op --> tok(plus).
 binary_op --> tok(minus).
 binary_op --> tok(star).
 binary_op --> tok(slash).
+binary_op --> tok(percent).
 
 binding_name --> identifier_text(Text), { string_chars(Text, [First | _]), \+ char_type(First, upper) }.
 upper_name --> identifier_text(Text), { string_chars(Text, [First | _]), char_type(First, upper) }.

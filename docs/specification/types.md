@@ -896,6 +896,11 @@ Implemented operator typing:
 - `+`, `-`, `*`, and `/` expect `Int` operands and return `Int`, or expect
   numeric operands and return `Float` when the expected result type or either
   operand is clearly `Float`.
+- `%` expects `Int` operands and returns the signed integer remainder. It has
+  the same precedence and left associativity as `*` and `/`. Its nonzero
+  result has the dividend's sign, including for negative divisors, and
+  minimum `Int` remainder by `-1` is `0`. A `Float` context does not widen a
+  remainder operand or result.
 - `==` and `!=` return `Bool` and do not currently require matching operand
   types.
 - `|>` requires a named or qualified call expression on the right. The left
@@ -912,10 +917,18 @@ Float arithmetic and comparison operators lower as calls to compiler-known
 prelude functions. `Float` values follow the backend floating-point value
 space, including infinities and NaN values.
 
+An integer remainder with a literal zero divisor reports
+`type.remainder_by_zero` at the divisor with the operation as related context.
+A computed zero divisor fails at runtime after both operands have evaluated
+once from left to right. The failure preserves completed output and registered
+cleanup, and expressions after the failed operation do not run. Schema count,
+length, and validation expressions, contract predicates, `satisfy` predicates,
+and compound assignment do not accept `%`.
+
 Integer bitwise operations use signed 64-bit two's-complement patterns on
 every backend. Their precedence from highest to lowest is prefix, multiply,
 add, shift, comparison, equality, `&`, `^`, `|`, `and`, `or`, and pipeline.
-The formatter writes spaces around binary operators and no space after unary
+The multiply level contains `*`, `/`, and `%`. The formatter writes spaces around binary operators and no space after unary
 `~`. Contract typing and runtime checks accept these operators, and static
 contract reasoning evaluates literal-only bitwise expressions. Repair
 reasoning leaves nonliteral bitwise predicates runtime-checked instead of

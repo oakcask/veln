@@ -767,6 +767,16 @@
       ]
     },
     {
+      "source": "%",
+      "tokens": [
+        {
+          "end": 1,
+          "kind": "operator",
+          "start": 0
+        }
+      ]
+    },
+    {
       "source": "true",
       "tokens": [
         {
@@ -1197,7 +1207,8 @@
     "+",
     "-",
     "*",
-    "/"
+    "/",
+    "%"
   ],
   "stringDelimiter": "\"",
   "stringEscape": "\\"

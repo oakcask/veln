@@ -108,6 +108,12 @@ schema, byte-write, and protocol failures use the diagnostic shapes routed by
 printed after the primary message in cleanup execution order. Runtime trace
 files remain isolated to this invocation.
 
+A computed zero remainder divisor fails with `runtime.remainder_by_zero` and
+the message `remainder divisor is zero` at the divisor location. A related note
+identifies the complete remainder operation. Output produced before the
+failure is retained, and later statements do not execute. The JSON projection
+is specified by [run JSON](run-json.md).
+
 ## Limits
 
 The command does not execute unreachable code, acquire dependencies, or fall

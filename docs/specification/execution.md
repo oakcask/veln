@@ -94,6 +94,16 @@ join reports cancellation. The effect boundary during unwinding is specified by
 [effects.md](effects.md#effect-labels). The backend transfers a successful
 `begin` value only after that region's cleanup completes.
 
+Integer remainder evaluates the left operand once and then the right operand
+once. A failure in the left operand prevents evaluation of the right operand.
+A zero divisor discovered at runtime raises `runtime.remainder_by_zero` and
+stops execution before later expressions while registered cleanup unwinds.
+Human output reports `remainder divisor is zero` at the divisor span and
+identifies the complete operation in a related note. Earlier output remains
+observable. The [operator specification](types.md#operators-and-diagnostics)
+defines the signed result, and [run JSON](run-json.md) defines the structured
+failure projection.
+
 ## Cleanup limits
 
 Registered cleanup is guaranteed only while the Veln task, JVM, and executing

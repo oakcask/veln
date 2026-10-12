@@ -399,7 +399,7 @@ ExprLine      ::= Expr NL
 Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
 BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="
                   | "<" | "<=" | ">" | ">=" | "<<" | ">>" | ">>>"
-                  | "+" | "-" | "*" | "/"
+                  | "+" | "-" | "*" | "/" | "%"
 PrefixExpr    ::= ("not" | "-" | "~") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
 PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | "(" Expr ")" | "()"

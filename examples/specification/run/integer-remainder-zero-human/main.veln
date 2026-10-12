@@ -1,0 +1,5 @@
+pub fn main(divisor: Int) -> () effects [stdio]
+	stdio::println("before")
+	stdio::println(int_to_string(7 % divisor))
+	stdio::println("after")
+end

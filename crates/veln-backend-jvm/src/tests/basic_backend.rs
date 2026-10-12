@@ -52,6 +52,203 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_executes_signed_integer_remainder_endpoints() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(7 % 3))\n",
+        "  stdio::println(int_to_string(-7 % 3))\n",
+        "  stdio::println(int_to_string(7 % -3))\n",
+        "  stdio::println(int_to_string(-7 % -3))\n",
+        "  stdio::println(int_to_string((-9223372036854775807 - 1) % -1))\n",
+        "  stdio::println(int_to_string((-9223372036854775807 - 1) % 3))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available("bytecode-remainder", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "1\n-1\n1\n-1\n0\n-2\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_reports_dynamic_zero_remainder_without_host_exception() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(\"before\")\n",
+        "  let divisor = 1 - 1\n",
+        "  stdio::println(int_to_string(7 % divisor))\n",
+        "  stdio::println(\"after\")\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-remainder-zero", &program, &[])
+    else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "before\n");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("error[runtime.remainder_by_zero]: remainder divisor is zero"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("note: main.veln"), "{stderr}");
+    assert!(!stderr.contains("ArithmeticException"), "{stderr}");
+}
+
+#[test]
+fn bytecode_backend_remainder_matches_independent_i128_model() {
+    let pairs = [
+        (i64::MIN, -1),
+        (i64::MIN, 3),
+        (i64::MIN, i64::MAX),
+        (i64::MIN, i64::MIN),
+        (i64::MAX, 3),
+        (1, i64::MIN),
+        (-91, 10),
+        (91, -10),
+        (-91, -10),
+        (0, 17),
+    ];
+    let mut source = "pub fn main() -> () effects [stdio]\n".to_string();
+    let mut expected = String::new();
+    let source_int = |value: i64| {
+        if value == i64::MIN {
+            "(-9223372036854775807 - 1)".to_string()
+        } else {
+            value.to_string()
+        }
+    };
+    for (left, right) in pairs {
+        let left_source = source_int(left);
+        let right_source = source_int(right);
+        source.push_str(&format!(
+            "  stdio::println(int_to_string({left_source} % {right_source}))\n"
+        ));
+        let quotient = (left as i128) / (right as i128);
+        let remainder = (left as i128) - quotient * (right as i128);
+        expected.push_str(&format!("{remainder}\n"));
+    }
+    source.push_str("end\n");
+    let ir = lower_to_ir(&source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-remainder-i128-model", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
+}
+
+#[test]
+fn bytecode_backend_evaluates_remainder_operands_once_left_to_right() {
+    let ir = lower_to_ir(concat!(
+        "fn left() -> Int effects [stdio]\n",
+        "  stdio::println(\"left\")\n",
+        "  7\n",
+        "end\n",
+        "fn right() -> Int effects [stdio]\n",
+        "  stdio::println(\"right\")\n",
+        "  3\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(left() % right()))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-remainder-evaluation-order",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "left\nright\n1\n");
+}
+
+#[test]
+fn bytecode_backend_remainder_failure_stops_later_evaluation_and_runs_cleanup() {
+    let ir = lower_to_ir(concat!(
+        "fn zero() -> Int effects [stdio]\n",
+        "  stdio::println(\"right\")\n",
+        "  let value = 0\n",
+        "  value\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup\")\n",
+        "  end\n",
+        "  stdio::println(\"left\")\n",
+        "  let ignored = 7 % zero()\n",
+        "  stdio::println(\"after\")\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-remainder-cleanup", &program, &[])
+    else {
+        return;
+    };
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "left\nright\ncleanup\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_remainder_left_failure_prevents_right_operand() {
+    let ir = lower_to_ir(concat!(
+        "fn fail_left() -> Int\n",
+        "  let zero = 0\n",
+        "  1 % zero\n",
+        "end\n",
+        "fn right() -> Int effects [stdio]\n",
+        "  stdio::println(\"unexpected right\")\n",
+        "  2\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let ignored = fail_left() % right()\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-remainder-left-failure", &program, &[])
+    else {
+        return;
+    };
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+}
+
+#[test]
 fn bytecode_backend_result_propagation_clears_partial_expression_operands() {
     let ir = lower_to_ir(concat!(
         "fn succeed(value: Int) -> Result<Int, String>\n",

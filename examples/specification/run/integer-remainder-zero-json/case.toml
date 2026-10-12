@@ -1,0 +1,28 @@
+command = ["run", "--json", "main", "main.veln", "--", "0"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"runtime.remainder_by_zero\"", "\"operator\":\"%\"", "\"divisor\":0", "\"divisor_span\"", "\"operation_span\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.message"
+equals = "remainder divisor is zero"
+
+[[json_assert]]
+path = "error.related.0.kind"
+equals = "operation"
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/stdout.txt"
