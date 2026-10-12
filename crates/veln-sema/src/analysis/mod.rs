@@ -18,10 +18,12 @@ use crate::aggregate_type_join::AggregateTypeJoin;
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text,
     contract_predicate_is_statically_true, is_contract_keyword, missing_contract_field,
-    predicate_has_invalid_remainder_operands, predicate_has_nonfoldable_remainder,
-    predicate_is_boolean_with_calls, predicate_is_statically_false, predicate_is_statically_true,
+    predicate_has_invalid_remainder_operands, predicate_has_nonfoldable_remainder_with_remainders,
+    predicate_is_boolean_with_calls, predicate_is_boolean_with_remainders,
+    predicate_is_statically_false, predicate_is_statically_true,
     predicate_is_statically_true_with_literal_bounds, predicate_literal_is_zero,
-    predicate_rendered_type_with_calls, predicate_type_with_calls, referenced_names,
+    predicate_remainder_operand_type, predicate_rendered_type_with_calls,
+    predicate_type_with_calls, referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, handler_details, span_json,

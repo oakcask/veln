@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
-use veln_ast::{BinaryOp, ContractKind, PrefixOp};
+use veln_ast::{BinaryOp, ContractKind, PredicateRemainder, PrefixOp};
 use veln_ir::{
     ContractObligationStatus, CoreContractCall, CoreType, IrCallTarget, IrCallbackTarget,
     IrContract, IrDeferredBlock, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider,
@@ -33,7 +33,9 @@ use class_builder::*;
 use constant_pool::*;
 #[cfg(test)]
 pub(crate) use contract_value::split_contract_binary;
-use contract_value::{ContractScalar, ContractValue, parse_contract_value};
+use contract_value::{
+    ContractScalar, ContractValue, parse_contract_value, strip_contract_outer_parens,
+};
 pub(crate) use contracts_and_tail_recursion::classify_tail_recursion;
 use contracts_and_tail_recursion::{ValueRef, object_method_descriptor, runtime_classes};
 pub(crate) use function_flow::TailRecursionEligibility;
@@ -118,6 +120,28 @@ pub(crate) fn contract_call_metadata_work(program: &TypedProgram, function_name:
     let mut function_emitter = FunctionBytecodeEmitter::new(&emitter, function);
     function_emitter.emit(&mut code);
     code.contract_call_metadata_work
+}
+
+#[cfg(test)]
+pub(crate) fn contract_remainder_emission_work(
+    program: &TypedProgram,
+    function_name: &str,
+) -> usize {
+    let options = SanitizedOptions {
+        program_class: "VelnProgram".to_string(),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    let emitter = ClassfileEmitter::new(program, options);
+    let function = program
+        .functions
+        .iter()
+        .find(|function| function.name == function_name)
+        .expect("function for contract remainder emission work");
+    let class = ClassBuilder::new(&emitter.options.program_class);
+    let mut code = MethodCode::new(Rc::clone(&class.constant_pool));
+    let mut function_emitter = FunctionBytecodeEmitter::new(&emitter, function);
+    function_emitter.emit(&mut code);
+    code.contract_remainder_emission_work
 }
 
 pub(crate) struct ClassfileEmitter<'a> {

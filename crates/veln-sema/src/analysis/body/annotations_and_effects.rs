@@ -533,7 +533,7 @@ impl<'a> FunctionChecker<'a> {
             })
             .flatten()
             .filter_map(|(text, span)| {
-                let actual = predicate_type_with_calls(text, bindings, &|callee| {
+                let actual = predicate_remainder_operand_type(text, bindings, &|callee| {
                     self.contract_call_signature(callee)
                         .map(|(_, _, return_type, _, _)| return_type)
                 })?;

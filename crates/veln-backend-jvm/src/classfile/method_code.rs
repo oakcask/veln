@@ -12,6 +12,8 @@ pub(super) struct MethodCode {
     exception_patch_visit_count: usize,
     #[cfg(test)]
     pub(super) contract_call_metadata_work: usize,
+    #[cfg(test)]
+    pub(super) contract_remainder_emission_work: usize,
     pub(super) max_stack: u16,
     pub(super) max_locals: u16,
     pub(super) exceptions: Vec<ExceptionHandler>,
@@ -31,6 +33,8 @@ impl MethodCode {
             exception_patch_visit_count: 0,
             #[cfg(test)]
             contract_call_metadata_work: 0,
+            #[cfg(test)]
+            contract_remainder_emission_work: 0,
             max_stack: 64,
             max_locals: 0,
             exceptions: Vec::new(),

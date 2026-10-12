@@ -217,7 +217,7 @@ fn is_contract_identifier_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || byte == b'_'
 }
 
-fn strip_contract_outer_parens(mut text: &str) -> &str {
+pub(super) fn strip_contract_outer_parens(mut text: &str) -> &str {
     loop {
         let Some(inner) = text
             .strip_prefix('(')

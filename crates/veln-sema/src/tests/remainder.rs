@@ -43,6 +43,71 @@ fn flat_remainder_validation_types_each_leaf_once() {
 }
 
 #[test]
+fn flat_remainder_complete_pipeline_is_stack_safe_beyond_prior_failure() {
+    fn lower_chain(operator_count: usize, literal: bool) -> ContractObligationStatus {
+        let mut predicate = if literal {
+            "7".to_string()
+        } else {
+            "value".to_string()
+        };
+        for _ in 0..operator_count {
+            predicate.push_str(" % 3");
+        }
+        let expected = if literal { 1 } else { 0 };
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn checked(value: Int) -> Int\nrequire {predicate} == {expected}\n  value\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        lowered.core.expect("core program").functions[0].contracts[0].obligation_status
+    }
+
+    for operator_count in [4_096, 4_097] {
+        assert_eq!(
+            lower_chain(operator_count, false),
+            ContractObligationStatus::RuntimeRequired
+        );
+        assert_eq!(
+            lower_chain(operator_count, true),
+            ContractObligationStatus::StaticallyProven
+        );
+    }
+}
+
+#[test]
+fn flat_remainder_satisfy_pipeline_is_stack_safe() {
+    let operator_count = 4_096;
+    let mut predicate = String::from("candidate");
+    for _ in 0..operator_count {
+        predicate.push_str(" % 3");
+    }
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn checked(value: Int) -> Int\n  _value satisfy candidate => {predicate} == 1\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "hole.unfilled"),
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "hole.satisfy_type_mismatch" && diagnostic.id != "type.mismatch"
+    }));
+}
+
+#[test]
 fn remainder_is_int_only_even_in_float_contexts() {
     let diagnostics = diagnostics_for(concat!(
         "fn main() -> Float\n",
@@ -219,6 +284,134 @@ fn invalid_contract_and_satisfy_remainder_operands_report_at_each_operand() {
             .count(),
         2,
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn untypable_remainder_operands_preserve_specific_diagnostics() {
+    for clause in ["require", "ensure", "invariant"] {
+        let unary = diagnostics_for(&format!(
+            "fn checked(flag: Bool) -> output: Int\n{clause} (-flag) % 2 == 0\n  0\nend\n"
+        ));
+        assert_eq!(
+            unary
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.mismatch")
+                .count(),
+            1,
+            "{clause}: {unary:#?}"
+        );
+        assert!(unary.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.message == "expected `Int`, but found `Bool`"
+        }));
+        assert!(unary.iter().all(|diagnostic| {
+            diagnostic.id != "contract.type_mismatch"
+                && diagnostic.id != "contract.unsupported_construct"
+        }));
+
+        let missing = diagnostics_for(&format!(
+            "fn checked(box: {{value: Int}}) -> output: Int\n{clause} box.missing % 2 == 0\n  0\nend\n"
+        ));
+        assert!(
+            missing
+                .iter()
+                .any(|diagnostic| diagnostic.id == "contract.field_missing"),
+            "{clause}: {missing:#?}"
+        );
+        assert!(missing.iter().all(|diagnostic| {
+            diagnostic.id != "contract.type_mismatch"
+                && diagnostic.id != "contract.unsupported_construct"
+        }));
+    }
+
+    let satisfy = diagnostics_for(concat!(
+        "fn checked(box: {value: Int}) -> Int\n",
+        "  _value satisfy candidate => candidate % box.missing == 0\n",
+        "end\n",
+    ));
+    assert!(
+        satisfy
+            .iter()
+            .any(|diagnostic| diagnostic.id == "hole.satisfy_field_missing"),
+        "{satisfy:#?}"
+    );
+    assert!(
+        satisfy
+            .iter()
+            .all(|diagnostic| diagnostic.id != "hole.satisfy_type_mismatch"),
+        "{satisfy:#?}"
+    );
+
+    let satisfy_unary = diagnostics_for(concat!(
+        "fn checked(flag: Bool) -> Int\n",
+        "  _value satisfy candidate => candidate % (-flag) == 0\n",
+        "end\n",
+    ));
+    assert!(
+        satisfy_unary.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.message == "expected `Int`, but found `Bool`"
+        }),
+        "{satisfy_unary:#?}"
+    );
+    assert!(
+        satisfy_unary
+            .iter()
+            .all(|diagnostic| diagnostic.id != "hole.satisfy_type_mismatch"),
+        "{satisfy_unary:#?}"
+    );
+}
+
+#[test]
+fn nested_call_does_not_mask_remainder_operand_mismatch() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn accepts_bool(value: Bool) -> Bool\n",
+        "  value\n",
+        "end\n",
+        "fn checked(flag: Bool) -> Int\n",
+        "require accepts_bool(flag % 2)\n",
+        "  0\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch" && diagnostic.message == "expected `Int`, but found `Bool`"
+    }));
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "contract.unsupported_construct"
+            && diagnostic.id != "contract.type_mismatch"
+    }));
+
+    let satisfy = diagnostics_for(concat!(
+        "fn accepts_bool(value: Bool) -> Bool\n",
+        "  value\n",
+        "end\n",
+        "fn checked(flag: Bool) -> Int\n",
+        "  _value satisfy candidate => accepts_bool(candidate % flag)\n",
+        "end\n",
+    ));
+    assert!(
+        satisfy.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.message == "expected `Int`, but found `Bool`"
+        }),
+        "{satisfy:#?}"
+    );
+    assert!(
+        satisfy.iter().all(|diagnostic| {
+            diagnostic.id != "hole.satisfy_unsupported_construct"
+                && diagnostic.id != "hole.satisfy_type_mismatch"
+        }),
+        "{satisfy:#?}"
     );
 }
 

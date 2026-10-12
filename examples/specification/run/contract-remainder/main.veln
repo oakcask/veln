@@ -7,19 +7,29 @@ fn checked(value: Int, divisor: Int) -> output: Int
 	value
 end
 
+fn signed(value: Int, divisor: Int, expected: Int) -> output: Int
+	require value % divisor == expected
+	ensure output == expected
+	invariant value % divisor == expected
+	value % divisor
+end
+
 fn endpoint(value: Int) -> Int
 	require value % -1 == 0
-	value
+	value % -1
 end
 
 fn large_divisor(value: Int) -> Int
 	require value % 9223372036854775807 == value
-	value
+	value % 9223372036854775807
 end
 
 pub fn main() -> () effects [stdio]
 	stdio::println(int_to_string(checked(6, 3)))
 	stdio::println(int_to_string(checked(-6, -3)))
+	stdio::println(int_to_string(signed(-7, 3, -1)))
+	stdio::println(int_to_string(signed(7, -3, 1)))
+	stdio::println(int_to_string(signed(-7, -3, -1)))
 	stdio::println(int_to_string(endpoint(-9223372036854775807 - 1)))
 	stdio::println(int_to_string(large_divisor(1)))
 end

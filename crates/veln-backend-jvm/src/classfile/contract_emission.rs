@@ -57,6 +57,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         operand_depth: usize,
         contract: &IrContract,
     ) {
+        if text.contains('%')
+            && self.emit_flat_remainder_chain(code, text, callsite_calls, operand_depth, contract)
+        {
+            return;
+        }
         match parse_contract_value(text) {
             ContractValue::Not(value) => self.emit_contract_unary(
                 code,
@@ -105,6 +110,38 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         }
     }
 
+    fn emit_flat_remainder_chain(
+        &mut self,
+        code: &mut MethodCode,
+        text: &str,
+        callsite_calls: &HashMap<&str, &CoreContractCall>,
+        operand_depth: usize,
+        contract: &IrContract,
+    ) -> bool {
+        if !flat_remainder_chain_matches(text, &contract.remainder_spans) {
+            return false;
+        }
+        let first = &contract.remainder_spans[0];
+        self.emit_contract_value(
+            code,
+            &first.left_text,
+            callsite_calls,
+            operand_depth,
+            contract,
+        );
+        for remainder in &contract.remainder_spans {
+            self.emit_contract_value(
+                code,
+                &remainder.right_text,
+                callsite_calls,
+                operand_depth + 1,
+                contract,
+            );
+            self.emit_contract_remainder_operation(code, remainder, operand_depth, contract);
+        }
+        true
+    }
+
     fn emit_contract_unary(
         &mut self,
         code: &mut MethodCode,
@@ -135,7 +172,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_contract_value(code, left, callsite_calls, operand_depth, contract);
         self.emit_contract_value(code, right, callsite_calls, operand_depth + 1, contract);
         if op == BinaryOp::Remainder {
-            record_contract_stack(code, operand_depth + 15);
             let divisor_offset = right.as_ptr() as usize - contract.predicate.as_ptr() as usize;
             let operator_offset = contract.predicate[..divisor_offset]
                 .rfind('%')
@@ -146,34 +182,49 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 .remainder_spans
                 .get(remainder_index)
                 .expect("parsed remainder must retain source provenance");
-            code.ldc_string(contract.span.file.as_str());
-            for value in [
-                remainder.right_span.start.line,
-                remainder.right_span.start.column,
-                remainder.right_span.start.offset,
-                remainder.right_span.end.line,
-                remainder.right_span.end.column,
-                remainder.right_span.end.offset,
-                remainder.operation_span.start.line,
-                remainder.operation_span.start.column,
-                remainder.operation_span.start.offset,
-                remainder.operation_span.end.line,
-                remainder.operation_span.end.column,
-                remainder.operation_span.end.offset,
-            ] {
-                code.push_i32(value as i32);
-            }
-            code.invokestatic(
-                &self.program.options.runtime_class,
-                "remainder",
-                "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String;IIIIIIIIIIII)Ljava/lang/Object;",
-            );
+            self.emit_contract_remainder_operation(code, remainder, operand_depth, contract);
             return;
         }
         code.invokestatic(
             &self.program.options.runtime_class,
             binary_method(op),
             "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_contract_remainder_operation(
+        &self,
+        code: &mut MethodCode,
+        remainder: &PredicateRemainder,
+        operand_depth: usize,
+        contract: &IrContract,
+    ) {
+        #[cfg(test)]
+        {
+            code.contract_remainder_emission_work += 1;
+        }
+        record_contract_stack(code, operand_depth + 15);
+        code.ldc_string(contract.span.file.as_str());
+        for value in [
+            remainder.right_span.start.line,
+            remainder.right_span.start.column,
+            remainder.right_span.start.offset,
+            remainder.right_span.end.line,
+            remainder.right_span.end.column,
+            remainder.right_span.end.offset,
+            remainder.operation_span.start.line,
+            remainder.operation_span.start.column,
+            remainder.operation_span.start.offset,
+            remainder.operation_span.end.line,
+            remainder.operation_span.end.column,
+            remainder.operation_span.end.offset,
+        ] {
+            code.push_i32(value as i32);
+        }
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "remainder",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String;IIIIIIIIIIII)Ljava/lang/Object;",
         );
     }
 
@@ -361,6 +412,31 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
     }
+}
+
+fn flat_remainder_chain_matches(text: &str, remainders: &[PredicateRemainder]) -> bool {
+    let Some((first, rest)) = remainders.split_first() else {
+        return false;
+    };
+    if first.left_is_prior_remainder
+        || rest
+            .iter()
+            .any(|remainder| !remainder.left_is_prior_remainder)
+    {
+        return false;
+    }
+    let mut expected = first.left_text.clone();
+    for remainder in remainders {
+        expected.push('%');
+        expected.push_str(&remainder.right_text);
+    }
+    let compact = |value: &str| {
+        strip_contract_outer_parens(value.trim())
+            .chars()
+            .filter(|character| !character.is_whitespace())
+            .collect::<String>()
+    };
+    compact(text) == compact(&expected)
 }
 
 fn remainder_operator_count_before(predicate: &str, operator_offset: usize) -> usize {

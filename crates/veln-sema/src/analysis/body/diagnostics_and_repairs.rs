@@ -625,7 +625,10 @@ impl<'a> FunctionChecker<'a> {
         satisfy: &SatisfyClause,
         expected: &Type,
     ) -> Option<SatisfyRepairConstraint> {
-        if predicate_has_nonfoldable_remainder(&satisfy.predicate) {
+        if predicate_has_nonfoldable_remainder_with_remainders(
+            &satisfy.predicate,
+            &satisfy.remainder_spans,
+        ) {
             return None;
         }
         let allow_static_truth = self.valid_static_satisfy_predicate(satisfy, expected);

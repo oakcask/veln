@@ -180,17 +180,26 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
         "invariant (-value) % divisor == 0\n",
         "  value\n",
         "end\n",
+        "fn signed(value: Int, divisor: Int, expected: Int) -> output: Int\n",
+        "require value % divisor == expected\n",
+        "ensure output == expected\n",
+        "invariant value % divisor == expected\n",
+        "  value % divisor\n",
+        "end\n",
         "fn endpoint(value: Int) -> Int\n",
         "require value % -1 == 0\n",
-        "  value\n",
+        "  value % -1\n",
         "end\n",
         "fn large_divisor(value: Int) -> Int\n",
         "require value % 9223372036854775807 == value\n",
-        "  value\n",
+        "  value % 9223372036854775807\n",
         "end\n",
         "pub fn main() -> () effects [stdio]\n",
         "  stdio::println(int_to_string(checked(6, 3)))\n",
         "  stdio::println(int_to_string(checked(-6, -3)))\n",
+        "  stdio::println(int_to_string(signed(-7, 3, -1)))\n",
+        "  stdio::println(int_to_string(signed(7, -3, 1)))\n",
+        "  stdio::println(int_to_string(signed(-7, -3, -1)))\n",
         "  stdio::println(int_to_string(endpoint(-9223372036854775807 - 1)))\n",
         "  stdio::println(int_to_string(large_divisor(1)))\n",
         "end\n",
@@ -210,7 +219,7 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "6\n-6\n-9223372036854775808\n1\n"
+        "6\n-6\n-1\n1\n-1\n0\n1\n"
     );
 }
 
@@ -484,6 +493,30 @@ fn contract_callsite_metadata_work_grows_linearly() {
 
     assert_eq!(smaller, smaller_count * 2);
     assert_eq!(larger, larger_count * 2);
+    assert_eq!(larger, smaller * 2);
+}
+
+fn flat_remainder_contract(operator_count: usize) -> TypedProgram {
+    let mut predicate = String::from("value");
+    for _ in 0..operator_count {
+        predicate.push_str(" % 2");
+    }
+    lower_to_ir(&format!(
+        "pub fn guarded(value: Int) -> Int\nrequire {predicate} == 0\n  value\nend\n"
+    ))
+}
+
+#[test]
+fn flat_remainder_contract_emission_work_grows_linearly() {
+    let smaller_count = 500;
+    let larger_count = 1_000;
+    let smaller =
+        contract_remainder_emission_work(&flat_remainder_contract(smaller_count), "guarded");
+    let larger =
+        contract_remainder_emission_work(&flat_remainder_contract(larger_count), "guarded");
+
+    assert_eq!(smaller, smaller_count);
+    assert_eq!(larger, larger_count);
     assert_eq!(larger, smaller * 2);
 }
 

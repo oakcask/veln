@@ -30,6 +30,52 @@ pub(crate) fn predicate_is_boolean_with_calls(
     )
 }
 
+pub(crate) fn predicate_is_boolean_with_remainders(
+    predicate: &str,
+    remainders: &[PredicateRemainder],
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<bool> {
+    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+        let Some((left, right)) = split_top_level_operator(predicate, operator) else {
+            continue;
+        };
+        let (other, chain_is_left) = if flat_remainder_chain_matches(left, remainders) {
+            (right, true)
+        } else if flat_remainder_chain_matches(right, remainders) {
+            (left, false)
+        } else {
+            continue;
+        };
+        if !flat_remainder_chain_has_int_operands(remainders, bindings, call_type) {
+            return Some(false);
+        }
+        let other_type = predicate_type_with_calls(other, bindings, call_type)?;
+        let (left, right) = if chain_is_left {
+            (Type::int(), other_type)
+        } else {
+            (other_type, Type::int())
+        };
+        return Some(comparable_predicate_operands(&left, &right));
+    }
+    None
+}
+
+fn flat_remainder_chain_has_int_operands(
+    remainders: &[PredicateRemainder],
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> bool {
+    let Some(first) = remainders.first() else {
+        return false;
+    };
+    predicate_remainder_operand_type(&first.left_text, bindings, call_type) == Some(Type::int())
+        && remainders.iter().all(|remainder| {
+            predicate_remainder_operand_type(&remainder.right_text, bindings, call_type)
+                == Some(Type::int())
+        })
+}
+
 pub(crate) fn predicate_rendered_type_with_calls(
     predicate: &str,
     bindings: &[Binding],
@@ -187,11 +233,26 @@ pub(crate) fn predicate_has_invalid_remainder_operands(
 ) -> bool {
     remainders.iter().any(|remainder| {
         let left_invalid = !remainder.left_is_prior_remainder
-            && predicate_type_with_calls(&remainder.left_text, bindings, call_type)
-                != Some(Type::int());
-        let right_invalid = predicate_type_with_calls(&remainder.right_text, bindings, call_type)
-            != Some(Type::int());
+            && predicate_remainder_operand_type(&remainder.left_text, bindings, call_type)
+                .is_some_and(|ty| ty != Type::int() && ty != Type::Unknown);
+        let right_invalid =
+            predicate_remainder_operand_type(&remainder.right_text, bindings, call_type)
+                .is_some_and(|ty| ty != Type::int() && ty != Type::Unknown);
         left_invalid || right_invalid
+    })
+}
+
+pub(crate) fn predicate_remainder_operand_type(
+    operand: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    predicate_type_with_calls(operand, bindings, call_type).or_else(|| {
+        let operand = strip_balanced_outer_parens(operand.trim());
+        let inner = operand
+            .strip_prefix('-')
+            .or_else(|| operand.strip_prefix('~'))?;
+        predicate_type_with_calls(inner, bindings, call_type)
     })
 }
 
