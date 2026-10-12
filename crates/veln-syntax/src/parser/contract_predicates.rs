@@ -145,10 +145,8 @@ impl<'a> ContractPredicateParser<'a> {
             right_span: self.source.span(right_first.range.cover(right_last.range)),
             operation_span,
         });
-        self.completed_remainder_ranges.insert((
-            left_first.range.start as usize,
-            right_last.range.end as usize,
-        ));
+        self.completed_remainder_ranges
+            .insert((left_first.range.start, right_last.range.end));
     }
 
     pub(super) fn parse_prefix(&mut self) {
