@@ -1,5 +1,7 @@
 use super::*;
 
+mod operator_diagnostics;
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_record(
         &mut self,
@@ -379,44 +381,11 @@ impl<'a> FunctionChecker<'a> {
             return self.infer_pipeline(left, right, expected_result);
         }
 
-        if op == BinaryOp::Remainder && is_literal_zero(right) {
-            let mut operation_span = left.span.clone();
-            operation_span.end = right.span.end;
-            let mut diagnostic = Diagnostic::new(
-                "type.remainder_by_zero",
-                Severity::Error,
-                DiagnosticKind::Type,
-                "remainder divisor is zero",
-                Some(right.span.clone()),
-                JsonValue::object([
-                    ("operator", JsonValue::string("%")),
-                    ("divisor", JsonValue::Number(0)),
-                ]),
-            );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("operation")),
-                ("message", JsonValue::string("Remainder operation is here.")),
-                ("span", span_json(&operation_span)),
-            ]));
-            self.diagnostics.push(diagnostic);
+        if op == BinaryOp::Remainder {
+            self.report_literal_zero_remainder(left, right);
         }
 
-        if let Some(count) = invalid_literal_shift_count(op, right) {
-            let operator = shift_operator_text(op).expect("shift operator should have text");
-            self.diagnostics.push(Diagnostic::new(
-                "type.invalid_shift_count",
-                Severity::Error,
-                DiagnosticKind::Type,
-                format!("shift count {count} is outside the permitted range 0 through 63"),
-                Some(right.span.clone()),
-                JsonValue::object([
-                    ("operator", JsonValue::string(operator)),
-                    ("actual_count", JsonValue::Number(count)),
-                    ("minimum_count", JsonValue::Number(0)),
-                    ("maximum_count", JsonValue::Number(63)),
-                ]),
-            ));
-        }
+        self.report_invalid_literal_shift_count(op, right);
 
         let numeric_type = if op == BinaryOp::Remainder {
             Type::int()
@@ -655,19 +624,6 @@ impl<'a> FunctionChecker<'a> {
                 .map(Type::vec),
             _ => None,
         }
-    }
-}
-
-fn is_literal_zero(expr: &Expr) -> bool {
-    match &expr.kind {
-        ExprKind::IntLiteral(value) => {
-            veln_literals::parse_integer_literal(value).is_ok_and(|literal| literal.value == 0)
-        }
-        ExprKind::Prefix {
-            op: veln_ast::PrefixOp::Negate,
-            expr,
-        } => is_literal_zero(expr),
-        _ => false,
     }
 }
 

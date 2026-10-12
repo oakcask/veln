@@ -157,24 +157,7 @@ impl<'a> Parser<'a> {
             "schema_field",
             &[TokenKind::Where, TokenKind::Newline, TokenKind::Eof],
         );
-        if let Some(token) = self.tokens[type_cursor_start..self.cursor]
-            .iter()
-            .find(|token| token.kind == TokenKind::Percent)
-            .cloned()
-        {
-            self.error_at_token(
-                &token,
-                DiagnosticRequest {
-                    id: "parse.schema_field_type",
-                    message: "schema field type expressions do not support `%`".to_string(),
-                    parser_context: "schema_field",
-                    expected: vec!["schema field type without `%`"],
-                    strategy: RecoveryStrategy::SkipToken,
-                    anchor: Some("newline"),
-                    repair_candidates: Vec::new(),
-                },
-            );
-        }
+        self.report_unsupported_schema_field_operators(type_cursor_start);
         if schema_repeated_field_type_missing_semicolon(&ty) {
             let type_end = self.previous().map_or(type_start, |token| token.range);
             self.diagnostics.push(ParseDiagnostic {
@@ -208,6 +191,28 @@ impl<'a> Parser<'a> {
             where_clause,
             span: self.source.span(start.cover(end)),
         }
+    }
+
+    fn report_unsupported_schema_field_operators(&mut self, type_cursor_start: usize) {
+        let Some(token) = self.tokens[type_cursor_start..self.cursor]
+            .iter()
+            .find(|token| token.kind == TokenKind::Percent)
+            .cloned()
+        else {
+            return;
+        };
+        self.error_at_token(
+            &token,
+            DiagnosticRequest {
+                id: "parse.schema_field_type",
+                message: "schema field type expressions do not support `%`".to_string(),
+                parser_context: "schema_field",
+                expected: vec!["schema field type without `%`"],
+                strategy: RecoveryStrategy::SkipToken,
+                anchor: Some("newline"),
+                repair_candidates: Vec::new(),
+            },
+        );
     }
 
     pub(super) fn parse_schema_field_where_clause(
