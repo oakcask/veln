@@ -421,10 +421,10 @@ pub fn predicate_remainder_chain_ranges(remainders: &[PredicateRemainder]) -> Ve
     let mut ranges = Vec::new();
     let mut start = None;
     for (index, remainder) in remainders.iter().enumerate() {
-        if !remainder.left_is_prior_remainder {
-            if let Some(start) = start.replace(index) {
-                ranges.push(start..index);
-            }
+        if !remainder.left_is_prior_remainder
+            && let Some(start) = start.replace(index)
+        {
+            ranges.push(start..index);
         }
     }
     if let Some(start) = start {
