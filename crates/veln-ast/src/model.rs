@@ -399,9 +399,20 @@ pub struct Contract {
     pub node_id: NodeId,
     pub kind: ContractKind,
     pub text: String,
+    pub remainder_spans: Vec<PredicateRemainder>,
     pub callsite_reference_spans: Vec<SourceSpan>,
     pub call_callee_spans: Vec<(String, SourceSpan)>,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PredicateRemainder {
+    pub left_text: String,
+    pub right_text: String,
+    pub operator_span: SourceSpan,
+    pub left_span: SourceSpan,
+    pub right_span: SourceSpan,
+    pub operation_span: SourceSpan,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -557,6 +568,7 @@ pub struct SatisfyClause {
     pub candidate: Option<String>,
     pub candidate_span: Option<SourceSpan>,
     pub predicate: String,
+    pub remainder_spans: Vec<PredicateRemainder>,
     pub span: SourceSpan,
 }
 

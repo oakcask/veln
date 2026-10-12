@@ -442,6 +442,7 @@ impl<'a> Parser<'a> {
         ContractClause {
             kind,
             text,
+            remainder_spans: predicate_output.remainder_spans,
             perform_effect_spans: predicate_output.perform_effect_spans,
             callsite_reference_spans,
             call_callee_spans,

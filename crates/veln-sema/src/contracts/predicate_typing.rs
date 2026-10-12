@@ -150,7 +150,7 @@ pub(super) fn predicate_arithmetic_type(
             let left = predicate_type_with_calls(left, bindings, call_type)?;
             let right = predicate_type_with_calls(right, bindings, call_type)?;
             if operator == "%" {
-                return (left == Type::int() && right == Type::int()).then(Type::int);
+                return Some(Type::int());
             }
             return numeric_result_type(&left, &right);
         }
@@ -171,7 +171,16 @@ pub(super) fn split_top_level_operator_group<'a, 'b>(
         .max_by_key(|(left, _, _)| left.len())
 }
 
-pub(crate) fn predicate_literal_zero_remainder_divisor(predicate: &str) -> Option<&str> {
+pub(crate) fn predicate_literal_is_zero(text: &str) -> bool {
+    let text = strip_balanced_outer_parens(text.trim());
+    ExactNumber::parse(text).is_some_and(|number| number.as_i64() == Some(0))
+}
+
+pub(crate) fn predicate_has_invalid_remainder_operands(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> bool {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     for operators in [
         &["or"][..],
@@ -189,27 +198,25 @@ pub(crate) fn predicate_literal_zero_remainder_divisor(predicate: &str) -> Optio
         else {
             continue;
         };
-        if operator == "%" && literal_text_is_zero(right) {
-            return Some(right);
-        }
-        return predicate_literal_zero_remainder_divisor(left)
-            .or_else(|| predicate_literal_zero_remainder_divisor(right));
+        let invalid_here = operator == "%"
+            && (predicate_type_with_calls(left, bindings, call_type) != Some(Type::int())
+                || predicate_type_with_calls(right, bindings, call_type) != Some(Type::int()));
+        return invalid_here
+            || predicate_has_invalid_remainder_operands(left, bindings, call_type)
+            || predicate_has_invalid_remainder_operands(right, bindings, call_type);
     }
     if let Some(rest) = predicate
         .strip_prefix('-')
         .or_else(|| predicate.strip_prefix('~'))
+        .or_else(|| predicate.strip_prefix("not "))
     {
-        return predicate_literal_zero_remainder_divisor(rest);
+        return predicate_has_invalid_remainder_operands(rest, bindings, call_type);
     }
-    if let Some(rest) = predicate.strip_prefix("not ") {
-        return predicate_literal_zero_remainder_divisor(rest);
-    }
-    None
-}
-
-fn literal_text_is_zero(text: &str) -> bool {
-    let text = strip_balanced_outer_parens(text.trim());
-    ExactNumber::parse(text).is_some_and(|number| number.as_i64() == Some(0))
+    contract_calls(predicate).into_iter().any(|call| {
+        call.args
+            .iter()
+            .any(|arg| predicate_has_invalid_remainder_operands(arg, bindings, call_type))
+    })
 }
 
 pub(super) fn predicate_bitwise_type(

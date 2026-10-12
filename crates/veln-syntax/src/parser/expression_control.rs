@@ -540,6 +540,7 @@ impl<'a> ExprParser<'a> {
         };
         let (parts, predicate_tokens, predicate_end) = self.collect_satisfy_predicate();
         end = predicate_end.unwrap_or(end);
+        let predicate = normalize_collected_text(parts);
         let predicate_output = ContractPredicateParser::new(
             self.source,
             "satisfy_predicate",
@@ -552,7 +553,8 @@ impl<'a> ExprParser<'a> {
         Some(SatisfyClause {
             candidate,
             candidate_span,
-            predicate: normalize_collected_text(parts),
+            predicate,
+            remainder_spans: predicate_output.remainder_spans,
             perform_effect_spans: if clause_recovered {
                 Vec::new()
             } else {

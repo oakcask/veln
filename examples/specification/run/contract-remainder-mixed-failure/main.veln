@@ -1,0 +1,10 @@
+# `%` keeps Int division semantics in a mixed literal contract expression.
+fn checked() -> Int
+require 1 % 2 / 2 == 0.5
+	0
+end
+
+pub fn main() -> ()
+	checked()
+	()
+end

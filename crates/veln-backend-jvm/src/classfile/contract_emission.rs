@@ -127,33 +127,31 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_contract_value(code, left, callsite_calls, operand_depth, contract);
         self.emit_contract_value(code, right, callsite_calls, operand_depth + 1, contract);
         if op == BinaryOp::Remainder {
-            let predicate_start = contract
-                .span
-                .end
-                .offset
-                .saturating_sub(1 + contract.predicate.len());
+            record_contract_stack(code, operand_depth + 15);
             let divisor_offset = right.as_ptr() as usize - contract.predicate.as_ptr() as usize;
-            let operation_offset = left.as_ptr() as usize - contract.predicate.as_ptr() as usize;
-            let predicate_column = contract.span.start.column
-                + predicate_start.saturating_sub(contract.span.start.offset);
-            let divisor_column =
-                predicate_column + contract.predicate[..divisor_offset].chars().count();
-            let operation_column =
-                predicate_column + contract.predicate[..operation_offset].chars().count();
+            let operator_offset = contract.predicate[..divisor_offset]
+                .rfind('%')
+                .expect("parsed remainder must have an operator before its divisor");
+            let remainder_index =
+                remainder_operator_count_before(&contract.predicate, operator_offset);
+            let remainder = contract
+                .remainder_spans
+                .get(remainder_index)
+                .expect("parsed remainder must retain source provenance");
             code.ldc_string(contract.span.file.as_str());
             for value in [
-                contract.span.start.line,
-                divisor_column,
-                predicate_start + divisor_offset,
-                contract.span.start.line,
-                divisor_column + right.chars().count(),
-                predicate_start + divisor_offset + right.len(),
-                contract.span.start.line,
-                operation_column,
-                predicate_start + operation_offset,
-                contract.span.start.line,
-                divisor_column + right.chars().count(),
-                predicate_start + divisor_offset + right.len(),
+                remainder.right_span.start.line,
+                remainder.right_span.start.column,
+                remainder.right_span.start.offset,
+                remainder.right_span.end.line,
+                remainder.right_span.end.column,
+                remainder.right_span.end.offset,
+                remainder.operation_span.start.line,
+                remainder.operation_span.start.column,
+                remainder.operation_span.start.offset,
+                remainder.operation_span.end.line,
+                remainder.operation_span.end.column,
+                remainder.operation_span.end.offset,
             ] {
                 code.push_i32(value as i32);
             }
@@ -355,6 +353,31 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
     }
+}
+
+fn remainder_operator_count_before(predicate: &str, operator_offset: usize) -> usize {
+    let mut in_string = false;
+    let mut escaped = false;
+    predicate[..operator_offset]
+        .chars()
+        .filter(|character| {
+            if in_string {
+                if escaped {
+                    escaped = false;
+                } else if *character == '\\' {
+                    escaped = true;
+                } else if *character == '"' {
+                    in_string = false;
+                }
+                return false;
+            }
+            if *character == '"' {
+                in_string = true;
+                return false;
+            }
+            *character == '%'
+        })
+        .count()
 }
 
 fn record_contract_stack(code: &mut MethodCode, operand_depth: usize) {

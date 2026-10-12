@@ -6,12 +6,12 @@ use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     EffectBinder, EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind,
     HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
-    PatternField, PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField,
-    SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
-    SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypePathSegments,
-    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage,
-    VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
-    lex,
+    PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAliasDecl, PublicAliasKind,
+    RecordField, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl,
+    TypePathSegments, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl,
+    UsePackage, VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument,
+    Visibility, lex,
 };
 
 mod adr_lite;
@@ -461,11 +461,13 @@ struct ContractPredicateParser<'a> {
     cursor: usize,
     diagnostics: Vec<ParseDiagnostic>,
     perform_effect_spans: Vec<SourceSpan>,
+    remainder_spans: Vec<PredicateRemainder>,
 }
 
 struct ContractPredicateOutput {
     diagnostics: Vec<ParseDiagnostic>,
     perform_effect_spans: Vec<SourceSpan>,
+    remainder_spans: Vec<PredicateRemainder>,
 }
 
 trait TokenCursor {

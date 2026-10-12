@@ -215,21 +215,30 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
 
 #[test]
 fn bytecode_backend_reports_dynamic_zero_remainder_in_contract() {
-    let ir = lower_to_ir(concat!(
+    let source = concat!(
         "fn checked(value: Int, divisor: Int) -> Int\n",
-        "require value % divisor == 0\n",
+        "require value % divisor    == 0\n",
         "  value\n",
         "end\n",
         "pub fn main() -> ()\n",
         "  checked(7, 0)\n",
         "  ()\n",
         "end\n",
-    ));
+    );
+    let ir = lower_to_ir(source);
     let program = generate_classfiles_with_entry(&ir, "main");
 
-    let Some(output) =
-        run_jvm_program_when_java_is_available("bytecode-contract-remainder-zero", &program, &[])
-    else {
+    let trace_root = temp_dir("bytecode-contract-remainder-zero-trace");
+    let trace_path = trace_root.join("runtime-errors.tsv");
+    let trace_text = trace_path.to_string_lossy().to_string();
+
+    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+        "bytecode-contract-remainder-zero",
+        &program,
+        &[("VELN_RUNTIME_ERRORS", trace_text.as_str())],
+        &[],
+    ) else {
+        let _ = fs::remove_dir_all(&trace_root);
         return;
     };
 
@@ -240,6 +249,75 @@ fn bytecode_backend_reports_dynamic_zero_remainder_in_contract() {
         "{stderr}"
     );
     assert!(!stderr.contains("ArithmeticException"), "{stderr}");
+    let trace = fs::read_to_string(&trace_path).expect("remainder runtime trace");
+    let divisor_start = source.find("divisor    ==").expect("divisor source offset");
+    let operation_start = source
+        .find("value % divisor")
+        .expect("operation source offset");
+    let expected_coordinates = format!(
+        "\t2\t17\t{divisor_start}\t2\t24\t{}\t2\t9\t{operation_start}\t2\t24\t{}",
+        divisor_start + "divisor".len(),
+        divisor_start + "divisor".len(),
+    );
+    assert!(trace.contains(&expected_coordinates), "{trace}");
+    let _ = fs::remove_dir_all(&trace_root);
+}
+
+#[test]
+fn bytecode_backend_executes_mixed_remainder_contracts_with_int_semantics() {
+    for predicate in [
+        "5 % 3 * 2 == 5",
+        "5 % (3 * 2) == 4",
+        "1 % 2 / 2 == 0.5",
+        "5 % (3 / 2) == 1",
+        "20 % 6 % 4 == 0",
+        "20 % (6 % 4) == 1",
+    ] {
+        let ir = lower_to_ir(&format!(
+            "fn checked() -> Int\nrequire {predicate}\n  0\nend\npub fn main() -> ()\n  checked()\n  ()\nend\n"
+        ));
+        let normalized_predicate = ir.functions[0].contracts[0].predicate.clone();
+        let program = generate_classfiles_with_entry(&ir, "main");
+        let Some(output) = run_jvm_program_when_java_is_available(
+            "bytecode-contract-remainder-mixed",
+            &program,
+            &[],
+        ) else {
+            return;
+        };
+        assert!(!output.status.success(), "{predicate}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(&format!(
+                "contract failure: require `{normalized_predicate}`"
+            )),
+            "{predicate}: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn bytecode_backend_accounts_for_deep_remainder_helper_stack() {
+    let mut predicate = "divisor".to_string();
+    for value in (1..=51).rev() {
+        predicate = format!("{value} % ({predicate})");
+    }
+    let ir = lower_to_ir(&format!(
+        "fn checked(divisor: Int) -> Int\nrequire {predicate} == 1\n  divisor\nend\npub fn main() -> () effects [stdio]\n  stdio::println(int_to_string(checked(52)))\nend\n"
+    ));
+    assert_eq!(function_max_stack(&ir, "checked"), 65);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-contract-remainder-deep", &program, &[])
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "52\n");
 }
 
 #[test]

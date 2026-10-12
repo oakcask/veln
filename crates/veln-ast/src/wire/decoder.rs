@@ -558,9 +558,21 @@ impl<'a> Reader<'a> {
             node_id: self.node_id()?,
             kind: self.contract_kind()?,
             text: self.string()?,
+            remainder_spans: self.vec(Self::predicate_remainder)?,
             callsite_reference_spans: self.vec(Self::span)?,
             call_callee_spans: self.vec(|reader| Ok((reader.string()?, reader.span()?)))?,
             span: self.span()?,
+        })
+    }
+
+    fn predicate_remainder(&mut self) -> Result<PredicateRemainder, String> {
+        Ok(PredicateRemainder {
+            left_text: self.string()?,
+            right_text: self.string()?,
+            operator_span: self.span()?,
+            left_span: self.span()?,
+            right_span: self.span()?,
+            operation_span: self.span()?,
         })
     }
 

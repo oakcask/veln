@@ -83,6 +83,25 @@ pub(crate) fn function_code_footprint(program: &TypedProgram, function_name: &st
 }
 
 #[cfg(test)]
+pub(crate) fn function_max_stack(program: &TypedProgram, function_name: &str) -> u16 {
+    let options = SanitizedOptions {
+        program_class: "VelnProgram".to_string(),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    let emitter = ClassfileEmitter::new(program, options);
+    let function = program
+        .functions
+        .iter()
+        .find(|function| function.name == function_name)
+        .expect("function for maximum JVM stack");
+    let class = ClassBuilder::new(&emitter.options.program_class);
+    let mut code = MethodCode::new(Rc::clone(&class.constant_pool));
+    let mut function_emitter = FunctionBytecodeEmitter::new(&emitter, function);
+    function_emitter.emit(&mut code);
+    code.max_stack
+}
+
+#[cfg(test)]
 pub(crate) fn contract_call_metadata_work(program: &TypedProgram, function_name: &str) -> usize {
     let options = SanitizedOptions {
         program_class: "VelnProgram".to_string(),

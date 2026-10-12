@@ -143,6 +143,7 @@ impl<'a> Reader<'a> {
             candidate: self.option(Self::string)?,
             candidate_span: self.option(Self::span)?,
             predicate: self.string()?,
+            remainder_spans: self.vec(Self::predicate_remainder)?,
             span: self.span()?,
         })
     }

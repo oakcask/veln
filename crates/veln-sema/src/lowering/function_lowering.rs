@@ -148,6 +148,7 @@ impl<'a> CoreLowerer<'a> {
                     node_id: contract.node_id,
                     kind: contract.kind,
                     predicate: contract.text.clone(),
+                    remainder_spans: contract.remainder_spans.clone(),
                     callsite_calls,
                     obligation_status,
                     span: contract.span.clone(),

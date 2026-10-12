@@ -44,6 +44,9 @@ pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
     if let Some((callee, args)) = parse_contract_call(text) {
         return ContractValue::Call { callee, args };
     }
+    if contract_integer_value(text).is_some() || text.parse::<f64>().is_ok() {
+        return ContractValue::Scalar(parse_contract_scalar(text));
+    }
     if let Some((base, field)) = text.split_once('.') {
         return ContractValue::Field { base, field };
     }

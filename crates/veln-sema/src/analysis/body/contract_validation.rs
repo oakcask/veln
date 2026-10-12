@@ -43,6 +43,12 @@ impl<'a> FunctionChecker<'a> {
         {
             return validation;
         }
+        if predicate_has_invalid_remainder_operands(trimmed, bindings, &|callee| {
+            self.contract_call_signature(callee)
+                .map(|(_, _, return_type, _, _)| return_type)
+        }) {
+            return ContractValidation::InvalidRemainderOperands;
+        }
         if let Some(validation) = self.validate_whole_contract_call(trimmed, &calls) {
             return validation;
         }

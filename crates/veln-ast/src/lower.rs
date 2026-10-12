@@ -16,8 +16,8 @@ use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectDecl,
     EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
     HandlerOperationClauseDecl, InvalidName, MatchArm, ModuleHeader, NameClass, NameOccurrence,
-    NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias, PublicAliasKind,
-    RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    NodeId, Param, Pattern, PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAlias,
+    PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
     SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeAnnotationStructure, TypeDecl,
     TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin,
     VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
@@ -509,6 +509,11 @@ impl AstBuilder {
                         SyntaxContractKind::Invariant => ContractKind::Invariant,
                     },
                     text: contract.text.clone(),
+                    remainder_spans: contract
+                        .remainder_spans
+                        .iter()
+                        .map(lower_predicate_remainder)
+                        .collect(),
                     callsite_reference_spans: contract.callsite_reference_spans.clone(),
                     call_callee_spans: contract.call_callee_spans.clone(),
                     span: contract.span.clone(),
@@ -635,5 +640,16 @@ impl AstBuilder {
                 span: refinement.span.clone(),
             })
             .collect()
+    }
+}
+
+fn lower_predicate_remainder(remainder: &veln_syntax::PredicateRemainder) -> PredicateRemainder {
+    PredicateRemainder {
+        left_text: remainder.left_text.clone(),
+        right_text: remainder.right_text.clone(),
+        operator_span: remainder.operator_span.clone(),
+        left_span: remainder.left_span.clone(),
+        right_span: remainder.right_span.clone(),
+        operation_span: remainder.operation_span.clone(),
     }
 }

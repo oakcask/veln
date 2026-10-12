@@ -1,4 +1,4 @@
-use veln_ast::{BinaryOp, ContractKind, NodeId, PrefixOp, Visibility};
+use veln_ast::{BinaryOp, ContractKind, NodeId, PredicateRemainder, PrefixOp, Visibility};
 use veln_source::SourceSpan;
 
 use crate::{CoreReadiness, CoreType};
@@ -84,6 +84,7 @@ pub struct CoreContract {
     pub node_id: NodeId,
     pub kind: ContractKind,
     pub predicate: String,
+    pub remainder_spans: Vec<PredicateRemainder>,
     pub callsite_calls: Vec<CoreContractCall>,
     pub obligation_status: ContractObligationStatus,
     pub span: SourceSpan,

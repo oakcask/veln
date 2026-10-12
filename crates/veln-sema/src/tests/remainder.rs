@@ -84,6 +84,110 @@ fn contract_and_satisfy_remainder_are_int_only() {
 }
 
 #[test]
+fn invalid_contract_and_satisfy_remainder_operands_report_at_each_operand() {
+    let invalid = [("1.0", "Float"), ("true", "Bool"), ("\"bad\"", "String")];
+    for (clause, line, left_column, right_column) in [
+        ("require", 2, 9, 17),
+        ("ensure", 2, 8, 16),
+        ("invariant", 2, 11, 19),
+    ] {
+        for (literal, actual_type) in invalid {
+            for (left, expected_column) in [(true, left_column), (false, right_column)] {
+                let predicate = if left {
+                    format!("{literal} % value == 0")
+                } else {
+                    format!("value % {literal} == 0")
+                };
+                let source = format!(
+                    "fn checked(value: Int) -> output: Int\n{clause} {predicate}\n  value\nend\n"
+                );
+                let diagnostics = diagnostics_for(&source);
+                let mismatches = diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.id == "type.mismatch")
+                    .collect::<Vec<_>>();
+                assert_eq!(mismatches.len(), 1, "{source}\n{diagnostics:#?}");
+                let mismatch = mismatches[0];
+                assert_eq!(mismatch.kind, DiagnosticKind::Type);
+                assert_eq!(
+                    mismatch.message,
+                    format!("expected `Int`, but found `{actual_type}`")
+                );
+                let span = mismatch.span.as_ref().expect("operand span");
+                assert_eq!(
+                    (span.start.line, span.start.column, span.end.column),
+                    (line, expected_column, expected_column + literal.len())
+                );
+                let details = mismatch.details.to_json();
+                for expected in [
+                    "\"phase\":\"type\"",
+                    "\"expected_type\":\"Int\"",
+                    &format!("\"actual_type\":\"{actual_type}\""),
+                    "\"expected_type_source\":\"inferred_expression\"",
+                    "\"actual_type_source\":\"inferred_expression\"",
+                    "\"constraint\":\"operator_operand\"",
+                ] {
+                    assert!(details.contains(expected), "{details}");
+                }
+                assert!(diagnostics.iter().all(|diagnostic| {
+                    diagnostic.id != "contract.type_mismatch"
+                        && diagnostic.message != "expected `Bool`, but found `unknown`"
+                }));
+            }
+        }
+    }
+
+    for (literal, actual_type) in invalid {
+        for left in [true, false] {
+            let predicate = if left {
+                format!("{literal} % candidate == 0")
+            } else {
+                format!("candidate % {literal} == 0")
+            };
+            let source = format!(
+                "fn checked(value: Int) -> Int\n  let result: Int = _value satisfy candidate => {predicate}\n  result\nend\n"
+            );
+            let diagnostics = diagnostics_for(&source);
+            let mismatch = diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.id == "type.mismatch")
+                .unwrap_or_else(|| panic!("missing operand mismatch: {diagnostics:#?}"));
+            assert_eq!(
+                mismatch.message,
+                format!("expected `Int`, but found `{actual_type}`")
+            );
+            let span = mismatch.span.as_ref().expect("satisfy operand span");
+            let expected_offset = source.find(literal).expect("literal in source");
+            assert_eq!(
+                (span.start.line, span.start.offset, span.end.offset),
+                (2, expected_offset, expected_offset + literal.len())
+            );
+            assert!(
+                diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.id != "hole.satisfy_type_mismatch"),
+                "{diagnostics:#?}"
+            );
+        }
+    }
+
+    let diagnostics = diagnostics_for(concat!(
+        "fn checked() -> Int\n",
+        "require true % \"bad\" == 0\n",
+        "  0\n",
+        "end\n",
+    ));
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn nonliteral_remainder_contracts_remain_runtime_required() {
     let source = SourceFile::new(
         "main.veln",
@@ -139,12 +243,13 @@ fn nonliteral_remainder_does_not_create_modular_repairs() {
 
 #[test]
 fn literal_zero_remainder_in_contract_and_satisfy_reports_type_diagnostic() {
-    let diagnostics = diagnostics_for(concat!(
+    let source = concat!(
         "fn checked(value: Int) -> Int\n",
-        "require value % 0 == 0\n",
-        "  _value satisfy candidate => candidate % (-0) == 0\n",
+        "require value %     0    == 0\n",
+        "  _value satisfy candidate => candidate %     (-0)    == 0\n",
         "end\n",
-    ));
+    );
+    let diagnostics = diagnostics_for(source);
     let remainder_diagnostics = diagnostics
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.remainder_by_zero")
@@ -154,18 +259,60 @@ fn literal_zero_remainder_in_contract_and_satisfy_reports_type_diagnostic() {
     assert!(remainder_diagnostics.iter().all(|diagnostic| {
         diagnostic.message == "remainder divisor is zero" && diagnostic.related.len() == 1
     }));
-    let require_span = remainder_diagnostics[0]
-        .span
-        .as_ref()
-        .expect("require diagnostic span");
+    let require = remainder_diagnostics[0];
+    let require_span = require.span.as_ref().expect("require diagnostic span");
     assert_eq!(
         (
             require_span.start.line,
             require_span.start.column,
             require_span.end.column,
         ),
-        (2, 17, 18),
+        (2, 21, 22),
     );
+    let require_related = require.related[0].to_json();
+    assert!(require_related.contains("\"start\":{\"line\":2,\"column\":9"));
+    assert!(require_related.contains("\"end\":{\"line\":2,\"column\":22"));
+
+    let satisfy = remainder_diagnostics[1];
+    let satisfy_span = satisfy.span.as_ref().expect("satisfy diagnostic span");
+    assert_eq!(
+        (
+            satisfy_span.start.line,
+            satisfy_span.start.column,
+            satisfy_span.end.column,
+        ),
+        (3, 47, 51),
+    );
+    let satisfy_related = satisfy.related[0].to_json();
+    assert!(satisfy_related.contains("\"start\":{\"line\":3,\"column\":31"));
+    assert!(satisfy_related.contains("\"end\":{\"line\":3,\"column\":51"));
+}
+
+#[test]
+fn mixed_literal_remainder_contracts_remain_runtime_required() {
+    let predicates = [
+        "5 % 3 * 2 == 5",
+        "5 % (3 * 2) == 4",
+        "1 % 2 / 2 == 0.5",
+        "5 % (3 / 2) == 1",
+        "20 % 6 % 4 == 0",
+        "20 % (6 % 4) == 1",
+    ];
+    let source = format!(
+        "fn checked() -> Int\n{}  0\nend\n",
+        predicates
+            .iter()
+            .map(|predicate| format!("require {predicate}\n"))
+            .collect::<String>()
+    );
+    let parsed = parse(&SourceFile::new("main.veln", &source));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(lowered.core.expect("core").functions[0]
+        .contracts
+        .iter()
+        .all(|contract| contract.obligation_status == ContractObligationStatus::RuntimeRequired));
 }
 
 #[test]

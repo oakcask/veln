@@ -5,6 +5,7 @@ use crate::semantic_model::{Binding, Type};
 
 pub(crate) enum ContractValidation {
     Valid,
+    InvalidRemainderOperands,
     NonBoolean { actual_type: String },
     UnsupportedConstruct { reason: &'static str },
     UnresolvedName { name: String },
@@ -65,8 +66,8 @@ use static_literals::*;
 
 pub(crate) use contract_calls::{contract_calls, is_contract_keyword, referenced_names};
 pub(crate) use predicate_typing::{
-    missing_contract_field, predicate_is_boolean_with_calls,
-    predicate_literal_zero_remainder_divisor, predicate_rendered_type_with_calls,
+    missing_contract_field, predicate_has_invalid_remainder_operands,
+    predicate_is_boolean_with_calls, predicate_literal_is_zero, predicate_rendered_type_with_calls,
     predicate_type_with_calls,
 };
 

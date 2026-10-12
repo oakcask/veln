@@ -33,8 +33,20 @@ equals = 2
 
 [[json_assert]]
 path = "error.details.divisor_span.start.column"
-equals = 18
+equals = 17
+
+[[json_assert]]
+path = "error.details.divisor_span.end.column"
+equals = 24
 
 [[json_assert]]
 path = "error.related.0.kind"
 equals = "operation"
+
+[[json_assert]]
+path = "error.related.0.span.start.column"
+equals = 9
+
+[[json_assert]]
+path = "error.related.0.span.end.column"
+equals = 24

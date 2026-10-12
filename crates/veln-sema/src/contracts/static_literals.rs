@@ -112,6 +112,9 @@ pub(super) fn static_binary_numeric_expression(
     operation: fn(StaticNumber, &str, StaticNumber) -> Option<StaticNumber>,
 ) -> Option<Option<StaticNumber>> {
     split_top_level_operator_group(predicate, operators).map(|(left, operator, right)| {
+        if operator == "/" && (left.contains('%') || right.contains('%')) {
+            return None;
+        }
         let left = static_numeric_expression(left)?;
         let right = static_numeric_expression(right)?;
         operation(left, operator, right)

@@ -125,6 +125,25 @@ fn static_contract_reasoning_evaluates_signed_integer_remainder() {
 }
 
 #[test]
+fn remainder_does_not_enable_exact_decimal_division_for_int_expressions() {
+    for predicate in [
+        "5 % 3 * 2 == 5",
+        "5 % (3 * 2) == 4",
+        "1 % 2 / 2 == 0.5",
+        "5 % (3 / 2) == 1",
+        "20 % 6 % 4 == 0",
+        "20 % (6 % 4) == 1",
+    ] {
+        assert!(
+            !contract_predicate_is_statically_true(predicate),
+            "{predicate}"
+        );
+    }
+
+    assert!(contract_predicate_is_statically_true("1 / 3 < 0.34"));
+}
+
+#[test]
 fn high_arity_exhaustive_case_splits_are_statically_true() {
     for fields in [
         &["a", "b", "c", "d", "e", "f", "g", "h", "i"][..],

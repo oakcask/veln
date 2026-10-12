@@ -4,15 +4,15 @@ use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectBinder, EffectDecl,
     EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
     HandlerOperationClauseDecl, IfBranch, InvalidName, MatchArm, ModuleHeader, NameClass,
-    NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,
-    PublicAliasKind, RecordField, ResultBinding, SatisfyClause, SchemaDecl, SchemaField,
-    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule,
+    NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PredicateRemainder,
+    PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SatisfyClause, SchemaDecl,
+    SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule,
     TypeAnnotationStructure, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
     UseDecl, UseOrigin, VariantRefinementAlternative, VariantRefinementType,
     VariantRefinementTypeArgument, Visibility,
 };
 
-const MAGIC: &[u8; 9] = b"VLNAST10\n";
+const MAGIC: &[u8; 9] = b"VLNAST11\n";
 
 mod decoder;
 mod encoder;

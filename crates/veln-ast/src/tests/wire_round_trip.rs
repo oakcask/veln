@@ -3,8 +3,8 @@ use super::*;
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST10\n");
-    encoded.splice(..9, b"VLNAST9\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST11\n");
+    encoded.splice(..9, b"VLNAST10\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
@@ -75,7 +75,13 @@ fn surface_wire_round_trip_preserves_expression_families() {
             "  end\n",
             "end\n",
         ),
-        "fn remainder(value: Int) -> Int\n  value % 3\nend\n",
+        concat!(
+            "fn remainder(value: Int) -> Int\n",
+            "require value %     3 == 1\n",
+            "  let result: Int = _value satisfy candidate => candidate %     2 == 0\n",
+            "  result\n",
+            "end\n",
+        ),
     ];
 
     for source in sources {

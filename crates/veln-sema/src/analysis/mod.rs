@@ -5,8 +5,8 @@ mod holes;
 
 use veln_ast::{
     BinaryOp, BodyLine, BodyLineKind, ContractKind, DictEntry, Expr, ExprKind, Function,
-    FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternField, PatternKind, RecordField,
-    SatisfyClause, SurfaceModule, Visibility,
+    FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternField, PatternKind,
+    PredicateRemainder, RecordField, SatisfyClause, SurfaceModule, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, DiagnosticText, JsonValue, Severity};
 use veln_source::SourceSpan;
@@ -18,8 +18,9 @@ use crate::aggregate_type_join::AggregateTypeJoin;
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text,
     contract_predicate_is_statically_true, is_contract_keyword, missing_contract_field,
-    predicate_is_boolean_with_calls, predicate_is_statically_false, predicate_is_statically_true,
-    predicate_is_statically_true_with_literal_bounds, predicate_literal_zero_remainder_divisor,
+    predicate_has_invalid_remainder_operands, predicate_is_boolean_with_calls,
+    predicate_is_statically_false, predicate_is_statically_true,
+    predicate_is_statically_true_with_literal_bounds, predicate_literal_is_zero,
     predicate_rendered_type_with_calls, predicate_type_with_calls, referenced_names,
 };
 use crate::diagnostics::{

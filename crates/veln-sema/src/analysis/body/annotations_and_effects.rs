@@ -359,16 +359,23 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn check_contracts(&mut self) {
         for contract in &self.function.contracts {
-            if let Some(divisor) = predicate_literal_zero_remainder_divisor(&contract.text) {
-                self.report_contract_literal_zero_remainder(
-                    &contract.text,
-                    divisor,
-                    &contract.span,
-                );
+            if let Some(remainder) = contract
+                .remainder_spans
+                .iter()
+                .find(|remainder| predicate_literal_is_zero(&remainder.right_text))
+            {
+                self.report_contract_literal_zero_remainder(remainder);
             }
             let validation = self.validate_contract_predicate(contract.kind, &contract.text);
             match validation {
                 ContractValidation::Valid => {}
+                ContractValidation::InvalidRemainderOperands => {
+                    self.report_predicate_remainder_operand_mismatches(
+                        &contract.remainder_spans,
+                        &self.contract_bindings(contract.kind),
+                        contract.node_id,
+                    );
+                }
                 ContractValidation::NonBoolean { actual_type } => {
                     self.diagnostics.push(Diagnostic::new(
                         "contract.type_mismatch",
@@ -463,31 +470,14 @@ impl<'a> FunctionChecker<'a> {
 
     pub(in crate::analysis) fn report_contract_literal_zero_remainder(
         &mut self,
-        predicate: &str,
-        divisor: &str,
-        span: &SourceSpan,
+        remainder: &PredicateRemainder,
     ) {
-        let trailing_newline = usize::from(span.end.line > span.start.line);
-        let predicate_start = span
-            .end
-            .offset
-            .saturating_sub(trailing_newline + predicate.len());
-        let divisor_offset = divisor.as_ptr() as usize - predicate.as_ptr() as usize;
-        let mut divisor_span = span.clone();
-        divisor_span.start.offset = predicate_start + divisor_offset;
-        divisor_span.end.offset = divisor_span.start.offset + divisor.len();
-        divisor_span.start.line = span.start.line;
-        divisor_span.end.line = span.start.line;
-        divisor_span.start.column = span.start.column
-            + predicate_start.saturating_sub(span.start.offset)
-            + predicate[..divisor_offset].chars().count();
-        divisor_span.end.column = divisor_span.start.column + divisor.chars().count();
         let mut diagnostic = Diagnostic::new(
             "type.remainder_by_zero",
             Severity::Error,
             DiagnosticKind::Type,
             "remainder divisor is zero",
-            Some(divisor_span),
+            Some(remainder.right_span.clone()),
             JsonValue::object([
                 ("operator", JsonValue::string("%")),
                 ("divisor", JsonValue::Number(0)),
@@ -496,9 +486,55 @@ impl<'a> FunctionChecker<'a> {
         diagnostic.related.push(JsonValue::object([
             ("kind", JsonValue::string("operation")),
             ("message", JsonValue::string("Remainder operation is here.")),
-            ("span", span_json(span)),
+            ("span", span_json(&remainder.operation_span)),
         ]));
         self.diagnostics.push(diagnostic);
+    }
+
+    pub(in crate::analysis) fn report_predicate_remainder_operand_mismatches(
+        &mut self,
+        remainders: &[PredicateRemainder],
+        bindings: &[Binding],
+        node_id: NodeId,
+    ) {
+        let invalid = remainders
+            .iter()
+            .flat_map(|remainder| {
+                [
+                    (&remainder.left_text, &remainder.left_span),
+                    (&remainder.right_text, &remainder.right_span),
+                ]
+            })
+            .filter_map(|(text, span)| {
+                let actual = predicate_type_with_calls(text, bindings, &|callee| {
+                    self.contract_call_signature(callee)
+                        .map(|(_, _, return_type, _, _)| return_type)
+                })?;
+                (actual != Type::int() && actual != Type::Unknown)
+                    .then(|| (actual.render(), span.clone()))
+            })
+            .collect::<Vec<_>>();
+        for (actual_type, span) in invalid {
+            self.diagnostics.push(Diagnostic::new(
+                "type.mismatch",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!("expected `Int`, but found `{actual_type}`"),
+                Some(span),
+                type_details(
+                    node_id.display("predicate"),
+                    "Int",
+                    actual_type,
+                    "inferred_expression",
+                    "inferred_expression",
+                    "operator_operand",
+                    [
+                        self.function.node_id.display("fn"),
+                        node_id.display("predicate"),
+                    ],
+                ),
+            ));
+        }
     }
 
     pub(super) fn check_effect_boundaries(&mut self) {

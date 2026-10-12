@@ -17,6 +17,7 @@ impl<'a> ContractPredicateParser<'a> {
             cursor: 0,
             diagnostics: Vec::new(),
             perform_effect_spans: Vec::new(),
+            remainder_spans: Vec::new(),
         }
     }
 
@@ -31,6 +32,7 @@ impl<'a> ContractPredicateParser<'a> {
             return ContractPredicateOutput {
                 diagnostics: self.diagnostics,
                 perform_effect_spans: self.perform_effect_spans,
+                remainder_spans: self.remainder_spans,
             };
         }
 
@@ -52,13 +54,17 @@ impl<'a> ContractPredicateParser<'a> {
                 );
             }
         }
+        self.remainder_spans
+            .sort_by_key(|remainder| remainder.operator_span.start.offset);
         ContractPredicateOutput {
             diagnostics: self.diagnostics,
             perform_effect_spans: self.perform_effect_spans,
+            remainder_spans: self.remainder_spans,
         }
     }
 
     pub(super) fn parse_predicate(&mut self, min_bp: u8) {
+        let expression_start = self.cursor;
         self.parse_prefix();
 
         loop {
@@ -73,15 +79,61 @@ impl<'a> ContractPredicateParser<'a> {
                 continue;
             }
 
-            let Some((_, left_bp, right_bp)) = self.current_binary_op() else {
+            let Some((op, left_bp, right_bp)) = self.current_binary_op() else {
                 break;
             };
             if left_bp < min_bp {
                 break;
             }
+            let operator_index = self.cursor;
             self.bump();
+            let right_start = self.cursor;
             self.parse_predicate(right_bp);
+            if op == BinaryOp::Remainder {
+                self.record_remainder(expression_start, operator_index, right_start, self.cursor);
+            }
         }
+    }
+
+    fn record_remainder(
+        &mut self,
+        expression_start: usize,
+        operator_index: usize,
+        right_start: usize,
+        expression_end: usize,
+    ) {
+        let Some(left_first) = self.tokens.get(expression_start) else {
+            return;
+        };
+        let Some(left_last) = operator_index
+            .checked_sub(1)
+            .and_then(|index| self.tokens.get(index))
+        else {
+            return;
+        };
+        let Some(right_first) = self.tokens.get(right_start) else {
+            return;
+        };
+        let Some(right_last) = expression_end
+            .checked_sub(1)
+            .and_then(|index| self.tokens.get(index))
+        else {
+            return;
+        };
+        let Some(operator) = self.tokens.get(operator_index) else {
+            return;
+        };
+        let normalized = |tokens: &[Token]| {
+            normalize_collected_text(tokens.iter().map(|token| token.text.clone()).collect())
+        };
+        self.remainder_spans.push(PredicateRemainder {
+            left_text: normalized(&self.tokens[expression_start..operator_index]),
+            right_text: normalized(&self.tokens[right_start..expression_end]),
+            operator_span: self.source.span(operator.range),
+            left_span: self.source.span(left_first.range.cover(left_last.range)),
+            right_span: self.source.span(right_first.range.cover(right_last.range)),
+            operation_span: self.source.span(left_first.range.cover(right_last.range)),
+        });
     }
 
     pub(super) fn parse_prefix(&mut self) {

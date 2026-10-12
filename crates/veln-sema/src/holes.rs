@@ -3,8 +3,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::contracts::{
-    ContractValidation, contract_kind_text, predicate_literal_zero_remainder_divisor,
-    referenced_names,
+    ContractValidation, contract_kind_text, predicate_literal_is_zero, referenced_names,
 };
 use crate::diagnostics::span_json;
 use crate::prelude::prelude_signature;
@@ -227,8 +226,12 @@ impl<'a> FunctionChecker<'a> {
         satisfy: &SatisfyClause,
         expected: Option<&ExpectedType>,
     ) {
-        if let Some(divisor) = predicate_literal_zero_remainder_divisor(&satisfy.predicate) {
-            self.report_contract_literal_zero_remainder(&satisfy.predicate, divisor, &satisfy.span);
+        if let Some(remainder) = satisfy
+            .remainder_spans
+            .iter()
+            .find(|remainder| predicate_literal_is_zero(&remainder.right_text))
+        {
+            self.report_contract_literal_zero_remainder(remainder);
         }
         let Some(candidate) = satisfy.candidate.as_deref() else {
             return;
@@ -268,6 +271,13 @@ impl<'a> FunctionChecker<'a> {
         }
         let validation =
             self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings);
+        if matches!(validation, ContractValidation::InvalidRemainderOperands) {
+            self.report_predicate_remainder_operand_mismatches(
+                &satisfy.remainder_spans,
+                &predicate_bindings,
+                expr.node_id,
+            );
+        }
         self.push_satisfy_validation_diagnostic(expr, satisfy, candidate, validation);
     }
 
@@ -348,6 +358,7 @@ impl<'a> FunctionChecker<'a> {
     ) {
         match validation {
             ContractValidation::Valid => {}
+            ContractValidation::InvalidRemainderOperands => {}
             ContractValidation::NonBoolean { actual_type } => {
                 self.diagnostics.push(non_boolean_satisfy_diagnostic(
                     expr,
