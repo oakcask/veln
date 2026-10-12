@@ -23,7 +23,7 @@ use crate::contracts::{
     predicate_is_statically_false, predicate_is_statically_true,
     predicate_is_statically_true_with_literal_bounds, predicate_literal_is_zero,
     predicate_remainder_operand_mismatch, predicate_rendered_type_with_calls,
-    predicate_type_with_remainders, referenced_names,
+    predicate_type_with_remainders_in, referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, handler_details, span_json,

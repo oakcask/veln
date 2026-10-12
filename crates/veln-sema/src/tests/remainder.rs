@@ -26,6 +26,7 @@ fn flat_remainder_validation_types_each_leaf_once() {
         let contract = &module.functions[1].contracts[0];
         let calls = std::cell::Cell::new(0usize);
         assert!(!crate::contracts::predicate_has_invalid_remainder_operands(
+            &contract.text,
             &contract.remainder_spans,
             &[],
             &|_| {
@@ -440,6 +441,49 @@ fn composite_remainder_operands_report_the_invalid_leaf_and_block_core() {
         diagnostic.id != "contract.type_mismatch"
             && diagnostic.id != "contract.unsupported_construct"
     }));
+}
+
+#[test]
+fn composite_remainder_leaf_spans_preserve_original_source_spacing() {
+    let operands = ["(2*true)", "(2    *    true)", "((2*true))", "(2 * true)"];
+    for clause in ["require", "ensure", "invariant"] {
+        for operand in operands {
+            for left in [true, false] {
+                let predicate = if left {
+                    format!("{operand} % 3 == 0")
+                } else {
+                    format!("3 % {operand} == 0")
+                };
+                let source =
+                    format!("fn checked() -> output: Int\n{clause} {predicate}\n  0\nend\n");
+                let diagnostics = diagnostics_for(&source);
+                let mismatch =
+                    super::remainder_assertions::assert_operand_mismatch(&diagnostics, "Bool");
+                let span = mismatch.span.as_ref().expect("invalid leaf span");
+                let start = source.find("true").expect("invalid leaf in source");
+                assert_eq!((span.start.offset, span.end.offset), (start, start + 4));
+            }
+        }
+    }
+
+    for operand in operands {
+        for left in [true, false] {
+            let predicate = if left {
+                format!("{operand} % candidate == 0")
+            } else {
+                format!("candidate % {operand} == 0")
+            };
+            let source = format!(
+                "fn checked() -> Int\n  let result: Int = _value satisfy candidate => {predicate}\n  result\nend\n"
+            );
+            let diagnostics = diagnostics_for(&source);
+            let mismatch =
+                super::remainder_assertions::assert_operand_mismatch(&diagnostics, "Bool");
+            let span = mismatch.span.as_ref().expect("invalid satisfy leaf span");
+            let start = source.find("true").expect("invalid leaf in source");
+            assert_eq!((span.start.offset, span.end.offset), (start, start + 4));
+        }
+    }
 }
 
 #[test]

@@ -509,6 +509,14 @@ impl AstBuilder {
                         SyntaxContractKind::Invariant => ContractKind::Invariant,
                     },
                     text: contract.text.clone(),
+                    predicate_tokens: contract
+                        .predicate_tokens
+                        .iter()
+                        .map(|token| crate::PredicateTokenSpan {
+                            text_range: token.text_range.clone(),
+                            source_span: token.source_span.clone(),
+                        })
+                        .collect(),
                     remainder_spans: contract
                         .remainder_spans
                         .iter()
@@ -645,9 +653,10 @@ impl AstBuilder {
 
 fn lower_predicate_remainder(remainder: &veln_syntax::PredicateRemainder) -> PredicateRemainder {
     PredicateRemainder {
-        left_text: remainder.left_text.clone(),
-        left_is_prior_remainder: remainder.left_is_prior_remainder,
-        right_text: remainder.right_text.clone(),
+        left_range: remainder.left_range.clone(),
+        right_range: remainder.right_range.clone(),
+        operation_range: remainder.operation_range.clone(),
+        left_remainder: remainder.left_remainder,
         operator_span: remainder.operator_span.clone(),
         left_span: remainder.left_span.clone(),
         right_span: remainder.right_span.clone(),

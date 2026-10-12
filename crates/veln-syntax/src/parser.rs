@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use veln_literals::parse_integer_literal;
 use veln_source::{SourceFile, SourceSpan, TextRange};
@@ -459,18 +459,19 @@ struct ContractPredicateParser<'a> {
     context: &'static str,
     diagnostic_id: &'static str,
     tokens: &'a [Token],
+    token_text_ranges: Vec<std::ops::Range<usize>>,
     allow_remainder: bool,
     cursor: usize,
     diagnostics: Vec<ParseDiagnostic>,
     perform_effect_spans: Vec<SourceSpan>,
     remainder_spans: Vec<PredicateRemainder>,
-    completed_remainder_ranges: HashSet<(usize, usize)>,
 }
 
 struct ContractPredicateOutput {
     diagnostics: Vec<ParseDiagnostic>,
     perform_effect_spans: Vec<SourceSpan>,
     remainder_spans: Vec<PredicateRemainder>,
+    predicate_tokens: Vec<crate::PredicateTokenSpan>,
 }
 
 trait TokenCursor {

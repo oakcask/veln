@@ -400,6 +400,7 @@ pub struct Contract {
     pub node_id: NodeId,
     pub kind: ContractKind,
     pub text: String,
+    pub predicate_tokens: Vec<PredicateTokenSpan>,
     pub remainder_spans: Vec<PredicateRemainder>,
     pub callsite_reference_spans: Vec<SourceSpan>,
     pub call_callee_spans: Vec<(String, SourceSpan)>,
@@ -408,20 +409,37 @@ pub struct Contract {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PredicateRemainder {
-    pub left_text: String,
-    pub left_is_prior_remainder: bool,
-    pub right_text: String,
+    pub left_range: Range<usize>,
+    pub right_range: Range<usize>,
+    pub operation_range: Range<usize>,
+    pub left_remainder: Option<usize>,
     pub operator_span: SourceSpan,
     pub left_span: SourceSpan,
     pub right_span: SourceSpan,
     pub operation_span: SourceSpan,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PredicateTokenSpan {
+    pub text_range: Range<usize>,
+    pub source_span: SourceSpan,
+}
+
+impl PredicateRemainder {
+    pub fn left_text<'a>(&self, predicate: &'a str) -> &'a str {
+        &predicate[self.left_range.clone()]
+    }
+
+    pub fn right_text<'a>(&self, predicate: &'a str) -> &'a str {
+        &predicate[self.right_range.clone()]
+    }
+}
+
 pub fn predicate_remainder_chain_ranges(remainders: &[PredicateRemainder]) -> Vec<Range<usize>> {
     let mut ranges = Vec::new();
     let mut start = None;
     for (index, remainder) in remainders.iter().enumerate() {
-        if !remainder.left_is_prior_remainder
+        if (index == 0 || remainder.left_remainder != Some(index - 1))
             && let Some(start) = start.replace(index)
         {
             ranges.push(start..index);
@@ -445,87 +463,15 @@ pub fn index_predicate_remainder_chains(
 ) -> Option<Vec<PredicateRemainderChain>> {
     let ranges = predicate_remainder_chain_ranges(remainders);
     let mut chains = Vec::with_capacity(ranges.len());
-    let mut cursor = 0;
     for remainder_range in ranges {
-        let expected = compact_remainder_chain_text(&remainders[remainder_range.clone()]);
-        let predicate_range = find_compact_expression(predicate, &expected, cursor)
-            .or_else(|| find_compact_expression(predicate, &expected, 0))?;
-        cursor = cursor.max(predicate_range.end);
+        let predicate_range = remainders[remainder_range.end - 1].operation_range.clone();
+        predicate.get(predicate_range.clone())?;
         chains.push(PredicateRemainderChain {
             remainder_range,
             predicate_range,
         });
     }
     Some(chains)
-}
-
-fn compact_remainder_chain_text(remainders: &[PredicateRemainder]) -> String {
-    let mut text = remainders[0]
-        .left_text
-        .chars()
-        .filter(|character| !character.is_whitespace())
-        .collect::<String>();
-    for remainder in remainders {
-        text.push('%');
-        text.extend(
-            remainder
-                .right_text
-                .chars()
-                .filter(|character| !character.is_whitespace()),
-        );
-    }
-    text
-}
-
-fn find_compact_expression(
-    predicate: &str,
-    expected: &str,
-    search_start: usize,
-) -> Option<Range<usize>> {
-    let mut in_string = false;
-    let mut escaped = false;
-    for (relative_start, character) in predicate.get(search_start..)?.char_indices() {
-        let start = search_start + relative_start;
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if character == '\\' {
-                escaped = true;
-            } else if character == '"' {
-                in_string = false;
-            }
-            continue;
-        }
-        if character == '"' {
-            in_string = true;
-            continue;
-        }
-        if character.is_whitespace() {
-            continue;
-        }
-        if let Some(end) = compact_prefix_end(&predicate[start..], expected) {
-            return Some(start..start + end);
-        }
-    }
-    None
-}
-
-fn compact_prefix_end(candidate: &str, expected: &str) -> Option<usize> {
-    let mut expected = expected.chars();
-    let mut wanted = expected.next()?;
-    for (offset, character) in candidate.char_indices() {
-        if character.is_whitespace() {
-            continue;
-        }
-        if character != wanted {
-            return None;
-        }
-        match expected.next() {
-            Some(next) => wanted = next,
-            None => return Some(offset + character.len_utf8()),
-        }
-    }
-    None
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -681,6 +627,7 @@ pub struct SatisfyClause {
     pub candidate: Option<String>,
     pub candidate_span: Option<SourceSpan>,
     pub predicate: String,
+    pub predicate_tokens: Vec<PredicateTokenSpan>,
     pub remainder_spans: Vec<PredicateRemainder>,
     pub span: SourceSpan,
 }

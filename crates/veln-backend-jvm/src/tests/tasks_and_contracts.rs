@@ -423,13 +423,13 @@ fn bytecode_backend_executes_mixed_remainder_contracts_with_int_semantics() {
 #[test]
 fn bytecode_backend_accounts_for_deep_remainder_helper_stack() {
     let mut predicate = "divisor".to_string();
-    for value in (1..=51).rev() {
+    for value in (1..=120).rev() {
         predicate = format!("{value} % ({predicate})");
     }
     let ir = lower_to_ir(&format!(
-        "fn checked(divisor: Int) -> Int\nrequire {predicate} == 1\n  divisor\nend\npub fn main() -> () effects [stdio]\n  stdio::println(int_to_string(checked(52)))\nend\n"
+        "fn checked(divisor: Int) -> Int\nrequire {predicate} == 1\n  divisor\nend\npub fn main() -> () effects [stdio]\n  stdio::println(int_to_string(checked(121)))\nend\n"
     ));
-    assert_eq!(function_max_stack(&ir, "checked"), 65);
+    assert_eq!(function_max_stack(&ir, "checked"), 134);
     let program = generate_classfiles_with_entry(&ir, "main");
     let Some(output) =
         run_jvm_program_when_java_is_available("bytecode-contract-remainder-deep", &program, &[])
@@ -441,7 +441,7 @@ fn bytecode_backend_accounts_for_deep_remainder_helper_stack() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "52\n");
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "121\n");
 }
 
 #[test]
@@ -599,6 +599,16 @@ fn independent_remainder_contract(operator_count: usize) -> TypedProgram {
     ))
 }
 
+fn right_nested_remainder_contract(operator_count: usize) -> TypedProgram {
+    let mut predicate = String::from("divisor");
+    for _ in 0..operator_count {
+        predicate = format!("value % ({predicate})");
+    }
+    lower_to_ir(&format!(
+        "pub fn guarded(value: Int, divisor: Int) -> Int\nrequire {predicate} == 0\n  value\nend\n"
+    ))
+}
+
 #[test]
 fn flat_remainder_contract_compacts_repeated_nonzero_literal_divisors() {
     assert_eq!(
@@ -619,6 +629,21 @@ fn independent_remainder_contract_scan_work_grows_linearly() {
     assert!(
         larger <= smaller * 3,
         "doubling both chains must retain linear scan work: {smaller} -> {larger}"
+    );
+}
+
+#[test]
+fn right_nested_remainder_contract_work_grows_linearly() {
+    let smaller = contract_remainder_scan_work(&right_nested_remainder_contract(120), "guarded");
+    let larger = contract_remainder_scan_work(&right_nested_remainder_contract(121), "guarded");
+    assert!(smaller > 0);
+    assert!(
+        larger <= smaller + 2,
+        "adjacent nesting must add bounded lookup work: {smaller} -> {larger}"
+    );
+    assert_eq!(
+        contract_remainder_emission_work(&right_nested_remainder_contract(121), "guarded"),
+        121
     );
 }
 

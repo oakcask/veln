@@ -226,6 +226,7 @@ impl Writer {
         self.option(&value.candidate, |writer, value| writer.string(value));
         self.option(&value.candidate_span, Self::span);
         self.string(&value.predicate);
+        self.vec(&value.predicate_tokens, Self::predicate_token_span);
         self.vec(&value.remainder_spans, Self::predicate_remainder);
         self.span(&value.span);
     }

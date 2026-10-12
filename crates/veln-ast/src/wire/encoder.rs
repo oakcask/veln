@@ -379,6 +379,7 @@ impl Writer {
         self.node_id(value.node_id);
         self.contract_kind(value.kind);
         self.string(&value.text);
+        self.vec(&value.predicate_tokens, Self::predicate_token_span);
         self.vec(&value.remainder_spans, Self::predicate_remainder);
         self.vec(&value.callsite_reference_spans, Self::span);
         self.vec(&value.call_callee_spans, |writer, (callee, span)| {
@@ -389,13 +390,23 @@ impl Writer {
     }
 
     fn predicate_remainder(&mut self, value: &PredicateRemainder) {
-        self.string(&value.left_text);
-        self.bool(value.left_is_prior_remainder);
-        self.string(&value.right_text);
+        self.usize(value.left_range.start);
+        self.usize(value.left_range.end);
+        self.usize(value.right_range.start);
+        self.usize(value.right_range.end);
+        self.usize(value.operation_range.start);
+        self.usize(value.operation_range.end);
+        self.option(&value.left_remainder, |writer, value| writer.usize(*value));
         self.span(&value.operator_span);
         self.span(&value.left_span);
         self.span(&value.right_span);
         self.span(&value.operation_span);
+    }
+
+    fn predicate_token_span(&mut self, value: &PredicateTokenSpan) {
+        self.usize(value.text_range.start);
+        self.usize(value.text_range.end);
+        self.span(&value.source_span);
     }
 
     fn contract_kind(&mut self, value: ContractKind) {

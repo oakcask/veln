@@ -546,6 +546,7 @@ impl<'a> ExprParser<'a> {
             "satisfy_predicate",
             "parse.satisfy_predicate",
             &predicate_tokens,
+            &predicate,
             true,
         )
         .parse();
@@ -554,6 +555,7 @@ impl<'a> ExprParser<'a> {
             candidate,
             candidate_span,
             predicate,
+            predicate_tokens: predicate_output.predicate_tokens,
             remainder_spans: predicate_output.remainder_spans,
             perform_effect_spans: if clause_recovered {
                 Vec::new()

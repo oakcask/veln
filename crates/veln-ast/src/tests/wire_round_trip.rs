@@ -3,12 +3,48 @@ use super::*;
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST12\n");
-    encoded.splice(..9, b"VLNAST11\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST13\n");
+    encoded.splice(..9, b"VLNAST12\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
     assert_eq!(error, "invalid surface module wire header");
+}
+
+#[test]
+fn surface_wire_preserves_remainder_token_source_coordinates() {
+    let source = concat!(
+        "fn checked() -> Int\n",
+        "require (2*true) % 3 == 0\n",
+        "  let result: Int = _value satisfy candidate => candidate % (2    *    true) == 0\n",
+        "  result\n",
+        "end\n",
+    );
+    let module = lower_source(source);
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+    let function = &decoded.functions[0];
+    let contract_true = source.find("true").expect("contract leaf");
+    assert!(function.contracts[0].predicate_tokens.iter().any(|token| {
+        token.source_span.start.offset == contract_true
+            && token.source_span.end.offset == contract_true + 4
+    }));
+    let BodyLineKind::Let { expr, .. } = &function.body[0].kind else {
+        panic!("expected satisfy let binding");
+    };
+    let ExprKind::Hole {
+        satisfy: Some(satisfy),
+        ..
+    } = &expr.kind
+    else {
+        panic!("expected satisfy hole");
+    };
+    let satisfy_true = source.rfind("true").expect("satisfy leaf");
+    assert!(satisfy.predicate_tokens.iter().any(|token| {
+        token.source_span.start.offset == satisfy_true
+            && token.source_span.end.offset == satisfy_true + 4
+    }));
+    assert_eq!(encode_surface_module(&decoded), encoded);
 }
 
 #[test]

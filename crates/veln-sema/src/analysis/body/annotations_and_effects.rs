@@ -362,7 +362,7 @@ impl<'a> FunctionChecker<'a> {
             for remainder in contract
                 .remainder_spans
                 .iter()
-                .filter(|remainder| predicate_literal_is_zero(&remainder.right_text))
+                .filter(|remainder| predicate_literal_is_zero(remainder.right_text(&contract.text)))
             {
                 self.report_contract_literal_zero_remainder(remainder);
             }
@@ -376,6 +376,8 @@ impl<'a> FunctionChecker<'a> {
             ContractValidation::Valid => {}
             ContractValidation::InvalidRemainderOperands => {
                 self.report_predicate_remainder_operand_mismatches(
+                    &contract.text,
+                    &contract.predicate_tokens,
                     &contract.remainder_spans,
                     &self.contract_bindings(contract.kind),
                     contract.node_id,
@@ -518,6 +520,8 @@ impl<'a> FunctionChecker<'a> {
 
     pub(in crate::analysis) fn report_predicate_remainder_operand_mismatches(
         &mut self,
+        predicate: &str,
+        predicate_tokens: &[veln_ast::PredicateTokenSpan],
         remainders: &[PredicateRemainder],
         bindings: &[Binding],
         node_id: NodeId,
@@ -526,22 +530,30 @@ impl<'a> FunctionChecker<'a> {
             .iter()
             .flat_map(|remainder| {
                 [
-                    (!remainder.left_is_prior_remainder)
-                        .then_some((&remainder.left_text, &remainder.left_span)),
-                    Some((&remainder.right_text, &remainder.right_span)),
+                    remainder
+                        .left_remainder
+                        .is_none()
+                        .then_some(remainder.left_range.clone()),
+                    Some(remainder.right_range.clone()),
                 ]
             })
             .flatten()
-            .filter_map(|(text, span)| {
+            .filter_map(|range| {
+                let text = &predicate[range.clone()];
                 let mismatch = predicate_remainder_operand_mismatch(text, bindings, &|callee| {
                     self.contract_call_signature(callee)
                         .map(|(_, _, return_type, _, _)| return_type)
                 })?;
-                let mut leaf_span = span.clone();
-                leaf_span.start.offset += mismatch.start;
-                leaf_span.start.column += text[..mismatch.start].chars().count();
-                leaf_span.end.offset = span.start.offset + mismatch.end;
-                leaf_span.end.column = span.start.column + text[..mismatch.end].chars().count();
+                let mismatch_range = (range.start + mismatch.start)..(range.start + mismatch.end);
+                let first = predicate_tokens
+                    .iter()
+                    .find(|token| token.text_range.end > mismatch_range.start)?;
+                let last = predicate_tokens
+                    .iter()
+                    .rev()
+                    .find(|token| token.text_range.start < mismatch_range.end)?;
+                let mut leaf_span = first.source_span.clone();
+                leaf_span.end = last.source_span.end;
                 Some((mismatch.actual.render(), leaf_span))
             })
             .collect::<Vec<_>>();

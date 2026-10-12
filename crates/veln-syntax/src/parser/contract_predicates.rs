@@ -1,24 +1,28 @@
 use super::*;
 
 impl<'a> ContractPredicateParser<'a> {
+    const MAX_PAREN_NESTING: usize = 128;
+
     pub(super) fn new(
         source: &'a SourceFile,
         context: &'static str,
         diagnostic_id: &'static str,
         tokens: &'a [Token],
+        predicate: &'a str,
         allow_remainder: bool,
     ) -> Self {
+        let token_text_ranges = predicate_token_text_ranges(predicate, tokens);
         Self {
             source,
             context,
             diagnostic_id,
             tokens,
+            token_text_ranges,
             allow_remainder,
             cursor: 0,
             diagnostics: Vec::new(),
             perform_effect_spans: Vec::new(),
             remainder_spans: Vec::new(),
-            completed_remainder_ranges: HashSet::new(),
         }
     }
 
@@ -30,10 +34,29 @@ impl<'a> ContractPredicateParser<'a> {
                 RecoveryStrategy::InsertToken,
                 None,
             );
+            let predicate_tokens = self.predicate_tokens();
             return ContractPredicateOutput {
                 diagnostics: self.diagnostics,
                 perform_effect_spans: self.perform_effect_spans,
                 remainder_spans: self.remainder_spans,
+                predicate_tokens,
+            };
+        }
+
+        if let Some(index) = excessive_parenthesis_nesting(self.tokens, Self::MAX_PAREN_NESTING) {
+            self.cursor = index;
+            self.error_current(
+                "contract predicate nesting exceeds the supported limit of 128 parenthesized expressions",
+                vec!["shallower contract predicate"],
+                RecoveryStrategy::SkipToken,
+                None,
+            );
+            let predicate_tokens = self.predicate_tokens();
+            return ContractPredicateOutput {
+                diagnostics: self.diagnostics,
+                perform_effect_spans: self.perform_effect_spans,
+                remainder_spans: self.remainder_spans,
+                predicate_tokens,
             };
         }
 
@@ -57,11 +80,33 @@ impl<'a> ContractPredicateParser<'a> {
         }
         self.remainder_spans
             .sort_by_key(|remainder| remainder.operator_span.start.offset);
+        let operations = self
+            .remainder_spans
+            .iter()
+            .enumerate()
+            .map(|(index, remainder)| (remainder.operation_range.clone(), index))
+            .collect::<HashMap<_, _>>();
+        for remainder in &mut self.remainder_spans {
+            remainder.left_remainder = operations.get(&remainder.left_range).copied();
+        }
+        let predicate_tokens = self.predicate_tokens();
         ContractPredicateOutput {
             diagnostics: self.diagnostics,
             perform_effect_spans: self.perform_effect_spans,
             remainder_spans: self.remainder_spans,
+            predicate_tokens,
         }
+    }
+
+    fn predicate_tokens(&self) -> Vec<crate::PredicateTokenSpan> {
+        self.tokens
+            .iter()
+            .zip(&self.token_text_ranges)
+            .map(|(token, text_range)| crate::PredicateTokenSpan {
+                text_range: text_range.clone(),
+                source_span: self.source.span(token.range),
+            })
+            .collect()
     }
 
     pub(super) fn parse_predicate(&mut self, min_bp: u8) {
@@ -124,29 +169,33 @@ impl<'a> ContractPredicateParser<'a> {
         let Some(operator) = self.tokens.get(operator_index) else {
             return;
         };
-        let normalized = |tokens: &[Token]| {
-            normalize_collected_text(tokens.iter().map(|token| token.text.clone()).collect())
-        };
         let left_span = self.source.span(left_first.range.cover(left_last.range));
         let operation_span = self.source.span(left_first.range.cover(right_last.range));
-        let left_is_prior_remainder = self
-            .completed_remainder_ranges
-            .contains(&(left_span.start.offset, left_span.end.offset));
+        let Some(left_range) =
+            token_slice_text_range(&self.token_text_ranges, expression_start, operator_index)
+        else {
+            return;
+        };
+        let Some(right_range) =
+            token_slice_text_range(&self.token_text_ranges, right_start, expression_end)
+        else {
+            return;
+        };
+        let Some(operation_range) =
+            token_slice_text_range(&self.token_text_ranges, expression_start, expression_end)
+        else {
+            return;
+        };
         self.remainder_spans.push(PredicateRemainder {
-            left_text: if left_is_prior_remainder {
-                String::new()
-            } else {
-                normalized(&self.tokens[expression_start..operator_index])
-            },
-            left_is_prior_remainder,
-            right_text: normalized(&self.tokens[right_start..expression_end]),
+            left_range,
+            right_range,
+            operation_range,
+            left_remainder: None,
             operator_span: self.source.span(operator.range),
             left_span,
             right_span: self.source.span(right_first.range.cover(right_last.range)),
             operation_span,
         });
-        self.completed_remainder_ranges
-            .insert((left_first.range.start, right_last.range.end));
     }
 
     pub(super) fn parse_prefix(&mut self) {
@@ -378,4 +427,45 @@ impl<'a> ContractPredicateParser<'a> {
             repair_candidates: Vec::new(),
         });
     }
+}
+
+fn token_slice_text_range(
+    ranges: &[std::ops::Range<usize>],
+    start: usize,
+    end: usize,
+) -> Option<std::ops::Range<usize>> {
+    Some(ranges.get(start)?.start..ranges.get(end.checked_sub(1)?)?.end)
+}
+
+fn predicate_token_text_ranges(predicate: &str, tokens: &[Token]) -> Vec<std::ops::Range<usize>> {
+    let mut cursor = 0;
+    tokens
+        .iter()
+        .map(|token| {
+            let relative = predicate[cursor..]
+                .find(&token.text)
+                .expect("normalized predicate must retain every source token");
+            let start = cursor + relative;
+            let end = start + token.text.len();
+            cursor = end;
+            start..end
+        })
+        .collect()
+}
+
+fn excessive_parenthesis_nesting(tokens: &[Token], limit: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::LParen => {
+                depth += 1;
+                if depth > limit {
+                    return Some(index);
+                }
+            }
+            TokenKind::RParen => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    None
 }

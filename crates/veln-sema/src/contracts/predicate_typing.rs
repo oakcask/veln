@@ -71,13 +71,23 @@ pub(crate) fn predicate_type_with_remainders(
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Type> {
-    let chains = flat_remainder_chain_texts(remainders);
+    predicate_type_with_remainders_in(predicate, predicate, remainders, bindings, call_type)
+}
+
+pub(crate) fn predicate_type_with_remainders_in(
+    predicate: &str,
+    root_predicate: &str,
+    remainders: &[PredicateRemainder],
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    let chains = flat_remainder_chain_texts(root_predicate, remainders);
     predicate_type_with_flat_remainder_chains(predicate, &chains, bindings, call_type)
 }
 
 fn predicate_type_with_flat_remainder_chains(
     predicate: &str,
-    chains: &[String],
+    chains: &[&str],
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Type> {
@@ -124,7 +134,7 @@ fn predicate_type_with_flat_remainder_chains(
 
 fn predicate_unary_type_with_flat_remainders(
     predicate: &str,
-    chains: &[String],
+    chains: &[&str],
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
@@ -152,7 +162,7 @@ fn predicate_unary_type_with_flat_remainders(
 
 fn predicate_boolean_type_with_flat_remainders(
     predicate: &str,
-    chains: &[String],
+    chains: &[&str],
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
@@ -176,7 +186,7 @@ fn predicate_boolean_type_with_flat_remainders(
 
 fn predicate_comparison_type_with_flat_remainders(
     predicate: &str,
-    chains: &[String],
+    chains: &[&str],
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
@@ -198,7 +208,7 @@ fn predicate_comparison_type_with_flat_remainders(
 
 fn predicate_bitwise_type_with_flat_remainders(
     predicate: &str,
-    chains: &[String],
+    chains: &[&str],
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
@@ -224,7 +234,7 @@ fn predicate_bitwise_type_with_flat_remainders(
 
 fn predicate_arithmetic_type_with_flat_remainders(
     predicate: &str,
-    chains: &[String],
+    chains: &[&str],
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
@@ -248,37 +258,24 @@ fn predicate_arithmetic_type_with_flat_remainders(
     None
 }
 
-fn flat_remainder_chain_texts(remainders: &[PredicateRemainder]) -> Vec<String> {
+fn flat_remainder_chain_texts<'a>(
+    predicate: &'a str,
+    remainders: &[PredicateRemainder],
+) -> Vec<&'a str> {
     veln_ast::predicate_remainder_chain_ranges(remainders)
         .into_iter()
-        .map(|range| flat_remainder_chain_text(&remainders[range]))
+        .map(|range| &predicate[remainders[range.end - 1].operation_range.clone()])
         .collect()
 }
 
-fn flat_remainder_chain_text(remainders: &[PredicateRemainder]) -> String {
-    let mut text = remainders[0]
-        .left_text
-        .chars()
-        .filter(|character| !character.is_whitespace())
-        .collect::<String>();
-    for remainder in remainders {
-        text.push('%');
-        text.extend(
-            remainder
-                .right_text
-                .chars()
-                .filter(|character| !character.is_whitespace()),
-        );
-    }
-    text
-}
-
-fn flat_remainder_chain_text_matches(predicate: &str, chains: &[String]) -> bool {
-    let compact = strip_balanced_outer_parens(predicate.trim())
-        .chars()
-        .filter(|character| !character.is_whitespace())
-        .collect::<String>();
-    chains.iter().any(|chain| chain == &compact)
+fn flat_remainder_chain_text_matches(predicate: &str, chains: &[&str]) -> bool {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    chains.iter().any(|chain| {
+        predicate
+            .chars()
+            .filter(|character| !character.is_whitespace())
+            .eq(chain.chars().filter(|character| !character.is_whitespace()))
+    })
 }
 
 pub(crate) fn predicate_rendered_type_with_calls(
@@ -433,17 +430,25 @@ pub(crate) fn predicate_literal_is_zero(text: &str) -> bool {
 }
 
 pub(crate) fn predicate_has_invalid_remainder_operands(
+    predicate: &str,
     remainders: &[PredicateRemainder],
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> bool {
     remainders.iter().any(|remainder| {
-        let left_invalid = !remainder.left_is_prior_remainder
-            && predicate_remainder_operand_mismatch(&remainder.left_text, bindings, call_type)
-                .is_some();
-        let right_invalid =
-            predicate_remainder_operand_mismatch(&remainder.right_text, bindings, call_type)
-                .is_some();
+        let left_invalid = remainder.left_remainder.is_none()
+            && predicate_remainder_operand_mismatch(
+                remainder.left_text(predicate),
+                bindings,
+                call_type,
+            )
+            .is_some();
+        let right_invalid = predicate_remainder_operand_mismatch(
+            remainder.right_text(predicate),
+            bindings,
+            call_type,
+        )
+        .is_some();
         left_invalid || right_invalid
     })
 }

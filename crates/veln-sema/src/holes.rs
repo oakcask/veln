@@ -229,7 +229,7 @@ impl<'a> FunctionChecker<'a> {
         for remainder in satisfy
             .remainder_spans
             .iter()
-            .filter(|remainder| predicate_literal_is_zero(&remainder.right_text))
+            .filter(|remainder| predicate_literal_is_zero(remainder.right_text(&satisfy.predicate)))
         {
             self.report_contract_literal_zero_remainder(remainder);
         }
@@ -276,6 +276,8 @@ impl<'a> FunctionChecker<'a> {
         );
         if matches!(validation, ContractValidation::InvalidRemainderOperands) {
             self.report_predicate_remainder_operand_mismatches(
+                &satisfy.predicate,
+                &satisfy.predicate_tokens,
                 &satisfy.remainder_spans,
                 &predicate_bindings,
                 expr.node_id,

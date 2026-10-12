@@ -382,6 +382,7 @@ impl<'a> Parser<'a> {
             "contract_predicate",
             "parse.contract_predicate",
             &predicate_tokens,
+            &text,
             true,
         )
         .parse();
@@ -442,6 +443,7 @@ impl<'a> Parser<'a> {
         ContractClause {
             kind,
             text,
+            predicate_tokens: predicate_output.predicate_tokens,
             remainder_spans: predicate_output.remainder_spans,
             perform_effect_spans: predicate_output.perform_effect_spans,
             callsite_reference_spans,

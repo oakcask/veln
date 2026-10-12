@@ -131,7 +131,7 @@ fn predicate_with_folded_remainder_chains(
         let chain_remainders = &remainders[chain.remainder_range];
         folded.push_str(&predicate[cursor..chain.predicate_range.start]);
         folded.push_str(
-            &flat_remainder_chain_value(chain_remainders)?
+            &flat_remainder_chain_value(predicate, chain_remainders)?
                 .as_i64()?
                 .to_string(),
         );
@@ -141,11 +141,15 @@ fn predicate_with_folded_remainder_chains(
     Some(folded)
 }
 
-fn flat_remainder_chain_value(remainders: &[PredicateRemainder]) -> Option<StaticNumber> {
+fn flat_remainder_chain_value(
+    predicate: &str,
+    remainders: &[PredicateRemainder],
+) -> Option<StaticNumber> {
     let first = remainders.first()?;
-    let mut value = StaticNumber::integer(static_integer_expression(&first.left_text)?);
+    let mut value = StaticNumber::integer(static_integer_expression(first.left_text(predicate))?);
     for remainder in remainders {
-        let right = StaticNumber::integer(static_integer_expression(&remainder.right_text)?);
+        let right =
+            StaticNumber::integer(static_integer_expression(remainder.right_text(predicate))?);
         value = static_multiplicative_operation(value, "%", right)?;
     }
     Some(value)
@@ -164,7 +168,7 @@ pub(crate) fn predicate_has_nonfoldable_remainder_with_remainders(
     }
     veln_ast::predicate_remainder_chain_ranges(remainders)
         .into_iter()
-        .any(|range| flat_remainder_chain_value(&remainders[range]).is_none())
+        .any(|range| flat_remainder_chain_value(predicate, &remainders[range]).is_none())
 }
 
 mod boolean_cases;
@@ -193,7 +197,7 @@ pub(crate) use predicate_typing::{
     missing_contract_field, predicate_has_invalid_remainder_operands,
     predicate_is_boolean_with_calls, predicate_is_boolean_with_remainders,
     predicate_literal_is_zero, predicate_remainder_operand_mismatch,
-    predicate_rendered_type_with_calls, predicate_type_with_remainders,
+    predicate_rendered_type_with_calls, predicate_type_with_remainders_in,
 };
 #[cfg(test)]
 pub(crate) use predicate_typing::{reset_predicate_typing_work, take_predicate_typing_work};

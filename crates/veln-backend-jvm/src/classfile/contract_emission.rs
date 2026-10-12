@@ -140,20 +140,16 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         };
         #[cfg(test)]
         {
-            code.contract_remainder_scan_work += text.len() + 1;
+            code.contract_remainder_scan_work += 1;
         }
-        let range = if expression_pointer >= predicate_start && expression_end <= predicate_end {
-            let expression_start = expression_pointer - predicate_start;
-            self.contract_remainder_chains
-                .get(&(expression_start, expression_start + expression.len()))
-                .cloned()
-        } else {
-            external_remainder_chain_range(
-                expression,
-                contract,
-                self.contract_remainder_chains.values(),
-            )
-        };
+        if expression_pointer < predicate_start || expression_end > predicate_end {
+            return false;
+        }
+        let expression_start = expression_pointer - predicate_start;
+        let range = self
+            .contract_remainder_chains
+            .get(&(expression_start, expression_start + expression.len()))
+            .cloned();
         let Some(range) = range else {
             return false;
         };
@@ -161,15 +157,16 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let first = &remainders[0];
         self.emit_contract_value(
             code,
-            &first.left_text,
+            first.left_text(&contract.predicate),
             callsite_calls,
             operand_depth,
             contract,
         );
         let mut previous_literal_divisor = None;
         for remainder in remainders {
+            let right_text = remainder.right_text(&contract.predicate);
             let literal_divisor =
-                parse_integer_literal(strip_contract_outer_parens(remainder.right_text.trim()))
+                parse_integer_literal(strip_contract_outer_parens(right_text.trim()))
                     .ok()
                     .map(|literal| literal.value)
                     .filter(|value| *value != 0);
@@ -178,7 +175,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             }
             self.emit_contract_value(
                 code,
-                &remainder.right_text,
+                right_text,
                 callsite_calls,
                 operand_depth + 1,
                 contract,
@@ -459,53 +456,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
     }
-}
-
-fn external_remainder_chain_range<'a>(
-    expression: &str,
-    contract: &IrContract,
-    mut ranges: impl Iterator<Item = &'a std::ops::Range<usize>>,
-) -> Option<std::ops::Range<usize>> {
-    let expression_pointer = expression.as_ptr() as usize;
-    let expression_end = expression_pointer.checked_add(expression.len())?;
-    let owner_span = contract.remainder_spans.iter().find_map(|remainder| {
-        [
-            (&remainder.left_text, &remainder.left_span),
-            (&remainder.right_text, &remainder.right_span),
-        ]
-        .into_iter()
-        .find_map(|(operand, span)| {
-            let start = operand.as_ptr() as usize;
-            (expression_pointer >= start && expression_end <= start + operand.len()).then_some(span)
-        })
-    })?;
-    let compact = expression
-        .chars()
-        .filter(|character| !character.is_whitespace())
-        .collect::<String>();
-    ranges.find_map(|range| {
-        let remainders = &contract.remainder_spans[range.clone()];
-        let first = remainders.first()?;
-        let last = remainders.last()?;
-        if first.operation_span.start.offset < owner_span.start.offset
-            || last.operation_span.end.offset > owner_span.end.offset
-            || compact_remainder_chain_text(remainders) != compact
-        {
-            return None;
-        }
-        Some(range.clone())
-    })
-}
-
-fn compact_remainder_chain_text(remainders: &[PredicateRemainder]) -> String {
-    let mut text = remainders[0].left_text.clone();
-    for remainder in remainders {
-        text.push('%');
-        text.push_str(&remainder.right_text);
-    }
-    text.chars()
-        .filter(|character| !character.is_whitespace())
-        .collect()
 }
 
 fn remainder_operator_count_before(predicate: &str, operator_offset: usize) -> usize {

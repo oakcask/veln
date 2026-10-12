@@ -52,14 +52,14 @@ impl<'a> FunctionChecker<'a> {
         if let Some(validation) = self.validate_missing_contract_field(trimmed, bindings) {
             return validation;
         }
-        if predicate_has_invalid_remainder_operands(remainders, bindings, &|callee| {
+        if predicate_has_invalid_remainder_operands(predicate, remainders, bindings, &|callee| {
             self.contract_call_signature(callee)
                 .map(|(_, _, return_type, _, _)| return_type)
         }) {
             return ContractValidation::InvalidRemainderOperands;
         }
         if let Some(validation) =
-            self.validate_contract_call_arguments(remainders, bindings, &calls)
+            self.validate_contract_call_arguments(predicate, remainders, bindings, &calls)
         {
             return validation;
         }
@@ -117,6 +117,7 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn validate_contract_call_arguments(
         &self,
+        predicate: &str,
         remainders: &[PredicateRemainder],
         bindings: &[Binding],
         calls: &[ContractCall],
@@ -134,8 +135,8 @@ impl<'a> FunctionChecker<'a> {
                     .get(index)
                     .or(variadic.as_ref())
                     .expect("validated contract call arity provides an argument type");
-                if let Some(validation) =
-                    self.validate_contract_call_argument(arg, expected, remainders, bindings)
+                if let Some(validation) = self
+                    .validate_contract_call_argument(arg, expected, predicate, remainders, bindings)
                 {
                     return Some(validation);
                 }
@@ -148,6 +149,7 @@ impl<'a> FunctionChecker<'a> {
         &self,
         arg: &str,
         expected: &Type,
+        predicate: &str,
         remainders: &[PredicateRemainder],
         bindings: &[Binding],
     ) -> Option<ContractValidation> {
@@ -158,7 +160,7 @@ impl<'a> FunctionChecker<'a> {
         {
             return Some(ContractValidation::UnresolvedName { name });
         }
-        let actual_type = self.predicate_arg_type(arg, remainders, bindings);
+        let actual_type = self.predicate_arg_type(arg, predicate, remainders, bindings);
         (!is_assignable(expected, &actual_type)).then_some(
             ContractValidation::UnsupportedConstruct {
                 reason: "call_argument_type",
@@ -320,6 +322,7 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn predicate_arg_type(
         &self,
         arg: &str,
+        predicate: &str,
         remainders: &[PredicateRemainder],
         bindings: &[Binding],
     ) -> Type {
@@ -342,10 +345,12 @@ impl<'a> FunctionChecker<'a> {
                 .map(|(_, _, return_type, _, _)| return_type)
                 .unwrap_or(Type::Unknown);
         }
-        if let Some(ty) = predicate_type_with_remainders(trimmed, remainders, bindings, &|callee| {
-            self.contract_call_signature(callee)
-                .map(|(_, _, return_type, _, _)| return_type)
-        }) {
+        if let Some(ty) =
+            predicate_type_with_remainders_in(trimmed, predicate, remainders, bindings, &|callee| {
+                self.contract_call_signature(callee)
+                    .map(|(_, _, return_type, _, _)| return_type)
+            })
+        {
             return ty;
         }
         if let Some(ty) = self.contract_function_value_type(trimmed) {

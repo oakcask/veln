@@ -70,6 +70,13 @@ predicate but fails the effect-free checker. Unsupported syntax reports
 `parse.contract_predicate`; unsupported syntax in a hole's `satisfy` predicate
 reports `parse.satisfy_predicate`.
 
+A contract or `satisfy` predicate supports at most 128 simultaneously nested
+parenthesized expressions, including call argument parentheses. A predicate at
+that boundary is accepted. The next opening parenthesis reports the applicable
+predicate parse diagnostic instead of entering unbounded parser, checker, or
+backend recursion. The checked boundary is exercised by
+[`contract-predicate-nesting`](../../examples/specification/check/contract-predicate-nesting/).
+
 Validation fails for effectful calls, `stdio::` calls, unresolved names,
 unsupported call targets, missing fields, incompatible arguments, empty
 predicates, and non-boolean results. Invalid predicates never become
