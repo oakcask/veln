@@ -489,9 +489,11 @@ protocol or application failures.
   and
   [`deferred-cleanup-task-cancellation-failure-json`](../../examples/specification/run/deferred-cleanup-task-cancellation-failure-json/).
 - Signed remainder in runtime contract predicates and its zero-divisor JSON
-  failure are checked by
+  failure paths are checked by
   [`contract-remainder`](../../examples/specification/run/contract-remainder/)
-  and
+  for successful signed and endpoint results,
+  [`contract-remainder-failure`](../../examples/specification/run/contract-remainder-failure/)
+  for a violated dynamic predicate, and
   [`contract-remainder-zero-json`](../../examples/specification/run/contract-remainder-zero-json/).
 
 ## Read When

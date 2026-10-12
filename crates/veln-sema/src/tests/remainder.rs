@@ -175,6 +175,7 @@ fn literal_remainder_contracts_are_statically_proven_in_each_clause() {
         concat!(
             "fn checked() -> output: Int\n",
             "require -7 % 3 == -1\n",
+            "require 1 % 9223372036854775807 == 1\n",
             "ensure 7 % -3 == 1\n",
             "invariant (-9223372036854775807 - 1) % -1 == 0\n",
             "  0\n",

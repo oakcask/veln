@@ -184,9 +184,14 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
         "require value % -1 == 0\n",
         "  value\n",
         "end\n",
+        "fn large_divisor(value: Int) -> Int\n",
+        "require value % 9223372036854775807 == value\n",
+        "  value\n",
+        "end\n",
         "pub fn main() -> () effects [stdio]\n",
         "  stdio::println(int_to_string(checked(6)))\n",
         "  stdio::println(int_to_string(endpoint(-9223372036854775807 - 1)))\n",
+        "  stdio::println(int_to_string(large_divisor(1)))\n",
         "end\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
@@ -204,7 +209,7 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "6\n-9223372036854775808\n"
+        "6\n-9223372036854775808\n1\n"
     );
 }
 

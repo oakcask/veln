@@ -12,7 +12,13 @@ fn endpoint(value: Int) -> Int
 	value
 end
 
+fn large_divisor(value: Int) -> Int
+	require value % 9223372036854775807 == value
+	value
+end
+
 pub fn main() -> () effects [stdio]
 	stdio::println(int_to_string(checked(6)))
 	stdio::println(int_to_string(endpoint(-9223372036854775807 - 1)))
+	stdio::println(int_to_string(large_divisor(1)))
 end

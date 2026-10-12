@@ -158,9 +158,10 @@ Requirement discharge reuses contract static truth and preserves its limits:
 - disjunctive requirements contribute only facts common to every branch;
 - numeric literal bounds use exact decimal/rational ordering and pure literal
   `+`, `-`, `*`, and comparison-only `/` expressions;
-- a nonliteral remainder relationship stays unresolved and does not produce a
-  modular proof or repair; independently supported constraints in the same
-  predicate remain eligible under the rules above;
+- a `satisfy` predicate that contains a nonliteral remainder relationship stays
+  unresolved as a whole and does not produce a modular proof or repair; other
+  holes with independently supported `satisfy` predicates remain eligible
+  under the rules above;
 - `Int` bounds include adjacent integer facts (`max > 0` implies `max >= 1`,
   while `max >= 10` does not imply `max > 10`); and
 - equal inclusive bounds do not imply endpoint disequality.
