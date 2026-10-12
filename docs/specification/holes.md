@@ -120,10 +120,11 @@ predicate use the `satisfy_predicate` namespace.
 
 Remainder validation preserves those specific operand failures. A missing
 field reports `hole.satisfy_field_missing`, and a prefixed non-`Int` operand
-reports `type.mismatch`. The same priority applies when `%` is nested in a pure
-call argument, before the enclosing call result is checked as the Boolean
-predicate. The operand failure is not replaced by
-`hole.satisfy_type_mismatch` or `hole.satisfy_unsupported_construct`.
+reports `type.mismatch`. A composite arithmetic operand reports a non-`Int`
+leaf at that leaf's span rather than at the complete operand. The same priority
+applies when `%` is nested in a pure call argument, before the enclosing call
+result is checked as the Boolean predicate. The operand failure is not replaced
+by `hole.satisfy_type_mismatch` or `hole.satisfy_unsupported_construct`.
 
 A hole blocks execution. Therefore, a computed zero divisor inside `satisfy`
 does not produce `runtime.remainder_by_zero`; a nonliteral remainder

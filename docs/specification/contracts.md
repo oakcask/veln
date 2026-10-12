@@ -49,15 +49,19 @@ operator contract is specified in
 
 Grouping, numeric prefix operators, comparisons, Boolean composition, and pure
 call arguments preserve this typing. They do not reassociate or reject an
-otherwise valid remainder chain.
+otherwise valid remainder chain. One predicate can contain independent
+remainder chains on both sides of a comparison, in separate Boolean branches,
+or inside pure call arguments.
 
 Each operand keeps the most specific diagnostic available for its expression.
 For example, a missing record field reports `contract.field_missing`, and a
-prefixed `Bool` operand reports `type.mismatch` for the required `Int`. A
-surrounding remainder comparison does not replace either diagnostic. When a
-remainder occurs inside a pure call argument, its invalid operand is diagnosed
-before the enclosing call result is checked as the Boolean predicate. Neither
-context replaces the specific failure with `contract.type_mismatch` or
+prefixed `Bool` operand reports `type.mismatch` for the required `Int`. When a
+composite arithmetic operand contains a non-`Int` leaf, the diagnostic selects
+that leaf instead of the complete operand. A surrounding remainder comparison
+does not replace any of these diagnostics. When a remainder occurs inside a
+pure call argument, its invalid operand is diagnosed before the enclosing call
+result is checked as the Boolean predicate. Neither context replaces the
+specific failure with `contract.type_mismatch` or
 `contract.unsupported_construct`.
 
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
@@ -135,10 +139,12 @@ The classifier combines these rule classes:
 | Order reasoning | Complementary equality/order pairs, trichotomy, inclusive totality, strict splits from disequality, and transitive implications over `<`, `<=`, `==`, and their commuted forms. Non-strict paths can prove equality; strict paths do not. |
 | Literal bounds | Contradictory bounds prove a negated conjunction; covering lower/upper bounds prove a disjunction. Equality aliases may connect bounds. An inclusive bound does not prove a strict consequent. |
 
-A flat remainder chain follows its source left associativity during
-classification. A literal-only chain folds each operation from left to right.
-If any operand is nonliteral, the complete comparison remains
-`runtime_required`; classification does not partially prove the chain.
+Each independent flat remainder chain follows its source left associativity
+during classification. A literal-only chain folds each operation from left to
+right before the surrounding comparison and Boolean expression are classified.
+If any chain contains a nonliteral operand, the complete obligation remains
+`runtime_required`; classification does not use a partially folded predicate
+to prove it.
 
 Representative proven predicates include:
 

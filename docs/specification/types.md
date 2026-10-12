@@ -900,7 +900,9 @@ Implemented operator typing:
   the same precedence and left associativity as `*` and `/`. Its nonzero
   result has the dividend's sign, including for negative divisors, and
   minimum `Int` remainder by `-1` is `0`. A `Float` context does not widen a
-  remainder operand or result.
+  remainder operand or result. In contract and `satisfy` predicates, a
+  composite remainder operand is checked through its nested arithmetic leaves;
+  a non-`Int` leaf reports `type.mismatch` at that leaf.
 - `==` and `!=` return `Bool` and do not currently require matching operand
   types.
 - `|>` requires a named or qualified call expression on the right. The left
