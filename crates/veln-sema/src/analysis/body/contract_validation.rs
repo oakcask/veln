@@ -3,17 +3,18 @@ use super::*;
 type ContractCallSignature = (Vec<Type>, Option<Type>, Type, Vec<String>, bool);
 
 impl<'a> FunctionChecker<'a> {
-    pub(super) fn validate_contract_predicate(
-        &self,
-        kind: ContractKind,
-        predicate: &str,
-    ) -> ContractValidation {
-        self.validate_predicate_with_bindings(predicate, &self.contract_bindings(kind))
+    pub(super) fn validate_contract_predicate(&self, contract: &Contract) -> ContractValidation {
+        self.validate_predicate_with_bindings(
+            &contract.text,
+            &contract.remainder_spans,
+            &self.contract_bindings(contract.kind),
+        )
     }
 
     pub(in crate::analysis) fn validate_predicate_with_bindings(
         &self,
         predicate: &str,
+        remainders: &[PredicateRemainder],
         bindings: &[Binding],
     ) -> ContractValidation {
         let trimmed = predicate.trim();
@@ -43,7 +44,7 @@ impl<'a> FunctionChecker<'a> {
         {
             return validation;
         }
-        if predicate_has_invalid_remainder_operands(trimmed, bindings, &|callee| {
+        if predicate_has_invalid_remainder_operands(remainders, bindings, &|callee| {
             self.contract_call_signature(callee)
                 .map(|(_, _, return_type, _, _)| return_type)
         }) {

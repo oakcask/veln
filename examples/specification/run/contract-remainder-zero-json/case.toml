@@ -37,7 +37,7 @@ equals = 17
 
 [[json_assert]]
 path = "error.details.divisor_span.end.column"
-equals = 24
+equals = 25
 
 [[json_assert]]
 path = "error.related.0.kind"
@@ -49,4 +49,4 @@ equals = 9
 
 [[json_assert]]
 path = "error.related.0.span.end.column"
-equals = 24
+equals = 25

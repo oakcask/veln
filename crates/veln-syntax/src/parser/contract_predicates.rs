@@ -18,6 +18,7 @@ impl<'a> ContractPredicateParser<'a> {
             diagnostics: Vec::new(),
             perform_effect_spans: Vec::new(),
             remainder_spans: Vec::new(),
+            completed_remainder_ranges: HashSet::new(),
         }
     }
 
@@ -126,14 +127,28 @@ impl<'a> ContractPredicateParser<'a> {
         let normalized = |tokens: &[Token]| {
             normalize_collected_text(tokens.iter().map(|token| token.text.clone()).collect())
         };
+        let left_span = self.source.span(left_first.range.cover(left_last.range));
+        let operation_span = self.source.span(left_first.range.cover(right_last.range));
+        let left_is_prior_remainder = self
+            .completed_remainder_ranges
+            .contains(&(left_span.start.offset, left_span.end.offset));
         self.remainder_spans.push(PredicateRemainder {
-            left_text: normalized(&self.tokens[expression_start..operator_index]),
+            left_text: if left_is_prior_remainder {
+                String::new()
+            } else {
+                normalized(&self.tokens[expression_start..operator_index])
+            },
+            left_is_prior_remainder,
             right_text: normalized(&self.tokens[right_start..expression_end]),
             operator_span: self.source.span(operator.range),
-            left_span: self.source.span(left_first.range.cover(left_last.range)),
+            left_span,
             right_span: self.source.span(right_first.range.cover(right_last.range)),
-            operation_span: self.source.span(left_first.range.cover(right_last.range)),
+            operation_span,
         });
+        self.completed_remainder_ranges.insert((
+            left_first.range.start as usize,
+            right_last.range.end as usize,
+        ));
     }
 
     pub(super) fn parse_prefix(&mut self) {

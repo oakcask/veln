@@ -568,6 +568,7 @@ impl<'a> Reader<'a> {
     fn predicate_remainder(&mut self) -> Result<PredicateRemainder, String> {
         Ok(PredicateRemainder {
             left_text: self.string()?,
+            left_is_prior_remainder: self.bool()?,
             right_text: self.string()?,
             operator_span: self.span()?,
             left_span: self.span()?,

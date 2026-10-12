@@ -63,6 +63,8 @@ runtime-only checks and never contribute repair constraints.
 Valid obligations run on executable `run` and `test` paths. `require` runs when
 the function is entered. `ensure` runs before normal return and before a `?`
 error return. `invariant` runs at entry and before normal or `?` return.
+`satisfy` is a hole repair constraint, not a runtime contract obligation; its
+nonliteral remainder expressions are not executed.
 
 Runtime-required obligations in a call-site-aware function can read the same
 hidden `callsite` value as the function body. A direct call from such an

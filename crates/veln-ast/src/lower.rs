@@ -646,6 +646,7 @@ impl AstBuilder {
 fn lower_predicate_remainder(remainder: &veln_syntax::PredicateRemainder) -> PredicateRemainder {
     PredicateRemainder {
         left_text: remainder.left_text.clone(),
+        left_is_prior_remainder: remainder.left_is_prior_remainder,
         right_text: remainder.right_text.clone(),
         operator_span: remainder.operator_span.clone(),
         left_span: remainder.left_span.clone(),

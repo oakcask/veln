@@ -66,6 +66,14 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 operand_depth,
                 contract,
             ),
+            ContractValue::Negate(value) => self.emit_contract_unary(
+                code,
+                value,
+                "negate",
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
             ContractValue::Binary { left, right, op } => self.emit_contract_binary(
                 code,
                 (left, right),

@@ -2,6 +2,7 @@ use super::*;
 
 pub(super) enum ContractValue<'a> {
     Not(&'a str),
+    Negate(&'a str),
     Binary {
         left: &'a str,
         right: &'a str,
@@ -37,6 +38,12 @@ pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
     }
     if let Some(rest) = text.strip_prefix("not ") {
         return ContractValue::Not(rest);
+    }
+    if let Some(rest) = text.strip_prefix('-')
+        && contract_integer_value(text).is_none()
+        && text.parse::<f64>().is_err()
+    {
+        return ContractValue::Negate(rest);
     }
     if let Some(rest) = text.strip_prefix('~') {
         return ContractValue::BitwiseNot(rest);

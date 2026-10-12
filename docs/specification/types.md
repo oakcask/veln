@@ -920,12 +920,15 @@ space, including infinities and NaN values.
 An integer remainder whose divisor is written as an integer zero literal
 reports `type.remainder_by_zero` at the divisor with the operation as related
 context. A non-`Int` zero such as `0.0` reports only `type.mismatch` for the
-operand. A computed zero divisor fails at runtime after both operands have
+operand. In an ordinary executable expression or a runtime-required contract
+obligation, a computed zero divisor fails at runtime after both operands have
 evaluated once from left to right. The failure preserves completed output and
 registered cleanup, and expressions after the failed operation do not run.
-Contract and `satisfy` predicates accept `%` with these typing and failure
-rules. Schema count, length, and validation expressions and compound assignment
-do not accept `%`.
+Contract and `satisfy` predicates share the `Int`-only typing and literal-zero
+diagnostic. A hole blocks execution, so a nonliteral remainder in `satisfy`
+stays an unresolved repair constraint and cannot produce a runtime remainder
+failure. Schema count, length, and validation expressions and compound
+assignment do not accept `%`.
 
 Integer bitwise operations use signed 64-bit two's-complement patterns on
 every backend. Their precedence from highest to lowest is prefix, multiply,

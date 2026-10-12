@@ -408,6 +408,7 @@ pub struct Contract {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PredicateRemainder {
     pub left_text: String,
+    pub left_is_prior_remainder: bool,
     pub right_text: String,
     pub operator_span: SourceSpan,
     pub left_span: SourceSpan,

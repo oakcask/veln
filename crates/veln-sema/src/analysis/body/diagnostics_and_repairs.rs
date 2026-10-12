@@ -645,7 +645,7 @@ impl<'a> FunctionChecker<'a> {
             .filter(|contract| contract.kind != ContractKind::Ensure)
             .filter(|contract| {
                 matches!(
-                    self.validate_contract_predicate(contract.kind, &contract.text),
+                    self.validate_contract_predicate(contract),
                     ContractValidation::Valid
                 )
             })
@@ -724,7 +724,11 @@ impl<'a> FunctionChecker<'a> {
             .collect::<Vec<_>>();
         predicate_bindings.push(Binding::new(candidate.clone(), expected.clone()));
         matches!(
-            self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings),
+            self.validate_predicate_with_bindings(
+                &satisfy.predicate,
+                &satisfy.remainder_spans,
+                &predicate_bindings,
+            ),
             ContractValidation::Valid
         )
     }

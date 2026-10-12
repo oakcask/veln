@@ -181,6 +181,40 @@ fn parses_remainder_in_contract_predicates_at_multiply_precedence() {
 }
 
 #[test]
+fn flat_remainder_chain_retains_linear_operand_provenance() {
+    fn retained_operand_bytes(operator_count: usize) -> usize {
+        let predicate = std::iter::once("value".to_string())
+            .chain((0..operator_count).map(|_| "% 2".to_string()))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let source = SourceFile::new(
+            "main.veln",
+            format!("fn checked(value: Int) -> Int\nrequire {predicate} == 0\n  value\nend\n"),
+        );
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        let remainders = &first_function(&output).contracts[0].remainder_spans;
+        assert_eq!(remainders.len(), operator_count);
+        assert_eq!(remainders[0].left_text, "value");
+        assert!(!remainders[0].left_is_prior_remainder);
+        assert!(remainders[1..].iter().all(|remainder| {
+            remainder.left_is_prior_remainder
+                && remainder.left_text.is_empty()
+                && remainder.right_text == "2"
+        }));
+        remainders
+            .iter()
+            .map(|remainder| remainder.left_text.len() + remainder.right_text.len())
+            .sum()
+    }
+
+    let at_500 = retained_operand_bytes(500);
+    let at_501 = retained_operand_bytes(501);
+    assert_eq!(at_500, 505);
+    assert_eq!(at_501 - at_500, 1);
+}
+
+#[test]
 fn rejects_non_predicate_contract_syntax() {
     let source = SourceFile::new(
         "main.veln",

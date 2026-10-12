@@ -262,6 +262,7 @@ pub struct ContractClause {
 #[derive(Clone, Debug)]
 pub struct PredicateRemainder {
     pub left_text: String,
+    pub left_is_prior_remainder: bool,
     pub right_text: String,
     pub operator_span: SourceSpan,
     pub left_span: SourceSpan,

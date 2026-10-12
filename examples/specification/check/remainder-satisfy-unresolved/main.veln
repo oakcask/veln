@@ -1,0 +1,4 @@
+# A nonliteral remainder constrains repair without becoming executable.
+fn choose(fallback: Int, divisor: Int) -> Int
+	_value satisfy candidate => candidate % -divisor == 1
+end

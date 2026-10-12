@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use veln_literals::parse_integer_literal;
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
@@ -462,6 +464,7 @@ struct ContractPredicateParser<'a> {
     diagnostics: Vec<ParseDiagnostic>,
     perform_effect_spans: Vec<SourceSpan>,
     remainder_spans: Vec<PredicateRemainder>,
+    completed_remainder_ranges: HashSet<(usize, usize)>,
 }
 
 struct ContractPredicateOutput {

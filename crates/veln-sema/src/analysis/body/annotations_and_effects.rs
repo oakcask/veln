@@ -366,7 +366,7 @@ impl<'a> FunctionChecker<'a> {
             {
                 self.report_contract_literal_zero_remainder(remainder);
             }
-            let validation = self.validate_contract_predicate(contract.kind, &contract.text);
+            let validation = self.validate_contract_predicate(contract);
             match validation {
                 ContractValidation::Valid => {}
                 ContractValidation::InvalidRemainderOperands => {
@@ -501,10 +501,12 @@ impl<'a> FunctionChecker<'a> {
             .iter()
             .flat_map(|remainder| {
                 [
-                    (&remainder.left_text, &remainder.left_span),
-                    (&remainder.right_text, &remainder.right_span),
+                    (!remainder.left_is_prior_remainder)
+                        .then_some((&remainder.left_text, &remainder.left_span)),
+                    Some((&remainder.right_text, &remainder.right_span)),
                 ]
             })
+            .flatten()
             .filter_map(|(text, span)| {
                 let actual = predicate_type_with_calls(text, bindings, &|callee| {
                     self.contract_call_signature(callee)

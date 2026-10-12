@@ -118,6 +118,10 @@ type when known. Unsupported constructs, non-boolean predicates, missing
 fields, and unresolved names are hole diagnostics; names unresolved within the
 predicate use the `satisfy_predicate` namespace.
 
+A hole blocks execution. Therefore, a computed zero divisor inside `satisfy`
+does not produce `runtime.remainder_by_zero`; a nonliteral remainder
+relationship remains unresolved repair analysis.
+
 ## Safe repair classes
 
 A visible symbol is a `safe_repair_candidate` only when substituting it for the

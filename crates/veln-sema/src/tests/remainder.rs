@@ -8,6 +8,41 @@ fn diagnostics_for(text: &str) -> Vec<Diagnostic> {
 }
 
 #[test]
+fn flat_remainder_validation_types_each_leaf_once() {
+    fn type_checks(operator_count: usize) -> usize {
+        let predicate = std::iter::once("number()".to_string())
+            .chain((0..operator_count).map(|_| "% number()".to_string()))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn number() -> Int\n  1\nend\nfn checked() -> Int\nrequire {predicate} == 0\n  0\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        let contract = &module.functions[1].contracts[0];
+        let calls = std::cell::Cell::new(0usize);
+        assert!(!crate::contracts::predicate_has_invalid_remainder_operands(
+            &contract.remainder_spans,
+            &[],
+            &|_| {
+                calls.set(calls.get() + 1);
+                Some(crate::semantic_model::Type::int())
+            },
+        ));
+        calls.get()
+    }
+
+    let at_500 = type_checks(500);
+    let at_501 = type_checks(501);
+    assert_eq!(at_500, 501);
+    assert_eq!(at_501 - at_500, 1);
+}
+
+#[test]
 fn remainder_is_int_only_even_in_float_contexts() {
     let diagnostics = diagnostics_for(concat!(
         "fn main() -> Float\n",

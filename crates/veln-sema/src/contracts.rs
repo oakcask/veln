@@ -1,4 +1,4 @@
-use veln_ast::ContractKind;
+use veln_ast::{ContractKind, PredicateRemainder};
 use veln_literals::parse_integer_literal;
 
 use crate::semantic_model::{Binding, Type};
@@ -40,6 +40,39 @@ pub(crate) fn predicate_is_statically_true_with_literal_bounds(predicate: &str) 
 pub(crate) fn contract_predicate_is_statically_true(predicate: &str) -> bool {
     !predicate_has_nonfoldable_remainder(predicate)
         && static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
+}
+
+pub(crate) fn contract_predicate_is_statically_true_with_remainders(
+    predicate: &str,
+    remainders: &[PredicateRemainder],
+) -> bool {
+    !flat_remainder_chain_is_nonfoldable(remainders)
+        .unwrap_or_else(|| predicate_has_nonfoldable_remainder(predicate))
+        && static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
+}
+
+fn flat_remainder_chain_is_nonfoldable(remainders: &[PredicateRemainder]) -> Option<bool> {
+    let (first, rest) = remainders.split_first()?;
+    if first.left_is_prior_remainder
+        || rest
+            .iter()
+            .any(|remainder| !remainder.left_is_prior_remainder)
+    {
+        return None;
+    }
+    let Some(mut value) = static_numeric_expression(&first.left_text) else {
+        return Some(true);
+    };
+    for remainder in remainders {
+        let Some(right) = static_numeric_expression(&remainder.right_text) else {
+            return Some(true);
+        };
+        let Some(next) = static_multiplicative_operation(value, "%", right) else {
+            return Some(true);
+        };
+        value = next;
+    }
+    Some(false)
 }
 
 pub(crate) fn predicate_is_statically_false(predicate: &str) -> bool {

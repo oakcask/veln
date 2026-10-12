@@ -125,7 +125,10 @@ impl<'a> CoreLowerer<'a> {
         contracts
             .iter()
             .map(|contract| {
-                let obligation_status = if contract_predicate_is_statically_true(&contract.text) {
+                let obligation_status = if contract_predicate_is_statically_true_with_remainders(
+                    &contract.text,
+                    &contract.remainder_spans,
+                ) {
                     ContractObligationStatus::StaticallyProven
                 } else {
                     ContractObligationStatus::RuntimeRequired

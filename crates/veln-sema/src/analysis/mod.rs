@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 mod holes;
 
 use veln_ast::{
-    BinaryOp, BodyLine, BodyLineKind, ContractKind, DictEntry, Expr, ExprKind, Function,
+    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternField, PatternKind,
     PredicateRemainder, RecordField, SatisfyClause, SurfaceModule, Visibility,
 };

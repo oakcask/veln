@@ -181,45 +181,17 @@ pub(crate) fn predicate_literal_is_zero(text: &str) -> bool {
 }
 
 pub(crate) fn predicate_has_invalid_remainder_operands(
-    predicate: &str,
+    remainders: &[PredicateRemainder],
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> bool {
-    let predicate = strip_balanced_outer_parens(predicate.trim());
-    for operators in [
-        &["or"][..],
-        &["and"][..],
-        &["|"][..],
-        &["^"][..],
-        &["&"][..],
-        &["==", "!="][..],
-        &["<=", ">=", "<", ">"][..],
-        &[">>>", ">>", "<<"][..],
-        &["+", "-"][..],
-        &["*", "/", "%"][..],
-    ] {
-        let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
-        else {
-            continue;
-        };
-        let invalid_here = operator == "%"
-            && (predicate_type_with_calls(left, bindings, call_type) != Some(Type::int())
-                || predicate_type_with_calls(right, bindings, call_type) != Some(Type::int()));
-        return invalid_here
-            || predicate_has_invalid_remainder_operands(left, bindings, call_type)
-            || predicate_has_invalid_remainder_operands(right, bindings, call_type);
-    }
-    if let Some(rest) = predicate
-        .strip_prefix('-')
-        .or_else(|| predicate.strip_prefix('~'))
-        .or_else(|| predicate.strip_prefix("not "))
-    {
-        return predicate_has_invalid_remainder_operands(rest, bindings, call_type);
-    }
-    contract_calls(predicate).into_iter().any(|call| {
-        call.args
-            .iter()
-            .any(|arg| predicate_has_invalid_remainder_operands(arg, bindings, call_type))
+    remainders.iter().any(|remainder| {
+        let left_invalid = !remainder.left_is_prior_remainder
+            && predicate_type_with_calls(&remainder.left_text, bindings, call_type)
+                != Some(Type::int());
+        let right_invalid = predicate_type_with_calls(&remainder.right_text, bindings, call_type)
+            != Some(Type::int());
+        left_invalid || right_invalid
     })
 }
 

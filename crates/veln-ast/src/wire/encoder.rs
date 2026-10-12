@@ -390,6 +390,7 @@ impl Writer {
 
     fn predicate_remainder(&mut self, value: &PredicateRemainder) {
         self.string(&value.left_text);
+        self.bool(value.left_is_prior_remainder);
         self.string(&value.right_text);
         self.span(&value.operator_span);
         self.span(&value.left_span);

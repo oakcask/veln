@@ -173,11 +173,11 @@ fn bytecode_backend_evaluates_prefixed_contract_integers_when_java_is_available(
 #[test]
 fn bytecode_backend_executes_remainder_in_all_contract_positions() {
     let ir = lower_to_ir(concat!(
-        "fn checked(value: Int) -> output: Int\n",
-        "require value % 2 == 0\n",
-        "require value % 4 * 2 == 4\n",
-        "ensure output % 4 == 2\n",
-        "invariant value % 3 == 0\n",
+        "fn checked(value: Int, divisor: Int) -> output: Int\n",
+        "require value % -divisor == 0\n",
+        "require (-value) % 2 == 0\n",
+        "ensure output % -divisor == 0\n",
+        "invariant (-value) % divisor == 0\n",
         "  value\n",
         "end\n",
         "fn endpoint(value: Int) -> Int\n",
@@ -189,7 +189,8 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
         "  value\n",
         "end\n",
         "pub fn main() -> () effects [stdio]\n",
-        "  stdio::println(int_to_string(checked(6)))\n",
+        "  stdio::println(int_to_string(checked(6, 3)))\n",
+        "  stdio::println(int_to_string(checked(-6, -3)))\n",
         "  stdio::println(int_to_string(endpoint(-9223372036854775807 - 1)))\n",
         "  stdio::println(int_to_string(large_divisor(1)))\n",
         "end\n",
@@ -209,7 +210,7 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "6\n-9223372036854775808\n1\n"
+        "6\n-6\n-9223372036854775808\n1\n"
     );
 }
 
@@ -261,6 +262,39 @@ fn bytecode_backend_reports_dynamic_zero_remainder_in_contract() {
     );
     assert!(trace.contains(&expected_coordinates), "{trace}");
     let _ = fs::remove_dir_all(&trace_root);
+}
+
+#[test]
+fn bytecode_backend_reports_negated_dynamic_zero_remainder_in_contract() {
+    let source = concat!(
+        "fn checked(value: Int, divisor: Int) -> Int\n",
+        "require value % -divisor == 0\n",
+        "  value\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  checked(7, 0)\n",
+        "  ()\n",
+        "end\n",
+    );
+    let ir = lower_to_ir(source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-contract-negated-remainder-zero",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("error[runtime.remainder_by_zero]: remainder divisor is zero"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("ClassCastException"), "{stderr}");
+    assert!(!stderr.contains("ArithmeticException"), "{stderr}");
 }
 
 #[test]

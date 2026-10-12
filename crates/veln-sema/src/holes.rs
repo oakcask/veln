@@ -269,8 +269,11 @@ impl<'a> FunctionChecker<'a> {
                     .unwrap_or(Type::Unknown),
             ));
         }
-        let validation =
-            self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings);
+        let validation = self.validate_predicate_with_bindings(
+            &satisfy.predicate,
+            &satisfy.remainder_spans,
+            &predicate_bindings,
+        );
         if matches!(validation, ContractValidation::InvalidRemainderOperands) {
             self.report_predicate_remainder_operand_mismatches(
                 &satisfy.remainder_spans,

@@ -1,5 +1,5 @@
 fn checked(value: Int, divisor: Int) -> Int
-require value % divisor    == 0
+require value % -divisor    == 0
 	value
 end
 
