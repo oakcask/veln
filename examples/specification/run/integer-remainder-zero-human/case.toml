@@ -1,0 +1,15 @@
+command = ["run", "main", "main.veln", "--", "0"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+contains = ["before"]
+not_contains = ["after"]
+
+[stderr]
+format = "text"
+contains = ["error[runtime.remainder_by_zero]: remainder divisor is zero", "note: main.veln", "Remainder operation is here."]
+not_contains = ["ArithmeticException", "/ by zero"]

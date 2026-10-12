@@ -167,6 +167,7 @@ fn binary_operator(kind: TokenKind, allow_pipeline: bool) -> Option<(BinaryOp, u
         TokenKind::Minus => Some((BinaryOp::Subtract, 19, 20)),
         TokenKind::Star => Some((BinaryOp::Multiply, 21, 22)),
         TokenKind::Slash => Some((BinaryOp::Divide, 21, 22)),
+        TokenKind::Percent => Some((BinaryOp::Remainder, 21, 22)),
         _ => None,
     }
 }

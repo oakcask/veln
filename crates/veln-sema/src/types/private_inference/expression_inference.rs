@@ -385,6 +385,7 @@ pub(crate) fn infer_private_binary_type(
                 Type::int()
             }
         }
+        veln_ast::BinaryOp::Remainder => Type::int(),
         veln_ast::BinaryOp::PipeGreater => Type::Unknown,
     }
 }

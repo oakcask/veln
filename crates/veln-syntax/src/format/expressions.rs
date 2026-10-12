@@ -563,7 +563,7 @@ fn expr_prec(expr: &Expr) -> u8 {
             BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => 15,
             BinaryOp::ShiftLeft | BinaryOp::ShiftRight | BinaryOp::ShiftRightLogical => 17,
             BinaryOp::Add | BinaryOp::Subtract => 19,
-            BinaryOp::Multiply | BinaryOp::Divide => 21,
+            BinaryOp::Multiply | BinaryOp::Divide | BinaryOp::Remainder => 21,
         },
         ExprKind::Prefix { .. } => 25,
         ExprKind::Call { .. }
@@ -598,5 +598,6 @@ fn binary_op_text(op: BinaryOp) -> &'static str {
         BinaryOp::Subtract => "-",
         BinaryOp::Multiply => "*",
         BinaryOp::Divide => "/",
+        BinaryOp::Remainder => "%",
     }
 }

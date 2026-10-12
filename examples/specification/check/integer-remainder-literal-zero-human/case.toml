@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[type.remainder_by_zero]: remainder divisor is zero", "Remainder operation is here."]
+
+[stderr]
+format = "empty"

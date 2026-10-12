@@ -53,7 +53,9 @@ A tool failure has `error.kind: "runner"`, `details.phase: "tool"`, empty
 Other non-zero Java exits have `error.kind: "runtime"` and
 `details.phase: "runtime"`.
 
-Every structured `error` includes a `related` array. A cleanup failure attached
+Every structured `error` includes a `related` array. A zero-divisor remainder
+failure includes an `operation` note with the complete `%` expression span.
+A cleanup failure attached
 to an existing primary failure contributes one object with
 `kind: "cleanup_failure"` and its runtime `message`. Objects retain cleanup
 execution order. The array is empty when no related cleanup failed.
@@ -152,6 +154,14 @@ An invalid dynamic shift count uses
 `details.id: "runtime.invalid_shift_count"` with `operator`,
 `actual_count`, `minimum_count`, and `maximum_count`. Other host failures
 keep the generic runtime shape.
+
+A computed zero remainder divisor uses
+`details.id: "runtime.remainder_by_zero"`, `operator: "%"`, and numeric
+`divisor: 0`. `divisor_span` identifies the divisor expression and
+`operation_span` identifies the complete operation. The primary message is
+`remainder divisor is zero`. Captured output remains in `stdout`; the human
+command renders the divisor location and the related operation location
+without exposing a host arithmetic exception.
 
 ## Returned result values
 

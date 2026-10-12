@@ -379,6 +379,28 @@ impl<'a> FunctionChecker<'a> {
             return self.infer_pipeline(left, right, expected_result);
         }
 
+        if op == BinaryOp::Remainder && is_literal_zero(right) {
+            let mut operation_span = left.span.clone();
+            operation_span.end = right.span.end;
+            let mut diagnostic = Diagnostic::new(
+                "type.remainder_by_zero",
+                Severity::Error,
+                DiagnosticKind::Type,
+                "remainder divisor is zero",
+                Some(right.span.clone()),
+                JsonValue::object([
+                    ("operator", JsonValue::string("%")),
+                    ("divisor", JsonValue::Number(0)),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("operation")),
+                ("message", JsonValue::string("Remainder operation is here.")),
+                ("span", span_json(&operation_span)),
+            ]));
+            self.diagnostics.push(diagnostic);
+        }
+
         if let Some(count) = invalid_literal_shift_count(op, right) {
             let operator = shift_operator_text(op).expect("shift operator should have text");
             self.diagnostics.push(Diagnostic::new(
@@ -396,7 +418,9 @@ impl<'a> FunctionChecker<'a> {
             ));
         }
 
-        let numeric_type = if is_ordering_op(op) {
+        let numeric_type = if op == BinaryOp::Remainder {
+            Type::int()
+        } else if is_ordering_op(op) {
             self.numeric_operand_type(None, &[left, right])
         } else {
             self.numeric_operand_type(expected_result, &[left, right])
@@ -424,6 +448,7 @@ impl<'a> FunctionChecker<'a> {
             BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
                 (numeric_type.clone(), numeric_type)
             }
+            BinaryOp::Remainder => (Type::int(), Type::int()),
             BinaryOp::PipeGreater => unreachable!("pipeline handled before binary operators"),
         };
         let expected = ExpectedType {
@@ -630,6 +655,19 @@ impl<'a> FunctionChecker<'a> {
                 .map(Type::vec),
             _ => None,
         }
+    }
+}
+
+fn is_literal_zero(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::IntLiteral(value) => {
+            veln_literals::parse_integer_literal(value).is_ok_and(|literal| literal.value == 0)
+        }
+        ExprKind::Prefix {
+            op: veln_ast::PrefixOp::Negate,
+            expr,
+        } => is_literal_zero(expr),
+        _ => false,
     }
 }
 

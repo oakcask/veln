@@ -1,0 +1,6 @@
+schema UnsupportedCount
+	format binary
+
+	count: UInt8
+	items: Repeat(count % 2, UInt8)
+end

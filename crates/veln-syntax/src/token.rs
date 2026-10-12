@@ -84,6 +84,7 @@ pub enum TokenKind {
     Minus,
     Star,
     Slash,
+    Percent,
 }
 
 impl TokenKind {
@@ -184,6 +185,7 @@ impl TokenKind {
         Self::Minus,
         Self::Star,
         Self::Slash,
+        Self::Percent,
     ];
 
     pub fn label(&self) -> &'static str {
@@ -253,7 +255,8 @@ impl PresentationParseStructure {
             | TokenKind::ShiftRightLogical
             | TokenKind::Plus
             | TokenKind::Star
-            | TokenKind::Slash => self.structure += 1,
+            | TokenKind::Slash
+            | TokenKind::Percent => self.structure += 1,
             TokenKind::Newline if self.is_top_level() => self.structure = 0,
             _ => {}
         }
@@ -572,6 +575,10 @@ pub const PUBLIC_PUNCTUATION: &[PublicToken] = &[
         kind: TokenKind::Slash,
         spelling: "/",
     },
+    PublicToken {
+        kind: TokenKind::Percent,
+        spelling: "%",
+    },
 ];
 
 mod public_fixed_spelling_tokens {
@@ -678,6 +685,7 @@ const TOKEN_LABELS: &[&str] = &[
     "-",
     "*",
     "/",
+    "%",
 ];
 
 #[derive(Clone, Debug, PartialEq, Eq)]

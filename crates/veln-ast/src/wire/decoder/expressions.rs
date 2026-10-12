@@ -213,6 +213,7 @@ impl<'a> Reader<'a> {
             16 => Ok(BinaryOp::Subtract),
             17 => Ok(BinaryOp::Multiply),
             18 => Ok(BinaryOp::Divide),
+            19 => Ok(BinaryOp::Remainder),
             value => Err(format!("invalid binary op tag {value}")),
         }
     }

@@ -179,7 +179,11 @@ impl<'a> CoreLowerer<'a> {
             return self.lower_pipeline(expr, left, right, expected);
         }
 
-        let numeric_type = self.binary_numeric_operand_type(op, left, right, expected);
+        let numeric_type = if op == BinaryOp::Remainder {
+            CoreType::int()
+        } else {
+            self.binary_numeric_operand_type(op, left, right, expected)
+        };
         self.lower_float_binary_prelude_call(expr, op, left, right, &numeric_type)
             .unwrap_or_else(|| self.lower_regular_binary(expr, op, left, right, numeric_type))
     }

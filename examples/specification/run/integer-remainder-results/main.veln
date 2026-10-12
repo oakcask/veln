@@ -1,0 +1,18 @@
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(7 % 3))
+	stdio::println(int_to_string(-7 % 3))
+	stdio::println(int_to_string(7 % -3))
+	stdio::println(int_to_string(-7 % -3))
+	stdio::println(int_to_string(0 % 3))
+	stdio::println(int_to_string(6 % 3))
+	stdio::println(int_to_string(-6 % 3))
+	let minimum = -9223372036854775807 - 1
+	let maximum = 9223372036854775807
+	stdio::println(int_to_string(minimum % -1))
+	stdio::println(int_to_string(minimum % 1))
+	stdio::println(int_to_string(minimum % 3))
+	stdio::println(int_to_string(maximum % 3))
+	stdio::println(int_to_string(1 % minimum))
+	stdio::println(int_to_string(minimum % maximum))
+	stdio::println(int_to_string(minimum % minimum))
+end

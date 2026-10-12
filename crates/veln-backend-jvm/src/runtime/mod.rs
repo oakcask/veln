@@ -293,5 +293,6 @@ pub(crate) fn binary_method(op: BinaryOp) -> &'static str {
         BinaryOp::Subtract => "subtract",
         BinaryOp::Multiply => "multiply",
         BinaryOp::Divide => "divide",
+        BinaryOp::Remainder => "remainder",
     }
 }

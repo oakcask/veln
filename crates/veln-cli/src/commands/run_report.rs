@@ -118,6 +118,8 @@ impl RunJsonReport {
             Self::failed(exit_code, stdout, stderr, failure, related)
         } else if let Some(failure) = transport_failure_from_trace(&traces.transport_error) {
             Self::runtime_transport_error(exit_code, stdout, stderr, failure, related)
+        } else if let Some(failure) = remainder_failure_from_trace(&traces.runtime_error) {
+            Self::runtime_remainder_error(exit_code, stdout, stderr, failure, related)
         } else {
             let message = runtime_error_message(&traces.runtime_error, &stderr, output.status);
             Self::runtime_error(exit_code, stdout, stderr, message, related)
@@ -186,6 +188,33 @@ impl RunJsonReport {
             stdout,
             stderr: format!("{message}\n"),
             error: Some(RunJsonError::runtime(message, failure.details(), related)),
+        }
+    }
+
+    fn runtime_remainder_error(
+        exit_code: i32,
+        stdout: String,
+        stderr: String,
+        failure: RemainderFailureTrace,
+        cleanup_related: Vec<String>,
+    ) -> Self {
+        let mut related = vec![JsonValue::object([
+            ("kind", JsonValue::string("operation")),
+            ("message", JsonValue::string("Remainder operation is here.")),
+            ("span", failure.operation_span()),
+        ])];
+        related.extend(cleanup_related.into_iter().map(cleanup_related_json));
+        Self {
+            status: "failed",
+            exit_code,
+            stdout,
+            stderr,
+            error: Some(RunJsonError {
+                kind: "runtime".to_string(),
+                message: "remainder divisor is zero".to_string(),
+                details: failure.details(),
+                related,
+            }),
         }
     }
 
@@ -346,7 +375,7 @@ struct RunJsonError {
     kind: String,
     message: String,
     details: JsonValue,
-    related: Vec<String>,
+    related: Vec<JsonValue>,
 }
 
 impl RunJsonError {
@@ -355,7 +384,7 @@ impl RunJsonError {
             kind: failure.kind,
             message: failure.message,
             details: failure.details,
-            related,
+            related: related.into_iter().map(cleanup_related_json).collect(),
         }
     }
 
@@ -364,7 +393,7 @@ impl RunJsonError {
             kind: "runtime".to_string(),
             message,
             details,
-            related,
+            related: related.into_iter().map(cleanup_related_json).collect(),
         }
     }
 
@@ -382,22 +411,76 @@ impl RunJsonError {
             ("kind", JsonValue::string(self.kind.clone())),
             ("message", JsonValue::string(self.message.clone())),
             ("details", self.details.clone()),
-            (
-                "related",
-                JsonValue::Array(
-                    self.related
-                        .iter()
-                        .map(|message| {
-                            JsonValue::object([
-                                ("kind", JsonValue::string("cleanup_failure")),
-                                ("message", JsonValue::string(message.clone())),
-                            ])
-                        })
-                        .collect(),
-                ),
-            ),
+            ("related", JsonValue::Array(self.related.clone())),
         ])
     }
+}
+
+fn cleanup_related_json(message: String) -> JsonValue {
+    JsonValue::object([
+        ("kind", JsonValue::string("cleanup_failure")),
+        ("message", JsonValue::string(message)),
+    ])
+}
+
+struct RemainderFailureTrace {
+    source_file: String,
+    divisor: [i64; 6],
+    operation: [i64; 6],
+}
+
+impl RemainderFailureTrace {
+    fn span(&self, positions: &[i64; 6]) -> JsonValue {
+        JsonValue::object([
+            ("file", JsonValue::string(self.source_file.clone())),
+            ("start", trace_position(&positions[0..3])),
+            ("end", trace_position(&positions[3..6])),
+        ])
+    }
+
+    fn operation_span(&self) -> JsonValue {
+        self.span(&self.operation)
+    }
+
+    fn details(&self) -> JsonValue {
+        JsonValue::object([
+            ("phase", JsonValue::string("runtime")),
+            ("id", JsonValue::string("runtime.remainder_by_zero")),
+            ("operator", JsonValue::string("%")),
+            ("divisor", JsonValue::Number(0)),
+            ("divisor_span", self.span(&self.divisor)),
+            ("operation_span", self.operation_span()),
+        ])
+    }
+}
+
+fn trace_position(values: &[i64]) -> JsonValue {
+    JsonValue::object([
+        ("line", JsonValue::Number(values[0])),
+        ("column", JsonValue::Number(values[1])),
+        ("offset", JsonValue::Number(values[2])),
+    ])
+}
+
+fn remainder_failure_from_trace(trace: &str) -> Option<RemainderFailureTrace> {
+    let fields: Vec<&str> = trace
+        .lines()
+        .rev()
+        .find(|line| line.starts_with("remainder\t"))?
+        .split('\t')
+        .collect();
+    if fields.len() != 14 {
+        return None;
+    }
+    let values = fields[2..]
+        .iter()
+        .map(|field| field.parse::<i64>().ok())
+        .collect::<Option<Vec<_>>>()?;
+    Some(RemainderFailureTrace {
+        source_file: trace_string(fields[1])?,
+        divisor: values[0..6].try_into().ok()?,
+        operation: values[6..12].try_into().ok()?,
+    })
 }
 
 fn invalid_shift_runtime_details(message: &str) -> Option<JsonValue> {
@@ -507,6 +590,23 @@ mod tests {
             runtime_failure_from_trace(&trace).as_deref(),
             Some("actual runtime failure")
         );
+    }
+
+    #[test]
+    fn remainder_failure_trace_projects_spans_and_stable_details() {
+        let trace = format!(
+            "remainder\t{}\t2\t9\t30\t2\t16\t37\t2\t5\t26\t2\t16\t37\n",
+            trace_hex("main.veln"),
+        );
+        let failure = remainder_failure_from_trace(&trace).expect("remainder trace should parse");
+        assert_eq!(failure.source_file, "main.veln");
+        assert_eq!(failure.divisor, [2, 9, 30, 2, 16, 37]);
+        assert_eq!(failure.operation, [2, 5, 26, 2, 16, 37]);
+        let details = failure.details().to_json();
+        assert!(details.contains("\"id\":\"runtime.remainder_by_zero\""));
+        assert!(details.contains("\"operator\":\"%\""));
+        assert!(details.contains("\"divisor\":0"));
+        assert!(details.contains("\"offset\":30"));
     }
 
     #[cfg(unix)]

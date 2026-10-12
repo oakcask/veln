@@ -1,0 +1,6 @@
+schema UnsupportedLength
+	format binary
+
+	length: UInt8
+	payload: ByteView(length % 2)
+end

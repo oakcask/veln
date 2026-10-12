@@ -16,8 +16,8 @@ also states it.
 
 ## Ready
 
-- Integer `%` remainder with signed results, zero-divisor diagnostics, contract
-  support, and compiler/backend acceptance cases:
+- Remaining integer `%` support in contract typing and execution, constant
+  reasoning, and repair analysis:
   [remainder-operator.md](remainder-operator.md).
 
 - Standard-library events, metrics, traces, explicit context propagation,

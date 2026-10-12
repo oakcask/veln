@@ -203,6 +203,7 @@ fn lower_binary_op(op: SyntaxBinaryOp) -> BinaryOp {
         SyntaxBinaryOp::Subtract => BinaryOp::Subtract,
         SyntaxBinaryOp::Multiply => BinaryOp::Multiply,
         SyntaxBinaryOp::Divide => BinaryOp::Divide,
+        SyntaxBinaryOp::Remainder => BinaryOp::Remainder,
     }
 }
 

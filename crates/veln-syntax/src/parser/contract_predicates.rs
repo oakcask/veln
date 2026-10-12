@@ -302,7 +302,12 @@ impl<'a> ContractPredicateParser<'a> {
     }
 
     pub(super) fn current_binary_op(&self) -> Option<(BinaryOp, u8, u8)> {
-        binary_operator(self.tokens.get(self.cursor)?.kind, false)
+        let kind = self.tokens.get(self.cursor)?.kind;
+        if kind == TokenKind::Percent {
+            None
+        } else {
+            binary_operator(kind, false)
+        }
     }
 
     pub(super) fn error_current(

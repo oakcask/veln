@@ -87,7 +87,8 @@ impl<'a> Classifier<'a> {
             | TokenKind::Plus
             | TokenKind::Minus
             | TokenKind::Star
-            | TokenKind::Slash => Some(self.simple(token, SemanticTokenType::Operator)),
+            | TokenKind::Slash
+            | TokenKind::Percent => Some(self.simple(token, SemanticTokenType::Operator)),
         }
     }
 

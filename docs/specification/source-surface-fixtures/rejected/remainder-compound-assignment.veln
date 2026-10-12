@@ -1,0 +1,5 @@
+fn update(value: Int) -> Int
+	let result = value
+	result %= 3
+	result
+end

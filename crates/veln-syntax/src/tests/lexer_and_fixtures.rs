@@ -134,6 +134,7 @@ fn token_kind_labels_cover_every_surface_token() {
         (TokenKind::Minus, "-"),
         (TokenKind::Star, "*"),
         (TokenKind::Slash, "/"),
+        (TokenKind::Percent, "%"),
     ];
 
     for (kind, label) in cases {
