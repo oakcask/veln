@@ -173,7 +173,11 @@ pub(super) fn split_top_level_operator_group<'a, 'b>(
 
 pub(crate) fn predicate_literal_is_zero(text: &str) -> bool {
     let text = strip_balanced_outer_parens(text.trim());
-    ExactNumber::parse(text).is_some_and(|number| number.as_i64() == Some(0))
+    if let Ok(literal) = parse_integer_literal(text) {
+        return literal.value == 0;
+    }
+    text.strip_prefix('-')
+        .is_some_and(predicate_literal_is_zero)
 }
 
 pub(crate) fn predicate_has_invalid_remainder_operands(

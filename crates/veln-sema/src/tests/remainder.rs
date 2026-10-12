@@ -188,6 +188,105 @@ fn invalid_contract_and_satisfy_remainder_operands_report_at_each_operand() {
 }
 
 #[test]
+fn float_zero_remainder_divisors_only_report_operand_mismatches() {
+    for (clause, line, column) in [("require", 2, 17), ("ensure", 2, 16), ("invariant", 2, 19)] {
+        let source = format!(
+            "fn checked(value: Int) -> output: Int\n{clause} value % 0.0 == 0\n  value\nend\n"
+        );
+        let diagnostics = diagnostics_for(&source);
+        assert_eq!(diagnostics.len(), 1, "{source}\n{diagnostics:#?}");
+        let mismatch = &diagnostics[0];
+        assert_eq!(mismatch.id, "type.mismatch");
+        let span = mismatch.span.as_ref().expect("operand span");
+        assert_eq!(
+            (span.start.line, span.start.column, span.end.column),
+            (line, column, column + 3)
+        );
+        let details = mismatch.details.to_json();
+        for expected in [
+            "\"phase\":\"type\"",
+            "\"expected_type\":\"Int\"",
+            "\"actual_type\":\"Float\"",
+            "\"expected_type_source\":\"inferred_expression\"",
+            "\"actual_type_source\":\"inferred_expression\"",
+            "\"constraint\":\"operator_operand\"",
+        ] {
+            assert!(details.contains(expected), "{details}");
+        }
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "type.remainder_by_zero"),
+            "{diagnostics:#?}"
+        );
+    }
+
+    let source = concat!(
+        "fn checked(value: Int) -> Int\n",
+        "  let result: Int = _value satisfy candidate => candidate % 0.0 == 0\n",
+        "  result\n",
+        "end\n",
+    );
+    let diagnostics = diagnostics_for(source);
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+    let mismatch = mismatches[0];
+    let span = mismatch.span.as_ref().expect("satisfy operand span");
+    let expected_offset = source.find("0.0").expect("float zero in source");
+    assert_eq!(
+        (span.start.line, span.start.offset, span.end.offset),
+        (2, expected_offset, expected_offset + 3)
+    );
+    let details = mismatch.details.to_json();
+    for expected in [
+        "\"phase\":\"type\"",
+        "\"expected_type\":\"Int\"",
+        "\"actual_type\":\"Float\"",
+        "\"expected_type_source\":\"inferred_expression\"",
+        "\"actual_type_source\":\"inferred_expression\"",
+        "\"constraint\":\"operator_operand\"",
+    ] {
+        assert!(details.contains(expected), "{details}");
+    }
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.remainder_by_zero"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn integer_zero_remainder_is_reported_when_the_left_operand_is_invalid() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn checked() -> Int\n",
+        "require true % 0 == 0\n",
+        "  0\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.remainder_by_zero")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn nonliteral_remainder_contracts_remain_runtime_required() {
     let source = SourceFile::new(
         "main.veln",
