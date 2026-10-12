@@ -230,84 +230,56 @@ impl<'a> ContractPredicateParser<'a> {
                 self.bump();
             }
             TokenKind::LParen => {
-                self.bump();
-                if self.eat(TokenKind::RParen).is_some() {
-                    return;
-                }
-                self.parse_predicate(0);
-                if self.eat(TokenKind::RParen).is_none() {
-                    self.error_current(
-                        "contract predicate grouping is missing `)`",
-                        vec![")"],
-                        RecoveryStrategy::InsertToken,
-                        None,
-                    );
-                }
+                self.parse_grouped_primary();
             }
             TokenKind::Hole | TokenKind::Underscore => {
-                self.error_current(
-                    "hole syntax is not allowed in a contract predicate",
-                    vec!["contract predicate atom"],
-                    RecoveryStrategy::SkipToken,
-                    None,
-                );
-                self.bump();
+                self.reject_primary("hole syntax is not allowed in a contract predicate");
             }
             TokenKind::LBracket => {
-                self.error_current(
-                    "list syntax is not allowed in a contract predicate",
-                    vec!["contract predicate atom"],
-                    RecoveryStrategy::SkipToken,
-                    None,
-                );
-                self.bump();
+                self.reject_primary("list syntax is not allowed in a contract predicate");
             }
             TokenKind::LBrace => {
-                self.error_current(
-                    "record syntax is not allowed in a contract predicate",
-                    vec!["contract predicate atom"],
-                    RecoveryStrategy::SkipToken,
-                    None,
-                );
-                self.bump();
+                self.reject_primary("record syntax is not allowed in a contract predicate");
             }
             TokenKind::Match => {
-                self.error_current(
-                    "`match` is not allowed in a contract predicate",
-                    vec!["contract predicate atom"],
-                    RecoveryStrategy::SkipToken,
-                    None,
-                );
-                self.bump();
+                self.reject_primary("`match` is not allowed in a contract predicate");
             }
             TokenKind::PipeGreater => {
-                self.error_current(
-                    "pipeline syntax is not allowed in a contract predicate",
-                    vec!["contract predicate atom"],
-                    RecoveryStrategy::SkipToken,
-                    None,
-                );
-                self.bump();
+                self.reject_primary("pipeline syntax is not allowed in a contract predicate");
             }
             TokenKind::Invalid => {
-                self.error_current(
-                    "invalid token in contract predicate",
-                    vec!["contract predicate atom"],
-                    RecoveryStrategy::SkipToken,
-                    None,
-                );
-                self.bump();
+                self.reject_primary("invalid token in contract predicate");
             }
             _ => {
-                self.error_current(
-                    "expected a contract predicate atom",
-                    vec!["contract predicate atom"],
-                    RecoveryStrategy::SkipToken,
-                    None,
-                );
-                self.bump();
+                self.reject_primary("expected a contract predicate atom");
             }
         }
+    }
+
+    fn parse_grouped_primary(&mut self) {
+        self.bump();
+        if self.eat(TokenKind::RParen).is_some() {
+            return;
+        }
+        self.parse_predicate(0);
+        if self.eat(TokenKind::RParen).is_none() {
+            self.error_current(
+                "contract predicate grouping is missing `)`",
+                vec![")"],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+        }
+    }
+
+    fn reject_primary(&mut self, message: &'static str) {
+        self.error_current(
+            message,
+            vec!["contract predicate atom"],
+            RecoveryStrategy::SkipToken,
+            None,
+        );
+        self.bump();
     }
 
     pub(super) fn parse_name_path_or_literal(&mut self) {

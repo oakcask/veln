@@ -202,33 +202,14 @@ fn invalid_contract_and_satisfy_remainder_operands_report_at_each_operand() {
                     "fn checked(value: Int) -> output: Int\n{clause} {predicate}\n  value\nend\n"
                 );
                 let diagnostics = diagnostics_for(&source);
-                let mismatches = diagnostics
-                    .iter()
-                    .filter(|diagnostic| diagnostic.id == "type.mismatch")
-                    .collect::<Vec<_>>();
-                assert_eq!(mismatches.len(), 1, "{source}\n{diagnostics:#?}");
-                let mismatch = mismatches[0];
+                let mismatch =
+                    super::remainder_assertions::assert_operand_mismatch(&diagnostics, actual_type);
                 assert_eq!(mismatch.kind, DiagnosticKind::Type);
-                assert_eq!(
-                    mismatch.message,
-                    format!("expected `Int`, but found `{actual_type}`")
-                );
                 let span = mismatch.span.as_ref().expect("operand span");
                 assert_eq!(
                     (span.start.line, span.start.column, span.end.column),
                     (line, expected_column, expected_column + literal.len())
                 );
-                let details = mismatch.details.to_json();
-                for expected in [
-                    "\"phase\":\"type\"",
-                    "\"expected_type\":\"Int\"",
-                    &format!("\"actual_type\":\"{actual_type}\""),
-                    "\"expected_type_source\":\"inferred_expression\"",
-                    "\"actual_type_source\":\"inferred_expression\"",
-                    "\"constraint\":\"operator_operand\"",
-                ] {
-                    assert!(details.contains(expected), "{details}");
-                }
                 assert!(diagnostics.iter().all(|diagnostic| {
                     diagnostic.id != "contract.type_mismatch"
                         && diagnostic.message != "expected `Bool`, but found `unknown`"
@@ -248,14 +229,8 @@ fn invalid_contract_and_satisfy_remainder_operands_report_at_each_operand() {
                 "fn checked(value: Int) -> Int\n  let result: Int = _value satisfy candidate => {predicate}\n  result\nend\n"
             );
             let diagnostics = diagnostics_for(&source);
-            let mismatch = diagnostics
-                .iter()
-                .find(|diagnostic| diagnostic.id == "type.mismatch")
-                .unwrap_or_else(|| panic!("missing operand mismatch: {diagnostics:#?}"));
-            assert_eq!(
-                mismatch.message,
-                format!("expected `Int`, but found `{actual_type}`")
-            );
+            let mismatch =
+                super::remainder_assertions::assert_operand_mismatch(&diagnostics, actual_type);
             let span = mismatch.span.as_ref().expect("satisfy operand span");
             let expected_offset = source.find(literal).expect("literal in source");
             assert_eq!(
