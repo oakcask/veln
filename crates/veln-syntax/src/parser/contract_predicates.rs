@@ -43,7 +43,9 @@ impl<'a> ContractPredicateParser<'a> {
             };
         }
 
-        if let Some(index) = excessive_parenthesis_nesting(self.tokens, Self::MAX_PAREN_NESTING) {
+        if self.allow_remainder
+            && let Some(index) = excessive_parenthesis_nesting(self.tokens, Self::MAX_PAREN_NESTING)
+        {
             self.cursor = index;
             self.error_current(
                 "contract predicate nesting exceeds the supported limit of 128 parenthesized expressions",
