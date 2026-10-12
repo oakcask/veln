@@ -1,0 +1,19 @@
+# A return-side remainder failure preserves completed output and runs registered cleanup once.
+fn zero() -> Int
+	let value = 1 - 1
+	value
+end
+
+fn checked() -> output: Int effects [stdio]
+ensure output % zero() == 0
+	defer
+		stdio::println("cleanup")
+	end
+	stdio::println("body output")
+	7
+end
+
+pub fn main() -> () effects [stdio]
+	checked()
+	stdio::println("later work")
+end

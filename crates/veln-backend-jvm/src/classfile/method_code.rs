@@ -14,6 +14,8 @@ pub(super) struct MethodCode {
     pub(super) contract_call_metadata_work: usize,
     #[cfg(test)]
     pub(super) contract_remainder_emission_work: usize,
+    #[cfg(test)]
+    pub(super) contract_remainder_scan_work: usize,
     pub(super) max_stack: u16,
     pub(super) max_locals: u16,
     pub(super) exceptions: Vec<ExceptionHandler>,
@@ -35,6 +37,8 @@ impl MethodCode {
             contract_call_metadata_work: 0,
             #[cfg(test)]
             contract_remainder_emission_work: 0,
+            #[cfg(test)]
+            contract_remainder_scan_work: 0,
             max_stack: 64,
             max_locals: 0,
             exceptions: Vec::new(),
@@ -244,7 +248,10 @@ impl MethodCode {
                 self.code.push(0x11);
                 self.code.extend_from_slice(&(value as i16).to_be_bytes());
             }
-            _ => panic!("integer constant out of JVM push range"),
+            _ => {
+                let index = { self.constant_pool.borrow_mut().integer(value) };
+                self.ldc_index(index);
+            }
         }
     }
 

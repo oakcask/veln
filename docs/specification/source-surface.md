@@ -362,9 +362,9 @@ ExtensionDispatchPrimitive ::= "ExtensionDispatch" "(" SchemaFieldReference "," 
 DispatchCases ::= IntLiteral "=>" SchemaFieldType ("," IntLiteral "=>" SchemaFieldType)*
 CountExpr ::= IntLiteral | SchemaFieldReference | SchemaFieldReference ("-" | "+" | "*" | "/") SchemaFieldReference
 SchemaFieldReference ::= Name ("." Name)*
-SchemaFieldWhere ::= "where" (ContractPredicate | ByteViewMultiplePredicate)
+SchemaFieldWhere ::= "where" (SchemaPredicate | ByteViewMultiplePredicate)
 ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral)
-SchemaValidation ::= "validate" ContractPredicate NL
+SchemaValidation ::= "validate" SchemaPredicate NL
 PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 TypeText      ::= VariantRefinementType | NamedType | UnitType | RecordType | FunctionType
@@ -397,7 +397,27 @@ Effects       ::= "effects" "[" EffectList? "]"
 CallsiteModifier ::= "callsite"
 EffectList    ::= EffectEntry ("," EffectEntry)* ","?
 EffectEntry   ::= MemberPath | "..." Name
-Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
+Contract      ::= ("require" | "ensure" | "invariant") FunctionContractPredicate NL
+FunctionContractPredicate ::= FunctionContractPredicatePrefix (FunctionContractPredicateOp FunctionContractPredicatePrefix)*
+FunctionContractPredicateOp ::= SchemaPredicateOp | "%"
+FunctionContractPredicatePrefix ::= ("not" | "-" | "~") FunctionContractPredicatePrefix | FunctionContractPredicatePostfix
+FunctionContractPredicatePostfix ::= FunctionContractPredicatePrimary (FunctionContractPredicateCall | FieldAccess)*
+FunctionContractPredicatePrimary ::= Literal | NamePath | "perform" MemberPath "::" Name FunctionContractPredicateCall | "(" FunctionContractPredicate ")" | "()"
+FunctionContractPredicateCall ::= "(" FunctionContractPredicate ("," FunctionContractPredicate)* ","? ")" | "(" ")"
+SatisfyPredicate ::= SatisfyPredicatePrefix (SatisfyPredicateOp SatisfyPredicatePrefix)*
+SatisfyPredicateOp ::= SchemaPredicateOp | "%"
+SatisfyPredicatePrefix ::= ("not" | "-" | "~") SatisfyPredicatePrefix | SatisfyPredicatePostfix
+SatisfyPredicatePostfix ::= SatisfyPredicatePrimary (SatisfyPredicateCall | FieldAccess)*
+SatisfyPredicatePrimary ::= Literal | NamePath | "perform" MemberPath "::" Name SatisfyPredicateCall | "(" SatisfyPredicate ")" | "()"
+SatisfyPredicateCall ::= "(" SatisfyPredicate ("," SatisfyPredicate)* ","? ")" | "(" ")"
+SchemaPredicate ::= SchemaPredicatePrefix (SchemaPredicateOp SchemaPredicatePrefix)*
+SchemaPredicateOp ::= "or" | "and" | "|" | "^" | "&" | "==" | "!="
+                  | "<" | "<=" | ">" | ">=" | "<<" | ">>" | ">>>"
+                  | "+" | "-" | "*" | "/"
+SchemaPredicatePrefix ::= ("not" | "-" | "~") SchemaPredicatePrefix | SchemaPredicatePostfix
+SchemaPredicatePostfix ::= SchemaPredicatePrimary (SchemaPredicateCall | FieldAccess)*
+SchemaPredicatePrimary ::= Literal | NamePath | "perform" MemberPath "::" Name SchemaPredicateCall | "(" SchemaPredicate ")" | "()"
+SchemaPredicateCall ::= "(" SchemaPredicate ("," SchemaPredicate)* ","? ")" | "(" ")"
 Body          ::= (LetLine | DeferStatement | ExprLine)*
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
 DeferStatement ::= "defer" NL Body "end" NL?
@@ -411,6 +431,8 @@ PrefixExpr    ::= ("not" | "-" | "~") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
 PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | "(" Expr ")" | "()"
                   | Record | Dict | List | Match | If
+Hole          ::= ("_" | HoleName) SatisfyClause?
+SatisfyClause ::= "satisfy" Name "=>" SatisfyPredicate
 BeginExpr     ::= "begin" NL Body "end"
 SchemaDecode  ::= "decode" MemberPath "from" Expr "at" Expr
 SchemaEncode  ::= "encode" MemberPath "from" Expr

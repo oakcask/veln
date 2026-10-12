@@ -46,72 +46,63 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
     predicate: &str,
     remainders: &[PredicateRemainder],
 ) -> bool {
-    let has_boolean_composition = split_top_level_keyword_operator(predicate, "or").is_some()
-        || split_top_level_keyword_operator(predicate, "and").is_some();
-    if !has_boolean_composition
-        && let Some(is_true) = flat_remainder_comparison_is_statically_true(predicate, remainders)
-    {
-        return is_true;
+    if remainder_flows_into_division(predicate) {
+        return false;
     }
-    !flat_remainder_chain_is_nonfoldable(remainders)
-        .unwrap_or_else(|| predicate_has_nonfoldable_remainder(predicate))
-        && static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
+    let Some(folded) = predicate_with_folded_remainder_chains(predicate, remainders) else {
+        return false;
+    };
+    static_boolean_value_for_contract(&folded) == StaticBooleanValue::True
 }
 
-fn flat_remainder_comparison_is_statically_true(
+fn remainder_flows_into_division(predicate: &str) -> bool {
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut has_remainder = false;
+    let mut has_division = false;
+    for character in predicate.chars() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '%' => has_remainder = true,
+            '/' => has_division = true,
+            _ => {}
+        }
+    }
+    has_remainder && has_division
+}
+
+fn predicate_with_folded_remainder_chains(
     predicate: &str,
     remainders: &[PredicateRemainder],
-) -> Option<bool> {
-    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
-        let Some((left, right)) = split_top_level_operator(predicate, operator) else {
+) -> Option<String> {
+    let chains = veln_ast::index_predicate_remainder_chains(predicate, remainders)?;
+    let mut folded = String::with_capacity(predicate.len());
+    let mut cursor = 0;
+    for chain in chains {
+        if chain.predicate_range.start < cursor {
             continue;
-        };
-        let (chain, other, chain_is_left) = if flat_remainder_chain_matches(left, remainders) {
-            (flat_remainder_chain_value(remainders), right, true)
-        } else if flat_remainder_chain_matches(right, remainders) {
-            (flat_remainder_chain_value(remainders), left, false)
-        } else {
-            continue;
-        };
-        let Some(chain) = chain else {
-            return Some(false);
-        };
-        let Some(other) = static_numeric_expression(other) else {
-            return Some(false);
-        };
-        let (left, right) = if chain_is_left {
-            (chain, other)
-        } else {
-            (other, chain)
-        };
-        return Some(static_number_comparison(left, operator, right).unwrap_or(false));
+        }
+        let chain_remainders = &remainders[chain.remainder_range];
+        folded.push_str(&predicate[cursor..chain.predicate_range.start]);
+        folded.push_str(
+            &flat_remainder_chain_value(chain_remainders)?
+                .as_i64()?
+                .to_string(),
+        );
+        cursor = chain.predicate_range.end;
     }
-    None
-}
-
-pub(crate) fn flat_remainder_chain_matches(text: &str, remainders: &[PredicateRemainder]) -> bool {
-    let Some((first, rest)) = remainders.split_first() else {
-        return false;
-    };
-    if first.left_is_prior_remainder
-        || rest
-            .iter()
-            .any(|remainder| !remainder.left_is_prior_remainder)
-    {
-        return false;
-    }
-    let mut expected = first.left_text.clone();
-    for remainder in remainders {
-        expected.push('%');
-        expected.push_str(&remainder.right_text);
-    }
-    let compact = |value: &str| {
-        strip_balanced_outer_parens(value.trim())
-            .chars()
-            .filter(|character| !character.is_whitespace())
-            .collect::<String>()
-    };
-    compact(text) == compact(&expected)
+    folded.push_str(&predicate[cursor..]);
+    Some(folded)
 }
 
 fn flat_remainder_chain_value(remainders: &[PredicateRemainder]) -> Option<StaticNumber> {
@@ -124,18 +115,6 @@ fn flat_remainder_chain_value(remainders: &[PredicateRemainder]) -> Option<Stati
     Some(value)
 }
 
-fn flat_remainder_chain_is_nonfoldable(remainders: &[PredicateRemainder]) -> Option<bool> {
-    let (first, rest) = remainders.split_first()?;
-    if first.left_is_prior_remainder
-        || rest
-            .iter()
-            .any(|remainder| !remainder.left_is_prior_remainder)
-    {
-        return None;
-    }
-    Some(flat_remainder_chain_value(remainders).is_none())
-}
-
 pub(crate) fn predicate_is_statically_false(predicate: &str) -> bool {
     static_boolean_value(predicate) == StaticBooleanValue::False
 }
@@ -144,8 +123,12 @@ pub(crate) fn predicate_has_nonfoldable_remainder_with_remainders(
     predicate: &str,
     remainders: &[PredicateRemainder],
 ) -> bool {
-    flat_remainder_chain_is_nonfoldable(remainders)
-        .unwrap_or_else(|| predicate_has_nonfoldable_remainder(predicate))
+    if remainders.is_empty() {
+        return predicate_has_nonfoldable_remainder(predicate);
+    }
+    veln_ast::predicate_remainder_chain_ranges(remainders)
+        .into_iter()
+        .any(|range| flat_remainder_chain_value(&remainders[range]).is_none())
 }
 
 mod boolean_cases;
@@ -173,7 +156,7 @@ pub(crate) use contract_calls::{contract_calls, is_contract_keyword, referenced_
 pub(crate) use predicate_typing::{
     missing_contract_field, predicate_has_invalid_remainder_operands,
     predicate_is_boolean_with_calls, predicate_is_boolean_with_remainders,
-    predicate_literal_is_zero, predicate_remainder_operand_type,
+    predicate_literal_is_zero, predicate_remainder_operand_mismatch,
     predicate_rendered_type_with_calls, predicate_type_with_remainders,
 };
 #[cfg(test)]

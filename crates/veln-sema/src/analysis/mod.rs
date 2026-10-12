@@ -22,7 +22,7 @@ use crate::contracts::{
     predicate_is_boolean_with_calls, predicate_is_boolean_with_remainders,
     predicate_is_statically_false, predicate_is_statically_true,
     predicate_is_statically_true_with_literal_bounds, predicate_literal_is_zero,
-    predicate_remainder_operand_type, predicate_rendered_type_with_calls,
+    predicate_remainder_operand_mismatch, predicate_rendered_type_with_calls,
     predicate_type_with_remainders, referenced_names,
 };
 use crate::diagnostics::{

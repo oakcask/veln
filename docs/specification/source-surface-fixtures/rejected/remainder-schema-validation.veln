@@ -1,5 +1,6 @@
 schema UnsupportedValidation
 	format binary
 
-	value: UInt8 where value % 2 == 0
+	value: UInt8
+	validate value % 2 == 0
 end

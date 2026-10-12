@@ -1,3 +1,4 @@
+use std::ops::Range;
 use veln_source::SourceSpan;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -414,6 +415,117 @@ pub struct PredicateRemainder {
     pub left_span: SourceSpan,
     pub right_span: SourceSpan,
     pub operation_span: SourceSpan,
+}
+
+pub fn predicate_remainder_chain_ranges(remainders: &[PredicateRemainder]) -> Vec<Range<usize>> {
+    let mut ranges = Vec::new();
+    let mut start = None;
+    for (index, remainder) in remainders.iter().enumerate() {
+        if !remainder.left_is_prior_remainder {
+            if let Some(start) = start.replace(index) {
+                ranges.push(start..index);
+            }
+        }
+    }
+    if let Some(start) = start {
+        ranges.push(start..remainders.len());
+    }
+    ranges
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PredicateRemainderChain {
+    pub remainder_range: Range<usize>,
+    pub predicate_range: Range<usize>,
+}
+
+pub fn index_predicate_remainder_chains(
+    predicate: &str,
+    remainders: &[PredicateRemainder],
+) -> Option<Vec<PredicateRemainderChain>> {
+    let ranges = predicate_remainder_chain_ranges(remainders);
+    let mut chains = Vec::with_capacity(ranges.len());
+    let mut cursor = 0;
+    for remainder_range in ranges {
+        let expected = compact_remainder_chain_text(&remainders[remainder_range.clone()]);
+        let predicate_range = find_compact_expression(predicate, &expected, cursor)
+            .or_else(|| find_compact_expression(predicate, &expected, 0))?;
+        cursor = cursor.max(predicate_range.end);
+        chains.push(PredicateRemainderChain {
+            remainder_range,
+            predicate_range,
+        });
+    }
+    Some(chains)
+}
+
+fn compact_remainder_chain_text(remainders: &[PredicateRemainder]) -> String {
+    let mut text = remainders[0]
+        .left_text
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>();
+    for remainder in remainders {
+        text.push('%');
+        text.extend(
+            remainder
+                .right_text
+                .chars()
+                .filter(|character| !character.is_whitespace()),
+        );
+    }
+    text
+}
+
+fn find_compact_expression(
+    predicate: &str,
+    expected: &str,
+    search_start: usize,
+) -> Option<Range<usize>> {
+    let mut in_string = false;
+    let mut escaped = false;
+    for (relative_start, character) in predicate.get(search_start..)?.char_indices() {
+        let start = search_start + relative_start;
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        if character == '"' {
+            in_string = true;
+            continue;
+        }
+        if character.is_whitespace() {
+            continue;
+        }
+        if let Some(end) = compact_prefix_end(&predicate[start..], expected) {
+            return Some(start..start + end);
+        }
+    }
+    None
+}
+
+fn compact_prefix_end(candidate: &str, expected: &str) -> Option<usize> {
+    let mut expected = expected.chars();
+    let mut wanted = expected.next()?;
+    for (offset, character) in candidate.char_indices() {
+        if character.is_whitespace() {
+            continue;
+        }
+        if character != wanted {
+            return None;
+        }
+        match expected.next() {
+            Some(next) => wanted = next,
+            None => return Some(offset + character.len_utf8()),
+        }
+    }
+    None
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -13,6 +13,7 @@ pub(super) struct FunctionBytecodeEmitter<'a, 'program> {
     unwind_result: u16,
     unwind_return_label: Option<usize>,
     exception_unwind_used: bool,
+    pub(super) contract_remainder_chains: BTreeMap<(usize, usize), std::ops::Range<usize>>,
 }
 
 pub(super) struct LocalBindings {
@@ -135,6 +136,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             unwind_result,
             unwind_return_label: None,
             exception_unwind_used: false,
+            contract_remainder_chains: BTreeMap::new(),
         }
     }
 

@@ -522,7 +522,7 @@ impl<'a> FunctionChecker<'a> {
         bindings: &[Binding],
         node_id: NodeId,
     ) {
-        let invalid = remainders
+        let mut invalid = remainders
             .iter()
             .flat_map(|remainder| {
                 [
@@ -533,14 +533,24 @@ impl<'a> FunctionChecker<'a> {
             })
             .flatten()
             .filter_map(|(text, span)| {
-                let actual = predicate_remainder_operand_type(text, bindings, &|callee| {
+                let mismatch = predicate_remainder_operand_mismatch(text, bindings, &|callee| {
                     self.contract_call_signature(callee)
                         .map(|(_, _, return_type, _, _)| return_type)
                 })?;
-                (actual != Type::int() && actual != Type::Unknown)
-                    .then(|| (actual.render(), span.clone()))
+                let mut leaf_span = span.clone();
+                leaf_span.start.offset += mismatch.start;
+                leaf_span.start.column += text[..mismatch.start].chars().count();
+                leaf_span.end.offset = span.start.offset + mismatch.end;
+                leaf_span.end.column = span.start.column + text[..mismatch.end].chars().count();
+                Some((mismatch.actual.render(), leaf_span))
             })
             .collect::<Vec<_>>();
+        invalid.sort_by_key(|(_, span)| (span.start.offset, span.end.offset));
+        invalid.dedup_by(|left, right| {
+            left.0 == right.0
+                && left.1.start.offset == right.1.start.offset
+                && left.1.end.offset == right.1.end.offset
+        });
         for (actual_type, span) in invalid {
             self.diagnostics.push(Diagnostic::new(
                 "type.mismatch",

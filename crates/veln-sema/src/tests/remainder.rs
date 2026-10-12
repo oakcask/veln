@@ -79,6 +79,79 @@ fn flat_remainder_complete_pipeline_is_stack_safe_beyond_prior_failure() {
     }
 }
 
+fn two_remainder_chains(operator_count: usize, literal: bool, operator: &str) -> String {
+    let mut left = if literal { "7" } else { "left" }.to_string();
+    let mut right = if literal { "8" } else { "right" }.to_string();
+    for _ in 0..operator_count {
+        left.push_str(" % 3");
+        right.push_str(" % 3");
+    }
+    let (left_expected, right_expected) = if literal { (1, 2) } else { (0, 0) };
+    format!(
+        "fn checked(left: Int, right: Int) -> Int\nrequire ({left} == {left_expected}) {operator} ({right} == {right_expected})\n  left\nend\n"
+    )
+}
+
+#[test]
+fn independent_long_remainder_chains_complete_the_semantic_pipeline_iteratively() {
+    for operator in ["and", "or"] {
+        for literal in [false, true] {
+            let source =
+                SourceFile::new("main.veln", two_remainder_chains(4_097, literal, operator));
+            let parsed = parse(&source);
+            assert!(
+                parsed.diagnostics.is_empty(),
+                "{operator}: {:#?}",
+                parsed.diagnostics
+            );
+            let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+            assert!(
+                lowered.diagnostics.is_empty(),
+                "{operator}: {:#?}",
+                lowered.diagnostics
+            );
+            assert_eq!(
+                lowered.core.expect("core program").functions[0].contracts[0].obligation_status,
+                if literal {
+                    ContractObligationStatus::StaticallyProven
+                } else {
+                    ContractObligationStatus::RuntimeRequired
+                },
+                "{operator} with literal={literal}"
+            );
+        }
+    }
+}
+
+#[test]
+fn independent_long_remainder_chains_support_comparison_sides_and_call_wrappers() {
+    let mut left = String::from("left");
+    let mut right = String::from("right");
+    for _ in 0..4_097 {
+        left.push_str(" % 3");
+        right.push_str(" % 3");
+    }
+    for predicate in [
+        format!("({left}) == ({right})"),
+        format!("identity({left}) == identity({right})"),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn identity(value: Int) -> Int\n  value\nend\nfn checked(left: Int, right: Int) -> Int\nrequire {predicate}\n  left\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        assert_eq!(
+            lowered.core.expect("core program").functions[1].contracts[0].obligation_status,
+            ContractObligationStatus::RuntimeRequired
+        );
+    }
+}
+
 fn wrapped_remainder_contract(operator_count: usize, call_wrapper: bool) -> String {
     let mut chain = String::from("value");
     for _ in 0..operator_count {
@@ -316,6 +389,110 @@ fn invalid_contract_and_satisfy_remainder_operands_report_at_each_operand() {
         2,
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn composite_remainder_operands_report_the_invalid_leaf_and_block_core() {
+    let source = concat!(
+        "fn is_zero(value: Int) -> Bool\n",
+        "  value == 0\n",
+        "end\n",
+        "fn checked() -> output: Int\n",
+        "require (true * 2) % 3 == 0\n",
+        "ensure 9 % (2 * \"bad\") == 0\n",
+        "invariant 9 % 2 % (1.5 * 2) == 0\n",
+        "require is_zero(9 % (false * 2))\n",
+        "  0\n",
+        "end\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    let mismatches = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+
+    assert_eq!(mismatches.len(), 4, "{:#?}", lowered.diagnostics);
+    for (diagnostic, (leaf, actual_type)) in mismatches.iter().zip([
+        ("true", "Bool"),
+        ("\"bad\"", "String"),
+        ("1.5", "Float"),
+        ("false", "Bool"),
+    ]) {
+        assert_eq!(
+            diagnostic.message,
+            format!("expected `Int`, but found `{actual_type}`")
+        );
+        let span = diagnostic.span.as_ref().expect("invalid leaf span");
+        let start = source.find(leaf).expect("invalid leaf in source");
+        assert_eq!(
+            (span.start.offset, span.end.offset),
+            (start, start + leaf.len())
+        );
+    }
+    assert!(
+        lowered.core.is_none(),
+        "invalid remainder must not produce runnable core"
+    );
+    assert!(lowered.diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "contract.type_mismatch"
+            && diagnostic.id != "contract.unsupported_construct"
+    }));
+}
+
+#[test]
+fn remainder_only_overrides_non_boolean_whole_call_diagnostic_precedence() {
+    fn lower(predicate: &str) -> LoweredSurfaceModule {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn identity(value: Int) -> Int\n  value\nend\nfn checked(box: {{value: Int}}) -> Int\nrequire {predicate}\n  0\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        lower_checked_surface_module(&lower_surface_ast(&parsed.tree))
+    }
+
+    let invalid_remainder = lower("identity(true % 2)");
+    assert!(invalid_remainder.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch" && diagnostic.message == "expected `Int`, but found `Bool`"
+    }));
+    assert!(invalid_remainder.diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "contract.type_mismatch"
+            && diagnostic.id != "contract.unsupported_construct"
+    }));
+    assert!(invalid_remainder.core.is_none());
+
+    let missing_remainder_field = lower("identity(box.missing % 2)");
+    assert!(
+        missing_remainder_field
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "contract.field_missing")
+    );
+    assert!(
+        missing_remainder_field
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "contract.type_mismatch")
+    );
+    assert!(missing_remainder_field.core.is_none());
+
+    for predicate in ["identity(true)", "identity(box.missing)"] {
+        let no_remainder = lower(predicate);
+        assert!(no_remainder.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "contract.type_mismatch"
+                && diagnostic.message == "contract predicate is not `Bool`"
+        }));
+        assert!(no_remainder.diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "contract.field_missing"
+                && diagnostic.id != "contract.unsupported_construct"
+        }));
+        assert!(no_remainder.core.is_none());
+    }
 }
 
 #[test]

@@ -174,33 +174,28 @@ fn predicate_type_with_flat_remainder_chains(
 }
 
 fn flat_remainder_chain_texts(remainders: &[PredicateRemainder]) -> Vec<String> {
-    let mut chains = Vec::new();
-    let mut current = String::new();
+    veln_ast::predicate_remainder_chain_ranges(remainders)
+        .into_iter()
+        .map(|range| flat_remainder_chain_text(&remainders[range]))
+        .collect()
+}
+
+fn flat_remainder_chain_text(remainders: &[PredicateRemainder]) -> String {
+    let mut text = remainders[0]
+        .left_text
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>();
     for remainder in remainders {
-        if !remainder.left_is_prior_remainder {
-            if !current.is_empty() {
-                chains.push(current);
-            }
-            current = remainder
-                .left_text
-                .chars()
-                .filter(|c| !c.is_whitespace())
-                .collect();
-        } else if current.is_empty() {
-            continue;
-        }
-        current.push('%');
-        current.extend(
+        text.push('%');
+        text.extend(
             remainder
                 .right_text
                 .chars()
                 .filter(|character| !character.is_whitespace()),
         );
     }
-    if !current.is_empty() {
-        chains.push(current);
-    }
-    chains
+    text
 }
 
 fn flat_remainder_chain_text_matches(predicate: &str, chains: &[String]) -> bool {
@@ -369,12 +364,67 @@ pub(crate) fn predicate_has_invalid_remainder_operands(
 ) -> bool {
     remainders.iter().any(|remainder| {
         let left_invalid = !remainder.left_is_prior_remainder
-            && predicate_remainder_operand_type(&remainder.left_text, bindings, call_type)
-                .is_some_and(|ty| ty != Type::int() && ty != Type::Unknown);
+            && predicate_remainder_operand_mismatch(&remainder.left_text, bindings, call_type)
+                .is_some();
         let right_invalid =
-            predicate_remainder_operand_type(&remainder.right_text, bindings, call_type)
-                .is_some_and(|ty| ty != Type::int() && ty != Type::Unknown);
+            predicate_remainder_operand_mismatch(&remainder.right_text, bindings, call_type)
+                .is_some();
         left_invalid || right_invalid
+    })
+}
+
+pub(crate) struct PredicateOperandMismatch {
+    pub(crate) actual: Type,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+}
+
+pub(crate) fn predicate_remainder_operand_mismatch(
+    operand: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<PredicateOperandMismatch> {
+    predicate_int_operand_mismatch(operand, operand, bindings, call_type)
+}
+
+fn predicate_int_operand_mismatch(
+    root: &str,
+    operand: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<PredicateOperandMismatch> {
+    let operand = strip_balanced_outer_parens(operand.trim());
+    if operand.is_empty() {
+        return None;
+    }
+    if let Some(rest) = operand
+        .strip_prefix('-')
+        .or_else(|| operand.strip_prefix('~'))
+    {
+        return predicate_int_operand_mismatch(root, rest, bindings, call_type);
+    }
+    for operators in [
+        &["+", "-"][..],
+        &["*", "/", "%"][..],
+        &["|"][..],
+        &["^"][..],
+        &["&"][..],
+        &[">>>", ">>", "<<"][..],
+    ] {
+        if let Some((left, _, right)) = split_top_level_operator_group(operand, operators) {
+            return predicate_int_operand_mismatch(root, left, bindings, call_type)
+                .or_else(|| predicate_int_operand_mismatch(root, right, bindings, call_type));
+        }
+    }
+    let actual = predicate_remainder_operand_type(operand, bindings, call_type)?;
+    if actual == Type::int() || actual == Type::Unknown {
+        return None;
+    }
+    let start = operand.as_ptr() as usize - root.as_ptr() as usize;
+    Some(PredicateOperandMismatch {
+        actual,
+        start,
+        end: start + operand.len(),
     })
 }
 

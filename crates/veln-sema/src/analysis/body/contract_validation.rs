@@ -40,6 +40,11 @@ impl<'a> FunctionChecker<'a> {
         if let Some(validation) = self.validate_contract_call_structures(&calls) {
             return validation;
         }
+        if remainders.is_empty()
+            && let Some(validation) = self.validate_contract_call_results(trimmed, &calls)
+        {
+            return validation;
+        }
         if let Some(validation) = self.validate_contract_referenced_names(trimmed, bindings, &calls)
         {
             return validation;
@@ -58,7 +63,9 @@ impl<'a> FunctionChecker<'a> {
         {
             return validation;
         }
-        if let Some(validation) = self.validate_contract_call_results(trimmed, &calls) {
+        if !remainders.is_empty()
+            && let Some(validation) = self.validate_contract_call_results(trimmed, &calls)
+        {
             return validation;
         }
         if let Some(validation) = self.validate_whole_contract_call(trimmed, &calls) {

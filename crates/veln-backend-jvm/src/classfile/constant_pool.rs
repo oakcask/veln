@@ -34,6 +34,10 @@ impl ConstantPool {
         self.intern(CpKey::Long(value), |_| CpEntry::Long(value))
     }
 
+    pub(super) fn integer(&mut self, value: i32) -> u16 {
+        self.intern(CpKey::Integer(value), |_| CpEntry::Integer(value))
+    }
+
     pub(super) fn double(&mut self, value: f64) -> u16 {
         self.intern(CpKey::Double(value.to_bits()), |_| {
             CpEntry::Double(value.to_bits())
@@ -138,6 +142,10 @@ impl ConstantPool {
                     out.push(5);
                     out.extend_from_slice(&value.to_be_bytes());
                 }
+                CpEntry::Integer(value) => {
+                    out.push(3);
+                    out.extend_from_slice(&value.to_be_bytes());
+                }
                 CpEntry::Double(bits) => {
                     out.push(6);
                     out.extend_from_slice(&bits.to_be_bytes());
@@ -157,6 +165,7 @@ pub(super) enum CpKey {
     Methodref(String, String, String),
     NameAndType(String, String),
     Long(i64),
+    Integer(i32),
     Double(u64),
 }
 
@@ -177,6 +186,7 @@ pub(super) enum CpEntry {
         descriptor_index: u16,
     },
     Long(i64),
+    Integer(i32),
     Double(u64),
     Padding,
 }

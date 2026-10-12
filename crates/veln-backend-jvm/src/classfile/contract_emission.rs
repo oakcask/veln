@@ -26,6 +26,19 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         {
             code.contract_call_metadata_work += contract.callsite_calls.len();
         }
+        self.contract_remainder_chains = veln_ast::index_predicate_remainder_chains(
+            &contract.predicate,
+            &contract.remainder_spans,
+        )
+        .expect("parsed remainder metadata must index its predicate expression")
+        .into_iter()
+        .map(|chain| {
+            (
+                (chain.predicate_range.start, chain.predicate_range.end),
+                chain.remainder_range,
+            )
+        })
+        .collect();
         self.emit_contract_value(code, &contract.predicate, &callsite_calls, 0, contract);
         let clause = match contract.kind {
             ContractKind::Require => "require",
@@ -118,10 +131,34 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         operand_depth: usize,
         contract: &IrContract,
     ) -> bool {
-        if !flat_remainder_chain_matches(text, &contract.remainder_spans) {
+        let expression = strip_contract_outer_parens(text.trim());
+        let predicate_start = contract.predicate.as_ptr() as usize;
+        let predicate_end = predicate_start + contract.predicate.len();
+        let expression_pointer = expression.as_ptr() as usize;
+        let Some(expression_end) = expression_pointer.checked_add(expression.len()) else {
             return false;
+        };
+        #[cfg(test)]
+        {
+            code.contract_remainder_scan_work += text.len() + 1;
         }
-        let first = &contract.remainder_spans[0];
+        let range = if expression_pointer >= predicate_start && expression_end <= predicate_end {
+            let expression_start = expression_pointer - predicate_start;
+            self.contract_remainder_chains
+                .get(&(expression_start, expression_start + expression.len()))
+                .cloned()
+        } else {
+            external_remainder_chain_range(
+                expression,
+                contract,
+                self.contract_remainder_chains.values(),
+            )
+        };
+        let Some(range) = range else {
+            return false;
+        };
+        let remainders = &contract.remainder_spans[range];
+        let first = &remainders[0];
         self.emit_contract_value(
             code,
             &first.left_text,
@@ -129,7 +166,16 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             operand_depth,
             contract,
         );
-        for remainder in &contract.remainder_spans {
+        let mut previous_literal_divisor = None;
+        for remainder in remainders {
+            let literal_divisor =
+                parse_integer_literal(strip_contract_outer_parens(remainder.right_text.trim()))
+                    .ok()
+                    .map(|literal| literal.value)
+                    .filter(|value| *value != 0);
+            if literal_divisor.is_some() && literal_divisor == previous_literal_divisor {
+                continue;
+            }
             self.emit_contract_value(
                 code,
                 &remainder.right_text,
@@ -138,6 +184,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 contract,
             );
             self.emit_contract_remainder_operation(code, remainder, operand_depth, contract);
+            previous_literal_divisor = literal_divisor;
         }
         true
     }
@@ -414,29 +461,51 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 }
 
-fn flat_remainder_chain_matches(text: &str, remainders: &[PredicateRemainder]) -> bool {
-    let Some((first, rest)) = remainders.split_first() else {
-        return false;
-    };
-    if first.left_is_prior_remainder
-        || rest
-            .iter()
-            .any(|remainder| !remainder.left_is_prior_remainder)
-    {
-        return false;
-    }
-    let mut expected = first.left_text.clone();
+fn external_remainder_chain_range<'a>(
+    expression: &str,
+    contract: &IrContract,
+    mut ranges: impl Iterator<Item = &'a std::ops::Range<usize>>,
+) -> Option<std::ops::Range<usize>> {
+    let expression_pointer = expression.as_ptr() as usize;
+    let expression_end = expression_pointer.checked_add(expression.len())?;
+    let owner_span = contract.remainder_spans.iter().find_map(|remainder| {
+        [
+            (&remainder.left_text, &remainder.left_span),
+            (&remainder.right_text, &remainder.right_span),
+        ]
+        .into_iter()
+        .find_map(|(operand, span)| {
+            let start = operand.as_ptr() as usize;
+            (expression_pointer >= start && expression_end <= start + operand.len()).then_some(span)
+        })
+    })?;
+    let compact = expression
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>();
+    ranges.find_map(|range| {
+        let remainders = &contract.remainder_spans[range.clone()];
+        let first = remainders.first()?;
+        let last = remainders.last()?;
+        if first.operation_span.start.offset < owner_span.start.offset
+            || last.operation_span.end.offset > owner_span.end.offset
+            || compact_remainder_chain_text(remainders) != compact
+        {
+            return None;
+        }
+        Some(range.clone())
+    })
+}
+
+fn compact_remainder_chain_text(remainders: &[PredicateRemainder]) -> String {
+    let mut text = remainders[0].left_text.clone();
     for remainder in remainders {
-        expected.push('%');
-        expected.push_str(&remainder.right_text);
+        text.push('%');
+        text.push_str(&remainder.right_text);
     }
-    let compact = |value: &str| {
-        strip_contract_outer_parens(value.trim())
-            .chars()
-            .filter(|character| !character.is_whitespace())
-            .collect::<String>()
-    };
-    compact(text) == compact(&expected)
+    text.chars()
+        .filter(|character| !character.is_whitespace())
+        .collect()
 }
 
 fn remainder_operator_count_before(predicate: &str, operator_offset: usize) -> usize {

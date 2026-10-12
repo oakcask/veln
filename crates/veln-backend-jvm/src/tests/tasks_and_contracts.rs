@@ -194,6 +194,10 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
         "require value % 9223372036854775807 == value\n",
         "  value % 9223372036854775807\n",
         "end\n",
+        "fn nested_left(value: Int) -> Int\n",
+        "require ((value % 6) * 2) % 4 == 0\n",
+        "  value\n",
+        "end\n",
         "pub fn main() -> () effects [stdio]\n",
         "  stdio::println(int_to_string(checked(6, 3)))\n",
         "  stdio::println(int_to_string(checked(-6, -3)))\n",
@@ -202,6 +206,7 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
         "  stdio::println(int_to_string(signed(-7, -3, -1)))\n",
         "  stdio::println(int_to_string(endpoint(-9223372036854775807 - 1)))\n",
         "  stdio::println(int_to_string(large_divisor(1)))\n",
+        "  stdio::println(int_to_string(nested_left(8)))\n",
         "end\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "main");
@@ -219,7 +224,7 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "6\n-6\n-1\n1\n-1\n0\n1\n"
+        "6\n-6\n-1\n1\n-1\n0\n1\n8\n"
     );
 }
 
@@ -291,6 +296,62 @@ fn bytecode_backend_reports_dynamic_zero_remainder_in_each_contract_position() {
         assert!(trace.contains(&expected_coordinates), "{name}: {trace}");
         let _ = fs::remove_dir_all(&trace_root);
     }
+}
+
+#[test]
+fn return_contract_remainder_failure_preserves_output_and_cleanup_state() {
+    let source = concat!(
+        "fn zero() -> Int\n",
+        "  let value = 1 - 1\n",
+        "  value\n",
+        "end\n",
+        "fn checked() -> output: Int effects [stdio]\n",
+        "ensure output % zero() == 0\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup\")\n",
+        "  end\n",
+        "  stdio::println(\"body output\")\n",
+        "  7\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  checked()\n",
+        "  stdio::println(\"later work\")\n",
+        "end\n",
+    );
+    let ir = lower_to_ir(source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let trace_root = temp_dir("return-contract-remainder-state-trace");
+    let trace_path = trace_root.join("runtime-errors.tsv");
+    let trace_text = trace_path.to_string_lossy().to_string();
+    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+        "return-contract-remainder-state",
+        &program,
+        &[("VELN_RUNTIME_ERRORS", trace_text.as_str())],
+        &[],
+    ) else {
+        let _ = fs::remove_dir_all(&trace_root);
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "body output\ncleanup\n"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("error[runtime.remainder_by_zero]: remainder divisor is zero"));
+    assert!(!stderr.contains("Exception"), "{stderr}");
+    let trace = fs::read_to_string(&trace_path).expect("return contract remainder trace");
+    let divisor_start = source.find("zero() ==").expect("divisor offset");
+    let operation_start = source.find("output % zero()").expect("operation offset");
+    let divisor_end = divisor_start + "zero()".len();
+    assert!(
+        trace.contains(&format!(
+            "\t6\t17\t{divisor_start}\t6\t23\t{divisor_end}\t6\t8\t{operation_start}\t6\t23\t{divisor_end}"
+        )),
+        "{trace}"
+    );
+    let _ = fs::remove_dir_all(&trace_root);
 }
 
 #[test]
@@ -526,18 +587,80 @@ fn flat_remainder_contract(operator_count: usize) -> TypedProgram {
     ))
 }
 
-#[test]
-fn flat_remainder_contract_emission_work_grows_linearly() {
-    let smaller_count = 500;
-    let larger_count = 1_000;
-    let smaller =
-        contract_remainder_emission_work(&flat_remainder_contract(smaller_count), "guarded");
-    let larger =
-        contract_remainder_emission_work(&flat_remainder_contract(larger_count), "guarded");
+fn independent_remainder_contract(operator_count: usize) -> TypedProgram {
+    let mut left = String::from("left");
+    let mut right = String::from("right");
+    for _ in 0..operator_count {
+        left.push_str(" % 2");
+        right.push_str(" % 2");
+    }
+    lower_to_ir(&format!(
+        "pub fn guarded(left: Int, right: Int) -> Int\nrequire ({left} == 0) and ({right} == 0)\n  left\nend\n"
+    ))
+}
 
-    assert_eq!(smaller, smaller_count);
-    assert_eq!(larger, larger_count);
-    assert_eq!(larger, smaller * 2);
+#[test]
+fn flat_remainder_contract_compacts_repeated_nonzero_literal_divisors() {
+    assert_eq!(
+        contract_remainder_emission_work(&flat_remainder_contract(4_097), "guarded"),
+        1
+    );
+}
+
+#[test]
+fn independent_remainder_contract_scan_work_grows_linearly() {
+    let smaller = contract_remainder_scan_work(&independent_remainder_contract(500), "guarded");
+    let larger = contract_remainder_scan_work(&independent_remainder_contract(1_000), "guarded");
+
+    assert!(
+        smaller > 0,
+        "the scan metric must observe predicate text visits"
+    );
+    assert!(
+        larger <= smaller * 3,
+        "doubling both chains must retain linear scan work: {smaller} -> {larger}"
+    );
+}
+
+#[test]
+fn independent_long_remainder_contract_emission_is_stack_safe() {
+    let program = independent_remainder_contract(4_097);
+    assert!(function_max_stack(&program, "guarded") < 128);
+    assert_eq!(contract_remainder_emission_work(&program, "guarded"), 2);
+}
+
+#[test]
+fn independent_remainder_contract_executes_without_recursive_emission() {
+    let program = generate_classfiles_with_entry(
+        &lower_to_ir(&format!(
+            "{}pub fn main() -> Int\n  guarded(8, 6)\nend\n",
+            {
+                let mut left = String::from("left");
+                let mut right = String::from("right");
+                for _ in 0..4_097 {
+                    left.push_str(" % 2");
+                    right.push_str(" % 2");
+                }
+                format!(
+                    "fn guarded(left: Int, right: Int) -> Int\nrequire ({left} == 0) or ({right} == 0)\n  left\nend\n"
+                )
+            }
+        )),
+        "main",
+    );
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "independent-remainder-contract-execution",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
 }
 
 #[test]

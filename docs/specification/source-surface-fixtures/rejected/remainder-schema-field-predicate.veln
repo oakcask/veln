@@ -1,0 +1,5 @@
+schema UnsupportedFieldPredicate
+	format binary
+
+	value: UInt8 where value % 2 == 0
+end
