@@ -302,6 +302,13 @@ the source-surface grammar artifact must agree with these productions. The
 productions describe accepted form; the cleanup nesting resource limit is the
 prose contract above.
 
+The `%` binary operator is accepted in ordinary expressions, function and
+test contract predicates, and hole `satisfy` predicates. Schema field and
+schema-level validation predicates still reject `%`. The
+[operator](types.md#operators-and-diagnostics), [contract](contracts.md), and
+[hole](holes.md#satisfy-syntax-and-binding) pages define typing, evaluation, and
+repair-analysis behavior for the accepted forms.
+
 A handler declaration requires `for` between its parameter list and its one
 nominal effect target. The former `handles` spelling is an ordinary identifier,
 so it may be used wherever the corresponding identifier casing rules permit.

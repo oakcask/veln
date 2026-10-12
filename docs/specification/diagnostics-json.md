@@ -82,7 +82,9 @@ A literal-zero remainder divisor reports `type.remainder_by_zero` with kind
 entry has `kind: "operation"`, message `Remainder operation is here.`, and the
 complete remainder-operation span. Decimal, binary, hexadecimal,
 parenthesized, and negated zero literals receive this diagnostic. Computed
-expressions such as `1 - 1` remain runtime checked.
+expressions such as `1 - 1` remain runtime checked. The same diagnostic shape
+applies in function and test contract predicates and in hole `satisfy`
+predicates; schema validation predicates reject `%` as unsupported syntax.
 
 An unresolved public type-alias target reports `name.unresolved` at that alias
 declaration. Its details contain `phase: "name"`, the alias `node_id`,

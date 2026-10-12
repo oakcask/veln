@@ -161,7 +161,9 @@ A computed zero remainder divisor uses
 `operation_span` identifies the complete operation. The primary message is
 `remainder divisor is zero`. Captured output remains in `stdout`; the human
 command renders the divisor location and the related operation location
-without exposing a host arithmetic exception.
+without exposing a host arithmetic exception. A zero divisor evaluated inside
+a runtime contract predicate uses this same record instead of a contract
+failure record.
 
 ## Returned result values
 
