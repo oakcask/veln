@@ -68,8 +68,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             ),
             ContractValue::Binary { left, right, op } => self.emit_contract_binary(
                 code,
-                left,
-                right,
+                (left, right),
                 op,
                 callsite_calls,
                 operand_depth,
@@ -118,13 +117,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     fn emit_contract_binary(
         &mut self,
         code: &mut MethodCode,
-        left: &str,
-        right: &str,
+        operands: (&str, &str),
         op: BinaryOp,
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
         contract: &IrContract,
     ) {
+        let (left, right) = operands;
         self.emit_contract_value(code, left, callsite_calls, operand_depth, contract);
         self.emit_contract_value(code, right, callsite_calls, operand_depth + 1, contract);
         if op == BinaryOp::Remainder {
