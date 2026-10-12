@@ -1,3 +1,6 @@
+# Integration contract: `check --json` accepts both the remainder depth-128
+# boundary and a depth-129 predicate without `%`, then reports only the
+# remainder-specific depth-129 failure from `rejected.veln`.
 command = ["check", "--json", "accepted.veln", "rejected.veln"]
 exit = 1
 
@@ -12,7 +15,14 @@ format = "empty"
 path = "status"
 equals = "error"
 
+[[json_assert]]
+path = "diagnostics"
+length = 1
+
 [[diagnostics]]
 id = "parse.contract_predicate"
 kind = "contract"
 message = "contract predicate nesting exceeds the supported limit of 128 parenthesized expressions"
+
+[diagnostics.span]
+file = "rejected.veln"

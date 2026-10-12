@@ -259,12 +259,28 @@ fn contract_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
         format!("{}value{}", "(".repeat(depth), ")".repeat(depth))
     }
 
+    fn right_nested_remainder(depth: usize) -> String {
+        let mut predicate = "value".to_string();
+        for _ in 0..depth {
+            predicate = format!("value % ({predicate})");
+        }
+        predicate
+    }
+
+    fn nested_call_remainder(depth: usize) -> String {
+        format!(
+            "{}value % 2{}",
+            "identity(".repeat(depth),
+            ")".repeat(depth)
+        )
+    }
+
     for depth in [127, 128] {
         let source = SourceFile::new(
             "main.veln",
             format!(
-                "fn checked(value: Int) -> Int\nrequire {} == value\n  value\nend\n",
-                nested(depth)
+                "fn checked(value: Int) -> Int\nrequire {} == value % 2\n  value\nend\n",
+                right_nested_remainder(depth)
             ),
         );
         let output = parse(&source);
@@ -278,8 +294,8 @@ fn contract_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
     let source = SourceFile::new(
         "main.veln",
         format!(
-            "fn checked(value: Int) -> Int\nrequire {} == value\n  value\nend\n",
-            nested(129)
+            "fn checked(value: Int) -> Int\nrequire {} == value % 2\n  value\nend\n",
+            right_nested_remainder(129)
         ),
     );
     let output = parse(&source);
@@ -290,11 +306,48 @@ fn contract_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
         "contract predicate nesting exceeds the supported limit of 128 parenthesized expressions"
     );
 
+    for (depth, expected_diagnostics) in [(128, 0), (129, 1)] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn checked(value: Int) -> Int\nrequire {} == value % 2\n  value\nend\n",
+                nested_call_remainder(depth)
+            ),
+        );
+        let output = parse(&source);
+        assert_eq!(
+            output.diagnostics.len(),
+            expected_diagnostics,
+            "depth {depth}: {:#?}",
+            output.diagnostics
+        );
+    }
+
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn checked(value: Int) -> Int\nrequire {} == value\n  value\nend\n",
+            nested(129)
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
     let source = SourceFile::new(
         "main.veln",
         format!(
             "fn checked() -> Int\n  let result: Int = _value satisfy candidate => {} == candidate\n  result\nend\n",
             nested(129)
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn checked() -> Int\n  let result: Int = _value satisfy candidate => {} == candidate % 2\n  result\nend\n",
+            right_nested_remainder(129)
         ),
     );
     let output = parse(&source);

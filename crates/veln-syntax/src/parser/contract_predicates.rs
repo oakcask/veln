@@ -44,7 +44,8 @@ impl<'a> ContractPredicateParser<'a> {
         }
 
         if self.allow_remainder
-            && let Some(index) = excessive_parenthesis_nesting(self.tokens, Self::MAX_PAREN_NESTING)
+            && let Some(index) =
+                excessive_remainder_parenthesis_nesting(self.tokens, Self::MAX_PAREN_NESTING)
         {
             self.cursor = index;
             self.error_current(
@@ -455,19 +456,26 @@ fn predicate_token_text_ranges(predicate: &str, tokens: &[Token]) -> Vec<std::op
         .collect()
 }
 
-fn excessive_parenthesis_nesting(tokens: &[Token], limit: usize) -> Option<usize> {
+fn excessive_remainder_parenthesis_nesting(tokens: &[Token], limit: usize) -> Option<usize> {
     let mut depth = 0usize;
+    let mut contains_remainder = false;
+    let mut excessive_index = None;
     for (index, token) in tokens.iter().enumerate() {
         match token.kind {
             TokenKind::LParen => {
                 depth += 1;
-                if depth > limit {
-                    return Some(index);
+                if depth > limit && excessive_index.is_none() {
+                    excessive_index = Some(index);
                 }
             }
             TokenKind::RParen => depth = depth.saturating_sub(1),
+            TokenKind::Percent => contains_remainder = true,
             _ => {}
         }
     }
-    None
+    if contains_remainder {
+        excessive_index
+    } else {
+        None
+    }
 }
