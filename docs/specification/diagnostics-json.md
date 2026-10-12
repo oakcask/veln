@@ -76,11 +76,13 @@ related notes may identify the accepted digit set or prefix. Invalid literal
 shift counts use `type.invalid_shift_count` with `operator`, `actual_count`,
 `minimum_count`, and `maximum_count`; the span is the count expression.
 
-A remainder divisor written as an integer zero literal reports
-`type.remainder_by_zero` with kind `type`, message `remainder divisor is zero`,
-and details `operator: "%"` and `divisor: 0`. The primary span selects the
-divisor expression. One related entry has `kind: "operation"`, message
-`Remainder operation is here.`, and the complete remainder-operation span.
+A remainder divisor written as an integer zero literal reports one
+`type.remainder_by_zero` diagnostic with kind `type`, message
+`remainder divisor is zero`, and details `operator: "%"` and `divisor: 0`.
+Each such divisor in one predicate reports its own diagnostic. The primary span
+selects that divisor expression. One related entry has `kind: "operation"`,
+message `Remainder operation is here.`, and the span of the remainder operation
+that uses that divisor.
 Decimal-integer, binary, hexadecimal, parenthesized, and negated zero literals
 receive this diagnostic. Computed expressions such as `1 - 1` remain runtime
 checked. A non-`Int` zero such as `0.0` reports only its operand
