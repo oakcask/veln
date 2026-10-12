@@ -1,5 +1,56 @@
 use super::*;
 
+fn merged_import_module(primary: SourceFile, dependencies: Vec<SourceFile>) -> SurfaceModule {
+    let mut merged = lower_surface_ast(&parse(&primary).tree);
+    for dependency in dependencies {
+        let module = lower_surface_ast(&parse(&dependency).tree);
+        merged.uses.extend(module.uses);
+        merged.aliases.extend(module.aliases);
+        merged.effects.extend(module.effects);
+        merged.handlers.extend(module.handlers);
+        merged.schemas.extend(module.schemas);
+        merged.types.extend(module.types);
+        merged.functions.extend(module.functions);
+        merged.invalid_names.extend(module.invalid_names);
+    }
+    merged
+}
+
+fn checked_main_return(module: &SurfaceModule) -> CoreExpr {
+    let lowered = lower_checked_surface_module(module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .into_iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    expr.clone()
+}
+
+fn assert_main_returns_function_call(module: &SurfaceModule, expected: &str) {
+    let expr = checked_main_return(module);
+    let CoreExprKind::Call { target, .. } = expr.kind else {
+        panic!("tail expression should lower as a call");
+    };
+    assert_eq!(target, CoreCallTarget::Function(expected.to_string()));
+}
+
+fn assert_main_passes_function_value(module: &SurfaceModule, index: usize, expected: &str) {
+    let expr = checked_main_return(module);
+    let CoreExprKind::Call { args, .. } = expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert!(matches!(
+        &args[index].kind,
+        CoreExprKind::FunctionValue { name, callsite: false } if name == expected
+    ));
+}
+
 #[test]
 fn infers_non_constructor_calls_from_local_function_signatures() {
     let source = SourceFile::new(
@@ -36,18 +87,8 @@ fn local_binding_value_shadows_same_named_function() {
     );
     let module = lower_surface_ast(&parse(&source).tree);
 
-    let lowered = lower_checked_surface_module(&module);
+    let expr = checked_main_return(&module);
 
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
     assert!(matches!(&expr.kind, CoreExprKind::Local(name) if name == "callback"));
 }
 
@@ -72,36 +113,9 @@ fn resolves_qualified_calls_through_import_aliases() {
             "end\n",
         ),
     );
-    let main = lower_surface_ast(&parse(&main_source).tree);
-    let math = lower_surface_ast(&parse(&math_source).tree);
-    let module = SurfaceModule {
-        module: main.module,
-        uses: main.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: main.types.into_iter().chain(math.types).collect(),
-        functions: main.functions.into_iter().chain(math.functions).collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(main_source, vec![math_source]);
 
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    let CoreExprKind::Call { target, .. } = &expr.kind else {
-        panic!("qualified call should lower as a call");
-    };
-    assert_eq!(target, &CoreCallTarget::Function("double".to_string()));
+    assert_main_returns_function_call(&module, "double");
 }
 
 #[test]
@@ -125,40 +139,9 @@ fn nested_module_only_function_paths_keep_function_leaf_role() {
             "end\n",
         ),
     );
-    let main = lower_surface_ast(&parse(&main_source).tree);
-    let helper = lower_surface_ast(&parse(&helper_source).tree);
-    let module = SurfaceModule {
-        module: main.module,
-        uses: main.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: main.types.into_iter().chain(helper.types).collect(),
-        functions: main.functions.into_iter().chain(helper.functions).collect(),
-        invalid_names: main
-            .invalid_names
-            .into_iter()
-            .chain(helper.invalid_names)
-            .collect(),
-    };
+    let module = merged_import_module(main_source, vec![helper_source]);
 
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    let CoreExprKind::Call { target, .. } = &expr.kind else {
-        panic!("qualified call should lower as a call");
-    };
-    assert_eq!(target, &CoreCallTarget::Function("double".to_string()));
+    assert_main_returns_function_call(&module, "double");
 }
 
 #[test]
@@ -182,39 +165,9 @@ fn resolves_qualified_function_values_through_import_aliases() {
             "end\n",
         ),
     );
-    let main = lower_surface_ast(&parse(&main_source).tree);
-    let text = lower_surface_ast(&parse(&text_source).tree);
-    let module = SurfaceModule {
-        module: main.module,
-        uses: main.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: main.types.into_iter().chain(text.types).collect(),
-        functions: main.functions.into_iter().chain(text.functions).collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(main_source, vec![text_source]);
 
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    let CoreExprKind::Call { args, .. } = &expr.kind else {
-        panic!("tail expression should lower as call");
-    };
-    assert!(matches!(
-        &args[1].kind,
-        CoreExprKind::FunctionValue { name, callsite: false } if name == "stringify"
-    ));
+    assert_main_passes_function_value(&module, 1, "stringify");
 }
 
 #[test]
@@ -238,36 +191,9 @@ fn resolves_unqualified_public_function_imports() {
             "end\n",
         ),
     );
-    let main = lower_surface_ast(&parse(&main_source).tree);
-    let math = lower_surface_ast(&parse(&math_source).tree);
-    let module = SurfaceModule {
-        module: main.module,
-        uses: main.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: main.types.into_iter().chain(math.types).collect(),
-        functions: main.functions.into_iter().chain(math.functions).collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(main_source, vec![math_source]);
 
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    let CoreExprKind::Call { target, .. } = &expr.kind else {
-        panic!("unqualified import should lower as a call");
-    };
-    assert_eq!(target, &CoreCallTarget::Function("double".to_string()));
+    assert_main_returns_function_call(&module, "double");
 }
 
 #[test]
@@ -291,39 +217,9 @@ fn resolves_unqualified_imported_function_values() {
             "end\n",
         ),
     );
-    let main = lower_surface_ast(&parse(&main_source).tree);
-    let text = lower_surface_ast(&parse(&text_source).tree);
-    let module = SurfaceModule {
-        module: main.module,
-        uses: main.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: main.types.into_iter().chain(text.types).collect(),
-        functions: main.functions.into_iter().chain(text.functions).collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(main_source, vec![text_source]);
 
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    let CoreExprKind::Call { args, .. } = &expr.kind else {
-        panic!("tail expression should lower as call");
-    };
-    assert!(matches!(
-        &args[1].kind,
-        CoreExprKind::FunctionValue { name, callsite: false } if name == "stringify"
-    ));
+    assert_main_passes_function_value(&module, 1, "stringify");
 }
 
 #[test]
@@ -350,19 +246,7 @@ fn local_functions_shadow_unqualified_function_imports() {
             "end\n",
         ),
     );
-    let main = lower_surface_ast(&parse(&main_source).tree);
-    let math = lower_surface_ast(&parse(&math_source).tree);
-    let module = SurfaceModule {
-        module: main.module,
-        uses: main.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: main.types.into_iter().chain(math.types).collect(),
-        functions: main.functions.into_iter().chain(math.functions).collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(main_source, vec![math_source]);
 
     let lowered = lower_checked_surface_module(&module);
 
@@ -395,25 +279,7 @@ fn ambiguous_unqualified_public_function_imports_are_rejected() {
             "end\n",
         ),
     );
-    let main = lower_surface_ast(&parse(&main_source).tree);
-    let left = lower_surface_ast(&parse(&left_source).tree);
-    let right = lower_surface_ast(&parse(&right_source).tree);
-    let module = SurfaceModule {
-        module: main.module,
-        uses: main.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        functions: main
-            .functions
-            .into_iter()
-            .chain(left.functions)
-            .chain(right.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(main_source, vec![left_source, right_source]);
 
     let diagnostics = analyze_surface_module(&module);
 
@@ -463,19 +329,7 @@ fn private_functions_are_hidden_from_unqualified_imports() {
             "end\n",
         ),
     );
-    let main = lower_surface_ast(&parse(&main_source).tree);
-    let math = lower_surface_ast(&parse(&math_source).tree);
-    let module = SurfaceModule {
-        module: main.module,
-        uses: main.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        functions: main.functions.into_iter().chain(math.functions).collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(main_source, vec![math_source]);
 
     let diagnostics = analyze_surface_module(&module);
 
@@ -507,23 +361,7 @@ fn matching_companion_resolves_qualified_private_function_imports() {
             "end\n",
         ),
     );
-    let companion = lower_surface_ast(&parse(&companion_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let module = SurfaceModule {
-        module: companion.module,
-        uses: companion.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        functions: companion
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(companion_source, vec![target_source]);
 
     let diagnostics = analyze_surface_module(&module);
 
@@ -553,23 +391,7 @@ fn matching_companion_cannot_bind_qualified_private_function_values() {
             "end\n",
         ),
     );
-    let companion = lower_surface_ast(&parse(&companion_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let module = SurfaceModule {
-        module: companion.module,
-        uses: companion.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        functions: companion
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(companion_source, vec![target_source]);
 
     let lowered = lower_checked_surface_module(&module);
 
@@ -604,23 +426,7 @@ fn non_matching_companion_cannot_resolve_qualified_private_function_imports() {
             "end\n",
         ),
     );
-    let companion = lower_surface_ast(&parse(&companion_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let module = SurfaceModule {
-        module: companion.module,
-        uses: companion.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        functions: companion
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(companion_source, vec![target_source]);
 
     let diagnostics = analyze_surface_module(&module);
 
@@ -651,23 +457,7 @@ fn integration_test_module_cannot_resolve_qualified_private_function_imports() {
             "end\n",
         ),
     );
-    let integration = lower_surface_ast(&parse(&integration_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let module = SurfaceModule {
-        module: integration.module,
-        uses: integration.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        functions: integration
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(integration_source, vec![target_source]);
 
     let diagnostics = analyze_surface_module(&module);
 
@@ -711,25 +501,7 @@ fn matching_companion_private_function_access_is_not_transitive() {
             "end\n",
         ),
     );
-    let companion = lower_surface_ast(&parse(&companion_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let support = lower_surface_ast(&parse(&support_source).tree);
-    let module = SurfaceModule {
-        module: companion.module,
-        uses: companion.uses.into_iter().chain(target.uses).collect(),
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        functions: companion
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .chain(support.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = merged_import_module(companion_source, vec![target_source, support_source]);
 
     let diagnostics = analyze_surface_module(&module);
 
