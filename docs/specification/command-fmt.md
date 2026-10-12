@@ -20,6 +20,9 @@ supported binary-schema primitive compatibility spellings. Indentation is one
 tab per level: top-level items and closing `end` lines use level zero, and
 function body lines use level one.
 
+The formatter writes one space on each side of `%` and preserves its
+precedence and left associativity with `*` and `/`.
+
 A handler header places `for` between its formatted parameter list and nominal
 effect path, followed by any retained-effect list. Reformatting that output is
 idempotent and preserves the same effect path and retained effects.
