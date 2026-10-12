@@ -457,6 +457,7 @@ struct ContractPredicateParser<'a> {
     context: &'static str,
     diagnostic_id: &'static str,
     tokens: &'a [Token],
+    allow_remainder: bool,
     cursor: usize,
     diagnostics: Vec<ParseDiagnostic>,
     perform_effect_spans: Vec<SourceSpan>,

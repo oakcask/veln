@@ -19,8 +19,8 @@ use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text,
     contract_predicate_is_statically_true, is_contract_keyword, missing_contract_field,
     predicate_is_boolean_with_calls, predicate_is_statically_false, predicate_is_statically_true,
-    predicate_is_statically_true_with_literal_bounds, predicate_rendered_type_with_calls,
-    predicate_type_with_calls, referenced_names,
+    predicate_is_statically_true_with_literal_bounds, predicate_literal_zero_remainder_divisor,
+    predicate_rendered_type_with_calls, predicate_type_with_calls, referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, handler_details, span_json,

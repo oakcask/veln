@@ -144,14 +144,72 @@ pub(super) fn predicate_arithmetic_type(
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Type> {
-    for operator in ["+", "-", "*", "/"] {
-        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+    for operators in [&["+", "-"][..], &["*", "/", "%"][..]] {
+        if let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        {
             let left = predicate_type_with_calls(left, bindings, call_type)?;
             let right = predicate_type_with_calls(right, bindings, call_type)?;
+            if operator == "%" {
+                return (left == Type::int() && right == Type::int()).then(Type::int);
+            }
             return numeric_result_type(&left, &right);
         }
     }
     None
+}
+
+pub(super) fn split_top_level_operator_group<'a, 'b>(
+    predicate: &'a str,
+    operators: &'b [&'b str],
+) -> Option<(&'a str, &'b str, &'a str)> {
+    operators
+        .iter()
+        .filter_map(|operator| {
+            split_top_level_operator(predicate, operator)
+                .map(|(left, right)| (left, *operator, right))
+        })
+        .max_by_key(|(left, _, _)| left.len())
+}
+
+pub(crate) fn predicate_literal_zero_remainder_divisor(predicate: &str) -> Option<&str> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    for operators in [
+        &["or"][..],
+        &["and"][..],
+        &["|"][..],
+        &["^"][..],
+        &["&"][..],
+        &["==", "!="][..],
+        &["<=", ">=", "<", ">"][..],
+        &[">>>", ">>", "<<"][..],
+        &["+", "-"][..],
+        &["*", "/", "%"][..],
+    ] {
+        let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        else {
+            continue;
+        };
+        if operator == "%" && literal_text_is_zero(right) {
+            return Some(right);
+        }
+        return predicate_literal_zero_remainder_divisor(left)
+            .or_else(|| predicate_literal_zero_remainder_divisor(right));
+    }
+    if let Some(rest) = predicate
+        .strip_prefix('-')
+        .or_else(|| predicate.strip_prefix('~'))
+    {
+        return predicate_literal_zero_remainder_divisor(rest);
+    }
+    if let Some(rest) = predicate.strip_prefix("not ") {
+        return predicate_literal_zero_remainder_divisor(rest);
+    }
+    None
+}
+
+fn literal_text_is_zero(text: &str) -> bool {
+    let text = strip_balanced_outer_parens(text.trim());
+    ExactNumber::parse(text).is_some_and(|number| number.as_i64() == Some(0))
 }
 
 pub(super) fn predicate_bitwise_type(
@@ -269,10 +327,22 @@ pub(super) fn contract_operator_at(text: &str, index: usize, operator: &str) -> 
         return false;
     }
     let next = text[index + operator.len()..].chars().next();
+    let previous = text[..index].chars().next_back();
     match operator {
-        ">" => !matches!(next, Some('>' | '=')),
-        ">>" => next != Some('>'),
-        "<" => !matches!(next, Some('<' | '=')),
+        "-" => text[..index]
+            .chars()
+            .rev()
+            .find(|character| !character.is_whitespace())
+            .is_some_and(|character| {
+                !matches!(
+                    character,
+                    '(' | '+' | '-' | '*' | '/' | '%' | '<' | '>' | '=' | '!' | '&' | '|' | '^'
+                )
+            }),
+        ">" => previous != Some('>') && !matches!(next, Some('>' | '=')),
+        ">>" | ">>>" => previous != Some('>') && next != Some('>'),
+        "<" => previous != Some('<') && !matches!(next, Some('<' | '=')),
+        "<<" => previous != Some('<') && next != Some('<'),
         "|" => next != Some('>'),
         _ => true,
     }

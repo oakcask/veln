@@ -382,6 +382,7 @@ impl<'a> Parser<'a> {
             "contract_predicate",
             "parse.contract_predicate",
             &predicate_tokens,
+            true,
         )
         .parse();
         self.diagnostics.extend(predicate_output.diagnostics);

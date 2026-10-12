@@ -1,0 +1,18 @@
+# Remainder predicates execute in require, ensure, and invariant clauses.
+fn checked(value: Int) -> output: Int
+	require value % 2 == 0
+	require value % 4 * 2 == 4
+	ensure output % 4 == 2
+	invariant value % 3 == 0
+	value
+end
+
+fn endpoint(value: Int) -> Int
+	require value % -1 == 0
+	value
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(checked(6)))
+	stdio::println(int_to_string(endpoint(-9223372036854775807 - 1)))
+end

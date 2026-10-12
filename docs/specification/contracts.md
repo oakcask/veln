@@ -36,6 +36,15 @@ string literal is literal data and is never resolved as a name. Parentheses
 and commas inside a string literal do not close a grouped predicate or split a
 call's argument list.
 
+Integer remainder uses the same operator contract in predicates as in ordinary
+expressions: `%` has multiply-level precedence and left associativity, and both
+operands and the result are `Int`. A `Float` context does not widen either
+operand or the result. A non-`Int` operand reports `type.mismatch`. A literal
+zero divisor reports `type.remainder_by_zero` at the divisor, with the
+operation as related context, and the invalid predicate does not become a
+runtime obligation. The complete operator contract is specified in
+[Operators and diagnostics](types.md#operators-and-diagnostics).
+
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
 contract predicates. `perform Effect::operation(...)` can parse as a candidate
 predicate but fails the effect-free checker. Unsupported syntax reports
@@ -73,6 +82,12 @@ Runtime-required predicates evaluate `not` before `and`, and `and` before
 `or`, as in ordinary source expressions. Parentheses can override that
 precedence.
 
+For a nonzero divisor, runtime integer remainder computes `q = trunc(a / b)`
+and `r = a - q * b` over mathematical integers, then returns `r`. Minimum
+`Int` remainder by `-1` is `0`. A computed zero divisor reports
+`runtime.remainder_by_zero` at the divisor instead of reporting a violated
+contract or exposing a host exception.
+
 | Clause | Entry failure blames | Return failure blames |
 | --- | --- | --- |
 | `require` | caller | — |
@@ -92,6 +107,7 @@ The classifier combines these rule classes:
 | --- | --- |
 | Literal values | Boolean and string equality/disequality; numeric equality, disequality, and ordering. Parentheses do not change the result. |
 | Exact arithmetic | Literal `+`, `-`, `*`, `/`, bitwise, and shift expressions in comparison-only positions. Decimal and rational comparisons use exact values; shift counts outside `0..63` are not folded as valid operations. |
+| Integer remainder | A literal-only `%` subexpression is folded when both signed 64-bit operands are known and the divisor is nonzero. It uses the runtime signed-remainder result, including `0` for minimum `Int` remainder by `-1`. A nonliteral remainder subexpression remains `runtime_required`. |
 | Boolean identities | Literal folding, `not`, complementary predicates, boolean equality/disequality, same-shape comparisons, and tautological `and`/`or` forms. Whitespace, redundant atom parentheses, and commuted ordering are normalized where the rule says so. |
 | Truth tables | Truth-table evaluation is bounded at 13 unknown predicates after folding and is skipped for 512 or more top-level disjuncts. Partial case-split search is bounded at 10 predicates; a separate exhaustive disjunction rule handles 7–11 predicates. Other specialized rules may still prove larger formulas. |
 | Order reasoning | Complementary equality/order pairs, trichotomy, inclusive totality, strict splits from disequality, and transitive implications over `<`, `<=`, `==`, and their commuted forms. Non-strict paths can prove equality; strict paths do not. |

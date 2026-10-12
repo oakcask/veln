@@ -6,12 +6,14 @@ impl<'a> ContractPredicateParser<'a> {
         context: &'static str,
         diagnostic_id: &'static str,
         tokens: &'a [Token],
+        allow_remainder: bool,
     ) -> Self {
         Self {
             source,
             context,
             diagnostic_id,
             tokens,
+            allow_remainder,
             cursor: 0,
             diagnostics: Vec::new(),
             perform_effect_spans: Vec::new(),
@@ -303,11 +305,10 @@ impl<'a> ContractPredicateParser<'a> {
 
     pub(super) fn current_binary_op(&self) -> Option<(BinaryOp, u8, u8)> {
         let kind = self.tokens.get(self.cursor)?.kind;
-        if kind == TokenKind::Percent {
-            None
-        } else {
-            binary_operator(kind, false)
+        if kind == TokenKind::Percent && !self.allow_remainder {
+            return None;
         }
+        binary_operator(kind, false)
     }
 
     pub(super) fn error_current(

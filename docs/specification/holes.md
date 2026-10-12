@@ -109,10 +109,12 @@ Inside a function with the `callsite` modifier, a `satisfy` candidate named
 `callsite` instead reports `name.callsite_shadow`. The rejected candidate does
 not replace the built-in `SourceLocation` value while the predicate is checked.
 
-The predicate uses the same pure boolean subset as contracts. The candidate has
-the hole's expected type when known. Unsupported constructs, non-boolean
-predicates, missing fields, and unresolved names are hole diagnostics; names
-unresolved within the predicate use the `satisfy_predicate` namespace.
+The predicate uses the same pure boolean subset as contracts, including
+integer remainder. `%` requires `Int` operands and produces `Int`; a `Float`
+context does not widen its operands or result. The candidate has the hole's
+expected type when known. Unsupported constructs, non-boolean predicates,
+missing fields, and unresolved names are hole diagnostics; names unresolved
+within the predicate use the `satisfy_predicate` namespace.
 
 ## Safe repair classes
 
@@ -156,6 +158,9 @@ Requirement discharge reuses contract static truth and preserves its limits:
 - disjunctive requirements contribute only facts common to every branch;
 - numeric literal bounds use exact decimal/rational ordering and pure literal
   `+`, `-`, `*`, and comparison-only `/` expressions;
+- a nonliteral remainder relationship stays unresolved and does not produce a
+  modular proof or repair; independently supported constraints in the same
+  predicate remain eligible under the rules above;
 - `Int` bounds include adjacent integer facts (`max > 0` implies `max >= 1`,
   while `max >= 10` does not imply `max > 10`); and
 - equal inclusive bounds do not imply endpoint disequality.

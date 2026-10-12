@@ -26,7 +26,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         {
             code.contract_call_metadata_work += contract.callsite_calls.len();
         }
-        self.emit_contract_value(code, &contract.predicate, &callsite_calls, 0);
+        self.emit_contract_value(code, &contract.predicate, &callsite_calls, 0, contract);
         let clause = match contract.kind {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
@@ -55,22 +55,44 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         text: &str,
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
         match parse_contract_value(text) {
-            ContractValue::Not(value) => {
-                self.emit_contract_unary(code, value, "not", callsite_calls, operand_depth)
-            }
-            ContractValue::Binary { left, right, op } => {
-                self.emit_contract_binary(code, left, right, op, callsite_calls, operand_depth)
-            }
-            ContractValue::BitwiseNot(value) => {
-                self.emit_contract_unary(code, value, "bitwiseNot", callsite_calls, operand_depth)
-            }
-            ContractValue::Call { callee, args } => {
-                self.emit_contract_call(code, callee, &args, callsite_calls, operand_depth)
-            }
+            ContractValue::Not(value) => self.emit_contract_unary(
+                code,
+                value,
+                "not",
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
+            ContractValue::Binary { left, right, op } => self.emit_contract_binary(
+                code,
+                left,
+                right,
+                op,
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
+            ContractValue::BitwiseNot(value) => self.emit_contract_unary(
+                code,
+                value,
+                "bitwiseNot",
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
+            ContractValue::Call { callee, args } => self.emit_contract_call(
+                code,
+                callee,
+                &args,
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
             ContractValue::Field { base, field } => {
-                self.emit_contract_field(code, base, field, callsite_calls, operand_depth)
+                self.emit_contract_field(code, base, field, callsite_calls, operand_depth, contract)
             }
             ContractValue::Scalar(value) => self.emit_contract_scalar(code, value, operand_depth),
         }
@@ -83,8 +105,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         method: &str,
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
-        self.emit_contract_value(code, value, callsite_calls, operand_depth);
+        self.emit_contract_value(code, value, callsite_calls, operand_depth, contract);
         code.invokestatic(
             &self.program.options.runtime_class,
             method,
@@ -100,9 +123,48 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         op: BinaryOp,
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
-        self.emit_contract_value(code, left, callsite_calls, operand_depth);
-        self.emit_contract_value(code, right, callsite_calls, operand_depth + 1);
+        self.emit_contract_value(code, left, callsite_calls, operand_depth, contract);
+        self.emit_contract_value(code, right, callsite_calls, operand_depth + 1, contract);
+        if op == BinaryOp::Remainder {
+            let predicate_start = contract
+                .span
+                .end
+                .offset
+                .saturating_sub(1 + contract.predicate.len());
+            let divisor_offset = right.as_ptr() as usize - contract.predicate.as_ptr() as usize;
+            let operation_offset = left.as_ptr() as usize - contract.predicate.as_ptr() as usize;
+            let predicate_column = contract.span.start.column
+                + predicate_start.saturating_sub(contract.span.start.offset);
+            let divisor_column =
+                predicate_column + contract.predicate[..divisor_offset].chars().count();
+            let operation_column =
+                predicate_column + contract.predicate[..operation_offset].chars().count();
+            code.ldc_string(contract.span.file.as_str());
+            for value in [
+                contract.span.start.line,
+                divisor_column,
+                predicate_start + divisor_offset,
+                contract.span.start.line,
+                divisor_column + right.chars().count(),
+                predicate_start + divisor_offset + right.len(),
+                contract.span.start.line,
+                operation_column,
+                predicate_start + operation_offset,
+                contract.span.start.line,
+                divisor_column + right.chars().count(),
+                predicate_start + divisor_offset + right.len(),
+            ] {
+                code.push_i32(value as i32);
+            }
+            code.invokestatic(
+                &self.program.options.runtime_class,
+                "remainder",
+                "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String;IIIIIIIIIIII)Ljava/lang/Object;",
+            );
+            return;
+        }
         code.invokestatic(
             &self.program.options.runtime_class,
             binary_method(op),
@@ -117,6 +179,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         args: &[&str],
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
         #[cfg(test)]
         {
@@ -129,7 +192,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             + usize::from(callsite_call.is_some());
         record_contract_stack(code, operand_depth + abi_arg_count.max(1));
         for (index, arg) in args[..fixed_arg_count].iter().enumerate() {
-            self.emit_contract_value(code, arg, callsite_calls, operand_depth + index);
+            self.emit_contract_value(code, arg, callsite_calls, operand_depth + index, contract);
         }
         if callsite_call.is_some_and(|call| call.variadic) {
             self.emit_contract_variadic_tail(
@@ -137,6 +200,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 &args[fixed_arg_count..],
                 callsite_calls,
                 operand_depth + fixed_arg_count,
+                contract,
             );
         }
         if callsite_call.is_some() {
@@ -157,6 +221,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         args: &[&str],
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
         let saved_next = self.next_local;
         let tail_slot = self.alloc_local();
@@ -164,7 +229,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_list_nil(code);
         code.astore(tail_slot);
         for arg in args {
-            self.emit_contract_value(code, arg, callsite_calls, operand_depth);
+            self.emit_contract_value(code, arg, callsite_calls, operand_depth, contract);
             record_contract_stack(code, operand_depth + 2);
             code.aload(tail_slot);
             code.invokestatic(
@@ -190,8 +255,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         field: &str,
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
-        self.emit_contract_value(code, base, callsite_calls, operand_depth);
+        self.emit_contract_value(code, base, callsite_calls, operand_depth, contract);
         record_contract_stack(code, operand_depth + 2);
         code.ldc_string(field);
         code.invokestatic(

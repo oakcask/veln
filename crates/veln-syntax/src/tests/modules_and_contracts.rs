@@ -160,6 +160,27 @@ fn parses_contract_predicate_subset() {
 }
 
 #[test]
+fn parses_remainder_in_contract_predicates_at_multiply_precedence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn checked(value: Int) -> output: Int\n",
+            "require value % 3 * 2 == 2\n",
+            "ensure output * 2 % 3 == 2\n",
+            "invariant value % 4 % 3 == 1\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(function.contracts.len(), 3);
+}
+
+#[test]
 fn rejects_non_predicate_contract_syntax() {
     let source = SourceFile::new(
         "main.veln",

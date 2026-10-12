@@ -556,7 +556,7 @@ schema_field_where_opt --> [].
 schema_validation_opt -->
     ident_text("validate"),
     line_tokens(Tokens),
-    { Tokens \= [], valid_contract_tokens(Tokens) },
+    { Tokens \= [], valid_schema_predicate_tokens(Tokens) },
     nl,
     !.
 schema_validation_opt --> [].
@@ -651,13 +651,16 @@ valid_contract_tokens(Tokens) :-
     \+ member(t(hole, _), Tokens),
     \+ member(t(underscore, _), Tokens),
     \+ member(t(lbracket, _), Tokens),
-    \+ member(t(percent, _), Tokens),
     phrase(expr, Tokens).
 
 valid_schema_field_where_tokens(Tokens) :-
-    valid_contract_tokens(Tokens).
+    valid_schema_predicate_tokens(Tokens).
 valid_schema_field_where_tokens(Tokens) :-
     phrase(byte_view_multiple_predicate, Tokens).
+
+valid_schema_predicate_tokens(Tokens) :-
+    \+ member(t(percent, _), Tokens),
+    valid_contract_tokens(Tokens).
 
 byte_view_multiple_predicate -->
     ident_text("payload_count"),
@@ -1017,8 +1020,6 @@ begin_expr --> tok(begin), nl, body, tok(end).
 
 satisfy_opt(S0, S) :-
     phrase(satisfy_clause, S0, S),
-    append(Consumed, S, S0),
-    \+ member(t(percent, _), Consumed),
     !.
 satisfy_opt --> [].
 

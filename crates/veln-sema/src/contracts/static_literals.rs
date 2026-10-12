@@ -68,10 +68,12 @@ pub(super) fn static_numeric_expression(predicate: &str) -> Option<StaticNumber>
         return Some(number);
     }
     if contains_binary_bitwise_operator(predicate) {
-        if let Some(value) =
-            static_binary_numeric_expression(predicate, &["|", "^", "&"], static_bitwise_operation)
-        {
-            return value;
+        for operators in [&["|"][..], &["^"][..], &["&"][..]] {
+            if let Some(value) =
+                static_binary_numeric_expression(predicate, operators, static_bitwise_operation)
+            {
+                return value;
+            }
         }
         if let Some(value) = static_binary_numeric_expression(
             predicate,
@@ -86,9 +88,11 @@ pub(super) fn static_numeric_expression(predicate: &str) -> Option<StaticNumber>
     {
         return value;
     }
-    if let Some(value) =
-        static_binary_numeric_expression(predicate, &["*", "/"], static_multiplicative_operation)
-    {
+    if let Some(value) = static_binary_numeric_expression(
+        predicate,
+        &["*", "/", "%"],
+        static_multiplicative_operation,
+    ) {
         return value;
     }
     if let Some(rest) = predicate.strip_prefix('-') {
@@ -107,12 +111,10 @@ pub(super) fn static_binary_numeric_expression(
     operators: &[&str],
     operation: fn(StaticNumber, &str, StaticNumber) -> Option<StaticNumber>,
 ) -> Option<Option<StaticNumber>> {
-    operators.iter().find_map(|operator| {
-        split_top_level_operator(predicate, operator).map(|(left, right)| {
-            let left = static_numeric_expression(left)?;
-            let right = static_numeric_expression(right)?;
-            operation(left, operator, right)
-        })
+    split_top_level_operator_group(predicate, operators).map(|(left, operator, right)| {
+        let left = static_numeric_expression(left)?;
+        let right = static_numeric_expression(right)?;
+        operation(left, operator, right)
     })
 }
 
@@ -169,6 +171,17 @@ pub(super) fn static_multiplicative_operation(
     match operator {
         "*" => left.mul(right),
         "/" => left.div(right),
+        "%" => {
+            let left = left.as_i64()?;
+            let right = right.as_i64()?;
+            if right == 0 {
+                None
+            } else if right == -1 {
+                Some(StaticNumber::integer(0))
+            } else {
+                Some(StaticNumber::integer(left % right))
+            }
+        }
         _ => None,
     }
 }
@@ -181,22 +194,14 @@ pub(super) fn static_rational_expression(predicate: &str) -> Option<StaticRation
     if let Some(number) = StaticNumber::parse(predicate) {
         return StaticRational::from_number(number);
     }
-    for operator in ["+", "-"] {
-        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+    for operators in [&["+", "-"][..], &["*", "/"][..]] {
+        if let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        {
             let left = static_rational_expression(left)?;
             let right = static_rational_expression(right)?;
             return match operator {
                 "+" => left.add(right),
                 "-" => left.sub(right),
-                _ => None,
-            };
-        }
-    }
-    for operator in ["*", "/"] {
-        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
-            let left = static_rational_expression(left)?;
-            let right = static_rational_expression(right)?;
-            return match operator {
                 "*" => left.mul(right),
                 "/" => left.div(right),
                 _ => None,

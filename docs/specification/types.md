@@ -921,9 +921,10 @@ An integer remainder with a literal zero divisor reports
 `type.remainder_by_zero` at the divisor with the operation as related context.
 A computed zero divisor fails at runtime after both operands have evaluated
 once from left to right. The failure preserves completed output and registered
-cleanup, and expressions after the failed operation do not run. Schema count,
-length, and validation expressions, contract predicates, `satisfy` predicates,
-and compound assignment do not accept `%`.
+cleanup, and expressions after the failed operation do not run. Contract and
+`satisfy` predicates accept `%` with these typing and failure rules. Schema
+count, length, and validation expressions and compound assignment do not
+accept `%`.
 
 Integer bitwise operations use signed 64-bit two's-complement patterns on
 every backend. Their precedence from highest to lowest is prefix, multiply,

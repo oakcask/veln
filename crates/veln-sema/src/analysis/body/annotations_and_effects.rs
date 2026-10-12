@@ -359,6 +359,13 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn check_contracts(&mut self) {
         for contract in &self.function.contracts {
+            if let Some(divisor) = predicate_literal_zero_remainder_divisor(&contract.text) {
+                self.report_contract_literal_zero_remainder(
+                    &contract.text,
+                    divisor,
+                    &contract.span,
+                );
+            }
             let validation = self.validate_contract_predicate(contract.kind, &contract.text);
             match validation {
                 ContractValidation::Valid => {}
@@ -452,6 +459,46 @@ impl<'a> FunctionChecker<'a> {
                 }
             }
         }
+    }
+
+    pub(in crate::analysis) fn report_contract_literal_zero_remainder(
+        &mut self,
+        predicate: &str,
+        divisor: &str,
+        span: &SourceSpan,
+    ) {
+        let trailing_newline = usize::from(span.end.line > span.start.line);
+        let predicate_start = span
+            .end
+            .offset
+            .saturating_sub(trailing_newline + predicate.len());
+        let divisor_offset = divisor.as_ptr() as usize - predicate.as_ptr() as usize;
+        let mut divisor_span = span.clone();
+        divisor_span.start.offset = predicate_start + divisor_offset;
+        divisor_span.end.offset = divisor_span.start.offset + divisor.len();
+        divisor_span.start.line = span.start.line;
+        divisor_span.end.line = span.start.line;
+        divisor_span.start.column = span.start.column
+            + predicate_start.saturating_sub(span.start.offset)
+            + predicate[..divisor_offset].chars().count();
+        divisor_span.end.column = divisor_span.start.column + divisor.chars().count();
+        let mut diagnostic = Diagnostic::new(
+            "type.remainder_by_zero",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "remainder divisor is zero",
+            Some(divisor_span),
+            JsonValue::object([
+                ("operator", JsonValue::string("%")),
+                ("divisor", JsonValue::Number(0)),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("operation")),
+            ("message", JsonValue::string("Remainder operation is here.")),
+            ("span", span_json(span)),
+        ]));
+        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn check_effect_boundaries(&mut self) {

@@ -545,6 +545,7 @@ impl<'a> ExprParser<'a> {
             "satisfy_predicate",
             "parse.satisfy_predicate",
             &predicate_tokens,
+            true,
         )
         .parse();
         self.diagnostics.extend(predicate_output.diagnostics);

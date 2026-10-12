@@ -2,7 +2,10 @@ use veln_ast::{Contract, Expr, SatisfyClause};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
-use crate::contracts::{ContractValidation, contract_kind_text, referenced_names};
+use crate::contracts::{
+    ContractValidation, contract_kind_text, predicate_literal_zero_remainder_divisor,
+    referenced_names,
+};
 use crate::diagnostics::span_json;
 use crate::prelude::prelude_signature;
 use crate::semantic_model::{Binding, ExpectedType, ExpectedTypeSource, Type};
@@ -224,6 +227,9 @@ impl<'a> FunctionChecker<'a> {
         satisfy: &SatisfyClause,
         expected: Option<&ExpectedType>,
     ) {
+        if let Some(divisor) = predicate_literal_zero_remainder_divisor(&satisfy.predicate) {
+            self.report_contract_literal_zero_remainder(&satisfy.predicate, divisor, &satisfy.span);
+        }
         let Some(candidate) = satisfy.candidate.as_deref() else {
             return;
         };

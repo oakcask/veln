@@ -104,6 +104,27 @@ fn static_numeric_expression_preserves_operator_precedence_and_associativity() {
 }
 
 #[test]
+fn static_contract_reasoning_evaluates_signed_integer_remainder() {
+    for predicate in [
+        "7 % 3 == 1",
+        "-7 % 3 == -1",
+        "7 % -3 == 1",
+        "-9223372036854775808 % -1 == 0",
+        "20 % 6 % 4 == 2",
+        "20 % (6 % 4) == 0",
+        "1 + 8 % 3 * 2 == 5",
+    ] {
+        assert!(
+            contract_predicate_is_statically_true(predicate),
+            "{predicate}"
+        );
+    }
+
+    assert!(!contract_predicate_is_statically_true("value % 2 == 0"));
+    assert!(!contract_predicate_is_statically_true("7 % 0 == 0"));
+}
+
+#[test]
 fn high_arity_exhaustive_case_splits_are_statically_true() {
     for fields in [
         &["a", "b", "c", "d", "e", "f", "g", "h", "i"][..],

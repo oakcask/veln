@@ -239,6 +239,7 @@ impl<'a> Parser<'a> {
                     "schema_field_where",
                     "parse.schema_field_where",
                     &predicate_tokens,
+                    false,
                 )
                 .parse();
                 self.diagnostics.extend(predicate_output.diagnostics);
@@ -292,6 +293,7 @@ impl<'a> Parser<'a> {
                 "schema_validation",
                 "parse.schema_validation",
                 &predicate_tokens,
+                false,
             )
             .parse();
             self.diagnostics.extend(predicate_output.diagnostics);

@@ -30,13 +30,9 @@ pub(super) enum ContractScalar<'a> {
 
 pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
     let text = strip_contract_outer_parens(text.trim());
-    for (operator, op) in contract_binary_operators() {
-        if let Some((left, right)) = split_contract_binary(text, operator) {
-            return ContractValue::Binary {
-                left,
-                right,
-                op: *op,
-            };
+    for operators in contract_binary_operator_groups() {
+        if let Some((left, right, op)) = split_contract_binary_group(text, operators) {
+            return ContractValue::Binary { left, right, op };
         }
     }
     if let Some(rest) = text.strip_prefix("not ") {
@@ -62,27 +58,44 @@ pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
     }
 }
 
-fn contract_binary_operators() -> &'static [(&'static str, BinaryOp)] {
+fn contract_binary_operator_groups() -> &'static [&'static [(&'static str, BinaryOp)]] {
     &[
-        ("or", BinaryOp::Or),
-        ("and", BinaryOp::And),
-        ("|", BinaryOp::BitwiseOr),
-        ("^", BinaryOp::BitwiseXor),
-        ("&", BinaryOp::BitwiseAnd),
-        ("==", BinaryOp::Equal),
-        ("!=", BinaryOp::NotEqual),
-        (">=", BinaryOp::GreaterEqual),
-        ("<=", BinaryOp::LessEqual),
-        (">", BinaryOp::Greater),
-        ("<", BinaryOp::Less),
-        (">>>", BinaryOp::ShiftRightLogical),
-        (">>", BinaryOp::ShiftRight),
-        ("<<", BinaryOp::ShiftLeft),
-        ("+", BinaryOp::Add),
-        ("-", BinaryOp::Subtract),
-        ("*", BinaryOp::Multiply),
-        ("/", BinaryOp::Divide),
+        &[("or", BinaryOp::Or)],
+        &[("and", BinaryOp::And)],
+        &[("|", BinaryOp::BitwiseOr)],
+        &[("^", BinaryOp::BitwiseXor)],
+        &[("&", BinaryOp::BitwiseAnd)],
+        &[("==", BinaryOp::Equal), ("!=", BinaryOp::NotEqual)],
+        &[
+            (">=", BinaryOp::GreaterEqual),
+            ("<=", BinaryOp::LessEqual),
+            (">", BinaryOp::Greater),
+            ("<", BinaryOp::Less),
+        ],
+        &[
+            (">>>", BinaryOp::ShiftRightLogical),
+            (">>", BinaryOp::ShiftRight),
+            ("<<", BinaryOp::ShiftLeft),
+        ],
+        &[("+", BinaryOp::Add), ("-", BinaryOp::Subtract)],
+        &[
+            ("*", BinaryOp::Multiply),
+            ("/", BinaryOp::Divide),
+            ("%", BinaryOp::Remainder),
+        ],
     ]
+}
+
+fn split_contract_binary_group<'a>(
+    text: &'a str,
+    operators: &[(&'static str, BinaryOp)],
+) -> Option<(&'a str, &'a str, BinaryOp)> {
+    operators
+        .iter()
+        .filter_map(|(operator, op)| {
+            split_contract_binary(text, operator).map(|(left, right)| (left, right, *op))
+        })
+        .max_by_key(|(left, _, _)| left.len())
 }
 
 fn parse_contract_scalar(text: &str) -> ContractScalar<'_> {
@@ -156,6 +169,27 @@ fn contract_operator_at(text: &[u8], index: usize, operator: &[u8]) -> bool {
         .copied();
     let next = text.get(index + operator.len()).copied();
     match operator {
+        b"-" => text[..index]
+            .iter()
+            .rev()
+            .find(|byte| !byte.is_ascii_whitespace())
+            .is_some_and(|byte| {
+                !matches!(
+                    byte,
+                    b'(' | b'+'
+                        | b'-'
+                        | b'*'
+                        | b'/'
+                        | b'%'
+                        | b'<'
+                        | b'>'
+                        | b'='
+                        | b'!'
+                        | b'&'
+                        | b'|'
+                        | b'^'
+                )
+            }),
         b"and" | b"or" => {
             !previous.is_some_and(is_contract_identifier_byte)
                 && !next.is_some_and(is_contract_identifier_byte)
