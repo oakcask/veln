@@ -152,10 +152,29 @@ impl<'a> Parser<'a> {
         };
         self.expect(TokenKind::Colon, "schema_field", vec![":"]);
         let type_start = self.current().range;
+        let type_cursor_start = self.cursor;
         let (ty, ty_paths, ty_refinements) = self.collect_type_paths_until(
             "schema_field",
             &[TokenKind::Where, TokenKind::Newline, TokenKind::Eof],
         );
+        if let Some(token) = self.tokens[type_cursor_start..self.cursor]
+            .iter()
+            .find(|token| token.kind == TokenKind::Percent)
+            .cloned()
+        {
+            self.error_at_token(
+                &token,
+                DiagnosticRequest {
+                    id: "parse.schema_field_type",
+                    message: "schema field type expressions do not support `%`".to_string(),
+                    parser_context: "schema_field",
+                    expected: vec!["schema field type without `%`"],
+                    strategy: RecoveryStrategy::SkipToken,
+                    anchor: Some("newline"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+        }
         if schema_repeated_field_type_missing_semicolon(&ty) {
             let type_end = self.previous().map_or(type_start, |token| token.range);
             self.diagnostics.push(ParseDiagnostic {
