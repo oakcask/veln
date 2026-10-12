@@ -204,6 +204,12 @@ clause, fields use format-neutral types. A field has `name: Type` and may have a
 field-local `where` predicate; one schema-level `validate` predicate follows
 the fields.
 
+A field-local `where` predicate and a schema-level `validate` predicate each
+support at most 128 simultaneously nested parenthesized expressions, including
+call argument parentheses. A predicate at that boundary is accepted. The next
+opening parenthesis reports `parse.schema_field_where` or
+`parse.schema_validation`, respectively.
+
 ### Format-neutral fields
 
 Decode and encode expose a schema-local visible record only when every

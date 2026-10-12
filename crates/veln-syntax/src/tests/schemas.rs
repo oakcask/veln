@@ -603,6 +603,39 @@ fn reports_schema_declaration_syntax_diagnostics() {
 }
 
 #[test]
+fn schema_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
+    fn nested(depth: usize) -> String {
+        format!("{}value{}", "(".repeat(depth), ")".repeat(depth))
+    }
+
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "schema Bounded\n  format binary\n  value: UInt8 where {} == value\n  validate {} == value\nend\n",
+            nested(128),
+            nested(128),
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "schema Excessive\n  format binary\n  value: UInt8 where {} == value\n  validate {} == value\nend\n",
+            nested(129),
+            nested(129),
+        ),
+    );
+    let output = parse(&source);
+    assert_eq!(output.diagnostics.len(), 2, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics[0].id, "parse.schema_field_where");
+    assert_eq!(output.diagnostics[1].id, "parse.schema_validation");
+    assert!(output.diagnostics.iter().all(|diagnostic| diagnostic.message
+        == "contract predicate nesting exceeds the supported limit of 128 parenthesized expressions"));
+}
+
+#[test]
 fn rejects_schema_mapping_clauses() {
     let source = SourceFile::new(
         "mapping.veln",
