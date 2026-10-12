@@ -76,15 +76,17 @@ related notes may identify the accepted digit set or prefix. Invalid literal
 shift counts use `type.invalid_shift_count` with `operator`, `actual_count`,
 `minimum_count`, and `maximum_count`; the span is the count expression.
 
-A literal-zero remainder divisor reports `type.remainder_by_zero` with kind
-`type`, message `remainder divisor is zero`, and details `operator: "%"` and
-`divisor: 0`. The primary span selects the divisor expression. One related
-entry has `kind: "operation"`, message `Remainder operation is here.`, and the
-complete remainder-operation span. Decimal, binary, hexadecimal,
-parenthesized, and negated zero literals receive this diagnostic. Computed
-expressions such as `1 - 1` remain runtime checked. The same diagnostic shape
-applies in function and test contract predicates and in hole `satisfy`
-predicates; schema validation predicates reject `%` as unsupported syntax.
+A remainder divisor written as an integer zero literal reports
+`type.remainder_by_zero` with kind `type`, message `remainder divisor is zero`,
+and details `operator: "%"` and `divisor: 0`. The primary span selects the
+divisor expression. One related entry has `kind: "operation"`, message
+`Remainder operation is here.`, and the complete remainder-operation span.
+Decimal-integer, binary, hexadecimal, parenthesized, and negated zero literals
+receive this diagnostic. Computed expressions such as `1 - 1` remain runtime
+checked. A non-`Int` zero such as `0.0` reports only its operand
+`type.mismatch`. The same diagnostic rules apply in function and test contract
+predicates and in hole `satisfy` predicates; schema validation predicates
+reject `%` as unsupported syntax.
 
 An unresolved public type-alias target reports `name.unresolved` at that alias
 declaration. Its details contain `phase: "name"`, the alias `node_id`,

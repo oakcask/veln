@@ -111,10 +111,12 @@ not replace the built-in `SourceLocation` value while the predicate is checked.
 
 The predicate uses the same pure boolean subset as contracts, including
 integer remainder. `%` requires `Int` operands and produces `Int`; a `Float`
-context does not widen its operands or result. The candidate has the hole's
-expected type when known. Unsupported constructs, non-boolean predicates,
-missing fields, and unresolved names are hole diagnostics; names unresolved
-within the predicate use the `satisfy_predicate` namespace.
+context does not widen its operands or result. An integer zero literal divisor
+reports `type.remainder_by_zero`. A non-`Int` zero divisor such as `0.0`
+reports only the operand `type.mismatch`. The candidate has the hole's expected
+type when known. Unsupported constructs, non-boolean predicates, missing
+fields, and unresolved names are hole diagnostics; names unresolved within the
+predicate use the `satisfy_predicate` namespace.
 
 ## Safe repair classes
 

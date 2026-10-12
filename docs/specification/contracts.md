@@ -40,9 +40,11 @@ Integer remainder uses the same operator contract in predicates as in ordinary
 expressions: `%` has multiply-level precedence and left associativity, and both
 operands and the result are `Int`. A `Float` context does not widen either
 operand or the result. A non-`Int` operand reports `type.mismatch`. A literal
-zero divisor reports `type.remainder_by_zero` at the divisor, with the
+integer zero divisor reports `type.remainder_by_zero` at the divisor, with the
 operation as related context, and the invalid predicate does not become a
-runtime obligation. The complete operator contract is specified in
+runtime obligation. A non-`Int` zero such as `0.0` reports only the operand
+`type.mismatch`; it does not also report `type.remainder_by_zero`. The complete
+operator contract is specified in
 [Operators and diagnostics](types.md#operators-and-diagnostics).
 
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in

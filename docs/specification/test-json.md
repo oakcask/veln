@@ -123,6 +123,12 @@ cases with `failure.kind: "contract"`. The failure details use
 - `node_id`: the contract node identifier
 - `span`: the source span for the failed clause
 
+A computed zero divisor reached while evaluating a runtime contract predicate
+terminates the case before a contract result exists. The case has
+`failure.kind: "runtime"`; its message reports the process exit status, and its
+details use the general runtime-failure shape. Unlike `veln run --json`, the
+test JSON boundary does not project a `runtime.remainder_by_zero` detail record.
+
 Tests or doctests that return `Err(value)` are reported as failed cases with
 `failure.kind: "result"`. The failure details use `kind: "result"` and
 `phase: "runtime"` and include `value`, the formatted returned error value.
