@@ -491,9 +491,11 @@ protocol or application failures.
 - Signed remainder in runtime contract predicates and its zero-divisor JSON
   failure paths are checked by
   [`contract-remainder`](../../examples/specification/run/contract-remainder/)
-  for successful signed and endpoint results,
+  for successful signed, endpoint, and large-divisor results,
   [`contract-remainder-failure`](../../examples/specification/run/contract-remainder-failure/)
-  for a violated dynamic predicate, and
+  for a violated dynamic predicate,
+  [`contract-remainder-mixed-failure`](../../examples/specification/run/contract-remainder-mixed-failure/)
+  for integer division after a remainder, and
   [`contract-remainder-zero-json`](../../examples/specification/run/contract-remainder-zero-json/).
 
 ## Read When

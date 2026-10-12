@@ -88,6 +88,11 @@ and `r = a - q * b` over mathematical integers, then returns `r`. Minimum
 `runtime.remainder_by_zero` at the divisor instead of reporting a violated
 contract or exposing a host exception.
 
+The shared multiply-level precedence and left associativity also determine the
+numeric type of a mixed expression. For example, `1 % 2 / 2` groups as
+`(1 % 2) / 2`. Both operands of `/` are `Int`, so the expression evaluates to
+`0`, not `0.5`. Therefore, `require 1 % 2 / 2 == 0.5` fails at runtime.
+
 | Clause | Entry failure blames | Return failure blames |
 | --- | --- | --- |
 | `require` | caller | — |
@@ -126,8 +131,11 @@ not (value > 10 and value < 5)
 Same-shape expressions such as `value + 1 == value + 1` are proven after
 normalization. Literal aliases and commuted forms participate only where the
 corresponding comparison rule applies; arbitrary equivalent expressions do not
-become proven. A valid predicate outside these classes remains
-`runtime_required`.
+become proven. Static classification does not reinterpret integer division in a
+remainder-containing expression as exact rational division. A false literal
+predicate such as `1 % 2 / 2 == 0.5` remains `runtime_required`, because the
+classifier does not reject statically false contracts. A valid predicate
+outside these classes also remains `runtime_required`.
 
 ## Result binding
 
