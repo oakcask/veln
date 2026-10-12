@@ -1,5 +1,28 @@
 use super::*;
 
+#[cfg(test)]
+thread_local! {
+    static PREDICATE_TYPING_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_predicate_typing_work(predicate: &str) {
+    PREDICATE_TYPING_WORK.with(|work| work.set(work.get() + predicate.len()));
+}
+
+#[cfg(not(test))]
+fn record_predicate_typing_work(_predicate: &str) {}
+
+#[cfg(test)]
+pub(crate) fn reset_predicate_typing_work() {
+    PREDICATE_TYPING_WORK.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_predicate_typing_work() -> usize {
+    PREDICATE_TYPING_WORK.with(|work| work.replace(0))
+}
+
 pub(crate) fn missing_contract_field(
     predicate: &str,
     bindings: &[Binding],
@@ -36,44 +59,156 @@ pub(crate) fn predicate_is_boolean_with_remainders(
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<bool> {
-    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
-        let Some((left, right)) = split_top_level_operator(predicate, operator) else {
-            continue;
-        };
-        let (other, chain_is_left) = if flat_remainder_chain_matches(left, remainders) {
-            (right, true)
-        } else if flat_remainder_chain_matches(right, remainders) {
-            (left, false)
-        } else {
-            continue;
-        };
-        if !flat_remainder_chain_has_int_operands(remainders, bindings, call_type) {
-            return Some(false);
-        }
-        let other_type = predicate_type_with_calls(other, bindings, call_type)?;
-        let (left, right) = if chain_is_left {
-            (Type::int(), other_type)
-        } else {
-            (other_type, Type::int())
-        };
-        return Some(comparable_predicate_operands(&left, &right));
-    }
-    None
+    (!remainders.is_empty()).then(|| {
+        predicate_type_with_remainders(predicate, remainders, bindings, call_type)
+            == Some(Type::bool())
+    })
 }
 
-fn flat_remainder_chain_has_int_operands(
+pub(crate) fn predicate_type_with_remainders(
+    predicate: &str,
     remainders: &[PredicateRemainder],
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
-) -> bool {
-    let Some(first) = remainders.first() else {
-        return false;
-    };
-    predicate_remainder_operand_type(&first.left_text, bindings, call_type) == Some(Type::int())
-        && remainders.iter().all(|remainder| {
-            predicate_remainder_operand_type(&remainder.right_text, bindings, call_type)
-                == Some(Type::int())
-        })
+) -> Option<Type> {
+    let chains = flat_remainder_chain_texts(remainders);
+    predicate_type_with_flat_remainder_chains(predicate, &chains, bindings, call_type)
+}
+
+fn predicate_type_with_flat_remainder_chains(
+    predicate: &str,
+    chains: &[String],
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    record_predicate_typing_work(predicate);
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate.is_empty() {
+        return None;
+    }
+    if flat_remainder_chain_text_matches(predicate, chains) {
+        return Some(Type::int());
+    }
+    if let Some(ty) = predicate_literal_type(predicate) {
+        return Some(ty);
+    }
+    if let Some(rest) = predicate.strip_prefix('-')
+        && let Some(ty) =
+            predicate_type_with_flat_remainder_chains(rest, chains, bindings, call_type)
+        && matches!(ty, Type::Named { ref name, ref args, .. } if args.is_empty() && (name == "Int" || name == "Float"))
+    {
+        return Some(ty);
+    }
+    if let Some(rest) = predicate.strip_prefix('~')
+        && predicate_type_with_flat_remainder_chains(rest, chains, bindings, call_type)
+            == Some(Type::int())
+    {
+        return Some(Type::int());
+    }
+    if let Some(rest) = predicate.strip_prefix("not ")
+        && predicate_type_with_flat_remainder_chains(rest, chains, bindings, call_type)
+            == Some(Type::bool())
+    {
+        return Some(Type::bool());
+    }
+    if let Some(inner) = predicate
+        .strip_prefix("not(")
+        .and_then(|inner| inner.strip_suffix(')'))
+        && predicate_type_with_flat_remainder_chains(inner, chains, bindings, call_type)
+            == Some(Type::bool())
+    {
+        return Some(Type::bool());
+    }
+    for operator in ["or", "and"] {
+        let clauses = split_top_level_keyword(predicate, operator);
+        if clauses.len() > 1 {
+            return clauses
+                .into_iter()
+                .all(|clause| {
+                    predicate_type_with_flat_remainder_chains(clause, chains, bindings, call_type)
+                        == Some(Type::bool())
+                })
+                .then(Type::bool);
+        }
+    }
+    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left =
+                predicate_type_with_flat_remainder_chains(left, chains, bindings, call_type)?;
+            let right =
+                predicate_type_with_flat_remainder_chains(right, chains, bindings, call_type)?;
+            return comparable_predicate_operands(&left, &right).then(Type::bool);
+        }
+    }
+    if contains_binary_bitwise_operator(predicate) {
+        for operators in [&["|"][..], &["^"][..], &["&"][..], &[">>>", ">>", "<<"][..]] {
+            for operator in operators {
+                if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+                    let left = predicate_type_with_flat_remainder_chains(
+                        left, chains, bindings, call_type,
+                    )?;
+                    let right = predicate_type_with_flat_remainder_chains(
+                        right, chains, bindings, call_type,
+                    )?;
+                    return (left == Type::int() && right == Type::int()).then(Type::int);
+                }
+            }
+        }
+    }
+    for operators in [&["+", "-"][..], &["*", "/", "%"][..]] {
+        if let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        {
+            let left =
+                predicate_type_with_flat_remainder_chains(left, chains, bindings, call_type)?;
+            let right =
+                predicate_type_with_flat_remainder_chains(right, chains, bindings, call_type)?;
+            if operator == "%" {
+                return (left == Type::int() && right == Type::int()).then(Type::int);
+            }
+            return numeric_result_type(&left, &right);
+        }
+    }
+    predicate_field_access_type(predicate, bindings, call_type)
+        .or_else(|| predicate_contract_call_type(predicate, call_type))
+        .or_else(|| predicate_binding_type(predicate, bindings))
+}
+
+fn flat_remainder_chain_texts(remainders: &[PredicateRemainder]) -> Vec<String> {
+    let mut chains = Vec::new();
+    let mut current = String::new();
+    for remainder in remainders {
+        if !remainder.left_is_prior_remainder {
+            if !current.is_empty() {
+                chains.push(current);
+            }
+            current = remainder
+                .left_text
+                .chars()
+                .filter(|c| !c.is_whitespace())
+                .collect();
+        } else if current.is_empty() {
+            continue;
+        }
+        current.push('%');
+        current.extend(
+            remainder
+                .right_text
+                .chars()
+                .filter(|character| !character.is_whitespace()),
+        );
+    }
+    if !current.is_empty() {
+        chains.push(current);
+    }
+    chains
+}
+
+fn flat_remainder_chain_text_matches(predicate: &str, chains: &[String]) -> bool {
+    let compact = strip_balanced_outer_parens(predicate.trim())
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>();
+    chains.iter().any(|chain| chain == &compact)
 }
 
 pub(crate) fn predicate_rendered_type_with_calls(
@@ -91,6 +226,7 @@ pub(crate) fn predicate_type_with_calls(
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Type> {
+    record_predicate_typing_work(predicate);
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {
         return None;

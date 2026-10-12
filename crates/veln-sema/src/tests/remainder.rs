@@ -79,6 +79,62 @@ fn flat_remainder_complete_pipeline_is_stack_safe_beyond_prior_failure() {
     }
 }
 
+fn wrapped_remainder_contract(operator_count: usize, call_wrapper: bool) -> String {
+    let mut chain = String::from("value");
+    for _ in 0..operator_count {
+        chain.push_str(" % 3");
+    }
+    let predicate = if call_wrapper {
+        format!("identity(-({chain})) <= 0")
+    } else {
+        format!("-({chain}) <= 0")
+    };
+    format!(
+        "fn identity(value: Int) -> Int\n  value\nend\nfn checked(value: Int) -> Int\nrequire {predicate}\n  value\nend\n"
+    )
+}
+
+#[test]
+fn wrapped_remainder_complete_pipeline_work_is_bounded() {
+    fn typing_work(operator_count: usize) -> usize {
+        let source = SourceFile::new(
+            "main.veln",
+            wrapped_remainder_contract(operator_count, false),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::contracts::reset_predicate_typing_work();
+        let diagnostics = analyze_surface_module(&module);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        crate::contracts::take_predicate_typing_work()
+    }
+
+    let at_500 = typing_work(500);
+    let at_501 = typing_work(501);
+    eprintln!("wrapped remainder typing work at 500 and 501 operators: {at_500}, {at_501}");
+    assert!(at_500 > 0, "the metric must observe predicate typing work");
+    assert!(
+        at_501 <= at_500 + 64,
+        "one additional remainder must add bounded typing work: {at_500} -> {at_501}"
+    );
+}
+
+#[test]
+fn wrapped_remainder_complete_pipeline_is_stack_safe_beyond_review_failure() {
+    for call_wrapper in [false, true] {
+        let source = SourceFile::new("main.veln", wrapped_remainder_contract(4_097, call_wrapper));
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        assert_eq!(
+            lowered.core.expect("core program").functions[1].contracts[0].obligation_status,
+            ContractObligationStatus::RuntimeRequired
+        );
+    }
+}
+
 #[test]
 fn flat_remainder_satisfy_pipeline_is_stack_safe() {
     let operator_count = 4_096;
@@ -388,6 +444,75 @@ fn nested_call_does_not_mask_remainder_operand_mismatch() {
         }),
         "{satisfy:#?}"
     );
+}
+
+#[test]
+fn whole_call_result_type_does_not_mask_remainder_operand_type() {
+    fn call_diagnostics(helper: &str, argument: &str) -> Vec<Diagnostic> {
+        diagnostics_for(&format!(
+            "fn {helper}(value: Int) -> {}\n  {}\nend\nfn checked(value: Int, flag: Bool) -> Int\nrequire {helper}({argument} % 2)\n  value\nend\n",
+            if helper == "is_even" { "Bool" } else { "Int" },
+            if helper == "is_even" {
+                "value == 0"
+            } else {
+                "value"
+            },
+        ))
+    }
+
+    for helper in ["identity", "is_even"] {
+        let invalid = call_diagnostics(helper, "flag");
+        let mismatch = invalid
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.id == "type.mismatch"
+                    && diagnostic.message == "expected `Int`, but found `Bool`"
+            })
+            .unwrap_or_else(|| panic!("missing operand mismatch: {invalid:#?}"));
+        let span = mismatch.span.as_ref().expect("operand mismatch span");
+        let expected_column = if helper == "identity" { 18 } else { 17 };
+        assert_eq!(span.start.line, 5, "{invalid:#?}");
+        assert_eq!(
+            (span.start.column, span.end.column),
+            (expected_column, expected_column + 4),
+            "{invalid:#?}"
+        );
+        assert!(invalid.iter().all(|diagnostic| {
+            diagnostic.id != "contract.type_mismatch"
+                && diagnostic.id != "contract.unsupported_construct"
+        }));
+    }
+
+    let valid_bool = call_diagnostics("is_even", "value");
+    assert!(valid_bool.is_empty(), "{valid_bool:#?}");
+
+    let valid_int = call_diagnostics("identity", "value");
+    assert!(
+        valid_int.iter().any(|diagnostic| {
+            diagnostic.id == "contract.type_mismatch"
+                && diagnostic.message == "contract predicate is not `Bool`"
+        }),
+        "{valid_int:#?}"
+    );
+    assert!(valid_int.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch" && diagnostic.message == "expected `Bool`, but found `Int`"
+    }));
+
+    let satisfy = diagnostics_for(concat!(
+        "fn identity(value: Int) -> Int\n",
+        "  value\n",
+        "end\n",
+        "fn checked(flag: Bool) -> Int\n",
+        "  _value satisfy candidate => identity(candidate % flag)\n",
+        "end\n",
+    ));
+    assert!(satisfy.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch" && diagnostic.message == "expected `Int`, but found `Bool`"
+    }));
+    assert!(satisfy.iter().all(|diagnostic| {
+        diagnostic.id != "hole.satisfy_type_mismatch"
+            && diagnostic.id != "hole.satisfy_unsupported_construct"
+    }));
 }
 
 #[test]

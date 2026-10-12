@@ -37,7 +37,7 @@ impl<'a> FunctionChecker<'a> {
             .into_iter()
             .filter(|call| !is_contract_keyword(&call.callee))
             .collect::<Vec<_>>();
-        if let Some(validation) = self.validate_contract_call_structures(trimmed, &calls) {
+        if let Some(validation) = self.validate_contract_call_structures(&calls) {
             return validation;
         }
         if let Some(validation) = self.validate_contract_referenced_names(trimmed, bindings, &calls)
@@ -53,7 +53,12 @@ impl<'a> FunctionChecker<'a> {
         }) {
             return ContractValidation::InvalidRemainderOperands;
         }
-        if let Some(validation) = self.validate_contract_call_arguments(bindings, &calls) {
+        if let Some(validation) =
+            self.validate_contract_call_arguments(remainders, bindings, &calls)
+        {
+            return validation;
+        }
+        if let Some(validation) = self.validate_contract_call_results(trimmed, &calls) {
             return validation;
         }
         if let Some(validation) = self.validate_whole_contract_call(trimmed, &calls) {
@@ -64,13 +69,10 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn validate_contract_call_structures(
         &self,
-        predicate: &str,
         calls: &[ContractCall],
     ) -> Option<ContractValidation> {
-        for (call_index, call) in calls.iter().enumerate() {
-            if let Some(validation) =
-                self.validate_contract_call_structure(predicate, calls, call_index, call)
-            {
+        for call in calls {
+            if let Some(validation) = self.validate_contract_call_structure(call) {
                 return Some(validation);
             }
         }
@@ -79,12 +81,9 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn validate_contract_call_structure(
         &self,
-        predicate: &str,
-        calls: &[ContractCall],
-        call_index: usize,
         call: &ContractCall,
     ) -> Option<ContractValidation> {
-        let Some((params, variadic, return_type, effects, callsite)) =
+        let Some((params, variadic, _, effects, callsite)) =
             self.contract_call_signature(&call.callee)
         else {
             return Some(ContractValidation::UnresolvedName {
@@ -101,11 +100,6 @@ impl<'a> FunctionChecker<'a> {
                 reason: "call_arity",
             });
         }
-        if contract_call_result_requires_boolean(predicate, calls, call_index, call, &return_type) {
-            return Some(ContractValidation::NonBoolean {
-                actual_type: return_type.render(),
-            });
-        }
         if !contract_call_arity_matches(params.len(), variadic.is_some(), call.args.len()) {
             return Some(ContractValidation::UnsupportedConstruct {
                 reason: "call_arity",
@@ -116,6 +110,7 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn validate_contract_call_arguments(
         &self,
+        remainders: &[PredicateRemainder],
         bindings: &[Binding],
         calls: &[ContractCall],
     ) -> Option<ContractValidation> {
@@ -133,7 +128,7 @@ impl<'a> FunctionChecker<'a> {
                     .or(variadic.as_ref())
                     .expect("validated contract call arity provides an argument type");
                 if let Some(validation) =
-                    self.validate_contract_call_argument(arg, expected, bindings)
+                    self.validate_contract_call_argument(arg, expected, remainders, bindings)
                 {
                     return Some(validation);
                 }
@@ -146,6 +141,7 @@ impl<'a> FunctionChecker<'a> {
         &self,
         arg: &str,
         expected: &Type,
+        remainders: &[PredicateRemainder],
         bindings: &[Binding],
     ) -> Option<ContractValidation> {
         let arg_calls = contract_calls(arg);
@@ -155,12 +151,37 @@ impl<'a> FunctionChecker<'a> {
         {
             return Some(ContractValidation::UnresolvedName { name });
         }
-        let actual_type = self.predicate_arg_type(arg, bindings);
+        let actual_type = self.predicate_arg_type(arg, remainders, bindings);
         (!is_assignable(expected, &actual_type)).then_some(
             ContractValidation::UnsupportedConstruct {
                 reason: "call_argument_type",
             },
         )
+    }
+
+    pub(super) fn validate_contract_call_results(
+        &self,
+        predicate: &str,
+        calls: &[ContractCall],
+    ) -> Option<ContractValidation> {
+        for (call_index, call) in calls.iter().enumerate() {
+            let return_type = self
+                .contract_call_signature(&call.callee)
+                .map(|(_, _, return_type, _, _)| return_type)
+                .unwrap_or(Type::Unknown);
+            if contract_call_result_requires_boolean(
+                predicate,
+                calls,
+                call_index,
+                call,
+                &return_type,
+            ) {
+                return Some(ContractValidation::NonBoolean {
+                    actual_type: return_type.render(),
+                });
+            }
+        }
+        None
     }
 
     pub(super) fn validate_contract_referenced_names(
@@ -289,7 +310,12 @@ impl<'a> FunctionChecker<'a> {
             })
     }
 
-    pub(super) fn predicate_arg_type(&self, arg: &str, bindings: &[Binding]) -> Type {
+    pub(super) fn predicate_arg_type(
+        &self,
+        arg: &str,
+        remainders: &[PredicateRemainder],
+        bindings: &[Binding],
+    ) -> Type {
         let trimmed = arg.trim();
         if trimmed.starts_with('"') {
             return Type::string();
@@ -309,7 +335,7 @@ impl<'a> FunctionChecker<'a> {
                 .map(|(_, _, return_type, _, _)| return_type)
                 .unwrap_or(Type::Unknown);
         }
-        if let Some(ty) = predicate_type_with_calls(trimmed, bindings, &|callee| {
+        if let Some(ty) = predicate_type_with_remainders(trimmed, remainders, bindings, &|callee| {
             self.contract_call_signature(callee)
                 .map(|(_, _, return_type, _, _)| return_type)
         }) {
