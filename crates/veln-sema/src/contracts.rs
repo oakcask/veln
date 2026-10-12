@@ -1,6 +1,8 @@
 use veln_ast::{ContractKind, PredicateRemainder};
 use veln_literals::parse_integer_literal;
 
+use std::ops::Range;
+
 use crate::semantic_model::{Binding, Type};
 
 pub(crate) enum ContractValidation {
@@ -15,6 +17,7 @@ pub(crate) enum ContractValidation {
 pub(crate) struct ContractCall {
     pub(crate) callee: String,
     pub(crate) args: Vec<String>,
+    pub(crate) arg_ranges: Vec<Range<usize>>,
     pub(crate) start: usize,
     pub(crate) end: usize,
 }
@@ -194,13 +197,16 @@ use static_literals::*;
 
 pub(crate) use contract_calls::{contract_calls, is_contract_keyword, referenced_names};
 pub(crate) use predicate_typing::{
-    missing_contract_field, predicate_has_invalid_remainder_operands,
-    predicate_is_boolean_with_calls, predicate_is_boolean_with_remainders,
+    PredicateRemainderTypingContext, missing_contract_field,
+    predicate_has_invalid_remainder_operands, predicate_is_boolean_with_calls,
     predicate_literal_is_zero, predicate_remainder_operand_mismatch,
-    predicate_rendered_type_with_calls, predicate_type_with_remainders_in,
+    predicate_rendered_type_with_calls, predicate_type_with_remainder_context,
 };
 #[cfg(test)]
-pub(crate) use predicate_typing::{reset_predicate_typing_work, take_predicate_typing_work};
+pub(crate) use predicate_typing::{
+    RemainderTypingIndexWork, reset_predicate_typing_work, reset_remainder_typing_index_work,
+    take_predicate_typing_work, take_remainder_typing_index_work,
+};
 pub(crate) use static_literals::predicate_has_nonfoldable_remainder;
 
 #[cfg(test)]

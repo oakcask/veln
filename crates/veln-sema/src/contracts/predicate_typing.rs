@@ -1,8 +1,32 @@
 use super::*;
 
+use std::collections::HashSet;
+
 #[cfg(test)]
 thread_local! {
     static PREDICATE_TYPING_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static REMAINDER_TYPING_INDEX_WORK: std::cell::Cell<RemainderTypingIndexWork> = const {
+        std::cell::Cell::new(RemainderTypingIndexWork::new())
+    };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct RemainderTypingIndexWork {
+    pub(crate) index_builds: usize,
+    pub(crate) indexed_chains: usize,
+    pub(crate) range_lookups: usize,
+}
+
+#[cfg(test)]
+impl RemainderTypingIndexWork {
+    const fn new() -> Self {
+        Self {
+            index_builds: 0,
+            indexed_chains: 0,
+            range_lookups: 0,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -21,6 +45,64 @@ pub(crate) fn reset_predicate_typing_work() {
 #[cfg(test)]
 pub(crate) fn take_predicate_typing_work() -> usize {
     PREDICATE_TYPING_WORK.with(|work| work.replace(0))
+}
+
+#[cfg(test)]
+pub(crate) fn reset_remainder_typing_index_work() {
+    REMAINDER_TYPING_INDEX_WORK.with(|work| work.set(RemainderTypingIndexWork::new()));
+}
+
+#[cfg(test)]
+pub(crate) fn take_remainder_typing_index_work() -> RemainderTypingIndexWork {
+    REMAINDER_TYPING_INDEX_WORK.with(|work| work.replace(RemainderTypingIndexWork::new()))
+}
+
+pub(crate) struct PredicateRemainderTypingContext<'a> {
+    root_predicate: &'a str,
+    chain_ranges: HashSet<(usize, usize)>,
+}
+
+impl<'a> PredicateRemainderTypingContext<'a> {
+    pub(crate) fn new(root_predicate: &'a str, remainders: &[PredicateRemainder]) -> Self {
+        let chain_ranges = veln_ast::predicate_remainder_chain_ranges(remainders)
+            .into_iter()
+            .filter_map(|range| {
+                let operation_range = remainders[range.end - 1].operation_range.clone();
+                root_predicate
+                    .get(operation_range.clone())
+                    .map(|_| (operation_range.start, operation_range.end))
+            })
+            .collect::<HashSet<_>>();
+        #[cfg(test)]
+        REMAINDER_TYPING_INDEX_WORK.with(|work| {
+            let mut next = work.get();
+            next.index_builds += 1;
+            next.indexed_chains += chain_ranges.len();
+            work.set(next);
+        });
+        Self {
+            root_predicate,
+            chain_ranges,
+        }
+    }
+
+    fn contains(&self, predicate: &str) -> bool {
+        #[cfg(test)]
+        REMAINDER_TYPING_INDEX_WORK.with(|work| {
+            let mut next = work.get();
+            next.range_lookups += 1;
+            work.set(next);
+        });
+        let root_start = self.root_predicate.as_ptr() as usize;
+        let start = (predicate.as_ptr() as usize).checked_sub(root_start);
+        let Some(start) = start.filter(|start| *start <= self.root_predicate.len()) else {
+            return false;
+        };
+        let Some(end) = start.checked_add(predicate.len()) else {
+            return false;
+        };
+        end <= self.root_predicate.len() && self.chain_ranges.contains(&(start, end))
+    }
 }
 
 pub(crate) fn missing_contract_field(
@@ -53,41 +135,18 @@ pub(crate) fn predicate_is_boolean_with_calls(
     )
 }
 
-pub(crate) fn predicate_is_boolean_with_remainders(
+pub(crate) fn predicate_type_with_remainder_context(
     predicate: &str,
-    remainders: &[PredicateRemainder],
-    bindings: &[Binding],
-    call_type: &impl Fn(&str) -> Option<Type>,
-) -> Option<bool> {
-    (!remainders.is_empty()).then(|| {
-        predicate_type_with_remainders(predicate, remainders, bindings, call_type)
-            == Some(Type::bool())
-    })
-}
-
-pub(crate) fn predicate_type_with_remainders(
-    predicate: &str,
-    remainders: &[PredicateRemainder],
+    context: &PredicateRemainderTypingContext<'_>,
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Type> {
-    predicate_type_with_remainders_in(predicate, predicate, remainders, bindings, call_type)
-}
-
-pub(crate) fn predicate_type_with_remainders_in(
-    predicate: &str,
-    root_predicate: &str,
-    remainders: &[PredicateRemainder],
-    bindings: &[Binding],
-    call_type: &impl Fn(&str) -> Option<Type>,
-) -> Option<Type> {
-    let chains = flat_remainder_chain_texts(root_predicate, remainders);
-    predicate_type_with_flat_remainder_chains(predicate, &chains, bindings, call_type)
+    predicate_type_with_flat_remainder_chains(predicate, context, bindings, call_type)
 }
 
 fn predicate_type_with_flat_remainder_chains(
     predicate: &str,
-    chains: &[&str],
+    context: &PredicateRemainderTypingContext<'_>,
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Type> {
@@ -96,34 +155,34 @@ fn predicate_type_with_flat_remainder_chains(
     if predicate.is_empty() {
         return None;
     }
-    if flat_remainder_chain_text_matches(predicate, chains) {
+    if context.contains(predicate) {
         return Some(Type::int());
     }
     if let Some(ty) = predicate_literal_type(predicate) {
         return Some(ty);
     }
     if let Some(ty) =
-        predicate_unary_type_with_flat_remainders(predicate, chains, bindings, call_type)
+        predicate_unary_type_with_flat_remainders(predicate, context, bindings, call_type)
     {
         return ty;
     }
     if let Some(ty) =
-        predicate_boolean_type_with_flat_remainders(predicate, chains, bindings, call_type)
+        predicate_boolean_type_with_flat_remainders(predicate, context, bindings, call_type)
     {
         return ty;
     }
     if let Some(ty) =
-        predicate_comparison_type_with_flat_remainders(predicate, chains, bindings, call_type)
+        predicate_comparison_type_with_flat_remainders(predicate, context, bindings, call_type)
     {
         return ty;
     }
     if let Some(ty) =
-        predicate_bitwise_type_with_flat_remainders(predicate, chains, bindings, call_type)
+        predicate_bitwise_type_with_flat_remainders(predicate, context, bindings, call_type)
     {
         return ty;
     }
     if let Some(ty) =
-        predicate_arithmetic_type_with_flat_remainders(predicate, chains, bindings, call_type)
+        predicate_arithmetic_type_with_flat_remainders(predicate, context, bindings, call_type)
     {
         return ty;
     }
@@ -134,18 +193,18 @@ fn predicate_type_with_flat_remainder_chains(
 
 fn predicate_unary_type_with_flat_remainders(
     predicate: &str,
-    chains: &[&str],
+    context: &PredicateRemainderTypingContext<'_>,
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
     if let Some(rest) = predicate.strip_prefix('-') {
-        let ty = predicate_type_with_flat_remainder_chains(rest, chains, bindings, call_type);
+        let ty = predicate_type_with_flat_remainder_chains(rest, context, bindings, call_type);
         return ty.filter(|ty| {
             matches!(ty, Type::Named { name, args, .. } if args.is_empty() && (name == "Int" || name == "Float"))
         }).map(Some);
     }
     if let Some(rest) = predicate.strip_prefix('~') {
-        let ty = predicate_type_with_flat_remainder_chains(rest, chains, bindings, call_type);
+        let ty = predicate_type_with_flat_remainder_chains(rest, context, bindings, call_type);
         return (ty == Some(Type::int())).then(|| Some(Type::int()));
     }
     let boolean_operand = predicate.strip_prefix("not ").or_else(|| {
@@ -154,7 +213,7 @@ fn predicate_unary_type_with_flat_remainders(
             .and_then(|inner| inner.strip_suffix(')'))
     });
     boolean_operand.and_then(|operand| {
-        (predicate_type_with_flat_remainder_chains(operand, chains, bindings, call_type)
+        (predicate_type_with_flat_remainder_chains(operand, context, bindings, call_type)
             == Some(Type::bool()))
         .then(|| Some(Type::bool()))
     })
@@ -162,7 +221,7 @@ fn predicate_unary_type_with_flat_remainders(
 
 fn predicate_boolean_type_with_flat_remainders(
     predicate: &str,
-    chains: &[&str],
+    context: &PredicateRemainderTypingContext<'_>,
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
@@ -174,7 +233,7 @@ fn predicate_boolean_type_with_flat_remainders(
                     .into_iter()
                     .all(|clause| {
                         predicate_type_with_flat_remainder_chains(
-                            clause, chains, bindings, call_type,
+                            clause, context, bindings, call_type,
                         ) == Some(Type::bool())
                     })
                     .then(Type::bool),
@@ -186,15 +245,16 @@ fn predicate_boolean_type_with_flat_remainders(
 
 fn predicate_comparison_type_with_flat_remainders(
     predicate: &str,
-    chains: &[&str],
+    context: &PredicateRemainderTypingContext<'_>,
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
-            let left = predicate_type_with_flat_remainder_chains(left, chains, bindings, call_type);
+            let left =
+                predicate_type_with_flat_remainder_chains(left, context, bindings, call_type);
             let right =
-                predicate_type_with_flat_remainder_chains(right, chains, bindings, call_type);
+                predicate_type_with_flat_remainder_chains(right, context, bindings, call_type);
             return Some(match (left, right) {
                 (Some(left), Some(right)) => {
                     comparable_predicate_operands(&left, &right).then(Type::bool)
@@ -208,7 +268,7 @@ fn predicate_comparison_type_with_flat_remainders(
 
 fn predicate_bitwise_type_with_flat_remainders(
     predicate: &str,
-    chains: &[&str],
+    context: &PredicateRemainderTypingContext<'_>,
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
@@ -217,10 +277,10 @@ fn predicate_bitwise_type_with_flat_remainders(
             for operator in operators {
                 if let Some((left, right)) = split_top_level_operator(predicate, operator) {
                     let left = predicate_type_with_flat_remainder_chains(
-                        left, chains, bindings, call_type,
+                        left, context, bindings, call_type,
                     );
                     let right = predicate_type_with_flat_remainder_chains(
-                        right, chains, bindings, call_type,
+                        right, context, bindings, call_type,
                     );
                     return Some(
                         (left == Some(Type::int()) && right == Some(Type::int())).then(Type::int),
@@ -234,16 +294,17 @@ fn predicate_bitwise_type_with_flat_remainders(
 
 fn predicate_arithmetic_type_with_flat_remainders(
     predicate: &str,
-    chains: &[&str],
+    context: &PredicateRemainderTypingContext<'_>,
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Option<Type>> {
     for operators in [&["+", "-"][..], &["*", "/", "%"][..]] {
         if let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
         {
-            let left = predicate_type_with_flat_remainder_chains(left, chains, bindings, call_type);
+            let left =
+                predicate_type_with_flat_remainder_chains(left, context, bindings, call_type);
             let right =
-                predicate_type_with_flat_remainder_chains(right, chains, bindings, call_type);
+                predicate_type_with_flat_remainder_chains(right, context, bindings, call_type);
             if operator == "%" {
                 return Some(
                     (left == Some(Type::int()) && right == Some(Type::int())).then(Type::int),
@@ -256,26 +317,6 @@ fn predicate_arithmetic_type_with_flat_remainders(
         }
     }
     None
-}
-
-fn flat_remainder_chain_texts<'a>(
-    predicate: &'a str,
-    remainders: &[PredicateRemainder],
-) -> Vec<&'a str> {
-    veln_ast::predicate_remainder_chain_ranges(remainders)
-        .into_iter()
-        .map(|range| &predicate[remainders[range.end - 1].operation_range.clone()])
-        .collect()
-}
-
-fn flat_remainder_chain_text_matches(predicate: &str, chains: &[&str]) -> bool {
-    let predicate = strip_balanced_outer_parens(predicate.trim());
-    chains.iter().any(|chain| {
-        predicate
-            .chars()
-            .filter(|character| !character.is_whitespace())
-            .eq(chain.chars().filter(|character| !character.is_whitespace()))
-    })
 }
 
 pub(crate) fn predicate_rendered_type_with_calls(

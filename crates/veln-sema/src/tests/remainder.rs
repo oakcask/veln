@@ -209,6 +209,102 @@ fn wrapped_remainder_complete_pipeline_is_stack_safe_beyond_review_failure() {
     }
 }
 
+fn independent_remainder_predicate(count: usize, call_wrapped: bool) -> String {
+    (0..count)
+        .map(|index| {
+            let remainder = format!("value % {}", 1_000 + index);
+            if call_wrapped {
+                format!("is_zero({remainder})")
+            } else {
+                format!("{remainder} == 0")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" and ")
+}
+
+fn independent_remainder_typing_work(
+    count: usize,
+    satisfy: bool,
+    call_wrapped: bool,
+) -> crate::contracts::RemainderTypingIndexWork {
+    let mut predicate = independent_remainder_predicate(count, call_wrapped);
+    let helper = if call_wrapped {
+        "fn is_zero(value: Int) -> Bool\n  value == 0\nend\n"
+    } else {
+        ""
+    };
+    let checked = if satisfy {
+        predicate = predicate.replace("value", "candidate");
+        format!("fn checked(value: Int) -> Int\n  _value satisfy candidate => {predicate}\nend\n")
+    } else {
+        format!("fn checked(value: Int) -> Int\nrequire {predicate}\n  value\nend\n")
+    };
+    let source = SourceFile::new("main.veln", format!("{helper}{checked}"));
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::contracts::reset_remainder_typing_index_work();
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics.is_empty()
+            || satisfy
+                && diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.id == "hole.unfilled"),
+        "{diagnostics:#?}"
+    );
+    crate::contracts::take_remainder_typing_index_work()
+}
+
+#[test]
+fn independent_remainder_typing_uses_one_linear_index_per_root() {
+    for (satisfy, call_wrapped) in [(false, false), (true, false), (false, true)] {
+        let at_128 = independent_remainder_typing_work(128, satisfy, call_wrapped);
+        let at_256 = independent_remainder_typing_work(256, satisfy, call_wrapped);
+        assert_eq!(
+            at_128.index_builds, 1,
+            "satisfy={satisfy}, call_wrapped={call_wrapped}"
+        );
+        assert_eq!(
+            at_256.index_builds, 1,
+            "satisfy={satisfy}, call_wrapped={call_wrapped}"
+        );
+        assert_eq!(
+            at_128.indexed_chains, 128,
+            "satisfy={satisfy}, call_wrapped={call_wrapped}"
+        );
+        assert_eq!(
+            at_256.indexed_chains, 256,
+            "satisfy={satisfy}, call_wrapped={call_wrapped}"
+        );
+        assert!(
+            at_256.range_lookups <= at_128.range_lookups * 2 + 8,
+            "range lookup work must grow linearly: {at_128:?} -> {at_256:?}; satisfy={satisfy}, call_wrapped={call_wrapped}"
+        );
+    }
+}
+
+#[test]
+fn remainder_call_arguments_keep_distinct_source_ranges() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn is_zero(value: Int) -> Bool\n",
+            "  value == 0\n",
+            "end\n",
+            "fn checked(value: Int) -> Int\n",
+            "require is_zero( value% 1001 ) and is_zero(value % 1001)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
 #[test]
 fn flat_remainder_satisfy_pipeline_is_stack_safe() {
     let operator_count = 4_096;
