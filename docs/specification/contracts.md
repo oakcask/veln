@@ -47,6 +47,13 @@ runtime obligation. A non-`Int` zero such as `0.0` reports only the operand
 operator contract is specified in
 [Operators and diagnostics](types.md#operators-and-diagnostics).
 
+Each operand keeps the most specific diagnostic available for its expression.
+For example, a missing record field reports `contract.field_missing`, and a
+prefixed `Bool` operand reports `type.mismatch` for the required `Int`. A
+surrounding remainder comparison or call argument does not replace either
+diagnostic with `contract.type_mismatch` or
+`contract.unsupported_construct`.
+
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
 contract predicates. `perform Effect::operation(...)` can parse as a candidate
 predicate but fails the effect-free checker. Unsupported syntax reports
@@ -121,6 +128,11 @@ The classifier combines these rule classes:
 | Truth tables | Truth-table evaluation is bounded at 13 unknown predicates after folding and is skipped for 512 or more top-level disjuncts. Partial case-split search is bounded at 10 predicates; a separate exhaustive disjunction rule handles 7–11 predicates. Other specialized rules may still prove larger formulas. |
 | Order reasoning | Complementary equality/order pairs, trichotomy, inclusive totality, strict splits from disequality, and transitive implications over `<`, `<=`, `==`, and their commuted forms. Non-strict paths can prove equality; strict paths do not. |
 | Literal bounds | Contradictory bounds prove a negated conjunction; covering lower/upper bounds prove a disjunction. Equality aliases may connect bounds. An inclusive bound does not prove a strict consequent. |
+
+A flat remainder chain follows its source left associativity during
+classification. A literal-only chain folds each operation from left to right.
+If any operand is nonliteral, the complete comparison remains
+`runtime_required`; classification does not partially prove the chain.
 
 Representative proven predicates include:
 

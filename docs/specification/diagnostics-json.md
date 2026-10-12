@@ -90,6 +90,13 @@ checked. A non-`Int` zero such as `0.0` reports only its operand
 predicates and in hole `satisfy` predicates; schema validation predicates
 reject `%` as unsupported syntax.
 
+An invalid remainder operand preserves the diagnostic for the operand itself.
+A missing field in a contract predicate uses `contract.field_missing`; the
+same failure in `satisfy` uses `hole.satisfy_field_missing`. A prefixed
+non-`Int` operand uses `type.mismatch`. These failures do not add a generic
+contract or `satisfy` type-mismatch or unsupported-construct diagnostic merely
+because the operand appears inside `%` or a call argument.
+
 An unresolved public type-alias target reports `name.unresolved` at that alias
 declaration. Its details contain `phase: "name"`, the alias `node_id`,
 `expected_kind: "type"`, and the written `target`. A function target reports
