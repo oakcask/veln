@@ -224,53 +224,73 @@ fn bytecode_backend_executes_remainder_in_all_contract_positions() {
 }
 
 #[test]
-fn bytecode_backend_reports_dynamic_zero_remainder_in_contract() {
-    let source = concat!(
-        "fn checked(value: Int, divisor: Int) -> Int\n",
-        "require value % divisor    == 0\n",
-        "  value\n",
-        "end\n",
-        "pub fn main() -> ()\n",
-        "  checked(7, 0)\n",
-        "  ()\n",
-        "end\n",
-    );
-    let ir = lower_to_ir(source);
-    let program = generate_classfiles_with_entry(&ir, "main");
+fn bytecode_backend_reports_dynamic_zero_remainder_in_each_contract_position() {
+    for (name, contract, operation, divisor_column, operation_column) in [
+        (
+            "require",
+            "require value % divisor    == 0",
+            "value % divisor",
+            17,
+            9,
+        ),
+        (
+            "ensure",
+            "ensure output % divisor    == 0",
+            "output % divisor",
+            17,
+            8,
+        ),
+        (
+            "invariant",
+            "invariant value % divisor    == 0",
+            "value % divisor",
+            19,
+            11,
+        ),
+    ] {
+        let return_type = if name == "ensure" {
+            "output: Int"
+        } else {
+            "Int"
+        };
+        let source = format!(
+            "fn checked(value: Int, divisor: Int) -> {return_type}\n{contract}\n  value\nend\npub fn main() -> ()\n  checked(7, 0)\n  ()\nend\n"
+        );
+        let ir = lower_to_ir(&source);
+        let program = generate_classfiles_with_entry(&ir, "main");
 
-    let trace_root = temp_dir("bytecode-contract-remainder-zero-trace");
-    let trace_path = trace_root.join("runtime-errors.tsv");
-    let trace_text = trace_path.to_string_lossy().to_string();
+        let trace_root = temp_dir(&format!("bytecode-contract-{name}-remainder-zero-trace"));
+        let trace_path = trace_root.join("runtime-errors.tsv");
+        let trace_text = trace_path.to_string_lossy().to_string();
 
-    let Some(output) = run_jvm_program_with_env_when_java_is_available(
-        "bytecode-contract-remainder-zero",
-        &program,
-        &[("VELN_RUNTIME_ERRORS", trace_text.as_str())],
-        &[],
-    ) else {
+        let Some(output) = run_jvm_program_with_env_when_java_is_available(
+            &format!("bytecode-contract-{name}-remainder-zero"),
+            &program,
+            &[("VELN_RUNTIME_ERRORS", trace_text.as_str())],
+            &[],
+        ) else {
+            let _ = fs::remove_dir_all(&trace_root);
+            return;
+        };
+
+        assert!(!output.status.success(), "{name}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("error[runtime.remainder_by_zero]: remainder divisor is zero"),
+            "{name}: {stderr}"
+        );
+        assert!(!stderr.contains("ArithmeticException"), "{name}: {stderr}");
+        let trace = fs::read_to_string(&trace_path).expect("remainder runtime trace");
+        let divisor_start = source.find("divisor    ==").expect("divisor source offset");
+        let operation_start = source.find(operation).expect("operation source offset");
+        let divisor_end = divisor_start + "divisor".len();
+        let operation_end_column = divisor_column + "divisor".len();
+        let expected_coordinates = format!(
+            "\t2\t{divisor_column}\t{divisor_start}\t2\t{operation_end_column}\t{divisor_end}\t2\t{operation_column}\t{operation_start}\t2\t{operation_end_column}\t{divisor_end}"
+        );
+        assert!(trace.contains(&expected_coordinates), "{name}: {trace}");
         let _ = fs::remove_dir_all(&trace_root);
-        return;
-    };
-
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("error[runtime.remainder_by_zero]: remainder divisor is zero"),
-        "{stderr}"
-    );
-    assert!(!stderr.contains("ArithmeticException"), "{stderr}");
-    let trace = fs::read_to_string(&trace_path).expect("remainder runtime trace");
-    let divisor_start = source.find("divisor    ==").expect("divisor source offset");
-    let operation_start = source
-        .find("value % divisor")
-        .expect("operation source offset");
-    let expected_coordinates = format!(
-        "\t2\t17\t{divisor_start}\t2\t24\t{}\t2\t9\t{operation_start}\t2\t24\t{}",
-        divisor_start + "divisor".len(),
-        divisor_start + "divisor".len(),
-    );
-    assert!(trace.contains(&expected_coordinates), "{trace}");
-    let _ = fs::remove_dir_all(&trace_root);
+    }
 }
 
 #[test]

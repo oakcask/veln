@@ -46,7 +46,11 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
     predicate: &str,
     remainders: &[PredicateRemainder],
 ) -> bool {
-    if let Some(is_true) = flat_remainder_comparison_is_statically_true(predicate, remainders) {
+    let has_boolean_composition = split_top_level_keyword_operator(predicate, "or").is_some()
+        || split_top_level_keyword_operator(predicate, "and").is_some();
+    if !has_boolean_composition
+        && let Some(is_true) = flat_remainder_comparison_is_statically_true(predicate, remainders)
+    {
         return is_true;
     }
     !flat_remainder_chain_is_nonfoldable(remainders)

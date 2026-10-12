@@ -817,7 +817,40 @@ fn literal_remainder_contracts_are_statically_proven_in_each_clause() {
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("core program");
-    assert!(core.functions[0].contracts.iter().all(|contract| {
-        contract.obligation_status == ContractObligationStatus::StaticallyProven
-    }));
+    assert!(
+        core.functions[0].contracts.iter().all(|contract| {
+            contract.obligation_status == ContractObligationStatus::StaticallyProven
+        }),
+        "{:#?}",
+        core.functions[0].contracts
+    );
+}
+
+#[test]
+fn literal_remainder_contracts_are_statically_proven_through_boolean_composition() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn checked() -> output: Int\n",
+            "require 7 % 3 == 1 and true\n",
+            "ensure false or 9 % 3 == 0\n",
+            "invariant (20 % 6 % 4 == 2) and (8 % 3 == 2)\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("core program");
+    assert!(
+        core.functions[0].contracts.iter().all(|contract| {
+            contract.obligation_status == ContractObligationStatus::StaticallyProven
+        }),
+        "{:#?}",
+        core.functions[0].contracts
+    );
 }
