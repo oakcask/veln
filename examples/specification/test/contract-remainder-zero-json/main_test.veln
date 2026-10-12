@@ -1,0 +1,6 @@
+# The test command reports a computed zero divisor in a runtime contract as a
+# general runtime failure rather than a contract failure.
+test dynamic_zero() -> ()
+require 1 % (1 - 1) == 1 % (1 - 1)
+	()
+end

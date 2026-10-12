@@ -625,6 +625,9 @@ impl<'a> FunctionChecker<'a> {
         satisfy: &SatisfyClause,
         expected: &Type,
     ) -> Option<SatisfyRepairConstraint> {
+        if predicate_has_nonfoldable_remainder(&satisfy.predicate) {
+            return None;
+        }
         let allow_static_truth = self.valid_static_satisfy_predicate(satisfy, expected);
         let mut direct_constraint =
             SatisfyRepairConstraint::from_satisfy(satisfy, allow_static_truth);

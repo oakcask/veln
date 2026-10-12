@@ -121,6 +121,12 @@ fn static_contract_reasoning_evaluates_signed_integer_remainder() {
     }
 
     assert!(!contract_predicate_is_statically_true("value % 2 == 0"));
+    assert!(!contract_predicate_is_statically_true(
+        "value % divisor == value % divisor"
+    ));
+    assert!(!contract_predicate_is_statically_true(
+        "value % divisor == 0 or value % divisor != 0"
+    ));
     assert!(!contract_predicate_is_statically_true("7 % 0 == 0"));
 }
 

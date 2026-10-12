@@ -359,10 +359,10 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn check_contracts(&mut self) {
         for contract in &self.function.contracts {
-            if let Some(remainder) = contract
+            for remainder in contract
                 .remainder_spans
                 .iter()
-                .find(|remainder| predicate_literal_is_zero(&remainder.right_text))
+                .filter(|remainder| predicate_literal_is_zero(&remainder.right_text))
             {
                 self.report_contract_literal_zero_remainder(remainder);
             }

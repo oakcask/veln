@@ -1,0 +1,51 @@
+command = ["test", "--json", "main_test.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "summary.total"
+equals = 1
+
+[[json_assert]]
+path = "summary.failed"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "dynamic_zero"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "failed"
+
+[[json_assert]]
+path = "cases.0.failure.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "cases.0.failure.message"
+contains = "status"
+
+[[json_assert]]
+path = "cases.0.failure.details"
+equals = {}
+
+[[json_assert]]
+path = "cases.0.events.0.stream"
+equals = "stderr"
+
+[[json_assert]]
+path = "cases.0.events.0.text"
+contains = "error[runtime.remainder_by_zero]: remainder divisor is zero"

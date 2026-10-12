@@ -288,21 +288,30 @@ fn integer_zero_remainder_is_reported_when_the_left_operand_is_invalid() {
 
 #[test]
 fn nonliteral_remainder_contracts_remain_runtime_required() {
-    let source = SourceFile::new(
-        "main.veln",
-        "fn even(value: Int) -> Int\nrequire value % 2 == 0\n  value\nend\n",
-    );
-    let parsed = parse(&source);
-    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-    let module = lower_surface_ast(&parsed.tree);
-    let lowered = lower_checked_surface_module(&module);
+    for predicate in [
+        "value % 2 == 0",
+        "value % divisor == value % divisor",
+        "value % divisor == 0 or value % divisor != 0",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn checked(value: Int, divisor: Int) -> Int\nrequire {predicate}\n  value\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        let lowered = lower_checked_surface_module(&module);
 
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let contract = &lowered.core.expect("core program").functions[0].contracts[0];
-    assert_eq!(
-        contract.obligation_status,
-        ContractObligationStatus::RuntimeRequired
-    );
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        let contract = &lowered.core.expect("core program").functions[0].contracts[0];
+        assert_eq!(
+            contract.obligation_status,
+            ContractObligationStatus::RuntimeRequired,
+            "{predicate}"
+        );
+    }
 }
 
 #[test]
@@ -310,9 +319,11 @@ fn nonliteral_remainder_does_not_create_modular_repairs() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(fallback: Int) -> Int\n",
+            "fn main(fallback: Int, divisor: Int) -> Int\n",
             "require fallback >= 0\n",
             "  let unresolved: Int = _value satisfy candidate => candidate % 3 == 1\n",
+            "  let reflexive: Int = _reflexive satisfy candidate => candidate % divisor == candidate % divisor\n",
+            "  let exhaustive: Int = _exhaustive satisfy candidate => candidate % divisor == 0 or candidate % divisor != 0\n",
             "  _other satisfy candidate => candidate >= 0\n",
             "end\n",
         ),
@@ -325,19 +336,62 @@ fn nonliteral_remainder_does_not_create_modular_repairs() {
         .iter()
         .filter(|diagnostic| diagnostic.id == "hole.unfilled")
         .collect::<Vec<_>>();
-    assert_eq!(holes.len(), 2, "{diagnostics:#?}");
-    let unresolved = holes[0].details.to_json();
-    let independent = holes[1].details.to_json();
+    assert_eq!(holes.len(), 4, "{diagnostics:#?}");
 
-    assert!(
-        !unresolved.contains("safe_repair_candidate"),
-        "{unresolved}"
-    );
-    assert!(!unresolved.contains("statically_satisfied"), "{unresolved}");
+    for hole in &holes[..3] {
+        let unresolved = hole.details.to_json();
+        assert!(
+            !unresolved.contains("safe_repair_candidate"),
+            "{unresolved}"
+        );
+        assert!(!unresolved.contains("statically_satisfied"), "{unresolved}");
+    }
+    let independent = holes[3].details.to_json();
     assert!(
         independent.contains("safe_repair_candidate"),
         "{independent}"
     );
+}
+
+#[test]
+fn every_literal_zero_remainder_in_one_predicate_reports_its_operation() {
+    let source = concat!(
+        "fn checked(value: Int, other: Int) -> Int\n",
+        "require value % 0x0 == 0 and other % -0 == 0\n",
+        "  _value satisfy candidate => candidate % 0b0 == 0 and candidate % 000 == 0\n",
+        "end\n",
+    );
+    let diagnostics = diagnostics_for(source);
+    let remainder_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.remainder_by_zero")
+        .collect::<Vec<_>>();
+    assert_eq!(remainder_diagnostics.len(), 4, "{diagnostics:#?}");
+
+    for (diagnostic, (literal, operation)) in remainder_diagnostics.iter().zip([
+        ("0x0", "value % 0x0"),
+        ("-0", "other % -0"),
+        ("0b0", "candidate % 0b0"),
+        ("000", "candidate % 000"),
+    ]) {
+        let span = diagnostic.span.as_ref().expect("divisor span");
+        let literal_start = source.find(literal).expect("literal in source");
+        assert_eq!(
+            (span.start.offset, span.end.offset),
+            (literal_start, literal_start + literal.len())
+        );
+        assert_eq!(diagnostic.related.len(), 1);
+        let operation_start = source.find(operation).expect("operation in source");
+        let related = diagnostic.related[0].to_json();
+        assert!(
+            related.contains(&format!("\"offset\":{operation_start}")),
+            "{related}"
+        );
+        assert!(
+            related.contains(&format!("\"offset\":{}", operation_start + operation.len())),
+            "{related}"
+        );
+    }
 }
 
 #[test]

@@ -59,6 +59,47 @@ pub(super) fn static_literal_comparison(left: &str, operator: &str, right: &str)
     }
 }
 
+pub(crate) fn predicate_has_nonfoldable_remainder(predicate: &str) -> bool {
+    if !predicate.contains('%') {
+        return false;
+    }
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    for operators in [
+        &["or"][..],
+        &["and"][..],
+        &["|"][..],
+        &["^"][..],
+        &["&"][..],
+        &["==", "!="][..],
+        &["<=", ">=", "<", ">"][..],
+        &[">>>", ">>", "<<"][..],
+        &["+", "-"][..],
+        &["*", "/", "%"][..],
+    ] {
+        let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        else {
+            continue;
+        };
+        if operator == "%" {
+            return static_numeric_expression(predicate).is_none();
+        }
+        return predicate_has_nonfoldable_remainder(left)
+            || predicate_has_nonfoldable_remainder(right);
+    }
+    if let Some(rest) = predicate
+        .strip_prefix('-')
+        .or_else(|| predicate.strip_prefix('~'))
+        .or_else(|| predicate.strip_prefix("not "))
+    {
+        return predicate_has_nonfoldable_remainder(rest);
+    }
+    contract_calls(predicate).into_iter().any(|call| {
+        call.args
+            .iter()
+            .any(|arg| predicate_has_nonfoldable_remainder(arg))
+    })
+}
+
 pub(super) fn static_numeric_expression(predicate: &str) -> Option<StaticNumber> {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {

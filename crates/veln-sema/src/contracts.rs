@@ -28,15 +28,18 @@ pub(crate) fn contract_kind_text(kind: ContractKind) -> &'static str {
 }
 
 pub(crate) fn predicate_is_statically_true(predicate: &str) -> bool {
-    static_boolean_value(predicate) == StaticBooleanValue::True
+    !predicate_has_nonfoldable_remainder(predicate)
+        && static_boolean_value(predicate) == StaticBooleanValue::True
 }
 
 pub(crate) fn predicate_is_statically_true_with_literal_bounds(predicate: &str) -> bool {
-    static_boolean_value_with_literal_bounds(predicate) == StaticBooleanValue::True
+    !predicate_has_nonfoldable_remainder(predicate)
+        && static_boolean_value_with_literal_bounds(predicate) == StaticBooleanValue::True
 }
 
 pub(crate) fn contract_predicate_is_statically_true(predicate: &str) -> bool {
-    static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
+    !predicate_has_nonfoldable_remainder(predicate)
+        && static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
 }
 
 pub(crate) fn predicate_is_statically_false(predicate: &str) -> bool {
@@ -70,6 +73,7 @@ pub(crate) use predicate_typing::{
     predicate_is_boolean_with_calls, predicate_literal_is_zero, predicate_rendered_type_with_calls,
     predicate_type_with_calls,
 };
+pub(crate) use static_literals::predicate_has_nonfoldable_remainder;
 
 #[cfg(test)]
 mod static_reasoning_tests;
