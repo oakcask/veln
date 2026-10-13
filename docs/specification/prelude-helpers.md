@@ -35,7 +35,13 @@ The descriptor-backed subset covers stdio effect metadata, concurrency effect
 metadata, minimal `fs`, `net`, `time`, and `process` intrinsics, and opaque
 `NetListener` and `NetStream` resource type identities. The resource
 descriptors have no constructors and allow exported standard-package aliases
-to name host resources without exposing their representation. The toolchain
+to name host resources without exposing their representation. Compiler-known
+ADT descriptors classify their variant-refinement availability.
+Constructor-bearing descriptors such as `Option`, `Result`, and `List` expose
+a finite set, while the two resource descriptors are opaque. The
+[type](types.md#compatibility-and-limits) and
+[diagnostic](diagnostics-json.md#diagnostic-families) specifications own the
+observable refinement rules and failures. The toolchain
 `std` package is the source of truth for prelude declarations, visibility,
 ordinary types, ADTs other than compiler-owned `Option`, `Result`, and `List`,
 and Veln helper bodies. Compiler adapters retain expected-type and callback

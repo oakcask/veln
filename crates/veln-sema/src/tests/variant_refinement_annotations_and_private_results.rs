@@ -581,6 +581,28 @@ fn invalid_declaration_annotations_quarantine_body_and_caller_types() {
 }
 
 #[test]
+fn invalid_return_refinement_keeps_unknown_result_binding_for_contract_validation() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "fn invalid_return() -> output: Empty::Missing\n",
+        "ensure output.missing == 0\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_refinement_base");
+    assert_eq!(diagnostics[1].id, "contract.field_missing");
+    assert!(
+        diagnostics[1]
+            .details
+            .to_json()
+            .contains("\"reason\":\"missing_field\"")
+    );
+}
+
+#[test]
 fn invalid_return_is_quarantined_before_private_return_inference() {
     let source = SourceFile::new(
         "main.veln",
