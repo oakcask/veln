@@ -52,11 +52,16 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
     let Some(flow_shape) = predicate_with_remainder_markers(predicate, remainders) else {
         return false;
     };
-    if remainder_flows_into_division(&flow_shape) {
-        return false;
-    }
     let Some(folded) = predicate_with_folded_remainder_chains(predicate, remainders) else {
         return false;
+    };
+    let folded = if remainder_flows_into_division(&flow_shape) {
+        let Some(folded) = predicate_with_integer_remainder_division(&flow_shape, &folded) else {
+            return false;
+        };
+        folded
+    } else {
+        folded
     };
     static_boolean_value_for_contract(&folded) == StaticBooleanValue::True
 }
@@ -118,6 +123,62 @@ fn remainder_flows_into_division(predicate: &str) -> bool {
             .iter()
             .any(|arg| remainder_flows_into_division(arg))
     })
+}
+
+fn predicate_with_integer_remainder_division(marked: &str, folded: &str) -> Option<String> {
+    // A remainder fixes its surrounding numeric expression to `Int`. Collapse
+    // only complete literal operands so generic exact-rational division cannot
+    // erase that provenance or prove an expression that truncates at runtime.
+    let marked = strip_balanced_outer_parens(marked.trim());
+    let folded = strip_balanced_outer_parens(folded.trim());
+    if !marked.contains('%') || !marked.contains('/') {
+        return Some(folded.to_string());
+    }
+
+    for keyword in ["or", "and"] {
+        let Some((marked_left, marked_right)) = split_top_level_keyword_operator(marked, keyword)
+        else {
+            continue;
+        };
+        let (folded_left, folded_right) = split_top_level_keyword_operator(folded, keyword)?;
+        return Some(format!(
+            "({}) {keyword} ({})",
+            predicate_with_integer_remainder_division(marked_left, folded_left)?,
+            predicate_with_integer_remainder_division(marked_right, folded_right)?,
+        ));
+    }
+
+    for operators in [&["==", "!="][..], &["<=", ">=", "<", ">"][..]] {
+        let Some((marked_left, operator, marked_right)) =
+            split_top_level_operator_group(marked, operators)
+        else {
+            continue;
+        };
+        let (folded_left, folded_operator, folded_right) =
+            split_top_level_operator_group(folded, operators)?;
+        if operator != folded_operator {
+            return None;
+        }
+        return Some(format!(
+            "({}) {operator} ({})",
+            predicate_with_integer_remainder_division(marked_left, folded_left)?,
+            predicate_with_integer_remainder_division(marked_right, folded_right)?,
+        ));
+    }
+
+    if let (Some(marked_inner), Some(folded_inner)) =
+        (marked.strip_prefix("not "), folded.strip_prefix("not "))
+    {
+        return Some(format!(
+            "not ({})",
+            predicate_with_integer_remainder_division(marked_inner, folded_inner)?,
+        ));
+    }
+
+    if remainder_flows_into_division(marked) {
+        return Some(static_integer_expression(folded)?.to_string());
+    }
+    Some(folded.to_string())
 }
 
 fn predicate_with_folded_remainder_chains(

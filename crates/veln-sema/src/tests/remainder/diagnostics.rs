@@ -479,6 +479,42 @@ fn mixed_literal_remainder_contracts_remain_runtime_required() {
 }
 
 #[test]
+fn literal_remainder_results_flow_into_integer_division_during_lowering() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn checked() -> Int\n",
+            "require (5 % 3) / 2 == 1\n",
+            "require 2 / (5 % 3) == 1\n",
+            "require 1 % 2 / 2 == 0.5\n",
+            "require ((5 % 3) / 2 == 1 or false) and true\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("core program");
+    assert_eq!(
+        core.functions[0]
+            .contracts
+            .iter()
+            .map(|contract| contract.obligation_status)
+            .collect::<Vec<_>>(),
+        vec![
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::StaticallyProven,
+        ],
+    );
+}
+
+#[test]
 fn literal_remainder_contracts_are_statically_proven_in_each_clause() {
     let source = SourceFile::new(
         "main.veln",
