@@ -76,9 +76,17 @@ selecting a compiler-adapter descriptor. Public type-annotation reference
 helpers and internal type annotation parsing check built-in type constructor
 arity through the published built-in type-syntax registry. Built-in ADT lookup
 seeds application registry state from the published built-in ADT registry.
-The opaque `NetListener` and `NetStream` entries let exported standard-package
-type aliases resolve to their compiler-provided resource identities without
-making either resource source-constructible.
+Published built-in ADT descriptors also classify their refinement availability.
+Finite entries expose their constructor set to variant-refinement analysis.
+Opaque entries expose only the type identity. The opaque `NetListener` and
+`NetStream` entries therefore let exported standard-package type aliases
+resolve to their compiler-provided resource identities without making either
+resource source-constructible or refinable. A built-in type-syntax entry that
+has no ADT descriptor still provides its type identity and arity, but it does
+not provide finite variants. The resulting refinement eligibility and failure
+behavior are specified by
+[Types](types.md#compatibility-and-limits) and
+[Diagnostic JSON](diagnostics-json.md#diagnostic-families).
 
 Private compiler adapters, including the `net_system_*` operations used by
 `std::net::system()`, publish only their qualified
