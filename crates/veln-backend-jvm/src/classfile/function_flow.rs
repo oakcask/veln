@@ -145,62 +145,14 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         for stmt in body {
             match &stmt.kind {
                 IrStmtKind::Defer(block) => {
-                    let cleanup = self.register_cleanup(code, block);
-                    self.active_cleanup_regions
-                        .last_mut()
-                        .expect("active cleanup region")
-                        .push(cleanup.clone());
-                    self.push_unwind_node(code, UnwindAction::Cleanup(cleanup));
+                    self.emit_defer_registration(code, block);
                 }
                 IrStmtKind::Return { value } => {
-                    let exception_start = code.mark();
-                    let unwind = self.active_unwind;
-                    let has_cleanups = self
-                        .active_cleanup_regions
-                        .last()
-                        .is_some_and(|cleanups| !cleanups.is_empty());
-                    if function && !has_cleanups {
-                        if self.emit_tail_expr(code, value) {
-                            let exception_end = code.mark();
-                            self.protect_exception_range(
-                                code,
-                                exception_start,
-                                exception_end,
-                                unwind,
-                            );
-                            returns = true;
-                            break;
-                        }
-                    } else {
-                        self.emit_expr(code, value);
-                    }
-                    let exception_end = code.mark();
-                    self.protect_exception_range(code, exception_start, exception_end, unwind);
-                    let result = self.alloc_local();
-                    code.astore(result);
-                    let cleanups = self
-                        .active_cleanup_regions
-                        .last()
-                        .expect("active cleanup region")
-                        .clone();
-                    self.emit_cleanup_sequence(code, cleanups.iter().rev());
-                    if function && self.has_ensure_contracts() {
-                        self.emit_ensure_checks_for_result(code, result);
-                    }
-                    code.aload(result);
-                    if function {
-                        code.op(0xb0);
-                    }
+                    self.emit_region_return(code, value, function);
                     returns = true;
                     break;
                 }
-                _ => {
-                    let exception_start = code.mark();
-                    let unwind = self.active_unwind;
-                    self.emit_stmt(code, stmt);
-                    let exception_end = code.mark();
-                    self.protect_exception_range(code, exception_start, exception_end, unwind);
-                }
+                _ => self.emit_protected_stmt(code, stmt),
             }
         }
         self.active_cleanup_regions
@@ -208,6 +160,54 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .expect("active cleanup region");
         self.active_unwind = parent_unwind;
         returns
+    }
+
+    fn emit_defer_registration(&mut self, code: &mut MethodCode, block: &IrDeferredBlock) {
+        let cleanup = self.register_cleanup(code, block);
+        self.active_cleanup_regions
+            .last_mut()
+            .expect("active cleanup region")
+            .push(cleanup.clone());
+        self.push_unwind_node(code, UnwindAction::Cleanup(cleanup));
+    }
+
+    fn emit_region_return(&mut self, code: &mut MethodCode, value: &IrExpr, function: bool) {
+        let exception_start = code.mark();
+        let unwind = self.active_unwind;
+        let cleanups = self
+            .active_cleanup_regions
+            .last()
+            .expect("active cleanup region")
+            .clone();
+        let emitted_tail = function && cleanups.is_empty() && self.emit_tail_expr(code, value);
+        if emitted_tail {
+            let exception_end = code.mark();
+            self.protect_exception_range(code, exception_start, exception_end, unwind);
+            return;
+        }
+        if !function || !cleanups.is_empty() {
+            self.emit_expr(code, value);
+        }
+        let exception_end = code.mark();
+        self.protect_exception_range(code, exception_start, exception_end, unwind);
+        let result = self.alloc_local();
+        code.astore(result);
+        self.emit_cleanup_sequence(code, cleanups.iter().rev());
+        if function && self.has_ensure_contracts() {
+            self.emit_ensure_checks_for_result(code, result);
+        }
+        code.aload(result);
+        if function {
+            code.op(0xb0);
+        }
+    }
+
+    fn emit_protected_stmt(&mut self, code: &mut MethodCode, stmt: &IrStmt) {
+        let exception_start = code.mark();
+        let unwind = self.active_unwind;
+        self.emit_stmt(code, stmt);
+        let exception_end = code.mark();
+        self.protect_exception_range(code, exception_start, exception_end, unwind);
     }
 
     fn register_cleanup(
