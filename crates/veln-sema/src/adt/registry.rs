@@ -239,59 +239,69 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
-        fn unique(candidates: Vec<&AdtDescriptor>) -> Option<&AdtDescriptor> {
-            let mut candidates = candidates;
-            let candidate = candidates.pop()?;
-            candidates.is_empty().then_some(candidate)
+        if name.contains("::") {
+            self.unique_qualified_descriptor_any_arity(name, current_module, uses)
+        } else {
+            self.unique_unqualified_descriptor_any_arity(name, current_module, uses)
         }
-        if !name.contains("::") {
-            let indices = self
-                .descriptors_by_type_name
-                .get(name)
-                .map(Vec::as_slice)
-                .unwrap_or_default();
-            let local = indices
+    }
+
+    fn unique_unqualified_descriptor_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let indices = self
+            .descriptors_by_type_name
+            .get(name)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let descriptors = |local| {
+            indices
                 .iter()
                 .copied()
-                .filter(|index| *index >= self.local_descriptor_start)
+                .filter(move |index| (*index >= self.local_descriptor_start) == local)
                 .map(|index| &self.descriptors[index])
-                .filter(|descriptor| descriptor.module_name.as_deref() == current_module)
-                .collect::<Vec<_>>();
-            if !local.is_empty() {
-                return unique(local);
-            }
-            let builtin = indices
-                .iter()
-                .copied()
-                .filter(|index| *index < self.local_descriptor_start)
-                .map(|index| &self.descriptors[index])
-                .filter(|descriptor| descriptor.module_name.is_none())
-                .collect::<Vec<_>>();
-            if !builtin.is_empty() {
-                return unique(builtin);
-            }
-            return unique(
-                indices
-                    .iter()
-                    .map(|index| &self.descriptors[*index])
-                    .filter(|descriptor| {
-                        descriptor.visibility == Visibility::Public
-                            && descriptor.module_name.as_ref().is_some_and(|module| {
-                                uses.iter().any(|use_decl| &use_decl.name == module)
-                            })
-                    })
-                    .collect(),
-            );
-        }
+        };
+        let local = descriptors(true)
+            .filter(|descriptor| descriptor.module_name.as_deref() == current_module);
+        let builtin = descriptors(false).filter(|descriptor| descriptor.module_name.is_none());
+        let imported = indices
+            .iter()
+            .map(|index| &self.descriptors[*index])
+            .filter(|descriptor| {
+                descriptor.visibility == Visibility::Public
+                    && descriptor
+                        .module_name
+                        .as_ref()
+                        .is_some_and(|module| uses.iter().any(|use_decl| &use_decl.name == module))
+            });
+        Self::unique_candidate(local)
+            .or_else(|| Self::unique_candidate(builtin))
+            .or_else(|| Self::unique_candidate(imported))
+            .flatten()
+    }
+
+    fn unique_qualified_descriptor_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
-        unique(
-            self.descriptors_named(type_name)
-                .filter(|descriptor| {
-                    self.descriptor_visible(descriptor, &segments, current_module, uses, true)
-                })
-                .collect(),
-        )
+        Self::unique_candidate(self.descriptors_named(type_name).filter(|descriptor| {
+            self.descriptor_visible(descriptor, &segments, current_module, uses, true)
+        }))
+        .flatten()
+    }
+
+    fn unique_candidate<'a>(
+        mut candidates: impl Iterator<Item = &'a AdtDescriptor>,
+    ) -> Option<Option<&'a AdtDescriptor>> {
+        let candidate = candidates.next()?;
+        Some(candidates.next().is_none().then_some(candidate))
     }
 
     pub(crate) fn canonical_type_name_for_descriptor(&self, descriptor: &AdtDescriptor) -> String {
