@@ -113,3 +113,14 @@ fn stderr_without_result_failure_line_keeps_user_stderr() {
         b"user warning\n"
     );
 }
+
+#[test]
+fn stderr_without_result_failure_line_removes_only_the_runtime_suffix() {
+    let failure = TestFailure::result_with_details("short input".to_string(), None, None, None);
+    let stderr = b"Err(short input)\nuser warning\nErr(short input)\n";
+
+    assert_eq!(
+        stderr_without_result_failure_line(stderr, &failure),
+        b"Err(short input)\nuser warning\n"
+    );
+}

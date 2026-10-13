@@ -8,6 +8,10 @@ use veln_test::{TestFailure, contract_failure_from_trace, result_failure_from_tr
 
 use crate::java::JvmRunResult;
 
+mod human;
+
+pub(super) use human::RunHumanTraceFiles;
+
 pub(super) struct RunJsonTraceFiles {
     contract_error: PathBuf,
     result_error: PathBuf,

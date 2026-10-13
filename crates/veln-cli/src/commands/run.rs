@@ -1,7 +1,7 @@
 use std::env;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::{self, Write};
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
@@ -13,18 +13,18 @@ use veln_ast::{FunctionKind, InvalidName, NameClass, NameOccurrence};
 use veln_backend_jvm::{EntryArgType, generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::{Project, explicit_companion_inputs, production_analysis_inputs};
-use veln_test::{TestFailure, result_failure_from_trace};
+use veln_test::TestFailure;
 
 use crate::diagnostics::{
     harness_source_diagnostic_artifact_requested, has_error, print_human_stderr, tool_info,
     write_harness_source_diagnostic_artifact,
 };
 use crate::java::{
-    JvmExecution, JvmExecutionPreparation, JvmRunResult, create_build_dir, exit_code_from_status,
-    forward_process_output, prepare_and_run_jvm_capture_with_execution, prepare_jvm_execution,
+    JvmExecution, JvmExecutionPreparation, create_build_dir,
+    prepare_and_run_jvm_capture_with_execution, prepare_jvm_execution,
 };
 
-use super::run_report::{RunJsonReport, RunJsonTraceFiles, cleanup_related_failures};
+use super::run_report::{RunHumanTraceFiles, RunJsonReport, RunJsonTraceFiles};
 
 mod byte_diagnostics;
 mod diagnostic_details;
@@ -475,50 +475,15 @@ fn run_human(
     entry_args: &[String],
     execution: &JvmExecution,
 ) -> Result<ExitCode, String> {
-    let result_error_file = build_dir.join("result-errors.tsv");
-    let cleanup_error_file = build_dir.join("cleanup-errors.tsv");
-    let event_env = [
-        ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
-        ("VELN_CLEANUP_ERRORS", cleanup_error_file.as_os_str()),
-    ];
+    let trace_files = RunHumanTraceFiles::new(build_dir);
+    let event_env = trace_files.event_env();
     let result = prepare_and_run_jvm_capture_with_execution(
         execution, program, "veln run", &event_env, entry_args,
     )?;
-    let output = match result {
-        JvmRunResult::Ran(output) => output,
-        JvmRunResult::ToolError(message) => {
-            eprintln!("{message}");
-            return Ok(ExitCode::from(1));
-        }
-    };
-    if output.status.success() {
-        forward_process_output(&output)?;
-        return Ok(exit_code_from_status(output.status));
-    }
-
-    let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
-    let cleanup_error_trace = fs::read_to_string(&cleanup_error_file).unwrap_or_default();
-    let result_failure = result_failure_from_trace(&result_error_trace);
-    let diagnostic = result_failure
-        .as_ref()
-        .and_then(runtime_result_failure_diagnostic);
-    if let (Some(failure), Some(diagnostic)) = (result_failure.as_ref(), diagnostic) {
-        io::stdout()
-            .write_all(&output.stdout)
-            .map_err(|error| error.to_string())?;
-        io::stderr()
-            .write_all(stderr_without_result_failure_line(&output.stderr, failure))
-            .map_err(|error| error.to_string())?;
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
-    } else {
-        forward_process_output(&output)?;
-    }
-    if result_failure.is_some() {
-        for related in cleanup_related_failures(&cleanup_error_trace) {
-            eprintln!("related cleanup failure: {related}");
-        }
-    }
-    Ok(exit_code_from_status(output.status))
+    trace_files.report(result).write(
+        runtime_result_failure_diagnostic,
+        stderr_without_result_failure_line,
+    )
 }
 
 fn runtime_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
