@@ -299,8 +299,9 @@ and extension-dispatch tags or lengths must name earlier decoded visible
 
 The grammar below is the compact source contract. Parser implementation and
 the source-surface grammar artifact must agree with these productions. The
-productions describe accepted form; the cleanup nesting resource limit is the
-prose contract above.
+productions describe accepted form. The cleanup nesting resource limit is the
+prose contract above. The remainder predicate resource limit is the prose
+contract below and is enforced by the executable grammar.
 
 The `%` binary operator is accepted in ordinary expressions, function and
 test contract predicates, and hole `satisfy` predicates. Schema field and
@@ -308,6 +309,13 @@ schema-level validation predicates still reject `%`. The
 [operator](types.md#operators-and-diagnostics), [contract](contracts.md), and
 [hole](holes.md#satisfy-syntax-and-binding) pages define typing, evaluation, and
 repair-analysis behavior for the accepted forms.
+
+When a function or test contract predicate or a hole `satisfy` predicate
+contains `%`, at most 128 opening parentheses may be simultaneously unmatched
+in that predicate root. The count includes call parentheses and parentheses in
+a Boolean branch that does not contain `%`. The next opening parenthesis makes
+the source form invalid. This limit does not apply to predicates without `%`,
+ordinary expressions, or schema predicates.
 
 A handler declaration requires `for` between its parameter list and its one
 nominal effect target. The former `handles` spelling is an ordinary identifier,

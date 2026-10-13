@@ -679,7 +679,27 @@ valid_remainder_predicate_tokens(Tokens) :-
     \+ member(t(hole, _), Tokens),
     \+ member(t(underscore, _), Tokens),
     \+ member(t(lbracket, _), Tokens),
+    remainder_parenthesis_nesting_within_limit(Tokens),
     phrase(expr, Tokens).
+
+remainder_parenthesis_nesting_within_limit(Tokens) :-
+    (   member(t(percent, _), Tokens)
+    ->  parenthesis_nesting_within_limit(Tokens, 0, 128)
+    ;   true
+    ).
+
+parenthesis_nesting_within_limit([], _, _).
+parenthesis_nesting_within_limit([t(lparen, _) | Rest], Depth0, Limit) :-
+    Depth is Depth0 + 1,
+    Depth =< Limit,
+    parenthesis_nesting_within_limit(Rest, Depth, Limit).
+parenthesis_nesting_within_limit([t(rparen, _) | Rest], Depth0, Limit) :-
+    Depth is max(0, Depth0 - 1),
+    parenthesis_nesting_within_limit(Rest, Depth, Limit).
+parenthesis_nesting_within_limit([t(Kind, _) | Rest], Depth, Limit) :-
+    Kind \= lparen,
+    Kind \= rparen,
+    parenthesis_nesting_within_limit(Rest, Depth, Limit).
 
 valid_schema_field_where_tokens(Tokens) :-
     valid_schema_predicate_tokens(Tokens).
@@ -1061,7 +1081,12 @@ satisfy_clause -->
 satisfy_predicate_tokens(Tokens, S0, S) :-
     append(Tokens, S, S0),
     Tokens \= [],
+    satisfy_predicate_boundary(S),
     phrase(expr, Tokens).
+
+satisfy_predicate_boundary([]).
+satisfy_predicate_boundary([t(Kind, _) | _]) :-
+    memberchk(Kind, [comma, rparen, rbracket, rbrace, nl]).
 
 schema_decode_expr -->
     tok(decode),

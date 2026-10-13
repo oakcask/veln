@@ -1,0 +1,8 @@
+fn identity(value: Int) -> Int
+	value
+end
+
+fn rejected_call_contract(value: Int) -> Int
+require identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(value % 2))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) == value % 2
+	value
+end

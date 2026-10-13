@@ -1,0 +1,39 @@
+fn identity(value: Int) -> Int
+	value
+end
+
+fn accepted_contract(value: Int) -> Int
+require ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((value % 2)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) == value % 2
+	value
+end
+
+test accepted_test_contract() -> ()
+require ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((4 % 2 == 0))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+	()
+end
+
+fn accepted_call_contract(value: Int) -> Int
+require identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(identity(value % 2)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) == value % 2
+	value
+end
+
+fn accepted_satisfy() -> Int
+	_value satisfy candidate => ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((candidate % 2 == 0))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+end
+
+fn accepted_satisfy_delimiters(value: Int) -> Int
+	identity(_call satisfy candidate => candidate % 2 == 0, value)
+	[_list satisfy candidate => candidate % 2 == 0, value]
+	{ first: _record satisfy candidate => candidate % 2 == 0, second: value }
+	value
+end
+
+fn unaffected_contract(value: Int) -> Int
+require (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((value))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) == value
+	value
+end
+
+schema UnaffectedPredicate
+	value: Int
+	validate (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((value > 0)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+end
