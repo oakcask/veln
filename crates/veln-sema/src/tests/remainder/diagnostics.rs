@@ -479,7 +479,7 @@ fn mixed_literal_remainder_contracts_remain_runtime_required() {
 }
 
 #[test]
-fn literal_remainder_results_flow_into_integer_division_during_lowering() {
+fn literal_remainder_expressions_preserve_runtime_integer_arithmetic_during_lowering() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -488,6 +488,14 @@ fn literal_remainder_results_flow_into_integer_division_during_lowering() {
             "require 2 / (5 % 3) == 1\n",
             "require 1 % 2 / 2 == 0.5\n",
             "require ((5 % 3) / 2 == 1 or false) and true\n",
+            concat!(
+                "require (9223372036854775807 % 9223372036854775806) + ",
+                "9223372036854775807 == (-9223372036854775807 - 1)\n",
+            ),
+            "require (5 % 2) + (1 / 2) == 1.5\n",
+            "require (5 % 2) - (1 / 2) == 0.5\n",
+            "require (5 % 2) * (1 / 2) == 0.5\n",
+            "require (5 % 2) + 9223372036854775807 > 0\n",
             "  0\n",
             "end\n",
         ),
@@ -510,6 +518,11 @@ fn literal_remainder_results_flow_into_integer_division_during_lowering() {
             ContractObligationStatus::StaticallyProven,
             ContractObligationStatus::RuntimeRequired,
             ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
         ],
     );
 }

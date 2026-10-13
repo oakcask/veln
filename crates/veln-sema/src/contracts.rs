@@ -55,13 +55,9 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
     let Some(folded) = predicate_with_folded_remainder_chains(predicate, remainders) else {
         return false;
     };
-    let folded = if remainder_flows_into_division(&flow_shape) {
-        let Some(folded) = predicate_with_integer_remainder_division(&flow_shape, &folded) else {
-            return false;
-        };
-        folded
-    } else {
-        folded
+    let Some(folded) = predicate_with_runtime_integer_remainder_arithmetic(&flow_shape, &folded)
+    else {
+        return false;
     };
     static_boolean_value_for_contract(&folded) == StaticBooleanValue::True
 }
@@ -85,53 +81,16 @@ fn predicate_with_remainder_markers(
     Some(marked)
 }
 
-fn remainder_flows_into_division(predicate: &str) -> bool {
-    if !predicate.contains('/') {
-        return false;
-    }
-    let predicate = strip_balanced_outer_parens(predicate.trim());
-    for operators in [
-        &["or"][..],
-        &["and"][..],
-        &["|"][..],
-        &["^"][..],
-        &["&"][..],
-        &["==", "!="][..],
-        &["<=", ">=", "<", ">"][..],
-        &[">>>", ">>", "<<"][..],
-        &["+", "-"][..],
-        &["*", "/", "%"][..],
-    ] {
-        let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
-        else {
-            continue;
-        };
-        if operator == "/" && (left.contains('%') || right.contains('%')) {
-            return true;
-        }
-        return remainder_flows_into_division(left) || remainder_flows_into_division(right);
-    }
-    if let Some(rest) = predicate
-        .strip_prefix('-')
-        .or_else(|| predicate.strip_prefix('~'))
-        .or_else(|| predicate.strip_prefix("not "))
-    {
-        return remainder_flows_into_division(rest);
-    }
-    contract_calls(predicate).into_iter().any(|call| {
-        call.args
-            .iter()
-            .any(|arg| remainder_flows_into_division(arg))
-    })
-}
-
-fn predicate_with_integer_remainder_division(marked: &str, folded: &str) -> Option<String> {
-    // A remainder fixes its surrounding numeric expression to `Int`. Collapse
-    // only complete literal operands so generic exact-rational division cannot
-    // erase that provenance or prove an expression that truncates at runtime.
+fn predicate_with_runtime_integer_remainder_arithmetic(
+    marked: &str,
+    folded: &str,
+) -> Option<String> {
+    // Collapse complete literal arithmetic sides with runtime `Int` semantics
+    // so generic exact-number reasoning cannot erase remainder provenance,
+    // integer division, or wrapping arithmetic.
     let marked = strip_balanced_outer_parens(marked.trim());
     let folded = strip_balanced_outer_parens(folded.trim());
-    if !marked.contains('%') || !marked.contains('/') {
+    if !marked.contains('%') {
         return Some(folded.to_string());
     }
 
@@ -143,8 +102,8 @@ fn predicate_with_integer_remainder_division(marked: &str, folded: &str) -> Opti
         let (folded_left, folded_right) = split_top_level_keyword_operator(folded, keyword)?;
         return Some(format!(
             "({}) {keyword} ({})",
-            predicate_with_integer_remainder_division(marked_left, folded_left)?,
-            predicate_with_integer_remainder_division(marked_right, folded_right)?,
+            predicate_with_runtime_integer_remainder_arithmetic(marked_left, folded_left)?,
+            predicate_with_runtime_integer_remainder_arithmetic(marked_right, folded_right)?,
         ));
     }
 
@@ -161,8 +120,8 @@ fn predicate_with_integer_remainder_division(marked: &str, folded: &str) -> Opti
         }
         return Some(format!(
             "({}) {operator} ({})",
-            predicate_with_integer_remainder_division(marked_left, folded_left)?,
-            predicate_with_integer_remainder_division(marked_right, folded_right)?,
+            predicate_with_runtime_integer_remainder_arithmetic(marked_left, folded_left)?,
+            predicate_with_runtime_integer_remainder_arithmetic(marked_right, folded_right)?,
         ));
     }
 
@@ -171,14 +130,11 @@ fn predicate_with_integer_remainder_division(marked: &str, folded: &str) -> Opti
     {
         return Some(format!(
             "not ({})",
-            predicate_with_integer_remainder_division(marked_inner, folded_inner)?,
+            predicate_with_runtime_integer_remainder_arithmetic(marked_inner, folded_inner)?,
         ));
     }
 
-    if remainder_flows_into_division(marked) {
-        return Some(static_integer_expression(folded)?.to_string());
-    }
-    Some(folded.to_string())
+    Some(static_integer_expression(folded)?.to_string())
 }
 
 fn predicate_with_folded_remainder_chains(
