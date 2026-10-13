@@ -53,6 +53,12 @@ demonstrate refined call typing, control-flow result joins, alias-qualified
 identity and presentation, and generic alias boundaries. The current type and
 source specifications remain authoritative for those behaviors and the
 accepted source forms, including malformed-form boundaries.
+The `contracts` topic selects the function-contract, schema-validation, and
+schema-field predicate entry productions. The complete grammar distinguishes
+function contracts and hole `satisfy` predicates, which admit integer `%`,
+from schema predicates, which do not. The current contract, hole, type, and
+source-surface specifications remain authoritative for predicate typing,
+validation, execution, and nesting limits.
 The expressions-and-patterns topic identifies lexical cleanup forms as a
 static, tooling, and executable surface. Its body states that checked core,
 typed IR, and the JVM backend preserve registration-time captures and run
