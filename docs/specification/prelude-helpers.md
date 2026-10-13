@@ -28,14 +28,19 @@ This page specifies compiler-known descriptor metadata and prelude helper behavi
 
 Semantic analysis owns a standard symbol table for compiler-known library
 symbols. The table records the source-visible module, name, symbol kind, effect
-labels, lowering identity, and stability class for the descriptor-backed
-subset.
+labels, lowering identity, stability class, and whether a compiler-known ADT
+has finite variants available for refinement or is opaque to refinement for
+the descriptor-backed subset.
 
 The descriptor-backed subset covers stdio effect metadata, concurrency effect
 metadata, minimal `fs`, `net`, `time`, and `process` intrinsics, and opaque
 `NetListener` and `NetStream` resource type identities. The resource
 descriptors have no constructors and allow exported standard-package aliases
-to name host resources without exposing their representation. The toolchain
+to name host resources without exposing their representation. They are opaque
+to refinement rather than source declarations that fail the finite-ADT
+eligibility check. Compiler-known `Option`, `Result`, `List`, and the standard
+constructor-bearing ADTs publish finite refinement availability with their
+constructor descriptors. The toolchain
 `std` package is the source of truth for prelude declarations, visibility,
 ordinary types, ADTs other than compiler-owned `Option`, `Result`, and `List`,
 and Veln helper bodies. Compiler adapters retain expected-type and callback

@@ -330,13 +330,16 @@ trap or process failure.
 
 ## Language-Service Contract
 
-For invalid and recovered refinements, the semantic model and shared language
-service must carry every unambiguous base-type or constructor identity without
-reconstructing it from display text. Package-documentation signatures must
-preserve those identities when the visibility and publication work below makes
-them eligible. Navigation and rename for valid refinements are current behavior
-specified by [editor support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
-and [MCP](../specification/mcp.md#saved-workspace-navigation).
+The current shared language service retains the unambiguous source base identity
+for a `not_adt` refinement failure without assigning an identity to its invalid
+final segment. Navigation and rename for this recovery and for valid refinements
+are specified by
+[editor support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
+and [MCP](../specification/mcp.md#saved-workspace-navigation). Remaining invalid
+and recovered refinements must carry every other unambiguous base-type or
+constructor identity without reconstructing it from display text.
+Package-documentation signatures must preserve those identities when the
+visibility and publication work below makes them eligible.
 
 ### LSP
 
@@ -345,10 +348,11 @@ The existing LSP surface still requires the following behavior:
 - Published diagnostics project the diagnostic table with the existing UTF-16
   range conversion and related information.
 
-Invalid or recovered refinements contribute only identities that the shared
-recovery rules can establish unambiguously. An invalid request or analysis
-failure does not replace the retained document snapshot or change the result
-of a later valid request.
+Invalid or recovered refinements other than the implemented `not_adt` base
+recovery must contribute only identities that the remaining shared recovery
+rules can establish unambiguously. An invalid request or analysis failure does
+not replace the retained document snapshot or change the result of a later
+valid request.
 
 This proposal does not add hover, completion, signature-help, or inlay-hint
 capabilities. Those protocol surfaces require independent whole-language

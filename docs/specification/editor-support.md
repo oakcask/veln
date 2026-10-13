@@ -283,12 +283,19 @@ When the same qualified module and type spelling is reachable through imports
 from multiple packages, the base is ambiguous. The direct base, an alias chain
 that depends on it, and their final variants expose no navigation identity,
 regardless of import order.
-The complete refinement must resolve before either segment is selectable. If
-the written generic-argument count differs from the resolved terminal ADT's
-declared parameter count, any generic argument contains an unresolved named
-type or invalid nested refinement, the final segment is missing, names a
-constructor from another ADT, or names a non-constructor declaration,
-definition and references return no selection for the direct or alias base.
+The complete refinement must resolve before either segment is selectable,
+except for a source-declared base that resolves uniquely but has no finite ADT
+variants. If that base has the declared generic-argument count, its written
+base remains selectable for definition, references, and rename while the
+invalid final segment has no identity. This recovery applies to a direct base
+or a finite visible alias chain and does not admit package-backed or ambiguous
+bases.
+For other invalid refinements, if the written generic-argument count differs
+from the resolved terminal ADT's declared parameter count, any generic argument
+contains an unresolved named type or invalid nested refinement, the final
+segment is missing, names a constructor from another ADT, or names a
+non-constructor declaration, definition and references return no selection for
+the direct or alias base.
 Generic arguments resolve recursively; a type parameter declared by the
 enclosing ADT is resolved in that ADT's payload annotation. A union is also
 invalid when its alternatives resolve to different terminal ADT identities or

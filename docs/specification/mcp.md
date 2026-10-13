@@ -466,6 +466,9 @@ exposes a recovery record's retained source range.
 
 Valid singleton and union variant refinements use the
 [shared navigation contract](editor-support.md#shared-variant-refinement-navigation).
+That contract also retains the uniquely resolved workspace base identity for a
+source-declared base with no finite ADT variants while leaving its invalid final
+segment unselected.
 MCP supplies and returns positive one-based Unicode-scalar coordinates and does
 not resolve a second refinement identity. Definition projects the shared
 declaration. References project the shared deterministic locations and apply
