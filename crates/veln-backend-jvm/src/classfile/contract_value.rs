@@ -31,23 +31,38 @@ pub(super) enum ContractScalar<'a> {
 
 pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
     let text = strip_contract_outer_parens(text.trim());
+    if let Some(binary) = parse_contract_binary_value(text) {
+        return binary;
+    }
+    if let Some(prefix) = parse_contract_prefix_value(text) {
+        return prefix;
+    }
+    parse_contract_atomic_value(text)
+}
+
+fn parse_contract_binary_value(text: &str) -> Option<ContractValue<'_>> {
     for operators in contract_binary_operator_groups() {
         if let Some((left, right, op)) = split_contract_binary_group(text, operators) {
-            return ContractValue::Binary { left, right, op };
+            return Some(ContractValue::Binary { left, right, op });
         }
     }
+    None
+}
+
+fn parse_contract_prefix_value(text: &str) -> Option<ContractValue<'_>> {
     if let Some(rest) = text.strip_prefix("not ") {
-        return ContractValue::Not(rest);
+        return Some(ContractValue::Not(rest));
     }
     if let Some(rest) = text.strip_prefix('-')
         && contract_integer_value(text).is_none()
         && text.parse::<f64>().is_err()
     {
-        return ContractValue::Negate(rest);
+        return Some(ContractValue::Negate(rest));
     }
-    if let Some(rest) = text.strip_prefix('~') {
-        return ContractValue::BitwiseNot(rest);
-    }
+    text.strip_prefix('~').map(ContractValue::BitwiseNot)
+}
+
+fn parse_contract_atomic_value(text: &str) -> ContractValue<'_> {
     if let Some((callee, args)) = parse_contract_call(text) {
         return ContractValue::Call { callee, args };
     }

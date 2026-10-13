@@ -24,6 +24,7 @@ mod contract_emission;
 mod contract_value;
 mod contracts_and_tail_recursion;
 mod function_flow;
+mod local_bindings;
 mod method_code;
 mod pattern_and_value_emission;
 mod schema_invocation;

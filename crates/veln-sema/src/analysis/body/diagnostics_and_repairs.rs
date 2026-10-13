@@ -707,34 +707,6 @@ impl<'a> FunctionChecker<'a> {
             })
             .collect()
     }
-
-    pub(super) fn valid_static_satisfy_predicate(
-        &self,
-        satisfy: &SatisfyClause,
-        expected: &Type,
-    ) -> bool {
-        let Some(candidate) = satisfy.candidate.as_ref() else {
-            return false;
-        };
-        let mut predicate_bindings = self
-            .effective_visible_bindings()
-            .into_iter()
-            .map(|(index, ty)| {
-                let mut binding = self.bindings[index].clone();
-                binding.ty = ty;
-                binding
-            })
-            .collect::<Vec<_>>();
-        predicate_bindings.push(Binding::new(candidate.clone(), expected.clone()));
-        matches!(
-            self.validate_predicate_with_bindings(
-                &satisfy.predicate,
-                &satisfy.remainder_spans,
-                &predicate_bindings,
-            ),
-            ContractValidation::Valid
-        )
-    }
 }
 
 fn variant_mismatch_sets<'a>(

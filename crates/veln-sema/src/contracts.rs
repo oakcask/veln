@@ -181,6 +181,7 @@ mod contract_calls;
 mod exact_numbers;
 mod field_access;
 mod literal_order;
+mod predicate_remainder_typing;
 mod predicate_shapes;
 mod predicate_typing;
 mod static_literals;
@@ -191,21 +192,24 @@ use case_and_order::*;
 pub(crate) use exact_numbers::{ExactNumber, ExactRational, parse_quoted_string_literal};
 use field_access::*;
 use literal_order::*;
+use predicate_remainder_typing::*;
 use predicate_shapes::*;
 use predicate_typing::*;
 use static_literals::*;
 
 pub(crate) use contract_calls::{contract_calls, is_contract_keyword, referenced_names};
-pub(crate) use predicate_typing::{
-    PredicateRemainderTypingContext, missing_contract_field,
-    predicate_has_invalid_remainder_operands, predicate_is_boolean_with_calls,
-    predicate_literal_is_zero, predicate_remainder_operand_mismatch,
-    predicate_rendered_type_with_calls, predicate_type_with_remainder_context,
+pub(crate) use predicate_remainder_typing::{
+    PredicateRemainderTypingContext, missing_contract_field, predicate_is_boolean_with_calls,
+    predicate_type_with_remainder_context,
 };
 #[cfg(test)]
-pub(crate) use predicate_typing::{
+pub(crate) use predicate_remainder_typing::{
     RemainderTypingIndexWork, reset_predicate_typing_work, reset_remainder_typing_index_work,
     take_predicate_typing_work, take_remainder_typing_index_work,
+};
+pub(crate) use predicate_typing::{
+    predicate_has_invalid_remainder_operands, predicate_literal_is_zero,
+    predicate_remainder_operand_mismatch, predicate_rendered_type_with_calls,
 };
 pub(crate) use static_literals::predicate_has_nonfoldable_remainder;
 

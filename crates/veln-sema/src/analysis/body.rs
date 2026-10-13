@@ -973,5 +973,5 @@ mod name_and_declared_calls;
 mod patterns_and_exhaustiveness;
 mod prelude_and_unresolved_calls;
 mod recovery_helpers;
-
+mod remainder_diagnostics;
 use recovery_helpers::*;

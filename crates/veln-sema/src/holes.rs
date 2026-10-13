@@ -226,13 +226,7 @@ impl<'a> FunctionChecker<'a> {
         satisfy: &SatisfyClause,
         expected: Option<&ExpectedType>,
     ) {
-        for remainder in satisfy
-            .remainder_spans
-            .iter()
-            .filter(|remainder| predicate_literal_is_zero(remainder.right_text(&satisfy.predicate)))
-        {
-            self.report_contract_literal_zero_remainder(remainder);
-        }
+        self.report_satisfy_literal_zero_remainders(satisfy);
         let Some(candidate) = satisfy.candidate.as_deref() else {
             return;
         };
@@ -252,23 +246,8 @@ impl<'a> FunctionChecker<'a> {
         }
         self.check_satisfy_candidate_used(expr, satisfy, candidate, candidate_span);
 
-        let mut predicate_bindings = self
-            .effective_visible_bindings()
-            .into_iter()
-            .map(|(index, ty)| {
-                let mut binding = self.bindings[index].clone();
-                binding.ty = ty;
-                binding
-            })
-            .collect::<Vec<_>>();
-        if !rejected_callsite_shadow {
-            predicate_bindings.push(Binding::new(
-                candidate.to_string(),
-                expected
-                    .map(|expected| expected.ty.clone())
-                    .unwrap_or(Type::Unknown),
-            ));
-        }
+        let predicate_bindings =
+            self.satisfy_predicate_bindings(candidate, expected, rejected_callsite_shadow);
         let validation = self.validate_predicate_with_bindings(
             &satisfy.predicate,
             &satisfy.remainder_spans,
@@ -284,6 +263,40 @@ impl<'a> FunctionChecker<'a> {
             );
         }
         self.push_satisfy_validation_diagnostic(expr, satisfy, candidate, validation);
+    }
+
+    fn report_satisfy_literal_zero_remainders(&mut self, satisfy: &SatisfyClause) {
+        for remainder in satisfy
+            .remainder_spans
+            .iter()
+            .filter(|remainder| predicate_literal_is_zero(remainder.right_text(&satisfy.predicate)))
+        {
+            self.report_contract_literal_zero_remainder(remainder);
+        }
+    }
+
+    fn satisfy_predicate_bindings(
+        &self,
+        candidate: &str,
+        expected: Option<&ExpectedType>,
+        rejected_callsite_shadow: bool,
+    ) -> Vec<Binding> {
+        let mut bindings = self
+            .effective_visible_bindings()
+            .into_iter()
+            .map(|(index, ty)| {
+                let mut binding = self.bindings[index].clone();
+                binding.ty = ty;
+                binding
+            })
+            .collect::<Vec<_>>();
+        if !rejected_callsite_shadow {
+            bindings.push(Binding::new(
+                candidate.to_string(),
+                expected.map_or(Type::Unknown, |expected| expected.ty.clone()),
+            ));
+        }
+        bindings
     }
 
     fn check_satisfy_candidate_shadow(
@@ -447,5 +460,35 @@ impl<'a> FunctionChecker<'a> {
             expected,
         ));
         self.diagnostics.push(diagnostic);
+    }
+}
+
+impl<'a> FunctionChecker<'a> {
+    pub(super) fn valid_static_satisfy_predicate(
+        &self,
+        satisfy: &SatisfyClause,
+        expected: &Type,
+    ) -> bool {
+        let Some(candidate) = satisfy.candidate.as_ref() else {
+            return false;
+        };
+        let mut predicate_bindings = self
+            .effective_visible_bindings()
+            .into_iter()
+            .map(|(index, ty)| {
+                let mut binding = self.bindings[index].clone();
+                binding.ty = ty;
+                binding
+            })
+            .collect::<Vec<_>>();
+        predicate_bindings.push(Binding::new(candidate.clone(), expected.clone()));
+        matches!(
+            self.validate_predicate_with_bindings(
+                &satisfy.predicate,
+                &satisfy.remainder_spans,
+                &predicate_bindings,
+            ),
+            ContractValidation::Valid
+        )
     }
 }

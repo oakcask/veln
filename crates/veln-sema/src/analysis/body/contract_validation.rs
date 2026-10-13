@@ -18,20 +18,8 @@ impl<'a> FunctionChecker<'a> {
         bindings: &[Binding],
     ) -> ContractValidation {
         let trimmed = predicate.trim();
-        if trimmed.is_empty() {
-            return ContractValidation::UnsupportedConstruct {
-                reason: "empty_predicate",
-            };
-        }
-        if trimmed.contains("stdio::") {
-            return ContractValidation::UnsupportedConstruct {
-                reason: "effectful_operation",
-            };
-        }
-        if trimmed.contains("perform ") {
-            return ContractValidation::UnsupportedConstruct {
-                reason: "effectful_operation",
-            };
+        if let Some(validation) = invalid_predicate_surface(trimmed) {
+            return validation;
         }
         let calls = contract_calls(predicate)
             .into_iter()
@@ -536,6 +524,19 @@ impl<'a> FunctionChecker<'a> {
                     })
             })
     }
+}
+
+fn invalid_predicate_surface(predicate: &str) -> Option<ContractValidation> {
+    if predicate.is_empty() {
+        return Some(ContractValidation::UnsupportedConstruct {
+            reason: "empty_predicate",
+        });
+    }
+    (predicate.contains("stdio::") || predicate.contains("perform ")).then_some(
+        ContractValidation::UnsupportedConstruct {
+            reason: "effectful_operation",
+        },
+    )
 }
 
 fn contract_call_result_requires_boolean(

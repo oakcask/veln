@@ -100,58 +100,7 @@ impl ConstantPool {
     pub(super) fn write(&self, out: &mut Vec<u8>) {
         write_u16(out, (self.entries.len() + 1) as u16);
         for entry in &self.entries {
-            match entry {
-                CpEntry::Utf8(value) => {
-                    out.push(1);
-                    write_u16(out, value.len() as u16);
-                    out.extend_from_slice(value.as_bytes());
-                }
-                CpEntry::Class(index) => {
-                    out.push(7);
-                    write_u16(out, *index);
-                }
-                CpEntry::String(index) => {
-                    out.push(8);
-                    write_u16(out, *index);
-                }
-                CpEntry::Fieldref {
-                    class_index,
-                    name_and_type,
-                } => {
-                    out.push(9);
-                    write_u16(out, *class_index);
-                    write_u16(out, *name_and_type);
-                }
-                CpEntry::Methodref {
-                    class_index,
-                    name_and_type,
-                } => {
-                    out.push(10);
-                    write_u16(out, *class_index);
-                    write_u16(out, *name_and_type);
-                }
-                CpEntry::NameAndType {
-                    name_index,
-                    descriptor_index,
-                } => {
-                    out.push(12);
-                    write_u16(out, *name_index);
-                    write_u16(out, *descriptor_index);
-                }
-                CpEntry::Long(value) => {
-                    out.push(5);
-                    out.extend_from_slice(&value.to_be_bytes());
-                }
-                CpEntry::Integer(value) => {
-                    out.push(3);
-                    out.extend_from_slice(&value.to_be_bytes());
-                }
-                CpEntry::Double(bits) => {
-                    out.push(6);
-                    out.extend_from_slice(&bits.to_be_bytes());
-                }
-                CpEntry::Padding => {}
-            }
+            entry.write(out);
         }
     }
 }
@@ -189,6 +138,63 @@ pub(super) enum CpEntry {
     Integer(i32),
     Double(u64),
     Padding,
+}
+
+impl CpEntry {
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Utf8(value) => {
+                out.push(1);
+                write_u16(out, value.len() as u16);
+                out.extend_from_slice(value.as_bytes());
+            }
+            Self::Class(index) => {
+                out.push(7);
+                write_u16(out, *index);
+            }
+            Self::String(index) => {
+                out.push(8);
+                write_u16(out, *index);
+            }
+            Self::Fieldref {
+                class_index,
+                name_and_type,
+            } => {
+                out.push(9);
+                write_u16(out, *class_index);
+                write_u16(out, *name_and_type);
+            }
+            Self::Methodref {
+                class_index,
+                name_and_type,
+            } => {
+                out.push(10);
+                write_u16(out, *class_index);
+                write_u16(out, *name_and_type);
+            }
+            Self::NameAndType {
+                name_index,
+                descriptor_index,
+            } => {
+                out.push(12);
+                write_u16(out, *name_index);
+                write_u16(out, *descriptor_index);
+            }
+            Self::Long(value) => {
+                out.push(5);
+                out.extend_from_slice(&value.to_be_bytes());
+            }
+            Self::Integer(value) => {
+                out.push(3);
+                out.extend_from_slice(&value.to_be_bytes());
+            }
+            Self::Double(bits) => {
+                out.push(6);
+                out.extend_from_slice(&bits.to_be_bytes());
+            }
+            Self::Padding => {}
+        }
+    }
 }
 
 pub(super) fn write_u16(out: &mut Vec<u8>, value: u16) {

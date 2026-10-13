@@ -98,20 +98,25 @@ pub(super) fn split_call_args(text: &str, offset: usize) -> (Vec<String>, Vec<Ra
             '(' => depth += 1,
             ')' => depth = depth.saturating_sub(1),
             ',' if depth == 0 => {
-                let untrimmed = &text[start..index];
-                let arg = untrimmed.trim();
-                if !arg.is_empty() {
-                    args.push(arg.to_string());
-                    let leading = untrimmed.len() - untrimmed.trim_start().len();
-                    let arg_start = offset + start + leading;
-                    ranges.push(arg_start..arg_start + arg.len());
-                }
+                push_call_arg(text, offset, start, index, &mut args, &mut ranges);
                 start = index + ch.len_utf8();
             }
             _ => {}
         }
     }
-    let untrimmed = &text[start..];
+    push_call_arg(text, offset, start, text.len(), &mut args, &mut ranges);
+    (args, ranges)
+}
+
+fn push_call_arg(
+    text: &str,
+    offset: usize,
+    start: usize,
+    end: usize,
+    args: &mut Vec<String>,
+    ranges: &mut Vec<Range<usize>>,
+) {
+    let untrimmed = &text[start..end];
     let arg = untrimmed.trim();
     if !arg.is_empty() {
         args.push(arg.to_string());
@@ -119,7 +124,6 @@ pub(super) fn split_call_args(text: &str, offset: usize) -> (Vec<String>, Vec<Ra
         let arg_start = offset + start + leading;
         ranges.push(arg_start..arg_start + arg.len());
     }
-    (args, ranges)
 }
 
 pub(crate) fn referenced_names(predicate: &str) -> Vec<String> {

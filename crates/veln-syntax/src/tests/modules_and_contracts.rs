@@ -253,28 +253,28 @@ fn right_nested_remainder_retains_linear_source_backed_structure() {
     assert_eq!(at_121.1 - at_120.1, 4);
 }
 
+fn nested_contract_value(depth: usize) -> String {
+    format!("{}value{}", "(".repeat(depth), ")".repeat(depth))
+}
+
+fn right_nested_remainder(depth: usize) -> String {
+    let mut predicate = "value".to_string();
+    for _ in 0..depth {
+        predicate = format!("value % ({predicate})");
+    }
+    predicate
+}
+
+fn nested_call_remainder(depth: usize) -> String {
+    format!(
+        "{}value % 2{}",
+        "identity(".repeat(depth),
+        ")".repeat(depth)
+    )
+}
+
 #[test]
-fn contract_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
-    fn nested(depth: usize) -> String {
-        format!("{}value{}", "(".repeat(depth), ")".repeat(depth))
-    }
-
-    fn right_nested_remainder(depth: usize) -> String {
-        let mut predicate = "value".to_string();
-        for _ in 0..depth {
-            predicate = format!("value % ({predicate})");
-        }
-        predicate
-    }
-
-    fn nested_call_remainder(depth: usize) -> String {
-        format!(
-            "{}value % 2{}",
-            "identity(".repeat(depth),
-            ")".repeat(depth)
-        )
-    }
-
+fn remainder_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
     for depth in [127, 128] {
         let source = SourceFile::new(
             "main.veln",
@@ -305,7 +305,10 @@ fn contract_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
         output.diagnostics[0].message,
         "contract predicate nesting exceeds the supported limit of 128 parenthesized expressions"
     );
+}
 
+#[test]
+fn remainder_call_parenthesis_nesting_has_an_exact_safe_boundary() {
     for (depth, expected_diagnostics) in [(128, 0), (129, 1)] {
         let source = SourceFile::new(
             "main.veln",
@@ -322,12 +325,15 @@ fn contract_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
             output.diagnostics
         );
     }
+}
 
+#[test]
+fn remainder_nesting_limit_is_scoped_to_remainder_predicates() {
     let source = SourceFile::new(
         "main.veln",
         format!(
             "fn checked(value: Int) -> Int\nrequire {} == value\n  value\nend\n",
-            nested(129)
+            nested_contract_value(129)
         ),
     );
     let output = parse(&source);
@@ -337,7 +343,7 @@ fn contract_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
         "main.veln",
         format!(
             "fn checked() -> Int\n  let result: Int = _value satisfy candidate => {} == candidate\n  result\nend\n",
-            nested(129)
+            nested_contract_value(129)
         ),
     );
     let output = parse(&source);
