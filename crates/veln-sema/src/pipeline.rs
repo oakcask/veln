@@ -1,9 +1,10 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use veln_ast::{FunctionKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
+use veln_source::SourcePath;
 
 use crate::analysis::{
     VariantDiagnosticInterner, check_declared_effect_labels, check_duplicate_constructor_names,
@@ -186,7 +187,21 @@ fn merge_variant_refinement_base_diagnostics(
     diagnostics: &mut Vec<Diagnostic>,
     base_diagnostics: Vec<Diagnostic>,
 ) {
-    let mut bases_by_file = std::collections::HashMap::<_, (Vec<usize>, usize)>::new();
+    let (mut bases_by_file, ordered_indices) = index_base_diagnostics(&base_diagnostics);
+    let mut bases = base_diagnostics.into_iter().map(Some).collect::<Vec<_>>();
+    merge_existing_base_diagnostics(diagnostics, &mut bases_by_file, &mut bases);
+    for index in ordered_indices {
+        record_variant_refinement_base_work(1);
+        if let Some(diagnostic) = bases[index].take() {
+            diagnostics.push(diagnostic);
+        }
+    }
+}
+
+type BaseDiagnosticsByFile = HashMap<SourcePath, (Vec<usize>, usize)>;
+
+fn index_base_diagnostics(base_diagnostics: &[Diagnostic]) -> (BaseDiagnosticsByFile, Vec<usize>) {
+    let mut bases_by_file = BaseDiagnosticsByFile::new();
     let mut file_order = Vec::new();
     let mut ordered_indices = Vec::with_capacity(base_diagnostics.len());
     for (index, diagnostic) in base_diagnostics.iter().enumerate() {
@@ -209,10 +224,17 @@ fn merge_variant_refinement_base_diagnostics(
         let (indices, _) = bases_by_file
             .get_mut(file)
             .expect("base diagnostic file was indexed");
-        radix_sort_base_diagnostic_indices(indices, &base_diagnostics);
+        radix_sort_base_diagnostic_indices(indices, base_diagnostics);
         ordered_indices.extend(indices.iter().copied());
     }
-    let mut bases = base_diagnostics.into_iter().map(Some).collect::<Vec<_>>();
+    (bases_by_file, ordered_indices)
+}
+
+fn merge_existing_base_diagnostics(
+    diagnostics: &mut Vec<Diagnostic>,
+    bases_by_file: &mut BaseDiagnosticsByFile,
+    bases: &mut [Option<Diagnostic>],
+) {
     let existing = std::mem::take(diagnostics);
     diagnostics.reserve(existing.len() + bases.len());
     for existing_diagnostic in existing {
@@ -237,12 +259,6 @@ fn merge_variant_refinement_base_diagnostics(
             diagnostics.push(bases[index].take().expect("pending base diagnostic"));
         }
         diagnostics.push(existing_diagnostic);
-    }
-    for index in ordered_indices {
-        record_variant_refinement_base_work(1);
-        if let Some(diagnostic) = bases[index].take() {
-            diagnostics.push(diagnostic);
-        }
     }
 }
 
