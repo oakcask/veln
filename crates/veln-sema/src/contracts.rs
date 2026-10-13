@@ -52,17 +52,22 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
     if remainders.is_empty() {
         return contract_predicate_is_statically_true(predicate);
     }
-    let Some(flow_shape) = predicate_with_remainder_markers(predicate, remainders) else {
-        return false;
-    };
-    let Some(folded) = predicate_with_folded_remainder_chains(predicate, remainders) else {
-        return false;
-    };
-    let Some(folded) = predicate_with_runtime_integer_remainder_arithmetic(&flow_shape, &folded)
-    else {
+    let Some(folded) = predicate_with_folded_literal_remainders(predicate, remainders) else {
         return false;
     };
     static_boolean_value_for_remainder_contract(&folded) == StaticBooleanValue::True
+}
+
+pub(crate) fn predicate_with_folded_literal_remainders(
+    predicate: &str,
+    remainders: &[PredicateRemainder],
+) -> Option<String> {
+    if remainders.is_empty() {
+        return Some(predicate.to_string());
+    }
+    let flow_shape = predicate_with_remainder_markers(predicate, remainders)?;
+    let folded = predicate_with_folded_remainder_chains(predicate, remainders)?;
+    predicate_with_runtime_integer_remainder_arithmetic(&flow_shape, &folded)
 }
 
 fn predicate_with_remainder_markers(
@@ -88,9 +93,10 @@ fn predicate_with_runtime_integer_remainder_arithmetic(
     marked: &str,
     folded: &str,
 ) -> Option<String> {
-    // Collapse complete literal arithmetic sides with runtime `Int` semantics
-    // so generic exact-number reasoning cannot erase remainder provenance,
-    // integer division, or wrapping arithmetic.
+    // Preserve each source arithmetic node's type after its literal remainder
+    // children have been folded. Int-only ancestors use runtime fixed-width
+    // behavior, while a Float ancestor remains visible to exact-number
+    // reasoning instead of inheriting the remainder node's Int type.
     let marked = strip_balanced_outer_parens(marked.trim());
     let folded = strip_balanced_outer_parens(folded.trim());
     if !marked.contains('%') {
@@ -152,7 +158,116 @@ fn predicate_with_runtime_integer_remainder_arithmetic(
         ));
     }
 
-    Some(static_integer_expression(folded)?.to_string())
+    folded_remainder_numeric_expression(marked, folded).map(|expression| expression.text)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FoldedNumericType {
+    Int,
+    Float,
+}
+
+struct FoldedNumericExpression {
+    text: String,
+    ty: FoldedNumericType,
+    contains_remainder: bool,
+}
+
+fn folded_remainder_numeric_expression(
+    marked: &str,
+    folded: &str,
+) -> Option<FoldedNumericExpression> {
+    let marked = strip_balanced_outer_parens(marked.trim());
+    let folded = strip_balanced_outer_parens(folded.trim());
+
+    for operators in [
+        &["|"][..],
+        &["^"][..],
+        &["&"][..],
+        &[">>>", ">>", "<<"][..],
+        &["+", "-"][..],
+        &["*", "/", "%"][..],
+    ] {
+        let Some((marked_left, operator, marked_right)) =
+            split_top_level_operator_group(marked, operators)
+        else {
+            continue;
+        };
+        let Some((folded_left, folded_operator, folded_right)) =
+            split_top_level_operator_group(folded, operators)
+        else {
+            break;
+        };
+        if operator != folded_operator {
+            return None;
+        }
+        let left = folded_remainder_numeric_expression(marked_left, folded_left)?;
+        let right = folded_remainder_numeric_expression(marked_right, folded_right)?;
+        let contains_remainder = left.contains_remainder || right.contains_remainder;
+        let ty = if matches!(operator, "|" | "^" | "&" | ">>>" | ">>" | "<<" | "%") {
+            FoldedNumericType::Int
+        } else if left.ty == FoldedNumericType::Float || right.ty == FoldedNumericType::Float {
+            FoldedNumericType::Float
+        } else {
+            FoldedNumericType::Int
+        };
+        let text = format!("({} {operator} {})", left.text, right.text);
+        let text = if ty == FoldedNumericType::Int && contains_remainder {
+            static_integer_expression(&text)?.to_string()
+        } else {
+            text
+        };
+        return Some(FoldedNumericExpression {
+            text,
+            ty,
+            contains_remainder,
+        });
+    }
+
+    for prefix in ["-", "~"] {
+        let (Some(marked_inner), Some(folded_inner)) =
+            (marked.strip_prefix(prefix), folded.strip_prefix(prefix))
+        else {
+            continue;
+        };
+        let inner = folded_remainder_numeric_expression(marked_inner, folded_inner)?;
+        let ty = if prefix == "~" {
+            FoldedNumericType::Int
+        } else {
+            inner.ty
+        };
+        let text = format!("{prefix}({})", inner.text);
+        let text = if ty == FoldedNumericType::Int && inner.contains_remainder {
+            static_integer_expression(&text)?.to_string()
+        } else {
+            text
+        };
+        return Some(FoldedNumericExpression {
+            text,
+            ty,
+            contains_remainder: inner.contains_remainder,
+        });
+    }
+
+    if marked.contains('%') {
+        return Some(FoldedNumericExpression {
+            text: static_integer_expression(folded)?.to_string(),
+            ty: FoldedNumericType::Int,
+            contains_remainder: true,
+        });
+    }
+
+    let ty = if is_float_literal(marked) {
+        FoldedNumericType::Float
+    } else {
+        static_integer_expression(marked)?;
+        FoldedNumericType::Int
+    };
+    Some(FoldedNumericExpression {
+        text: folded.to_string(),
+        ty,
+        contains_remainder: false,
+    })
 }
 
 fn predicate_with_folded_remainder_chains(

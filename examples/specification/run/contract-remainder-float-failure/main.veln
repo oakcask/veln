@@ -1,0 +1,10 @@
+# A Float operation around a folded Int remainder remains runtime-checked.
+fn checked() -> Int
+require (5 % 2) / 2.0 == 0
+	0
+end
+
+pub fn main() -> ()
+	checked()
+	()
+end

@@ -151,7 +151,7 @@ The classifier combines these rule classes:
 | --- | --- |
 | Literal values | Boolean and string equality/disequality; numeric equality, disequality, and ordering. Parentheses do not change the result. |
 | Exact arithmetic | Literal `+`, `-`, `*`, `/`, bitwise, and shift expressions in comparison-only positions. Decimal and rational comparisons use exact values; shift counts outside `0..63` are not folded as valid operations. |
-| Integer remainder | A literal-only `%` subexpression is folded when both signed 64-bit operands are known and the divisor is nonzero. A complete literal arithmetic side that contains a remainder uses runtime `Int` behavior, including truncating division and wrapping arithmetic. Boolean branches and the two sides of a comparison remain independent expressions. Remainder uses the runtime signed result, including `0` for minimum `Int` remainder by `-1`. A nonliteral remainder subexpression remains `runtime_required`. |
+| Integer remainder | A literal-only `%` subexpression is folded when both signed 64-bit operands are known and the divisor is nonzero. The `%` node and an ancestor arithmetic node whose normal operand types select `Int` use runtime `Int` behavior, including truncating division and wrapping arithmetic. A surrounding ordinary arithmetic node follows its normal inferred type, so a `Float` operand selects `Float` for that node without widening either remainder operand. Boolean branches and the two sides of a comparison remain independent expressions. Remainder uses the runtime signed result, including `0` for minimum `Int` remainder by `-1`. A nonliteral remainder subexpression remains `runtime_required`. |
 | Boolean identities | Literal folding, `not`, complementary predicates, boolean equality/disequality, same-shape comparisons, and tautological `and`/`or` forms. Whitespace, redundant atom parentheses, and commuted ordering are normalized where the rule says so. |
 | Truth tables | Truth-table evaluation is bounded at 13 unknown predicates after folding and is skipped for 512 or more top-level disjuncts. Partial case-split search is bounded at 10 predicates; a separate exhaustive disjunction rule handles 7–11 predicates. Other specialized rules may still prove larger formulas. |
 | Order reasoning | Complementary equality/order pairs, trichotomy, inclusive totality, strict splits from disequality, and transitive implications over `<`, `<=`, `==`, and their commuted forms. Non-strict paths can prove equality; strict paths do not. |
@@ -195,9 +195,11 @@ not (value > 10 and value < 5)
 Same-shape expressions such as `value + 1 == value + 1` are proven after
 normalization. Literal aliases and commuted forms participate only where the
 corresponding comparison rule applies; arbitrary equivalent expressions do not
-become proven. Static classification does not reinterpret integer division in a
-remainder-containing arithmetic expression as exact rational division. False
-literal predicates such as `1 % 2 / 2 == 0.5` and
+become proven. Static classification does not reinterpret an `Int` division
+node in a remainder-containing arithmetic expression as exact rational
+division. An outer arithmetic node with a `Float` operand keeps its normal
+`Float` type after the remainder is folded. False literal predicates such as
+`1 % 2 / 2 == 0.5`, `(5 % 2) / 2.0 == 0`, and
 `(5 % 2) + (1 / 2) == 1.5` remain `runtime_required`, because the classifier
 does not reject statically false contracts. A valid predicate
 outside these classes also remains `runtime_required`.
