@@ -678,20 +678,24 @@ case covers transitive singleton, union, and generic aliases together with
 mutual assignment, inference, finite joins, and complete-domain joins. An
 unknown variant, invalid base arity, or union of different resolved ADTs is an
 invalid type annotation; it does not become an assignable `unknown` contract.
-If a structurally valid refinement base resolves uniquely to a source type
-declaration with no finite ADT variants, the checker rejects the annotation
-with `type.variant_refinement_base` and reason `not_adt`. A base with invalid
-generic arity retains the existing `type.invalid_annotation` failure instead. The
+If a structurally valid refinement base resolves uniquely but cannot provide a
+finite ADT variant set, the checker rejects the annotation with
+`type.variant_refinement_base`. The reason is `not_adt` for a source declaration
+without variants or a source-less non-ADT type published by the type-syntax
+provider. The reason is `opaque` for a compiler-known type that intentionally
+hides its variants. A base with invalid generic arity retains the existing
+`type.invalid_annotation` failure instead. The
 same eligibility rule applies recursively to parameters, results, locals, ADT
 payloads, effect and handler annotations, schema fields, and explicit call type
 arguments. A uniquely recovered invalid-cased base retains its identity and is
 checked independently; recovery is not attempted when more than one base could
 match. Any such invalid annotation prevents the containing declaration from
-being published as usable typed state. The resolved base declaration remains
+being published as usable typed state. A resolved source declaration remains
 available to definition, reference, and rename navigation, but the invalid
-final variant does not receive an identity. The
+final variant does not receive an identity. A source-less base retains its
+semantic identity without acquiring a source navigation target. The
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
-closed details, related declaration context, and downstream suppression;
+closed details, related declaration or provider context, and downstream suppression;
 the checked
 [`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
 and

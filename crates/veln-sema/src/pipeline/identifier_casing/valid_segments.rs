@@ -210,7 +210,7 @@ fn collect_type_path_segments(
             let base_index = path.segments.len() - 2;
             let retained_declaration = environment
                 .recovered_variant_refinement_base_failure(&path.segments, current_module)
-                .map(|failure| failure.declaration_span);
+                .and_then(|failure| failure.declaration_span);
             for (index, (segment, span)) in
                 path.segments.iter().zip(&path.segment_spans).enumerate()
             {
@@ -341,7 +341,7 @@ fn collect_variant_refinement_segments(
                     current_module,
                 ) {
                     let base_segment = first_segment + segments.len() - 2;
-                    output[base_segment].resolved_declaration_span = Some(failure.declaration_span);
+                    output[base_segment].resolved_declaration_span = failure.declaration_span;
                 }
             }
             for argument in &alternative.type_arguments {

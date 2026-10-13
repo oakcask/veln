@@ -354,8 +354,13 @@ fn base_diagnostic(
     span: SourceSpan,
     failure: VariantRefinementBaseFailure,
 ) -> Diagnostic {
-    debug_assert_eq!(failure.reason, "not_adt");
-    let message = format!("variant-refinement base `{written_type}` is not a finite ADT");
+    let message = match failure.reason {
+        "not_adt" => format!("variant-refinement base `{written_type}` is not a finite ADT"),
+        "opaque" => {
+            format!("variant-refinement base `{written_type}` is opaque at this annotation")
+        }
+        _ => unreachable!("closed provider-independent base reason"),
+    };
     let mut diagnostic = Diagnostic::new(
         "type.variant_refinement_base",
         Severity::Error,
@@ -367,15 +372,21 @@ fn base_diagnostic(
             ("reason", JsonValue::string(failure.reason)),
         ]),
     );
-    diagnostic.related.push(JsonValue::object([
-        ("kind", JsonValue::string("base_type_declaration")),
+    let mut related = vec![
+        ("kind", JsonValue::string(failure.related_kind)),
         ("message", JsonValue::string(failure.related_message)),
         (
             "resolved_identity",
             JsonValue::string(failure.resolved_identity),
         ),
-        ("span", span_json(&failure.declaration_span)),
-    ]));
+    ];
+    if let Some(provider) = failure.provider {
+        related.push(("provider", JsonValue::string(provider)));
+    }
+    if let Some(declaration_span) = failure.declaration_span {
+        related.push(("span", span_json(&declaration_span)));
+    }
+    diagnostic.related.push(JsonValue::object(related));
     diagnostic
 }
 

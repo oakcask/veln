@@ -25,7 +25,7 @@ also states it.
   [network-compatibility-removal.md](network-compatibility-removal.md).
 - Remaining ADT variant-refinement support for alias visibility, qualified
   immutable values after a separate source-surface
-  prerequisite, the `opaque` base diagnostic, schema boundaries,
+  prerequisite, schema boundaries,
   package-documentation catalog signatures,
   remaining LSP diagnostics and invalid-refinement recovery, and remaining MCP
   diagnostics, invalid-refinement recovery, package-signature, and saved-state

@@ -20,6 +20,14 @@ fn base_failure(value: Empty::Missing) -> ()
 	()
 end
 
+fn source_less(value: Int::Missing) -> ()
+	()
+end
+
+fn opaque(value: NetStream::Missing) -> ()
+	()
+end
+
 fn arity_precedence(value: GenericEmpty<Int, String>::Missing) -> ()
 	()
 end

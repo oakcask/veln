@@ -195,26 +195,76 @@ fn merge_variant_refinement_base_diagnostics(
             )
         })
     });
-    for diagnostic in base_diagnostics {
-        let Some(span) = diagnostic.span.as_ref() else {
-            diagnostics.push(diagnostic);
-            continue;
-        };
-        let insertion = diagnostics.iter().position(|existing| {
-            existing.span.as_ref().is_some_and(|existing_span| {
-                existing_span.file == span.file
-                    && (existing_span.start.offset >= span.end.offset
-                        || (existing.id == "type.invalid_annotation"
-                            && existing_span.start.offset == span.start.offset
-                            && existing_span.end.offset >= span.end.offset))
-            })
-        });
-        if let Some(insertion) = insertion {
-            diagnostics.insert(insertion, diagnostic);
-        } else {
-            diagnostics.push(diagnostic);
+    let mut bases_by_file = std::collections::HashMap::<_, (Vec<usize>, usize)>::new();
+    for (index, diagnostic) in base_diagnostics.iter().enumerate() {
+        if let Some(span) = diagnostic.span.as_ref() {
+            bases_by_file
+                .entry(span.file.clone())
+                .or_default()
+                .0
+                .push(index);
         }
     }
+    let mut bases = base_diagnostics.into_iter().map(Some).collect::<Vec<_>>();
+    let existing = std::mem::take(diagnostics);
+    diagnostics.reserve(existing.len() + bases.len());
+    for existing_diagnostic in existing {
+        let mut matching_bases = existing_diagnostic
+            .span
+            .as_ref()
+            .and_then(|span| bases_by_file.get_mut(&span.file));
+        while matching_bases.as_ref().is_some_and(|(indices, cursor)| {
+            let Some(index) = indices.get(*cursor) else {
+                return false;
+            };
+            record_variant_refinement_base_merge_comparison();
+            base_precedes_existing(
+                bases[*index].as_ref().expect("pending base diagnostic"),
+                &existing_diagnostic,
+            )
+        }) {
+            let (indices, cursor) = matching_bases.as_mut().expect("matched base file");
+            let index = indices[*cursor];
+            *cursor += 1;
+            diagnostics.push(bases[index].take().expect("pending base diagnostic"));
+        }
+        diagnostics.push(existing_diagnostic);
+    }
+    diagnostics.extend(bases.into_iter().flatten());
+}
+
+fn base_precedes_existing(base: &Diagnostic, existing: &Diagnostic) -> bool {
+    let (Some(span), Some(existing_span)) = (base.span.as_ref(), existing.span.as_ref()) else {
+        return false;
+    };
+    existing_span.file == span.file
+        && (existing_span.start.offset >= span.end.offset
+            || (existing.id == "type.invalid_annotation"
+                && existing_span.start.offset == span.start.offset
+                && existing_span.end.offset >= span.end.offset))
+}
+
+#[cfg(test)]
+thread_local! {
+    static VARIANT_REFINEMENT_BASE_MERGE_COMPARISONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_variant_refinement_base_merge_comparison() {
+    VARIANT_REFINEMENT_BASE_MERGE_COMPARISONS.with(|work| work.set(work.get() + 1));
+}
+
+#[cfg(not(test))]
+fn record_variant_refinement_base_merge_comparison() {}
+
+#[cfg(test)]
+pub(crate) fn reset_variant_refinement_base_merge_comparisons() {
+    VARIANT_REFINEMENT_BASE_MERGE_COMPARISONS.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_variant_refinement_base_merge_comparisons() -> usize {
+    VARIANT_REFINEMENT_BASE_MERGE_COMPARISONS.with(|work| work.replace(0))
 }
 
 fn check_module_declarations(

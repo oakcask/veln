@@ -271,6 +271,34 @@ fn non_adt_base_reports_declaration_and_preserves_arity_precedence() {
 }
 
 #[test]
+fn source_less_non_adt_and_opaque_bases_report_closed_provenance() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn scalar(value: Int::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn stream(value: NetStream::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let base = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert_eq!(base.len(), 2, "{diagnostics:#?}");
+    assert!(base[0].contains("\"details\":{\"written_type\":\"Int\",\"reason\":\"not_adt\"}"));
+    assert!(base[0].contains("\"kind\":\"base_type_origin\""));
+    assert!(base[0].contains("\"resolved_identity\":\"Int\""));
+    assert!(base[0].contains("\"provider\":\"type_syntax\"}]"));
+    assert!(base[1].contains("\"details\":{\"written_type\":\"NetStream\",\"reason\":\"opaque\"}"));
+    assert!(base[1].contains("\"kind\":\"base_type_origin\""));
+    assert!(base[1].contains("\"resolved_identity\":\"NetStream\""));
+    assert!(base[1].contains("\"provider\":\"adt\"}]"));
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+}
+
+#[test]
 fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",
@@ -415,6 +443,39 @@ fn base_failures_are_merged_at_their_annotation_positions() {
             ("type.variant_refinement_base", 14),
         ],
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn base_diagnostic_merge_work_is_linear_for_many_recovered_annotations() {
+    let measurements = [128, 256, 512].map(|count| {
+        let mut source = String::from("type Empty\nend\n");
+        for index in 0..count {
+            source.push_str(&format!(
+                "fn invalid_{index}(value: empty::Missing) -> ()\n  ()\nend\n"
+            ));
+        }
+        crate::pipeline::reset_variant_refinement_base_merge_comparisons();
+        let diagnostics = diagnostics_for(&source);
+        let comparisons = crate::pipeline::take_variant_refinement_base_merge_comparisons();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+                .count(),
+            count
+        );
+        assert!(
+            comparisons <= count * 2 + 1,
+            "count={count} work={comparisons}"
+        );
+        eprintln!("variant refinement base merge: annotations={count} comparisons={comparisons}");
+        comparisons
+    });
+    assert!(
+        measurements
+            .windows(2)
+            .all(|pair| pair[1] <= pair[0] * 2 + 2)
     );
 }
 
@@ -646,7 +707,7 @@ fn non_unique_invalid_case_recovery_does_not_select_a_base() {
 }
 
 #[test]
-fn ambiguous_exact_and_builtin_colliding_bases_do_not_report_eligibility() {
+fn ambiguous_exact_and_builtin_colliding_bases_suppress_only_unresolved_eligibility() {
     let diagnostics = diagnostics_for(concat!(
         "type Empty\n",
         "end\n",
@@ -667,11 +728,16 @@ fn ambiguous_exact_and_builtin_colliding_bases_do_not_report_eligibility() {
         "end\n",
     ));
 
+    let base_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+        .collect::<Vec<_>>();
+    assert_eq!(base_diagnostics.len(), 1, "{diagnostics:#?}");
     assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "type.variant_refinement_base"),
-        "{diagnostics:#?}"
+        base_diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"reason\":\"opaque\"")
     );
 }
 

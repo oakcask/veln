@@ -74,7 +74,9 @@ pub(crate) struct TypeEnvironment {
 pub(crate) struct VariantRefinementBaseFailure {
     pub(crate) reason: &'static str,
     pub(crate) resolved_identity: String,
-    pub(crate) declaration_span: SourceSpan,
+    pub(crate) declaration_span: Option<SourceSpan>,
+    pub(crate) related_kind: &'static str,
+    pub(crate) provider: Option<&'static str>,
     pub(crate) related_message: String,
 }
 
@@ -338,24 +340,88 @@ impl TypeEnvironment {
             current_module,
             &self.uses,
         ) {
-            if descriptor.type_parameters.len() != args_len
-                || descriptor.refinement_availability
-                    != crate::adt::descriptors::VariantRefinementAvailability::Unavailable
-            {
+            if descriptor.type_parameters.len() != args_len {
                 return None;
             }
-            let declaration_span = self.adts.declaration_span(descriptor).cloned()?;
-            return Some(VariantRefinementBaseFailure {
-                reason: "not_adt",
-                resolved_identity: descriptor.identity(),
-                declaration_span,
-                related_message: format!(
-                    "Type `{}` is declared here without finite ADT variants.",
-                    descriptor.type_name
-                ),
-            });
+            return match descriptor.refinement_availability {
+                crate::adt::descriptors::VariantRefinementAvailability::Finite => None,
+                crate::adt::descriptors::VariantRefinementAvailability::Unavailable => {
+                    let declaration_span = self.adts.declaration_span(descriptor).cloned()?;
+                    Some(VariantRefinementBaseFailure {
+                        reason: "not_adt",
+                        resolved_identity: descriptor.identity(),
+                        declaration_span: Some(declaration_span),
+                        related_kind: "base_type_declaration",
+                        provider: None,
+                        related_message: format!(
+                            "Type `{}` is declared here without finite ADT variants.",
+                            descriptor.type_name
+                        ),
+                    })
+                }
+                crate::adt::descriptors::VariantRefinementAvailability::Opaque => {
+                    Some(VariantRefinementBaseFailure {
+                        reason: "opaque",
+                        resolved_identity: descriptor.identity(),
+                        declaration_span: None,
+                        related_kind: "base_type_origin",
+                        provider: Some("adt"),
+                        related_message: format!(
+                            "Type `{}` is provided as opaque and does not expose variant identities.",
+                            descriptor.type_name
+                        ),
+                    })
+                }
+            };
         }
-        None
+
+        let resolved = self
+            .resolved_source_less_non_adt_base(base, args_len, current_module)
+            .or_else(|| {
+                recovered_base.as_deref().and_then(|candidate| {
+                    self.resolved_source_less_non_adt_base(candidate, args_len, current_module)
+                })
+            })?;
+        let Type::Named { name, identity, .. } = resolved else {
+            return None;
+        };
+        Some(VariantRefinementBaseFailure {
+            reason: "not_adt",
+            resolved_identity: identity,
+            declaration_span: None,
+            related_kind: "base_type_origin",
+            provider: Some("type_syntax"),
+            related_message: format!(
+                "Type `{name}` resolves through the `type_syntax` provider without finite ADT variants."
+            ),
+        })
+    }
+
+    fn resolved_source_less_non_adt_base(
+        &self,
+        base: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+    ) -> Option<Type> {
+        if self
+            .adts
+            .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+            .is_some()
+        {
+            return None;
+        }
+        let published = crate::source_less_lookup::with_builtin_type_syntax_registry(|registry| {
+            registry.arity(base) == Some(args_len)
+        })
+        .unwrap_or(false);
+        if !published {
+            return None;
+        }
+        let resolved = self.canonicalize_type_annotation(
+            Type::named(base, vec![Type::Unknown; args_len]),
+            current_module,
+        );
+        matches!(resolved, Type::Named { .. }).then_some(resolved)
     }
 
     pub(crate) fn non_adt_refinement_base_resolves(

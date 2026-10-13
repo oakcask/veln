@@ -119,18 +119,23 @@ recovery retains the surrounding declaration and lossless source tree. This
 diagnostic does not assert that a structurally valid base or final name resolves
 semantically.
 
-A structurally valid refinement whose base resolves uniquely to a source type
-declaration with no finite ADT variants reports
-`type.variant_refinement_base`. The primary span is the written base path and
-excludes its type arguments, `::`, and final variant segment. Its closed
-details contain only `written_type` and `reason`, whose value is `not_adt`.
+A structurally valid refinement whose base resolves uniquely but cannot expose
+a finite ADT variant set reports `type.variant_refinement_base`. The primary
+span is the written base path and excludes its type arguments, `::`, and final
+variant segment. Its closed details contain only `written_type` and `reason`.
 `written_type` preserves the source spelling of the base and recursively
 reconstructs its type arguments, including refinements nested in generic,
 record, and function positions.
-A related `base_type_declaration` entry contains the resolved base identity and
-the source declaration span. The base identity remains available to definition,
-reference, and rename navigation, while the invalid final variant has no
-navigation identity. The failed occurrence does not emit variant, union,
+
+| `reason` | Failed fact | Related context |
+| --- | --- | --- |
+| `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with `resolved_identity` and its declaration span. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
+| `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
+
+A source-backed failed base identity remains available to definition, reference,
+and rename navigation, while its invalid final variant has no navigation
+identity. A source-less failed base retains its semantic identity but has no
+manufactured source target. The failed occurrence does not emit variant, union,
 visibility, or assignability diagnostics that require a refinable base.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
@@ -152,18 +157,20 @@ derivative assignability diagnostics.
 Lowercase prospective bases remain ordinary named-type source text. If changing
 only that base leaf to the required case identifies exactly one type, the
 checker reports `name.invalid_case`, retains that identity, and performs the
-independent eligibility check. A source type declaration with no variants
-therefore also reports `type.variant_refinement_base`; a refinable ADT continues
-to final-segment checking without an eligibility failure. If recovery does not
-identify exactly one base, the checker does not manufacture an eligibility
-diagnostic or retained identity. When casing and eligibility use the same base
-span, the casing diagnostic precedes the eligibility diagnostic.
+independent eligibility check. A source type declaration with no variants, a
+source-less non-ADT type, or a compiler-known opaque type therefore also reports
+`type.variant_refinement_base`; a refinable ADT continues to final-segment
+checking without an eligibility failure. If recovery does not identify exactly
+one base, the checker does not manufacture an eligibility diagnostic or
+retained identity. When casing and eligibility use the same base span, the
+casing diagnostic precedes the eligibility diagnostic.
 The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
-cases cover declaration annotations and explicit call arguments, related
-declaration context, recovered-casing overlap, occurrence-scoped downstream
+cases cover source-backed, source-less, and opaque bases in declaration
+annotations and explicit call arguments, related provenance, recovered-casing
+overlap, occurrence-scoped downstream
 suppression, declaration quarantine, casing-before-eligibility precedence at a
 shared span, and arity precedence.
 

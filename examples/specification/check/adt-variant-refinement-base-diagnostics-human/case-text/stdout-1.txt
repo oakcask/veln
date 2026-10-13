@@ -5,10 +5,14 @@ main.veln:15:25: error[type.variant_refinement_base]: variant-refinement base `e
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
 main.veln:19:24: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:23:21: error[type.invalid_annotation]: invalid type annotation `GenericEmpty<Int, String>::Missing`: `GenericEmpty` expects 1 type argument(s), found 2
-main.veln:31:29: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+main.veln:23:23: error[type.variant_refinement_base]: variant-refinement base `Int` is not a finite ADT
+  note: Type `Int` resolves through the `type_syntax` provider without finite ADT variants.
+main.veln:27:18: error[type.variant_refinement_base]: variant-refinement base `NetStream` is opaque at this annotation
+  note: Type `NetStream` is provided as opaque and does not expose variant identities.
+main.veln:31:21: error[type.invalid_annotation]: invalid type annotation `GenericEmpty<Int, String>::Missing`: `GenericEmpty` expects 1 type argument(s), found 2
+main.veln:39:29: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:35:24: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+main.veln:43:24: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:40:30: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+main.veln:48:30: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
