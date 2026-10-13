@@ -694,6 +694,75 @@
     }
 
     #[test]
+    fn recovered_non_adt_refinement_base_keeps_shared_navigation_identity() {
+        let text = concat!(
+            "type Empty\n",
+            "end\n\n",
+            "fn invalid(value: empty::Missing) -> Int\n",
+            "  0\n",
+            "end\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
+        let base = || SourcePosition {
+            source: SourcePath::new("main.veln"),
+            line: 4,
+            column: 19,
+        };
+        let final_segment = || SourcePosition {
+            source: SourcePath::new("main.veln"),
+            line: 4,
+            column: 26,
+        };
+
+        let definition = definition_at(&snapshot, base()).unwrap();
+        assert_location(&definition, "main.veln", 1, 6);
+        let navigation = navigate(&snapshot, base()).unwrap();
+        assert_eq!(navigation.selected_symbol.name, "Empty");
+        assert_eq!(locations(&navigation.references), [("main.veln", 4, 19)]);
+        let rename = navigate_for_rename(&snapshot, base()).unwrap();
+        assert_eq!(rename.selected_symbol.name, "Empty");
+        assert!(validate_rename_in_snapshot(&snapshot, &rename, "Vacant").is_ok());
+
+        assert!(definition_at(&snapshot, final_segment()).is_none());
+        assert!(navigate(&snapshot, final_segment()).is_none());
+        assert!(navigate_for_rename(&snapshot, final_segment()).is_none());
+    }
+
+    #[test]
+    fn package_non_adt_refinement_base_keeps_source_identity() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[("shared.veln", "pub type Empty\nend\n")],
+            ["shared.veln"],
+        );
+        let text = concat!(
+            "use shared from \"example/pkg\"\n\n",
+            "fn invalid(value: shared::Empty::Missing) -> Int\n",
+            "  0\n",
+            "end\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("main.veln", text)],
+            vec![dependency],
+        );
+        let base = || SourcePosition {
+            source: SourcePath::new("main.veln"),
+            line: 3,
+            column: 27,
+        };
+
+        let definition = definition_at(&snapshot, base()).unwrap();
+        assert_package_location(&definition, "shared.veln", 1, 10);
+        let navigation = navigate(&snapshot, base()).unwrap();
+        assert_eq!(navigation.selected_symbol.name, "Empty");
+        assert_eq!(
+            navigation.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(locations(&navigation.references), [("main.veln", 3, 27)]);
+    }
+
+    #[test]
     fn variant_refinement_navigation_requires_exact_terminal_adt_arity() {
         let text = concat!(
             "pub type Box<A>\n",

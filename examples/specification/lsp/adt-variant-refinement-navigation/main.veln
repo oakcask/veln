@@ -40,6 +40,6 @@ end
 pub type Empty
 end
 
-fn invalid_empty(value: Empty::Missing) -> Int
+fn invalid_empty(value: empty::Missing) -> Int
 	0
 end

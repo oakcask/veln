@@ -190,6 +190,7 @@ repair guidance belong in `related` notes rather than the primary message.
 
 | Code | Primary span and failed fact | Stable structured details | Planned related context |
 | --- | --- | --- | --- |
+| `type.variant_refinement_base` | The written base resolves uniquely, but it is opaque or its selected production provider has no public finite variant descriptor. | `written_type`; `reason`, closed to `opaque` and `variant_descriptor_unavailable` for the remaining work | The resolved declaration for `opaque`; the selected provider and its provenance for `variant_descriptor_unavailable`. |
 | `type.variant_refinement_unknown` | The final segment does not name a variant owned by the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
 | `type.variant_refinement_private` | A refinement exposes a private base type or selects an inaccessible variant. | `written_type`, `base_type`, `variant`, `boundary`, `exposure_path` | The alias declarations on the exposure path, the final private declaration, and the public-signature boundary. |
 | `type.variant_union_base` | A union alternative resolves to a different ADT identity or generic arguments. | `expected_base_type`, `actual_base_type` | The first alternative that established the required union base. |

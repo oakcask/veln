@@ -1,0 +1,2 @@
+[dependencies."example/dep"]
+path = "vendor/dep"

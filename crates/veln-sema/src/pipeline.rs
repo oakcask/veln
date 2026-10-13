@@ -174,7 +174,47 @@ fn analyze_surface_module_with_environment(
         ));
     }
 
+    merge_variant_refinement_base_diagnostics(
+        &mut diagnostics,
+        check_variant_refinement_bases(module, environment),
+    );
+
     diagnostics
+}
+
+fn merge_variant_refinement_base_diagnostics(
+    diagnostics: &mut Vec<Diagnostic>,
+    mut base_diagnostics: Vec<Diagnostic>,
+) {
+    base_diagnostics.sort_by_key(|diagnostic| {
+        diagnostic.span.as_ref().map(|span| {
+            (
+                span.file.as_str().to_string(),
+                span.start.offset,
+                span.end.offset,
+            )
+        })
+    });
+    for diagnostic in base_diagnostics {
+        let Some(span) = diagnostic.span.as_ref() else {
+            diagnostics.push(diagnostic);
+            continue;
+        };
+        let insertion = diagnostics.iter().position(|existing| {
+            existing.span.as_ref().is_some_and(|existing_span| {
+                existing_span.file == span.file
+                    && (existing_span.start.offset >= span.end.offset
+                        || (existing.id == "type.invalid_annotation"
+                            && existing_span.start.offset == span.start.offset
+                            && existing_span.end.offset >= span.end.offset))
+            })
+        });
+        if let Some(insertion) = insertion {
+            diagnostics.insert(insertion, diagnostic);
+        } else {
+            diagnostics.push(diagnostic);
+        }
+    }
 }
 
 fn check_module_declarations(
@@ -184,7 +224,6 @@ fn check_module_declarations(
     let mut diagnostics = Vec::new();
 
     diagnostics.extend(check_invalid_name_casing(module, environment));
-    diagnostics.extend(check_variant_refinement_bases(module, environment));
     diagnostics.extend(check_duplicate_function_names(module));
     diagnostics.extend(check_duplicate_type_names(module));
     diagnostics.extend(check_duplicate_effect_names(module));

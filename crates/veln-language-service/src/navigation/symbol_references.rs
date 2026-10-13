@@ -704,8 +704,38 @@ impl SymbolIndex {
                             .then_some(span)
                     })
                     .collect::<Vec<_>>();
+                spans.extend(self.recovered_variant_refinement_type_references(file, symbol));
                 spans.extend(self.constructor_type_qualifier_references(file, tokens, symbol));
                 spans
+            })
+            .collect()
+    }
+
+    fn recovered_variant_refinement_type_references(
+        &self,
+        file: &IndexedFile,
+        symbol: &TypeSymbol,
+    ) -> Vec<SourceSpan> {
+        file.variant_refinement_final_range_by_base_range
+            .iter()
+            .filter_map(|(base_range, final_range)| {
+                let token_index = file
+                    .tokens
+                    .binary_search_by_key(&base_range.0, |token| token.range.start)
+                    .ok()?;
+                let token = &file.tokens[token_index];
+                if token.range.end != base_range.1 || token.text == symbol.name {
+                    return None;
+                }
+                self.variant_refinement_base_identity_for_final_range(file, final_range)
+                    .is_some_and(|base| {
+                        matches!(
+                            &base,
+                            VariantRefinementBaseSymbol::Type(candidate)
+                                if same_type(candidate, symbol)
+                        )
+                    })
+                    .then(|| file.source.span(token.range))
             })
             .collect()
     }

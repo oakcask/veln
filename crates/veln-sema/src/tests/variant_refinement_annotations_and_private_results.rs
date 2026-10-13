@@ -358,15 +358,64 @@ fn explicit_call_type_arguments_keep_casing_before_eligibility_at_shared_span() 
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
         [
-            "name.invalid_case",
             "type.variant_refinement_base",
+            "name.invalid_case",
             "type.variant_refinement_base",
         ]
     );
-    assert_eq!(relevant[0].span, relevant[2].span);
+    assert_eq!(relevant[1].span, relevant[2].span);
     let recovered = veln_diagnostics::diagnostic_to_json(relevant[2]).to_json();
     assert!(recovered.contains("\"written_type\":\"empty\""));
     assert!(recovered.contains("\"resolved_identity\":\"Empty\""));
+}
+
+#[test]
+fn base_failures_are_merged_at_their_annotation_positions() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "type GenericEmpty<A>\n",
+        "end\n",
+        "fn first(value: Empty::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn recovered(value: empty::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn arity(value: GenericEmpty<Int, String>::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn later(value: Empty::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "name.invalid_case" | "type.variant_refinement_base" | "type.invalid_annotation"
+            )
+        })
+        .map(|diagnostic| {
+            (
+                diagnostic.id.as_str(),
+                diagnostic.span.as_ref().unwrap().start.line,
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        relevant,
+        [
+            ("type.variant_refinement_base", 5),
+            ("name.invalid_case", 8),
+            ("type.variant_refinement_base", 8),
+            ("type.invalid_annotation", 11),
+            ("type.variant_refinement_base", 14),
+        ],
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

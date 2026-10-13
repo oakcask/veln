@@ -308,19 +308,68 @@ fn attach_classified_path_segments(
         file.classified_paths.segments = segments_by_file
             .remove(file.source.path().as_str())
             .unwrap_or_default();
-        file.classified_paths.by_range = file
-            .classified_paths
-            .segments
-            .iter()
-            .map(|segment| {
-                (
-                    (segment.span.start.offset, segment.span.end.offset),
-                    segment.clone(),
-                )
-            })
-            .collect();
+        file.classified_paths.by_range.clear();
+        for segment in &file.classified_paths.segments {
+            let range = (segment.span.start.offset, segment.span.end.offset);
+            let replace = file
+                .classified_paths
+                .by_range
+                .get(&range)
+                .is_none_or(|existing| {
+                    existing.resolved_declaration_span.is_none()
+                        && segment.resolved_declaration_span.is_some()
+                });
+            if replace {
+                file.classified_paths.by_range.insert(range, segment.clone());
+            }
+        }
+        attach_recovered_variant_refinement_ranges(file);
     }
     attach_canonical_variant_refinement_type_arguments(files, project);
+}
+
+fn attach_recovered_variant_refinement_ranges(file: &mut IndexedFile) {
+    let retained_bases = file
+        .classified_paths
+        .segments
+        .iter()
+        .filter(|segment| {
+            segment.role == veln_ast::NameClass::Type
+                && segment.resolved_declaration_span.is_some()
+        })
+        .map(|segment| (segment.span.start.offset, segment.span.end.offset))
+        .collect::<Vec<_>>();
+    for base_range in retained_bases {
+        let Ok(base_index) = file
+            .tokens
+            .binary_search_by_key(&base_range.0, |token| token.range.start)
+        else {
+            continue;
+        };
+        let Some(final_index) = next_path_segment_index(&file.tokens, base_index) else {
+            continue;
+        };
+        let final_token = &file.tokens[final_index];
+        let final_range = (final_token.range.start, final_token.range.end);
+        if !file
+            .classified_paths
+            .by_range
+            .get(&final_range)
+            .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
+        {
+            continue;
+        }
+        file.variant_refinement_final_ranges.insert(final_range);
+        file.variant_refinement_final_range_by_base_range
+            .insert(base_range, final_range);
+        file.variant_refinement_type_argument_count_by_final_range
+            .insert(final_range, 0);
+        let group_index = file.variant_refinement_union_final_range_groups.len();
+        file.variant_refinement_union_final_range_groups
+            .push(vec![final_range]);
+        file.variant_refinement_union_group_index_by_final_range
+            .insert(final_range, group_index);
+    }
 }
 
 fn attach_canonical_variant_refinement_type_arguments(
