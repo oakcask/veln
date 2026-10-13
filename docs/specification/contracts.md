@@ -157,6 +157,20 @@ The classifier combines these rule classes:
 | Order reasoning | Complementary equality/order pairs, trichotomy, inclusive totality, strict splits from disequality, and transitive implications over `<`, `<=`, `==`, and their commuted forms. Non-strict paths can prove equality; strict paths do not. |
 | Literal bounds | Contradictory bounds prove a negated conjunction; covering lower/upper bounds prove a disjunction. Equality aliases may connect bounds. An inclusive bound does not prove a strict consequent. |
 
+Flat remainder-bearing conjunctions and disjunctions preserve these literal
+folding, precedence, and Boolean-identity rules when their width exceeds the
+generic truth-table cutoff. A valid flat composition with 4,097 clauses
+completes semantic classification without exhausting the analyzer stack. A
+literal-only composition is `statically_proven` when these rules establish
+that it is true. A false composition and a composition with an unresolved
+nonliteral remainder remain `runtime_required` unless another bounded rule
+proves the complete predicate.
+
+The bounded-work regression check classifies literal remainder conjunctions
+with 2,048 and 4,096 clauses. It requires exactly one literal-classification
+leaf visit per clause, so doubling the clause count doubles that measured
+classification work.
+
 Each independent flat remainder chain follows its source left associativity
 during classification. A literal-only chain folds each operation from left to
 right before the surrounding comparison and Boolean expression are classified.
