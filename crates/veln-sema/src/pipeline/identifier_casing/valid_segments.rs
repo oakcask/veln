@@ -296,13 +296,15 @@ fn collect_variant_refinement_segments(
                     .constructor(&segments, current_module, &environment.uses),
                 crate::adt::registry::ConstructorLookup::Found(_)
             ) {
-                push_constructor_path_segments(
-                    &segments,
-                    &spans,
-                    current_module,
-                    environment,
-                    output,
-                );
+                if refinement_is_valid {
+                    push_constructor_path_segments(
+                        &segments,
+                        &spans,
+                        current_module,
+                        environment,
+                        output,
+                    );
+                }
             } else if environment
                 .adts
                 .descriptor_for_type_path(
@@ -324,18 +326,7 @@ fn collect_variant_refinement_segments(
                 } else {
                     QualifiedPathSegmentEvidence::Resolved
                 };
-                for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
-                    let role = if index + 1 == segments.len() {
-                        NameClass::Constructor
-                    } else if index + 2 == segments.len() {
-                        NameClass::Type
-                    } else {
-                        NameClass::Module
-                    };
-                    output.push(qualified_path_segment_from_parts(
-                        segment, role, span, index, evidence,
-                    ));
-                }
+                push_variant_refinement_path_segments(&segments, &spans, evidence, output);
             }
             for argument in &alternative.type_arguments {
                 collect_type_path_segments(&argument.ty_paths, current_module, environment, output);
@@ -424,6 +415,26 @@ fn render_variant_refinement_type_argument(
         }
     }
     text
+}
+
+fn push_variant_refinement_path_segments(
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    evidence: QualifiedPathSegmentEvidence,
+    output: &mut Vec<QualifiedPathSegment>,
+) {
+    for (index, (segment, span)) in segments.iter().zip(segment_spans).enumerate() {
+        let role = if index + 1 == segments.len() {
+            NameClass::Constructor
+        } else if index + 2 == segments.len() {
+            NameClass::Type
+        } else {
+            NameClass::Module
+        };
+        output.push(qualified_path_segment_from_parts(
+            segment, role, span, index, evidence,
+        ));
+    }
 }
 
 fn collect_valid_segments_from_body_line(
