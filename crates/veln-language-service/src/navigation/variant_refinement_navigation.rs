@@ -169,6 +169,14 @@ impl SymbolIndex {
         }) {
             return false;
         }
+        if union_ranges.iter().all(|range| {
+            file.classified_paths.by_range.get(range).is_some_and(|segment| {
+                segment.role == NameClass::Constructor
+                    && segment.evidence == QualifiedPathSegmentEvidence::Resolved
+            })
+        }) {
+            return true;
+        }
         file.canonical_variant_refinement_type_arguments_by_final_range
             .get(first_range)
             .is_some_and(|first| {
@@ -187,8 +195,11 @@ impl SymbolIndex {
         final_range: &(usize, usize),
     ) -> Option<((usize, usize), VariantRefinementNavigationIdentity)> {
         let (variant_index, variant_token) = tokens_by_range.get(final_range).copied()?;
-        let semantically_valid =
-            file.token_has_classified_role(variant_token, NameClass::Constructor);
+        let classification = file
+            .classified_paths
+            .by_range
+            .get(&(variant_token.range.start, variant_token.range.end))
+            .filter(|segment| segment.role == NameClass::Constructor);
         let base_index = variant_refinement_base_index(&file.tokens, variant_index)?;
         let base_token = &file.tokens[base_index];
         let base = self.variant_refinement_base_symbol(
@@ -201,11 +212,17 @@ impl SymbolIndex {
             VariantRefinementBaseSymbol::Type(symbol) => symbol.clone(),
             VariantRefinementBaseSymbol::Alias(symbol) => self.terminal_type_for_alias(symbol)?,
         };
+        let has_canonical_arguments = file
+            .canonical_variant_refinement_type_arguments_by_final_range
+            .contains_key(final_range);
+        let semantically_valid = classification.is_some_and(|segment| match segment.evidence {
+            QualifiedPathSegmentEvidence::Resolved => true,
+            QualifiedPathSegmentEvidence::UniqueRecovery => has_canonical_arguments,
+            QualifiedPathSegmentEvidence::Syntax => false,
+        });
         if !semantically_valid
             && !(terminal.package.is_some()
-                && file
-                    .canonical_variant_refinement_type_arguments_by_final_range
-                    .contains_key(final_range))
+                && has_canonical_arguments)
         {
             return None;
         }
@@ -213,12 +230,6 @@ impl SymbolIndex {
             .variant_refinement_type_argument_count_by_final_range
             .get(final_range)?;
         if *written_generic_arity != terminal.generic_arity {
-            return None;
-        }
-        if !file
-            .canonical_variant_refinement_type_arguments_by_final_range
-            .contains_key(final_range)
-        {
             return None;
         }
         let constructor = self.unique_variant_refinement_constructor(file, &terminal, variant_token)?;

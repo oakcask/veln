@@ -110,7 +110,7 @@ fn navigation_classification_excludes_invalid_refinement_unions_without_losing_c
 }
 
 #[test]
-fn expression_type_argument_refinements_are_navigation_only() {
+fn expression_type_argument_refinements_share_casing_and_navigation_classification() {
     let module = named_module(
         "main",
         concat!(
@@ -121,11 +121,16 @@ fn expression_type_argument_refinements_are_navigation_only() {
     let environment = TypeEnvironment::from_module(&module);
 
     let casing_segments = classified_qualified_path_segments(&module, &environment);
-    assert!(
+    assert_eq!(
         casing_segments
             .iter()
-            .all(|segment| segment.span.start.line != 5),
-        "{casing_segments:#?}"
+            .filter(|segment| segment.span.start.line == 5)
+            .map(|segment| (segment.name.as_str(), segment.role))
+            .collect::<Vec<_>>(),
+        [
+            ("State", NameClass::Type),
+            ("Ready", NameClass::Constructor)
+        ]
     );
 
     let navigation_segments = classified_project_qualified_path_segments(&module);
