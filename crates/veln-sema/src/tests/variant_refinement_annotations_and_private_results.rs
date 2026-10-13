@@ -357,7 +357,7 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
 }
 
 #[test]
-fn explicit_call_type_arguments_keep_casing_before_eligibility_at_shared_span() {
+fn explicit_call_type_arguments_keep_casing_silent_while_checking_eligibility() {
     let diagnostics = diagnostics_for(concat!(
         "type Empty\n",
         "end\n",
@@ -379,7 +379,7 @@ fn explicit_call_type_arguments_keep_casing_before_eligibility_at_shared_span() 
             )
         })
         .collect::<Vec<_>>();
-    assert_eq!(relevant.len(), 3, "{diagnostics:#?}");
+    assert_eq!(relevant.len(), 2, "{diagnostics:#?}");
     assert_eq!(
         relevant
             .iter()
@@ -387,12 +387,10 @@ fn explicit_call_type_arguments_keep_casing_before_eligibility_at_shared_span() 
             .collect::<Vec<_>>(),
         [
             "type.variant_refinement_base",
-            "name.invalid_case",
-            "type.variant_refinement_base",
+            "type.variant_refinement_base"
         ]
     );
-    assert_eq!(relevant[1].span, relevant[2].span);
-    let recovered = veln_diagnostics::diagnostic_to_json(relevant[2]).to_json();
+    let recovered = veln_diagnostics::diagnostic_to_json(relevant[1]).to_json();
     assert!(recovered.contains("\"written_type\":\"empty\""));
     assert!(recovered.contains("\"resolved_identity\":\"Empty\""));
 }
@@ -447,7 +445,7 @@ fn base_failures_are_merged_at_their_annotation_positions() {
 }
 
 #[test]
-fn base_diagnostic_merge_work_is_linear_for_many_recovered_annotations() {
+fn many_independent_base_failures_have_linear_end_to_end_work() {
     let measurements = [128, 256, 512].map(|count| {
         let mut source = String::from("type Empty\nend\n");
         for index in 0..count {
@@ -455,9 +453,9 @@ fn base_diagnostic_merge_work_is_linear_for_many_recovered_annotations() {
                 "fn invalid_{index}(value: empty::Missing) -> ()\n  ()\nend\n"
             ));
         }
-        crate::pipeline::reset_variant_refinement_base_merge_comparisons();
+        crate::pipeline::reset_variant_refinement_base_work();
         let diagnostics = diagnostics_for(&source);
-        let comparisons = crate::pipeline::take_variant_refinement_base_merge_comparisons();
+        let work = crate::pipeline::take_variant_refinement_base_work();
         assert_eq!(
             diagnostics
                 .iter()
@@ -465,17 +463,15 @@ fn base_diagnostic_merge_work_is_linear_for_many_recovered_annotations() {
                 .count(),
             count
         );
-        assert!(
-            comparisons <= count * 2 + 1,
-            "count={count} work={comparisons}"
-        );
-        eprintln!("variant refinement base merge: annotations={count} comparisons={comparisons}");
-        comparisons
+        assert!(work <= count * 100 + 10_000, "count={count} work={work}");
+        eprintln!("variant refinement base pipeline: annotations={count} work={work}");
+        work
     });
+    let first_growth = measurements[1] - measurements[0];
+    let second_growth = measurements[2] - measurements[1];
     assert!(
-        measurements
-            .windows(2)
-            .all(|pair| pair[1] <= pair[0] * 2 + 2)
+        second_growth <= first_growth * 2 + 32,
+        "non-linear work: measurements={measurements:?}"
     );
 }
 

@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap};
 use std::sync::{Arc, OnceLock};
 
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
-use veln_ast::{InvalidName, NameClass, QualifiedPathSegment, QualifiedPathSegmentEvidence};
+use veln_ast::{InvalidName, NameClass, QualifiedPathSegment};
 use veln_project::classify_companion_source;
 use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{

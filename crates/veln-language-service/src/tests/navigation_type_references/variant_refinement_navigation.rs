@@ -654,9 +654,6 @@
             "\nfn direct_non_constructor(value: State::Helper) -> Int\n",
             "  0\n",
             "end\n",
-            "\nfn empty_base(value: Helper::Missing) -> Int\n",
-            "  0\n",
-            "end\n",
         );
         let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
         let position = |line: usize, needle: &str| SourcePosition {
@@ -683,83 +680,6 @@
             assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
             assert!(navigate_for_rename(&snapshot, position(line, needle)).is_some());
         }
-
-        let empty_base = navigate(&snapshot, position(46, "Helper::")).unwrap();
-        assert_eq!(empty_base.selected_symbol.kind, SymbolKind::Type);
-        assert_location(&empty_base.definition, "main.veln", 9, 6);
-        assert_eq!(empty_base.references.len(), 1);
-        assert!(navigate_for_rename(&snapshot, position(46, "Helper::")).is_some());
-        assert!(navigate(&snapshot, position(46, "Missing")).is_none());
-        assert!(navigate_for_rename(&snapshot, position(46, "Missing")).is_none());
-    }
-
-    #[test]
-    fn recovered_non_adt_refinement_base_keeps_shared_navigation_identity() {
-        let text = concat!(
-            "type Empty\n",
-            "end\n\n",
-            "fn invalid(value: empty::Missing) -> Int\n",
-            "  0\n",
-            "end\n",
-        );
-        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
-        let base = || SourcePosition {
-            source: SourcePath::new("main.veln"),
-            line: 4,
-            column: 19,
-        };
-        let final_segment = || SourcePosition {
-            source: SourcePath::new("main.veln"),
-            line: 4,
-            column: 26,
-        };
-
-        let definition = definition_at(&snapshot, base()).unwrap();
-        assert_location(&definition, "main.veln", 1, 6);
-        let navigation = navigate(&snapshot, base()).unwrap();
-        assert_eq!(navigation.selected_symbol.name, "Empty");
-        assert_eq!(locations(&navigation.references), [("main.veln", 4, 19)]);
-        let rename = navigate_for_rename(&snapshot, base()).unwrap();
-        assert_eq!(rename.selected_symbol.name, "Empty");
-        assert!(validate_rename_in_snapshot(&snapshot, &rename, "Vacant").is_ok());
-
-        assert!(definition_at(&snapshot, final_segment()).is_none());
-        assert!(navigate(&snapshot, final_segment()).is_none());
-        assert!(navigate_for_rename(&snapshot, final_segment()).is_none());
-    }
-
-    #[test]
-    fn package_non_adt_refinement_base_keeps_source_identity() {
-        let dependency = dependency_snapshot(
-            "example/pkg",
-            &[("shared.veln", "pub type Empty\nend\n")],
-            ["shared.veln"],
-        );
-        let text = concat!(
-            "use shared from \"example/pkg\"\n\n",
-            "fn invalid(value: shared::Empty::Missing) -> Int\n",
-            "  0\n",
-            "end\n",
-        );
-        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
-            vec![source("main.veln", text)],
-            vec![dependency],
-        );
-        let base = || SourcePosition {
-            source: SourcePath::new("main.veln"),
-            line: 3,
-            column: 27,
-        };
-
-        let definition = definition_at(&snapshot, base()).unwrap();
-        assert_package_location(&definition, "shared.veln", 1, 10);
-        let navigation = navigate(&snapshot, base()).unwrap();
-        assert_eq!(navigation.selected_symbol.name, "Empty");
-        assert_eq!(
-            navigation.selected_symbol.package_origin,
-            Some(PackageOrigin::DirectDependency)
-        );
-        assert_eq!(locations(&navigation.references), [("main.veln", 3, 27)]);
     }
 
     #[test]
@@ -879,18 +799,9 @@
             ("different_args", "Box<String>"),
             ("different_args", "Empty"),
         ] {
-            assert!(
-                definition_at(&snapshot, position(line_text, needle)).is_none(),
-                "{line_text} {needle}"
-            );
-            assert!(
-                navigate(&snapshot, position(line_text, needle)).is_none(),
-                "{line_text} {needle}"
-            );
-            assert!(
-                navigate_for_rename(&snapshot, position(line_text, needle)).is_none(),
-                "{line_text} {needle}"
-            );
+            assert!(definition_at(&snapshot, position(line_text, needle)).is_none());
+            assert!(navigate(&snapshot, position(line_text, needle)).is_none());
+            assert!(navigate_for_rename(&snapshot, position(line_text, needle)).is_none());
         }
 
         for needle in ["Box<PhaseAlias>", "Boxed", "Box<Phase>", "Empty"] {
@@ -1044,18 +955,9 @@
             ("alias_union", "GenericAlias<Missing>"),
         ] {
             for needle in [base, "Boxed"] {
-                assert!(
-                    definition_at(&snapshot, position(line_text, needle)).is_none(),
-                    "{line_text} {needle}"
-                );
-                assert!(
-                    navigate(&snapshot, position(line_text, needle)).is_none(),
-                    "{line_text} {needle}"
-                );
-                assert!(
-                    navigate_for_rename(&snapshot, position(line_text, needle)).is_none(),
-                    "{line_text} {needle}"
-                );
+                assert!(definition_at(&snapshot, position(line_text, needle)).is_none());
+                assert!(navigate(&snapshot, position(line_text, needle)).is_none());
+                assert!(navigate_for_rename(&snapshot, position(line_text, needle)).is_none());
             }
         }
         for (line_text, base) in [

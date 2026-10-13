@@ -283,22 +283,12 @@ When the same qualified module and type spelling is reachable through imports
 from multiple packages, the base is ambiguous. The direct base, an alias chain
 that depends on it, and their final variants expose no navigation identity,
 regardless of import order.
-The complete refinement must resolve before either segment is selectable,
-except for an eligible source-backed base that resolves uniquely but has no
-finite ADT variants. If that base has the declared generic-argument count, its
-written base retains the resolved declaration identity while the invalid final
-segment has no identity. Definition and references project that identity for a
-workspace declaration or an admitted public dependency declaration. Rename
-remains available only when the selected declaration and every edit are inside
-the editable workspace. This recovery applies to a direct base or a finite
-visible alias chain; private, non-exported, ambiguous, wrong-arity, and
-provider-only records remain unselected.
-For other invalid refinements, if the written generic-argument count differs
-from the resolved terminal ADT's declared parameter count, any generic argument
-contains an unresolved named type or invalid nested refinement, the final
-segment is missing, names a constructor from another ADT, or names a
-non-constructor declaration, definition and references return no selection for
-the direct or alias base.
+The complete refinement must resolve before either segment is selectable. If
+the written generic-argument count differs from the resolved terminal ADT's
+declared parameter count, any generic argument contains an unresolved named
+type or invalid nested refinement, the final segment is missing, names a
+constructor from another ADT, or names a non-constructor declaration,
+definition and references return no selection for the direct or alias base.
 Generic arguments resolve recursively; a type parameter declared by the
 enclosing ADT is resolved in that ADT's payload annotation. A union is also
 invalid when its alternatives resolve to different terminal ADT identities or
@@ -359,9 +349,8 @@ The checked LSP cases cover direct and union selection in
 and generic, transitive, and imported aliases in
 [`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
 They verify empty projected results for invalid arity and union identity,
-retention of a uniquely resolved non-ADT base without an identity for its
-invalid final segment, preservation through canonically equal generic aliases,
-and separation of alias and constructor edits.
+preservation through canonically equal generic aliases, and separation of alias
+and constructor edits.
 The character position at the end of a line is valid and preserves half-open
 selection behavior. After `params.textDocument.uri` selects a retained source,
 the request must contain exactly one direct `params.position` object. That

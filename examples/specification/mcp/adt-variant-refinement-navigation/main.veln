@@ -31,10 +31,3 @@ end
 fn invalid(value: State::Ready | Other::Ready) -> Int
   0
 end
-
-pub type Empty
-end
-
-fn invalid_empty(value: empty::Missing) -> Int
-  0
-end

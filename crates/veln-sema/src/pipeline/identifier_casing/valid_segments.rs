@@ -208,9 +208,6 @@ fn collect_type_path_segments(
         }
         if environment.recovered_variant_refinement_candidate(&path.segments, current_module) {
             let base_index = path.segments.len() - 2;
-            let retained_declaration = environment
-                .recovered_variant_refinement_base_failure(&path.segments, current_module)
-                .and_then(|failure| failure.declaration_span);
             for (index, (segment, span)) in
                 path.segments.iter().zip(&path.segment_spans).enumerate()
             {
@@ -221,17 +218,13 @@ fn collect_type_path_segments(
                 } else {
                     NameClass::Module
                 };
-                let mut classified = qualified_path_segment_from_parts(
+                output.push(qualified_path_segment_from_parts(
                     segment,
                     role,
                     span,
                     index,
                     QualifiedPathSegmentEvidence::UniqueRecovery,
-                );
-                if index == base_index {
-                    classified.resolved_declaration_span = retained_declaration.clone();
-                }
-                output.push(classified);
+                ));
             }
             continue;
         }
@@ -333,16 +326,7 @@ fn collect_variant_refinement_segments(
                 } else {
                     QualifiedPathSegmentEvidence::Resolved
                 };
-                let first_segment = output.len();
                 push_variant_refinement_path_segments(&segments, &spans, evidence, output);
-                if let Some(failure) = environment.variant_refinement_base_failure(
-                    &base,
-                    alternative.type_arguments.len(),
-                    current_module,
-                ) {
-                    let base_segment = first_segment + segments.len() - 2;
-                    output[base_segment].resolved_declaration_span = failure.declaration_span;
-                }
             }
             for argument in &alternative.type_arguments {
                 collect_type_path_segments(&argument.ty_paths, current_module, environment, output);
@@ -576,7 +560,6 @@ fn collect_valid_segments_from_expr(
         }
         veln_ast::ExprKind::TypeApply {
             callee,
-            type_arg_paths,
             type_arg_refinements,
             ..
         } => {
@@ -588,10 +571,7 @@ fn collect_valid_segments_from_expr(
                 require_valid_variant_refinements,
                 output,
             );
-            if include_variant_refinements {
-                for paths in type_arg_paths {
-                    collect_type_path_segments(paths, current_module, environment, output);
-                }
+            if include_variant_refinements && require_valid_variant_refinements {
                 for refinements in type_arg_refinements {
                     collect_variant_refinement_segments(
                         refinements,
@@ -853,7 +833,6 @@ fn qualified_path_segment_from_parts(
         span: span.clone(),
         segment_index,
         evidence,
-        resolved_declaration_span: None,
     }
 }
 

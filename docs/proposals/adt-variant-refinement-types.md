@@ -205,9 +205,9 @@ declaration.
 
 The casing overlap below applies only to carriers that the current
 [name-resolution contract](../specification/name-resolution.md#resolution-rules)
-classifies for casing analysis. This includes an explicit expression type
-argument when its invalid-cased refinement base recovers one unique identity.
-The planned diagnostics do not expand that current casing boundary.
+classifies for casing analysis. Explicit expression type arguments remain
+navigation-only casing carriers and do not emit `name.invalid_case`. The
+planned diagnostics do not expand that current casing boundary.
 
 ### Diagnostic Overlap And Recovery
 
@@ -246,8 +246,8 @@ The checker reports every failure that it can prove from identities available
 without assuming that an earlier failed step succeeded. It suppresses a
 diagnostic when that diagnostic follows only from a missing or invalid result
 of an earlier step. The following table defines the observable overlap and
-identity contract. A retained identity is available to shared source
-navigation even though the annotation remains invalid.
+identity contract. Retained semantic identity supports suppression and later
+analysis; it does not by itself publish protocol-visible navigation.
 
 | Condition | Emitted diagnostics | Suppressed diagnostics | Retained identity |
 | --- | --- | --- | --- |
@@ -277,13 +277,12 @@ reorder diagnostics from separate annotations or unrelated diagnostic
 families. A uniquely recovered casing identity lets later independent checks
 run, but recovery never makes the annotation valid.
 
-LSP and MCP use the same retained identities. Definition, references,
-prepare-rename, and rename can select a uniquely resolved or uniquely recovered
-source identity. A source-less type retains its resolved semantic identity but
-has no source definition, reference, or rename target. An invalid public
-declaration creates no published package identity or replacement saved
-snapshot. A failed stable capture or analysis preserves the previous saved
-snapshot under the existing language-service rules.
+The remaining LSP and MCP work must define which retained identities are safe
+to expose through definition, references, prepare-rename, and rename. A
+source-less type has no source definition, reference, or rename target. An
+invalid public declaration must create no published package identity or
+replacement saved snapshot. A failed stable capture or analysis must preserve
+the previous saved snapshot under the existing language-service rules.
 
 Machine-readable diagnostics use the existing diagnostic envelope and
 half-open spans. New detail objects are closed schemas. Human and JSON cases
@@ -336,15 +335,12 @@ trap or process failure.
 
 ## Language-Service Contract
 
-The current shared language service retains the unambiguous source base identity
-for provider-independent base failures without assigning an identity to their
-invalid final segment. Source-less failures do not manufacture a source target.
-Navigation and rename for this recovery and for valid refinements
-are specified by
+Valid refinement navigation and rename are specified by
 [editor support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
-and [MCP](../specification/mcp.md#saved-workspace-navigation). Remaining invalid
-and recovered refinements must carry every other unambiguous base-type or
-constructor identity without reconstructing it from display text.
+and [MCP](../specification/mcp.md#saved-workspace-navigation). Recovery for an
+invalid provider-independent base remains unimplemented at those protocol
+surfaces. The future shared recovery must carry each safe, unambiguous
+base-type or constructor identity without reconstructing it from display text.
 Package-documentation signatures must preserve those identities when the
 visibility and publication work below makes them eligible.
 
@@ -355,11 +351,10 @@ The existing LSP surface still requires the following behavior:
 - Published diagnostics project the diagnostic table with the existing UTF-16
   range conversion and related information.
 
-Invalid or recovered refinements other than the implemented provider-independent base
-recovery must contribute only identities that the remaining shared recovery
-rules can establish unambiguously. An invalid request or analysis failure does
-not replace the retained document snapshot or change the result of a later
-valid request.
+Invalid or recovered refinements must contribute only identities that the
+remaining shared recovery rules can establish unambiguously. An invalid request
+or analysis failure does not replace the retained document snapshot or change
+the result of a later valid request.
 
 This proposal does not add hover, completion, signature-help, or inlay-hint
 capabilities. Those protocol surfaces require independent whole-language

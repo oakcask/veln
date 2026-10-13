@@ -690,13 +690,14 @@ payloads, effect and handler annotations, schema fields, and explicit call type
 arguments. A uniquely recovered invalid-cased base retains its identity and is
 checked independently; recovery is not attempted when more than one base could
 match. Any such invalid annotation prevents the containing declaration from
-being published as usable typed state. A resolved source declaration remains
-available to definition, reference, and rename navigation, but the invalid
-final variant does not receive an identity. A source-less base retains its
-semantic identity without acquiring a source navigation target. The
+being published as usable typed state. A resolved base identity remains
+available internally for suppression and later semantic analysis, but this
+recovery does not make the invalid refinement selectable by language-service
+protocols. A source-less base retains the same semantic identity without
+acquiring a source target. The
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
-closed details, related declaration or provider context, and downstream suppression;
-the checked
+closed details, related declaration or provider context, and downstream
+suppression; the checked
 [`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)

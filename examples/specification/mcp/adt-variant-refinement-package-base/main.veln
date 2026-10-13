@@ -1,5 +1,0 @@
-use empty from "example/dep"
-
-fn invalid(value: empty::Empty::Missing) -> Int
-  0
-end

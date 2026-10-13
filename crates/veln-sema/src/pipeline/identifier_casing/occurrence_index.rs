@@ -303,7 +303,6 @@ fn classified_path_segment(
             .segment_index
             .expect("classified path segment has segment index"),
         evidence,
-        resolved_declaration_span: None,
     }
 }
 

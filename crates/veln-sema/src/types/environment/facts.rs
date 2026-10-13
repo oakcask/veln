@@ -142,32 +142,37 @@ fn quarantine_invalid_variant_refinement_signature_types(
     environment: &TypeEnvironment,
     functions: &mut [FunctionSignature],
 ) {
-    let invalid = module
-        .functions
-        .iter()
-        .filter(|function| {
-            function.params.iter().any(|param| {
-                crate::analysis::annotation_has_base_failure(
-                    &param.ty_refinements,
-                    &param.ty_paths,
-                    function.module_name.as_deref(),
-                    environment,
-                )
-            }) || crate::analysis::annotation_has_base_failure(
-                &function.return_type_refinements,
-                &function.return_type_paths,
+    let mut signatures = functions.iter_mut();
+    for function in &module.functions {
+        crate::pipeline::record_variant_refinement_base_work(1);
+        if function.kind != FunctionKind::Function
+            || !function
+                .name
+                .as_ref()
+                .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_lowercase))
+        {
+            continue;
+        }
+        let signature = signatures
+            .next()
+            .expect("ordinary function signature follows its source declaration");
+        crate::pipeline::record_variant_refinement_base_work(1);
+        debug_assert_eq!(signature.node_id, function.node_id);
+        debug_assert_eq!(signature.span, function.span);
+        let invalid = function.params.iter().any(|param| {
+            crate::analysis::annotation_has_base_failure(
+                &param.ty_refinements,
+                &param.ty_paths,
                 function.module_name.as_deref(),
                 environment,
             )
-        })
-        .map(|function| (function.node_id, function.span.clone()))
-        .collect::<Vec<_>>();
-
-    for signature in functions {
-        if !invalid
-            .iter()
-            .any(|(node_id, span)| signature.node_id == *node_id && signature.span == *span)
-        {
+        }) || crate::analysis::annotation_has_base_failure(
+            &function.return_type_refinements,
+            &function.return_type_paths,
+            function.module_name.as_deref(),
+            environment,
+        );
+        if !invalid {
             continue;
         }
         signature.params.fill(Type::Unknown);

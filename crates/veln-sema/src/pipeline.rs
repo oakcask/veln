@@ -184,31 +184,39 @@ fn analyze_surface_module_with_environment(
 
 fn merge_variant_refinement_base_diagnostics(
     diagnostics: &mut Vec<Diagnostic>,
-    mut base_diagnostics: Vec<Diagnostic>,
+    base_diagnostics: Vec<Diagnostic>,
 ) {
-    base_diagnostics.sort_by_key(|diagnostic| {
-        diagnostic.span.as_ref().map(|span| {
-            (
-                span.file.as_str().to_string(),
-                span.start.offset,
-                span.end.offset,
-            )
-        })
-    });
     let mut bases_by_file = std::collections::HashMap::<_, (Vec<usize>, usize)>::new();
+    let mut file_order = Vec::new();
+    let mut ordered_indices = Vec::with_capacity(base_diagnostics.len());
     for (index, diagnostic) in base_diagnostics.iter().enumerate() {
+        record_variant_refinement_base_work(1);
         if let Some(span) = diagnostic.span.as_ref() {
-            bases_by_file
-                .entry(span.file.clone())
-                .or_default()
-                .0
-                .push(index);
+            match bases_by_file.entry(span.file.clone()) {
+                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                    entry.get_mut().0.push(index);
+                }
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    file_order.push(span.file.clone());
+                    entry.insert((vec![index], 0));
+                }
+            }
+        } else {
+            ordered_indices.push(index);
         }
+    }
+    for file in &file_order {
+        let (indices, _) = bases_by_file
+            .get_mut(file)
+            .expect("base diagnostic file was indexed");
+        radix_sort_base_diagnostic_indices(indices, &base_diagnostics);
+        ordered_indices.extend(indices.iter().copied());
     }
     let mut bases = base_diagnostics.into_iter().map(Some).collect::<Vec<_>>();
     let existing = std::mem::take(diagnostics);
     diagnostics.reserve(existing.len() + bases.len());
     for existing_diagnostic in existing {
+        record_variant_refinement_base_work(1);
         let mut matching_bases = existing_diagnostic
             .span
             .as_ref()
@@ -217,7 +225,7 @@ fn merge_variant_refinement_base_diagnostics(
             let Some(index) = indices.get(*cursor) else {
                 return false;
             };
-            record_variant_refinement_base_merge_comparison();
+            record_variant_refinement_base_work(1);
             base_precedes_existing(
                 bases[*index].as_ref().expect("pending base diagnostic"),
                 &existing_diagnostic,
@@ -230,7 +238,57 @@ fn merge_variant_refinement_base_diagnostics(
         }
         diagnostics.push(existing_diagnostic);
     }
-    diagnostics.extend(bases.into_iter().flatten());
+    for index in ordered_indices {
+        record_variant_refinement_base_work(1);
+        if let Some(diagnostic) = bases[index].take() {
+            diagnostics.push(diagnostic);
+        }
+    }
+}
+
+fn radix_sort_base_diagnostic_indices(indices: &mut Vec<usize>, diagnostics: &[Diagnostic]) {
+    let mut scratch = vec![0; indices.len()];
+    for use_end in [true, false] {
+        for shift in (0..usize::BITS).step_by(8) {
+            let mut counts = [0usize; 256];
+            for &index in indices.iter() {
+                record_variant_refinement_base_work(1);
+                let span = diagnostics[index]
+                    .span
+                    .as_ref()
+                    .expect("indexed base diagnostic has a source span");
+                let key = if use_end {
+                    span.end.offset
+                } else {
+                    span.start.offset
+                };
+                counts[(key >> shift) as u8 as usize] += 1;
+            }
+            let mut next = 0;
+            for count in &mut counts {
+                record_variant_refinement_base_work(1);
+                let start = next;
+                next += *count;
+                *count = start;
+            }
+            for &index in indices.iter() {
+                record_variant_refinement_base_work(1);
+                let span = diagnostics[index]
+                    .span
+                    .as_ref()
+                    .expect("indexed base diagnostic has a source span");
+                let key = if use_end {
+                    span.end.offset
+                } else {
+                    span.start.offset
+                };
+                let bucket = (key >> shift) as u8 as usize;
+                scratch[counts[bucket]] = index;
+                counts[bucket] += 1;
+            }
+            std::mem::swap(indices, &mut scratch);
+        }
+    }
 }
 
 fn base_precedes_existing(base: &Diagnostic, existing: &Diagnostic) -> bool {
@@ -246,25 +304,25 @@ fn base_precedes_existing(base: &Diagnostic, existing: &Diagnostic) -> bool {
 
 #[cfg(test)]
 thread_local! {
-    static VARIANT_REFINEMENT_BASE_MERGE_COMPARISONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static VARIANT_REFINEMENT_BASE_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(test)]
-fn record_variant_refinement_base_merge_comparison() {
-    VARIANT_REFINEMENT_BASE_MERGE_COMPARISONS.with(|work| work.set(work.get() + 1));
+pub(crate) fn record_variant_refinement_base_work(amount: usize) {
+    VARIANT_REFINEMENT_BASE_WORK.with(|work| work.set(work.get() + amount));
 }
 
 #[cfg(not(test))]
-fn record_variant_refinement_base_merge_comparison() {}
+pub(crate) fn record_variant_refinement_base_work(_amount: usize) {}
 
 #[cfg(test)]
-pub(crate) fn reset_variant_refinement_base_merge_comparisons() {
-    VARIANT_REFINEMENT_BASE_MERGE_COMPARISONS.with(|work| work.set(0));
+pub(crate) fn reset_variant_refinement_base_work() {
+    VARIANT_REFINEMENT_BASE_WORK.with(|work| work.set(0));
 }
 
 #[cfg(test)]
-pub(crate) fn take_variant_refinement_base_merge_comparisons() -> usize {
-    VARIANT_REFINEMENT_BASE_MERGE_COMPARISONS.with(|work| work.replace(0))
+pub(crate) fn take_variant_refinement_base_work() -> usize {
+    VARIANT_REFINEMENT_BASE_WORK.with(|work| work.replace(0))
 }
 
 fn check_module_declarations(

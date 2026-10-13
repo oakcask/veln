@@ -132,10 +132,11 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with `resolved_identity` and its declaration span. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
-A source-backed failed base identity remains available to definition, reference,
-and rename navigation, while its invalid final variant has no navigation
-identity. A source-less failed base retains its semantic identity but has no
-manufactured source target. The failed occurrence does not emit variant, union,
+A failed base retains its resolved identity as semantic analysis state for
+suppression and later analysis. This diagnostic recovery does not make the
+invalid refinement selectable by language-service protocols. A source-less
+failed base likewise retains semantic identity without a manufactured source
+target. The failed occurrence does not emit variant, union,
 visibility, or assignability diagnostics that require a refinable base.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
@@ -157,13 +158,15 @@ derivative assignability diagnostics.
 Lowercase prospective bases remain ordinary named-type source text. If changing
 only that base leaf to the required case identifies exactly one type, the
 checker reports `name.invalid_case`, retains that identity, and performs the
-independent eligibility check. A source type declaration with no variants, a
-source-less non-ADT type, or a compiler-known opaque type therefore also reports
-`type.variant_refinement_base`; a refinable ADT continues to final-segment
-checking without an eligibility failure. If recovery does not identify exactly
-one base, the checker does not manufacture an eligibility diagnostic or
-retained identity. When casing and eligibility use the same base span, the
-casing diagnostic precedes the eligibility diagnostic.
+independent eligibility check on carriers classified for casing analysis.
+Explicit expression type arguments remain casing-silent, but their base
+eligibility is still checked independently. A source type declaration with no
+variants, a source-less non-ADT type, or a compiler-known opaque type therefore
+also reports `type.variant_refinement_base`; a refinable ADT continues to
+final-segment checking without an eligibility failure. If recovery does not
+identify exactly one base, the checker does not manufacture an eligibility
+diagnostic or retained identity. When casing and eligibility use the same base
+span, the casing diagnostic precedes the eligibility diagnostic.
 The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
 and
@@ -171,8 +174,7 @@ and
 cases cover source-backed, source-less, and opaque bases in declaration
 annotations and explicit call arguments, related provenance, recovered-casing
 overlap, occurrence-scoped downstream
-suppression, declaration quarantine, casing-before-eligibility precedence at a
-shared span, and arity precedence.
+suppression, declaration quarantine, and arity precedence.
 
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at

@@ -163,24 +163,14 @@ fn classified_qualified_path_segments_with_refinements(
             }),
     );
     segments.sort_by_key(|segment| (segment.span.start.offset, segment.span.end.offset));
-    let mut deduplicated = Vec::<QualifiedPathSegment>::new();
-    for segment in segments {
-        let duplicate = deduplicated.last_mut().filter(|previous| {
-            previous.role == segment.role
-                && previous.occurrence == segment.occurrence
-                && previous.span.file == segment.span.file
-                && previous.span.start.offset == segment.span.start.offset
-                && previous.span.end.offset == segment.span.end.offset
-        });
-        if let Some(previous) = duplicate {
-            if previous.resolved_declaration_span.is_none() {
-                previous.resolved_declaration_span = segment.resolved_declaration_span;
-            }
-        } else {
-            deduplicated.push(segment);
-        }
-    }
-    deduplicated
+    segments.dedup_by(|left, right| {
+        left.role == right.role
+            && left.occurrence == right.occurrence
+            && left.span.file == right.span.file
+            && left.span.start.offset == right.span.start.offset
+            && left.span.end.offset == right.span.end.offset
+    });
+    segments
 }
 
 fn invalid_path_segment_is_already_classified(
