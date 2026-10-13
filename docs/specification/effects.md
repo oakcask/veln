@@ -68,8 +68,12 @@ call use the concrete instantiated effects.
 
 Source modules may also declare nominal operation effects with `effect Name`
 or `pub effect Name`. Each operation declares ordinary parameter types and one
-result type. The effect name is owned by its module. Same-module declarations
-may use the short name in `effects [...]` lists and `perform` expressions.
+result type. Effect-operation parameter and result annotations, and handler
+context parameter annotations, follow the
+[variant-refinement eligibility and quarantine rules](types.md#compatibility-and-limits)
+for declaration annotations. The effect name is owned by its module.
+Same-module declarations may use the short name in `effects [...]` lists and
+`perform` expressions.
 Imported declarations use the written module path, such as
 `effects [transport::DuplexStream]` and
 `perform transport::DuplexStream::read_chunk()`. Function type annotations use
