@@ -235,8 +235,11 @@ evidence because it does not show that a user-selectable compiler or package
 input reaches the diagnostic.
 
 Known opacity takes precedence over an unavailable descriptor. Unresolved,
-ambiguous, private, wrong-kind, invalid-cased, and wrong-arity bases use their
-existing diagnostics instead of adding `type.variant_refinement_base`.
+ambiguous, private, wrong-kind, and wrong-arity bases use their existing
+diagnostics instead of adding a remaining `type.variant_refinement_base`
+reason. A uniquely recovered invalid-cased base keeps `name.invalid_case` and
+remains eligible for an independently provable current or remaining base
+failure.
 
 The checker reports every failure that it can prove from identities available
 without assuming that an earlier failed step succeeded. It suppresses a
@@ -250,6 +253,7 @@ navigation even though the annotation remains invalid.
 | The refinement syntax is incomplete. | The responsible syntax diagnostic. | All semantic refinement diagnostics for that type occurrence. | None from the incomplete refinement. |
 | The base is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
 | The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
+| The base resolves uniquely but is opaque or its selected production provider lacks a public finite variant descriptor. | `type.variant_refinement_base` with the applicable remaining closed reason. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base declaration only. |
 | Generic arity is invalid after the base ADT resolves. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or visibility diagnostic. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The base declaration and, when resolved, the constructor declaration; no instantiated refinement type. |
 | The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
 | The final segment has invalid casing and one existing recovery identity. | `name.invalid_case`, plus independent visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | The uniquely recovered constructor declaration. |
@@ -259,7 +263,7 @@ navigation even though the annotation remains invalid.
 
 Within one annotation, the checker visits union alternatives in written order.
 It checks each alternative in this order: casing, base resolution, generic
-arity, final-segment resolution, and visibility. The earliest
+arity, base eligibility, final-segment resolution, and visibility. The earliest
 successfully instantiated alternative establishes the expected union base;
 each later successfully instantiated alternative is compared with it. An
 incomplete alternative does not prevent an independently complete later pair

@@ -356,8 +356,9 @@ The checked LSP cases cover direct and union selection in
 and generic, transitive, and imported aliases in
 [`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
 They verify empty projected results for invalid arity and union identity,
-preservation through canonically equal generic aliases, and separation of alias
-and constructor edits.
+retention of a uniquely resolved non-ADT base without an identity for its
+invalid final segment, preservation through canonically equal generic aliases,
+and separation of alias and constructor edits.
 The character position at the end of a line is valid and preserves half-open
 selection behavior. After `params.textDocument.uri` selects a retained source,
 the request must contain exactly one direct `params.position` object. That
