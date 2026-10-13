@@ -135,6 +135,8 @@ visibility, or assignability diagnostics that require a refinable base.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
 provable without treating the failed base as refinable.
+When separate union alternatives independently produce a base failure and an
+annotation failure, those diagnostics follow the alternatives' written order.
 An independently provable generic-arity failure keeps
 `type.invalid_annotation` instead of adding the base diagnostic. Unresolved,
 ambiguous, private, and wrong-kind bases also retain their existing diagnostics.

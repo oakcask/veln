@@ -484,8 +484,11 @@ The checked `adt-variant-refinement-navigation` MCP case asserts the exact
 ordered constructor references and rename edits across direct and
 alias-qualified refinements. It also asserts recovered non-ADT base definition,
 references, and rename while leaving the invalid final segment unselected. It
-asserts alias-base definition and rename edits without target-ADT or constructor edits, exclusion of a same-spelled
-constructor from another ADT, and empty results for an invalid mixed-ADT union.
+asserts alias-base definition and rename edits without target-ADT or constructor
+edits, exclusion of a same-spelled constructor from another ADT, and empty
+results for an invalid mixed-ADT union. The checked
+`adt-variant-refinement-package-base` case covers dependency base definition and
+references, edit-free rename, and an unselected final segment.
 
 ### Source presentation
 
