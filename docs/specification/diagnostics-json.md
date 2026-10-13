@@ -119,25 +119,19 @@ recovery retains the surrounding declaration and lossless source tree. This
 diagnostic does not assert that a structurally valid base or final name resolves
 semantically.
 
-A structurally valid refinement whose base resolves uniquely but cannot provide a
-finite, refinable ADT reports `type.variant_refinement_base`. The primary span is
-the written base path and excludes its type arguments, `::`, and final variant
-segment. Its closed details contain only `written_type` and `reason`.
+A structurally valid refinement whose base resolves uniquely to a source type
+declaration with no finite ADT variants reports
+`type.variant_refinement_base`. The primary span is the written base path and
+excludes its type arguments, `::`, and final variant segment. Its closed
+details contain only `written_type` and `reason`, whose value is `not_adt`.
 `written_type` preserves the source spelling of the base and recursively
 reconstructs its type arguments, including refinements nested in generic,
 record, and function positions.
-The reason is one of these values:
-
-| Reason | Failed fact |
-| --- | --- |
-| `not_adt` | The base resolves to a named non-ADT type. |
-| `opaque` | The resolved declaration intentionally hides its variant identities at the annotation. |
-| `variant_descriptor_unavailable` | The ADT identity is known, but its provider supplies no public finite variant descriptor. |
-
-Known opacity takes precedence over an unavailable descriptor. A related
-`base_type_provider` entry retains the resolved base identity and identifies the
-declaration or provider context. The failed occurrence does not emit variant,
-union, visibility, or assignability diagnostics that require a refinable base.
+A related `base_type_declaration` entry contains the resolved base identity and
+the source declaration span. The base identity remains available to definition,
+reference, and rename navigation, while the invalid final variant has no
+navigation identity. The failed occurrence does not emit variant, union,
+visibility, or assignability diagnostics that require a refinable base.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
 provable without treating the failed base as refinable.
@@ -156,20 +150,20 @@ derivative assignability diagnostics.
 Lowercase prospective bases remain ordinary named-type source text. If changing
 only that base leaf to the required case identifies exactly one type, the
 checker reports `name.invalid_case`, retains that identity, and performs the
-independent eligibility check. A non-ADT, opaque, or descriptor-unavailable
-identity therefore also reports `type.variant_refinement_base`; a refinable ADT
-continues to final-segment checking without an eligibility failure. If recovery
-does not identify exactly one base, the checker does not manufacture an
-eligibility diagnostic or retained identity. When casing and eligibility use
-the same base span, the casing diagnostic precedes the eligibility diagnostic.
+independent eligibility check. A source type declaration with no variants
+therefore also reports `type.variant_refinement_base`; a refinable ADT continues
+to final-segment checking without an eligibility failure. If recovery does not
+identify exactly one base, the checker does not manufacture an eligibility
+diagnostic or retained identity. When casing and eligibility use the same base
+span, the casing diagnostic precedes the eligibility diagnostic.
 The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
-cases cover the three reasons, provider context, nested generic written spelling,
-declaration annotations and explicit call arguments, recovered-casing overlap,
-occurrence-scoped downstream suppression, declaration quarantine,
-casing-before-eligibility precedence at a shared span, and arity precedence.
+cases cover declaration annotations and explicit call arguments, related
+declaration context, recovered-casing overlap, occurrence-scoped downstream
+suppression, declaration quarantine, casing-before-eligibility precedence at a
+shared span, and arity precedence.
 
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at

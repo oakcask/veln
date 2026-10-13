@@ -224,18 +224,11 @@ fn invalid_refinement_annotations_are_diagnosed_instead_of_becoming_unknown() {
 }
 
 #[test]
-fn non_refinable_bases_report_closed_reasons_and_preserve_arity_precedence() {
+fn non_adt_base_reports_declaration_and_preserves_arity_precedence() {
     let diagnostics = diagnostics_for(concat!(
         "type Empty\n",
         "end\n",
-        "pub type Opaque = NetStream\n",
-        "fn non_adt(value: Int::Missing) -> ()\n",
-        "  ()\n",
-        "end\n",
-        "fn opaque(value: Opaque::Missing) -> ()\n",
-        "  ()\n",
-        "end\n",
-        "fn unavailable(value: Empty::Missing) -> ()\n",
+        "fn rejected(value: Empty::Missing) -> ()\n",
         "  ()\n",
         "end\n",
         "fn arity(value: Empty<Int>::Missing) -> ()\n",
@@ -247,32 +240,22 @@ fn non_refinable_bases_report_closed_reasons_and_preserve_arity_precedence() {
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
         .collect::<Vec<_>>();
-    assert_eq!(base_diagnostics.len(), 3, "{diagnostics:#?}");
-    let observed = base_diagnostics
-        .iter()
-        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
-        .collect::<Vec<_>>();
+    assert_eq!(base_diagnostics.len(), 1, "{diagnostics:#?}");
+    let observed = veln_diagnostics::diagnostic_to_json(base_diagnostics[0]).to_json();
     assert!(
-        observed[0].contains("\"details\":{\"written_type\":\"Int\",\"reason\":\"not_adt\"}"),
-        "{observed:#?}"
+        observed.contains("\"details\":{\"written_type\":\"Empty\",\"reason\":\"not_adt\"}"),
+        "{observed}"
     );
     assert!(
-        observed[0].contains("\"resolved_identity\":\"Int\""),
-        "{observed:#?}"
+        observed.contains("\"kind\":\"base_type_declaration\""),
+        "{observed}"
     );
     assert!(
-        observed[1].contains("\"details\":{\"written_type\":\"Opaque\",\"reason\":\"opaque\"}"),
-        "{observed:#?}"
+        observed.contains("\"resolved_identity\":\"Empty\""),
+        "{observed}"
     );
-    assert!(
-        observed[2].contains(
-            "\"details\":{\"written_type\":\"Empty\",\"reason\":\"variant_descriptor_unavailable\"}"
-        ),
-        "{observed:#?}"
-    );
-    assert_eq!(base_diagnostics[0].span.as_ref().unwrap().start.column, 19);
-    assert_eq!(base_diagnostics[1].span.as_ref().unwrap().start.column, 18);
-    assert_eq!(base_diagnostics[2].span.as_ref().unwrap().start.column, 23);
+    assert!(observed.contains("\"line\":1,\"column\":1"), "{observed}");
+    assert_eq!(base_diagnostics[0].span.as_ref().unwrap().start.column, 20);
 
     let arity = diagnostics
         .iter()
@@ -284,7 +267,7 @@ fn non_refinable_bases_report_closed_reasons_and_preserve_arity_precedence() {
         })
         .count();
     assert_eq!(arity, 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
 }
 
 #[test]
@@ -295,20 +278,13 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
         "end\n",
         "type Empty\n",
         "end\n",
-        "pub type Opaque = NetStream\n",
         "fn refinable(value: state::Ready) -> ()\n",
         "  ()\n",
         "end\n",
         "fn missing(value: state::Missing) -> ()\n",
         "  ()\n",
         "end\n",
-        "fn non_adt(value: int::Missing) -> ()\n",
-        "  ()\n",
-        "end\n",
-        "fn opaque(value: opaque::Missing) -> ()\n",
-        "  ()\n",
-        "end\n",
-        "fn unavailable(value: empty::Missing) -> ()\n",
+        "fn non_adt(value: empty::Missing) -> ()\n",
         "  ()\n",
         "end\n",
     ));
@@ -322,7 +298,7 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
             )
         })
         .collect::<Vec<_>>();
-    assert_eq!(relevant.len(), 8, "{diagnostics:#?}");
+    assert_eq!(relevant.len(), 4, "{diagnostics:#?}");
     assert_eq!(
         relevant
             .iter()
@@ -332,10 +308,6 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
             "name.invalid_case",
             "name.invalid_case",
             "name.invalid_case",
-            "name.invalid_case",
-            "name.invalid_case",
-            "type.variant_refinement_base",
-            "type.variant_refinement_base",
             "type.variant_refinement_base",
         ]
     );
@@ -345,9 +317,7 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
         .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
         .collect::<Vec<_>>();
     assert!(base_json[0].contains("\"reason\":\"not_adt\""));
-    assert!(base_json[0].contains("\"resolved_identity\":\"Int\""));
-    assert!(base_json[1].contains("\"reason\":\"opaque\""));
-    assert!(base_json[2].contains("\"reason\":\"variant_descriptor_unavailable\""));
+    assert!(base_json[0].contains("\"resolved_identity\":\"Empty\""));
     let recovered_final = diagnostics
         .iter()
         .filter(|diagnostic| {
@@ -361,12 +331,14 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
 #[test]
 fn explicit_call_type_arguments_keep_casing_before_eligibility_at_shared_span() {
     let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
         "fn sink(value: Int) -> ()\n",
         "  ()\n",
         "end\n",
         "fn main() -> ()\n",
-        "  sink<Int::Missing>(1)\n",
-        "  sink<int::Missing>(1)\n",
+        "  sink<Empty::Missing>(1)\n",
+        "  sink<empty::Missing>(1)\n",
         "end\n",
     ));
 
@@ -393,8 +365,8 @@ fn explicit_call_type_arguments_keep_casing_before_eligibility_at_shared_span() 
     );
     assert_eq!(relevant[0].span, relevant[2].span);
     let recovered = veln_diagnostics::diagnostic_to_json(relevant[2]).to_json();
-    assert!(recovered.contains("\"written_type\":\"int\""));
-    assert!(recovered.contains("\"resolved_identity\":\"Int\""));
+    assert!(recovered.contains("\"written_type\":\"empty\""));
+    assert!(recovered.contains("\"resolved_identity\":\"Empty\""));
 }
 
 #[test]
@@ -408,7 +380,7 @@ fn base_failures_preserve_independent_sibling_and_nested_annotation_errors() {
         "type Box<A>\n",
         "  Boxed(A)\n",
         "end\n",
-        "fn sibling(value: State::Missing | Int::Missing) -> ()\n",
+        "fn sibling(value: State::Missing | Empty<Int>::Missing) -> ()\n",
         "  ()\n",
         "end\n",
         "fn nested(value: Empty<Box::Boxed>::Missing) -> ()\n",
@@ -447,13 +419,15 @@ fn base_failures_preserve_independent_sibling_and_nested_annotation_errors() {
 #[test]
 fn invalid_declaration_annotations_quarantine_body_and_caller_types() {
     let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
         "fn needs_string(value: String) -> ()\n",
         "  ()\n",
         "end\n",
-        "fn invalid_param(value: Int::Missing) -> ()\n",
+        "fn invalid_param(value: Empty::Missing) -> ()\n",
         "  needs_string(value)\n",
         "end\n",
-        "fn invalid_return() -> Int::Missing\n",
+        "fn invalid_return() -> Empty::Missing\n",
         "  \"not an int\"\n",
         "end\n",
         "fn caller() -> ()\n",
@@ -476,7 +450,9 @@ fn invalid_return_is_quarantined_before_private_return_inference() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn invalid_return() -> Int::Missing\n",
+            "type Empty\n",
+            "end\n",
+            "fn invalid_return() -> Empty::Missing\n",
             "  \"not an int\"\n",
             "end\n",
             "fn inferred_caller()\n",
@@ -500,10 +476,12 @@ fn invalid_return_is_quarantined_before_private_return_inference() {
 #[test]
 fn nested_invalid_cased_bases_keep_independent_eligibility_failures() {
     let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
         "type Box<A>\n",
         "  Boxed(A)\n",
         "end\n",
-        "fn main(value: Box<int::Missing>::Boxed) -> ()\n",
+        "fn main(value: Box<empty::Missing>::Boxed) -> ()\n",
         "  ()\n",
         "end\n",
     ));
@@ -521,9 +499,9 @@ fn nested_invalid_cased_bases_keep_independent_eligibility_failures() {
     assert_eq!(relevant[0].id, "name.invalid_case");
     assert_eq!(relevant[1].id, "type.variant_refinement_base");
     let base_json = veln_diagnostics::diagnostic_to_json(relevant[1]).to_json();
-    assert!(base_json.contains("\"written_type\":\"int\""));
+    assert!(base_json.contains("\"written_type\":\"empty\""));
     assert!(base_json.contains("\"reason\":\"not_adt\""));
-    assert!(base_json.contains("\"resolved_identity\":\"Int\""));
+    assert!(base_json.contains("\"resolved_identity\":\"Empty\""));
 }
 
 #[test]
@@ -606,6 +584,9 @@ fn ambiguous_exact_and_builtin_colliding_bases_do_not_report_eligibility() {
         "fn recovered(value: int::Missing) -> ()\n",
         "  ()\n",
         "end\n",
+        "fn opaque_follow_up(value: NetStream::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
     ));
 
     assert!(
@@ -622,25 +603,27 @@ fn declaration_and_nested_carriers_report_base_failures_once() {
         "type State\n",
         "  Ready\n",
         "end\n",
-        "type Empty<A>\n",
+        "type Empty\n",
+        "end\n",
+        "type GenericEmpty<A>\n",
         "end\n",
         "type Wrap\n",
-        "  Wrapped(Int::Missing)\n",
+        "  Wrapped(Empty::Missing)\n",
         "end\n",
         "effect Store\n",
-        "  put(value: Int::Missing) -> Int::Missing\n",
+        "  put(value: Empty::Missing) -> Empty::Missing\n",
         "end\n",
-        "handler store(context: Int::Missing) for Store\n",
+        "handler store(context: Empty::Missing) for Store\n",
         "  put(value) => ()\n",
         "end\n",
         "schema Packet\n",
-        "  value: Int::Missing\n",
+        "  value: Empty::Missing\n",
         "end\n",
         "fn sink(value: Int) -> ()\n",
         "  ()\n",
         "end\n",
-        "fn main(value: Empty<State::Ready>::Missing) -> ()\n",
-        "  sink<Int::Missing>(1)\n",
+        "fn main(value: GenericEmpty<State::Ready>::Missing) -> ()\n",
+        "  sink<Empty::Missing>(1)\n",
         "end\n",
     );
     let source_file = SourceFile::new("main.veln", source);
@@ -660,7 +643,7 @@ fn declaration_and_nested_carriers_report_base_failures_once() {
     assert!(
         written
             .iter()
-            .any(|json| { json.contains("\"written_type\":\"Empty<State::Ready>\"") }),
+            .any(|json| { json.contains("\"written_type\":\"GenericEmpty<State::Ready>\"") }),
         "{written:#?}"
     );
     let lowered = lower_checked_surface_module(&module);
@@ -675,7 +658,7 @@ fn declaration_and_nested_carriers_report_base_failures_once() {
 }
 
 #[test]
-fn source_opaque_name_collisions_keep_source_provenance() {
+fn source_names_colliding_with_builtin_opaque_names_keep_source_identity() {
     let diagnostics = diagnostics_for(concat!(
         "type NetListener\n",
         "end\n",
@@ -695,10 +678,10 @@ fn source_opaque_name_collisions_keep_source_provenance() {
         .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
         .collect::<Vec<_>>();
     assert_eq!(base.len(), 2, "{diagnostics:#?}");
-    assert!(base[0].contains("\"reason\":\"variant_descriptor_unavailable\""));
+    assert!(base[0].contains("\"reason\":\"not_adt\""));
     assert!(base[0].contains("\"resolved_identity\":\"NetListener\""));
     assert!(base[0].contains("\"span\":"), "{base:#?}");
-    assert!(base[1].contains("\"reason\":\"variant_descriptor_unavailable\""));
+    assert!(base[1].contains("\"reason\":\"not_adt\""));
     assert!(base[1].contains("\"resolved_identity\":\"NetStream\""));
 }
 

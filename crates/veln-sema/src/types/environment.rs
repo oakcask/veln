@@ -74,7 +74,7 @@ pub(crate) struct TypeEnvironment {
 pub(crate) struct VariantRefinementBaseFailure {
     pub(crate) reason: &'static str,
     pub(crate) resolved_identity: String,
-    pub(crate) declaration_span: Option<SourceSpan>,
+    pub(crate) declaration_span: SourceSpan,
     pub(crate) related_message: String,
 }
 
@@ -348,61 +348,14 @@ impl TypeEnvironment {
             return Some(VariantRefinementBaseFailure {
                 reason: "not_adt",
                 resolved_identity: descriptor.identity(),
-                declaration_span: Some(declaration_span),
+                declaration_span,
                 related_message: format!(
                     "Type `{}` is declared here without finite ADT variants.",
                     descriptor.type_name
                 ),
             });
         }
-
-        let resolved = self
-            .resolved_non_adt_refinement_base(base, args_len, current_module)
-            .or_else(|| {
-                recovered_base.as_deref().and_then(|candidate| {
-                    self.resolved_non_adt_refinement_base(candidate, args_len, current_module)
-                })
-            })?;
-        let (resolved_name, resolved_identity) = match resolved {
-            Type::Named { name, identity, .. } => (name, identity),
-            _ => return None,
-        };
-        Some(VariantRefinementBaseFailure {
-            reason: "not_adt",
-            resolved_identity,
-            declaration_span: None,
-            related_message: format!(
-                "Type `{resolved_name}` resolves here as a non-ADT type without finite variants."
-            ),
-        })
-    }
-
-    fn resolved_non_adt_refinement_base(
-        &self,
-        base: &str,
-        args_len: usize,
-        current_module: Option<&str>,
-    ) -> Option<Type> {
-        if self
-            .adts
-            .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
-            .is_some()
-        {
-            return None;
-        }
-        let is_builtin_type =
-            crate::source_less_lookup::with_builtin_type_syntax_registry(|registry| {
-                registry.arity(base) == Some(args_len)
-            })
-            .unwrap_or(false);
-        if !is_builtin_type && !(args_len == 0 && matches!(base, "WallTime" | "SourceLocation")) {
-            return None;
-        }
-        let resolved = self.canonicalize_type_annotation(
-            Type::named(base, vec![Type::Unknown; args_len]),
-            current_module,
-        );
-        matches!(resolved, Type::Named { .. }).then_some(resolved)
+        None
     }
 
     pub(crate) fn non_adt_refinement_base_resolves(
@@ -411,7 +364,7 @@ impl TypeEnvironment {
         args_len: usize,
         current_module: Option<&str>,
     ) -> bool {
-        self.resolved_non_adt_refinement_base(base, args_len, current_module)
+        self.variant_refinement_base_failure(base, args_len, current_module)
             .is_some()
     }
 
@@ -582,9 +535,6 @@ impl TypeEnvironment {
             .adts
             .descriptor_for_type_path_any_arity(&base, current_module, &self.uses)
             .is_some()
-            || self
-                .resolved_non_adt_refinement_base(&base, 0, current_module)
-                .is_some()
         {
             return false;
         }

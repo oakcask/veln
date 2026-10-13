@@ -333,14 +333,6 @@ fn attach_canonical_variant_refinement_type_arguments(
         for (range, argument_ranges) in
             &file.variant_refinement_type_argument_ranges_by_final_range
         {
-            if file
-                .classified_paths
-                .by_range
-                .get(range)
-                .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
-            {
-                continue;
-            }
             let start = annotations.len();
             let type_parameters = file
                 .variant_refinement_type_parameter_context_index_by_final_range

@@ -244,8 +244,8 @@ impl SymbolIndex {
         if let Some(final_range) =
             self.variant_refinement_final_range_for_base(file, &tokens[token_index])
         {
-            let identity = self.variant_refinement_identity_for_final_range(file, &final_range)?;
-            return match &identity.base {
+            let base = self.variant_refinement_base_identity_for_final_range(file, &final_range)?;
+            return match &base {
                 VariantRefinementBaseSymbol::Alias(alias)
                     if alias.package.is_none() && alias.name == name =>
                 {
@@ -689,10 +689,10 @@ impl SymbolIndex {
                             .variant_refinement_final_range_for_base(file, &tokens[token_index])
                         {
                             return self
-                                .variant_refinement_identity_for_final_range(file, &final_range)
-                                .is_some_and(|identity| {
+                                .variant_refinement_base_identity_for_final_range(file, &final_range)
+                                .is_some_and(|base| {
                                     matches!(
-                                        &identity.base,
+                                        &base,
                                         VariantRefinementBaseSymbol::Type(candidate)
                                             if same_type(candidate, symbol)
                                     )
@@ -836,10 +836,10 @@ impl SymbolIndex {
                     self.variant_refinement_final_range_for_base(file, &tokens[*index])
                 {
                     return self
-                        .variant_refinement_identity_for_final_range(file, &final_range)
-                        .is_some_and(|identity| {
+                        .variant_refinement_base_identity_for_final_range(file, &final_range)
+                        .is_some_and(|base| {
                             matches!(
-                                &identity.base,
+                                &base,
                                 VariantRefinementBaseSymbol::Type(candidate)
                                     if same_type(candidate, symbol)
                             )
@@ -886,8 +886,8 @@ impl SymbolIndex {
         if let Some(final_range) =
             self.variant_refinement_final_range_for_base(file, &tokens[token_index])
         {
-            let identity = self.variant_refinement_identity_for_final_range(file, &final_range)?;
-            return match &identity.base {
+            let base = self.variant_refinement_base_identity_for_final_range(file, &final_range)?;
+            return match &base {
                 VariantRefinementBaseSymbol::Alias(alias)
                     if alias.package.is_some() && alias.name == name =>
                 {
