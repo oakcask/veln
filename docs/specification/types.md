@@ -702,6 +702,12 @@ suppression; the checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
 cases verify those boundaries.
+For `N` independent invalid bases, annotation collection, casing collection,
+enclosing-context processing, and diagnostic ordering each use linear
+instrumented work. This bound includes invalid-cased bases and unrelated
+diagnostics interleaved before, between, and after the base failures. The
+regression check compares deterministic counters at increasing input sizes;
+elapsed time does not define the bound.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies
@@ -974,5 +980,7 @@ inventing an arithmetic rewrite.
   `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
 - Aggregate and alias-presentation join scaling:
   `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
+- Invalid variant-refinement base recovery scaling:
+  `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.
