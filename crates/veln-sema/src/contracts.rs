@@ -103,6 +103,26 @@ fn predicate_with_runtime_integer_remainder_arithmetic(
         return Some(folded.to_string());
     }
 
+    if let Some(transformed) = folded_remainder_boolean_expression(marked, folded)? {
+        return Some(transformed);
+    }
+    if let Some(transformed) = folded_remainder_comparison_expression(marked, folded)? {
+        return Some(transformed);
+    }
+
+    if let (Some(marked_inner), Some(folded_inner)) =
+        (marked.strip_prefix("not "), folded.strip_prefix("not "))
+    {
+        return Some(format!(
+            "not ({})",
+            predicate_with_runtime_integer_remainder_arithmetic(marked_inner, folded_inner)?,
+        ));
+    }
+
+    folded_remainder_numeric_expression(marked, folded).map(|expression| expression.text)
+}
+
+fn folded_remainder_boolean_expression(marked: &str, folded: &str) -> Option<Option<String>> {
     for keyword in ["or", "and"] {
         let marked_clauses = split_top_level_keyword(marked, keyword);
         if marked_clauses.len() < 2 {
@@ -128,9 +148,12 @@ fn predicate_with_runtime_integer_remainder_arithmetic(
             )?);
             transformed.push(')');
         }
-        return Some(transformed);
+        return Some(Some(transformed));
     }
+    Some(None)
+}
 
+fn folded_remainder_comparison_expression(marked: &str, folded: &str) -> Option<Option<String>> {
     for operators in [&["==", "!="][..], &["<=", ">=", "<", ">"][..]] {
         let Some((marked_left, operator, marked_right)) =
             split_top_level_operator_group(marked, operators)
@@ -142,23 +165,13 @@ fn predicate_with_runtime_integer_remainder_arithmetic(
         if operator != folded_operator {
             return None;
         }
-        return Some(format!(
+        return Some(Some(format!(
             "({}) {operator} ({})",
             predicate_with_runtime_integer_remainder_arithmetic(marked_left, folded_left)?,
             predicate_with_runtime_integer_remainder_arithmetic(marked_right, folded_right)?,
-        ));
+        )));
     }
-
-    if let (Some(marked_inner), Some(folded_inner)) =
-        (marked.strip_prefix("not "), folded.strip_prefix("not "))
-    {
-        return Some(format!(
-            "not ({})",
-            predicate_with_runtime_integer_remainder_arithmetic(marked_inner, folded_inner)?,
-        ));
-    }
-
-    folded_remainder_numeric_expression(marked, folded).map(|expression| expression.text)
+    Some(None)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -180,6 +193,19 @@ fn folded_remainder_numeric_expression(
     let marked = strip_balanced_outer_parens(marked.trim());
     let folded = strip_balanced_outer_parens(folded.trim());
 
+    if let Some(expression) = folded_remainder_binary_expression(marked, folded)? {
+        return Some(expression);
+    }
+    if let Some(expression) = folded_remainder_prefix_expression(marked, folded)? {
+        return Some(expression);
+    }
+    folded_remainder_numeric_leaf(marked, folded)
+}
+
+fn folded_remainder_binary_expression(
+    marked: &str,
+    folded: &str,
+) -> Option<Option<FoldedNumericExpression>> {
     for operators in [
         &["|"][..],
         &["^"][..],
@@ -203,27 +229,37 @@ fn folded_remainder_numeric_expression(
         }
         let left = folded_remainder_numeric_expression(marked_left, folded_left)?;
         let right = folded_remainder_numeric_expression(marked_right, folded_right)?;
-        let contains_remainder = left.contains_remainder || right.contains_remainder;
-        let ty = if matches!(operator, "|" | "^" | "&" | ">>>" | ">>" | "<<" | "%") {
-            FoldedNumericType::Int
-        } else if left.ty == FoldedNumericType::Float || right.ty == FoldedNumericType::Float {
-            FoldedNumericType::Float
-        } else {
-            FoldedNumericType::Int
-        };
-        let text = format!("({} {operator} {})", left.text, right.text);
-        let text = if ty == FoldedNumericType::Int && contains_remainder {
-            static_integer_expression(&text)?.to_string()
-        } else {
-            text
-        };
-        return Some(FoldedNumericExpression {
-            text,
-            ty,
-            contains_remainder,
-        });
+        return combine_folded_remainder_binary(operator, left, right).map(Some);
     }
+    Some(None)
+}
 
+fn combine_folded_remainder_binary(
+    operator: &str,
+    left: FoldedNumericExpression,
+    right: FoldedNumericExpression,
+) -> Option<FoldedNumericExpression> {
+    let contains_remainder = left.contains_remainder || right.contains_remainder;
+    let ty = if matches!(operator, "|" | "^" | "&" | ">>>" | ">>" | "<<" | "%") {
+        FoldedNumericType::Int
+    } else if left.ty == FoldedNumericType::Float || right.ty == FoldedNumericType::Float {
+        FoldedNumericType::Float
+    } else {
+        FoldedNumericType::Int
+    };
+    let text = format!("({} {operator} {})", left.text, right.text);
+    let text = fold_runtime_integer_expression(text, ty, contains_remainder)?;
+    Some(FoldedNumericExpression {
+        text,
+        ty,
+        contains_remainder,
+    })
+}
+
+fn folded_remainder_prefix_expression(
+    marked: &str,
+    folded: &str,
+) -> Option<Option<FoldedNumericExpression>> {
     for prefix in ["-", "~"] {
         let (Some(marked_inner), Some(folded_inner)) =
             (marked.strip_prefix(prefix), folded.strip_prefix(prefix))
@@ -237,18 +273,29 @@ fn folded_remainder_numeric_expression(
             inner.ty
         };
         let text = format!("{prefix}({})", inner.text);
-        let text = if ty == FoldedNumericType::Int && inner.contains_remainder {
-            static_integer_expression(&text)?.to_string()
-        } else {
-            text
-        };
-        return Some(FoldedNumericExpression {
+        let text = fold_runtime_integer_expression(text, ty, inner.contains_remainder)?;
+        return Some(Some(FoldedNumericExpression {
             text,
             ty,
             contains_remainder: inner.contains_remainder,
-        });
+        }));
     }
+    Some(None)
+}
 
+fn fold_runtime_integer_expression(
+    text: String,
+    ty: FoldedNumericType,
+    contains_remainder: bool,
+) -> Option<String> {
+    if ty == FoldedNumericType::Int && contains_remainder {
+        static_integer_expression(&text).map(|value| value.to_string())
+    } else {
+        Some(text)
+    }
+}
+
+fn folded_remainder_numeric_leaf(marked: &str, folded: &str) -> Option<FoldedNumericExpression> {
     if marked.contains('%') {
         return Some(FoldedNumericExpression {
             text: static_integer_expression(folded)?.to_string(),
