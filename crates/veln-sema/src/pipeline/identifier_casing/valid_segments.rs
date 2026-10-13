@@ -108,6 +108,7 @@ pub(super) fn valid_qualified_path_segments(
         }
     }
     for function in &module.functions {
+        crate::pipeline::record_variant_refinement_casing_work(1);
         let current_module = function.module_name.as_deref();
         collect_type_path_segments(
             &function.return_type_paths,
@@ -126,6 +127,7 @@ pub(super) fn valid_qualified_path_segments(
             );
         }
         for param in &function.params {
+            crate::pipeline::record_variant_refinement_casing_work(1);
             collect_type_path_segments(&param.ty_paths, current_module, environment, &mut segments);
             if include_variant_refinements {
                 collect_variant_refinement_segments(
@@ -139,6 +141,7 @@ pub(super) fn valid_qualified_path_segments(
             }
         }
         for line in &function.body {
+            crate::pipeline::record_variant_refinement_casing_work(1);
             collect_valid_segments_from_body_line(
                 line,
                 current_module,

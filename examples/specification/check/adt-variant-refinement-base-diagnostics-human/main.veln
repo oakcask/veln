@@ -8,11 +8,19 @@ end
 type GenericEmpty<A>
 end
 
+pub fn unrelated_before()
+	()
+end
+
+fn casing_before(value: empty::Missing) -> ()
+	()
+end
+
 type Wrap
 	Wrapped(Empty::Missing)
 end
 
-fn casing_before(value: empty::Missing) -> ()
+pub fn unrelated_between()
 	()
 end
 
@@ -46,5 +54,9 @@ end
 
 fn explicit_type_argument() -> ()
 	let pair = channel::bounded<Empty::Missing>(1)
+	()
+end
+
+pub fn unrelated_after()
 	()
 end

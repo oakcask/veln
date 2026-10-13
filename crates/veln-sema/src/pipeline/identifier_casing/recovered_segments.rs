@@ -6,7 +6,9 @@ pub(super) fn recovered_qualified_type_segments(
 ) -> Vec<QualifiedPathSegment> {
     let mut invalid = Vec::new();
     for function in &module.functions {
+        crate::pipeline::record_variant_refinement_casing_work(1);
         for line in &function.body {
+            crate::pipeline::record_variant_refinement_casing_work(1);
             collect_recovered_qualified_type_segments_from_body_line(
                 line,
                 function.module_name.as_deref(),
@@ -51,7 +53,9 @@ pub(super) fn recovered_qualified_function_segments(
 ) -> Vec<QualifiedPathSegment> {
     let mut invalid = Vec::new();
     for function in &module.functions {
+        crate::pipeline::record_variant_refinement_casing_work(1);
         for line in &function.body {
+            crate::pipeline::record_variant_refinement_casing_work(1);
             collect_recovered_qualified_function_segments_from_body_line(
                 line,
                 function.module_name.as_deref(),
@@ -90,7 +94,9 @@ fn recovered_qualified_segments(
 ) -> Vec<QualifiedPathSegment> {
     let mut invalid = Vec::new();
     for function in &module.functions {
+        crate::pipeline::record_variant_refinement_casing_work(1);
         for line in &function.body {
+            crate::pipeline::record_variant_refinement_casing_work(1);
             collect_recovered_qualified_segments_from_body_line(
                 line,
                 function.module_name.as_deref(),

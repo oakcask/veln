@@ -1,36 +1,82 @@
 use super::*;
 
-pub(super) fn enclosing_function_span_for_segment(
-    module: &SurfaceModule,
-    segment: &QualifiedPathSegment,
-) -> Option<veln_source::SourceSpan> {
-    module
-        .invalid_names
-        .iter()
-        .find(|invalid| {
-            invalid.occurrence == NameOccurrence::PathSegment
-                && invalid.segment_index == Some(segment.segment_index)
-                && invalid.span.file == segment.span.file
-                && invalid.span.start.offset == segment.span.start.offset
-                && invalid.span.end.offset == segment.span.end.offset
-        })
-        .and_then(|invalid| invalid.enclosing_function_span.clone())
-        .or_else(|| function_span_for_segment(module, &segment.span))
+type SegmentKey = (veln_source::SourcePath, usize, usize, usize);
+
+pub(super) struct EnclosingFunctionSpanIndex {
+    invalid_segments: HashMap<SegmentKey, Option<veln_source::SourceSpan>>,
+    functions: HashMap<veln_source::SourcePath, Vec<veln_source::SourceSpan>>,
+    cursors: HashMap<veln_source::SourcePath, usize>,
 }
 
-fn function_span_for_segment(
-    module: &SurfaceModule,
-    span: &veln_source::SourceSpan,
-) -> Option<veln_source::SourceSpan> {
-    module
-        .functions
-        .iter()
-        .find(|function| {
-            function.span.file == span.file
-                && function.span.start.offset <= span.start.offset
-                && function.span.end.offset >= span.end.offset
+impl EnclosingFunctionSpanIndex {
+    pub(super) fn new(module: &SurfaceModule) -> Self {
+        let mut invalid_segments = HashMap::new();
+        for invalid in &module.invalid_names {
+            crate::pipeline::record_variant_refinement_enclosing_context_work(1);
+            if invalid.occurrence == NameOccurrence::PathSegment
+                && let Some(segment_index) = invalid.segment_index
+            {
+                invalid_segments
+                    .entry(segment_key(&invalid.span, segment_index))
+                    .or_insert_with(|| invalid.enclosing_function_span.clone());
+            }
+        }
+        let mut functions = HashMap::<_, Vec<_>>::new();
+        for function in &module.functions {
+            crate::pipeline::record_variant_refinement_enclosing_context_work(1);
+            functions
+                .entry(function.span.file.clone())
+                .or_default()
+                .push(function.span.clone());
+        }
+        for spans in functions.values_mut() {
+            radix_sort_by_span(spans, |span| span);
+        }
+        Self {
+            invalid_segments,
+            functions,
+            cursors: HashMap::new(),
+        }
+    }
+
+    pub(super) fn for_segment(
+        &mut self,
+        segment: &QualifiedPathSegment,
+    ) -> Option<veln_source::SourceSpan> {
+        crate::pipeline::record_variant_refinement_enclosing_context_work(1);
+        if let Some(span) = self
+            .invalid_segments
+            .get(&segment_key(&segment.span, segment.segment_index))
+            && span.is_some()
+        {
+            return span.clone();
+        }
+
+        let functions = self.functions.get(&segment.span.file)?;
+        let cursor = self.cursors.entry(segment.span.file.clone()).or_default();
+        while functions
+            .get(*cursor)
+            .is_some_and(|function| function.end.offset < segment.span.end.offset)
+        {
+            crate::pipeline::record_variant_refinement_enclosing_context_work(1);
+            *cursor += 1;
+        }
+        crate::pipeline::record_variant_refinement_enclosing_context_work(1);
+        functions.get(*cursor).and_then(|function| {
+            (function.start.offset <= segment.span.start.offset
+                && function.end.offset >= segment.span.end.offset)
+                .then(|| function.clone())
         })
-        .map(|function| function.span.clone())
+    }
+}
+
+fn segment_key(span: &veln_source::SourceSpan, segment_index: usize) -> SegmentKey {
+    (
+        span.file.clone(),
+        span.start.offset,
+        span.end.offset,
+        segment_index,
+    )
 }
 
 pub(super) fn classified_invalid_path_segment(
@@ -140,14 +186,16 @@ pub(super) struct QualifiedPathOccurrence {
 
 #[derive(Default)]
 pub(super) struct QualifiedPathOccurrenceIndex {
-    by_segment: BTreeMap<(String, usize, usize, usize), Vec<QualifiedPathOccurrence>>,
+    by_segment: HashMap<(String, usize, usize, usize), Vec<QualifiedPathOccurrence>>,
 }
 
 impl QualifiedPathOccurrenceIndex {
     pub(super) fn new(module: &SurfaceModule) -> Self {
         let mut index = Self::default();
         for function in &module.functions {
+            crate::pipeline::record_variant_refinement_casing_work(1);
             for line in &function.body {
+                crate::pipeline::record_variant_refinement_casing_work(1);
                 index.collect_body_line(line, function.module_name.as_deref());
             }
         }

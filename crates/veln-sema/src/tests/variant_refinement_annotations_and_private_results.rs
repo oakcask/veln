@@ -402,10 +402,16 @@ fn base_failures_are_merged_at_their_annotation_positions() {
         "end\n",
         "type GenericEmpty<A>\n",
         "end\n",
-        "fn first(value: Empty::Missing) -> ()\n",
+        "pub fn unrelated_before()\n",
         "  ()\n",
         "end\n",
         "fn recovered(value: empty::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn unrelated_between()\n",
+        "  ()\n",
+        "end\n",
+        "fn first(value: Empty::Missing) -> ()\n",
         "  ()\n",
         "end\n",
         "fn arity(value: GenericEmpty<Int, String>::Missing) -> ()\n",
@@ -414,16 +420,13 @@ fn base_failures_are_merged_at_their_annotation_positions() {
         "fn later(value: Empty::Missing) -> ()\n",
         "  ()\n",
         "end\n",
+        "pub fn unrelated_after()\n",
+        "  ()\n",
+        "end\n",
     ));
 
-    let relevant = diagnostics
+    let actual = diagnostics
         .iter()
-        .filter(|diagnostic| {
-            matches!(
-                diagnostic.id.as_str(),
-                "name.invalid_case" | "type.variant_refinement_base" | "type.invalid_annotation"
-            )
-        })
         .map(|diagnostic| {
             (
                 diagnostic.id.as_str(),
@@ -432,13 +435,16 @@ fn base_failures_are_merged_at_their_annotation_positions() {
         })
         .collect::<Vec<_>>();
     assert_eq!(
-        relevant,
+        actual,
         [
-            ("type.variant_refinement_base", 5),
             ("name.invalid_case", 8),
+            ("type.public_signature_missing", 5),
             ("type.variant_refinement_base", 8),
-            ("type.invalid_annotation", 11),
+            ("type.public_signature_missing", 11),
             ("type.variant_refinement_base", 14),
+            ("type.invalid_annotation", 17),
+            ("type.variant_refinement_base", 20),
+            ("type.public_signature_missing", 23),
         ],
         "{diagnostics:#?}"
     );
@@ -463,16 +469,38 @@ fn many_independent_base_failures_have_linear_end_to_end_work() {
                 .count(),
             count
         );
-        assert!(work <= count * 100 + 10_000, "count={count} work={work}");
-        eprintln!("variant refinement base pipeline: annotations={count} work={work}");
+        assert!(
+            work.annotation_collection <= count * 16 + 16,
+            "count={count} work={work:?}"
+        );
+        assert!(
+            work.casing_collection <= count * 256 + 20_000,
+            "count={count} work={work:?}"
+        );
+        assert!(
+            work.enclosing_context <= count * 8 + 16,
+            "count={count} work={work:?}"
+        );
+        assert!(
+            work.diagnostic_ordering <= count * 64 + 10_000,
+            "count={count} work={work:?}"
+        );
+        eprintln!("variant refinement base pipeline: annotations={count} work={work:?}");
         work
     });
-    let first_growth = measurements[1] - measurements[0];
-    let second_growth = measurements[2] - measurements[1];
-    assert!(
-        second_growth <= first_growth * 2 + 32,
-        "non-linear work: measurements={measurements:?}"
-    );
+    for stage in [
+        |work: crate::pipeline::VariantRefinementBaseWork| work.annotation_collection,
+        |work: crate::pipeline::VariantRefinementBaseWork| work.casing_collection,
+        |work: crate::pipeline::VariantRefinementBaseWork| work.enclosing_context,
+        |work: crate::pipeline::VariantRefinementBaseWork| work.diagnostic_ordering,
+    ] {
+        let first_growth = stage(measurements[1]) - stage(measurements[0]);
+        let second_growth = stage(measurements[2]) - stage(measurements[1]);
+        assert!(
+            second_growth <= first_growth * 2 + 32,
+            "non-linear stage work: measurements={measurements:?}"
+        );
+    }
 }
 
 #[test]

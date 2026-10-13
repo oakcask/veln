@@ -57,7 +57,9 @@ pub(crate) fn check_variant_refinement_bases(
         }
     }
     for function in &module.functions {
+        crate::pipeline::record_variant_refinement_annotation_work(1);
         for param in &function.params {
+            crate::pipeline::record_variant_refinement_annotation_work(1);
             collect_annotation(
                 &param.ty_refinements,
                 &param.ty_paths,
@@ -74,6 +76,7 @@ pub(crate) fn check_variant_refinement_bases(
             &mut diagnostics,
         );
         for line in &function.body {
+            crate::pipeline::record_variant_refinement_annotation_work(1);
             collect_body_line(
                 line,
                 function.module_name.as_deref(),
@@ -245,6 +248,7 @@ fn collect_annotation(
     environment: &TypeEnvironment,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
     collect_refinements(refinements, current_module, environment, diagnostics);
     for path in paths {
         if let Some(failure) =
@@ -265,7 +269,9 @@ fn collect_refinements(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for refinement in refinements {
+        crate::pipeline::record_variant_refinement_annotation_work(1);
         for alternative in &refinement.alternatives {
+            crate::pipeline::record_variant_refinement_annotation_work(1);
             let base = alternative.base.segments.join("::");
             if let Some(failure) = environment.variant_refinement_base_failure(
                 &base,

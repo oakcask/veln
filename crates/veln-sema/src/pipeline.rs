@@ -320,25 +320,80 @@ fn base_precedes_existing(base: &Diagnostic, existing: &Diagnostic) -> bool {
 
 #[cfg(test)]
 thread_local! {
-    static VARIANT_REFINEMENT_BASE_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static VARIANT_REFINEMENT_BASE_WORK: std::cell::Cell<VariantRefinementBaseWork> =
+        const { std::cell::Cell::new(VariantRefinementBaseWork::new()) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct VariantRefinementBaseWork {
+    pub(crate) annotation_collection: usize,
+    pub(crate) casing_collection: usize,
+    pub(crate) enclosing_context: usize,
+    pub(crate) diagnostic_ordering: usize,
+}
+
+#[cfg(test)]
+impl VariantRefinementBaseWork {
+    const fn new() -> Self {
+        Self {
+            annotation_collection: 0,
+            casing_collection: 0,
+            enclosing_context: 0,
+            diagnostic_ordering: 0,
+        }
+    }
+}
+
+#[cfg(test)]
+fn update_variant_refinement_base_work(update: impl FnOnce(&mut VariantRefinementBaseWork)) {
+    VARIANT_REFINEMENT_BASE_WORK.with(|work| {
+        let mut current = work.get();
+        update(&mut current);
+        work.set(current);
+    });
 }
 
 #[cfg(test)]
 pub(crate) fn record_variant_refinement_base_work(amount: usize) {
-    VARIANT_REFINEMENT_BASE_WORK.with(|work| work.set(work.get() + amount));
+    update_variant_refinement_base_work(|work| work.diagnostic_ordering += amount);
 }
 
 #[cfg(not(test))]
 pub(crate) fn record_variant_refinement_base_work(_amount: usize) {}
 
 #[cfg(test)]
+pub(crate) fn record_variant_refinement_annotation_work(amount: usize) {
+    update_variant_refinement_base_work(|work| work.annotation_collection += amount);
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_variant_refinement_annotation_work(_amount: usize) {}
+
+#[cfg(test)]
+pub(crate) fn record_variant_refinement_casing_work(amount: usize) {
+    update_variant_refinement_base_work(|work| work.casing_collection += amount);
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_variant_refinement_casing_work(_amount: usize) {}
+
+#[cfg(test)]
+pub(crate) fn record_variant_refinement_enclosing_context_work(amount: usize) {
+    update_variant_refinement_base_work(|work| work.enclosing_context += amount);
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_variant_refinement_enclosing_context_work(_amount: usize) {}
+
+#[cfg(test)]
 pub(crate) fn reset_variant_refinement_base_work() {
-    VARIANT_REFINEMENT_BASE_WORK.with(|work| work.set(0));
+    VARIANT_REFINEMENT_BASE_WORK.with(|work| work.set(VariantRefinementBaseWork::new()));
 }
 
 #[cfg(test)]
-pub(crate) fn take_variant_refinement_base_work() -> usize {
-    VARIANT_REFINEMENT_BASE_WORK.with(|work| work.replace(0))
+pub(crate) fn take_variant_refinement_base_work() -> VariantRefinementBaseWork {
+    VARIANT_REFINEMENT_BASE_WORK.with(|work| work.replace(VariantRefinementBaseWork::new()))
 }
 
 fn check_module_declarations(
