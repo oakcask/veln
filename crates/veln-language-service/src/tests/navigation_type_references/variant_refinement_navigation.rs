@@ -654,6 +654,9 @@
             "\nfn direct_non_constructor(value: State::Helper) -> Int\n",
             "  0\n",
             "end\n",
+            "\nfn empty_base(value: Helper::Missing) -> Int\n",
+            "  0\n",
+            "end\n",
         );
         let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
         let position = |line: usize, needle: &str| SourcePosition {
@@ -680,6 +683,14 @@
             assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
             assert!(navigate_for_rename(&snapshot, position(line, needle)).is_some());
         }
+
+        let empty_base = navigate(&snapshot, position(46, "Helper::")).unwrap();
+        assert_eq!(empty_base.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&empty_base.definition, "main.veln", 9, 6);
+        assert_eq!(empty_base.references.len(), 1);
+        assert!(navigate_for_rename(&snapshot, position(46, "Helper::")).is_some());
+        assert!(navigate(&snapshot, position(46, "Missing")).is_none());
+        assert!(navigate_for_rename(&snapshot, position(46, "Missing")).is_none());
     }
 
     #[test]
@@ -799,9 +810,18 @@
             ("different_args", "Box<String>"),
             ("different_args", "Empty"),
         ] {
-            assert!(definition_at(&snapshot, position(line_text, needle)).is_none());
-            assert!(navigate(&snapshot, position(line_text, needle)).is_none());
-            assert!(navigate_for_rename(&snapshot, position(line_text, needle)).is_none());
+            assert!(
+                definition_at(&snapshot, position(line_text, needle)).is_none(),
+                "{line_text} {needle}"
+            );
+            assert!(
+                navigate(&snapshot, position(line_text, needle)).is_none(),
+                "{line_text} {needle}"
+            );
+            assert!(
+                navigate_for_rename(&snapshot, position(line_text, needle)).is_none(),
+                "{line_text} {needle}"
+            );
         }
 
         for needle in ["Box<PhaseAlias>", "Boxed", "Box<Phase>", "Empty"] {
@@ -955,9 +975,18 @@
             ("alias_union", "GenericAlias<Missing>"),
         ] {
             for needle in [base, "Boxed"] {
-                assert!(definition_at(&snapshot, position(line_text, needle)).is_none());
-                assert!(navigate(&snapshot, position(line_text, needle)).is_none());
-                assert!(navigate_for_rename(&snapshot, position(line_text, needle)).is_none());
+                assert!(
+                    definition_at(&snapshot, position(line_text, needle)).is_none(),
+                    "{line_text} {needle}"
+                );
+                assert!(
+                    navigate(&snapshot, position(line_text, needle)).is_none(),
+                    "{line_text} {needle}"
+                );
+                assert!(
+                    navigate_for_rename(&snapshot, position(line_text, needle)).is_none(),
+                    "{line_text} {needle}"
+                );
             }
         }
         for (line_text, base) in [

@@ -35,6 +35,54 @@ impl SymbolIndex {
             .get(final_range)
     }
 
+    fn variant_refinement_base_identity_for_final_range(
+        &self,
+        file: &IndexedFile,
+        final_range: &(usize, usize),
+    ) -> Option<VariantRefinementBaseSymbol> {
+        if let Some(identity) = self.variant_refinement_identity_for_final_range(file, final_range) {
+            return Some(identity.base.clone());
+        }
+
+        let variant_index = file
+            .tokens
+            .binary_search_by_key(&final_range.0, |token| token.range.start)
+            .ok()?;
+        if file.tokens[variant_index].range.end != final_range.1 {
+            return None;
+        }
+        let base_index = variant_refinement_base_index(&file.tokens, variant_index)?;
+        let base_token = &file.tokens[base_index];
+        let base = self.variant_refinement_base_symbol(
+            file,
+            &file.tokens,
+            base_index,
+            &base_token.text,
+        )?;
+        let terminal = match &base {
+            VariantRefinementBaseSymbol::Type(symbol) => symbol.clone(),
+            VariantRefinementBaseSymbol::Alias(symbol) => self.terminal_type_for_alias(symbol)?,
+        };
+        let written_generic_arity = file
+            .variant_refinement_type_argument_count_by_final_range
+            .get(final_range)?;
+        let has_declared_constructor = self.constructor_indices_by_identity.keys().any(
+                |(package, package_origin, module, type_name, _)| {
+                    package == &terminal.package
+                        && package_origin == &terminal.package_origin
+                        && module == &terminal.module
+                        && type_name == &terminal.name
+                },
+            );
+        if terminal.package.is_some()
+            || *written_generic_arity != terminal.generic_arity
+            || has_declared_constructor
+        {
+            return None;
+        }
+        Some(base)
+    }
+
     fn variant_refinement_final_range_for_base(
         &self,
         file: &IndexedFile,
@@ -121,14 +169,6 @@ impl SymbolIndex {
         }) {
             return false;
         }
-        if union_ranges.iter().all(|range| {
-            file.classified_paths
-                .by_range
-                .get(range)
-                .is_some_and(|segment| segment.role == NameClass::Constructor)
-        }) {
-            return true;
-        }
         file.canonical_variant_refinement_type_arguments_by_final_range
             .get(first_range)
             .is_some_and(|first| {
@@ -173,6 +213,12 @@ impl SymbolIndex {
             .variant_refinement_type_argument_count_by_final_range
             .get(final_range)?;
         if *written_generic_arity != terminal.generic_arity {
+            return None;
+        }
+        if !file
+            .canonical_variant_refinement_type_arguments_by_final_range
+            .contains_key(final_range)
+        {
             return None;
         }
         let constructor = self.unique_variant_refinement_constructor(file, &terminal, variant_token)?;
@@ -246,10 +292,10 @@ impl SymbolIndex {
         else {
             return false;
         };
-        self.variant_refinement_identity_for_final_range(file, &final_range)
-            .is_some_and(|identity| {
+        self.variant_refinement_base_identity_for_final_range(file, &final_range)
+            .is_some_and(|base| {
                 matches!(
-                    &identity.base,
+                    &base,
                     VariantRefinementBaseSymbol::Alias(base) if same_type_alias(base, alias)
                 )
             })
@@ -264,8 +310,8 @@ impl SymbolIndex {
     ) -> Option<Symbol> {
         let final_range =
             self.variant_refinement_final_range_for_base(file, &tokens[token_index])?;
-        let identity = self.variant_refinement_identity_for_final_range(file, &final_range)?;
-        match &identity.base {
+        let base = self.variant_refinement_base_identity_for_final_range(file, &final_range)?;
+        match &base {
             VariantRefinementBaseSymbol::Type(symbol) => Some(Symbol::Type(symbol.clone())),
             VariantRefinementBaseSymbol::Alias(symbol) => Some(Symbol::TypeAlias(symbol.clone())),
         }

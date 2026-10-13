@@ -1,58 +1,26 @@
+type State
+	Ready
+end
+
 type Empty
 end
 
 type GenericEmpty<A>
 end
 
-type State
-	Ready
-end
-
 type Wrap
-	Wrapped(Int::Missing)
+	Wrapped(Empty::Missing)
 end
 
-pub type Opaque = NetStream
-
-fn non_adt(value: Int::Missing) -> ()
+fn casing_before(value: empty::Missing) -> ()
 	()
 end
 
-fn opaque_alias(value: Opaque::Missing) -> ()
+fn base_failure(value: Empty::Missing) -> ()
 	()
 end
 
-fn missing_descriptor(value: Empty::Missing) -> ()
-	()
-end
-
-fn arity_precedence(value: Empty<Int>::Missing) -> ()
-	()
-end
-
-fn nested(value: GenericEmpty<State::Ready>::Missing) -> ()
-	()
-end
-
-fn recovered_casing(value: int::Missing) -> ()
-	()
-end
-
-type Box<A>
-	Boxed(A)
-end
-
-fn explicit_call_arguments() -> ()
-	channel::bounded<Int::Missing>(1)
-	channel::bounded<int::Missing>(1)
-	()
-end
-
-fn sibling_failure(value: State::Missing | Int::Missing) -> ()
-	()
-end
-
-fn nested_arity(value: GenericEmpty<Box::Boxed>::Missing) -> ()
+fn arity_precedence(value: GenericEmpty<Int, String>::Missing) -> ()
 	()
 end
 
@@ -60,15 +28,15 @@ fn needs_string(value: String) -> ()
 	()
 end
 
-fn invalid_parameter(value: Int::Missing) -> ()
+fn invalid_parameter(value: Empty::Missing) -> ()
 	needs_string(value)
 end
 
-fn invalid_return() -> Int::Missing
-	"not an int"
+fn invalid_return() -> Empty::Missing
+	"not empty"
 end
 
-fn observes_quarantine() -> ()
-	invalid_parameter("not an int")
-	let value: String = invalid_return()
+fn explicit_type_argument() -> ()
+	let pair = channel::bounded<Empty::Missing>(1)
+	()
 end

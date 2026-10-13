@@ -426,29 +426,6 @@ fn render_variant_refinement_type_argument(
     text
 }
 
-fn push_variant_refinement_path_segments(
-    segments: &[String],
-    segment_spans: &[veln_source::SourceSpan],
-    output: &mut Vec<QualifiedPathSegment>,
-) {
-    for (index, (segment, span)) in segments.iter().zip(segment_spans).enumerate() {
-        let role = if index + 1 == segments.len() {
-            NameClass::Constructor
-        } else if index + 2 == segments.len() {
-            NameClass::Type
-        } else {
-            NameClass::Module
-        };
-        output.push(qualified_path_segment_from_parts(
-            segment,
-            role,
-            span,
-            index,
-            QualifiedPathSegmentEvidence::Resolved,
-        ));
-    }
-}
-
 fn collect_valid_segments_from_body_line(
     line: &veln_ast::BodyLine,
     current_module: Option<&str>,
@@ -584,7 +561,7 @@ fn collect_valid_segments_from_expr(
                 require_valid_variant_refinements,
                 output,
             );
-            if include_variant_refinements && require_valid_variant_refinements {
+            if include_variant_refinements {
                 for paths in type_arg_paths {
                     collect_type_path_segments(paths, current_module, environment, output);
                 }
