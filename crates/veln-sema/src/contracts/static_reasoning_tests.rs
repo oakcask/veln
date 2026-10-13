@@ -76,6 +76,37 @@ fn wide_opaque_call_conjunction_remains_runtime_required() {
 }
 
 #[test]
+fn wide_flat_boolean_formula_uses_stack_safe_collection_and_evaluation() {
+    for operator in ["and", "or"] {
+        let predicate = std::iter::repeat_n("value.ready", 4_097)
+            .collect::<Vec<_>>()
+            .join(&format!(" {operator} "));
+        let mut atoms = Vec::new();
+        collect_boolean_formula_atoms(&predicate, &mut atoms).expect("collect atoms");
+
+        assert_eq!(atoms, vec!["value.ready".to_string()]);
+        assert_eq!(eval_boolean_formula(&predicate, &atoms, 0), Some(false));
+        assert_eq!(eval_boolean_formula(&predicate, &atoms, 1), Some(true));
+    }
+}
+
+#[test]
+fn bounded_prefix_truth_table_proofs_survive_flat_boolean_folding() {
+    let predicate = std::iter::once(
+        "not (value.ready and not extra) or not (not value.ready and not extra)".to_string(),
+    )
+    .chain((0..12).map(|index| format!("field{index}")))
+    .collect::<Vec<_>>()
+    .join(" or ");
+
+    assert!(predicate_is_statically_true(&predicate));
+    assert!(contract_predicate_is_statically_true_with_remainders(
+        &predicate,
+        &[]
+    ));
+}
+
+#[test]
 fn static_contract_reasoning_evaluates_integer_bitwise_expressions() {
     for predicate in [
         "(~0 & 255) == 255",

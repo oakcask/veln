@@ -11,8 +11,8 @@ pub(super) enum BooleanFormula {
     Constant(bool),
     Atom { index: usize, polarity: bool },
     Not(Box<Self>),
-    Or(Box<Self>, Box<Self>),
-    And(Box<Self>, Box<Self>),
+    Or(Vec<Self>),
+    And(Vec<Self>),
 }
 
 impl BooleanFormula {
@@ -21,11 +21,34 @@ impl BooleanFormula {
             Self::Constant(value) => *value,
             Self::Atom { index, polarity } => ((mask & (1usize << index)) != 0) == *polarity,
             Self::Not(inner) => !inner.evaluate(mask),
-            Self::Or(left, right) => left.evaluate(mask) || right.evaluate(mask),
-            Self::And(left, right) => left.evaluate(mask) && right.evaluate(mask),
+            Self::Or(clauses) => clauses.iter().any(|clause| clause.evaluate(mask)),
+            Self::And(clauses) => clauses.iter().all(|clause| clause.evaluate(mask)),
         }
     }
 }
+
+#[cfg(test)]
+thread_local! {
+    static STATIC_BOOLEAN_LEAF_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_static_boolean_work() {
+    STATIC_BOOLEAN_LEAF_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn take_static_boolean_work() -> usize {
+    STATIC_BOOLEAN_LEAF_VISITS.replace(0)
+}
+
+#[cfg(test)]
+fn record_static_boolean_leaf_visit() {
+    STATIC_BOOLEAN_LEAF_VISITS.set(STATIC_BOOLEAN_LEAF_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_static_boolean_leaf_visit() {}
 
 #[derive(Clone, Copy)]
 pub(super) struct StaticBooleanOptions {
@@ -35,6 +58,7 @@ pub(super) struct StaticBooleanOptions {
 
 pub(super) const MAX_STATIC_BOOLEAN_ATOMS: usize = 13;
 pub(super) const MAX_PARTIAL_CASE_SPLIT_ATOMS: usize = 10;
+const MAX_RECURSIVE_REMAINDER_BOOLEAN_CLAUSES: usize = 512;
 
 pub(super) fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     static_boolean_value_inner(predicate, false, false)
@@ -42,6 +66,145 @@ pub(super) fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
 
 pub(super) fn static_boolean_value_for_contract(predicate: &str) -> StaticBooleanValue {
     static_boolean_value_inner(predicate, true, true)
+}
+
+pub(super) fn static_boolean_value_for_remainder_contract(predicate: &str) -> StaticBooleanValue {
+    if !has_wide_boolean_composition(predicate) {
+        return static_boolean_value_for_contract(predicate);
+    }
+    static_boolean_value_for_wide_remainder_contract(predicate)
+}
+
+fn has_wide_boolean_composition(predicate: &str) -> bool {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if let Some(inner) = whole_negated_predicate_inner(predicate) {
+        return has_wide_boolean_composition(inner);
+    }
+
+    let disjuncts = split_top_level_keyword(predicate, "or");
+    if disjuncts.len() > 1 {
+        return disjuncts.len() > MAX_RECURSIVE_REMAINDER_BOOLEAN_CLAUSES
+            || disjuncts.into_iter().any(has_wide_boolean_composition);
+    }
+
+    let conjuncts = split_top_level_keyword(predicate, "and");
+    conjuncts.len() > MAX_RECURSIVE_REMAINDER_BOOLEAN_CLAUSES
+        || (conjuncts.len() > 1 && conjuncts.into_iter().any(has_wide_boolean_composition))
+}
+
+fn static_boolean_value_for_wide_remainder_contract(predicate: &str) -> StaticBooleanValue {
+    let options = StaticBooleanOptions {
+        classify_contract_contradictions: true,
+        classify_covering_numeric_bounds: true,
+    };
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if let Some(value) = static_boolean_literal_value(predicate) {
+        return value;
+    }
+    let literal_composition = static_literal_boolean_composition_value(predicate);
+    if literal_composition != StaticBooleanValue::Unknown {
+        return literal_composition;
+    }
+    if let Some(value) = static_boolean_top_level_shortcut(predicate) {
+        return value;
+    }
+    if let Some(inner) = whole_negated_predicate_inner(predicate) {
+        return static_boolean_value_for_remainder_contract(inner).negate();
+    }
+    if let Some(value) = static_boolean_top_level_tautology_value(predicate, options) {
+        return value;
+    }
+    if is_oversized_partial_case_split_ladder(predicate) {
+        return StaticBooleanValue::Unknown;
+    }
+
+    let disjuncts = split_top_level_keyword(predicate, "or");
+    if disjuncts.len() > 1 {
+        return static_boolean_value_for_wide_clauses(disjuncts, true);
+    }
+    if let Some(value) = static_boolean_top_level_contradiction_value(predicate, options) {
+        return value;
+    }
+
+    let conjuncts = split_top_level_keyword(predicate, "and");
+    if conjuncts.len() > 1 {
+        return static_boolean_value_for_wide_clauses(conjuncts, false);
+    }
+
+    static_boolean_value_for_contract(predicate)
+}
+
+fn static_boolean_value_for_wide_clauses(
+    clauses: Vec<&str>,
+    disjunction: bool,
+) -> StaticBooleanValue {
+    let mut unknown = Vec::new();
+    for clause in clauses {
+        let value = static_boolean_value_for_remainder_contract(clause);
+        if (disjunction && value == StaticBooleanValue::True)
+            || (!disjunction && value == StaticBooleanValue::False)
+        {
+            return value;
+        }
+        if value == StaticBooleanValue::Unknown {
+            unknown.push(clause);
+        }
+    }
+
+    if unknown.is_empty() {
+        return if disjunction {
+            StaticBooleanValue::False
+        } else {
+            StaticBooleanValue::True
+        };
+    }
+    if unknown.len() <= MAX_RECURSIVE_REMAINDER_BOOLEAN_CLAUSES
+        && unknown
+            .iter()
+            .all(|clause| !has_wide_boolean_composition(clause))
+    {
+        let operator = if disjunction { " or " } else { " and " };
+        return static_boolean_value_for_contract(&unknown.join(operator));
+    }
+    if let Some(value) = static_boolean_prefix_truth_table_value(&unknown, disjunction) {
+        return value;
+    }
+    StaticBooleanValue::Unknown
+}
+
+fn static_boolean_prefix_truth_table_value(
+    clauses: &[&str],
+    disjunction: bool,
+) -> Option<StaticBooleanValue> {
+    let mut atoms = Vec::new();
+    let mut values = vec![!disjunction];
+    let mut atom_count = 0usize;
+
+    for clause in clauses {
+        collect_boolean_formula_atoms(clause, &mut atoms)?;
+        while atom_count < atoms.len() {
+            let previous = values.clone();
+            values.extend_from_slice(&previous);
+            atom_count += 1;
+        }
+        let formula = compile_boolean_formula(clause, &atoms)?;
+        for (mask, value) in values.iter_mut().enumerate() {
+            let clause_value = formula.evaluate(mask);
+            *value = if disjunction {
+                *value || clause_value
+            } else {
+                *value && clause_value
+            };
+        }
+        if disjunction && values.iter().all(|value| *value) {
+            return Some(StaticBooleanValue::True);
+        }
+        if !disjunction && values.iter().all(|value| !*value) {
+            return Some(StaticBooleanValue::False);
+        }
+    }
+
+    None
 }
 
 pub(super) fn static_boolean_value_with_literal_bounds(predicate: &str) -> StaticBooleanValue {
@@ -60,6 +223,10 @@ pub(super) fn static_boolean_value_inner(
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if let Some(value) = static_boolean_literal_value(predicate) {
         return value;
+    }
+    let literal_composition = static_literal_boolean_composition_value(predicate);
+    if literal_composition != StaticBooleanValue::Unknown {
+        return literal_composition;
     }
     if let Some(value) = static_boolean_top_level_shortcut(predicate) {
         return value;
@@ -83,6 +250,51 @@ pub(super) fn static_boolean_value_inner(
         return value;
     }
     static_boolean_comparison_value(predicate).unwrap_or(StaticBooleanValue::Unknown)
+}
+
+fn static_literal_boolean_composition_value(predicate: &str) -> StaticBooleanValue {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if let Some(value) = static_boolean_literal_value(predicate) {
+        record_static_boolean_leaf_visit();
+        return value;
+    }
+    if let Some(inner) = whole_negated_predicate_inner(predicate) {
+        return static_literal_boolean_composition_value(inner).negate();
+    }
+
+    let disjuncts = split_top_level_keyword(predicate, "or");
+    if disjuncts.len() > 1 {
+        let mut value = StaticBooleanValue::False;
+        for disjunct in disjuncts {
+            value = value.or(static_literal_boolean_composition_value(disjunct));
+            if value == StaticBooleanValue::True {
+                break;
+            }
+        }
+        return value;
+    }
+
+    let conjuncts = split_top_level_keyword(predicate, "and");
+    if conjuncts.len() > 1 {
+        let mut value = StaticBooleanValue::True;
+        for conjunct in conjuncts {
+            value = value.and(static_literal_boolean_composition_value(conjunct));
+            if value == StaticBooleanValue::False {
+                break;
+            }
+        }
+        return value;
+    }
+
+    record_static_boolean_leaf_visit();
+    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            return static_literal_comparison(left, operator, right)
+                .map(StaticBooleanValue::from)
+                .unwrap_or(StaticBooleanValue::Unknown);
+        }
+    }
+    StaticBooleanValue::Unknown
 }
 
 pub(super) fn static_boolean_literal_value(predicate: &str) -> Option<StaticBooleanValue> {
@@ -250,30 +462,37 @@ pub(super) fn collect_boolean_formula_atoms(
     predicate: &str,
     atoms: &mut Vec<String>,
 ) -> Option<()> {
-    let predicate = strip_balanced_outer_parens(predicate.trim());
-    if predicate.is_empty() || matches!(predicate, "true" | "false") {
-        return Some(());
-    }
-    if let Some(inner) = whole_negated_predicate_inner(predicate) {
-        return collect_boolean_formula_atoms(inner, atoms);
-    }
-    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
-        collect_boolean_formula_atoms(left, atoms)?;
-        collect_boolean_formula_atoms(right, atoms)?;
-        return Some(());
-    }
-    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
-        collect_boolean_formula_atoms(left, atoms)?;
-        collect_boolean_formula_atoms(right, atoms)?;
-        return Some(());
-    }
-    if static_comparison_value(predicate).is_some() {
-        return Some(());
-    }
+    let mut pending = vec![predicate];
+    while let Some(predicate) = pending.pop() {
+        let predicate = strip_balanced_outer_parens(predicate.trim());
+        if predicate.is_empty() || matches!(predicate, "true" | "false") {
+            continue;
+        }
+        if let Some(inner) = whole_negated_predicate_inner(predicate) {
+            pending.push(inner);
+            continue;
+        }
+        let disjuncts = split_top_level_keyword(predicate, "or");
+        if disjuncts.len() > 1 {
+            pending.extend(disjuncts.into_iter().rev());
+            continue;
+        }
+        let conjuncts = split_top_level_keyword(predicate, "and");
+        if conjuncts.len() > 1 {
+            pending.extend(conjuncts.into_iter().rev());
+            continue;
+        }
+        if static_comparison_value(predicate).is_some() {
+            continue;
+        }
 
-    let (shape, _) = normalized_predicate_polarity(predicate);
-    if !atoms.iter().any(|atom| atom == &shape) {
-        atoms.push(shape);
+        let (shape, _) = normalized_predicate_polarity(predicate);
+        if !atoms.iter().any(|atom| atom == &shape) {
+            atoms.push(shape);
+            if atoms.len() > MAX_STATIC_BOOLEAN_ATOMS {
+                return None;
+            }
+        }
     }
     Some(())
 }
@@ -296,17 +515,21 @@ pub(super) fn compile_boolean_formula(predicate: &str, atoms: &[String]) -> Opti
             inner, atoms,
         )?)));
     }
-    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
-        return Some(BooleanFormula::Or(
-            Box::new(compile_boolean_formula(left, atoms)?),
-            Box::new(compile_boolean_formula(right, atoms)?),
-        ));
+    let disjuncts = split_top_level_keyword(predicate, "or");
+    if disjuncts.len() > 1 {
+        return disjuncts
+            .into_iter()
+            .map(|clause| compile_boolean_formula(clause, atoms))
+            .collect::<Option<Vec<_>>>()
+            .map(BooleanFormula::Or);
     }
-    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
-        return Some(BooleanFormula::And(
-            Box::new(compile_boolean_formula(left, atoms)?),
-            Box::new(compile_boolean_formula(right, atoms)?),
-        ));
+    let conjuncts = split_top_level_keyword(predicate, "and");
+    if conjuncts.len() > 1 {
+        return conjuncts
+            .into_iter()
+            .map(|clause| compile_boolean_formula(clause, atoms))
+            .collect::<Option<Vec<_>>>()
+            .map(BooleanFormula::And);
     }
     if let Some(value) = static_comparison_value(predicate) {
         return Some(BooleanFormula::Constant(value));

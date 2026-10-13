@@ -49,6 +49,9 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
     predicate: &str,
     remainders: &[PredicateRemainder],
 ) -> bool {
+    if remainders.is_empty() {
+        return contract_predicate_is_statically_true(predicate);
+    }
     let Some(flow_shape) = predicate_with_remainder_markers(predicate, remainders) else {
         return false;
     };
@@ -59,7 +62,7 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
     else {
         return false;
     };
-    static_boolean_value_for_contract(&folded) == StaticBooleanValue::True
+    static_boolean_value_for_remainder_contract(&folded) == StaticBooleanValue::True
 }
 
 fn predicate_with_remainder_markers(
@@ -95,16 +98,31 @@ fn predicate_with_runtime_integer_remainder_arithmetic(
     }
 
     for keyword in ["or", "and"] {
-        let Some((marked_left, marked_right)) = split_top_level_keyword_operator(marked, keyword)
-        else {
+        let marked_clauses = split_top_level_keyword(marked, keyword);
+        if marked_clauses.len() < 2 {
             continue;
-        };
-        let (folded_left, folded_right) = split_top_level_keyword_operator(folded, keyword)?;
-        return Some(format!(
-            "({}) {keyword} ({})",
-            predicate_with_runtime_integer_remainder_arithmetic(marked_left, folded_left)?,
-            predicate_with_runtime_integer_remainder_arithmetic(marked_right, folded_right)?,
-        ));
+        }
+        let folded_clauses = split_top_level_keyword(folded, keyword);
+        if marked_clauses.len() != folded_clauses.len() {
+            return None;
+        }
+        let mut transformed = String::with_capacity(folded.len());
+        for (index, (marked_clause, folded_clause)) in
+            marked_clauses.into_iter().zip(folded_clauses).enumerate()
+        {
+            if index > 0 {
+                transformed.push(' ');
+                transformed.push_str(keyword);
+                transformed.push(' ');
+            }
+            transformed.push('(');
+            transformed.push_str(&predicate_with_runtime_integer_remainder_arithmetic(
+                marked_clause,
+                folded_clause,
+            )?);
+            transformed.push(')');
+        }
+        return Some(transformed);
     }
 
     for operators in [&["==", "!="][..], &["<=", ">=", "<", ">"][..]] {
@@ -214,6 +232,8 @@ use predicate_shapes::*;
 use predicate_typing::*;
 use static_literals::*;
 
+#[cfg(test)]
+pub(crate) use boolean_core::{reset_static_boolean_work, take_static_boolean_work};
 pub(crate) use contract_calls::{contract_calls, is_contract_keyword, referenced_names};
 pub(crate) use predicate_remainder_typing::{
     PredicateRemainderTypingContext, missing_contract_field, predicate_is_boolean_with_calls,
