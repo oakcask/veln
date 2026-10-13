@@ -172,6 +172,10 @@ Requirement discharge reuses contract static truth and preserves its limits:
 - disjunctive requirements contribute only facts common to every branch;
 - numeric literal bounds use exact decimal/rational ordering and pure literal
   `+`, `-`, `*`, and comparison-only `/` expressions;
+- a literal-only `%` subexpression with a nonzero `Int` divisor is folded with
+  runtime signed-`Int` remainder behavior; each enclosing arithmetic node keeps
+  its normal inferred `Int` or `Float` type when the folded predicate is used
+  to decide whether a candidate is safe;
 - a `satisfy` predicate that contains a nonliteral remainder relationship stays
   unresolved as a whole and does not produce a modular proof or repair; other
   holes with independently supported `satisfy` predicates remain eligible
