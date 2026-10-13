@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#predicate-usage-and-validation; behavior=#runtime-obligations; limits=#static-classification
-update-when: Contract predicate syntax, validation, bounded-work evidence, runtime checks, static classification, result bindings, or contract examples change.
+update-when: Contract predicate syntax, validation, runtime checks, static classification, result bindings, or contract examples change.
 ---
 
 # Contracts
@@ -54,13 +54,6 @@ remainder chains on both sides of a comparison, in separate Boolean branches,
 or inside pure call arguments. Each chain keeps its own source occurrence, so
 repeated spellings and whitespace variants in distinct call arguments do not
 make validation reuse another chain's type.
-
-For a root predicate containing fixed-width independent remainder chains,
-remainder-chain index construction and lookup work grow linearly with the
-number of chains. The semantic regression check compares predicates with 128
-and 256 chains across contracts, `satisfy`, and pure-call arguments. It requires
-one index construction per root predicate and no more than twice the smaller
-case's range lookups plus a constant allowance of eight.
 
 Each operand keeps the most specific diagnostic available for its expression.
 For example, a missing record field reports `contract.field_missing`, and a
@@ -159,17 +152,10 @@ The classifier combines these rule classes:
 
 Flat remainder-bearing conjunctions and disjunctions preserve these literal
 folding, precedence, and Boolean-identity rules when their width exceeds the
-generic truth-table cutoff. A valid flat composition with 4,097 clauses
-completes semantic classification without exhausting the analyzer stack. A
-literal-only composition is `statically_proven` when these rules establish
-that it is true. A false composition and a composition with an unresolved
-nonliteral remainder remain `runtime_required` unless another bounded rule
-proves the complete predicate.
-
-The bounded-work regression check classifies literal remainder conjunctions
-with 2,048 and 4,096 clauses. It requires exactly one literal-classification
-leaf visit per clause, so doubling the clause count doubles that measured
-classification work.
+generic truth-table cutoff. A literal-only composition is `statically_proven`
+when these rules establish that it is true. A false composition and a
+composition with an unresolved nonliteral remainder remain `runtime_required`
+unless another bounded rule proves the complete predicate.
 
 Each independent flat remainder chain follows its source left associativity
 during classification. A literal-only chain folds each operation from left to
@@ -216,7 +202,7 @@ unresolved-name diagnostic.
 
 - Predicate parsing: `crates/veln-syntax/src/parser/contract_predicates.rs`.
 - Validation and classification: `crates/veln-sema/src/contracts/`.
-- Remainder validation and bounded-work evidence:
+- Remainder validation and classification regression coverage:
   `crates/veln-sema/src/tests/remainder.rs`.
 - Runtime contract examples and diagnostics: `examples/specification/test/` and
   `examples/specification/run/` contract cases.
