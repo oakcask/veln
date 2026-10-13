@@ -124,7 +124,7 @@ fn type_applied_unresolved_calls_do_not_gain_function_casing_roles() {
 }
 
 #[test]
-fn expression_type_argument_refinements_do_not_emit_casing_diagnostics() {
+fn expression_type_argument_refinements_emit_recovered_base_casing_diagnostics() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -137,10 +137,12 @@ fn expression_type_argument_refinements_do_not_emit_casing_diagnostics() {
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
 
-    assert!(
+    assert_eq!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id != "name.invalid_case"),
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "name.unresolved"],
         "{diagnostics:#?}"
     );
 }
