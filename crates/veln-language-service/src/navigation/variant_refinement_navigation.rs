@@ -10,6 +10,15 @@ struct VariantRefinementAliasDeclarations {
 }
 type VariantRefinementAliases<'a> = BTreeMap<TypeIdentity, Vec<&'a TypeAliasSymbol>>;
 
+fn declaration_contains_location(
+    declaration: &veln_source::SourceSpan,
+    location: &NavigationLocation,
+) -> bool {
+    declaration.file == location.span.file
+        && declaration.start.offset <= location.span.start.offset
+        && declaration.end.offset >= location.span.end.offset
+}
+
 impl SymbolIndex {
     fn variant_refinement_identity<'a>(
         &self,
@@ -53,12 +62,16 @@ impl SymbolIndex {
         }
         let base_index = variant_refinement_base_index(&file.tokens, variant_index)?;
         let base_token = &file.tokens[base_index];
-        let base = self.variant_refinement_base_symbol(
-            file,
-            &file.tokens,
-            base_index,
-            &base_token.text,
-        )?;
+        let base = self
+            .retained_variant_refinement_base_symbol(file, base_token)
+            .or_else(|| {
+                self.variant_refinement_base_symbol(
+                    file,
+                    &file.tokens,
+                    base_index,
+                    &base_token.text,
+                )
+            })?;
         let terminal = match &base {
             VariantRefinementBaseSymbol::Type(symbol) => symbol.clone(),
             VariantRefinementBaseSymbol::Alias(symbol) => self.terminal_type_for_alias(symbol)?,
@@ -74,8 +87,7 @@ impl SymbolIndex {
                         && type_name == &terminal.name
                 },
             );
-        if terminal.package.is_some()
-            || *written_generic_arity != terminal.generic_arity
+        if *written_generic_arity != terminal.generic_arity
             || has_declared_constructor
         {
             return None;
@@ -289,6 +301,35 @@ impl SymbolIndex {
                 Some(VariantRefinementBaseSymbol::Alias(symbol))
             }
         }
+    }
+
+    fn retained_variant_refinement_base_symbol(
+        &self,
+        file: &IndexedFile,
+        base_token: &Token,
+    ) -> Option<VariantRefinementBaseSymbol> {
+        let segment = file
+            .classified_paths
+            .by_range
+            .get(&(base_token.range.start, base_token.range.end))?;
+        let declaration = segment.resolved_declaration_span.as_ref()?;
+        let mut candidates = self
+            .types
+            .iter()
+            .filter(|symbol| declaration_contains_location(declaration, &symbol.declaration))
+            .cloned()
+            .map(VariantRefinementBaseSymbol::Type)
+            .chain(
+                self.type_aliases
+                    .iter()
+                    .filter(|symbol| {
+                        declaration_contains_location(declaration, &symbol.declaration)
+                    })
+                    .cloned()
+                    .map(VariantRefinementBaseSymbol::Alias),
+            );
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then_some(candidate)
     }
 
     fn variant_refinement_base_alias_definition_supported(

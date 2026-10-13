@@ -101,6 +101,7 @@ pub struct QualifiedPathSegment {
     pub span: SourceSpan,
     pub segment_index: usize,
     pub evidence: QualifiedPathSegmentEvidence,
+    pub resolved_declaration_span: Option<SourceSpan>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

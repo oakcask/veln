@@ -466,9 +466,10 @@ exposes a recovery record's retained source range.
 
 Valid singleton and union variant refinements use the
 [shared navigation contract](editor-support.md#shared-variant-refinement-navigation).
-That contract also retains the uniquely resolved workspace base identity for a
-source-declared base with no finite ADT variants while leaving its invalid final
-segment unselected.
+That contract also retains a uniquely resolved eligible source identity for a
+base with no finite ADT variants while leaving its invalid final segment
+unselected. The identity can name a workspace declaration or an admitted
+public dependency declaration.
 MCP supplies and returns positive one-based Unicode-scalar coordinates and does
 not resolve a second refinement identity. Definition projects the shared
 declaration. References project the shared deterministic locations and apply
@@ -481,8 +482,9 @@ corresponding MCP tool.
 
 The checked `adt-variant-refinement-navigation` MCP case asserts the exact
 ordered constructor references and rename edits across direct and
-alias-qualified refinements. It also asserts alias-base definition and rename
-edits without target-ADT or constructor edits, exclusion of a same-spelled
+alias-qualified refinements. It also asserts recovered non-ADT base definition,
+references, and rename while leaving the invalid final segment unselected. It
+asserts alias-base definition and rename edits without target-ADT or constructor edits, exclusion of a same-spelled
 constructor from another ADT, and empty results for an invalid mixed-ADT union.
 
 ### Source presentation

@@ -284,12 +284,15 @@ from multiple packages, the base is ambiguous. The direct base, an alias chain
 that depends on it, and their final variants expose no navigation identity,
 regardless of import order.
 The complete refinement must resolve before either segment is selectable,
-except for a source-declared base that resolves uniquely but has no finite ADT
-variants. If that base has the declared generic-argument count, its written
-base remains selectable for definition, references, and rename while the
-invalid final segment has no identity. This recovery applies to a direct base
-or a finite visible alias chain and does not admit package-backed or ambiguous
-bases.
+except for an eligible source-backed base that resolves uniquely but has no
+finite ADT variants. If that base has the declared generic-argument count, its
+written base retains the resolved declaration identity while the invalid final
+segment has no identity. Definition and references project that identity for a
+workspace declaration or an admitted public dependency declaration. Rename
+remains available only when the selected declaration and every edit are inside
+the editable workspace. This recovery applies to a direct base or a finite
+visible alias chain; private, non-exported, ambiguous, wrong-arity, and
+provider-only records remain unselected.
 For other invalid refinements, if the written generic-argument count differs
 from the resolved terminal ADT's declared parameter count, any generic argument
 contains an unresolved named type or invalid nested refinement, the final
