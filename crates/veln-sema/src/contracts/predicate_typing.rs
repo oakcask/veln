@@ -1,35 +1,5 @@
 use super::*;
 
-pub(crate) fn missing_contract_field(
-    predicate: &str,
-    bindings: &[Binding],
-    call_type: &impl Fn(&str) -> Option<Type>,
-) -> Option<(String, String)> {
-    for access in field_accesses(predicate) {
-        let Some(mut current) = predicate_type_with_calls(&access.base, bindings, call_type) else {
-            continue;
-        };
-        for field in access.fields {
-            let Some(next) = current.record_field(&field) else {
-                return Some((current.render(), field));
-            };
-            current = next.clone();
-        }
-    }
-    None
-}
-
-pub(crate) fn predicate_is_boolean_with_calls(
-    predicate: &str,
-    bindings: &[Binding],
-    call_type: &impl Fn(&str) -> Option<Type>,
-) -> bool {
-    let trimmed = predicate.trim();
-    predicate_type_with_calls(trimmed, bindings, call_type).is_some_and(
-        |ty| matches!(ty, Type::Named { name, args, .. } if name == "Bool" && args.is_empty()),
-    )
-}
-
 pub(crate) fn predicate_rendered_type_with_calls(
     predicate: &str,
     bindings: &[Binding],
@@ -45,6 +15,7 @@ pub(crate) fn predicate_type_with_calls(
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Type> {
+    record_predicate_typing_work(predicate);
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {
         return None;
@@ -144,14 +115,133 @@ pub(super) fn predicate_arithmetic_type(
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Type> {
-    for operator in ["+", "-", "*", "/"] {
-        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+    for operators in [&["+", "-"][..], &["*", "/", "%"][..]] {
+        if let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        {
             let left = predicate_type_with_calls(left, bindings, call_type)?;
             let right = predicate_type_with_calls(right, bindings, call_type)?;
+            if operator == "%" {
+                return Some(Type::int());
+            }
             return numeric_result_type(&left, &right);
         }
     }
     None
+}
+
+pub(super) fn split_top_level_operator_group<'a, 'b>(
+    predicate: &'a str,
+    operators: &'b [&'b str],
+) -> Option<(&'a str, &'b str, &'a str)> {
+    operators
+        .iter()
+        .filter_map(|operator| {
+            split_top_level_operator(predicate, operator)
+                .map(|(left, right)| (left, *operator, right))
+        })
+        .max_by_key(|(left, _, _)| left.len())
+}
+
+pub(crate) fn predicate_literal_is_zero(text: &str) -> bool {
+    let text = strip_balanced_outer_parens(text.trim());
+    if let Ok(literal) = parse_integer_literal(text) {
+        return literal.value == 0;
+    }
+    text.strip_prefix('-')
+        .is_some_and(predicate_literal_is_zero)
+}
+
+pub(crate) fn predicate_has_invalid_remainder_operands(
+    predicate: &str,
+    remainders: &[PredicateRemainder],
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> bool {
+    remainders.iter().any(|remainder| {
+        let left_invalid = remainder.left_remainder.is_none()
+            && predicate_remainder_operand_mismatch(
+                remainder.left_text(predicate),
+                bindings,
+                call_type,
+            )
+            .is_some();
+        let right_invalid = predicate_remainder_operand_mismatch(
+            remainder.right_text(predicate),
+            bindings,
+            call_type,
+        )
+        .is_some();
+        left_invalid || right_invalid
+    })
+}
+
+pub(crate) struct PredicateOperandMismatch {
+    pub(crate) actual: Type,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+}
+
+pub(crate) fn predicate_remainder_operand_mismatch(
+    operand: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<PredicateOperandMismatch> {
+    predicate_int_operand_mismatch(operand, operand, bindings, call_type)
+}
+
+fn predicate_int_operand_mismatch(
+    root: &str,
+    operand: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<PredicateOperandMismatch> {
+    let operand = strip_balanced_outer_parens(operand.trim());
+    if operand.is_empty() {
+        return None;
+    }
+    if let Some(rest) = operand
+        .strip_prefix('-')
+        .or_else(|| operand.strip_prefix('~'))
+    {
+        return predicate_int_operand_mismatch(root, rest, bindings, call_type);
+    }
+    for operators in [
+        &["+", "-"][..],
+        &["*", "/", "%"][..],
+        &["|"][..],
+        &["^"][..],
+        &["&"][..],
+        &[">>>", ">>", "<<"][..],
+    ] {
+        if let Some((left, _, right)) = split_top_level_operator_group(operand, operators) {
+            return predicate_int_operand_mismatch(root, left, bindings, call_type)
+                .or_else(|| predicate_int_operand_mismatch(root, right, bindings, call_type));
+        }
+    }
+    let actual = predicate_remainder_operand_type(operand, bindings, call_type)?;
+    if actual == Type::int() || actual == Type::Unknown {
+        return None;
+    }
+    let start = operand.as_ptr() as usize - root.as_ptr() as usize;
+    Some(PredicateOperandMismatch {
+        actual,
+        start,
+        end: start + operand.len(),
+    })
+}
+
+pub(crate) fn predicate_remainder_operand_type(
+    operand: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    predicate_type_with_calls(operand, bindings, call_type).or_else(|| {
+        let operand = strip_balanced_outer_parens(operand.trim());
+        let inner = operand
+            .strip_prefix('-')
+            .or_else(|| operand.strip_prefix('~'))?;
+        predicate_type_with_calls(inner, bindings, call_type)
+    })
 }
 
 pub(super) fn predicate_bitwise_type(
@@ -269,10 +359,22 @@ pub(super) fn contract_operator_at(text: &str, index: usize, operator: &str) -> 
         return false;
     }
     let next = text[index + operator.len()..].chars().next();
+    let previous = text[..index].chars().next_back();
     match operator {
-        ">" => !matches!(next, Some('>' | '=')),
-        ">>" => next != Some('>'),
-        "<" => !matches!(next, Some('<' | '=')),
+        "-" => text[..index]
+            .chars()
+            .rev()
+            .find(|character| !character.is_whitespace())
+            .is_some_and(|character| {
+                !matches!(
+                    character,
+                    '(' | '+' | '-' | '*' | '/' | '%' | '<' | '>' | '=' | '!' | '&' | '|' | '^'
+                )
+            }),
+        ">" => previous != Some('>') && !matches!(next, Some('>' | '=')),
+        ">>" | ">>>" => previous != Some('>') && next != Some('>'),
+        "<" => previous != Some('<') && !matches!(next, Some('<' | '=')),
+        "<<" => previous != Some('<') && next != Some('<'),
         "|" => next != Some('>'),
         _ => true,
     }

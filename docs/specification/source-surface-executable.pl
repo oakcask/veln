@@ -142,9 +142,9 @@ grammar_line(106, "ExtensionDispatchPrimitive ::= \"ExtensionDispatch\" \"(\" Sc
 grammar_line(106, "DispatchCases ::= IntLiteral \"=>\" SchemaFieldType (\",\" IntLiteral \"=>\" SchemaFieldType)*").
 grammar_line(106, "CountExpr ::= IntLiteral | SchemaFieldReference | SchemaFieldReference (\"-\" | \"+\" | \"*\" | \"/\") SchemaFieldReference").
 grammar_line(106, "SchemaFieldReference ::= Name (\".\" Name)*").
-grammar_line(107, "SchemaFieldWhere ::= \"where\" (ContractPredicate | ByteViewMultiplePredicate)").
+grammar_line(107, "SchemaFieldWhere ::= \"where\" (SchemaPredicate | ByteViewMultiplePredicate)").
 grammar_line(107, "ByteViewMultiplePredicate ::= \"payload_count\" \"multiple\" \"of\" (Name | IntLiteral)").
-grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
+grammar_line(107, "SchemaValidation ::= \"validate\" SchemaPredicate NL").
 grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(111, "TypeText      ::= VariantRefinementType | NamedType | UnitType | RecordType | FunctionType").
@@ -177,7 +177,27 @@ grammar_line(190, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").
 grammar_line(195, "CallsiteModifier ::= \"callsite\"").
 grammar_line(200, "EffectList    ::= EffectEntry (\",\" EffectEntry)* \",\"?").
 grammar_line(205, "EffectEntry   ::= MemberPath | \"...\" Name").
-grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
+grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") FunctionContractPredicate NL").
+grammar_line(211, "FunctionContractPredicate ::= FunctionContractPredicatePrefix (FunctionContractPredicateOp FunctionContractPredicatePrefix)*").
+grammar_line(212, "FunctionContractPredicateOp ::= SchemaPredicateOp | \"%\"").
+grammar_line(212, "FunctionContractPredicatePrefix ::= (\"not\" | \"-\" | \"~\") FunctionContractPredicatePrefix | FunctionContractPredicatePostfix").
+grammar_line(212, "FunctionContractPredicatePostfix ::= FunctionContractPredicatePrimary (FunctionContractPredicateCall | FieldAccess)*").
+grammar_line(212, "FunctionContractPredicatePrimary ::= Literal | NamePath | \"perform\" MemberPath \"::\" Name FunctionContractPredicateCall | \"(\" FunctionContractPredicate \")\" | \"()\"").
+grammar_line(212, "FunctionContractPredicateCall ::= \"(\" FunctionContractPredicate (\",\" FunctionContractPredicate)* \",\"? \")\" | \"(\" \")\"").
+grammar_line(213, "SatisfyPredicate ::= SatisfyPredicatePrefix (SatisfyPredicateOp SatisfyPredicatePrefix)*").
+grammar_line(214, "SatisfyPredicateOp ::= SchemaPredicateOp | \"%\"").
+grammar_line(214, "SatisfyPredicatePrefix ::= (\"not\" | \"-\" | \"~\") SatisfyPredicatePrefix | SatisfyPredicatePostfix").
+grammar_line(214, "SatisfyPredicatePostfix ::= SatisfyPredicatePrimary (SatisfyPredicateCall | FieldAccess)*").
+grammar_line(214, "SatisfyPredicatePrimary ::= Literal | NamePath | \"perform\" MemberPath \"::\" Name SatisfyPredicateCall | \"(\" SatisfyPredicate \")\" | \"()\"").
+grammar_line(214, "SatisfyPredicateCall ::= \"(\" SatisfyPredicate (\",\" SatisfyPredicate)* \",\"? \")\" | \"(\" \")\"").
+grammar_line(215, "SchemaPredicate ::= SchemaPredicatePrefix (SchemaPredicateOp SchemaPredicatePrefix)*").
+grammar_line(216, "SchemaPredicateOp ::= \"or\" | \"and\" | \"|\" | \"^\" | \"&\" | \"==\" | \"!=\"").
+grammar_line(217, "                  | \"<\" | \"<=\" | \">\" | \">=\" | \"<<\" | \">>\" | \">>>\"").
+grammar_line(218, "                  | \"+\" | \"-\" | \"*\" | \"/\"").
+grammar_line(219, "SchemaPredicatePrefix ::= (\"not\" | \"-\" | \"~\") SchemaPredicatePrefix | SchemaPredicatePostfix").
+grammar_line(219, "SchemaPredicatePostfix ::= SchemaPredicatePrimary (SchemaPredicateCall | FieldAccess)*").
+grammar_line(219, "SchemaPredicatePrimary ::= Literal | NamePath | \"perform\" MemberPath \"::\" Name SchemaPredicateCall | \"(\" SchemaPredicate \")\" | \"()\"").
+grammar_line(219, "SchemaPredicateCall ::= \"(\" SchemaPredicate (\",\" SchemaPredicate)* \",\"? \")\" | \"(\" \")\"").
 grammar_line(220, "Body          ::= (LetLine | DeferStatement | ExprLine)*").
 grammar_line(230, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" Expr NL").
 grammar_line(235, "DeferStatement ::= \"defer\" NL Body \"end\" NL?").
@@ -191,6 +211,8 @@ grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\" | \"~\") PrefixExpr | Post
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
 grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | \"(\" Expr \")\" | \"()\"").
 grammar_line(300, "                  | Record | Dict | List | Match | If").
+grammar_line(300, "Hole          ::= (\"_\" | HoleName) SatisfyClause?").
+grammar_line(300, "SatisfyClause ::= \"satisfy\" Name \"=>\" SatisfyPredicate").
 grammar_line(301, "BeginExpr     ::= \"begin\" NL Body \"end\"").
 grammar_line(305, "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr").
 grammar_line(307, "SchemaEncode  ::= \"encode\" MemberPath \"from\" Expr").
@@ -556,7 +578,7 @@ schema_field_where_opt --> [].
 schema_validation_opt -->
     ident_text("validate"),
     line_tokens(Tokens),
-    { Tokens \= [], valid_contract_tokens(Tokens) },
+    { Tokens \= [], valid_schema_predicate_tokens(Tokens) },
     nl,
     !.
 schema_validation_opt --> [].
@@ -640,24 +662,53 @@ contracts --> [].
 contract -->
     contract_keyword,
     line_tokens(Tokens),
-    { Tokens \= [], valid_contract_tokens(Tokens) },
+    { Tokens \= [], valid_function_contract_predicate_tokens(Tokens) },
     nl.
 
 contract_keyword --> tok(require).
 contract_keyword --> tok(ensure).
 contract_keyword --> tok(invariant).
 
-valid_contract_tokens(Tokens) :-
+valid_function_contract_predicate_tokens(Tokens) :-
+    valid_remainder_predicate_tokens(Tokens).
+
+valid_satisfy_predicate_tokens(Tokens) :-
+    valid_remainder_predicate_tokens(Tokens).
+
+valid_remainder_predicate_tokens(Tokens) :-
     \+ member(t(hole, _), Tokens),
     \+ member(t(underscore, _), Tokens),
     \+ member(t(lbracket, _), Tokens),
-    \+ member(t(percent, _), Tokens),
+    remainder_parenthesis_nesting_within_limit(Tokens),
     phrase(expr, Tokens).
 
+remainder_parenthesis_nesting_within_limit(Tokens) :-
+    (   member(t(percent, _), Tokens)
+    ->  parenthesis_nesting_within_limit(Tokens, 0, 128)
+    ;   true
+    ).
+
+parenthesis_nesting_within_limit([], _, _).
+parenthesis_nesting_within_limit([t(lparen, _) | Rest], Depth0, Limit) :-
+    Depth is Depth0 + 1,
+    Depth =< Limit,
+    parenthesis_nesting_within_limit(Rest, Depth, Limit).
+parenthesis_nesting_within_limit([t(rparen, _) | Rest], Depth0, Limit) :-
+    Depth is max(0, Depth0 - 1),
+    parenthesis_nesting_within_limit(Rest, Depth, Limit).
+parenthesis_nesting_within_limit([t(Kind, _) | Rest], Depth, Limit) :-
+    Kind \= lparen,
+    Kind \= rparen,
+    parenthesis_nesting_within_limit(Rest, Depth, Limit).
+
 valid_schema_field_where_tokens(Tokens) :-
-    valid_contract_tokens(Tokens).
+    valid_schema_predicate_tokens(Tokens).
 valid_schema_field_where_tokens(Tokens) :-
     phrase(byte_view_multiple_predicate, Tokens).
+
+valid_schema_predicate_tokens(Tokens) :-
+    \+ member(t(percent, _), Tokens),
+    valid_remainder_predicate_tokens(Tokens).
 
 byte_view_multiple_predicate -->
     ident_text("payload_count"),
@@ -1017,12 +1068,25 @@ begin_expr --> tok(begin), nl, body, tok(end).
 
 satisfy_opt(S0, S) :-
     phrase(satisfy_clause, S0, S),
-    append(Consumed, S, S0),
-    \+ member(t(percent, _), Consumed),
     !.
 satisfy_opt --> [].
 
-satisfy_clause --> ident_text("satisfy"), ident, tok(fat_arrow), expr.
+satisfy_clause -->
+    ident_text("satisfy"),
+    ident,
+    tok(fat_arrow),
+    satisfy_predicate_tokens(Tokens),
+    { Tokens \= [], valid_satisfy_predicate_tokens(Tokens) }.
+
+satisfy_predicate_tokens(Tokens, S0, S) :-
+    append(Tokens, S, S0),
+    Tokens \= [],
+    satisfy_predicate_boundary(S),
+    phrase(expr, Tokens).
+
+satisfy_predicate_boundary([]).
+satisfy_predicate_boundary([t(Kind, _) | _]) :-
+    memberchk(Kind, [comma, rparen, rbracket, rbrace, nl]).
 
 schema_decode_expr -->
     tok(decode),

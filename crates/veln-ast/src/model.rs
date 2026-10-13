@@ -1,5 +1,9 @@
 use veln_source::SourceSpan;
 
+mod predicates;
+
+pub use predicates::*;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeId(u32);
 
@@ -395,23 +399,6 @@ pub struct ResultBinding {
 }
 
 #[derive(Clone, Debug)]
-pub struct Contract {
-    pub node_id: NodeId,
-    pub kind: ContractKind,
-    pub text: String,
-    pub callsite_reference_spans: Vec<SourceSpan>,
-    pub call_callee_spans: Vec<(String, SourceSpan)>,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ContractKind {
-    Require,
-    Ensure,
-    Invariant,
-}
-
-#[derive(Clone, Debug)]
 pub struct BodyLine {
     pub node_id: NodeId,
     pub kind: BodyLineKind,
@@ -557,6 +544,8 @@ pub struct SatisfyClause {
     pub candidate: Option<String>,
     pub candidate_span: Option<SourceSpan>,
     pub predicate: String,
+    pub predicate_tokens: Vec<PredicateTokenSpan>,
+    pub remainder_spans: Vec<PredicateRemainder>,
     pub span: SourceSpan,
 }
 

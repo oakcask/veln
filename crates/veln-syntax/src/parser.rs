@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use veln_literals::parse_integer_literal;
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
@@ -6,12 +8,12 @@ use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     EffectBinder, EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind,
     HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
-    PatternField, PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField,
-    SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
-    SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypePathSegments,
-    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage,
-    VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
-    lex,
+    PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAliasDecl, PublicAliasKind,
+    RecordField, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl,
+    TypePathSegments, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl,
+    UsePackage, VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument,
+    Visibility, lex,
 };
 
 mod adr_lite;
@@ -457,14 +459,19 @@ struct ContractPredicateParser<'a> {
     context: &'static str,
     diagnostic_id: &'static str,
     tokens: &'a [Token],
+    token_text_ranges: Vec<std::ops::Range<usize>>,
+    allow_remainder: bool,
     cursor: usize,
     diagnostics: Vec<ParseDiagnostic>,
     perform_effect_spans: Vec<SourceSpan>,
+    remainder_spans: Vec<PredicateRemainder>,
 }
 
 struct ContractPredicateOutput {
     diagnostics: Vec<ParseDiagnostic>,
     perform_effect_spans: Vec<SourceSpan>,
+    remainder_spans: Vec<PredicateRemainder>,
+    predicate_tokens: Vec<crate::PredicateTokenSpan>,
 }
 
 trait TokenCursor {

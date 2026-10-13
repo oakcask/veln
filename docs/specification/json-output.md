@@ -12,7 +12,7 @@ envelope, field meanings, ordering, and failure behavior.
 | --- | --- |
 | `check --json`, shared diagnostic objects, human diagnostic alignment | [Check JSON and diagnostics](diagnostics-json.md) |
 | `run --json`, captured output, runtime failure projections | [Run JSON](run-json.md) |
-| `test --json`, selection, cases, events, and suite results | [Test JSON](test-json.md) |
+| `test --json`, selection, case and runtime failure projections, events, and suite results | [Test JSON](test-json.md) |
 | `repair --json`, preview, apply, refusal, and verification records | [Repair JSON](repair-json.md) |
 | `metrics --json`, policy checks, and baseline documents | [Metrics JSON](metrics-json.md) |
 

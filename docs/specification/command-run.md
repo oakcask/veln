@@ -112,7 +112,9 @@ A computed zero remainder divisor fails with `runtime.remainder_by_zero` and
 the message `remainder divisor is zero` at the divisor location. A related note
 identifies the complete remainder operation. Output produced before the
 failure is retained, and later statements do not execute. The JSON projection
-is specified by [run JSON](run-json.md).
+is specified by [run JSON](run-json.md). When the operation occurs in a
+runtime contract predicate, this runtime failure is reported instead of a
+contract-violation diagnostic.
 
 ## Limits
 

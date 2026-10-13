@@ -1,0 +1,4 @@
+fn checked(value: Int) -> Int
+require value %     0    == 0
+  _value satisfy candidate => candidate %     (-0)    == 0
+end

@@ -1,0 +1,10 @@
+# An odd argument violates the runtime-required remainder predicate.
+fn checked(value: Int) -> Int
+	require value % 2 == 0
+	value
+end
+
+pub fn main() -> ()
+	checked(7)
+	()
+end

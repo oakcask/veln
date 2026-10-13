@@ -76,13 +76,30 @@ related notes may identify the accepted digit set or prefix. Invalid literal
 shift counts use `type.invalid_shift_count` with `operator`, `actual_count`,
 `minimum_count`, and `maximum_count`; the span is the count expression.
 
-A literal-zero remainder divisor reports `type.remainder_by_zero` with kind
-`type`, message `remainder divisor is zero`, and details `operator: "%"` and
-`divisor: 0`. The primary span selects the divisor expression. One related
-entry has `kind: "operation"`, message `Remainder operation is here.`, and the
-complete remainder-operation span. Decimal, binary, hexadecimal,
-parenthesized, and negated zero literals receive this diagnostic. Computed
-expressions such as `1 - 1` remain runtime checked.
+A remainder divisor written as an integer zero literal reports one
+`type.remainder_by_zero` diagnostic with kind `type`, message
+`remainder divisor is zero`, and details `operator: "%"` and `divisor: 0`.
+Each such divisor in one predicate reports its own diagnostic. The primary span
+selects that divisor expression. One related entry has `kind: "operation"`,
+message `Remainder operation is here.`, and the span of the remainder operation
+that uses that divisor.
+Decimal-integer, binary, hexadecimal, parenthesized, and negated zero literals
+receive this diagnostic. Computed expressions such as `1 - 1` remain runtime
+checked. A non-`Int` zero such as `0.0` reports only its operand
+`type.mismatch`. The same diagnostic rules apply in function and test contract
+predicates and in hole `satisfy` predicates; schema validation predicates
+reject `%` as unsupported syntax.
+
+An invalid remainder operand preserves the diagnostic for the operand itself.
+A missing field in a contract predicate uses `contract.field_missing`; the
+same failure in `satisfy` uses `hole.satisfy_field_missing`. A prefixed
+non-`Int` operand uses `type.mismatch`. A non-`Int` leaf nested in arithmetic
+inside the operand also uses `type.mismatch`, and its primary span selects the
+leaf instead of the enclosing arithmetic expression. When the operand appears
+inside `%` in a call argument, that specific failure is selected before
+checking whether the enclosing call result is a valid Boolean predicate. These
+failures do not add a generic contract or `satisfy` type-mismatch or
+unsupported-construct diagnostic.
 
 An unresolved public type-alias target reports `name.unresolved` at that alias
 declaration. Its details contain `phase: "name"`, the alias `node_id`,

@@ -1,9 +1,10 @@
 use veln_source::SourceSpan;
 use veln_syntax::{
-    BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, ContractKind as SyntaxContractKind,
-    DictEntry as SyntaxDictEntry, EffectDecl as SyntaxEffectDecl,
-    EffectOperationDecl as SyntaxEffectOperationDecl, Expr as SyntaxExpr,
-    ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction, HandlerDecl as SyntaxHandlerDecl,
+    BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, ContractClause as SyntaxContract,
+    ContractKind as SyntaxContractKind, DictEntry as SyntaxDictEntry,
+    EffectDecl as SyntaxEffectDecl, EffectOperationDecl as SyntaxEffectOperationDecl,
+    Expr as SyntaxExpr, ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction,
+    HandlerDecl as SyntaxHandlerDecl,
     HandlerOperationClauseDecl as SyntaxHandlerOperationClauseDecl, IfBranch as SyntaxIfBranch,
     MatchArm as SyntaxMatchArm, ModuleDecl as SyntaxModule, Param as SyntaxParam,
     Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
@@ -16,8 +17,8 @@ use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectDecl,
     EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
     HandlerOperationClauseDecl, InvalidName, MatchArm, ModuleHeader, NameClass, NameOccurrence,
-    NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias, PublicAliasKind,
-    RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    NodeId, Param, Pattern, PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAlias,
+    PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
     SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeAnnotationStructure, TypeDecl,
     TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin,
     VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
@@ -501,18 +502,7 @@ impl AstBuilder {
             contracts: function
                 .contracts
                 .iter()
-                .map(|contract| Contract {
-                    node_id: self.alloc(),
-                    kind: match contract.kind {
-                        SyntaxContractKind::Require => ContractKind::Require,
-                        SyntaxContractKind::Ensure => ContractKind::Ensure,
-                        SyntaxContractKind::Invariant => ContractKind::Invariant,
-                    },
-                    text: contract.text.clone(),
-                    callsite_reference_spans: contract.callsite_reference_spans.clone(),
-                    call_callee_spans: contract.call_callee_spans.clone(),
-                    span: contract.span.clone(),
-                })
+                .map(|contract| self.lower_contract(contract))
                 .collect(),
             body: function
                 .body
@@ -520,6 +510,34 @@ impl AstBuilder {
                 .map(|line| self.lower_body_line(line))
                 .collect(),
             span: function.span.clone(),
+        }
+    }
+
+    fn lower_contract(&mut self, contract: &SyntaxContract) -> Contract {
+        Contract {
+            node_id: self.alloc(),
+            kind: match contract.kind {
+                SyntaxContractKind::Require => ContractKind::Require,
+                SyntaxContractKind::Ensure => ContractKind::Ensure,
+                SyntaxContractKind::Invariant => ContractKind::Invariant,
+            },
+            text: contract.text.clone(),
+            predicate_tokens: contract
+                .predicate_tokens
+                .iter()
+                .map(|token| crate::PredicateTokenSpan {
+                    text_range: token.text_range.clone(),
+                    source_span: token.source_span.clone(),
+                })
+                .collect(),
+            remainder_spans: contract
+                .remainder_spans
+                .iter()
+                .map(lower_predicate_remainder)
+                .collect(),
+            callsite_reference_spans: contract.callsite_reference_spans.clone(),
+            call_callee_spans: contract.call_callee_spans.clone(),
+            span: contract.span.clone(),
         }
     }
 
@@ -635,5 +653,18 @@ impl AstBuilder {
                 span: refinement.span.clone(),
             })
             .collect()
+    }
+}
+
+fn lower_predicate_remainder(remainder: &veln_syntax::PredicateRemainder) -> PredicateRemainder {
+    PredicateRemainder {
+        left_range: remainder.left_range.clone(),
+        right_range: remainder.right_range.clone(),
+        operation_range: remainder.operation_range.clone(),
+        left_remainder: remainder.left_remainder,
+        operator_span: remainder.operator_span.clone(),
+        left_span: remainder.left_span.clone(),
+        right_span: remainder.right_span.clone(),
+        operation_span: remainder.operation_span.clone(),
     }
 }

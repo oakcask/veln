@@ -2,6 +2,7 @@ use super::*;
 
 pub(super) enum ContractValue<'a> {
     Not(&'a str),
+    Negate(&'a str),
     Binary {
         left: &'a str,
         right: &'a str,
@@ -30,23 +31,43 @@ pub(super) enum ContractScalar<'a> {
 
 pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
     let text = strip_contract_outer_parens(text.trim());
-    for (operator, op) in contract_binary_operators() {
-        if let Some((left, right)) = split_contract_binary(text, operator) {
-            return ContractValue::Binary {
-                left,
-                right,
-                op: *op,
-            };
+    if let Some(binary) = parse_contract_binary_value(text) {
+        return binary;
+    }
+    if let Some(prefix) = parse_contract_prefix_value(text) {
+        return prefix;
+    }
+    parse_contract_atomic_value(text)
+}
+
+fn parse_contract_binary_value(text: &str) -> Option<ContractValue<'_>> {
+    for operators in contract_binary_operator_groups() {
+        if let Some((left, right, op)) = split_contract_binary_group(text, operators) {
+            return Some(ContractValue::Binary { left, right, op });
         }
     }
+    None
+}
+
+fn parse_contract_prefix_value(text: &str) -> Option<ContractValue<'_>> {
     if let Some(rest) = text.strip_prefix("not ") {
-        return ContractValue::Not(rest);
+        return Some(ContractValue::Not(rest));
     }
-    if let Some(rest) = text.strip_prefix('~') {
-        return ContractValue::BitwiseNot(rest);
+    if let Some(rest) = text.strip_prefix('-')
+        && contract_integer_value(text).is_none()
+        && text.parse::<f64>().is_err()
+    {
+        return Some(ContractValue::Negate(rest));
     }
+    text.strip_prefix('~').map(ContractValue::BitwiseNot)
+}
+
+fn parse_contract_atomic_value(text: &str) -> ContractValue<'_> {
     if let Some((callee, args)) = parse_contract_call(text) {
         return ContractValue::Call { callee, args };
+    }
+    if contract_integer_value(text).is_some() || text.parse::<f64>().is_ok() {
+        return ContractValue::Scalar(parse_contract_scalar(text));
     }
     if let Some((base, field)) = text.split_once('.') {
         return ContractValue::Field { base, field };
@@ -62,27 +83,44 @@ pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
     }
 }
 
-fn contract_binary_operators() -> &'static [(&'static str, BinaryOp)] {
+fn contract_binary_operator_groups() -> &'static [&'static [(&'static str, BinaryOp)]] {
     &[
-        ("or", BinaryOp::Or),
-        ("and", BinaryOp::And),
-        ("|", BinaryOp::BitwiseOr),
-        ("^", BinaryOp::BitwiseXor),
-        ("&", BinaryOp::BitwiseAnd),
-        ("==", BinaryOp::Equal),
-        ("!=", BinaryOp::NotEqual),
-        (">=", BinaryOp::GreaterEqual),
-        ("<=", BinaryOp::LessEqual),
-        (">", BinaryOp::Greater),
-        ("<", BinaryOp::Less),
-        (">>>", BinaryOp::ShiftRightLogical),
-        (">>", BinaryOp::ShiftRight),
-        ("<<", BinaryOp::ShiftLeft),
-        ("+", BinaryOp::Add),
-        ("-", BinaryOp::Subtract),
-        ("*", BinaryOp::Multiply),
-        ("/", BinaryOp::Divide),
+        &[("or", BinaryOp::Or)],
+        &[("and", BinaryOp::And)],
+        &[("|", BinaryOp::BitwiseOr)],
+        &[("^", BinaryOp::BitwiseXor)],
+        &[("&", BinaryOp::BitwiseAnd)],
+        &[("==", BinaryOp::Equal), ("!=", BinaryOp::NotEqual)],
+        &[
+            (">=", BinaryOp::GreaterEqual),
+            ("<=", BinaryOp::LessEqual),
+            (">", BinaryOp::Greater),
+            ("<", BinaryOp::Less),
+        ],
+        &[
+            (">>>", BinaryOp::ShiftRightLogical),
+            (">>", BinaryOp::ShiftRight),
+            ("<<", BinaryOp::ShiftLeft),
+        ],
+        &[("+", BinaryOp::Add), ("-", BinaryOp::Subtract)],
+        &[
+            ("*", BinaryOp::Multiply),
+            ("/", BinaryOp::Divide),
+            ("%", BinaryOp::Remainder),
+        ],
     ]
+}
+
+fn split_contract_binary_group<'a>(
+    text: &'a str,
+    operators: &[(&'static str, BinaryOp)],
+) -> Option<(&'a str, &'a str, BinaryOp)> {
+    operators
+        .iter()
+        .filter_map(|(operator, op)| {
+            split_contract_binary(text, operator).map(|(left, right)| (left, right, *op))
+        })
+        .max_by_key(|(left, _, _)| left.len())
 }
 
 fn parse_contract_scalar(text: &str) -> ContractScalar<'_> {
@@ -156,6 +194,27 @@ fn contract_operator_at(text: &[u8], index: usize, operator: &[u8]) -> bool {
         .copied();
     let next = text.get(index + operator.len()).copied();
     match operator {
+        b"-" => text[..index]
+            .iter()
+            .rev()
+            .find(|byte| !byte.is_ascii_whitespace())
+            .is_some_and(|byte| {
+                !matches!(
+                    byte,
+                    b'(' | b'+'
+                        | b'-'
+                        | b'*'
+                        | b'/'
+                        | b'%'
+                        | b'<'
+                        | b'>'
+                        | b'='
+                        | b'!'
+                        | b'&'
+                        | b'|'
+                        | b'^'
+                )
+            }),
         b"and" | b"or" => {
             !previous.is_some_and(is_contract_identifier_byte)
                 && !next.is_some_and(is_contract_identifier_byte)
@@ -173,7 +232,7 @@ fn is_contract_identifier_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || byte == b'_'
 }
 
-fn strip_contract_outer_parens(mut text: &str) -> &str {
+pub(super) fn strip_contract_outer_parens(mut text: &str) -> &str {
     loop {
         let Some(inner) = text
             .strip_prefix('(')

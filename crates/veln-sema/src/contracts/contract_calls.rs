@@ -24,9 +24,11 @@ pub(crate) fn contract_calls(predicate: &str) -> Vec<ContractCall> {
             index += 1;
             continue;
         };
+        let (args, arg_ranges) = split_call_args(&predicate[index + 1..close], index + 1);
         calls.push(ContractCall {
             callee: predicate[callee_start..index].trim().to_string(),
-            args: split_call_args(&predicate[index + 1..close]),
+            args,
+            arg_ranges,
             start: callee_start,
             end: close + 1,
         });
@@ -82,8 +84,9 @@ pub(super) fn matching_close(predicate: &str, open: usize) -> Option<usize> {
     None
 }
 
-pub(super) fn split_call_args(text: &str) -> Vec<String> {
+pub(super) fn split_call_args(text: &str, offset: usize) -> (Vec<String>, Vec<Range<usize>>) {
     let mut args = Vec::new();
+    let mut ranges = Vec::new();
     let mut start = 0usize;
     let mut depth = 0usize;
     let mut string_scanner = StringLiteralScanner::default();
@@ -95,20 +98,32 @@ pub(super) fn split_call_args(text: &str) -> Vec<String> {
             '(' => depth += 1,
             ')' => depth = depth.saturating_sub(1),
             ',' if depth == 0 => {
-                let arg = text[start..index].trim();
-                if !arg.is_empty() {
-                    args.push(arg.to_string());
-                }
+                push_call_arg(text, offset, start, index, &mut args, &mut ranges);
                 start = index + ch.len_utf8();
             }
             _ => {}
         }
     }
-    let arg = text[start..].trim();
+    push_call_arg(text, offset, start, text.len(), &mut args, &mut ranges);
+    (args, ranges)
+}
+
+fn push_call_arg(
+    text: &str,
+    offset: usize,
+    start: usize,
+    end: usize,
+    args: &mut Vec<String>,
+    ranges: &mut Vec<Range<usize>>,
+) {
+    let untrimmed = &text[start..end];
+    let arg = untrimmed.trim();
     if !arg.is_empty() {
         args.push(arg.to_string());
+        let leading = untrimmed.len() - untrimmed.trim_start().len();
+        let arg_start = offset + start + leading;
+        ranges.push(arg_start..arg_start + arg.len());
     }
-    args
 }
 
 pub(crate) fn referenced_names(predicate: &str) -> Vec<String> {

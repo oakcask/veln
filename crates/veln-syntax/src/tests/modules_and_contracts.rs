@@ -160,6 +160,208 @@ fn parses_contract_predicate_subset() {
 }
 
 #[test]
+fn parses_remainder_in_contract_predicates_at_multiply_precedence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn checked(value: Int) -> output: Int\n",
+            "require value % 3 * 2 == 2\n",
+            "ensure output * 2 % 3 == 2\n",
+            "invariant value % 4 % 3 == 1\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(function.contracts.len(), 3);
+}
+
+#[test]
+fn flat_remainder_chain_retains_linear_operand_provenance() {
+    fn retained_structure(operator_count: usize) -> (usize, usize) {
+        let predicate = std::iter::once("value".to_string())
+            .chain((0..operator_count).map(|_| "% 2".to_string()))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let source = SourceFile::new(
+            "main.veln",
+            format!("fn checked(value: Int) -> Int\nrequire {predicate} == 0\n  value\nend\n"),
+        );
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        let function = first_function(&output);
+        let remainders = &function.contracts[0].remainder_spans;
+        assert_eq!(remainders.len(), operator_count);
+        assert_eq!(
+            &function.contracts[0].text[remainders[0].left_range.clone()],
+            "value"
+        );
+        assert_eq!(remainders[0].left_remainder, None);
+        assert!(
+            remainders[1..]
+                .iter()
+                .enumerate()
+                .all(|(index, remainder)| remainder.left_remainder == Some(index)
+                    && &function.contracts[0].text[remainder.right_range.clone()] == "2")
+        );
+        (
+            remainders.len(),
+            function.contracts[0].predicate_tokens.len(),
+        )
+    }
+
+    let at_500 = retained_structure(500);
+    let at_501 = retained_structure(501);
+    assert_eq!(at_501.0 - at_500.0, 1);
+    assert_eq!(at_501.1 - at_500.1, 2);
+}
+
+#[test]
+fn right_nested_remainder_retains_linear_source_backed_structure() {
+    fn retained_structure(operator_count: usize) -> (usize, usize) {
+        let mut predicate = "value".to_string();
+        for _ in 0..operator_count {
+            predicate = format!("value % ({predicate})");
+        }
+        let source = SourceFile::new(
+            "main.veln",
+            format!("fn checked(value: Int) -> Int\nrequire {predicate} == 0\n  value\nend\n"),
+        );
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        let contract = &first_function(&output).contracts[0];
+        assert_eq!(contract.remainder_spans.len(), operator_count);
+        assert!(
+            contract
+                .remainder_spans
+                .iter()
+                .all(|remainder| remainder.left_remainder.is_none())
+        );
+        (
+            contract.remainder_spans.len(),
+            contract.predicate_tokens.len(),
+        )
+    }
+
+    let at_120 = retained_structure(120);
+    let at_121 = retained_structure(121);
+    assert_eq!(at_121.0 - at_120.0, 1);
+    assert_eq!(at_121.1 - at_120.1, 4);
+}
+
+fn nested_contract_value(depth: usize) -> String {
+    format!("{}value{}", "(".repeat(depth), ")".repeat(depth))
+}
+
+fn right_nested_remainder(depth: usize) -> String {
+    let mut predicate = "value".to_string();
+    for _ in 0..depth {
+        predicate = format!("value % ({predicate})");
+    }
+    predicate
+}
+
+fn nested_call_remainder(depth: usize) -> String {
+    format!(
+        "{}value % 2{}",
+        "identity(".repeat(depth),
+        ")".repeat(depth)
+    )
+}
+
+#[test]
+fn remainder_predicate_parenthesis_nesting_has_an_exact_safe_boundary() {
+    for depth in [127, 128] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn checked(value: Int) -> Int\nrequire {} == value % 2\n  value\nend\n",
+                right_nested_remainder(depth)
+            ),
+        );
+        let output = parse(&source);
+        assert!(
+            output.diagnostics.is_empty(),
+            "depth {depth}: {:#?}",
+            output.diagnostics
+        );
+    }
+
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn checked(value: Int) -> Int\nrequire {} == value % 2\n  value\nend\n",
+            right_nested_remainder(129)
+        ),
+    );
+    let output = parse(&source);
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics[0].id, "parse.contract_predicate");
+    assert_eq!(
+        output.diagnostics[0].message,
+        "contract predicate nesting exceeds the supported limit of 128 parenthesized expressions"
+    );
+}
+
+#[test]
+fn remainder_call_parenthesis_nesting_has_an_exact_safe_boundary() {
+    for (depth, expected_diagnostics) in [(128, 0), (129, 1)] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn checked(value: Int) -> Int\nrequire {} == value % 2\n  value\nend\n",
+                nested_call_remainder(depth)
+            ),
+        );
+        let output = parse(&source);
+        assert_eq!(
+            output.diagnostics.len(),
+            expected_diagnostics,
+            "depth {depth}: {:#?}",
+            output.diagnostics
+        );
+    }
+}
+
+#[test]
+fn remainder_nesting_limit_is_scoped_to_remainder_predicates() {
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn checked(value: Int) -> Int\nrequire {} == value\n  value\nend\n",
+            nested_contract_value(129)
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn checked() -> Int\n  let result: Int = _value satisfy candidate => {} == candidate\n  result\nend\n",
+            nested_contract_value(129)
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn checked() -> Int\n  let result: Int = _value satisfy candidate => {} == candidate % 2\n  result\nend\n",
+            right_nested_remainder(129)
+        ),
+    );
+    let output = parse(&source);
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics[0].id, "parse.satisfy_predicate");
+}
+
+#[test]
 fn rejects_non_predicate_contract_syntax() {
     let source = SourceFile::new(
         "main.veln",

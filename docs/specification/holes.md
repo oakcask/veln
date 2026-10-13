@@ -109,10 +109,26 @@ Inside a function with the `callsite` modifier, a `satisfy` candidate named
 `callsite` instead reports `name.callsite_shadow`. The rejected candidate does
 not replace the built-in `SourceLocation` value while the predicate is checked.
 
-The predicate uses the same pure boolean subset as contracts. The candidate has
-the hole's expected type when known. Unsupported constructs, non-boolean
-predicates, missing fields, and unresolved names are hole diagnostics; names
-unresolved within the predicate use the `satisfy_predicate` namespace.
+The predicate uses the same pure boolean subset as contracts, including
+integer remainder. `%` requires `Int` operands and produces `Int`; a `Float`
+context does not widen its operands or result. An integer zero literal divisor
+reports `type.remainder_by_zero`. A non-`Int` zero divisor such as `0.0`
+reports only the operand `type.mismatch`. The candidate has the hole's expected
+type when known. Unsupported constructs, non-boolean predicates, missing
+fields, and unresolved names are hole diagnostics; names unresolved within the
+predicate use the `satisfy_predicate` namespace.
+
+Remainder validation preserves those specific operand failures. A missing
+field reports `hole.satisfy_field_missing`, and a prefixed non-`Int` operand
+reports `type.mismatch`. A composite arithmetic operand reports a non-`Int`
+leaf at that leaf's span rather than at the complete operand. The same priority
+applies when `%` is nested in a pure call argument, before the enclosing call
+result is checked as the Boolean predicate. The operand failure is not replaced
+by `hole.satisfy_type_mismatch` or `hole.satisfy_unsupported_construct`.
+
+A hole blocks execution. Therefore, a computed zero divisor inside `satisfy`
+does not produce `runtime.remainder_by_zero`; a nonliteral remainder
+relationship remains unresolved repair analysis.
 
 ## Safe repair classes
 
@@ -156,6 +172,14 @@ Requirement discharge reuses contract static truth and preserves its limits:
 - disjunctive requirements contribute only facts common to every branch;
 - numeric literal bounds use exact decimal/rational ordering and pure literal
   `+`, `-`, `*`, and comparison-only `/` expressions;
+- a literal-only `%` subexpression with a nonzero `Int` divisor is folded with
+  runtime signed-`Int` remainder behavior; each enclosing arithmetic node keeps
+  its normal inferred `Int` or `Float` type when the folded predicate is used
+  to decide whether a candidate is safe;
+- a `satisfy` predicate that contains a nonliteral remainder relationship stays
+  unresolved as a whole and does not produce a modular proof or repair; other
+  holes with independently supported `satisfy` predicates remain eligible
+  under the rules above;
 - `Int` bounds include adjacent integer facts (`max > 0` implies `max >= 1`,
   while `max >= 10` does not imply `max > 10`); and
 - equal inclusive bounds do not imply endpoint disequality.

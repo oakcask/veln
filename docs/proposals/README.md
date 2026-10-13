@@ -16,10 +16,6 @@ also states it.
 
 ## Ready
 
-- Remaining integer `%` support in contract typing and execution, constant
-  reasoning, and repair analysis:
-  [remainder-operator.md](remainder-operator.md).
-
 - Standard-library events, metrics, traces, explicit context propagation,
   a public recording handler, production exporters, and exporter lifecycle
   behavior:

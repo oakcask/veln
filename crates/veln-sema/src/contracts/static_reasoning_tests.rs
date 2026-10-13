@@ -76,6 +76,37 @@ fn wide_opaque_call_conjunction_remains_runtime_required() {
 }
 
 #[test]
+fn wide_flat_boolean_formula_uses_stack_safe_collection_and_evaluation() {
+    for operator in ["and", "or"] {
+        let predicate = std::iter::repeat_n("value.ready", 4_097)
+            .collect::<Vec<_>>()
+            .join(&format!(" {operator} "));
+        let mut atoms = Vec::new();
+        collect_boolean_formula_atoms(&predicate, &mut atoms).expect("collect atoms");
+
+        assert_eq!(atoms, vec!["value.ready".to_string()]);
+        assert_eq!(eval_boolean_formula(&predicate, &atoms, 0), Some(false));
+        assert_eq!(eval_boolean_formula(&predicate, &atoms, 1), Some(true));
+    }
+}
+
+#[test]
+fn bounded_prefix_truth_table_proofs_survive_flat_boolean_folding() {
+    let predicate = std::iter::once(
+        "not (value.ready and not extra) or not (not value.ready and not extra)".to_string(),
+    )
+    .chain((0..12).map(|index| format!("field{index}")))
+    .collect::<Vec<_>>()
+    .join(" or ");
+
+    assert!(predicate_is_statically_true(&predicate));
+    assert!(contract_predicate_is_statically_true_with_remainders(
+        &predicate,
+        &[]
+    ));
+}
+
+#[test]
 fn static_contract_reasoning_evaluates_integer_bitwise_expressions() {
     for predicate in [
         "(~0 & 255) == 255",
@@ -101,6 +132,54 @@ fn static_numeric_expression_preserves_operator_precedence_and_associativity() {
     ] {
         assert!(predicate_is_statically_true(predicate), "{predicate}");
     }
+}
+
+#[test]
+fn static_contract_reasoning_evaluates_signed_integer_remainder() {
+    for predicate in [
+        "7 % 3 == 1",
+        "-7 % 3 == -1",
+        "7 % -3 == 1",
+        "-9223372036854775808 % -1 == 0",
+        "20 % 6 % 4 == 2",
+        "20 % (6 % 4) == 0",
+        "(5 / 2) % 2 == 0",
+        "5 % (3 / 2) == 0",
+        "1 + 8 % 3 * 2 == 5",
+    ] {
+        assert!(
+            contract_predicate_is_statically_true(predicate),
+            "{predicate}"
+        );
+    }
+
+    assert!(!contract_predicate_is_statically_true("value % 2 == 0"));
+    assert!(!contract_predicate_is_statically_true(
+        "value % divisor == value % divisor"
+    ));
+    assert!(!contract_predicate_is_statically_true(
+        "value % divisor == 0 or value % divisor != 0"
+    ));
+    assert!(!contract_predicate_is_statically_true("7 % 0 == 0"));
+}
+
+#[test]
+fn remainder_does_not_enable_exact_decimal_division_for_int_expressions() {
+    for predicate in [
+        "5 % 3 * 2 == 5",
+        "5 % (3 * 2) == 4",
+        "1 % 2 / 2 == 0.5",
+        "5 % (3 / 2) == 1",
+        "20 % 6 % 4 == 0",
+        "20 % (6 % 4) == 1",
+    ] {
+        assert!(
+            !contract_predicate_is_statically_true(predicate),
+            "{predicate}"
+        );
+    }
+
+    assert!(contract_predicate_is_statically_true("1 / 3 < 0.34"));
 }
 
 #[test]

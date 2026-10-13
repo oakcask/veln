@@ -272,6 +272,7 @@ fn contracts_and_builtins_fixture(surface: &Function) -> CoreFunction {
             node_id: surface.contracts[0].node_id,
             kind: ContractKind::Ensure,
             predicate: "result == ()".to_string(),
+            remainder_spans: Vec::new(),
             callsite_calls: vec![CoreContractCall {
                 callee: "validation::accept".to_string(),
                 target: "accept".to_string(),

@@ -239,6 +239,8 @@ impl<'a> Parser<'a> {
                     "schema_field_where",
                     "parse.schema_field_where",
                     &predicate_tokens,
+                    &predicate_text,
+                    false,
                 )
                 .parse();
                 self.diagnostics.extend(predicate_output.diagnostics);
@@ -287,11 +289,14 @@ impl<'a> Parser<'a> {
                 Some("newline"),
             );
         } else {
+            let predicate_text = normalize_collected_text(parts.clone());
             let predicate_output = ContractPredicateParser::new(
                 self.source,
                 "schema_validation",
                 "parse.schema_validation",
                 &predicate_tokens,
+                &predicate_text,
+                false,
             )
             .parse();
             self.diagnostics.extend(predicate_output.diagnostics);

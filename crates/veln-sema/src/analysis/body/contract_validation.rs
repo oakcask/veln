@@ -3,80 +3,87 @@ use super::*;
 type ContractCallSignature = (Vec<Type>, Option<Type>, Type, Vec<String>, bool);
 
 impl<'a> FunctionChecker<'a> {
-    pub(super) fn validate_contract_predicate(
-        &self,
-        kind: ContractKind,
-        predicate: &str,
-    ) -> ContractValidation {
-        self.validate_predicate_with_bindings(predicate, &self.contract_bindings(kind))
+    pub(super) fn validate_contract_predicate(&self, contract: &Contract) -> ContractValidation {
+        self.validate_predicate_with_bindings(
+            &contract.text,
+            &contract.remainder_spans,
+            &self.contract_bindings(contract.kind),
+        )
     }
 
     pub(in crate::analysis) fn validate_predicate_with_bindings(
         &self,
         predicate: &str,
+        remainders: &[PredicateRemainder],
         bindings: &[Binding],
     ) -> ContractValidation {
         let trimmed = predicate.trim();
-        if trimmed.is_empty() {
-            return ContractValidation::UnsupportedConstruct {
-                reason: "empty_predicate",
-            };
+        if let Some(validation) = invalid_predicate_surface(trimmed) {
+            return validation;
         }
-        if trimmed.contains("stdio::") {
-            return ContractValidation::UnsupportedConstruct {
-                reason: "effectful_operation",
-            };
-        }
-        if trimmed.contains("perform ") {
-            return ContractValidation::UnsupportedConstruct {
-                reason: "effectful_operation",
-            };
-        }
-        let calls = contract_calls(trimmed)
+        let calls = contract_calls(predicate)
             .into_iter()
             .filter(|call| !is_contract_keyword(&call.callee))
             .collect::<Vec<_>>();
-        if let Some(validation) = self.validate_contract_calls(trimmed, bindings, &calls) {
+        let remainder_typing = (!remainders.is_empty())
+            .then(|| PredicateRemainderTypingContext::new(predicate, remainders));
+        if let Some(validation) = self.validate_contract_call_structures(&calls) {
+            return validation;
+        }
+        if remainders.is_empty()
+            && let Some(validation) = self.validate_contract_call_results(predicate, &calls)
+        {
             return validation;
         }
         if let Some(validation) = self.validate_contract_referenced_names(trimmed, bindings, &calls)
         {
             return validation;
         }
-        if let Some(validation) = self.validate_whole_contract_call(trimmed, &calls) {
-            return validation;
-        }
         if let Some(validation) = self.validate_missing_contract_field(trimmed, bindings) {
             return validation;
         }
-        self.validate_boolean_contract_predicate(trimmed, bindings)
+        if predicate_has_invalid_remainder_operands(predicate, remainders, bindings, &|callee| {
+            self.contract_call_signature(callee)
+                .map(|(_, _, return_type, _, _)| return_type)
+        }) {
+            return ContractValidation::InvalidRemainderOperands;
+        }
+        if let Some(validation) = self.validate_contract_call_arguments(
+            predicate,
+            remainder_typing.as_ref(),
+            bindings,
+            &calls,
+        ) {
+            return validation;
+        }
+        if !remainders.is_empty()
+            && let Some(validation) = self.validate_contract_call_results(predicate, &calls)
+        {
+            return validation;
+        }
+        if let Some(validation) = self.validate_whole_contract_call(predicate, &calls) {
+            return validation;
+        }
+        self.validate_boolean_contract_predicate(trimmed, remainder_typing.as_ref(), bindings)
     }
 
-    pub(super) fn validate_contract_calls(
+    pub(super) fn validate_contract_call_structures(
         &self,
-        predicate: &str,
-        bindings: &[Binding],
         calls: &[ContractCall],
     ) -> Option<ContractValidation> {
-        for (call_index, call) in calls.iter().enumerate() {
-            if let Some(validation) =
-                self.validate_contract_call(predicate, bindings, calls, call_index, call)
-            {
+        for call in calls {
+            if let Some(validation) = self.validate_contract_call_structure(call) {
                 return Some(validation);
             }
         }
         None
     }
 
-    pub(super) fn validate_contract_call(
+    pub(super) fn validate_contract_call_structure(
         &self,
-        predicate: &str,
-        bindings: &[Binding],
-        calls: &[ContractCall],
-        call_index: usize,
         call: &ContractCall,
     ) -> Option<ContractValidation> {
-        let Some((params, variadic, return_type, effects, callsite)) =
+        let Some((params, variadic, _, effects, callsite)) =
             self.contract_call_signature(&call.callee)
         else {
             return Some(ContractValidation::UnresolvedName {
@@ -93,24 +100,40 @@ impl<'a> FunctionChecker<'a> {
                 reason: "call_arity",
             });
         }
-        if contract_call_result_requires_boolean(predicate, calls, call_index, call, &return_type) {
-            return Some(ContractValidation::NonBoolean {
-                actual_type: return_type.render(),
-            });
-        }
         if !contract_call_arity_matches(params.len(), variadic.is_some(), call.args.len()) {
             return Some(ContractValidation::UnsupportedConstruct {
                 reason: "call_arity",
             });
         }
-        for (index, arg) in call.args.iter().enumerate() {
-            let expected = params
-                .get(index)
-                .or(variadic.as_ref())
-                .expect("validated contract call arity provides an argument type");
-            if let Some(validation) = self.validate_contract_call_argument(arg, expected, bindings)
-            {
-                return Some(validation);
+        None
+    }
+
+    pub(super) fn validate_contract_call_arguments(
+        &self,
+        predicate: &str,
+        remainder_typing: Option<&PredicateRemainderTypingContext<'_>>,
+        bindings: &[Binding],
+        calls: &[ContractCall],
+    ) -> Option<ContractValidation> {
+        for call in calls {
+            let Some((params, variadic, _, _, _)) = self.contract_call_signature(&call.callee)
+            else {
+                continue;
+            };
+            if !contract_call_arity_matches(params.len(), variadic.is_some(), call.args.len()) {
+                continue;
+            }
+            for (index, arg_range) in call.arg_ranges.iter().enumerate() {
+                let arg = &predicate[arg_range.clone()];
+                let expected = params
+                    .get(index)
+                    .or(variadic.as_ref())
+                    .expect("validated contract call arity provides an argument type");
+                if let Some(validation) =
+                    self.validate_contract_call_argument(arg, expected, remainder_typing, bindings)
+                {
+                    return Some(validation);
+                }
             }
         }
         None
@@ -120,6 +143,7 @@ impl<'a> FunctionChecker<'a> {
         &self,
         arg: &str,
         expected: &Type,
+        remainder_typing: Option<&PredicateRemainderTypingContext<'_>>,
         bindings: &[Binding],
     ) -> Option<ContractValidation> {
         let arg_calls = contract_calls(arg);
@@ -129,12 +153,37 @@ impl<'a> FunctionChecker<'a> {
         {
             return Some(ContractValidation::UnresolvedName { name });
         }
-        let actual_type = self.predicate_arg_type(arg, bindings);
+        let actual_type = self.predicate_arg_type(arg, remainder_typing, bindings);
         (!is_assignable(expected, &actual_type)).then_some(
             ContractValidation::UnsupportedConstruct {
                 reason: "call_argument_type",
             },
         )
+    }
+
+    pub(super) fn validate_contract_call_results(
+        &self,
+        predicate: &str,
+        calls: &[ContractCall],
+    ) -> Option<ContractValidation> {
+        for (call_index, call) in calls.iter().enumerate() {
+            let return_type = self
+                .contract_call_signature(&call.callee)
+                .map(|(_, _, return_type, _, _)| return_type)
+                .unwrap_or(Type::Unknown);
+            if contract_call_result_requires_boolean(
+                predicate,
+                calls,
+                call_index,
+                call,
+                &return_type,
+            ) {
+                return Some(ContractValidation::NonBoolean {
+                    actual_type: return_type.render(),
+                });
+            }
+        }
+        None
     }
 
     pub(super) fn validate_contract_referenced_names(
@@ -172,9 +221,12 @@ impl<'a> FunctionChecker<'a> {
         predicate: &str,
         calls: &[ContractCall],
     ) -> Option<ContractValidation> {
+        let trimmed = predicate.trim();
+        let start = predicate.len() - predicate.trim_start().len();
+        let end = start + trimmed.len();
         let call = calls
             .iter()
-            .find(|call| call.start == 0 && call.end == predicate.len())?;
+            .find(|call| call.start == start && call.end == end)?;
         let return_type = self
             .contract_call_signature(&call.callee)
             .map(|(_, _, return_type, _, _)| return_type)
@@ -203,12 +255,21 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn validate_boolean_contract_predicate(
         &self,
         predicate: &str,
+        remainder_typing: Option<&PredicateRemainderTypingContext<'_>>,
         bindings: &[Binding],
     ) -> ContractValidation {
-        if predicate_is_boolean_with_calls(predicate, bindings, &|callee| {
+        let call_type = |callee: &str| {
             self.contract_call_signature(callee)
                 .map(|(_, _, return_type, _, _)| return_type)
-        }) {
+        };
+        let is_boolean = remainder_typing.map_or_else(
+            || predicate_is_boolean_with_calls(predicate, bindings, &call_type),
+            |context| {
+                predicate_type_with_remainder_context(predicate, context, bindings, &call_type)
+                    == Some(Type::bool())
+            },
+        );
+        if is_boolean {
             ContractValidation::Valid
         } else {
             ContractValidation::NonBoolean {
@@ -256,7 +317,12 @@ impl<'a> FunctionChecker<'a> {
             })
     }
 
-    pub(super) fn predicate_arg_type(&self, arg: &str, bindings: &[Binding]) -> Type {
+    pub(super) fn predicate_arg_type(
+        &self,
+        arg: &str,
+        remainder_typing: Option<&PredicateRemainderTypingContext<'_>>,
+        bindings: &[Binding],
+    ) -> Type {
         let trimmed = arg.trim();
         if trimmed.starts_with('"') {
             return Type::string();
@@ -276,9 +342,11 @@ impl<'a> FunctionChecker<'a> {
                 .map(|(_, _, return_type, _, _)| return_type)
                 .unwrap_or(Type::Unknown);
         }
-        if let Some(ty) = predicate_type_with_calls(trimmed, bindings, &|callee| {
-            self.contract_call_signature(callee)
-                .map(|(_, _, return_type, _, _)| return_type)
+        if let Some(ty) = remainder_typing.and_then(|context| {
+            predicate_type_with_remainder_context(trimmed, context, bindings, &|callee| {
+                self.contract_call_signature(callee)
+                    .map(|(_, _, return_type, _, _)| return_type)
+            })
         }) {
             return ty;
         }
@@ -456,6 +524,19 @@ impl<'a> FunctionChecker<'a> {
                     })
             })
     }
+}
+
+fn invalid_predicate_surface(predicate: &str) -> Option<ContractValidation> {
+    if predicate.is_empty() {
+        return Some(ContractValidation::UnsupportedConstruct {
+            reason: "empty_predicate",
+        });
+    }
+    (predicate.contains("stdio::") || predicate.contains("perform ")).then_some(
+        ContractValidation::UnsupportedConstruct {
+            reason: "effectful_operation",
+        },
+    )
 }
 
 fn contract_call_result_requires_boolean(

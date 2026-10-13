@@ -36,11 +36,50 @@ string literal is literal data and is never resolved as a name. Parentheses
 and commas inside a string literal do not close a grouped predicate or split a
 call's argument list.
 
+Integer remainder uses the same operator contract in predicates as in ordinary
+expressions: `%` has multiply-level precedence and left associativity, and both
+operands and the result are `Int`. A `Float` context does not widen either
+operand or the result. A non-`Int` operand reports `type.mismatch`. A literal
+integer zero divisor reports `type.remainder_by_zero` at the divisor, with the
+operation as related context, and the invalid predicate does not become a
+runtime obligation. A non-`Int` zero such as `0.0` reports only the operand
+`type.mismatch`; it does not also report `type.remainder_by_zero`. The complete
+operator contract is specified in
+[Operators and diagnostics](types.md#operators-and-diagnostics).
+
+Grouping, numeric prefix operators, comparisons, Boolean composition, and pure
+call arguments preserve this typing. They do not reassociate or reject an
+otherwise valid remainder chain. One predicate can contain independent
+remainder chains on both sides of a comparison, in separate Boolean branches,
+or inside pure call arguments. Each chain keeps its own source occurrence, so
+repeated spellings and whitespace variants in distinct call arguments do not
+make validation reuse another chain's type.
+
+Each operand keeps the most specific diagnostic available for its expression.
+For example, a missing record field reports `contract.field_missing`, and a
+prefixed `Bool` operand reports `type.mismatch` for the required `Int`. When a
+composite arithmetic operand contains a non-`Int` leaf, the diagnostic selects
+that leaf instead of the complete operand. A surrounding remainder comparison
+does not replace any of these diagnostics. When a remainder occurs inside a
+pure call argument, its invalid operand is diagnosed before the enclosing call
+result is checked as the Boolean predicate. Neither context replaces the
+specific failure with `contract.type_mismatch` or
+`contract.unsupported_construct`.
+
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
 contract predicates. `perform Effect::operation(...)` can parse as a candidate
 predicate but fails the effect-free checker. Unsupported syntax reports
 `parse.contract_predicate`; unsupported syntax in a hole's `satisfy` predicate
 reports `parse.satisfy_predicate`.
+
+A contract or `satisfy` predicate that uses the `%` operator supports at
+most 128 simultaneously nested parenthesized expressions, including call
+argument parentheses. Such a predicate at that boundary is accepted. The
+next opening parenthesis reports the applicable predicate parse diagnostic
+instead of entering unbounded parser, checker, or backend recursion. Predicates
+that do not use `%` are not subject to this remainder-specific limit. The
+checked boundary is exercised by
+[`contract-predicate-nesting`](../../examples/specification/check/contract-predicate-nesting/).
 
 Validation fails for effectful calls, `stdio::` calls, unresolved names,
 unsupported call targets, missing fields, incompatible arguments, empty
@@ -52,6 +91,8 @@ runtime-only checks and never contribute repair constraints.
 Valid obligations run on executable `run` and `test` paths. `require` runs when
 the function is entered. `ensure` runs before normal return and before a `?`
 error return. `invariant` runs at entry and before normal or `?` return.
+`satisfy` is a hole repair constraint, not a runtime contract obligation; its
+nonliteral remainder expressions are not executed.
 
 Runtime-required obligations in a call-site-aware function can read the same
 hidden `callsite` value as the function body. A direct call from such an
@@ -73,6 +114,17 @@ Runtime-required predicates evaluate `not` before `and`, and `and` before
 `or`, as in ordinary source expressions. Parentheses can override that
 precedence.
 
+For a nonzero divisor, runtime integer remainder computes `q = trunc(a / b)`
+and `r = a - q * b` over mathematical integers, then returns `r`. Minimum
+`Int` remainder by `-1` is `0`. A computed zero divisor reports
+`runtime.remainder_by_zero` at the divisor instead of reporting a violated
+contract or exposing a host exception.
+
+The shared multiply-level precedence and left associativity also determine the
+numeric type of a mixed expression. For example, `1 % 2 / 2` groups as
+`(1 % 2) / 2`. Both operands of `/` are `Int`, so the expression evaluates to
+`0`, not `0.5`. Therefore, `require 1 % 2 / 2 == 0.5` fails at runtime.
+
 | Clause | Entry failure blames | Return failure blames |
 | --- | --- | --- |
 | `require` | caller | — |
@@ -92,15 +144,34 @@ The classifier combines these rule classes:
 | --- | --- |
 | Literal values | Boolean and string equality/disequality; numeric equality, disequality, and ordering. Parentheses do not change the result. |
 | Exact arithmetic | Literal `+`, `-`, `*`, `/`, bitwise, and shift expressions in comparison-only positions. Decimal and rational comparisons use exact values; shift counts outside `0..63` are not folded as valid operations. |
+| Integer remainder | A literal-only `%` subexpression is folded when both signed 64-bit operands are known and the divisor is nonzero. The `%` node and an ancestor arithmetic node whose normal operand types select `Int` use runtime `Int` behavior, including truncating division and wrapping arithmetic. A surrounding ordinary arithmetic node follows its normal inferred type, so a `Float` operand selects `Float` for that node without widening either remainder operand. Boolean branches and the two sides of a comparison remain independent expressions. Remainder uses the runtime signed result, including `0` for minimum `Int` remainder by `-1`. A nonliteral remainder subexpression remains `runtime_required`. |
 | Boolean identities | Literal folding, `not`, complementary predicates, boolean equality/disequality, same-shape comparisons, and tautological `and`/`or` forms. Whitespace, redundant atom parentheses, and commuted ordering are normalized where the rule says so. |
 | Truth tables | Truth-table evaluation is bounded at 13 unknown predicates after folding and is skipped for 512 or more top-level disjuncts. Partial case-split search is bounded at 10 predicates; a separate exhaustive disjunction rule handles 7–11 predicates. Other specialized rules may still prove larger formulas. |
 | Order reasoning | Complementary equality/order pairs, trichotomy, inclusive totality, strict splits from disequality, and transitive implications over `<`, `<=`, `==`, and their commuted forms. Non-strict paths can prove equality; strict paths do not. |
 | Literal bounds | Contradictory bounds prove a negated conjunction; covering lower/upper bounds prove a disjunction. Equality aliases may connect bounds. An inclusive bound does not prove a strict consequent. |
 
+Flat remainder-bearing conjunctions and disjunctions preserve these literal
+folding, precedence, and Boolean-identity rules when their width exceeds the
+generic truth-table cutoff. A literal-only composition is `statically_proven`
+when these rules establish that it is true. A false composition and a
+composition with an unresolved nonliteral remainder remain `runtime_required`
+unless another bounded rule proves the complete predicate.
+
+Each independent flat remainder chain follows its source left associativity
+during classification. A literal-only chain folds each operation from left to
+right before the surrounding comparison and Boolean expression are classified.
+If any chain contains a nonliteral operand, the complete obligation remains
+`runtime_required`; classification does not use a partially folded predicate
+to prove it.
+
 Representative proven predicates include:
 
 ```text
 1 / 3 < 0.34
+(5 / 2) % 2 == 0
+5 % (3 / 2) == 0
+(5 % 3) / 2 == 1
+2 / (5 % 3) == 1
 flag or not flag
 value == limit or value != limit
 not (low <= mid and mid < high) or low < high
@@ -110,8 +181,14 @@ not (value > 10 and value < 5)
 Same-shape expressions such as `value + 1 == value + 1` are proven after
 normalization. Literal aliases and commuted forms participate only where the
 corresponding comparison rule applies; arbitrary equivalent expressions do not
-become proven. A valid predicate outside these classes remains
-`runtime_required`.
+become proven. Static classification does not reinterpret an `Int` division
+node in a remainder-containing arithmetic expression as exact rational
+division. An outer arithmetic node with a `Float` operand keeps its normal
+`Float` type after the remainder is folded. False literal predicates such as
+`1 % 2 / 2 == 0.5`, `(5 % 2) / 2.0 == 0`, and
+`(5 % 2) + (1 / 2) == 1.5` remain `runtime_required`, because the classifier
+does not reject statically false contracts. A valid predicate
+outside these classes also remains `runtime_required`.
 
 ## Result binding
 
@@ -125,5 +202,7 @@ unresolved-name diagnostic.
 
 - Predicate parsing: `crates/veln-syntax/src/parser/contract_predicates.rs`.
 - Validation and classification: `crates/veln-sema/src/contracts/`.
+- Remainder validation and classification regression coverage:
+  `crates/veln-sema/src/tests/remainder.rs`.
 - Runtime contract examples and diagnostics: `examples/specification/test/` and
   `examples/specification/run/` contract cases.

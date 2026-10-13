@@ -26,7 +26,20 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         {
             code.contract_call_metadata_work += contract.callsite_calls.len();
         }
-        self.emit_contract_value(code, &contract.predicate, &callsite_calls, 0);
+        self.contract_remainder_chains = veln_ast::index_predicate_remainder_chains(
+            &contract.predicate,
+            &contract.remainder_spans,
+        )
+        .expect("parsed remainder metadata must index its predicate expression")
+        .into_iter()
+        .map(|chain| {
+            (
+                (chain.predicate_range.start, chain.predicate_range.end),
+                chain.remainder_range,
+            )
+        })
+        .collect();
+        self.emit_contract_value(code, &contract.predicate, &callsite_calls, 0, contract);
         let clause = match contract.kind {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
@@ -55,25 +68,122 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         text: &str,
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
+        if text.contains('%')
+            && self.emit_flat_remainder_chain(code, text, callsite_calls, operand_depth, contract)
+        {
+            return;
+        }
         match parse_contract_value(text) {
-            ContractValue::Not(value) => {
-                self.emit_contract_unary(code, value, "not", callsite_calls, operand_depth)
-            }
-            ContractValue::Binary { left, right, op } => {
-                self.emit_contract_binary(code, left, right, op, callsite_calls, operand_depth)
-            }
-            ContractValue::BitwiseNot(value) => {
-                self.emit_contract_unary(code, value, "bitwiseNot", callsite_calls, operand_depth)
-            }
-            ContractValue::Call { callee, args } => {
-                self.emit_contract_call(code, callee, &args, callsite_calls, operand_depth)
-            }
+            ContractValue::Not(value) => self.emit_contract_unary(
+                code,
+                value,
+                "not",
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
+            ContractValue::Negate(value) => self.emit_contract_unary(
+                code,
+                value,
+                "negate",
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
+            ContractValue::Binary { left, right, op } => self.emit_contract_binary(
+                code,
+                (left, right),
+                op,
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
+            ContractValue::BitwiseNot(value) => self.emit_contract_unary(
+                code,
+                value,
+                "bitwiseNot",
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
+            ContractValue::Call { callee, args } => self.emit_contract_call(
+                code,
+                callee,
+                &args,
+                callsite_calls,
+                operand_depth,
+                contract,
+            ),
             ContractValue::Field { base, field } => {
-                self.emit_contract_field(code, base, field, callsite_calls, operand_depth)
+                self.emit_contract_field(code, base, field, callsite_calls, operand_depth, contract)
             }
             ContractValue::Scalar(value) => self.emit_contract_scalar(code, value, operand_depth),
         }
+    }
+
+    fn emit_flat_remainder_chain(
+        &mut self,
+        code: &mut MethodCode,
+        text: &str,
+        callsite_calls: &HashMap<&str, &CoreContractCall>,
+        operand_depth: usize,
+        contract: &IrContract,
+    ) -> bool {
+        let expression = strip_contract_outer_parens(text.trim());
+        let predicate_start = contract.predicate.as_ptr() as usize;
+        let predicate_end = predicate_start + contract.predicate.len();
+        let expression_pointer = expression.as_ptr() as usize;
+        let Some(expression_end) = expression_pointer.checked_add(expression.len()) else {
+            return false;
+        };
+        #[cfg(test)]
+        {
+            code.contract_remainder_scan_work += 1;
+        }
+        if expression_pointer < predicate_start || expression_end > predicate_end {
+            return false;
+        }
+        let expression_start = expression_pointer - predicate_start;
+        let range = self
+            .contract_remainder_chains
+            .get(&(expression_start, expression_start + expression.len()))
+            .cloned();
+        let Some(range) = range else {
+            return false;
+        };
+        let remainders = &contract.remainder_spans[range];
+        let first = &remainders[0];
+        self.emit_contract_value(
+            code,
+            first.left_text(&contract.predicate),
+            callsite_calls,
+            operand_depth,
+            contract,
+        );
+        let mut previous_literal_divisor = None;
+        for remainder in remainders {
+            let right_text = remainder.right_text(&contract.predicate);
+            let literal_divisor =
+                parse_integer_literal(strip_contract_outer_parens(right_text.trim()))
+                    .ok()
+                    .map(|literal| literal.value)
+                    .filter(|value| *value != 0);
+            if literal_divisor.is_some() && literal_divisor == previous_literal_divisor {
+                continue;
+            }
+            self.emit_contract_value(
+                code,
+                right_text,
+                callsite_calls,
+                operand_depth + 1,
+                contract,
+            );
+            self.emit_contract_remainder_operation(code, remainder, operand_depth, contract);
+            previous_literal_divisor = literal_divisor;
+        }
+        true
     }
 
     fn emit_contract_unary(
@@ -83,8 +193,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         method: &str,
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
-        self.emit_contract_value(code, value, callsite_calls, operand_depth);
+        self.emit_contract_value(code, value, callsite_calls, operand_depth, contract);
         code.invokestatic(
             &self.program.options.runtime_class,
             method,
@@ -95,18 +206,69 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     fn emit_contract_binary(
         &mut self,
         code: &mut MethodCode,
-        left: &str,
-        right: &str,
+        operands: (&str, &str),
         op: BinaryOp,
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
-        self.emit_contract_value(code, left, callsite_calls, operand_depth);
-        self.emit_contract_value(code, right, callsite_calls, operand_depth + 1);
+        let (left, right) = operands;
+        self.emit_contract_value(code, left, callsite_calls, operand_depth, contract);
+        self.emit_contract_value(code, right, callsite_calls, operand_depth + 1, contract);
+        if op == BinaryOp::Remainder {
+            let divisor_offset = right.as_ptr() as usize - contract.predicate.as_ptr() as usize;
+            let operator_offset = contract.predicate[..divisor_offset]
+                .rfind('%')
+                .expect("parsed remainder must have an operator before its divisor");
+            let remainder_index =
+                remainder_operator_count_before(&contract.predicate, operator_offset);
+            let remainder = contract
+                .remainder_spans
+                .get(remainder_index)
+                .expect("parsed remainder must retain source provenance");
+            self.emit_contract_remainder_operation(code, remainder, operand_depth, contract);
+            return;
+        }
         code.invokestatic(
             &self.program.options.runtime_class,
             binary_method(op),
             "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_contract_remainder_operation(
+        &self,
+        code: &mut MethodCode,
+        remainder: &PredicateRemainder,
+        operand_depth: usize,
+        contract: &IrContract,
+    ) {
+        #[cfg(test)]
+        {
+            code.contract_remainder_emission_work += 1;
+        }
+        record_contract_stack(code, operand_depth + 15);
+        code.ldc_string(contract.span.file.as_str());
+        for value in [
+            remainder.right_span.start.line,
+            remainder.right_span.start.column,
+            remainder.right_span.start.offset,
+            remainder.right_span.end.line,
+            remainder.right_span.end.column,
+            remainder.right_span.end.offset,
+            remainder.operation_span.start.line,
+            remainder.operation_span.start.column,
+            remainder.operation_span.start.offset,
+            remainder.operation_span.end.line,
+            remainder.operation_span.end.column,
+            remainder.operation_span.end.offset,
+        ] {
+            code.push_i32(value as i32);
+        }
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "remainder",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String;IIIIIIIIIIII)Ljava/lang/Object;",
         );
     }
 
@@ -117,6 +279,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         args: &[&str],
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
         #[cfg(test)]
         {
@@ -129,7 +292,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             + usize::from(callsite_call.is_some());
         record_contract_stack(code, operand_depth + abi_arg_count.max(1));
         for (index, arg) in args[..fixed_arg_count].iter().enumerate() {
-            self.emit_contract_value(code, arg, callsite_calls, operand_depth + index);
+            self.emit_contract_value(code, arg, callsite_calls, operand_depth + index, contract);
         }
         if callsite_call.is_some_and(|call| call.variadic) {
             self.emit_contract_variadic_tail(
@@ -137,6 +300,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 &args[fixed_arg_count..],
                 callsite_calls,
                 operand_depth + fixed_arg_count,
+                contract,
             );
         }
         if callsite_call.is_some() {
@@ -157,6 +321,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         args: &[&str],
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
         let saved_next = self.next_local;
         let tail_slot = self.alloc_local();
@@ -164,7 +329,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_list_nil(code);
         code.astore(tail_slot);
         for arg in args {
-            self.emit_contract_value(code, arg, callsite_calls, operand_depth);
+            self.emit_contract_value(code, arg, callsite_calls, operand_depth, contract);
             record_contract_stack(code, operand_depth + 2);
             code.aload(tail_slot);
             code.invokestatic(
@@ -190,8 +355,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         field: &str,
         callsite_calls: &HashMap<&str, &CoreContractCall>,
         operand_depth: usize,
+        contract: &IrContract,
     ) {
-        self.emit_contract_value(code, base, callsite_calls, operand_depth);
+        self.emit_contract_value(code, base, callsite_calls, operand_depth, contract);
         record_contract_stack(code, operand_depth + 2);
         code.ldc_string(field);
         code.invokestatic(
@@ -290,6 +456,31 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
     }
+}
+
+fn remainder_operator_count_before(predicate: &str, operator_offset: usize) -> usize {
+    let mut in_string = false;
+    let mut escaped = false;
+    predicate[..operator_offset]
+        .chars()
+        .filter(|character| {
+            if in_string {
+                if escaped {
+                    escaped = false;
+                } else if *character == '\\' {
+                    escaped = true;
+                } else if *character == '"' {
+                    in_string = false;
+                }
+                return false;
+            }
+            if *character == '"' {
+                in_string = true;
+                return false;
+            }
+            *character == '%'
+        })
+        .count()
 }
 
 fn record_contract_stack(code: &mut MethodCode, operand_depth: usize) {

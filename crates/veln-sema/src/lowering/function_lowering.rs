@@ -125,7 +125,10 @@ impl<'a> CoreLowerer<'a> {
         contracts
             .iter()
             .map(|contract| {
-                let obligation_status = if contract_predicate_is_statically_true(&contract.text) {
+                let obligation_status = if contract_predicate_is_statically_true_with_remainders(
+                    &contract.text,
+                    &contract.remainder_spans,
+                ) {
                     ContractObligationStatus::StaticallyProven
                 } else {
                     ContractObligationStatus::RuntimeRequired
@@ -148,6 +151,7 @@ impl<'a> CoreLowerer<'a> {
                     node_id: contract.node_id,
                     kind: contract.kind,
                     predicate: contract.text.clone(),
+                    remainder_spans: contract.remainder_spans.clone(),
                     callsite_calls,
                     obligation_status,
                     span: contract.span.clone(),

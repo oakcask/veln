@@ -625,9 +625,19 @@ impl<'a> FunctionChecker<'a> {
         satisfy: &SatisfyClause,
         expected: &Type,
     ) -> Option<SatisfyRepairConstraint> {
+        if predicate_has_nonfoldable_remainder_with_remainders(
+            &satisfy.predicate,
+            &satisfy.remainder_spans,
+        ) {
+            return None;
+        }
+        let mut folded_satisfy = satisfy.clone();
+        folded_satisfy.predicate =
+            predicate_with_folded_literal_remainders(&satisfy.predicate, &satisfy.remainder_spans)?;
+        folded_satisfy.remainder_spans.clear();
         let allow_static_truth = self.valid_static_satisfy_predicate(satisfy, expected);
         let mut direct_constraint =
-            SatisfyRepairConstraint::from_satisfy(satisfy, allow_static_truth);
+            SatisfyRepairConstraint::from_satisfy(&folded_satisfy, allow_static_truth);
         if direct_constraint
             .as_ref()
             .is_some_and(SatisfyRepairConstraint::allows_any_binding)
@@ -642,7 +652,7 @@ impl<'a> FunctionChecker<'a> {
             .filter(|contract| contract.kind != ContractKind::Ensure)
             .filter(|contract| {
                 matches!(
-                    self.validate_contract_predicate(contract.kind, &contract.text),
+                    self.validate_contract_predicate(contract),
                     ContractValidation::Valid
                 )
             })
@@ -651,7 +661,7 @@ impl<'a> FunctionChecker<'a> {
         let proof_context = (!required_predicates.is_empty())
             .then(|| RequiredPredicateProofContext::new(&required_predicates));
         let allowed_bindings = self.satisfy_allowed_bindings(
-            satisfy,
+            &folded_satisfy,
             candidate,
             allow_static_truth,
             proof_context.as_ref(),
@@ -700,30 +710,6 @@ impl<'a> FunctionChecker<'a> {
                 })
             })
             .collect()
-    }
-
-    pub(super) fn valid_static_satisfy_predicate(
-        &self,
-        satisfy: &SatisfyClause,
-        expected: &Type,
-    ) -> bool {
-        let Some(candidate) = satisfy.candidate.as_ref() else {
-            return false;
-        };
-        let mut predicate_bindings = self
-            .effective_visible_bindings()
-            .into_iter()
-            .map(|(index, ty)| {
-                let mut binding = self.bindings[index].clone();
-                binding.ty = ty;
-                binding
-            })
-            .collect::<Vec<_>>();
-        predicate_bindings.push(Binding::new(candidate.clone(), expected.clone()));
-        matches!(
-            self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings),
-            ContractValidation::Valid
-        )
     }
 }
 

@@ -13,9 +13,25 @@ path = "diagnostics.0.id"
 equals = "type.remainder_by_zero"
 
 [[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 10
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 14
+
+[[json_assert]]
 path = "diagnostics.0.related.0.kind"
 equals = "operation"
 
 [[json_assert]]
 path = "diagnostics.0.related.0.message"
 equals = "Remainder operation is here."
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.start.column"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.end.column"
+equals = 14

@@ -405,6 +405,35 @@ fn run_reports_semantic_diagnostics_before_lowering() {
 }
 
 #[test]
+fn run_rejects_invalid_remainder_contract_before_jdk_execution() {
+    let project = TestProject::new("run-invalid-remainder-contract");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn checked(flag: Bool) -> Int\n",
+            "require (-flag) % 2 == 0\n",
+            "  0\n",
+            "end\n",
+            "pub fn main() -> Int\n",
+            "  checked(true)\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run_with_path(&["main", "main.veln"], "");
+    let stderr = stderr(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr,
+        &["error[type.mismatch]: expected `Int`, but found `Bool`"],
+    );
+    assert!(!stderr.contains("java` was not found"), "{stderr}");
+    assert!(!stderr.contains("ClassCastException"), "{stderr}");
+}
+
+#[test]
 fn run_ignores_unreachable_semantic_diagnostics() {
     let project = TestProject::new("run-unreachable-semantic-diagnostics");
     project.write(

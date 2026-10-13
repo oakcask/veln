@@ -252,10 +252,30 @@ pub struct ResultBinding {
 pub struct ContractClause {
     pub kind: ContractKind,
     pub text: String,
+    pub predicate_tokens: Vec<PredicateTokenSpan>,
+    pub remainder_spans: Vec<PredicateRemainder>,
     pub perform_effect_spans: Vec<SourceSpan>,
     pub callsite_reference_spans: Vec<SourceSpan>,
     pub call_callee_spans: Vec<(String, SourceSpan)>,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct PredicateRemainder {
+    pub left_range: std::ops::Range<usize>,
+    pub right_range: std::ops::Range<usize>,
+    pub operation_range: std::ops::Range<usize>,
+    pub left_remainder: Option<usize>,
+    pub operator_span: SourceSpan,
+    pub left_span: SourceSpan,
+    pub right_span: SourceSpan,
+    pub operation_span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct PredicateTokenSpan {
+    pub text_range: std::ops::Range<usize>,
+    pub source_span: SourceSpan,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -507,6 +527,8 @@ pub struct SatisfyClause {
     pub candidate: Option<String>,
     pub candidate_span: Option<SourceSpan>,
     pub predicate: String,
+    pub predicate_tokens: Vec<PredicateTokenSpan>,
+    pub remainder_spans: Vec<PredicateRemainder>,
     pub perform_effect_spans: Vec<SourceSpan>,
     pub span: SourceSpan,
 }

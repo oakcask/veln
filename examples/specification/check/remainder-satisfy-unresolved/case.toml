@@ -1,0 +1,29 @@
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+contains = ["\"validation_status\":\"valid_unknown\"", "\"repair_status\":\"blocked_until_discharged\""]
+not_contains = ["runtime.remainder_by_zero", "safe_repair_candidate"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "partial"
+
+[[diagnostics]]
+id = "hole.unfilled"
+severity = "hint"
+kind = "hole"
+message = "hole requires a `Int` value"
+
+[diagnostics.span]
+file = "main.veln"
+line = 3
+column = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.constraints.0.repair_status"
+equals = "blocked_until_discharged"

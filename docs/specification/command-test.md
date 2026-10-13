@@ -100,7 +100,10 @@ sources before the static gate blocks their cases. The virtual-source boundary
 is specified by
 [Call-site Declarations](call-site-declarations.md#declaration-behavior).
 Runtime contract failures use contract failure details; returned `Err(value)`
-uses result failure details.
+uses result failure details. A computed zero divisor inside a runtime contract
+predicate terminates the selected case as a general runtime failure rather than
+as a contract failure. The test command does not project the structured
+`runtime.remainder_by_zero` record provided by `run --json`.
 A runtime expectation passes only when the actual structured failure matches.
 A different failure or successful execution fails with
 `reason: "expected_runtime_failure"`. Missing Java is a case error with

@@ -18,6 +18,7 @@ mod local_inference_callback_expected_types;
 mod lowering_and_pattern_semantics;
 mod prelude_and_callable_values;
 mod remainder;
+mod remainder_assertions;
 mod satisfy_alias_and_order_repairs;
 mod satisfy_boolean_and_bound_repairs;
 mod satisfy_case_split_repairs;

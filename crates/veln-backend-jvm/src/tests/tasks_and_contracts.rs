@@ -1,5 +1,7 @@
 use super::*;
 
+mod remainder;
+
 #[test]
 fn bytecode_backend_runs_task_function_values_when_java_is_available() {
     let ir = lower_to_ir(concat!(
@@ -171,6 +173,96 @@ fn bytecode_backend_evaluates_prefixed_contract_integers_when_java_is_available(
 }
 
 #[test]
+fn bytecode_backend_reports_negated_dynamic_zero_remainder_in_contract() {
+    let source = concat!(
+        "fn checked(value: Int, divisor: Int) -> Int\n",
+        "require value % -divisor == 0\n",
+        "  value\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  checked(7, 0)\n",
+        "  ()\n",
+        "end\n",
+    );
+    let ir = lower_to_ir(source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-contract-negated-remainder-zero",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("error[runtime.remainder_by_zero]: remainder divisor is zero"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("ClassCastException"), "{stderr}");
+    assert!(!stderr.contains("ArithmeticException"), "{stderr}");
+}
+
+#[test]
+fn bytecode_backend_executes_mixed_remainder_contracts_with_int_semantics() {
+    for predicate in [
+        "5 % 3 * 2 == 5",
+        "5 % (3 * 2) == 4",
+        "1 % 2 / 2 == 0.5",
+        "5 % (3 / 2) == 1",
+        "20 % 6 % 4 == 0",
+        "20 % (6 % 4) == 1",
+    ] {
+        let ir = lower_to_ir(&format!(
+            "fn checked() -> Int\nrequire {predicate}\n  0\nend\npub fn main() -> ()\n  checked()\n  ()\nend\n"
+        ));
+        let normalized_predicate = ir.functions[0].contracts[0].predicate.clone();
+        let program = generate_classfiles_with_entry(&ir, "main");
+        let Some(output) = run_jvm_program_when_java_is_available(
+            "bytecode-contract-remainder-mixed",
+            &program,
+            &[],
+        ) else {
+            return;
+        };
+        assert!(!output.status.success(), "{predicate}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(&format!(
+                "contract failure: require `{normalized_predicate}`"
+            )),
+            "{predicate}: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn bytecode_backend_accounts_for_deep_remainder_helper_stack() {
+    let mut predicate = "divisor".to_string();
+    for value in (1..=120).rev() {
+        predicate = format!("{value} % ({predicate})");
+    }
+    let ir = lower_to_ir(&format!(
+        "fn checked(divisor: Int) -> Int\nrequire {predicate} == 1\n  divisor\nend\npub fn main() -> () effects [stdio]\n  stdio::println(int_to_string(checked(121)))\nend\n"
+    ));
+    assert_eq!(function_max_stack(&ir, "checked"), 134);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-contract-remainder-deep", &program, &[])
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "121\n");
+}
+
+#[test]
 fn bytecode_backend_evaluates_chained_and_mixed_bitwise_contracts_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn shifted_quarter(value: Int) -> Int\n",
@@ -301,6 +393,117 @@ fn contract_callsite_metadata_work_grows_linearly() {
     assert_eq!(smaller, smaller_count * 2);
     assert_eq!(larger, larger_count * 2);
     assert_eq!(larger, smaller * 2);
+}
+
+fn flat_remainder_contract(operator_count: usize) -> TypedProgram {
+    let mut predicate = String::from("value");
+    for _ in 0..operator_count {
+        predicate.push_str(" % 2");
+    }
+    lower_to_ir(&format!(
+        "pub fn guarded(value: Int) -> Int\nrequire {predicate} == 0\n  value\nend\n"
+    ))
+}
+
+fn independent_remainder_contract(operator_count: usize) -> TypedProgram {
+    let mut left = String::from("left");
+    let mut right = String::from("right");
+    for _ in 0..operator_count {
+        left.push_str(" % 2");
+        right.push_str(" % 2");
+    }
+    lower_to_ir(&format!(
+        "pub fn guarded(left: Int, right: Int) -> Int\nrequire ({left} == 0) and ({right} == 0)\n  left\nend\n"
+    ))
+}
+
+fn right_nested_remainder_contract(operator_count: usize) -> TypedProgram {
+    let mut predicate = String::from("divisor");
+    for _ in 0..operator_count {
+        predicate = format!("value % ({predicate})");
+    }
+    lower_to_ir(&format!(
+        "pub fn guarded(value: Int, divisor: Int) -> Int\nrequire {predicate} == 0\n  value\nend\n"
+    ))
+}
+
+#[test]
+fn flat_remainder_contract_compacts_repeated_nonzero_literal_divisors() {
+    assert_eq!(
+        contract_remainder_emission_work(&flat_remainder_contract(4_097), "guarded"),
+        1
+    );
+}
+
+#[test]
+fn independent_remainder_contract_scan_work_grows_linearly() {
+    let smaller = contract_remainder_scan_work(&independent_remainder_contract(500), "guarded");
+    let larger = contract_remainder_scan_work(&independent_remainder_contract(1_000), "guarded");
+
+    assert!(
+        smaller > 0,
+        "the scan metric must observe predicate text visits"
+    );
+    assert!(
+        larger <= smaller * 3,
+        "doubling both chains must retain linear scan work: {smaller} -> {larger}"
+    );
+}
+
+#[test]
+fn right_nested_remainder_contract_work_grows_linearly() {
+    let smaller = contract_remainder_scan_work(&right_nested_remainder_contract(120), "guarded");
+    let larger = contract_remainder_scan_work(&right_nested_remainder_contract(121), "guarded");
+    assert!(smaller > 0);
+    assert!(
+        larger <= smaller + 2,
+        "adjacent nesting must add bounded lookup work: {smaller} -> {larger}"
+    );
+    assert_eq!(
+        contract_remainder_emission_work(&right_nested_remainder_contract(121), "guarded"),
+        121
+    );
+}
+
+#[test]
+fn independent_long_remainder_contract_emission_is_stack_safe() {
+    let program = independent_remainder_contract(4_097);
+    assert!(function_max_stack(&program, "guarded") < 128);
+    assert_eq!(contract_remainder_emission_work(&program, "guarded"), 2);
+}
+
+#[test]
+fn independent_remainder_contract_executes_without_recursive_emission() {
+    let program = generate_classfiles_with_entry(
+        &lower_to_ir(&format!(
+            "{}pub fn main() -> Int\n  guarded(8, 6)\nend\n",
+            {
+                let mut left = String::from("left");
+                let mut right = String::from("right");
+                for _ in 0..4_097 {
+                    left.push_str(" % 2");
+                    right.push_str(" % 2");
+                }
+                format!(
+                    "fn guarded(left: Int, right: Int) -> Int\nrequire ({left} == 0) or ({right} == 0)\n  left\nend\n"
+                )
+            }
+        )),
+        "main",
+    );
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "independent-remainder-contract-execution",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
 }
 
 #[test]

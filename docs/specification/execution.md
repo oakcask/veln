@@ -102,7 +102,10 @@ Human output reports `remainder divisor is zero` at the divisor span and
 identifies the complete operation in a related note. Earlier output remains
 observable. The [operator specification](types.md#operators-and-diagnostics)
 defines the signed result, and [run JSON](run-json.md) defines the structured
-failure projection.
+failure projection. The same runtime behavior applies when `%` is evaluated
+inside a runtime-required `require`, `ensure`, or `invariant` predicate. A
+literal zero divisor is rejected during analysis instead, as specified by
+[contracts](contracts.md#predicate-usage-and-validation).
 
 ## Cleanup limits
 
@@ -485,6 +488,15 @@ protocol or application failures.
   [`deferred-cleanup-task-cancellation-failure-human`](../../examples/specification/run/deferred-cleanup-task-cancellation-failure-human/),
   and
   [`deferred-cleanup-task-cancellation-failure-json`](../../examples/specification/run/deferred-cleanup-task-cancellation-failure-json/).
+- Signed remainder in runtime contract predicates and its zero-divisor JSON
+  failure paths are checked by
+  [`contract-remainder`](../../examples/specification/run/contract-remainder/)
+  for successful signed, endpoint, and large-divisor results,
+  [`contract-remainder-failure`](../../examples/specification/run/contract-remainder-failure/)
+  for a violated dynamic predicate,
+  [`contract-remainder-mixed-failure`](../../examples/specification/run/contract-remainder-mixed-failure/)
+  for integer division after a remainder, and
+  [`contract-remainder-zero-json`](../../examples/specification/run/contract-remainder-zero-json/).
 
 ## Read When
 
