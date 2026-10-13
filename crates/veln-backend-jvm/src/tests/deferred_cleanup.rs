@@ -627,6 +627,41 @@ fn result_propagation_keeps_running_cleanups_after_cleanup_failure() {
 }
 
 #[test]
+fn function_return_runs_cleanup_before_ensure_contract() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+        "fn worker() -> output: Int effects [stdio]\n",
+        "ensure output > 0\n",
+        "  defer\n",
+        "    stdio::println(\"cleanup before ensure\")\n",
+        "  end\n",
+        "  0\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let ignored = worker()\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "deferred-cleanup-return-before-ensure",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "cleanup before ensure\n"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("contract failure: ensure `output > 0` in `worker` blame implementation")
+    );
+}
+
+#[test]
 fn bytecode_backend_result_propagation_unwinds_nested_regions_inside_out_in_reverse_order() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "fn fail() -> Result<Int, String>\n",
