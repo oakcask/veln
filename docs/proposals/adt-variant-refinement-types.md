@@ -190,7 +190,7 @@ repair guidance belong in `related` notes rather than the primary message.
 
 | Code | Primary span and failed fact | Stable structured details | Planned related context |
 | --- | --- | --- | --- |
-| `type.variant_refinement_base` | A uniquely resolved base type cannot provide a refinable finite ADT. | `written_type`, `reason` | The non-ADT or opaque declaration, or the provider that lacks a public variant descriptor. |
+| `type.variant_refinement_base` | A uniquely resolved base type cannot provide a refinable finite ADT. | `written_type`, `reason` | The source declaration or source-less lookup origin that established the base identity, the opaque declaration, or the provider that lacks a public variant descriptor. |
 | `type.variant_refinement_unknown` | The final segment does not name a variant owned by the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
 | `type.variant_refinement_private` | A refinement exposes a private base type or selects an inaccessible variant. | `written_type`, `base_type`, `variant`, `boundary`, `exposure_path` | The alias declarations on the exposure path, the final private declaration, and the public-signature boundary. |
 | `type.variant_union_base` | A union alternative resolves to a different ADT identity or generic arguments. | `expected_base_type`, `actual_base_type` | The first alternative that established the required union base. |
@@ -220,6 +220,15 @@ expand that current casing boundary.
 | `opaque` | The uniquely resolved declaration intentionally hides its variant identities at the annotation site. |
 | `variant_descriptor_unavailable` | The ADT identity is known, but its selected compiler or package provider supplies no public finite variant descriptor. |
 
+The `not_adt` reason includes both source declarations without variants and
+source-less named types published by the type-syntax provider. For example,
+`Int::Missing` resolves `Int` as the built-in type identity and does not treat
+it as a module path. A source-backed failure has one
+`base_type_declaration` related entry with `resolved_identity` and the
+declaration span. A source-less failure instead has one `base_type_origin`
+related entry with `resolved_identity` and `provider: "type_syntax"`; it has no
+synthetic source span. Human output renders the related message in both cases.
+
 The `not_adt` and `opaque` reasons can be selected independently. The
 `variant_descriptor_unavailable` reason has a provider prerequisite. Before
 selecting that reason for implementation, a separate Ready proposal must
@@ -235,8 +244,11 @@ evidence because it does not show that a user-selectable compiler or package
 input reaches the diagnostic.
 
 Known opacity takes precedence over an unavailable descriptor. Unresolved,
-ambiguous, private, wrong-kind, invalid-cased, and wrong-arity bases use their
-existing diagnostics instead of adding `type.variant_refinement_base`.
+ambiguous, private, wrong-kind, and wrong-arity bases use their existing
+diagnostics instead of adding `type.variant_refinement_base`. A uniquely
+recovered invalid-cased base keeps `name.invalid_case` on a carrier where
+casing analysis applies and remains eligible for an independently provable
+base failure.
 
 The checker reports every failure that it can prove from identities available
 without assuming that an earlier failed step succeeded. It suppresses a
@@ -250,7 +262,8 @@ navigation even though the annotation remains invalid.
 | The refinement syntax is incomplete. | The responsible syntax diagnostic. | All semantic refinement diagnostics for that type occurrence. | None from the incomplete refinement. |
 | The base is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
 | The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
-| The base resolves uniquely but is not refinable. | `type.variant_refinement_base` with one closed reason above. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base declaration only. |
+| A source-backed base resolves uniquely but is not refinable. | `type.variant_refinement_base` with one closed reason above and declaration-related context. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base declaration only. |
+| A source-less named type resolves uniquely but is not refinable. | `type.variant_refinement_base` with `reason: "not_adt"` and provider-related context without a span. | Module lookup, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved source-less type identity only; no source definition target is manufactured. |
 | Generic arity is invalid after the base ADT resolves. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or visibility diagnostic. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The base declaration and, when resolved, the constructor declaration; no instantiated refinement type. |
 | The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
 | A base or final segment has invalid casing and one existing recovery identity. | `name.invalid_case`, plus independent arity, base-eligibility, or visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | Every uniquely recovered base and constructor declaration. |
@@ -275,10 +288,11 @@ run, but recovery never makes the annotation valid.
 
 LSP and MCP use the same retained identities. Definition, references,
 prepare-rename, and rename can select a uniquely resolved or uniquely recovered
-source identity. An invalid public declaration creates no published package
-identity or replacement saved snapshot. A failed stable capture or analysis
-preserves the previous saved snapshot under the existing language-service
-rules.
+source identity. A source-less type retains its resolved semantic identity but
+has no source definition, reference, or rename target. An invalid public
+declaration creates no published package identity or replacement saved
+snapshot. A failed stable capture or analysis preserves the previous saved
+snapshot under the existing language-service rules.
 
 Machine-readable diagnostics use the existing diagnostic envelope and
 half-open spans. New detail objects are closed schemas. Human and JSON cases
@@ -385,7 +399,7 @@ current behavior:
 | Alias visibility | Imported, private, opaque, ambiguous, and exact-companion exposure paths follow the visibility contract. Public-signature checking traverses record fields, generic arguments, function positions, public source ADT payloads, refinement unions, and alias chains without leaking a private base or variant or looping on recursion. Direct leaks select the private written segment; alias-hidden leaks select the outermost written alias and report the structural exposure path. Public package signatures preserve written annotations. Failed visibility retains unambiguous source navigation identities under existing recovery rules but publishes no declaration or package signature. | Table-driven package-signature cases covering every structural position, direct and multi-alias leaks, multiple paths, recursive cycles, exact companions, deterministic diagnostic order, exact primary and related spans, retained source identities, and absent public identities. |
 | Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
-| Diagnostics available without the provider prerequisite | Each selected semantic failure has the exact code, primary span, closed JSON details, related notes, and annotation-scoped overlap ordering. The `not_adt` and `opaque` base reasons compose with current casing, arity, and independently provable failures; derivative failures are suppressed; unrelated diagnostic-family ordering is unchanged; and each new failure retains exactly the specified navigation identities. | Human and JSON command fixtures for both selectable base reasons and the other selected diagnostic rows. Base-reason fixtures include an earlier independent final-segment or arity failure beside a later base failure, and an earlier base failure beside a later recovered-casing occurrence. Semantic cases verify identity retention and unchanged ordering outside the annotation. |
+| Diagnostics available without the provider prerequisite | Each selected semantic failure has the exact code, primary span, closed JSON details, related notes, and annotation-scoped overlap ordering. `not_adt` covers both source declarations and source-less type-syntax identities with their distinct related-context contracts. The `not_adt` and `opaque` reasons compose with current casing, arity, and independently provable failures; derivative failures are suppressed; unrelated diagnostic-family ordering is unchanged; and each new failure retains exactly the specified identities. Emitting many independent base failures adds merge work linearly in the number of existing and new diagnostics. | Human and JSON command fixtures cover source-backed and source-less `not_adt`, `opaque`, and the other selected diagnostic rows. Exact full-sequence fixtures place unrelated diagnostic families before, between, and after affected annotations. Base-reason fixtures include an earlier independent final-segment or arity failure beside a later base failure, and an earlier base failure beside a later recovered-casing occurrence. Semantic cases verify identity retention and unchanged ordering outside the annotation. A work counter or equivalent deterministic scaling test covers many independent base failures without relying on wall-clock thresholds. |
 | Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
 | LSP | Diagnostics, invalid-refinement recovery, their UTF-16 span projection, and unchanged-snapshot failures follow the remaining LSP contract. | Shared language-service cases and stdio LSP request/response fixtures. |
 | MCP | Check, invalid-refinement recovery, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
@@ -435,3 +449,13 @@ behavior, and it did not expose a production compiler or package provider with
 the required state. This proposal therefore limits ordering to one annotation
 and leaves the provider-dependent reason unselected until its production input
 and provenance contract exist.
+
+[Veln PR #1802](https://github.com/oakcask/veln/pull/1802) attempted the
+provider-independent `not_adt` slice by classifying only source type
+declarations. That restriction omitted `Int` and other uniquely resolved
+source-less named types even though the proposed failed fact was not limited to
+source declarations. Requiring every failure to point to a declaration could
+not cover those types because the type-syntax provider publishes no source
+span. The revised contract keeps the full named-type boundary and uses explicit
+provider provenance instead of manufacturing a declaration location or
+misclassifying the base as a module.
