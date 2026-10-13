@@ -265,7 +265,7 @@ navigation even though the annotation remains invalid.
 
 Within one annotation, the checker visits union alternatives in written order.
 It checks each alternative in this order: casing, base resolution, generic
-arity, final-segment resolution, and visibility. The earliest
+arity, base eligibility, final-segment resolution, and visibility. The earliest
 successfully instantiated alternative establishes the expected union base;
 each later successfully instantiated alternative is compared with it. An
 incomplete alternative does not prevent an independently complete later pair
