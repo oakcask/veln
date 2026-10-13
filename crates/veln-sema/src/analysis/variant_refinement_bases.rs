@@ -151,7 +151,7 @@ pub(crate) fn independent_annotation_errors(
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
-) -> Vec<(String, String)> {
+) -> Vec<(String, String, SourceSpan)> {
     let mut errors = Vec::new();
     collect_independent_refinement_errors(
         refinements,
@@ -168,7 +168,7 @@ fn collect_independent_refinement_errors(
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
-    errors: &mut Vec<(String, String)>,
+    errors: &mut Vec<(String, String, SourceSpan)>,
 ) {
     for path in paths {
         if environment
@@ -179,7 +179,11 @@ fn collect_independent_refinement_errors(
                 current_module,
             )
         {
-            errors.push((path.segments.join("::"), error));
+            errors.push((
+                path.segments.join("::"),
+                error,
+                joined_span(&path.segment_spans),
+            ));
         }
     }
     for refinement in refinements {
@@ -213,7 +217,7 @@ fn collect_independent_refinement_errors(
                 continue;
             };
             if let Some(error) = environment.variant_refinement_arity_error(&ty, current_module) {
-                errors.push((written, error));
+                errors.push((written, error, alternative_span(alternative)));
                 continue;
             }
             if own_base_failure || errors.len() != child_errors_start {
@@ -222,10 +226,16 @@ fn collect_independent_refinement_errors(
             if let Some(error) =
                 environment.variant_refinement_annotation_error(&ty, current_module)
             {
-                errors.push((written, error));
+                errors.push((written, error, alternative_span(alternative)));
             }
         }
     }
+}
+
+fn alternative_span(alternative: &veln_ast::VariantRefinementAlternative) -> SourceSpan {
+    let mut span = joined_span(&alternative.base.segment_spans);
+    span.end = alternative.variant_span.end;
+    span
 }
 
 fn collect_annotation(

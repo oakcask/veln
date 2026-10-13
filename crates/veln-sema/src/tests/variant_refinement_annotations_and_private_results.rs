@@ -419,6 +419,35 @@ fn base_failures_are_merged_at_their_annotation_positions() {
 }
 
 #[test]
+fn mixed_union_failures_follow_written_alternative_order() {
+    for (annotation, expected) in [
+        (
+            "Empty::Missing | GenericEmpty<Int, String>::Missing",
+            ["type.variant_refinement_base", "type.invalid_annotation"],
+        ),
+        (
+            "GenericEmpty<Int, String>::Missing | Empty::Missing",
+            ["type.invalid_annotation", "type.variant_refinement_base"],
+        ),
+    ] {
+        let diagnostics = diagnostics_for(&format!(
+            "type Empty\nend\ntype GenericEmpty<A>\nend\nfn mixed(value: {annotation}) -> ()\n  ()\nend\n"
+        ));
+        let relevant = diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                matches!(
+                    diagnostic.id.as_str(),
+                    "type.variant_refinement_base" | "type.invalid_annotation"
+                )
+            })
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(relevant, expected, "{diagnostics:#?}");
+    }
+}
+
+#[test]
 fn base_failures_preserve_independent_sibling_and_nested_annotation_errors() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",

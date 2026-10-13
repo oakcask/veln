@@ -466,17 +466,19 @@ impl<'a> FunctionChecker<'a> {
             self.environment,
         );
         if base_failure {
-            for (failed_annotation, error) in super::super::independent_annotation_errors(
-                refinements,
-                paths,
-                self.function.module_name.as_deref(),
-                self.environment,
-            ) {
+            for (failed_annotation, error, failure_span) in
+                super::super::independent_annotation_errors(
+                    refinements,
+                    paths,
+                    self.function.module_name.as_deref(),
+                    self.environment,
+                )
+            {
                 self.push_invalid_type_annotation(
                     &failed_annotation,
                     &error,
                     origin_node_id,
-                    origin_span.clone(),
+                    failure_span,
                 );
             }
             return None;
