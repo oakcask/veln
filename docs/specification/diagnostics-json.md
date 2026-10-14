@@ -192,7 +192,9 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-json/)
 cases cover effect-operation, handler, ADT-constructor, and schema carriers,
 including retained independent diagnostics and absent sibling-derived
-mismatches.
+mismatches. The constructor coverage uses direct, one-hop alias, and
+transitive-alias views of the same quarantined variant; every view suppresses
+the derivative payload mismatch.
 
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at
