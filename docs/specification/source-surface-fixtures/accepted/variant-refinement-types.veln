@@ -17,3 +17,7 @@ end
 fn qualified_generic(value: domain::Alias::Container<Int>) -> ()
   ()
 end
+
+fn lowercase_generic_refinement_base(value: genericState<Int>::Ready) -> ()
+  ()
+end

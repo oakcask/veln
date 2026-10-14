@@ -171,10 +171,13 @@ generated helper through the existing schema eligibility boundary. Invalid-name
 function-value recovery and function aliases expose this same quarantined
 callable signature; they do not restore sibling parameter or result types.
 
-Lowercase prospective bases remain ordinary named-type source text. If changing
-only that base leaf to the required case identifies exactly one type, the
-checker reports `name.invalid_case`, retains that identity, and performs the
-independent eligibility check on carriers classified for casing analysis.
+Lowercase prospective bases without type arguments remain ordinary named-type
+source text. Type arguments before the final `::Variant` make the refinement
+structure explicit, so a lowercase generic base leaf is preserved for semantic
+recovery. If changing only that preserved base leaf to the required case
+identifies exactly one type, the checker reports `name.invalid_case`, retains
+that identity, and performs the independent eligibility check on carriers
+classified for casing analysis.
 Explicit expression type arguments remain casing-silent, but their base
 eligibility is still checked independently. A source type declaration with no
 variants, a source-less non-ADT type, or a compiler-known opaque type therefore

@@ -68,9 +68,9 @@ call use the concrete instantiated effects.
 
 Source modules may also declare nominal operation effects with `effect Name`
 or `pub effect Name`. Each operation declares ordinary parameter types and one
-result type. Effect-operation parameter and result annotations, handler context
-parameter annotations use the same variant-refinement base eligibility rules
-as other type positions. An
+result type. Effect-operation parameter and result annotations and handler
+context parameter annotations use the same variant-refinement base eligibility
+rules as other type positions. An
 ineligible base reports the annotation failure specified by
 [Types](types.md#compatibility-and-limits). If one operation parameter or result
 has that failure, every parameter and the result of that operation is unknown

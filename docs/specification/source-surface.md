@@ -91,11 +91,14 @@ limits.
 
 ### Variant-refinement-shaped type text
 
-Type positions recognize a structural variant alternative as a named ADT base
-whose leaf starts with an ASCII uppercase letter, optional type arguments, and
-an `::` plus an ASCII-uppercase final segment. Qualifier segments before the
-base leaf do not have a casing restriction. A `|` joins complete alternatives
-into one structural union:
+Type positions recognize a structural variant alternative as a named ADT base,
+optional type arguments, and an `::` plus an ASCII-uppercase final segment.
+Without type arguments, the base leaf must start with an ASCII uppercase
+letter. Type arguments make the refinement shape explicit, so a generic base
+leaf with other casing is preserved for semantic casing recovery instead of
+being discarded as ordinary named-type text. Qualifier segments before the
+base leaf do not have a structural casing restriction. A `|` joins complete
+alternatives into one structural union:
 
 ```veln
 fn transition(
@@ -119,11 +122,13 @@ than a type separator. In a non-generic multi-segment spelling, the last
 segment is the final variant and every preceding segment is the qualified base.
 An otherwise ordinary qualified generic type such as
 `Alias::Container<Int>` remains a named type for later name and casing
-analysis. A path such as `protocol::state::Ready`, whose prospective base leaf
-is not uppercase, also remains named type text for later name and casing
-analysis rather than becoming refinement syntax. Once type arguments before
-`::Variant` make the refinement structure explicit, further type arguments
-after that final segment are malformed.
+analysis. A non-generic path such as `protocol::state::Ready`, whose
+prospective base leaf is not uppercase, also remains named type text rather
+than becoming refinement syntax. In contrast,
+`protocol::state<Int>::Ready` is preserved as a structural refinement so later
+analysis can report and recover the invalid base-leaf casing. Once type
+arguments before `::Variant` make the refinement structure explicit, further
+type arguments after that final segment are malformed.
 
 Adjacent closing angle brackets close the innermost type arguments first.
 Thus `sink<List<State::Ready>>(value)` is valid: the first `>` closes `List`
@@ -386,7 +391,7 @@ FunctionType  ::= "fn" "(" FunctionTypeParams? ")" "->" TypeText Effects?
 FunctionTypeParams ::= FunctionTypeParam ("," FunctionTypeParam)* ","?
 FunctionTypeParam ::= Name ":" TypeText | TypeText | "..." TypeText?
 VariantRefinementType ::= VariantAlternative ("|" VariantAlternative)*
-VariantAlternative ::= NamedAdtBase RefinementTypeArguments? "::" UpperName
+VariantAlternative ::= NamedAdtBase "::" UpperName | TypePath RefinementTypeArguments "::" UpperName
 NamedAdtBase  ::= (Name "::")* UpperName
 NamedTypeArguments ::= "<" TypeText ("," TypeText)* ","? ">"
 RefinementTypeArguments ::= "<" TypeText ("," TypeText)* ">"
