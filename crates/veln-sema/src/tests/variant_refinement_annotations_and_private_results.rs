@@ -420,6 +420,9 @@ fn base_failures_are_merged_at_their_annotation_positions() {
         "fn later(value: Empty::Missing) -> ()\n",
         "  ()\n",
         "end\n",
+        "fn later_recovered(value: empty::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
         "pub fn unrelated_after()\n",
         "  ()\n",
         "end\n",
@@ -438,13 +441,15 @@ fn base_failures_are_merged_at_their_annotation_positions() {
         actual,
         [
             ("name.invalid_case", 8),
+            ("name.invalid_case", 23),
             ("type.public_signature_missing", 5),
             ("type.variant_refinement_base", 8),
             ("type.public_signature_missing", 11),
             ("type.variant_refinement_base", 14),
             ("type.invalid_annotation", 17),
             ("type.variant_refinement_base", 20),
-            ("type.public_signature_missing", 23),
+            ("type.variant_refinement_base", 23),
+            ("type.public_signature_missing", 26),
         ],
         "{diagnostics:#?}"
     );

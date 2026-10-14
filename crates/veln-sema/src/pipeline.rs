@@ -236,8 +236,29 @@ fn merge_existing_base_diagnostics(
     bases: &mut [Option<Diagnostic>],
 ) {
     let existing = std::mem::take(diagnostics);
+    let mut future_min_end = vec![None; existing.len()];
+    let mut min_end_by_file = HashMap::<SourcePath, usize>::new();
+    let mut last_same_span = HashMap::<SourcePath, HashMap<(usize, usize), usize>>::new();
+    for (index, diagnostic) in existing.iter().enumerate().rev() {
+        record_variant_refinement_base_work(1);
+        let Some(span) = diagnostic.span.as_ref() else {
+            continue;
+        };
+        future_min_end[index] = min_end_by_file.get(&span.file).copied();
+        min_end_by_file
+            .entry(span.file.clone())
+            .and_modify(|end| *end = (*end).min(span.end.offset))
+            .or_insert(span.end.offset);
+        if diagnostic.id != "type.invalid_annotation" {
+            last_same_span
+                .entry(span.file.clone())
+                .or_default()
+                .entry((span.start.offset, span.end.offset))
+                .or_insert(index);
+        }
+    }
     diagnostics.reserve(existing.len() + bases.len());
-    for existing_diagnostic in existing {
+    for (existing_index, existing_diagnostic) in existing.into_iter().enumerate() {
         record_variant_refinement_base_work(1);
         let mut matching_bases = existing_diagnostic
             .span
@@ -251,6 +272,11 @@ fn merge_existing_base_diagnostics(
             base_precedes_existing(
                 bases[*index].as_ref().expect("pending base diagnostic"),
                 &existing_diagnostic,
+            ) && !future_existing_precedes_base(
+                bases[*index].as_ref().expect("pending base diagnostic"),
+                existing_index,
+                future_min_end[existing_index],
+                &last_same_span,
             )
         }) {
             let (indices, cursor) = matching_bases.as_mut().expect("matched base file");
@@ -260,6 +286,22 @@ fn merge_existing_base_diagnostics(
         }
         diagnostics.push(existing_diagnostic);
     }
+}
+
+fn future_existing_precedes_base(
+    base: &Diagnostic,
+    existing_index: usize,
+    future_min_end: Option<usize>,
+    last_same_span: &HashMap<SourcePath, HashMap<(usize, usize), usize>>,
+) -> bool {
+    let Some(span) = base.span.as_ref() else {
+        return false;
+    };
+    future_min_end.is_some_and(|end| end <= span.start.offset)
+        || last_same_span
+            .get(&span.file)
+            .and_then(|positions| positions.get(&(span.start.offset, span.end.offset)))
+            .is_some_and(|index| *index > existing_index)
 }
 
 fn radix_sort_base_diagnostic_indices(indices: &mut Vec<usize>, diagnostics: &[Diagnostic]) {

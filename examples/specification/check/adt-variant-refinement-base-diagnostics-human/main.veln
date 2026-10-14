@@ -40,6 +40,14 @@ fn arity_precedence(value: GenericEmpty<Int, String>::Missing) -> ()
 	()
 end
 
+fn arity_then_base(value: GenericEmpty<Int, String>::Missing | Empty::Missing) -> ()
+	()
+end
+
+fn later_recovered_casing(value: empty::Missing) -> ()
+	()
+end
+
 fn needs_string(value: String) -> ()
 	()
 end

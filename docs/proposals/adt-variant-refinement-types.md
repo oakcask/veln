@@ -437,9 +437,9 @@ by checker phase instead of by written union alternative. The same change used
 local source declarations with no variants as a proxy for a missing provider
 descriptor. The pull request is implementation evidence rather than current
 behavior, and it did not expose a production compiler or package provider with
-the required state. This proposal therefore limits ordering to one annotation
-and leaves the provider-dependent reason unselected until its production input
-and provenance contract exist.
+the required state. The current diagnostic specification owns the implemented
+annotation-scoped ordering. This proposal leaves the provider-dependent reason
+unselected until its production input and provenance contract exist.
 
 [Veln PR #1802](https://github.com/oakcask/veln/pull/1802) attempted the
 provider-independent `not_adt` slice by classifying only source type
