@@ -72,9 +72,16 @@ result type. Effect-operation parameter and result annotations, handler context
 parameter annotations, and handler operation-clause parameter annotations use
 the same variant-refinement base eligibility rules as other type positions. An
 ineligible base reports the annotation failure specified by
-[Types](types.md#compatibility-and-limits). The effect name is owned by its
-module. Same-module declarations may use the short name in `effects [...]`
-lists and `perform` expressions.
+[Types](types.md#compatibility-and-limits). If one operation parameter or result
+has that failure, every parameter and the result of that operation is unknown
+to `perform` expressions and handler clauses. If one handler context parameter
+has that failure, every context parameter is unknown in handler clauses and at
+handler application sites. These boundaries preserve independently provable
+declaration diagnostics and suppress mismatches derived only from a sibling
+annotation, as specified by the
+[diagnostic contract](diagnostics-json.md#diagnostic-families). The effect name
+is owned by its module. Same-module declarations may use the short name in
+`effects [...]` lists and `perform` expressions.
 Imported declarations use the written module path, such as
 `effects [transport::DuplexStream]` and
 `perform transport::DuplexStream::read_chunk()`. Function type annotations use
