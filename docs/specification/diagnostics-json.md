@@ -141,6 +141,10 @@ visibility, or assignability diagnostics that require a refinable base.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
 provable without treating the failed base as refinable.
+When a nested type argument is invalid, the checker still reports an enclosing
+base-eligibility failure that can be proved from the enclosing base identity
+alone. It suppresses an enclosing annotation or final-segment failure that
+would require the invalid child to form a valid type.
 When separate union alternatives independently produce failures, their
 diagnostic groups follow the alternatives' written order. Within each
 alternative, the checker reports casing before base resolution, generic arity,
@@ -194,6 +198,12 @@ cases cover source-backed, source-less, and opaque bases in declaration
 annotations and explicit call arguments, related provenance, recovered-casing
 overlap including a correct-arity generic base, occurrence-scoped downstream
 suppression, declaration quarantine, and arity precedence.
+The checked nested-recovery
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-recovery-json/)
+cases cover independent enclosing base failures, nested generic-arity failures,
+and suppression of failures derived from an invalid child type.
 The checked nested-casing
 [`human`](../../examples/specification/check/adt-variant-refinement-nested-casing-diagnostics-human/)
 and
