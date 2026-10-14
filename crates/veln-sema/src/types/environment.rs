@@ -343,36 +343,7 @@ impl TypeEnvironment {
             if descriptor.type_parameters.len() != args_len {
                 return None;
             }
-            return match descriptor.refinement_availability {
-                crate::adt::descriptors::VariantRefinementAvailability::Finite => None,
-                crate::adt::descriptors::VariantRefinementAvailability::Unavailable => {
-                    let declaration_span = self.adts.declaration_span(descriptor).cloned()?;
-                    Some(VariantRefinementBaseFailure {
-                        reason: "not_adt",
-                        resolved_identity: descriptor.identity(),
-                        declaration_span: Some(declaration_span),
-                        related_kind: "base_type_declaration",
-                        provider: None,
-                        related_message: format!(
-                            "Type `{}` is declared here without finite ADT variants.",
-                            descriptor.type_name
-                        ),
-                    })
-                }
-                crate::adt::descriptors::VariantRefinementAvailability::Opaque => {
-                    Some(VariantRefinementBaseFailure {
-                        reason: "opaque",
-                        resolved_identity: descriptor.identity(),
-                        declaration_span: None,
-                        related_kind: "base_type_origin",
-                        provider: Some("adt"),
-                        related_message: format!(
-                            "Type `{}` is provided as opaque and does not expose variant identities.",
-                            descriptor.type_name
-                        ),
-                    })
-                }
-            };
+            return self.variant_refinement_descriptor_failure(descriptor);
         }
 
         let resolved = self
@@ -395,6 +366,42 @@ impl TypeEnvironment {
                 "Type `{name}` resolves through the `type_syntax` provider without finite ADT variants."
             ),
         })
+    }
+
+    fn variant_refinement_descriptor_failure(
+        &self,
+        descriptor: &crate::adt::descriptors::AdtDescriptor,
+    ) -> Option<VariantRefinementBaseFailure> {
+        match descriptor.refinement_availability {
+            crate::adt::descriptors::VariantRefinementAvailability::Finite => None,
+            crate::adt::descriptors::VariantRefinementAvailability::Unavailable => {
+                let declaration_span = self.adts.declaration_span(descriptor).cloned()?;
+                Some(VariantRefinementBaseFailure {
+                    reason: "not_adt",
+                    resolved_identity: descriptor.identity(),
+                    declaration_span: Some(declaration_span),
+                    related_kind: "base_type_declaration",
+                    provider: None,
+                    related_message: format!(
+                        "Type `{}` is declared here without finite ADT variants.",
+                        descriptor.type_name
+                    ),
+                })
+            }
+            crate::adt::descriptors::VariantRefinementAvailability::Opaque => {
+                Some(VariantRefinementBaseFailure {
+                    reason: "opaque",
+                    resolved_identity: descriptor.identity(),
+                    declaration_span: None,
+                    related_kind: "base_type_origin",
+                    provider: Some("adt"),
+                    related_message: format!(
+                        "Type `{}` is provided as opaque and does not expose variant identities.",
+                        descriptor.type_name
+                    ),
+                })
+            }
+        }
     }
 
     fn resolved_source_less_non_adt_base(

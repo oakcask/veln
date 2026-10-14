@@ -207,38 +207,16 @@ fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::Sourc
     let mut indices = (0..items.len()).collect::<Vec<_>>();
     let mut scratch = vec![0; items.len()];
     for use_end in [true, false] {
+        let offset = |item: &T| {
+            let source_span = span(item);
+            if use_end {
+                source_span.end.offset
+            } else {
+                source_span.start.offset
+            }
+        };
         for shift in (0..usize::BITS).step_by(8) {
-            let mut counts = [0usize; 256];
-            crate::pipeline::record_variant_refinement_casing_work(counts.len());
-            for &index in &indices {
-                crate::pipeline::record_variant_refinement_casing_work(1);
-                let source_span = span(&items[index]);
-                let key = if use_end {
-                    source_span.end.offset
-                } else {
-                    source_span.start.offset
-                };
-                counts[(key >> shift) as u8 as usize] += 1;
-            }
-            let mut next = 0;
-            for count in &mut counts {
-                crate::pipeline::record_variant_refinement_casing_work(1);
-                let start = next;
-                next += *count;
-                *count = start;
-            }
-            for &index in &indices {
-                crate::pipeline::record_variant_refinement_casing_work(1);
-                let source_span = span(&items[index]);
-                let key = if use_end {
-                    source_span.end.offset
-                } else {
-                    source_span.start.offset
-                };
-                let bucket = (key >> shift) as u8 as usize;
-                scratch[counts[bucket]] = index;
-                counts[bucket] += 1;
-            }
+            radix_sort_offset_byte(items, &indices, &mut scratch, shift, &offset);
             std::mem::swap(&mut indices, &mut scratch);
         }
     }
@@ -252,6 +230,34 @@ fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::Sourc
             .into_iter()
             .map(|index| original[index].take().expect("radix index is unique")),
     );
+}
+
+fn radix_sort_offset_byte<T>(
+    items: &[T],
+    indices: &[usize],
+    output: &mut [usize],
+    shift: u32,
+    offset: impl Fn(&T) -> usize,
+) {
+    let mut counts = [0usize; 256];
+    crate::pipeline::record_variant_refinement_casing_work(counts.len());
+    for &index in indices {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        counts[(offset(&items[index]) >> shift) as u8 as usize] += 1;
+    }
+    let mut next = 0;
+    for count in &mut counts {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        let start = next;
+        next += *count;
+        *count = start;
+    }
+    for &index in indices {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        let bucket = (offset(&items[index]) >> shift) as u8 as usize;
+        output[counts[bucket]] = index;
+        counts[bucket] += 1;
+    }
 }
 
 fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
