@@ -199,11 +199,14 @@ The checked declaration-quarantine
 [`human`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-json/)
-cases cover effect-operation, handler, ADT-constructor, and schema carriers,
-including retained independent diagnostics and absent sibling-derived
-mismatches. The constructor coverage uses direct, one-hop alias, and
-transitive-alias views of the same quarantined variant; every view suppresses
-the derivative payload mismatch.
+cases cover ordinary functions, effect-operation, handler, ADT-constructor, and
+schema carriers, including retained independent diagnostics and absent
+sibling-derived mismatches. For ordinary functions, invalid parameter or result
+annotations quarantine sibling parameter types, return expectations, and named
+result bindings used by contracts. The cases reject derivative `type.mismatch`
+and `contract.type_mismatch` diagnostics. The constructor coverage uses direct,
+one-hop alias, and transitive-alias views of the same quarantined variant; every
+view suppresses the derivative payload mismatch.
 
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at
