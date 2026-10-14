@@ -518,6 +518,90 @@ fn many_independent_base_failures_have_linear_end_to_end_work() {
 }
 
 #[test]
+fn many_nested_casing_base_failures_have_linear_end_to_end_work() {
+    let measurements = [128, 256, 512].map(|count| {
+        let mut source = String::from(
+            "type Empty<A>\nend\ntype State\n  Ready\nend\npub fn unrelated_before()\n  ()\nend\n",
+        );
+        for index in 0..count {
+            source.push_str(&format!(
+                "fn invalid_{index}(value: Empty<main::state>::Missing) -> ()\n  ()\nend\n\
+                 pub fn unrelated_after_{index}()\n  ()\nend\n"
+            ));
+        }
+        crate::pipeline::reset_variant_refinement_base_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::pipeline::take_variant_refinement_base_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+                .count(),
+            count
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+                .count(),
+            count
+        );
+        let relevant = diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                matches!(
+                    diagnostic.id.as_str(),
+                    "name.invalid_case" | "type.variant_refinement_base"
+                )
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            relevant
+                .iter()
+                .take(count)
+                .all(|diagnostic| diagnostic.id == "name.invalid_case")
+                && relevant
+                    .iter()
+                    .skip(count)
+                    .all(|diagnostic| diagnostic.id == "type.variant_refinement_base"),
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert!(
+            work.annotation_collection <= count * 20 + 20,
+            "count={count} work={work:?}"
+        );
+        assert!(
+            work.casing_collection <= count * 512 + 20_000,
+            "count={count} work={work:?}"
+        );
+        assert!(
+            work.enclosing_context <= count * 12 + 20,
+            "count={count} work={work:?}"
+        );
+        assert!(
+            work.diagnostic_ordering <= count * 80 + 10_000,
+            "count={count} work={work:?}"
+        );
+        eprintln!("nested casing refinement pipeline: annotations={count} work={work:?}");
+        work
+    });
+    for stage in [
+        |work: crate::pipeline::VariantRefinementBaseWork| work.annotation_collection,
+        |work: crate::pipeline::VariantRefinementBaseWork| work.casing_collection,
+        |work: crate::pipeline::VariantRefinementBaseWork| work.enclosing_context,
+        |work: crate::pipeline::VariantRefinementBaseWork| work.diagnostic_ordering,
+    ] {
+        let first_growth = stage(measurements[1]) - stage(measurements[0]);
+        let second_growth = stage(measurements[2]) - stage(measurements[1]);
+        assert_eq!(
+            second_growth,
+            first_growth * 2,
+            "stage work must have exact affine growth: measurements={measurements:?}"
+        );
+    }
+}
+
+#[test]
 fn declaration_quarantine_work_is_linear_across_consumers() {
     let measurements = [16, 32, 64].map(|count| {
         let mut source = String::from("type Empty\nend\n");
@@ -904,6 +988,74 @@ fn nested_invalid_cased_bases_keep_independent_eligibility_failures() {
     assert!(base_json.contains("\"written_type\":\"empty\""));
     assert!(base_json.contains("\"reason\":\"not_adt\""));
     assert!(base_json.contains("\"resolved_identity\":\"Empty\""));
+}
+
+#[test]
+fn nested_casing_precedes_outer_base_eligibility_in_one_alternative() {
+    let source = SourceFile::new(
+        "review_ordering.veln",
+        concat!(
+            "type Empty<A>\n",
+            "end\n",
+            "type State\n",
+            "  Ready\n",
+            "end\n",
+            "fn f(value: Empty<review_ordering::state>::Missing) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "type.variant_refinement_base"],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn nested_casing_and_base_failures_follow_written_alternative_order() {
+    let source = SourceFile::new(
+        "review_ordering.veln",
+        concat!(
+            "type Empty<A>\n",
+            "end\n",
+            "type State\n",
+            "  Ready\n",
+            "end\n",
+            "fn base_then_casing(value: Empty<Int>::Missing | Empty<review_ordering::state>::Missing) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn casing_then_base(value: Empty<review_ordering::state>::Missing | Empty<Int>::Missing) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.variant_refinement_base",
+            "name.invalid_case",
+            "type.variant_refinement_base",
+            "name.invalid_case",
+            "type.variant_refinement_base",
+            "type.variant_refinement_base",
+        ],
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

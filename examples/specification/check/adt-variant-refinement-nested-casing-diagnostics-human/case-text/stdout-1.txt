@@ -1,0 +1,3 @@
+main.veln:8:36: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
+main.veln:8:17: error[type.variant_refinement_base]: variant-refinement base `GenericEmpty<main::state>` is not a finite ADT
+  note: main.veln:1:1: Type `GenericEmpty` is declared here without finite ADT variants.

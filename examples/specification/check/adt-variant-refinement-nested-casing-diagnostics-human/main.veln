@@ -1,0 +1,10 @@
+type GenericEmpty<A>
+end
+
+type State
+	Ready
+end
+
+fn check(value: GenericEmpty<main::state>::Missing) -> ()
+	()
+end

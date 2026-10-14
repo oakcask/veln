@@ -7,12 +7,13 @@ use veln_ir::{TypedProgram, lower_checked_core};
 use veln_source::SourcePath;
 
 use crate::analysis::{
-    VariantDiagnosticInterner, check_declared_effect_labels, check_duplicate_constructor_names,
-    check_duplicate_effect_names, check_duplicate_function_names, check_duplicate_schema_names,
-    check_duplicate_type_names, check_duplicate_use_aliases, check_function_body,
-    check_handler_declarations, check_module_boundary, check_public_aliases,
-    check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
-    check_schema_type_references, check_test_declaration_boundary, check_variant_refinement_bases,
+    VariantDiagnosticInterner, VariantRefinementBaseDiagnostic, check_declared_effect_labels,
+    check_duplicate_constructor_names, check_duplicate_effect_names,
+    check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
+    check_duplicate_use_aliases, check_function_body, check_handler_declarations,
+    check_module_boundary, check_public_aliases, check_public_function_boundary,
+    check_reserved_prelude_aliases, check_schema_field_primitives, check_schema_type_references,
+    check_test_declaration_boundary, check_variant_refinement_bases,
 };
 use crate::lowering::{
     lower_executable_surface_module_to_core, lower_project_surface_module_to_core,
@@ -185,28 +186,30 @@ fn analyze_surface_module_with_environment(
 
 fn merge_variant_refinement_base_diagnostics(
     diagnostics: &mut Vec<Diagnostic>,
-    base_diagnostics: Vec<Diagnostic>,
+    base_diagnostics: Vec<VariantRefinementBaseDiagnostic>,
 ) {
     let (mut bases_by_file, ordered_indices) = index_base_diagnostics(&base_diagnostics);
     let mut bases = base_diagnostics.into_iter().map(Some).collect::<Vec<_>>();
     merge_existing_base_diagnostics(diagnostics, &mut bases_by_file, &mut bases);
     for index in ordered_indices {
         record_variant_refinement_base_work(1);
-        if let Some(diagnostic) = bases[index].take() {
-            diagnostics.push(diagnostic);
+        if let Some(base) = bases[index].take() {
+            diagnostics.push(base.diagnostic);
         }
     }
 }
 
 type BaseDiagnosticsByFile = HashMap<SourcePath, (Vec<usize>, usize)>;
 
-fn index_base_diagnostics(base_diagnostics: &[Diagnostic]) -> (BaseDiagnosticsByFile, Vec<usize>) {
+fn index_base_diagnostics(
+    base_diagnostics: &[VariantRefinementBaseDiagnostic],
+) -> (BaseDiagnosticsByFile, Vec<usize>) {
     let mut bases_by_file = BaseDiagnosticsByFile::new();
     let mut file_order = Vec::new();
     let mut ordered_indices = Vec::with_capacity(base_diagnostics.len());
     for (index, diagnostic) in base_diagnostics.iter().enumerate() {
         record_variant_refinement_base_work(1);
-        if let Some(span) = diagnostic.span.as_ref() {
+        if let Some(span) = diagnostic.diagnostic.span.as_ref() {
             match bases_by_file.entry(span.file.clone()) {
                 std::collections::hash_map::Entry::Occupied(mut entry) => {
                     entry.get_mut().0.push(index);
@@ -233,7 +236,7 @@ fn index_base_diagnostics(base_diagnostics: &[Diagnostic]) -> (BaseDiagnosticsBy
 fn merge_existing_base_diagnostics(
     diagnostics: &mut Vec<Diagnostic>,
     bases_by_file: &mut BaseDiagnosticsByFile,
-    bases: &mut [Option<Diagnostic>],
+    bases: &mut [Option<VariantRefinementBaseDiagnostic>],
 ) {
     let existing = std::mem::take(diagnostics);
     let mut future_min_end = vec![None; existing.len()];
@@ -282,19 +285,24 @@ fn merge_existing_base_diagnostics(
             let (indices, cursor) = matching_bases.as_mut().expect("matched base file");
             let index = indices[*cursor];
             *cursor += 1;
-            diagnostics.push(bases[index].take().expect("pending base diagnostic"));
+            diagnostics.push(
+                bases[index]
+                    .take()
+                    .expect("pending base diagnostic")
+                    .diagnostic,
+            );
         }
         diagnostics.push(existing_diagnostic);
     }
 }
 
 fn future_existing_precedes_base(
-    base: &Diagnostic,
+    base: &VariantRefinementBaseDiagnostic,
     existing_index: usize,
     future_min_end: Option<usize>,
     last_same_span: &HashMap<SourcePath, HashMap<(usize, usize), usize>>,
 ) -> bool {
-    let Some(span) = base.span.as_ref() else {
+    let Some(span) = base.diagnostic.span.as_ref() else {
         return false;
     };
     future_min_end.is_some_and(|end| end <= span.start.offset)
@@ -304,7 +312,10 @@ fn future_existing_precedes_base(
             .is_some_and(|index| *index > existing_index)
 }
 
-fn radix_sort_base_diagnostic_indices(indices: &mut Vec<usize>, diagnostics: &[Diagnostic]) {
+fn radix_sort_base_diagnostic_indices(
+    indices: &mut Vec<usize>,
+    diagnostics: &[VariantRefinementBaseDiagnostic],
+) {
     record_variant_refinement_base_work(indices.len());
     let mut scratch = vec![0; indices.len()];
     for use_end in [true, false] {
@@ -314,6 +325,7 @@ fn radix_sort_base_diagnostic_indices(indices: &mut Vec<usize>, diagnostics: &[D
             for &index in indices.iter() {
                 record_variant_refinement_base_work(1);
                 let span = diagnostics[index]
+                    .diagnostic
                     .span
                     .as_ref()
                     .expect("indexed base diagnostic has a source span");
@@ -334,6 +346,7 @@ fn radix_sort_base_diagnostic_indices(indices: &mut Vec<usize>, diagnostics: &[D
             for &index in indices.iter() {
                 record_variant_refinement_base_work(1);
                 let span = diagnostics[index]
+                    .diagnostic
                     .span
                     .as_ref()
                     .expect("indexed base diagnostic has a source span");
@@ -351,10 +364,18 @@ fn radix_sort_base_diagnostic_indices(indices: &mut Vec<usize>, diagnostics: &[D
     }
 }
 
-fn base_precedes_existing(base: &Diagnostic, existing: &Diagnostic) -> bool {
-    let (Some(span), Some(existing_span)) = (base.span.as_ref(), existing.span.as_ref()) else {
+fn base_precedes_existing(base: &VariantRefinementBaseDiagnostic, existing: &Diagnostic) -> bool {
+    let (Some(span), Some(existing_span)) = (base.diagnostic.span.as_ref(), existing.span.as_ref())
+    else {
         return false;
     };
+    if existing.id == "name.invalid_case"
+        && existing_span.file == base.ordering_scope.file
+        && existing_span.start.offset >= base.ordering_scope.start.offset
+        && existing_span.end.offset <= base.ordering_scope.end.offset
+    {
+        return false;
+    }
     existing_span.file == span.file
         && (existing_span.start.offset >= span.end.offset
             || (existing.id == "type.invalid_annotation"

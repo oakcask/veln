@@ -6,10 +6,15 @@ use crate::diagnostics::span_json;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{TypeEnvironment, VariantRefinementBaseFailure};
 
+pub(crate) struct VariantRefinementBaseDiagnostic {
+    pub(crate) diagnostic: Diagnostic,
+    pub(crate) ordering_scope: SourceSpan,
+}
+
 pub(crate) fn check_variant_refinement_bases(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-) -> Vec<Diagnostic> {
+) -> Vec<VariantRefinementBaseDiagnostic> {
     let mut diagnostics = Vec::new();
 
     for decl in &module.types {
@@ -246,7 +251,7 @@ fn collect_annotation(
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
-    diagnostics: &mut Vec<Diagnostic>,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
     collect_refinements(refinements, current_module, environment, diagnostics);
@@ -257,7 +262,12 @@ fn collect_annotation(
             let base_segments = &path.segments[..path.segments.len() - 1];
             let written_type = base_segments.join("::");
             let span = joined_span(&path.segment_spans[..base_segments.len()]);
-            diagnostics.push(base_diagnostic(written_type, span, failure));
+            diagnostics.push(base_diagnostic(
+                written_type,
+                span,
+                joined_span(&path.segment_spans),
+                failure,
+            ));
         }
     }
 }
@@ -266,7 +276,7 @@ fn collect_refinements(
     refinements: &[veln_ast::VariantRefinementType],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
-    diagnostics: &mut Vec<Diagnostic>,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     for refinement in refinements {
         crate::pipeline::record_variant_refinement_annotation_work(1);
@@ -281,6 +291,7 @@ fn collect_refinements(
                 diagnostics.push(base_diagnostic(
                     written_refinement_base(alternative),
                     joined_span(&alternative.base.segment_spans),
+                    alternative.span.clone(),
                     failure,
                 ));
             }
@@ -300,7 +311,7 @@ fn collect_body_line(
     line: &BodyLine,
     current_module: Option<&str>,
     environment: &TypeEnvironment,
-    diagnostics: &mut Vec<Diagnostic>,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     match &line.kind {
         BodyLineKind::Let {
@@ -332,7 +343,7 @@ fn collect_expr(
     expr: &Expr,
     current_module: Option<&str>,
     environment: &TypeEnvironment,
-    diagnostics: &mut Vec<Diagnostic>,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     if let ExprKind::TypeApply {
         type_arg_paths,
@@ -358,8 +369,9 @@ fn collect_expr(
 fn base_diagnostic(
     written_type: String,
     span: SourceSpan,
+    ordering_scope: SourceSpan,
     failure: VariantRefinementBaseFailure,
-) -> Diagnostic {
+) -> VariantRefinementBaseDiagnostic {
     let message = match failure.reason {
         "not_adt" => format!("variant-refinement base `{written_type}` is not a finite ADT"),
         "opaque" => {
@@ -393,7 +405,10 @@ fn base_diagnostic(
         related.push(("span", span_json(&declaration_span)));
     }
     diagnostic.related.push(JsonValue::object(related));
-    diagnostic
+    VariantRefinementBaseDiagnostic {
+        diagnostic,
+        ordering_scope,
+    }
 }
 
 fn joined_span(spans: &[SourceSpan]) -> SourceSpan {

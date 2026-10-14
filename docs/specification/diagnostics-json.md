@@ -141,13 +141,16 @@ visibility, or assignability diagnostics that require a refinable base.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
 provable without treating the failed base as refinable.
-When separate union alternatives independently produce a base failure and an
-annotation failure, those diagnostics follow the alternatives' written order.
-Within one annotation, written alternative order and check precedence determine
-diagnostic order. Diagnostics from separate annotations and unrelated checker
-families retain their established relative order. The checked human and JSON
-cases below preserve the full sequence around unrelated public-signature and
-casing diagnostics as well as refinement failures.
+When separate union alternatives independently produce failures, their
+diagnostic groups follow the alternatives' written order. Within each
+alternative, the checker reports casing before base resolution, generic arity,
+base eligibility, final-segment resolution, and visibility. Casing applies to
+the complete alternative, including qualified type arguments, so a nested
+casing failure precedes the enclosing alternative's base-eligibility failure.
+Diagnostics from separate annotations and unrelated checker families retain
+their established relative order. The checked human and JSON cases below
+preserve the full sequence around unrelated public-signature and casing
+diagnostics as well as refinement failures.
 An independently provable generic-arity failure keeps
 `type.invalid_annotation` instead of adding the base diagnostic. Unresolved,
 ambiguous, private, and wrong-kind bases also retain their existing diagnostics.
@@ -186,6 +189,12 @@ cases cover source-backed, source-less, and opaque bases in declaration
 annotations and explicit call arguments, related provenance, recovered-casing
 overlap, occurrence-scoped downstream
 suppression, declaration quarantine, and arity precedence.
+The checked nested-casing
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-casing-diagnostics-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-casing-diagnostics-json/)
+cases fix the per-alternative precedence when a non-ADT generic base contains a
+uniquely recovered invalid-cased qualified type argument.
 The checked declaration-quarantine
 [`human`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-human/)
 and
