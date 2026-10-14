@@ -207,7 +207,10 @@ The casing overlap below applies only to carriers that the current
 [name-resolution contract](../specification/name-resolution.md#resolution-rules)
 classifies for casing analysis. Explicit expression type arguments remain
 navigation-only casing carriers and do not emit `name.invalid_case`. The
-planned diagnostics do not expand that current casing boundary.
+current diagnostic specification owns the independent casing failure for a
+qualified type nested in a refinement base, the enclosing base-eligibility
+failure, and their per-alternative order. The planned diagnostics do not expand
+that current casing boundary.
 
 ### Diagnostic Overlap And Recovery
 

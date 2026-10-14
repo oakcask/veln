@@ -689,11 +689,14 @@ same eligibility rule applies recursively to parameters, results, locals, ADT
 payloads, effect and handler annotations, schema fields, and explicit call type
 arguments. A uniquely recovered invalid-cased base retains its identity and is
 checked independently; recovery is not attempted when more than one base could
-match. Any such invalid annotation prevents the containing declaration from
-being published as usable typed state. For an ordinary function, effect
-operation, handler, or ADT constructor, one failed parameter, result, or payload
-annotation makes every parameter, result, or payload type from that declaration
-unknown to bodies, calls, performs, handles, and constructor uses. The
+match. A uniquely recovered invalid-cased type nested in a base's generic
+arguments likewise does not suppress an independently provable eligibility
+failure for that enclosing base. Any such invalid annotation prevents the
+containing declaration from being published as usable typed state. For an
+ordinary function, effect operation, handler, or ADT constructor, one failed
+parameter, result, or payload annotation makes every parameter, result, or
+payload type from that declaration unknown to bodies, calls, performs, handles,
+and constructor uses. The
 declaration identity and independently provable declaration diagnostics remain,
 but a valid sibling type cannot produce a derivative mismatch. Schema
 eligibility rejects a schema field with the same failure instead of generating

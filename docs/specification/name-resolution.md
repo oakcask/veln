@@ -309,8 +309,12 @@ segment as a constructor. Each classification retains the written segment,
 span, and segment index. If changing only an invalid-cased base leaf selects
 exactly one type, casing analysis retains that type classification. It reports
 `name.invalid_case` and still checks the recovered base's independent
-variant-refinement eligibility. An ambiguous or unresolved recovery does not
-assign a type role or manufacture an eligibility failure. The
+variant-refinement eligibility. Qualified type arguments nested in the base
+retain their own type-path records. A uniquely recovered invalid-cased type in
+such an argument reports `name.invalid_case` without suppressing an
+independently provable eligibility failure for the enclosing refinement base.
+An ambiguous or unresolved recovery does not assign a type role or manufacture
+an eligibility failure. The
 [diagnostic specification](diagnostics-json.md#diagnostic-families) owns the
 overlap order and downstream suppression rules. An explicit expression type
 argument is a navigation-only carrier for variant refinements: casing analysis
