@@ -333,6 +333,75 @@ fn base_failures_preserve_independent_sibling_and_nested_annotation_errors() {
 }
 
 #[test]
+fn nested_base_recovery_preserves_independent_errors_without_derivative_parents() {
+    let diagnostics = diagnostics_for(concat!(
+        "type GenericEmpty<A>\n",
+        "end\n",
+        "type Empty\n",
+        "end\n",
+        "type Box<A>\n",
+        "  Boxed(A)\n",
+        "end\n",
+        "fn outer(value: GenericEmpty<Vec<Int, String>>::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn control(value: Box<Vec<Int, String>>::Boxed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn invalid_child(value: Box<Empty::Missing>::Boxed) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "type.variant_refinement_base" | "type.invalid_annotation"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 4, "{diagnostics:#?}");
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.variant_refinement_base",
+            "type.invalid_annotation",
+            "type.invalid_annotation",
+            "type.variant_refinement_base",
+        ],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| {
+                let span = diagnostic.span.as_ref().unwrap();
+                (span.start.line, span.start.column, span.end.column)
+            })
+            .collect::<Vec<_>>(),
+        [(8, 17, 29), (8, 30, 46), (11, 12, 47), (14, 29, 34)],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        relevant[1].message.contains(
+            "invalid type annotation `Vec<Int, String>`: `Vec` expects 1 type argument(s), found 2"
+        ),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        relevant[2]
+            .message
+            .contains("`Vec` expects 1 type argument(s), found 2"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn non_unique_invalid_case_recovery_does_not_select_a_base() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",

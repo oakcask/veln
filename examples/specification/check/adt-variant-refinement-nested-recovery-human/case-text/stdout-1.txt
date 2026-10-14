@@ -1,0 +1,6 @@
+main.veln:11:17: error[type.variant_refinement_base]: variant-refinement base `GenericEmpty<Vec<Int, String>>` is not a finite ADT
+  note: main.veln:1:1: Type `GenericEmpty` is declared here without finite ADT variants.
+main.veln:11:30: error[type.invalid_annotation]: invalid type annotation `Vec<Int, String>`: `Vec` expects 1 type argument(s), found 2
+main.veln:15:12: error[type.invalid_annotation]: invalid type annotation `Box<Vec<Int, String>>::Boxed`: `Vec` expects 1 type argument(s), found 2
+main.veln:19:29: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+  note: main.veln:4:1: Type `Empty` is declared here without finite ADT variants.

@@ -177,21 +177,24 @@ fn collect_independent_refinement_errors(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
-) {
+) -> bool {
+    let mut annotation_is_invalid = false;
     for path in paths {
         if environment
             .recovered_variant_refinement_base_failure(&path.segments, current_module)
-            .is_none()
-            && let Some(error) = environment.recovered_variant_refinement_annotation_error(
-                std::slice::from_ref(path),
-                current_module,
-            )
+            .is_some()
         {
+            annotation_is_invalid = true;
+        } else if let Some(error) = environment.recovered_variant_refinement_annotation_error(
+            std::slice::from_ref(path),
+            current_module,
+        ) {
             errors.push((
                 path.segments.join("::"),
                 error,
                 joined_span(&path.segment_spans),
             ));
+            annotation_is_invalid = true;
         }
     }
     for refinement in refinements {
@@ -205,15 +208,35 @@ fn collect_independent_refinement_errors(
                 )
                 .is_some();
 
-            let child_errors_start = errors.len();
+            let mut child_is_invalid = false;
             for argument in &alternative.type_arguments {
-                collect_independent_refinement_errors(
+                let argument_errors_start = errors.len();
+                let argument_is_invalid = collect_independent_refinement_errors(
                     &argument.ty_refinements,
                     &argument.ty_paths,
                     current_module,
                     environment,
                     errors,
                 );
+                child_is_invalid |= argument_is_invalid;
+                if argument_is_invalid || errors.len() != argument_errors_start {
+                    continue;
+                }
+                let written_argument = render_type_argument(argument);
+                match parse_type_annotation(&written_argument) {
+                    Ok(ty) => {
+                        if let Some(error) =
+                            environment.variant_refinement_arity_error(&ty, current_module)
+                        {
+                            errors.push((written_argument, error, argument.span.clone()));
+                            child_is_invalid = true;
+                        }
+                    }
+                    Err(error) => {
+                        errors.push((written_argument, error, argument.span.clone()));
+                        child_is_invalid = true;
+                    }
+                }
             }
 
             let written = format!(
@@ -221,23 +244,34 @@ fn collect_independent_refinement_errors(
                 written_refinement_base(alternative),
                 alternative.variant
             );
-            let Some(ty) = parse_type_annotation(&written).ok() else {
-                continue;
+            let ty = match parse_type_annotation(&written) {
+                Ok(ty) => ty,
+                Err(error) => {
+                    if !child_is_invalid {
+                        errors.push((written, error, alternative_span(alternative)));
+                    }
+                    annotation_is_invalid = true;
+                    continue;
+                }
             };
             if let Some(error) = environment.variant_refinement_arity_error(&ty, current_module) {
                 errors.push((written, error, alternative_span(alternative)));
+                annotation_is_invalid = true;
                 continue;
             }
-            if own_base_failure || errors.len() != child_errors_start {
+            if own_base_failure || child_is_invalid {
+                annotation_is_invalid = true;
                 continue;
             }
             if let Some(error) =
                 environment.variant_refinement_annotation_error(&ty, current_module)
             {
                 errors.push((written, error, alternative_span(alternative)));
+                annotation_is_invalid = true;
             }
         }
     }
+    annotation_is_invalid
 }
 
 fn alternative_span(alternative: &veln_ast::VariantRefinementAlternative) -> SourceSpan {
