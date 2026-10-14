@@ -519,6 +519,11 @@ fn declaration_quarantine_work_is_linear_across_consumers() {
         for index in 0..count {
             source.push_str(&format!(
                 "type Carrier{index}\n  Built{index}(invalid: Empty::Missing, sibling: Int)\nend\n\
+                 pub type CarrierAlias{index} = Carrier{index}\n\
+                 pub type CarrierTransitive{index} = CarrierAlias{index}\n\
+                 fn construct_alias_{index}() -> Carrier{index}\n\
+                   CarrierTransitive{index}::Built{index}(1, 2)\n\
+                 end\n\
                  effect Effect{index}\n  apply(invalid: Empty::Missing, sibling: Int) -> Int\nend\n\
                  handler handler_{index}(invalid: Empty::Missing, sibling: Int) for Effect{index}\n\
                    apply(invalid, sibling) => sibling\nend\n"
@@ -533,6 +538,12 @@ fn declaration_quarantine_work_is_linear_across_consumers() {
                 .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
                 .count(),
             count * 3,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "type.mismatch"),
             "count={count} diagnostics={diagnostics:#?}"
         );
         eprintln!("variant refinement declaration quarantine: declarations={count} work={work:?}");
@@ -727,6 +738,45 @@ fn invalid_constructor_quarantines_every_payload_type() {
             .all(|diagnostic| diagnostic.id != "type.mismatch"),
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn invalid_constructor_quarantine_reaches_alias_descriptor_views() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "pub type Broken\n",
+        "  pub Built(invalid: Empty::Missing, sibling: String)\n",
+        "  Other\n",
+        "end\n",
+        "pub type Alias = Broken\n",
+        "pub type Transitive = Alias\n",
+        "type DuplicateEvidence\n",
+        "  Repeated\n",
+        "  Repeated\n",
+        "end\n",
+        "type Control\n",
+        "  Built(value: String)\n",
+        "end\n",
+        "fn direct() -> Broken\n",
+        "  Broken::Built(1, 2)\n",
+        "end\n",
+        "fn aliased() -> Broken\n",
+        "  Alias::Built(1, 2)\n",
+        "end\n",
+        "fn transitive() -> Broken\n",
+        "  Transitive::Built(1, 2)\n",
+        "end\n",
+        "fn control() -> Control\n",
+        "  Control::Built(1)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_refinement_base");
+    assert_eq!(diagnostics[1].id, "name.duplicate");
+    assert_eq!(diagnostics[2].id, "type.mismatch");
+    assert_eq!(diagnostics[2].span.as_ref().unwrap().start.line, 26);
 }
 
 #[test]

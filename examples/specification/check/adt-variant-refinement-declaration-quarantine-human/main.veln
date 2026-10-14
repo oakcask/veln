@@ -11,6 +11,9 @@ type BrokenPayload
 	Other
 end
 
+pub type BrokenAlias = BrokenPayload
+pub type BrokenTransitive = BrokenAlias
+
 effect Ask
 	value() -> Int
 end
@@ -33,5 +36,13 @@ fn use_handler() -> Int
 end
 
 fn use_constructor() -> BrokenPayload
-	Built(1, 2)
+	BrokenPayload::Built(1, 2)
+end
+
+fn use_alias_constructor() -> BrokenPayload
+	BrokenAlias::Built(1, 2)
+end
+
+fn use_transitive_alias_constructor() -> BrokenPayload
+	BrokenTransitive::Built(1, 2)
 end

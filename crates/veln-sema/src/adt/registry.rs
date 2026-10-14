@@ -103,15 +103,32 @@ impl AdtRegistry {
         invalid: &HashSet<(Option<String>, String, String)>,
     ) -> usize {
         let mut work = 0;
-        for descriptor in &mut self.descriptors {
+        let mut invalid_identities = HashMap::<String, HashSet<String>>::new();
+        for descriptor in &self.descriptors {
             work += 1;
-            for variant in &mut descriptor.variants {
+            for variant in &descriptor.variants {
                 work += 1;
-                if !invalid.contains(&(
+                if invalid.contains(&(
                     descriptor.module_name.clone(),
                     descriptor.type_name.clone(),
                     variant.name.clone(),
                 )) {
+                    invalid_identities
+                        .entry(descriptor.identity())
+                        .or_default()
+                        .insert(variant.name.clone());
+                }
+            }
+        }
+        for descriptor in &mut self.descriptors {
+            work += 1;
+            let identity = descriptor.identity();
+            for variant in &mut descriptor.variants {
+                work += 1;
+                if !invalid_identities
+                    .get(&identity)
+                    .is_some_and(|variants| variants.contains(&variant.name))
+                {
                     continue;
                 }
                 for field in &mut variant.payload_fields {

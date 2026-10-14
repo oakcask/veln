@@ -713,7 +713,8 @@ The declaration-quarantine
 [`human`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-json/)
-cases verify the cross-carrier sibling boundary.
+cases verify the cross-carrier sibling boundary through direct, one-hop alias,
+and transitive-alias constructor views.
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
 instrumented work. This bound includes invalid-cased bases and unrelated
