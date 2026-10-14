@@ -426,7 +426,7 @@ impl<'a> FunctionChecker<'a> {
                 self.function
                     .return_type
                     .as_deref()
-                    .filter(|_| !self.return_annotation_has_base_failure())
+                    .filter(|_| !self.declaration_types_are_quarantined)
                     .and_then(|return_type| parse_type_annotation(return_type).ok())
                     .map(|ty| {
                         self.environment
@@ -535,7 +535,7 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn return_expected(&self, origin_node_id: NodeId) -> Option<ExpectedType> {
-        if self.return_annotation_has_base_failure() {
+        if self.declaration_types_are_quarantined {
             return None;
         }
         self.function
@@ -571,15 +571,6 @@ impl<'a> FunctionChecker<'a> {
                         origin_message: "Private return type inferred here.",
                     })
             })
-    }
-
-    fn return_annotation_has_base_failure(&self) -> bool {
-        super::super::annotation_has_base_failure(
-            &self.function.return_type_refinements,
-            &self.function.return_type_paths,
-            self.function.module_name.as_deref(),
-            self.environment,
-        )
     }
 }
 

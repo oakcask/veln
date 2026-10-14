@@ -27,6 +27,28 @@ schema Packet
 	sibling: Int
 end
 
+fn needs_int(value: Int) -> ()
+	()
+end
+
+fn invalid_param_to_sibling(invalid: Empty::Missing, sibling: String) -> ()
+	needs_int(sibling)
+end
+
+fn invalid_param_to_result(invalid: Empty::Missing) -> Int
+	"not an int"
+end
+
+fn invalid_result_to_param(sibling: String) -> Empty::Missing
+	needs_int(sibling)
+	()
+end
+
+fn invalid_param_to_named_result(invalid: Empty::Missing) -> output: String
+ensure output % 2 == 0
+	"not an int"
+end
+
 fn use_effect() -> () effects [Broken]
 	let result: Int = perform Broken::apply(1, 2)
 end

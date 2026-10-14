@@ -6,10 +6,15 @@ format = "json"
 contains = [
   "\"id\":\"type.variant_refinement_base\"",
   "\"details\":{\"written_type\":\"Empty\",\"reason\":\"not_adt\"}",
+  "\"line\":34,\"column\":38",
+  "\"line\":38,\"column\":37",
+  "\"line\":42,\"column\":48",
+  "\"line\":47,\"column\":43",
   "\"id\":\"name.invalid_case\"",
   "\"id\":\"name.duplicate\"",
+  "\"summary\":{\"diagnostic_count\":11,\"by_severity\":{\"error\":11},\"by_kind\":{\"name\":2,\"type\":9}}",
 ]
-not_contains = ["\"id\":\"type.mismatch\""]
+not_contains = ["\"id\":\"type.mismatch\"", "\"id\":\"contract.type_mismatch\""]
 
 [stderr]
 format = "empty"

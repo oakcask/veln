@@ -5,10 +5,14 @@ exit = 1
 format = "text"
 contains = [
   "error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT",
+  "main.veln:34:38: error[type.variant_refinement_base]",
+  "main.veln:38:37: error[type.variant_refinement_base]",
+  "main.veln:42:48: error[type.variant_refinement_base]",
+  "main.veln:47:43: error[type.variant_refinement_base]",
   "error[name.invalid_case]: binding name `Invalid` must start with an ASCII lowercase letter",
   "error[name.duplicate]: duplicate constructor declaration name `Other`",
 ]
-not_contains = ["error[type.mismatch]"]
+not_contains = ["error[type.mismatch]", "error[contract.type_mismatch]"]
 
 [stderr]
 format = "empty"

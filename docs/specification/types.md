@@ -878,8 +878,8 @@ rename behavior is specified by
 [MCP](mcp.md#saved-workspace-navigation). Public/private exposure paths,
 qualified-value control-flow refinement, schema boundaries,
 package-documentation catalog signatures, remaining LSP diagnostics and
-recovery, and remaining MCP diagnostics, package-signature, and saved-state
-behavior remain proposal work.
+recovery, and remaining MCP invalid-refinement recovery, package-signature,
+and saved-state behavior remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

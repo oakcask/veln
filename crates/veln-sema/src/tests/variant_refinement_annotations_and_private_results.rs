@@ -613,6 +613,9 @@ fn declaration_quarantine_work_is_linear_across_consumers() {
                  fn construct_alias_{index}() -> Carrier{index}\n\
                    CarrierTransitive{index}::Built{index}(1, 2)\n\
                  end\n\
+                 fn ordinary_{index}(invalid: Empty::Missing, sibling: String) -> Int\n\
+                   sibling\n\
+                 end\n\
                  effect Effect{index}\n  apply(invalid: Empty::Missing, sibling: Int) -> Int\nend\n\
                  handler handler_{index}(invalid: Empty::Missing, sibling: Int) for Effect{index}\n\
                    apply(invalid, sibling) => sibling\nend\n"
@@ -626,7 +629,7 @@ fn declaration_quarantine_work_is_linear_across_consumers() {
                 .iter()
                 .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
                 .count(),
-            count * 3,
+            count * 4,
             "count={count} diagnostics={diagnostics:#?}"
         );
         assert!(
@@ -745,6 +748,39 @@ fn invalid_declaration_annotations_quarantine_body_and_caller_types() {
     ));
 
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_refinement_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn ordinary_function_quarantine_reaches_every_body_signature_consumer() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn invalid_param_to_sibling(invalid: Empty::Missing, sibling: String) -> ()\n",
+        "  needs_int(sibling)\n",
+        "end\n",
+        "fn invalid_param_to_result(invalid: Empty::Missing) -> Int\n",
+        "  \"not an int\"\n",
+        "end\n",
+        "fn invalid_result_to_param(sibling: String) -> Empty::Missing\n",
+        "  needs_int(sibling)\n",
+        "  ()\n",
+        "end\n",
+        "fn invalid_param_to_named_result(invalid: Empty::Missing) -> output: String\n",
+        "ensure output % 2 == 0\n",
+        "  \"not an int\"\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
     assert!(
         diagnostics
             .iter()
