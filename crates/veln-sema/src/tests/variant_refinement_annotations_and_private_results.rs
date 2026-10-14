@@ -453,10 +453,11 @@ fn base_failures_are_merged_at_their_annotation_positions() {
 #[test]
 fn many_independent_base_failures_have_linear_end_to_end_work() {
     let measurements = [128, 256, 512].map(|count| {
-        let mut source = String::from("type Empty\nend\n");
+        let mut source = String::from("type Empty\nend\npub fn unrelated_before()\n  ()\nend\n");
         for index in 0..count {
             source.push_str(&format!(
-                "fn invalid_{index}(value: empty::Missing) -> ()\n  ()\nend\n"
+                "fn invalid_{index}(value: empty::Missing) -> ()\n  ()\nend\n\
+                 pub fn unrelated_after_{index}()\n  ()\nend\n"
             ));
         }
         crate::pipeline::reset_variant_refinement_base_work();
@@ -468,6 +469,13 @@ fn many_independent_base_failures_have_linear_end_to_end_work() {
                 .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
                 .count(),
             count
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.public_signature_missing")
+                .count(),
+            count + 1
         );
         assert!(
             work.annotation_collection <= count * 16 + 16,
