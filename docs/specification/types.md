@@ -717,7 +717,10 @@ The declaration-quarantine
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-json/)
 cases verify the cross-carrier sibling boundary through direct, one-hop alias,
-and transitive-alias constructor views.
+and transitive-alias constructor views. An invalid-cased ordinary function's
+recovered function value exposes the same declaration-wide unknown parameters
+and result. A function alias copies that quarantined signature after qualified
+base resolution, including when resolution uses a reusable base environment.
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
 instrumented work. This bound includes invalid-cased bases and unrelated

@@ -1102,19 +1102,22 @@ fn invalid_cased_bases_keep_independent_generic_arity_failures() {
         "fn missing(value: genericEmpty::Missing) -> ()\n",
         "  ()\n",
         "end\n",
+        "fn extra(value: genericEmpty<Int, String>::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
     ));
 
     let casing = diagnostics
         .iter()
         .filter(|diagnostic| diagnostic.id == "name.invalid_case")
         .count();
-    assert_eq!(casing, 1, "{diagnostics:#?}");
+    assert_eq!(casing, 2, "{diagnostics:#?}");
     let arity_messages = diagnostics
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
         .map(|diagnostic| diagnostic.message.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(arity_messages.len(), 1, "{diagnostics:#?}");
+    assert_eq!(arity_messages.len(), 2, "{diagnostics:#?}");
     assert!(
         arity_messages
             .iter()
@@ -1122,9 +1125,166 @@ fn invalid_cased_bases_keep_independent_generic_arity_failures() {
         "{diagnostics:#?}"
     );
     assert!(
+        arity_messages
+            .iter()
+            .any(|message| message.contains("`genericEmpty` expects 1 type argument(s), found 2")),
+        "{diagnostics:#?}"
+    );
+    assert!(
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id != "type.variant_refinement_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn generic_invalid_cased_base_with_correct_arity_keeps_identity_and_eligibility_failure() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type GenericEmpty<A>\n",
+            "end\n",
+            "fn bad(invalid: genericEmpty<Int>::Missing, sibling: String) -> Int\n",
+            "  0\n",
+            "end\n",
+            "fn caller() -> ()\n",
+            "  let result: String = bad(1, 2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let signature = environment.function("bad").unwrap();
+    assert_eq!(signature.params, [Type::Unknown, Type::Unknown]);
+    assert_eq!(signature.return_type, Type::Unknown);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "type.variant_refinement_base"],
+        "{diagnostics:#?}"
+    );
+    let base = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
+    assert!(
+        base.contains(
+            "\"details\":{\"written_type\":\"genericEmpty<Int>\",\"reason\":\"not_adt\"}"
+        ),
+        "{base}"
+    );
+    assert!(
+        base.contains("\"resolved_identity\":\"GenericEmpty\""),
+        "{base}"
+    );
+    assert!(!base.contains("type.invalid_annotation"), "{base}");
+}
+
+#[test]
+fn invalid_named_function_value_recovery_keeps_declaration_quarantined() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Empty\n",
+            "end\n",
+            "fn Broken(invalid: Empty::Missing, sibling: String) -> Int\n",
+            "  0\n",
+            "end\n",
+            "fn caller() -> ()\n",
+            "  let recovered: fn(Int, Int) -> String = Broken\n",
+            "  let result: String = recovered(1, 2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let recovered = environment
+        .local_function_value_recovery("Broken", None)
+        .expect("invalid-cased function value recovery signature");
+    assert_eq!(recovered.params, [Type::Unknown, Type::Unknown]);
+    assert_eq!(recovered.return_type, Type::Unknown);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                matches!(
+                    diagnostic.id.as_str(),
+                    "name.invalid_case" | "type.variant_refinement_base"
+                )
+            })
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "type.variant_refinement_base"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn base_environment_function_alias_copies_quarantined_signature() {
+    let dependency = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "impl.veln",
+            concat!("mod impl\n", "pub type Empty\n", "end\n",),
+        ))
+        .tree,
+    );
+    let dependency_environment = TypeEnvironment::from_module(&dependency);
+
+    let application = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "api.veln",
+            concat!(
+                "mod api\n",
+                "use impl\n",
+                "fn broken(invalid: impl::Empty::Missing, sibling: String) -> Int\n",
+                "  0\n",
+                "end\n",
+                "pub fn exposed = broken\n",
+                "fn caller() -> ()\n",
+                "  let result: String = exposed(1, 2)\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let environment =
+        TypeEnvironment::from_module_with_base_for_test(&application, &dependency_environment);
+    let broken = environment.function("broken").unwrap();
+    assert_eq!(broken.params, [Type::Unknown, Type::Unknown]);
+    assert_eq!(broken.return_type, Type::Unknown);
+    let alias = environment.function("exposed").unwrap();
+    assert_eq!(alias.params, [Type::Unknown, Type::Unknown]);
+    assert_eq!(alias.return_type, Type::Unknown);
+
+    let diagnostics =
+        analyze_surface_module_with_base_for_test(&application, &dependency_environment);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
         "{diagnostics:#?}"
     );
 }
@@ -1153,6 +1313,27 @@ fn non_unique_invalid_case_recovery_does_not_select_a_base() {
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id != "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn non_unique_generic_invalid_case_recovery_does_not_select_a_base() {
+    let diagnostics = diagnostics_for(concat!(
+        "type GenericEmpty<A>\n",
+        "end\n",
+        "type GenericEmpty<A>\n",
+        "end\n",
+        "fn main(value: genericEmpty<Int>::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| !matches!(
+            diagnostic.id.as_str(),
+            "name.invalid_case" | "type.variant_refinement_base"
+        )),
         "{diagnostics:#?}"
     );
 }

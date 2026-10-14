@@ -16,6 +16,10 @@ fn casing_before(value: empty::Missing) -> ()
 	()
 end
 
+fn generic_casing_before(value: genericEmpty<Int>::Missing) -> ()
+	()
+end
+
 type Wrap
 	Wrapped(Empty::Missing)
 end

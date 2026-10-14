@@ -49,6 +49,15 @@ ensure output % 2 == 0
 	"not an int"
 end
 
+fn Recovered(invalid: Empty::Missing, sibling: String) -> Int
+	0
+end
+
+fn use_recovered_function_value() -> ()
+	let recovered: fn(Int, Int) -> String = Recovered
+	let result: String = recovered(1, 2)
+end
+
 fn use_effect() -> () effects [Broken]
 	let result: Int = perform Broken::apply(1, 2)
 end

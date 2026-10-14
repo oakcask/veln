@@ -167,7 +167,9 @@ if any parameter, result, or payload annotation in that declaration has a base
 failure, every parameter, result, or payload type exposed by that declaration is
 unknown. Declaration identity and independently provable declaration
 diagnostics remain available. A schema with such a field does not expose a
-generated helper through the existing schema eligibility boundary.
+generated helper through the existing schema eligibility boundary. Invalid-name
+function-value recovery and function aliases expose this same quarantined
+callable signature; they do not restore sibling parameter or result types.
 
 Lowercase prospective bases remain ordinary named-type source text. If changing
 only that base leaf to the required case identifies exactly one type, the
@@ -187,7 +189,7 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
 cases cover source-backed, source-less, and opaque bases in declaration
 annotations and explicit call arguments, related provenance, recovered-casing
-overlap, occurrence-scoped downstream
+overlap including a correct-arity generic base, occurrence-scoped downstream
 suppression, declaration quarantine, and arity precedence.
 The checked nested-casing
 [`human`](../../examples/specification/check/adt-variant-refinement-nested-casing-diagnostics-human/)
@@ -203,8 +205,9 @@ cases cover ordinary functions, effect-operation, handler, ADT-constructor, and
 schema carriers, including retained independent diagnostics and absent
 sibling-derived mismatches. For ordinary functions, invalid parameter or result
 annotations quarantine sibling parameter types, return expectations, and named
-result bindings used by contracts. The cases reject derivative `type.mismatch`
-and `contract.type_mismatch` diagnostics. The constructor coverage uses direct,
+result bindings used by contracts. Recovered invalid-name function values use
+the same quarantined parameters and result. The cases reject derivative
+`type.mismatch` and `contract.type_mismatch` diagnostics. The constructor coverage uses direct,
 one-hop alias, and transitive-alias views of the same quarantined variant; every
 view suppresses the derivative payload mismatch.
 

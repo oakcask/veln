@@ -627,6 +627,28 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
 }
 
 #[test]
+fn preserves_generic_refinements_with_lowercase_base_leaves_for_semantic_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid(value: genericEmpty<Int>::Missing) -> ()\n  ()\nend\n",
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let refinement = &first_function(&output).params[0].ty_refinements[0];
+    let alternative = &refinement.alternatives[0];
+    assert_eq!(alternative.base.segments, ["genericEmpty"]);
+    assert_eq!(alternative.type_arguments.len(), 1);
+    assert_eq!(alternative.type_arguments[0].ty_fragments, ["Int"]);
+    assert_eq!(alternative.variant, "Missing");
+    assert_eq!(
+        &source.text()[alternative.base.segment_spans[0].start.offset
+            ..alternative.base.segment_spans[0].end.offset],
+        "genericEmpty"
+    );
+}
+
+#[test]
 fn rejects_refinement_nesting_beyond_the_lowering_and_wire_limit() {
     let mut annotation = "Leaf::Value".to_string();
     for _ in 0..4_096 {

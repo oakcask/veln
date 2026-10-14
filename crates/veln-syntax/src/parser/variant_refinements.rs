@@ -480,7 +480,7 @@ fn refinement_alternative_shape(
     generic_syntax: &[GenericSyntax],
     start: usize,
 ) -> Option<RefinementAlternativeShape> {
-    let (mut cursor, mut base_end) = refinement_base_end(tokens, start);
+    let (cursor, mut base_end) = refinement_base_end(tokens, start);
     let (base_end, generic_open, variant_index) =
         if tokens.get(cursor + 1).map(|token| token.kind) == Some(TokenKind::Less) {
             generic_refinement_shape(tokens, generic_syntax, cursor)?
@@ -493,10 +493,11 @@ fn refinement_alternative_shape(
             base_end = base_end.saturating_sub(2);
             (base_end, None, variant_index)
         };
-    cursor = base_end;
-    let base_leaf = tokens.get(cursor)?;
+    let base_leaf = tokens.get(base_end)?;
     let variant = tokens.get(variant_index)?;
-    if !starts_uppercase(&base_leaf.text) || !starts_uppercase(&variant.text) {
+    if (generic_open.is_none() && !starts_uppercase(&base_leaf.text))
+        || !starts_uppercase(&variant.text)
+    {
         return None;
     }
     Some(RefinementAlternativeShape {
