@@ -201,79 +201,15 @@ fn collect_independent_refinement_errors(
     for refinement in refinements {
         let mut expected_union_base = None;
         for alternative in &refinement.alternatives {
-            crate::pipeline::record_variant_refinement_recovery_work(1);
-            let base = alternative.base.segments.join("::");
-            let own_base_failure = environment
-                .variant_refinement_base_failure(
-                    &base,
-                    alternative.type_arguments.len(),
-                    current_module,
-                )
-                .is_some();
-
-            let mut child_is_invalid = false;
-            for argument in &alternative.type_arguments {
-                let argument_errors_start = errors.len();
-                let argument_is_invalid = collect_independent_refinement_errors(
-                    &argument.ty_refinements,
-                    &argument.ty_paths,
-                    current_module,
-                    environment,
-                    errors,
-                );
-                child_is_invalid |= argument_is_invalid;
-                if argument_is_invalid || errors.len() != argument_errors_start {
-                    continue;
-                }
-                let written_argument = render_type_argument(argument);
-                match parse_type_annotation(&written_argument) {
-                    Ok(ty) => {
-                        if let Some(error) =
-                            environment.variant_refinement_arity_error(&ty, current_module)
-                        {
-                            errors.push((written_argument, error, argument.span.clone()));
-                            child_is_invalid = true;
-                        }
-                    }
-                    Err(error) => {
-                        errors.push((written_argument, error, argument.span.clone()));
-                        child_is_invalid = true;
-                    }
-                }
-            }
-
-            let written = format!(
-                "{}::{}",
-                written_refinement_base(alternative),
-                alternative.variant
-            );
-            let ty = match parse_type_annotation(&written) {
-                Ok(ty) => ty,
-                Err(error) => {
-                    if !child_is_invalid {
-                        errors.push((written, error, alternative_span(alternative)));
-                    }
-                    annotation_is_invalid = true;
-                    continue;
-                }
+            let Some((written, canonical)) = collect_refinement_alternative_type(
+                alternative,
+                current_module,
+                environment,
+                errors,
+            ) else {
+                annotation_is_invalid = true;
+                continue;
             };
-            if let Some(error) = environment.variant_refinement_arity_error(&ty, current_module) {
-                errors.push((written, error, alternative_span(alternative)));
-                annotation_is_invalid = true;
-                continue;
-            }
-            if own_base_failure || child_is_invalid {
-                annotation_is_invalid = true;
-                continue;
-            }
-            if let Some(error) =
-                environment.variant_refinement_annotation_error(&ty, current_module)
-            {
-                errors.push((written, error, alternative_span(alternative)));
-                annotation_is_invalid = true;
-                continue;
-            }
-            let canonical = environment.canonicalize_type_annotation(ty, current_module);
             if let Some(expected) = &expected_union_base {
                 crate::pipeline::record_variant_refinement_recovery_work(1);
                 if !same_variant_refinement_base(expected, &canonical) {
@@ -291,6 +227,85 @@ fn collect_independent_refinement_errors(
         }
     }
     annotation_is_invalid
+}
+
+fn collect_refinement_alternative_type(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    errors: &mut Vec<(String, String, SourceSpan)>,
+) -> Option<(String, Type)> {
+    crate::pipeline::record_variant_refinement_recovery_work(1);
+    let base = alternative.base.segments.join("::");
+    let own_base_failure = environment
+        .variant_refinement_base_failure(&base, alternative.type_arguments.len(), current_module)
+        .is_some();
+    let child_is_invalid = collect_refinement_argument_errors(
+        &alternative.type_arguments,
+        current_module,
+        environment,
+        errors,
+    );
+    let written = format!(
+        "{}::{}",
+        written_refinement_base(alternative),
+        alternative.variant
+    );
+    let ty = match parse_type_annotation(&written) {
+        Ok(ty) => ty,
+        Err(error) => {
+            if !child_is_invalid {
+                errors.push((written, error, alternative_span(alternative)));
+            }
+            return None;
+        }
+    };
+    if let Some(error) = environment.variant_refinement_arity_error(&ty, current_module) {
+        errors.push((written, error, alternative_span(alternative)));
+        return None;
+    }
+    if own_base_failure || child_is_invalid {
+        return None;
+    }
+    if let Some(error) = environment.variant_refinement_annotation_error(&ty, current_module) {
+        errors.push((written, error, alternative_span(alternative)));
+        return None;
+    }
+    let canonical = environment.canonicalize_type_annotation(ty, current_module);
+    Some((written, canonical))
+}
+
+fn collect_refinement_argument_errors(
+    arguments: &[veln_ast::VariantRefinementTypeArgument],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    errors: &mut Vec<(String, String, SourceSpan)>,
+) -> bool {
+    let mut child_is_invalid = false;
+    for argument in arguments {
+        let argument_errors_start = errors.len();
+        let argument_is_invalid = collect_independent_refinement_errors(
+            &argument.ty_refinements,
+            &argument.ty_paths,
+            current_module,
+            environment,
+            errors,
+        );
+        child_is_invalid |= argument_is_invalid;
+        if argument_is_invalid || errors.len() != argument_errors_start {
+            continue;
+        }
+        let written_argument = render_type_argument(argument);
+        let error = match parse_type_annotation(&written_argument) {
+            Ok(ty) => environment.variant_refinement_arity_error(&ty, current_module),
+            Err(error) => Some(error),
+        };
+        if let Some(error) = error {
+            errors.push((written_argument, error, argument.span.clone()));
+            child_is_invalid = true;
+        }
+    }
+    child_is_invalid
 }
 
 fn same_variant_refinement_base(expected: &Type, actual: &Type) -> bool {
