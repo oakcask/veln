@@ -334,7 +334,8 @@ fn quarantine_invalid_variant_refinement_adt_payload_types(
             ));
         }
     }
-    adts.quarantine_source_variant_payload_types(&invalid);
+    let work = adts.quarantine_source_variant_payload_types(&invalid);
+    crate::pipeline::record_variant_refinement_base_work(work);
 }
 
 fn recovery_facts(module: &SurfaceModule, functions: &[FunctionSignature]) -> RecoveryFacts {

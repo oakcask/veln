@@ -101,11 +101,12 @@ impl AdtRegistry {
     pub(crate) fn quarantine_source_variant_payload_types(
         &mut self,
         invalid: &HashSet<(Option<String>, String, String)>,
-    ) {
+    ) -> usize {
+        let mut work = 0;
         for descriptor in &mut self.descriptors {
-            crate::pipeline::record_variant_refinement_base_work(1);
+            work += 1;
             for variant in &mut descriptor.variants {
-                crate::pipeline::record_variant_refinement_base_work(1);
+                work += 1;
                 if !invalid.contains(&(
                     descriptor.module_name.clone(),
                     descriptor.type_name.clone(),
@@ -118,6 +119,7 @@ impl AdtRegistry {
                 }
             }
         }
+        work
     }
 
     pub(crate) fn resolves_type_alias(&self, alias: &PublicAlias) -> bool {
