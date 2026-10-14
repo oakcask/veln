@@ -3,6 +3,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::diagnostics::span_json;
+use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{TypeEnvironment, VariantRefinementBaseFailure};
 
@@ -198,7 +199,9 @@ fn collect_independent_refinement_errors(
         }
     }
     for refinement in refinements {
+        let mut expected_union_base = None;
         for alternative in &refinement.alternatives {
+            crate::pipeline::record_variant_refinement_recovery_work(1);
             let base = alternative.base.segments.join("::");
             let own_base_failure = environment
                 .variant_refinement_base_failure(
@@ -268,10 +271,48 @@ fn collect_independent_refinement_errors(
             {
                 errors.push((written, error, alternative_span(alternative)));
                 annotation_is_invalid = true;
+                continue;
+            }
+            let canonical = environment.canonicalize_type_annotation(ty, current_module);
+            if let Some(expected) = &expected_union_base {
+                crate::pipeline::record_variant_refinement_recovery_work(1);
+                if !same_variant_refinement_base(expected, &canonical) {
+                    errors.push((
+                        written,
+                        "variant refinement alternatives must resolve to declared variants of one ADT"
+                            .to_string(),
+                        alternative_span(alternative),
+                    ));
+                    annotation_is_invalid = true;
+                }
+            } else {
+                expected_union_base = Some(canonical);
             }
         }
     }
     annotation_is_invalid
+}
+
+fn same_variant_refinement_base(expected: &Type, actual: &Type) -> bool {
+    fn identity_and_arguments(ty: &Type) -> Option<(&str, &[Type])> {
+        match ty {
+            Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+                Some((identity, args))
+            }
+            _ => None,
+        }
+    }
+
+    match (
+        identity_and_arguments(expected),
+        identity_and_arguments(actual),
+    ) {
+        (Some((expected_identity, expected_args)), Some((actual_identity, actual_args))) => {
+            expected_identity == actual_identity
+                && crate::type_relations::invariant_args_match(expected_args, actual_args)
+        }
+        _ => false,
+    }
 }
 
 fn alternative_span(alternative: &veln_ast::VariantRefinementAlternative) -> SourceSpan {

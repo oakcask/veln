@@ -217,6 +217,9 @@ that current casing boundary.
 The current
 [diagnostic specification](../specification/diagnostics-json.md#diagnostic-families)
 owns the completed provider-independent `not_adt` and `opaque` reasons. The
+current specification also owns recovery that skips a provider-independent
+base failure while preserving comparison of later successfully instantiated
+alternatives through the existing invalid-annotation diagnostic. The
 remaining provider-dependent work may extend
 `type.variant_refinement_base.details.reason` with exactly this value:
 

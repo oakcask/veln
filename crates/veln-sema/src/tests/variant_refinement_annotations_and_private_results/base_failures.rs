@@ -286,6 +286,101 @@ fn mixed_union_failures_follow_written_alternative_order() {
 }
 
 #[test]
+fn base_failure_skips_only_its_union_alternative() {
+    for (annotation, expected_ids) in [
+        (
+            "Empty::Missing | State::Ready | Other::Go",
+            ["type.variant_refinement_base", "type.invalid_annotation"],
+        ),
+        (
+            "State::Ready | Empty::Missing | Other::Go",
+            ["type.variant_refinement_base", "type.invalid_annotation"],
+        ),
+        (
+            "State::Ready | Other::Go | Empty::Missing",
+            ["type.invalid_annotation", "type.variant_refinement_base"],
+        ),
+    ] {
+        let diagnostics = diagnostics_for(&format!(
+            concat!(
+                "type Empty\nend\n",
+                "type State\n  Ready\nend\n",
+                "type Other\n  Go\nend\n",
+                "fn mixed(value: {}) -> ()\n  ()\nend\n",
+            ),
+            annotation
+        ));
+        let relevant = diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                matches!(
+                    diagnostic.id.as_str(),
+                    "type.variant_refinement_base" | "type.invalid_annotation"
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            relevant
+                .iter()
+                .map(|diagnostic| diagnostic.id.as_str())
+                .collect::<Vec<_>>(),
+            expected_ids,
+            "{diagnostics:#?}"
+        );
+        let union_error = relevant
+            .iter()
+            .find(|diagnostic| diagnostic.id == "type.invalid_annotation")
+            .expect("surviving alternatives must still be compared");
+        assert!(
+            union_error.message.contains("`Other::Go`")
+                && union_error
+                    .message
+                    .contains("alternatives must resolve to declared variants of one ADT"),
+            "{diagnostics:#?}"
+        );
+        let span = union_error.span.as_ref().expect("union error span");
+        let expected_column = 17 + annotation.find("Other::Go").unwrap();
+        assert_eq!(span.start.line, 9);
+        assert_eq!(span.start.column, expected_column);
+        assert_eq!(span.end.column, expected_column + "Other::Go".len());
+    }
+}
+
+#[test]
+fn recovered_union_compares_canonical_generic_arguments() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "pub type StateAlias = State\n",
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "  Absent\n",
+        "end\n",
+        "fn mixed(value: Empty::Missing | Box<State>::Present | Box<StateAlias>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.invalid_annotation"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn base_failures_preserve_independent_sibling_and_nested_annotation_errors() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",

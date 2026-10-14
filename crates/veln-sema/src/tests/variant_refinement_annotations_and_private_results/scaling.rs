@@ -147,6 +147,67 @@ fn many_nested_casing_base_failures_have_linear_end_to_end_work() {
 }
 
 #[test]
+fn failed_union_alternatives_keep_linear_recovery_and_merge_work() {
+    let measurements = [128, 256, 512].map(|count| {
+        let mut source = String::from(concat!(
+            "type Empty\nend\n",
+            "type State\n  Ready\nend\n",
+            "type Other\n  Go\nend\n",
+            "fn mixed(value: Empty::Missing",
+        ));
+        for index in 0..count {
+            let alternative = if index % 2 == 0 {
+                "State::Ready"
+            } else {
+                "Other::Go"
+            };
+            source.push_str(" | ");
+            source.push_str(alternative);
+        }
+        source.push_str(") -> ()\n  ()\nend\n");
+        crate::pipeline::reset_variant_refinement_base_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::pipeline::take_variant_refinement_base_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+                .count(),
+            1,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+                .count(),
+            count / 2,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert_eq!(
+            work.recovery_comparison,
+            count * 2,
+            "count={count} work={work:?}"
+        );
+        eprintln!("variant refinement union recovery: alternatives={count} work={work:?}");
+        work
+    });
+
+    for stage in [
+        |work: crate::pipeline::VariantRefinementBaseWork| work.recovery_comparison,
+        |work: crate::pipeline::VariantRefinementBaseWork| work.diagnostic_ordering,
+    ] {
+        let first_growth = stage(measurements[1]) - stage(measurements[0]);
+        let second_growth = stage(measurements[2]) - stage(measurements[1]);
+        assert_eq!(
+            second_growth,
+            first_growth * 2,
+            "recovery and merge work must have exact affine growth: {measurements:?}"
+        );
+    }
+}
+
+#[test]
 fn declaration_quarantine_work_is_linear_across_consumers() {
     let measurements = [16, 32, 64].map(|count| {
         let mut source = String::from("type Empty\nend\n");

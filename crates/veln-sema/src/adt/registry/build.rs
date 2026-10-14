@@ -298,10 +298,10 @@ fn source_declaration_spans(module: &SurfaceModule) -> HashMap<String, SourceSpa
                 .first()
                 .is_some_and(u8::is_ascii_uppercase)
                 .then(|| {
-                    let identity = decl
-                        .module_name
-                        .as_ref()
-                        .map_or_else(|| name.clone(), |module| format!("{module}::{name}"));
+                    let identity = match decl.module_name.as_deref() {
+                        None | Some("std::prelude") => name.clone(),
+                        Some(module) => format!("{module}::{name}"),
+                    };
                     (identity, decl.span.clone())
                 })
         })

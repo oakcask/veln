@@ -127,6 +127,13 @@ impl TypeEnvironment {
         facts::from_module_for_path_classification(module)
     }
 
+    fn for_path_classification_with_base(
+        module: &SurfaceModule,
+        base: Option<&TypeEnvironment>,
+    ) -> Self {
+        facts::from_module_for_path_classification_with_base(module, base)
+    }
+
     #[cfg(test)]
     pub(crate) fn from_module_with_base_for_test(
         module: &SurfaceModule,

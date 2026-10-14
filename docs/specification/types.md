@@ -705,6 +705,14 @@ available internally for suppression and later semantic analysis, but this
 recovery does not make the invalid refinement selectable by language-service
 protocols. A source-less base retains the same semantic identity without
 acquiring a source target. The
+early quarantine uses the same source-backed declarations as the analyzed
+module, including declarations selected from the reusable standard
+environment. Private return inference therefore cannot publish a result that
+depends on an invalid reusable-base annotation. Within a refinement union, the
+checker skips a failed alternative, retains the earliest successfully
+instantiated base, and compares each later successful alternative with that
+base. A later different base remains an invalid annotation; the failed
+alternative does not suppress that independent comparison. The
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
 closed details, related declaration or provider context, and downstream
 suppression; the checked
@@ -712,6 +720,12 @@ suppression; the checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
 cases verify those boundaries.
+The reusable-base and union-overlap
+[`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-base-overlap-json/)
+cases verify source-backed standard provenance, omitted-result recovery, and
+written-order comparison around a failed union alternative.
 The declaration-quarantine
 [`human`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-human/)
 and
@@ -727,6 +741,10 @@ instrumented work. This bound includes invalid-cased bases and unrelated
 diagnostics interleaved before, between, and after the base failures. The
 regression check compares deterministic counters at increasing input sizes;
 elapsed time does not define the bound.
+For one recovered union with `N` alternatives, successful-base comparison and
+diagnostic merging also use linear instrumented work. The bounded regression
+compares adjacent alternative counts and does not use elapsed time as the
+contract.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies

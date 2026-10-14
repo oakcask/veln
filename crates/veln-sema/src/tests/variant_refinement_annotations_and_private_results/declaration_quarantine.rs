@@ -339,8 +339,15 @@ fn base_environment_function_alias_copies_quarantined_signature() {
                 "  0\n",
                 "end\n",
                 "pub fn exposed = broken\n",
+                "fn inferred()\n",
+                "  broken(1, \"x\")\n",
+                "end\n",
+                "fn needs_string(value: String) -> ()\n",
+                "  ()\n",
+                "end\n",
                 "fn caller() -> ()\n",
                 "  let result: String = exposed(1, 2)\n",
+                "  needs_string(inferred())\n",
                 "end\n",
             ),
         ))
@@ -354,7 +361,6 @@ fn base_environment_function_alias_copies_quarantined_signature() {
     let alias = environment.function("exposed").unwrap();
     assert_eq!(alias.params, [Type::Unknown, Type::Unknown]);
     assert_eq!(alias.return_type, Type::Unknown);
-
     let diagnostics =
         analyze_surface_module_with_base_for_test(&application, &dependency_environment);
     assert_eq!(

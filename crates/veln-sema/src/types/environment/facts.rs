@@ -85,7 +85,7 @@ pub(super) fn from_module_with_base(
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
     let mut declarations = declaration_facts(module, base);
-    let validation_environment = TypeEnvironment::for_path_classification(module);
+    let validation_environment = TypeEnvironment::for_path_classification_with_base(module, base);
     quarantine_invalid_variant_refinement_declaration_types(
         module,
         &validation_environment,
@@ -97,10 +97,17 @@ pub(super) fn from_module_with_base(
 }
 
 pub(super) fn from_module_for_path_classification(module: &SurfaceModule) -> TypeEnvironment {
-    let declarations = declaration_facts(module, None);
-    let mut callables = declared_callable_facts(module, None, &declarations);
+    from_module_for_path_classification_with_base(module, None)
+}
+
+pub(super) fn from_module_for_path_classification_with_base(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+) -> TypeEnvironment {
+    let declarations = declaration_facts(module, base);
+    let mut callables = declared_callable_facts(module, base, &declarations);
     append_schema_helpers(module, &mut callables.functions, &declarations.adts);
-    finish_environment(module, None, declarations, callables)
+    finish_environment(module, base, declarations, callables)
 }
 
 fn finish_environment(
@@ -398,7 +405,7 @@ fn callable_facts(
         mut functions,
         mut handlers,
     } = declared_callable_facts(module, base, declarations);
-    let validation_environment = TypeEnvironment::for_path_classification(module);
+    let validation_environment = TypeEnvironment::for_path_classification_with_base(module, base);
     quarantine_invalid_variant_refinement_function_types(
         module,
         &validation_environment,

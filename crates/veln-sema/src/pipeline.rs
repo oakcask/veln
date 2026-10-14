@@ -403,6 +403,7 @@ pub(crate) struct VariantRefinementBaseWork {
     pub(crate) annotation_collection: usize,
     pub(crate) casing_collection: usize,
     pub(crate) enclosing_context: usize,
+    pub(crate) recovery_comparison: usize,
     pub(crate) diagnostic_ordering: usize,
 }
 
@@ -413,6 +414,7 @@ impl VariantRefinementBaseWork {
             annotation_collection: 0,
             casing_collection: 0,
             enclosing_context: 0,
+            recovery_comparison: 0,
             diagnostic_ordering: 0,
         }
     }
@@ -458,6 +460,14 @@ pub(crate) fn record_variant_refinement_enclosing_context_work(amount: usize) {
 
 #[cfg(not(test))]
 pub(crate) fn record_variant_refinement_enclosing_context_work(_amount: usize) {}
+
+#[cfg(test)]
+pub(crate) fn record_variant_refinement_recovery_work(amount: usize) {
+    update_variant_refinement_base_work(|work| work.recovery_comparison += amount);
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_variant_refinement_recovery_work(_amount: usize) {}
 
 #[cfg(test)]
 pub(crate) fn reset_variant_refinement_base_work() {

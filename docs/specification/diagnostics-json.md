@@ -141,6 +141,13 @@ visibility, or assignability diagnostics that require a refinable base.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
 provable without treating the failed base as refinable.
+Within one refinement union, a failed alternative does not establish or clear
+the expected base. The earliest successfully instantiated alternative
+establishes that base. Each later successfully instantiated alternative is
+compared with it in written order. A different ADT identity or different
+canonical generic arguments report the existing `type.invalid_annotation` at
+the later alternative, even when a failed alternative occurs before or between
+the successful alternatives.
 When a nested type argument is invalid, the checker still reports an enclosing
 base-eligibility failure that can be proved from the enclosing base identity
 alone. It suppresses an enclosing annotation or final-segment failure that
@@ -174,6 +181,12 @@ diagnostics remain available. A schema with such a field does not expose a
 generated helper through the existing schema eligibility boundary. Invalid-name
 function-value recovery and function aliases expose this same quarantined
 callable signature; they do not restore sibling parameter or result types.
+The same quarantine runs before private result inference when the source-backed
+base declaration comes from the reusable standard environment. Its related
+note retains the standard-library declaration span. An omitted result that
+calls the invalid declaration does not inherit that declaration's written
+result type. If no independent fact establishes a result, inference keeps it
+unknown instead of producing a derivative mismatch in a later consumer.
 
 Lowercase prospective bases without type arguments remain ordinary named-type
 source text. Type arguments before the final `::Variant` make the refinement
@@ -198,6 +211,13 @@ cases cover source-backed, source-less, and opaque bases in declaration
 annotations and explicit call arguments, related provenance, recovered-casing
 overlap including a correct-arity generic base, occurrence-scoped downstream
 suppression, declaration quarantine, and arity precedence.
+The reusable-base and union-overlap
+[`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-base-overlap-json/)
+cases cover standard-environment declaration provenance, quarantine before
+omitted-result inference, and a failed union alternative before, between, and
+after two successfully instantiated alternatives.
 The checked nested-recovery
 [`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
 and
