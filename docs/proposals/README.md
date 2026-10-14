@@ -27,8 +27,8 @@ also states it.
   immutable values after a separate source-surface
   prerequisite, schema boundaries,
   package-documentation catalog signatures,
-  remaining LSP diagnostics and invalid-refinement recovery, and remaining MCP
-  diagnostics, invalid-refinement recovery, package-signature, and saved-state
+  remaining LSP diagnostics and invalid-refinement recovery, and MCP
+  invalid-refinement recovery, package-signature, and saved-state
   behavior. The provider-dependent base reason requires a separate production
   provider contract before selection:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).

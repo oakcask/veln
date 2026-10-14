@@ -17,8 +17,8 @@ stable mismatch diagnostics, and runtime erasure.
 This proposal retains only the unfinished work: alias visibility,
 qualified-value match refinement, schema boundaries, package documentation
 catalog signatures, remaining LSP diagnostics and invalid-refinement recovery,
-and remaining MCP diagnostics, invalid-refinement recovery, package-signature,
-and saved-state behavior. Qualified
+and MCP invalid-refinement recovery, package-signature, and saved-state
+behavior. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
@@ -366,10 +366,8 @@ contracts rather than variant-only implementations.
 
 ### MCP
 
-The remaining MCP surface gains matching saved-snapshot behavior:
+The remaining MCP surface gains package-signature and saved-snapshot behavior:
 
-- `check_project` returns the new structured diagnostics and counts them in
-  the existing summary.
 - Package-documentation declaration signatures preserve public singleton and
   union refinement annotations. Constructor documentation identity remains
   the owning ADT and constructor identity rather than a synthetic declaration.
@@ -396,7 +394,7 @@ current behavior:
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
 | LSP | Diagnostics, invalid-refinement recovery, their UTF-16 span projection, and unchanged-snapshot failures follow the remaining LSP contract. | Shared language-service cases and stdio LSP request/response fixtures. |
-| MCP | Check, invalid-refinement recovery, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
+| MCP | Invalid-refinement recovery, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 
 The remaining state-machine examples must include match-based recovery of a
 refined value, a private-variant boundary, and an unchanged saved result after
@@ -433,23 +431,9 @@ catalog entry.
 
 ## Related Work
 
-[Veln PR #1792](https://github.com/oakcask/veln/pull/1792) attempted the full
-base-diagnostic slice. Its checked output showed that a global source-span sort
-changed unrelated checker order, while removing that sort grouped diagnostics
-by checker phase instead of by written union alternative. The same change used
-local source declarations with no variants as a proxy for a missing provider
-descriptor. The pull request is implementation evidence rather than current
-behavior, and it did not expose a production compiler or package provider with
-the required state. The current diagnostic specification owns the implemented
-annotation-scoped ordering. This proposal leaves the provider-dependent reason
-unselected until its production input and provenance contract exist.
-
-[Veln PR #1802](https://github.com/oakcask/veln/pull/1802) attempted the
-provider-independent `not_adt` slice by classifying only source type
-declarations. That restriction omitted `Int` and other uniquely resolved
-source-less named types even though the proposed failed fact was not limited to
-source declarations. Requiring every failure to point to a declaration could
-not cover those types because the type-syntax provider publishes no source
-span. The revised contract keeps the full named-type boundary and uses explicit
-provider provenance instead of manufacturing a declaration location or
-misclassifying the base as a module.
+[Veln PR #1792](https://github.com/oakcask/veln/pull/1792) used local source
+declarations with no variants as a proxy for a missing provider descriptor.
+That input did not expose a production compiler or package provider whose ADT
+identity was available independently of its public finite variant descriptor.
+The provider-dependent reason therefore remains unselected until a production
+input and provenance contract establish that state.
