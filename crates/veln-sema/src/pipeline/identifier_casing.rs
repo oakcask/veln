@@ -119,41 +119,8 @@ fn classified_qualified_path_segments_with_refinements(
     segments.extend(recovered_qualified_type_segments(module, environment));
     segments.extend(recovered_qualified_module_segments(module, environment));
     segments.extend(recovered_qualified_function_segments(module, environment));
-    let resolved_locations = segments
-        .iter()
-        .inspect(|_| crate::pipeline::record_variant_refinement_casing_work(1))
-        .filter(|segment| segment.evidence != QualifiedPathSegmentEvidence::Syntax)
-        .map(|segment| {
-            (
-                segment.span.file.as_str().to_string(),
-                segment.span.start.offset,
-                segment.span.end.offset,
-                segment.segment_index,
-            )
-        })
-        .collect::<HashSet<_>>();
-    segments.retain(|segment| {
-        crate::pipeline::record_variant_refinement_casing_work(1);
-        segment.evidence != QualifiedPathSegmentEvidence::Syntax
-            || !resolved_locations.contains(&(
-                segment.span.file.as_str().to_string(),
-                segment.span.start.offset,
-                segment.span.end.offset,
-                segment.segment_index,
-            ))
-    });
-    let mut classified_locations = HashMap::<String, HashSet<(usize, usize, usize)>>::new();
-    for segment in &segments {
-        crate::pipeline::record_variant_refinement_casing_work(1);
-        classified_locations
-            .entry(segment.span.file.as_str().to_string())
-            .or_default()
-            .insert((
-                segment.span.start.offset,
-                segment.span.end.offset,
-                segment.segment_index,
-            ));
-    }
+    remove_shadowed_syntax_segments(&mut segments);
+    let classified_locations = classified_path_locations(&segments);
     let occurrence_index = QualifiedPathOccurrenceIndex::new(module);
     segments.extend(
         module
@@ -177,6 +144,50 @@ fn classified_qualified_path_segments_with_refinements(
             && left.span.end.offset == right.span.end.offset
     });
     segments
+}
+
+fn remove_shadowed_syntax_segments(segments: &mut Vec<QualifiedPathSegment>) {
+    let resolved_locations = segments
+        .iter()
+        .inspect(|_| crate::pipeline::record_variant_refinement_casing_work(1))
+        .filter(|segment| segment.evidence != QualifiedPathSegmentEvidence::Syntax)
+        .map(|segment| {
+            (
+                segment.span.file.as_str().to_string(),
+                segment.span.start.offset,
+                segment.span.end.offset,
+                segment.segment_index,
+            )
+        })
+        .collect::<HashSet<_>>();
+    segments.retain(|segment| {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        segment.evidence != QualifiedPathSegmentEvidence::Syntax
+            || !resolved_locations.contains(&(
+                segment.span.file.as_str().to_string(),
+                segment.span.start.offset,
+                segment.span.end.offset,
+                segment.segment_index,
+            ))
+    });
+}
+
+fn classified_path_locations(
+    segments: &[QualifiedPathSegment],
+) -> HashMap<String, HashSet<(usize, usize, usize)>> {
+    let mut classified_locations = HashMap::<String, HashSet<(usize, usize, usize)>>::new();
+    for segment in segments {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        classified_locations
+            .entry(segment.span.file.as_str().to_string())
+            .or_default()
+            .insert((
+                segment.span.start.offset,
+                segment.span.end.offset,
+                segment.segment_index,
+            ));
+    }
+    classified_locations
 }
 
 fn invalid_path_segment_is_already_classified(
@@ -216,7 +227,7 @@ fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::Sourc
             }
         };
         for shift in (0..usize::BITS).step_by(8) {
-            radix_sort_offset_byte(items, &indices, &mut scratch, shift, &offset);
+            radix_sort_offset_byte(items, &indices, &mut scratch, shift, offset);
             std::mem::swap(&mut indices, &mut scratch);
         }
     }
