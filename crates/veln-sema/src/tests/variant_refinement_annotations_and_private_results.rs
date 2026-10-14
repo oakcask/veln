@@ -496,9 +496,10 @@ fn many_independent_base_failures_have_linear_end_to_end_work() {
     ] {
         let first_growth = stage(measurements[1]) - stage(measurements[0]);
         let second_growth = stage(measurements[2]) - stage(measurements[1]);
-        assert!(
-            second_growth <= first_growth * 2 + 32,
-            "non-linear stage work: measurements={measurements:?}"
+        assert_eq!(
+            second_growth,
+            first_growth * 2,
+            "stage work must have exact affine growth: measurements={measurements:?}"
         );
     }
 }

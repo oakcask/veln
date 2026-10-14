@@ -76,7 +76,7 @@ fn classified_invalid_names(
             .into_iter()
             .filter(|segment| !name_satisfies_class(&segment.name, segment.role))
             .map(|segment| {
-                let enclosing_function_span = enclosing_functions.for_segment(&segment);
+                let enclosing_function_span = enclosing_functions.for_ordered_segment(&segment);
                 InvalidName {
                     name: segment.name,
                     class: segment.role,
@@ -203,11 +203,13 @@ fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::Sourc
     if items.len() < 2 {
         return;
     }
+    crate::pipeline::record_variant_refinement_casing_work(items.len() * 2);
     let mut indices = (0..items.len()).collect::<Vec<_>>();
     let mut scratch = vec![0; items.len()];
     for use_end in [true, false] {
         for shift in (0..usize::BITS).step_by(8) {
             let mut counts = [0usize; 256];
+            crate::pipeline::record_variant_refinement_casing_work(counts.len());
             for &index in &indices {
                 crate::pipeline::record_variant_refinement_casing_work(1);
                 let source_span = span(&items[index]);
@@ -220,6 +222,7 @@ fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::Sourc
             }
             let mut next = 0;
             for count in &mut counts {
+                crate::pipeline::record_variant_refinement_casing_work(1);
                 let start = next;
                 next += *count;
                 *count = start;
@@ -243,6 +246,7 @@ fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::Sourc
         .into_iter()
         .map(Some)
         .collect::<Vec<_>>();
+    crate::pipeline::record_variant_refinement_casing_work(original.len() * 2);
     items.extend(
         indices
             .into_iter()

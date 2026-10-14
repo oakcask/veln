@@ -263,10 +263,12 @@ fn merge_existing_base_diagnostics(
 }
 
 fn radix_sort_base_diagnostic_indices(indices: &mut Vec<usize>, diagnostics: &[Diagnostic]) {
+    record_variant_refinement_base_work(indices.len());
     let mut scratch = vec![0; indices.len()];
     for use_end in [true, false] {
         for shift in (0..usize::BITS).step_by(8) {
             let mut counts = [0usize; 256];
+            record_variant_refinement_base_work(counts.len());
             for &index in indices.iter() {
                 record_variant_refinement_base_work(1);
                 let span = diagnostics[index]

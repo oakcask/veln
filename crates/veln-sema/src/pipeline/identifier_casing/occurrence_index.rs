@@ -39,7 +39,8 @@ impl EnclosingFunctionSpanIndex {
         }
     }
 
-    pub(super) fn for_segment(
+    /// Looks up segments in nondecreasing start-offset order within each file.
+    pub(super) fn for_ordered_segment(
         &mut self,
         segment: &QualifiedPathSegment,
     ) -> Option<veln_source::SourceSpan> {
@@ -56,7 +57,7 @@ impl EnclosingFunctionSpanIndex {
         let cursor = self.cursors.entry(segment.span.file.clone()).or_default();
         while functions
             .get(*cursor)
-            .is_some_and(|function| function.end.offset < segment.span.end.offset)
+            .is_some_and(|function| function.end.offset < segment.span.start.offset)
         {
             crate::pipeline::record_variant_refinement_enclosing_context_work(1);
             *cursor += 1;
