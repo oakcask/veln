@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind, SurfaceModule, TypePathSegments};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
@@ -162,15 +164,19 @@ pub(crate) fn independent_annotation_errors(
     environment: &TypeEnvironment,
 ) -> Vec<(String, String, SourceSpan)> {
     let mut errors = Vec::new();
+    let mut visited_paths = HashMap::new();
     collect_independent_refinement_errors(
         refinements,
         paths,
         current_module,
         environment,
         &mut errors,
+        &mut visited_paths,
     );
     errors
 }
+
+type PathOccurrence = (veln_source::SourcePath, usize, usize);
 
 fn collect_independent_refinement_errors(
     refinements: &[veln_ast::VariantRefinementType],
@@ -178,14 +184,21 @@ fn collect_independent_refinement_errors(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
+    visited_paths: &mut HashMap<PathOccurrence, bool>,
 ) -> bool {
     let mut annotation_is_invalid = false;
     for path in paths {
-        if environment
+        let span = joined_span(&path.segment_spans).resolved_or_generated();
+        let occurrence = (span.file, span.start.offset, span.end.offset);
+        if let Some(path_is_invalid) = visited_paths.get(&occurrence) {
+            annotation_is_invalid |= path_is_invalid;
+            continue;
+        }
+        let path_is_invalid = if environment
             .recovered_variant_refinement_base_failure(&path.segments, current_module)
             .is_some()
         {
-            annotation_is_invalid = true;
+            true
         } else if let Some(error) = environment.recovered_variant_refinement_annotation_error(
             std::slice::from_ref(path),
             current_module,
@@ -195,8 +208,12 @@ fn collect_independent_refinement_errors(
                 error,
                 joined_span(&path.segment_spans),
             ));
-            annotation_is_invalid = true;
-        }
+            true
+        } else {
+            false
+        };
+        visited_paths.insert(occurrence, path_is_invalid);
+        annotation_is_invalid |= path_is_invalid;
     }
     for refinement in refinements {
         let mut expected_union_base = None;
@@ -206,6 +223,7 @@ fn collect_independent_refinement_errors(
                 current_module,
                 environment,
                 errors,
+                visited_paths,
             ) else {
                 annotation_is_invalid = true;
                 continue;
@@ -234,6 +252,7 @@ fn collect_refinement_alternative_type(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
+    visited_paths: &mut HashMap<PathOccurrence, bool>,
 ) -> Option<(String, Type)> {
     crate::pipeline::record_variant_refinement_recovery_work(1);
     let base = alternative.base.segments.join("::");
@@ -245,6 +264,7 @@ fn collect_refinement_alternative_type(
         current_module,
         environment,
         errors,
+        visited_paths,
     );
     let written = format!(
         "{}::{}",
@@ -280,6 +300,7 @@ fn collect_refinement_argument_errors(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
+    visited_paths: &mut HashMap<PathOccurrence, bool>,
 ) -> bool {
     let mut child_is_invalid = false;
     for argument in arguments {
@@ -290,6 +311,7 @@ fn collect_refinement_argument_errors(
             current_module,
             environment,
             errors,
+            visited_paths,
         );
         child_is_invalid |= argument_is_invalid;
         if argument_is_invalid || errors.len() != argument_errors_start {

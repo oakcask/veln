@@ -497,6 +497,70 @@ fn nested_base_recovery_preserves_independent_errors_without_derivative_parents(
 }
 
 #[test]
+fn nested_recovery_visits_each_source_path_occurrence_once() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty<A>\n",
+        "end\n",
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "fn f(value: Empty<state::Missing>::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "name.invalid_case" | "type.variant_refinement_base" | "type.invalid_annotation"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "type.variant_refinement_base",
+            "type.invalid_annotation",
+        ],
+        "{diagnostics:#?}"
+    );
+    let invalid = relevant[2];
+    assert!(invalid.message.contains("state::Missing"), "{invalid:#?}");
+    assert_diagnostic_span(invalid, 6, 19, 6, 33);
+}
+
+#[test]
+fn equal_nested_recovery_failures_at_distinct_spans_are_each_reported_once() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty<A>\n",
+        "end\n",
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "fn f(first: Empty<state::Missing>::Missing, second: Empty<state::Missing>::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let invalid = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                && diagnostic.message.contains("state::Missing")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(invalid.len(), 2, "{diagnostics:#?}");
+    assert_diagnostic_span(invalid[0], 6, 19, 6, 33);
+    assert_diagnostic_span(invalid[1], 6, 59, 6, 73);
+}
+
+#[test]
 fn non_unique_invalid_case_recovery_does_not_select_a_base() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",
@@ -666,6 +730,54 @@ fn source_names_colliding_with_builtin_opaque_names_keep_source_identity() {
     assert!(base[0].contains("\"span\":"), "{base:#?}");
     assert!(base[1].contains("\"reason\":\"not_adt\""));
     assert!(base[1].contains("\"resolved_identity\":\"NetStream\""));
+}
+
+#[test]
+fn qualified_source_names_precede_colliding_compiler_known_names() {
+    let source = SourceFile::new(
+        "collision.veln",
+        concat!(
+            "type Int\n",
+            "end\n",
+            "type NetStream\n",
+            "end\n",
+            "fn scalar(value: collision::Int::Missing) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn stream(value: collision::NetStream::Missing) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let module = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&source).tree,
+        "collision".to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    );
+    let diagnostics = analyze_surface_module(&module);
+
+    let base = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert_eq!(base.len(), 2, "{diagnostics:#?}");
+    assert!(
+        base.iter()
+            .all(|json| json.contains("\"reason\":\"not_adt\""))
+    );
+    assert!(base[0].contains("\"written_type\":\"collision::Int\""));
+    assert!(base[0].contains("\"resolved_identity\":\"collision::Int\""));
+    assert!(base[0].contains("\"line\":1,\"column\":1"));
+    assert!(base[1].contains("\"written_type\":\"collision::NetStream\""));
+    assert!(base[1].contains("\"resolved_identity\":\"collision::NetStream\""));
+    assert!(base[1].contains("\"line\":3,\"column\":1"));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.invalid_annotation"),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

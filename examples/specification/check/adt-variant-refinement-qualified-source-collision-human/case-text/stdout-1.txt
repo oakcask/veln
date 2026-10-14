@@ -1,0 +1,4 @@
+collision.veln:7:18: error[type.variant_refinement_base]: variant-refinement base `collision::Int` is not a finite ADT
+  note: collision.veln:1:1: Type `Int` is declared here without finite ADT variants.
+collision.veln:11:18: error[type.variant_refinement_base]: variant-refinement base `collision::NetStream` is not a finite ADT
+  note: collision.veln:4:1: Type `NetStream` is declared here without finite ADT variants.

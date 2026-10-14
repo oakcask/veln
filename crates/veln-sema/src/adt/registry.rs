@@ -333,10 +333,40 @@ impl AdtRegistry {
     ) -> Option<&AdtDescriptor> {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
-        Self::unique_candidate(self.descriptors_named(type_name).filter(|descriptor| {
-            self.descriptor_visible(descriptor, &segments, current_module, uses, true)
-        }))
-        .flatten()
+        let qualified_source_identity = self
+            .descriptors_named(type_name)
+            .find(|descriptor| {
+                self.descriptor_matches_qualified_source_identity(
+                    descriptor,
+                    &segments,
+                    current_module,
+                    uses,
+                )
+            })
+            .map(descriptor_identity);
+        let candidates = self.descriptors_named(type_name).filter(|descriptor| {
+            qualified_source_identity.as_ref().map_or_else(
+                || descriptor.module_name.is_none(),
+                |identity| descriptor_identity(descriptor) == *identity,
+            ) && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
+        });
+        Self::unique_candidate(candidates).flatten()
+    }
+
+    fn descriptor_matches_qualified_source_identity(
+        &self,
+        descriptor: &AdtDescriptor,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        let Some(module_name) = descriptor.module_name.as_deref() else {
+            return false;
+        };
+        let module_segments = &segments[..segments.len() - 1];
+        (descriptor.module_name.as_deref() == current_module
+            && module_segments.join("::") == module_name)
+            || imported_module_path_matches(descriptor, module_segments, uses, current_module)
     }
 
     fn unique_candidate<'a>(
