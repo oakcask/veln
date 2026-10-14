@@ -200,6 +200,7 @@ fn merge_variant_refinement_base_diagnostics(
 }
 
 type BaseDiagnosticsByFile = HashMap<SourcePath, (Vec<usize>, usize)>;
+type DiagnosticSpansByFile = HashMap<SourcePath, HashMap<(usize, usize), usize>>;
 
 fn index_base_diagnostics(
     base_diagnostics: &[VariantRefinementBaseDiagnostic],
@@ -239,27 +240,7 @@ fn merge_existing_base_diagnostics(
     bases: &mut [Option<VariantRefinementBaseDiagnostic>],
 ) {
     let existing = std::mem::take(diagnostics);
-    let mut future_min_end = vec![None; existing.len()];
-    let mut min_end_by_file = HashMap::<SourcePath, usize>::new();
-    let mut last_same_span = HashMap::<SourcePath, HashMap<(usize, usize), usize>>::new();
-    for (index, diagnostic) in existing.iter().enumerate().rev() {
-        record_variant_refinement_base_work(1);
-        let Some(span) = diagnostic.span.as_ref() else {
-            continue;
-        };
-        future_min_end[index] = min_end_by_file.get(&span.file).copied();
-        min_end_by_file
-            .entry(span.file.clone())
-            .and_modify(|end| *end = (*end).min(span.end.offset))
-            .or_insert(span.end.offset);
-        if diagnostic.id != "type.invalid_annotation" {
-            last_same_span
-                .entry(span.file.clone())
-                .or_default()
-                .entry((span.start.offset, span.end.offset))
-                .or_insert(index);
-        }
-    }
+    let (future_min_end, last_same_span) = index_existing_diagnostic_order(&existing);
     diagnostics.reserve(existing.len() + bases.len());
     for (existing_index, existing_diagnostic) in existing.into_iter().enumerate() {
         record_variant_refinement_base_work(1);
@@ -296,11 +277,38 @@ fn merge_existing_base_diagnostics(
     }
 }
 
+fn index_existing_diagnostic_order(
+    existing: &[Diagnostic],
+) -> (Vec<Option<usize>>, DiagnosticSpansByFile) {
+    let mut future_min_end = vec![None; existing.len()];
+    let mut min_end_by_file = HashMap::<SourcePath, usize>::new();
+    let mut last_same_span = DiagnosticSpansByFile::new();
+    for (index, diagnostic) in existing.iter().enumerate().rev() {
+        record_variant_refinement_base_work(1);
+        let Some(span) = diagnostic.span.as_ref() else {
+            continue;
+        };
+        future_min_end[index] = min_end_by_file.get(&span.file).copied();
+        min_end_by_file
+            .entry(span.file.clone())
+            .and_modify(|end| *end = (*end).min(span.end.offset))
+            .or_insert(span.end.offset);
+        if diagnostic.id != "type.invalid_annotation" {
+            last_same_span
+                .entry(span.file.clone())
+                .or_default()
+                .entry((span.start.offset, span.end.offset))
+                .or_insert(index);
+        }
+    }
+    (future_min_end, last_same_span)
+}
+
 fn future_existing_precedes_base(
     base: &VariantRefinementBaseDiagnostic,
     existing_index: usize,
     future_min_end: Option<usize>,
-    last_same_span: &HashMap<SourcePath, HashMap<(usize, usize), usize>>,
+    last_same_span: &DiagnosticSpansByFile,
 ) -> bool {
     let Some(span) = base.diagnostic.span.as_ref() else {
         return false;
