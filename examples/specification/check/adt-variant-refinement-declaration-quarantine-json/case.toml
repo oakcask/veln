@@ -1,0 +1,15 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"type.variant_refinement_base\"",
+  "\"details\":{\"written_type\":\"Empty\",\"reason\":\"not_adt\"}",
+  "\"id\":\"name.invalid_case\"",
+  "\"id\":\"name.duplicate\"",
+]
+not_contains = ["\"id\":\"type.mismatch\""]
+
+[stderr]
+format = "empty"

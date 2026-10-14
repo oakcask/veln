@@ -210,11 +210,6 @@ and publishes semantic diagnostics from the checked surface module. Parse-clean
 source invalid-name records are passed to that checked surface model, so
 document-scoped diagnostics include the implemented source identifier casing
 failures specified by [names-effects.md](names-effects.md).
-They also include `type.variant_refinement_base` when a structurally valid
-refinement has a uniquely resolved non-ADT or opaque base. The LSP projection
-uses the written base span and message from the shared
-[diagnostic contract](diagnostics-json.md#diagnostic-families); it does not
-publish the compiler diagnostic's structured details or related notes.
 For workspace sources, saved snapshots and open-document overlays publish
 source identifier casing diagnostics for the selected workspace project only,
 including source-path-derived module segment diagnostics at the zero-width

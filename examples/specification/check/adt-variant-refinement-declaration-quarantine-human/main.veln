@@ -1,0 +1,37 @@
+type Empty
+end
+
+effect Broken
+	apply(invalid: Empty::Missing, sibling: String) -> String
+end
+
+type BrokenPayload
+	Built(invalid: Empty::Missing, sibling: String)
+	Other
+	Other
+end
+
+effect Ask
+	value() -> Int
+end
+
+handler broken(Invalid: Empty::Missing, sibling: String) for Ask
+	value() => sibling
+end
+
+schema Packet
+	invalid: Empty::Missing
+	sibling: Int
+end
+
+fn use_effect() -> () effects [Broken]
+	let result: Int = perform Broken::apply(1, 2)
+end
+
+fn use_handler() -> Int
+	handle perform Ask::value() with broken(1, 2)
+end
+
+fn use_constructor() -> BrokenPayload
+	Built(1, 2)
+end

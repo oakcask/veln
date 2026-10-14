@@ -690,7 +690,14 @@ payloads, effect and handler annotations, schema fields, and explicit call type
 arguments. A uniquely recovered invalid-cased base retains its identity and is
 checked independently; recovery is not attempted when more than one base could
 match. Any such invalid annotation prevents the containing declaration from
-being published as usable typed state. A resolved base identity remains
+being published as usable typed state. For an ordinary function, effect
+operation, handler, or ADT constructor, one failed parameter, result, or payload
+annotation makes every parameter, result, or payload type from that declaration
+unknown to bodies, calls, performs, handles, and constructor uses. The
+declaration identity and independently provable declaration diagnostics remain,
+but a valid sibling type cannot produce a derivative mismatch. Schema
+eligibility rejects a schema field with the same failure instead of generating
+a partially typed helper. A resolved base identity remains
 available internally for suppression and later semantic analysis, but this
 recovery does not make the invalid refinement selectable by language-service
 protocols. A source-less base retains the same semantic identity without
@@ -702,6 +709,11 @@ suppression; the checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
 cases verify those boundaries.
+The declaration-quarantine
+[`human`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-json/)
+cases verify the cross-carrier sibling boundary.
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
 instrumented work. This bound includes invalid-cased bases and unrelated

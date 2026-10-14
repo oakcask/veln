@@ -143,6 +143,11 @@ retains a name, constructor, or generic-arity diagnostic when that fact is
 provable without treating the failed base as refinable.
 When separate union alternatives independently produce a base failure and an
 annotation failure, those diagnostics follow the alternatives' written order.
+Within one annotation, written alternative order and check precedence determine
+diagnostic order. Diagnostics from separate annotations and unrelated checker
+families retain their established relative order. The checked human and JSON
+cases below preserve the full sequence around unrelated public-signature and
+casing diagnostics as well as refinement failures.
 An independently provable generic-arity failure keeps
 `type.invalid_annotation` instead of adding the base diagnostic. Unresolved,
 ambiguous, private, and wrong-kind bases also retain their existing diagnostics.
@@ -153,7 +158,13 @@ in a declaration annotation prevents publication of usable typed state. An
 invalid parameter supplies no expected argument types to callers and is unknown
 inside its declaration body. An invalid result supplies no return expectation
 to its body and no result type to callers. These quarantined types do not cause
-derivative assignability diagnostics.
+derivative assignability diagnostics. The declaration-level rule applies to an
+ordinary function, one effect operation, one handler, or one ADT constructor:
+if any parameter, result, or payload annotation in that declaration has a base
+failure, every parameter, result, or payload type exposed by that declaration is
+unknown. Declaration identity and independently provable declaration
+diagnostics remain available. A schema with such a field does not expose a
+generated helper through the existing schema eligibility boundary.
 
 Lowercase prospective bases remain ordinary named-type source text. If changing
 only that base leaf to the required case identifies exactly one type, the
@@ -175,6 +186,13 @@ cases cover source-backed, source-less, and opaque bases in declaration
 annotations and explicit call arguments, related provenance, recovered-casing
 overlap, occurrence-scoped downstream
 suppression, declaration quarantine, and arity precedence.
+The checked declaration-quarantine
+[`human`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-json/)
+cases cover effect-operation, handler, ADT-constructor, and schema carriers,
+including retained independent diagnostics and absent sibling-derived
+mismatches.
 
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at

@@ -1,0 +1,14 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT",
+  "error[name.invalid_case]: binding name `Invalid` must start with an ASCII lowercase letter",
+  "error[name.duplicate]: duplicate constructor declaration name `Other`",
+]
+not_contains = ["error[type.mismatch]"]
+
+[stderr]
+format = "empty"

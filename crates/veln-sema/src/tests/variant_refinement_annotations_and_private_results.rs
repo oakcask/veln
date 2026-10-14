@@ -513,6 +513,42 @@ fn many_independent_base_failures_have_linear_end_to_end_work() {
 }
 
 #[test]
+fn declaration_quarantine_work_is_linear_across_consumers() {
+    let measurements = [16, 32, 64].map(|count| {
+        let mut source = String::from("type Empty\nend\n");
+        for index in 0..count {
+            source.push_str(&format!(
+                "type Carrier{index}\n  Built{index}(invalid: Empty::Missing, sibling: Int)\nend\n\
+                 effect Effect{index}\n  apply(invalid: Empty::Missing, sibling: Int) -> Int\nend\n\
+                 handler handler_{index}(invalid: Empty::Missing, sibling: Int) for Effect{index}\n\
+                   apply(invalid, sibling) => sibling\nend\n"
+            ));
+        }
+        crate::pipeline::reset_variant_refinement_base_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::pipeline::take_variant_refinement_base_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+                .count(),
+            count * 3,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        eprintln!("variant refinement declaration quarantine: declarations={count} work={work:?}");
+        work.diagnostic_ordering
+    });
+
+    let first_growth = measurements[1] - measurements[0];
+    let second_growth = measurements[2] - measurements[1];
+    assert_eq!(
+        second_growth,
+        first_growth * 2,
+        "quarantine work must have exact affine growth: measurements={measurements:?}"
+    );
+}
+
+#[test]
 fn mixed_union_failures_follow_written_alternative_order() {
     for (annotation, expected) in [
         (
@@ -613,6 +649,123 @@ fn invalid_declaration_annotations_quarantine_body_and_caller_types() {
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id == "type.variant_refinement_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_effect_operation_quarantines_all_parameter_and_result_types() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "effect Broken\n",
+        "  apply(Bad: Empty::Missing, sibling: String) -> String\n",
+        "end\n",
+        "fn caller() -> () effects [Broken]\n",
+        "  let result: Int = perform Broken::apply(1, 2)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_refinement_base");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_handler_quarantines_sibling_arguments_and_body_bindings() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "effect Ask\n",
+        "  value() -> Int\n",
+        "end\n",
+        "handler broken(Bad: Empty::Missing, sibling: String) for Ask\n",
+        "  value() => sibling\n",
+        "end\n",
+        "fn caller() -> Int\n",
+        "  handle perform Ask::value() with broken(1, 2)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.invalid_case");
+    assert_eq!(diagnostics[1].id, "type.variant_refinement_base");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_constructor_quarantines_every_payload_type() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "type Broken\n",
+        "  Built(Bad: Empty::Missing, sibling: String)\n",
+        "  Other\n",
+        "  Other\n",
+        "end\n",
+        "fn caller() -> Broken\n",
+        "  Built(1, 2)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_refinement_base");
+    assert_eq!(diagnostics[1].id, "name.duplicate");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_schema_refinement_does_not_publish_generated_helpers() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Empty\n",
+            "end\n",
+            "schema Packet\n",
+            "  invalid: Empty::Missing\n",
+            "  sibling: Int\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+
+    for helper in [
+        "byte_decode_packet",
+        "byte_encode_packet",
+        "validate_packet",
+    ] {
+        assert!(
+            environment
+                .function_path(&[helper.to_string()], None)
+                .is_none(),
+            "invalid schema must not expose partially typed helper `{helper}`"
+        );
+    }
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+            .count(),
+        1,
         "{diagnostics:#?}"
     );
 }

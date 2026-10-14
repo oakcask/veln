@@ -380,10 +380,7 @@ single-file analysis. MCP diagnostic conversion preserves the common
 diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md),
 including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
-`required_initial`. A structurally valid refinement with a uniquely resolved
-non-ADT or opaque base produces `type.variant_refinement_base` in this same
-diagnostic array. Its primary range, closed details, and source-backed or
-source-less related context use the shared diagnostic contract.
+`required_initial`.
 If dependency resource admission exceeds retained package capacity after
 analysis succeeds, `check_project` returns `resource_capacity` and publishes no
 partial diagnostics, summary, or analysis metadata.

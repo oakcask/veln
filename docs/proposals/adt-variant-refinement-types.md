@@ -272,10 +272,11 @@ from reporting `type.variant_union_base`.
 
 Diagnostics for one annotation follow the written alternative order and check
 order above. Diagnostics with the same primary span use that check order,
-followed by union-base and assignability diagnostics. This proposal does not
-reorder diagnostics from separate annotations or unrelated diagnostic
-families. A uniquely recovered casing identity lets later independent checks
-run, but recovery never makes the annotation valid.
+followed by union-base and assignability diagnostics. The remaining diagnostics
+extend the current cross-annotation and cross-family ordering contract in the
+[diagnostic specification](../specification/diagnostics-json.md#diagnostic-families).
+A uniquely recovered casing identity lets later independent checks run, but
+recovery never makes the annotation valid.
 
 The remaining LSP and MCP work must define which retained identities are safe
 to expose through definition, references, prepare-rename, and rename. A

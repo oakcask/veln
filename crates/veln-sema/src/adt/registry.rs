@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use veln_ast::{PublicAlias, UseDecl, Visibility};
@@ -98,6 +98,28 @@ impl ConstructorShape {
 }
 
 impl AdtRegistry {
+    pub(crate) fn quarantine_source_variant_payload_types(
+        &mut self,
+        invalid: &HashSet<(Option<String>, String, String)>,
+    ) {
+        for descriptor in &mut self.descriptors {
+            crate::pipeline::record_variant_refinement_base_work(1);
+            for variant in &mut descriptor.variants {
+                crate::pipeline::record_variant_refinement_base_work(1);
+                if !invalid.contains(&(
+                    descriptor.module_name.clone(),
+                    descriptor.type_name.clone(),
+                    variant.name.clone(),
+                )) {
+                    continue;
+                }
+                for field in &mut variant.payload_fields {
+                    field.ty = super::descriptors::AdtPayloadType::Concrete(Type::Unknown);
+                }
+            }
+        }
+    }
+
     pub(crate) fn resolves_type_alias(&self, alias: &PublicAlias) -> bool {
         self.resolved_type_alias_declarations
             .contains(&TypeAliasDeclarationIdentity::new(alias))
