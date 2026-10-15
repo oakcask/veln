@@ -350,6 +350,122 @@ fn public_visibility_work_is_linear_for_wide_unions() {
     assert_eq!(second_growth, first_growth * 2, "work={work:?}");
 }
 
+fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
+    let mut fields = String::new();
+    for index in 0..count {
+        if index > 0 {
+            fields.push_str(", ");
+        }
+        fields.push_str(&format!("field{index}: State::Hidden"));
+    }
+    let signature = match boundary {
+        "parameter" => format!("pub fn expose(value: {{{fields}}}) -> ()\n  ()\nend\n"),
+        "result" => format!("pub fn expose() -> {{{fields}}}\n  panic(\"unused\")\nend\n"),
+        _ => unreachable!("known test boundary"),
+    };
+    let source = SourceFile::new(
+        "main.veln",
+        format!("pub type State\n  Hidden\nend\n{signature}"),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    crate::analysis::reset_visibility_work();
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(
+        environment.function_is_published_for_test("expose"),
+        "boundary={boundary} count={count}"
+    );
+    let diagnostics = analyze_surface_module(&module);
+    let candidate_work = crate::analysis::take_visibility_candidate_work();
+    let visibility_work = crate::analysis::take_visibility_work();
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+        "boundary={boundary} count={count} diagnostics={diagnostics:#?}"
+    );
+    assert!(
+        candidate_work.root_classification > 0,
+        "an empty exposure result must still account for root classification: {candidate_work:?}"
+    );
+    assert!(
+        candidate_work.candidate_construction == 0,
+        "structural roots must be rejected before candidate construction: {candidate_work:?}"
+    );
+    assert!(
+        candidate_work.occurrence_lookup == 0,
+        "structural roots must be rejected before occurrence lookup: {candidate_work:?}"
+    );
+    eprintln!(
+        "wide structural refinement visibility: boundary={boundary} fields={count} \
+         candidate_work={candidate_work:?} visibility_work={visibility_work}"
+    );
+    candidate_work.root_classification
+        + candidate_work.candidate_construction
+        + candidate_work.occurrence_lookup
+        + visibility_work
+}
+
+#[test]
+fn public_parameter_structural_visibility_work_has_bounded_growth() {
+    let work = [256, 512, 1024].map(|count| wide_structural_visibility_work(count, "parameter"));
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert!(second_growth <= first_growth * 3, "work={work:?}");
+}
+
+#[test]
+fn public_result_structural_visibility_work_has_bounded_growth() {
+    let work = [256, 512, 1024].map(|count| wide_structural_visibility_work(count, "result"));
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert!(second_growth <= first_growth * 3, "work={work:?}");
+}
+
+#[test]
+fn recovered_and_exact_root_union_exercises_candidate_work_accounting() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  Hidden\n",
+            "  Private\n",
+            "end\n",
+            "pub fn expose(value: State::hidden | State::Private) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(
+        parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+        "{:#?}",
+        parsed.diagnostics
+    );
+    let module = lower_surface_ast(&parsed.tree);
+    crate::analysis::reset_visibility_work();
+    let diagnostics = analyze_surface_module(&module);
+    let candidate_work = crate::analysis::take_visibility_candidate_work();
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        candidate_work.candidate_construction > 0,
+        "{candidate_work:?}"
+    );
+    assert!(candidate_work.occurrence_lookup > 0, "{candidate_work:?}");
+}
+
 #[test]
 fn public_visibility_work_is_linear_for_many_declarations() {
     let work = [16, 32, 64].map(|count| {

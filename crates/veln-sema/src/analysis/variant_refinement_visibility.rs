@@ -154,6 +154,7 @@ fn root_exposure_candidates(
         .iter()
         .find(|refinement| refinement.span == *annotation_span)
     {
+        record_visibility_candidate_construction(refinement.alternatives.len());
         return refinement
             .alternatives
             .iter()
@@ -163,6 +164,19 @@ fn root_exposure_candidates(
     let Some(annotation_text) = annotation_text else {
         return Vec::new();
     };
+    record_visibility_root_classification(annotation_text.len());
+    if matches!(
+        parse_type_annotation(annotation_text),
+        Ok(Type::Record(_) | Type::Function { .. })
+    ) {
+        return Vec::new();
+    }
+    record_visibility_candidate_construction(
+        refinements
+            .iter()
+            .map(|refinement| refinement.alternatives.len())
+            .sum(),
+    );
     let mut candidates = refinements
         .iter()
         .flat_map(|refinement| refinement.alternatives.iter())
@@ -171,9 +185,10 @@ fn root_exposure_candidates(
     for path in paths {
         if path.segments.len() < 2
             || !span_within(&path.application_span, annotation_span)
-            || candidates
-                .iter()
-                .any(|candidate| candidate.occurrence_span == path.application_span)
+            || candidates.iter().any(|candidate| {
+                record_visibility_occurrence_lookup(1);
+                candidate.occurrence_span == path.application_span
+            })
         {
             continue;
         }
@@ -443,6 +458,27 @@ fn private_declaration_span(
 #[cfg(test)]
 thread_local! {
     static VISIBILITY_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static VISIBILITY_CANDIDATE_WORK: std::cell::Cell<VisibilityCandidateWork> =
+        const { std::cell::Cell::new(VisibilityCandidateWork::new()) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct VisibilityCandidateWork {
+    pub(crate) root_classification: usize,
+    pub(crate) candidate_construction: usize,
+    pub(crate) occurrence_lookup: usize,
+}
+
+#[cfg(test)]
+impl VisibilityCandidateWork {
+    const fn new() -> Self {
+        Self {
+            root_classification: 0,
+            candidate_construction: 0,
+            occurrence_lookup: 0,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -450,17 +486,59 @@ fn record_visibility_work(amount: usize) {
     VISIBILITY_WORK.with(|work| work.set(work.get() + amount));
 }
 
+#[cfg(test)]
+fn record_visibility_root_classification(amount: usize) {
+    VISIBILITY_CANDIDATE_WORK.with(|work| {
+        let mut next = work.get();
+        next.root_classification += amount;
+        work.set(next);
+    });
+}
+
+#[cfg(not(test))]
+fn record_visibility_root_classification(_amount: usize) {}
+
+#[cfg(test)]
+fn record_visibility_candidate_construction(amount: usize) {
+    VISIBILITY_CANDIDATE_WORK.with(|work| {
+        let mut next = work.get();
+        next.candidate_construction += amount;
+        work.set(next);
+    });
+}
+
+#[cfg(not(test))]
+fn record_visibility_candidate_construction(_amount: usize) {}
+
+#[cfg(test)]
+fn record_visibility_occurrence_lookup(amount: usize) {
+    VISIBILITY_CANDIDATE_WORK.with(|work| {
+        let mut next = work.get();
+        next.occurrence_lookup += amount;
+        work.set(next);
+    });
+}
+
+#[cfg(not(test))]
+fn record_visibility_occurrence_lookup(_amount: usize) {}
+
 #[cfg(not(test))]
 fn record_visibility_work(_amount: usize) {}
 
 #[cfg(test)]
 pub(crate) fn reset_visibility_work() {
     VISIBILITY_WORK.with(|work| work.set(0));
+    VISIBILITY_CANDIDATE_WORK.with(|work| work.set(VisibilityCandidateWork::new()));
 }
 
 #[cfg(test)]
 pub(crate) fn take_visibility_work() -> usize {
     VISIBILITY_WORK.with(|work| work.replace(0))
+}
+
+#[cfg(test)]
+pub(crate) fn take_visibility_candidate_work() -> VisibilityCandidateWork {
+    VISIBILITY_CANDIDATE_WORK.with(|work| work.replace(VisibilityCandidateWork::new()))
 }
 
 struct PrivateExposure<'a> {
