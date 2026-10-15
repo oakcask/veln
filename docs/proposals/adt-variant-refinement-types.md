@@ -205,6 +205,7 @@ repair guidance belong in `related` notes rather than the primary message.
 | `type.variant_refinement_base` | The ADT identity is known, but its selected production provider has no public finite variant descriptor. | `written_type`, `reason` | The selected provider and its provenance. |
 | `type.variant_refinement_unknown` | The final segment does not name a variant owned by the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
 | `type.variant_refinement_private` | An indirect refinement exposure reaches a private base type or inaccessible variant. The current [type](../specification/types.md#compatibility-and-limits) and [diagnostic](../specification/diagnostics-json.md#diagnostic-families) specifications own direct public-function root refinements whose written base names the ADT. | `written_type`, `base_type`, `variant`, `boundary`, `exposure_path` | The alias declarations on the exposure path, the final private declaration, and the public-signature boundary. |
+| `type.variant_union_base` | A union alternative resolves to a different ADT identity or generic arguments. | `expected_base_type`, `actual_base_type` | The first alternative that established the required union base. |
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
 Parser failures that cannot form a base type, `::`, and final constructor name
@@ -278,17 +279,22 @@ analysis; it does not by itself publish protocol-visible navigation.
 | The final segment has invalid casing and one existing recovery identity. | `name.invalid_case`, plus independent visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | The uniquely recovered constructor declaration. |
 | An invalid-cased final segment has no unique recovery and is independently missing, ambiguous, private, or wrong-kind. | `name.invalid_case` when the segment role is known, plus the applicable existing lookup or visibility diagnostic. | Downstream failures that require a selected constructor identity. | Only identities selected independently of the failed final segment. |
 | An indirect exposure reaches an inaccessible base or selected constructor. | `type.variant_refinement_private` for each remaining transitive exposure path, plus independent casing or arity failures. | Publication and assignability diagnostics that require a valid public type. | Every uniquely resolved alias, base, and constructor declaration for source navigation. |
+| Two successfully instantiated alternatives have different base identities or generic arguments. | `type.variant_union_base`. | Assignability diagnostics that require the rejected union type. | All successfully resolved alternative identities; no union type identity. |
 
 Within one annotation, the checker visits union alternatives in written order.
 It checks each alternative in this order: casing, base resolution, generic
 arity, base eligibility, final-segment resolution, and visibility. The current
 [diagnostic specification](../specification/diagnostics-json.md#diagnostic-families)
 owns comparison of successfully instantiated union bases through the existing
-invalid-annotation diagnostic.
+invalid-annotation diagnostic. The planned focused diagnostic uses the same
+retained identities: the earliest successfully instantiated alternative
+establishes the expected union base, and each later successfully instantiated
+alternative is compared with it. An incomplete alternative does not prevent an
+independently complete later pair from reporting `type.variant_union_base`.
 
 Diagnostics for one annotation follow the written alternative order and check
 order above. Diagnostics with the same primary span use that check order,
-followed by union-comparison and assignability diagnostics. The remaining
+followed by union-base and assignability diagnostics. The remaining
 diagnostics extend the current cross-annotation and cross-family ordering
 contract in the [diagnostic specification](../specification/diagnostics-json.md#diagnostic-families).
 A uniquely recovered casing identity lets later independent checks run, but
