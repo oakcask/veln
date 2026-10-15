@@ -775,6 +775,13 @@ duplicate alternative. Public refinements remain valid when the base and
 selected variants are public. The same private refinements remain valid on
 private functions.
 
+The direct check uses identities selected by exact lookup or initial-only
+casing recovery. Recovery must select exactly one base ADT and exactly one
+final constructor. A recovered base or final constructor keeps its written
+spelling in diagnostic details. Its `name.invalid_case` diagnostic precedes the
+independently provable visibility failure. Ambiguous or unresolved casing
+recovery does not manufacture a visibility identity or a privacy diagnostic.
+
 This visibility check applies only when the refinement is the root annotation
 and its written base directly names the ADT. It does not resolve through a type
 alias or traverse a record, named type argument, function type, ADT payload, or

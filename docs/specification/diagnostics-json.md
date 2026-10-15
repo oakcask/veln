@@ -151,6 +151,10 @@ Related entries identify the `private_type_declaration` or
 `public_result_boundary`. A union reports distinct inaccessible alternatives
 in written order and removes duplicate base-and-variant paths. The declaration
 entry remains present when the ADT comes from a reusable or base environment.
+If initial-only casing recovery uniquely selects the base ADT and final
+constructor, `name.invalid_case` precedes the independent privacy diagnostic,
+whose `written_type` retains the source spelling. An ambiguous or unresolved
+base or final-constructor recovery does not produce a privacy diagnostic.
 If the base has invalid generic arity but its ADT and final constructor
 identities are unique, the existing arity diagnostic precedes the independent
 privacy diagnostic. Union comparison and assignability diagnostics that

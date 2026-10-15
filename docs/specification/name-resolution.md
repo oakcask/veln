@@ -333,11 +333,18 @@ segment as a constructor. Each classification retains the written segment,
 span, and segment index. If changing only an invalid-cased base leaf selects
 exactly one type, casing analysis retains that type classification. It reports
 `name.invalid_case` and still checks the recovered base's independent
-variant-refinement eligibility. This includes a source-less base published by
-the type-syntax provider: an invalid-cased generic spelling reports casing and
-keeps an independently provable generic-arity failure. Qualified type arguments
-nested in the base retain their own type-path records. A uniquely recovered
-invalid-cased type in such an argument reports `name.invalid_case` without
+variant-refinement eligibility. For a refinement used as the complete
+annotation of a public function parameter or result, that unique recovered ADT
+identity also participates in the direct visibility check. Changing only an
+invalid-cased final segment participates in that check when it selects exactly
+one constructor of the recovered ADT. The privacy diagnostic retains the
+written casing. An ambiguous or unresolved base or final-segment recovery does
+not manufacture a privacy diagnostic. This includes a source-less base
+published by the type-syntax provider: an invalid-cased generic spelling
+reports casing and keeps an independently provable generic-arity failure.
+Qualified type arguments nested in the base retain their own type-path
+records. A uniquely recovered invalid-cased type in such an argument reports
+`name.invalid_case` without
 suppressing an independently provable eligibility failure for the enclosing
 refinement base. An ambiguous or unresolved recovery does not assign a type
 role or manufacture an eligibility failure. The
