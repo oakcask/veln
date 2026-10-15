@@ -1,3 +1,9 @@
+#[derive(Clone, Copy)]
+enum SchemaSymbolReferenceKind {
+    Schema,
+    Alias,
+}
+
 impl SymbolIndex {
     fn effect_operation_references(&self, symbol: &EffectOperationSymbol) -> Vec<SourceSpan> {
         let eligible_handlers = self.effect_operation_reference_handlers();
@@ -286,64 +292,21 @@ impl SymbolIndex {
     }
 
     fn schema_alias_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
-        let mut references = self
-            .files
-            .iter()
-            .filter(|file| workspace_navigation_file(file))
-            .flat_map(|file| {
-                file.tokens
-                    .iter()
-                    .enumerate()
-                    .filter(|(index, token)| {
-                        token.kind == TokenKind::Ident
-                            && token.text == symbol.name
-                            && if matches!(
-                                symbol.package_origin,
-                                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
-                            ) {
-                                is_schema_operation_path_leaf_token(file, *index)
-                            } else {
-                                is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
-                            }
-                            && self
-                                .schema_alias_for_reference(
-                                    file,
-                                    &file.tokens,
-                                    *index,
-                                    &token.text,
-                                )
-                                .is_some_and(|candidate| same_neutral_symbol(&candidate, symbol))
-                    })
-                    .map(|(_, token)| file.source.span(token.range))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        if symbol.package.is_none()
-            || matches!(
-                symbol.package_origin,
-                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
-            )
-        {
-            references.extend(
-                self.schema_composition_references
-                    .iter()
-                    .filter_map(|reference| match &reference.target {
-                        SchemaReferenceTarget::Alias(candidate)
-                            if same_neutral_symbol(candidate, symbol) =>
-                        {
-                            Some(reference.span.clone())
-                        }
-                        _ => None,
-                    }),
-            );
-        }
-        references
+        self.schema_symbol_references(symbol, SchemaSymbolReferenceKind::Alias)
     }
 
     fn schema_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
         if !self.schema_references_supported(symbol) {
             return Vec::new();
         }
+        self.schema_symbol_references(symbol, SchemaSymbolReferenceKind::Schema)
+    }
+
+    fn schema_symbol_references(
+        &self,
+        symbol: &NeutralSymbol,
+        kind: SchemaSymbolReferenceKind,
+    ) -> Vec<SourceSpan> {
         let mut references = self.files
             .iter()
             .filter(|file| workspace_navigation_file(file))
@@ -362,9 +325,21 @@ impl SymbolIndex {
                             } else {
                                 is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
                             }
-                            && self
-                                .schema_for_reference(file, &file.tokens, *index, &token.text)
-                                .is_some_and(|candidate| same_neutral_symbol(&candidate, symbol))
+                            && match kind {
+                                SchemaSymbolReferenceKind::Schema => self.schema_for_reference(
+                                    file,
+                                    &file.tokens,
+                                    *index,
+                                    &token.text,
+                                ),
+                                SchemaSymbolReferenceKind::Alias => self.schema_alias_for_reference(
+                                    file,
+                                    &file.tokens,
+                                    *index,
+                                    &token.text,
+                                ),
+                            }
+                            .is_some_and(|candidate| same_neutral_symbol(&candidate, symbol))
                     })
                     .map(|(_, token)| file.source.span(token.range))
                     .collect::<Vec<_>>()
@@ -379,14 +354,20 @@ impl SymbolIndex {
             references.extend(
                 self.schema_composition_references
                     .iter()
-                    .filter(|reference| {
-                        matches!(
-                            &reference.target,
-                            SchemaReferenceTarget::Schema(candidate)
-                                if same_neutral_symbol(candidate, symbol)
-                        )
+                    .filter_map(|reference| {
+                        let candidate = match (kind, &reference.target) {
+                            (
+                                SchemaSymbolReferenceKind::Schema,
+                                SchemaReferenceTarget::Schema(candidate),
+                            )
+                            | (
+                                SchemaSymbolReferenceKind::Alias,
+                                SchemaReferenceTarget::Alias(candidate),
+                            ) => candidate,
+                            _ => return None,
+                        };
+                        same_neutral_symbol(candidate, symbol).then(|| reference.span.clone())
                     })
-                    .map(|reference| reference.span.clone()),
             );
         }
         references
