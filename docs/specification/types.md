@@ -767,6 +767,18 @@ and transitive-alias constructor views. An invalid-cased ordinary function's
 recovered function value exposes the same declaration-wide unknown parameters
 and result. A function alias copies that quarantined signature after qualified
 base resolution, including when resolution uses a reusable base environment.
+For `N` independent invalid bases, annotation collection, casing collection,
+enclosing-context processing, and diagnostic ordering each use linear
+instrumented work. This bound includes invalid-cased bases and unrelated
+diagnostics interleaved before, between, and after the base failures. Recovery
+also visits `N` structurally separate sibling type positions with linear
+instrumented comparison and diagnostic-ordering work. The
+regression check compares deterministic counters at increasing input sizes;
+elapsed time does not define the bound.
+For one recovered union with `N` alternatives, successful-base comparison and
+diagnostic merging also use linear instrumented work. The bounded regression
+compares adjacent alternative counts and does not use elapsed time as the
+contract.
 
 A refinement that is the complete parameter or result annotation of a public
 function and whose written base directly names its ADT can expose only a public
@@ -845,11 +857,37 @@ cases verify that unique casing recovery retains the complete generic base and
 final-variant identities used by the direct visibility check.
 
 Visibility diagnostics retain the private declaration span when the ADT comes
-from a reusable or dependency environment. Spaces and line breaks around a
-recovered direct union's `|` separators do not change whether the visibility
-check runs. The checker still excludes refinements nested in structural
-annotations and reports each inaccessible alternative of a recovered root union
-in the same written order described above.
+from a reusable or dependency environment. Deterministic work counters compare
+adjacent widths for one wide refinement union, many public declarations, one
+widening ADT paired with the same number of initial-case-recovered public
+boundaries, and many same-leaf ADTs selected through distinct qualified
+imports. Each workload grows linearly in the number of direct alternatives,
+declarations, declared variants, recovered boundaries, or qualified imports.
+The measured work combines visibility-checker steps with every indexed
+final-variant lookup, import-index construction and membership lookup, qualified
+import/path comparison, and ADT descriptor candidate visited while resolving
+the refinement identity. The unqualified workload grows unrelated imports,
+same-leaf descriptors, and exact- and any-arity direct boundaries together.
+This keeps casing recovery, same-named imported ADTs, and unrelated declarations
+inside the checked bound. The counters, rather than elapsed time, define these
+regression checks.
+
+Wide record annotations on public function parameters and results have a
+separate bounded-growth check because refinements inside those structural roots
+are outside the direct visibility boundary. The measured work combines bytes
+inspected while classifying the root, exposure candidates constructed,
+candidate-occurrence comparisons, and visibility-checker steps. A structural
+root must be rejected before candidate construction or occurrence comparison,
+so both of those counters remain zero. For adjacent field counts of 256, 512,
+and 1,024, the second increase in total measured work must be no more than three
+times the first. A recovered root union containing an invalid-cased and an exact
+alternative separately verifies that candidate construction and occurrence
+comparison are accounted for when fallback root recovery is required.
+
+Spaces and line breaks around a recovered direct union's `|` separators do not
+change whether the visibility check runs. The checker still excludes refinements
+nested in structural annotations and reports each inaccessible alternative of a
+recovered root union in the same written order described above.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies

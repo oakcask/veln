@@ -70,6 +70,10 @@ fn mixed_annotation_errors_retain_independent_root_visibility_failures() {
 #[test]
 fn malformed_nested_annotations_do_not_expand_direct_root_visibility() {
     let diagnostics = diagnostics_for(concat!(
+        "mod main\n",
+        "pub type Arg\n",
+        "  pub Value\n",
+        "end\n",
         "pub type State<A>\n",
         "  Hidden(A)\n",
         "  pub Ready(A)\n",
@@ -81,7 +85,7 @@ fn malformed_nested_annotations_do_not_expand_direct_root_visibility() {
         "pub fn record(value: {state: State<Option>::Hidden}) -> ()\n",
         "  ()\n",
         "end\n",
-        "pub fn generic(value: Box<State<Option>::Hidden>) -> ()\n",
+        "pub fn generic(value: Box<State<main::Arg>::Hidden>) -> ()\n",
         "  ()\n",
         "end\n",
         "pub fn alias(value: Alias<Int>::Hidden | State<Option>::Ready) -> ()\n",
@@ -314,15 +318,95 @@ fn recovered_union_visibility_failure_quarantines_all_publication_outputs() {
             "  Hidden(A)\n",
             "  Private(A)\n",
             "end\n",
-            "pub fn exposed(value: State<Arg>::hidden | State<Arg>::Private) -> main::State<Arg>::hidden | main::State<Arg>::Private\n",
+            "pub fn exposed(value: State::hidden | State<main::Arg>::Private) -> State::hidden | State<main::Arg>::Private\n",
             "  Hidden(Value)\n",
             "end\n",
             "pub fn exposed_alias = exposed\n",
         ),
     );
     let parsed = parse(&source);
-    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    assert_eq!(
+        parsed
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+            .count(),
+        4,
+        "{:#?}",
+        parsed.diagnostics
+    );
     let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), 4, "{diagnostics:#?}");
+    let observed = visibility
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    for (diagnostic, (written_type, boundary)) in observed.iter().zip([
+        ("State::hidden", "public_parameter"),
+        ("State<main::Arg>::Private", "public_parameter"),
+        ("State::hidden", "public_result"),
+        ("State<main::Arg>::Private", "public_result"),
+    ]) {
+        let variant = if written_type.ends_with("hidden") {
+            "Hidden"
+        } else {
+            "Private"
+        };
+        let path_kind = if boundary == "public_parameter" {
+            "parameter"
+        } else {
+            "result"
+        };
+        assert!(
+            diagnostic.contains(&format!(
+                "\"written_type\":\"{written_type}\",\"base_type\":\"main::State\",\"variant\":\"{variant}\",\"boundary\":\"{boundary}\",\"exposure_path\":[{{\"kind\":\"{path_kind}\""
+            )),
+            "{diagnostic}"
+        );
+        assert!(
+            diagnostic.contains("\"kind\":\"private_variant_declaration\""),
+            "{diagnostic}"
+        );
+        assert!(
+            diagnostic.contains(&format!("\"kind\":\"{boundary}_boundary\"")),
+            "{diagnostic}"
+        );
+    }
+    let private_offsets = source
+        .text()
+        .match_indices("::Private")
+        .map(|(offset, _)| offset + "::".len())
+        .collect::<Vec<_>>();
+    let expected_primary_offsets = [
+        source
+            .text()
+            .find("hidden")
+            .expect("parameter recovered variant"),
+        private_offsets[0],
+        source
+            .text()
+            .rfind("hidden")
+            .expect("result recovered variant"),
+        private_offsets[1],
+    ];
+    assert_eq!(
+        visibility
+            .iter()
+            .map(|diagnostic| diagnostic
+                .span
+                .as_ref()
+                .expect("visibility span")
+                .start
+                .offset)
+            .collect::<Vec<_>>(),
+        expected_primary_offsets,
+        "{diagnostics:#?}"
+    );
     let environment = TypeEnvironment::from_module(&module);
     let signature = environment.function("exposed").expect("recovery signature");
     assert_eq!(signature.params, [Type::Unknown]);

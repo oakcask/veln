@@ -427,7 +427,8 @@ fn public_result_structural_visibility_work_has_bounded_growth() {
 #[test]
 fn recovered_root_union_candidate_membership_work_is_linear() {
     let measurements = [16, 32, 64].map(|count| {
-        let mut source = String::from("pub type State\n");
+        let mut source =
+            String::from("mod main\npub type Arg\n  pub Value\nend\npub type State<A>\n");
         for index in 0..count {
             source.push_str(&format!("  Hidden{index}\n"));
         }
@@ -439,7 +440,7 @@ fn recovered_root_union_candidate_membership_work_is_linear() {
             if index % 2 == 0 {
                 source.push_str(&format!("State::hidden{index}"));
             } else {
-                source.push_str(&format!("State::Hidden{index}"));
+                source.push_str(&format!("State<main::Arg>::Hidden{index}"));
             }
         }
         source.push_str(") -> ()\n  ()\nend\n");

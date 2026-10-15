@@ -191,7 +191,13 @@ fn recovered_root_exposure_candidates(
         .flat_map(|refinement| refinement.alternatives.iter())
         .map(refinement_candidate)
         .collect::<Vec<_>>();
-    merge_recovered_type_paths(annotation_span, paths, &mut candidates);
+    let nested_path_occurrences = nested_type_argument_occurrences(refinements);
+    merge_recovered_type_paths(
+        annotation_span,
+        paths,
+        &nested_path_occurrences,
+        &mut candidates,
+    );
     candidates.sort_by_key(|candidate| candidate.occurrence_span.start.offset);
     if direct_root_sequence(annotation_text, &candidates) {
         candidates
@@ -203,6 +209,7 @@ fn recovered_root_exposure_candidates(
 fn merge_recovered_type_paths(
     annotation_span: &SourceSpan,
     paths: &[TypePathSegments],
+    nested_path_occurrences: &HashSet<(veln_source::SourcePath, usize, usize)>,
     candidates: &mut Vec<RefinementExposureCandidate>,
 ) {
     let mut candidate_occurrences = candidates
@@ -214,6 +221,9 @@ fn merge_recovered_type_paths(
             continue;
         }
         record_visibility_occurrence_lookup(1);
+        if nested_path_occurrences.contains(&occurrence_key(&path.application_span)) {
+            continue;
+        }
         if !candidate_occurrences.insert(occurrence_key(&path.application_span)) {
             continue;
         }
@@ -229,6 +239,22 @@ fn merge_recovered_type_paths(
             occurrence_span: path.application_span.clone(),
         });
     }
+}
+
+fn nested_type_argument_occurrences(
+    refinements: &[VariantRefinementType],
+) -> HashSet<(veln_source::SourcePath, usize, usize)> {
+    let mut occurrences = HashSet::new();
+    for path in refinements
+        .iter()
+        .flat_map(|refinement| refinement.alternatives.iter())
+        .flat_map(|alternative| alternative.type_arguments.iter())
+        .flat_map(|argument| argument.ty_paths.iter())
+    {
+        record_visibility_occurrence_lookup(1);
+        occurrences.insert(occurrence_key(&path.application_span));
+    }
+    occurrences
 }
 
 fn refinement_candidate(
