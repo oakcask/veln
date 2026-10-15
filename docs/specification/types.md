@@ -775,12 +775,19 @@ duplicate alternative. Public refinements remain valid when the base and
 selected variants are public. The same private refinements remain valid on
 private functions.
 
-The direct check uses identities selected by exact lookup or initial-only
-casing recovery. Recovery must select exactly one base ADT and exactly one
-final constructor. A recovered base or final constructor keeps its written
-spelling in diagnostic details. Its `name.invalid_case` diagnostic precedes the
-independently provable visibility failure. Ambiguous or unresolved casing
-recovery does not manufacture a visibility identity or a privacy diagnostic.
+The direct check uses identities selected by unique exact lookup or
+initial-only casing recovery. Final-constructor lookup must select exactly one
+declaration. When the selected ADT contains multiple declarations with the
+exact written variant name, that alternative has no visibility identity. It
+does not produce a privacy diagnostic or by itself quarantine the public
+function; the duplicate declaration keeps its independent `name.duplicate`
+diagnostic. Other union alternatives retain their independent visibility
+checks and can still quarantine the function. Casing recovery must select
+exactly one base ADT and exactly one final constructor. A recovered base or
+final constructor keeps its written spelling in diagnostic details. Its
+`name.invalid_case` diagnostic precedes the independently provable visibility
+failure. Ambiguous or unresolved casing recovery does not manufacture a
+visibility identity or a privacy diagnostic.
 Exact qualified lookup binds the base to the written module or import identity
 before it checks arity and uniqueness. An imported `State` therefore remains
 the base of `imported::State<Int>::Hidden` when the current module also declares
@@ -807,7 +814,10 @@ IR output. The checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
 cases verify source order, primary spans, related declarations and public
-boundaries, and structured details.
+boundaries, and structured details. The focused semantic tests in
+`crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility.rs`
+verify duplicate exact names, declaration-order independence, and continued
+checking of another union alternative.
 
 Visibility diagnostics retain the private declaration span when the ADT comes
 from a reusable or dependency environment. Deterministic work counters compare

@@ -59,7 +59,7 @@ the unimplemented semantic and tooling behavior below.
 The current [type specification](../specification/types.md#compatibility-and-limits)
 owns alias-qualified refinement identity, assignability, presentation, and
 direct ADT-root refinement visibility on public function parameters and
-results resolved by exact lookup or unique casing recovery, including
+results resolved by unique exact lookup or unique casing recovery, including
 suppression of public function aliases derived from a function that fails that
 direct visibility check. The remaining work covers public package signatures
 and visibility failures hidden behind type aliases or structural type

@@ -155,6 +155,12 @@ If initial-only casing recovery uniquely selects the base ADT and final
 constructor, `name.invalid_case` precedes the independent privacy diagnostic,
 whose `written_type` retains the source spelling. An ambiguous or unresolved
 base or final-constructor recovery does not produce a privacy diagnostic.
+An exact final name shared by multiple variant declarations in the selected
+ADT is also ambiguous for this privacy check. That alternative produces no
+privacy diagnostic and does not by itself quarantine the public function; the
+duplicate declaration retains its independent `name.duplicate` diagnostic.
+Another union alternative with a unique private identity still produces its
+privacy diagnostic and quarantines the function.
 If the base has invalid generic arity but its ADT and final constructor
 identities are unique, the existing arity diagnostic precedes the independent
 privacy diagnostic. Union comparison and assignability diagnostics that
