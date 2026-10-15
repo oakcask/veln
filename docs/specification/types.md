@@ -686,7 +686,10 @@ provider. The reason is `opaque` for a compiler-known type that intentionally
 hides its variants. A qualified source type takes precedence over a
 same-spelled compiler-known type, so the source declaration determines
 eligibility and diagnostic provenance. A base with invalid generic arity
-retains the existing `type.invalid_annotation` failure instead. The
+retains the existing `type.invalid_annotation` failure instead. Exact and
+uniquely casing-recovered source-backed or source-less type paths use the same
+arity rule. A failed refinement does not suppress an independently provable
+arity failure in a sibling record field or other structural type position. The
 same eligibility rule applies recursively to parameters, results, locals, ADT
 payloads, effect and handler annotations, schema fields, and explicit call type
 arguments. A uniquely recovered invalid-cased base retains its identity and is
@@ -752,7 +755,9 @@ base resolution, including when resolution uses a reusable base environment.
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
 instrumented work. This bound includes invalid-cased bases and unrelated
-diagnostics interleaved before, between, and after the base failures. The
+diagnostics interleaved before, between, and after the base failures. Recovery
+also visits `N` structurally separate sibling type positions with linear
+instrumented comparison and diagnostic-ordering work. The
 regression check compares deterministic counters at increasing input sizes;
 elapsed time does not define the bound.
 For one recovered union with `N` alternatives, successful-base comparison and

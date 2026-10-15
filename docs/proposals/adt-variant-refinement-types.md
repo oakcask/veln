@@ -242,11 +242,12 @@ input reaches the diagnostic.
 
 Known opacity is current behavior and takes precedence over an unavailable
 descriptor. Unresolved,
-ambiguous, private, wrong-kind, and wrong-arity bases use their existing
-diagnostics instead of adding `type.variant_refinement_base`. A uniquely
-recovered invalid-cased base keeps `name.invalid_case` on a carrier where
-casing analysis applies and remains eligible for an independently provable
-base failure.
+ambiguous, private, and wrong-kind bases use their existing diagnostics instead
+of adding `type.variant_refinement_base`. Exact or uniquely casing-recovered
+source-backed and source-less bases with wrong generic arity retain the existing
+invalid-annotation diagnostic. A uniquely recovered invalid-cased base keeps
+`name.invalid_case` on a carrier where casing analysis applies and remains
+eligible for an independently provable base failure.
 
 The checker reports every failure that it can prove from identities available
 without assuming that an earlier failed step succeeded. It suppresses a
@@ -261,7 +262,7 @@ analysis; it does not by itself publish protocol-visible navigation.
 | The base is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
 | The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
 | A provider-backed ADT identity has no public finite variant descriptor. | `type.variant_refinement_base` with `reason: "variant_descriptor_unavailable"`. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base identity only. |
-| Generic arity is invalid after the base ADT resolves. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or visibility diagnostic. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The base declaration and, when resolved, the constructor declaration; no instantiated refinement type. |
+| Generic arity is invalid after the base type resolves exactly or through unique casing recovery. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or visibility diagnostic. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The source declaration or source-less type identity and, when resolved, the constructor declaration; no instantiated refinement type. |
 | The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
 | The final segment has invalid casing and one existing recovery identity. | `name.invalid_case`, plus independent visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | The uniquely recovered constructor declaration. |
 | An invalid-cased final segment has no unique recovery and is independently missing, ambiguous, private, or wrong-kind. | `name.invalid_case` when the segment role is known, plus the applicable existing lookup or visibility diagnostic. | Downstream failures that require a selected constructor identity. | Only identities selected independently of the failed final segment. |

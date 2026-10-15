@@ -145,7 +145,10 @@ the compiler-known descriptor does not make the qualified source path opaque
 or ambiguous.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
-provable without treating the failed base as refinable.
+provable without treating the failed base as refinable. A failed refinement in
+one record field or other structural child does not stop that traversal: an
+exact or uniquely casing-recovered type application in a separate sibling
+position still reports its independently provable generic-arity failure.
 Within one refinement union, a failed alternative does not establish or clear
 the expected base. The earliest successfully instantiated alternative
 establishes that base. Each later successfully instantiated alternative is
@@ -162,18 +165,23 @@ Repeated traversal of one source span does not duplicate its diagnostic, while
 equal path text at distinct spans remains distinct and can report once at each
 span.
 When separate union alternatives independently produce failures, their
-diagnostic groups follow the alternatives' written order. Within each
+base diagnostics follow the alternatives' written order. Within each
 alternative, the checker reports casing before base resolution, generic arity,
 base eligibility, final-segment resolution, and visibility. Casing applies to
-the complete alternative, including qualified type arguments, so a nested
-casing failure precedes the enclosing alternative's base-eligibility failure.
-Diagnostics from separate annotations and unrelated checker families retain
-their established relative order. The checked human and JSON cases below
-preserve the full sequence around unrelated public-signature and casing
-diagnostics as well as refinement failures.
+the complete alternative, including qualified type arguments. A base failure
+from an earlier alternative therefore precedes a nested casing failure from a
+later alternative, and that casing failure precedes the later alternative's
+base failure. Diagnostics from unrelated checker families retain their
+established relative order and can remain between the casing and base failures
+of one alternative. The checked human and JSON cases below preserve the full
+sequence around unrelated public-signature and casing diagnostics as well as
+refinement failures.
 An independently provable generic-arity failure keeps
-`type.invalid_annotation` instead of adding the base diagnostic. Unresolved,
-ambiguous, private, and wrong-kind bases also retain their existing diagnostics.
+`type.invalid_annotation` instead of adding the base diagnostic. This applies
+to exact and uniquely casing-recovered source-backed or source-less base types;
+the invalid-annotation span covers the complete structural refinement spelling.
+Unresolved, ambiguous, private, and wrong-kind bases also retain their existing
+diagnostics.
 The checker applies this contract to function and test parameters and results,
 local annotations, ADT payloads, effect-operation parameters and results,
 handler parameters, schema fields, and explicit call type arguments. A failure
