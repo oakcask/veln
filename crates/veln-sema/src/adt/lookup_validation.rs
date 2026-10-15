@@ -387,6 +387,7 @@ pub(super) fn imported_module_path_matches(
     };
     let module_path = module_segments.join("::");
     uses.iter().any(|use_decl| {
+        super::registry::record_import_path_comparison();
         use_decl_matches_import_path(use_decl, &module_path, current_module)
             && use_decl.name == module_name
     })

@@ -21,6 +21,7 @@ use crate::adt::lookup_validation::{
 struct RegistryIndexes {
     variant_declaration_orders: Vec<Arc<VariantDeclarationOrder>>,
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
+    descriptors_by_source_identity: HashMap<(Option<String>, String), Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, usize>>,
@@ -31,6 +32,7 @@ impl RegistryIndexes {
         let mut indexes = Self {
             variant_declaration_orders: variant_declaration_orders(descriptors),
             descriptors_by_type_name: HashMap::new(),
+            descriptors_by_source_identity: HashMap::new(),
             descriptors_by_identity: HashMap::new(),
             variants_by_name: HashMap::new(),
             variants_by_descriptor: HashMap::new(),
@@ -45,6 +47,10 @@ impl RegistryIndexes {
     fn index_descriptor(&mut self, descriptor_index: usize, descriptor: &AdtDescriptor) {
         self.descriptors_by_type_name
             .entry(descriptor.type_name.clone())
+            .or_default()
+            .push(descriptor_index);
+        self.descriptors_by_source_identity
+            .entry(descriptor_identity(descriptor))
             .or_default()
             .push(descriptor_index);
         self.descriptors_by_identity
@@ -132,6 +138,7 @@ impl AdtRegistry {
         let RegistryIndexes {
             variant_declaration_orders,
             descriptors_by_type_name,
+            descriptors_by_source_identity,
             descriptors_by_identity,
             variants_by_name,
             variants_by_descriptor,
@@ -141,6 +148,7 @@ impl AdtRegistry {
             descriptors,
             variant_declaration_orders,
             descriptors_by_type_name,
+            descriptors_by_source_identity,
             descriptors_by_identity,
             variants_by_name,
             variants_by_descriptor,
@@ -150,6 +158,7 @@ impl AdtRegistry {
             resolved_type_alias_declarations: BTreeSet::new(),
             declaration_spans: HashMap::new(),
             variant_declaration_spans: HashMap::new(),
+            qualified_import_modules: HashMap::new(),
             local_descriptor_start,
         }
     }
@@ -230,6 +239,7 @@ impl AdtRegistry {
         self.variant_declaration_spans = base.variant_declaration_spans.clone();
         self.variant_declaration_spans
             .extend(source_variant_declaration_spans(module));
+        self.qualified_import_modules = qualified_import_modules(module);
         self.local_descriptor_start = local_descriptor_start;
         self.canonicalize_source_payload_types(module, source_descriptor_start);
     }
@@ -495,4 +505,36 @@ fn extend_alias_annotation_types(
             annotation_type,
         );
     }
+}
+
+fn qualified_import_modules(
+    module: &SurfaceModule,
+) -> HashMap<(Option<String>, String), Vec<String>> {
+    let uses = normal_use_decls(module);
+    let mut modules = HashMap::<(Option<String>, String), Vec<String>>::new();
+    for use_decl in &uses {
+        let mut paths = vec![use_decl.name.clone(), use_decl.alias.clone()];
+        if let Some(relative) = use_decl.name.strip_prefix("std::") {
+            paths.push(relative.to_string());
+        }
+        paths.sort();
+        paths.dedup();
+        for path in paths {
+            super::record_import_path_comparison();
+            if !crate::name_recovery::use_decl_matches_import_path(
+                use_decl,
+                &path,
+                use_decl.module_name.as_deref(),
+            ) {
+                continue;
+            }
+            let candidates = modules
+                .entry((use_decl.module_name.clone(), path))
+                .or_default();
+            if !candidates.contains(&use_decl.name) {
+                candidates.push(use_decl.name.clone());
+            }
+        }
+    }
+    modules
 }

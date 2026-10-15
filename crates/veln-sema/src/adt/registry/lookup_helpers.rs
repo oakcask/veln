@@ -26,10 +26,13 @@ impl AdtRegistry {
         args_len: Option<usize>,
         current_module: Option<&str>,
     ) -> Option<&AdtDescriptor> {
-        self.descriptors_named(name).rev().find(|descriptor| {
-            descriptor.module_name.as_deref() == current_module
-                && Self::descriptor_matches_arity(descriptor, args_len)
-        })
+        self.descriptors_by_source_identity
+            .get(&(current_module.map(str::to_string), name.to_string()))
+            .into_iter()
+            .flatten()
+            .rev()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+            .find(|descriptor| Self::descriptor_matches_arity(descriptor, args_len))
     }
 
     pub(super) fn root_descriptor(
@@ -37,9 +40,12 @@ impl AdtRegistry {
         name: &str,
         args_len: Option<usize>,
     ) -> Option<&AdtDescriptor> {
-        self.descriptors_named(name).find(|descriptor| {
-            descriptor.module_name.is_none() && Self::descriptor_matches_arity(descriptor, args_len)
-        })
+        self.descriptors_by_source_identity
+            .get(&(None, name.to_string()))
+            .into_iter()
+            .flatten()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+            .find(|descriptor| Self::descriptor_matches_arity(descriptor, args_len))
     }
 
     pub(super) fn unique_imported_descriptor(

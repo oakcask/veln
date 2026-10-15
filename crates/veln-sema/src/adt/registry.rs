@@ -22,6 +22,7 @@ pub(crate) struct AdtRegistry {
     descriptors: Vec<AdtDescriptor>,
     variant_declaration_orders: Vec<Arc<VariantDeclarationOrder>>,
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
+    descriptors_by_source_identity: HashMap<(Option<String>, String), Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, usize>>,
@@ -31,7 +32,15 @@ pub(crate) struct AdtRegistry {
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<String, SourceSpan>,
     variant_declaration_spans: HashMap<String, HashMap<String, SourceSpan>>,
+    qualified_import_modules: HashMap<(Option<String>, String), Vec<String>>,
     local_descriptor_start: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum QualifiedSourceIdentity {
+    Source((Option<String>, String)),
+    Ambiguous,
+    CompilerKnown(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -291,10 +300,13 @@ impl AdtRegistry {
         if name.contains("::") {
             return None;
         }
-        self.descriptors_named(name).rev().find(|descriptor| {
-            descriptor.module_name.as_deref() == module_name
-                && descriptor.type_parameters.len() == args.len()
-        })
+        self.descriptors_by_source_identity
+            .get(&(module_name.map(str::to_string), name.clone()))
+            .into_iter()
+            .flatten()
+            .rev()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+            .find(|descriptor| descriptor.type_parameters.len() == args.len())
     }
 
     pub(crate) fn descriptor_for_type_prefer_module(
@@ -323,6 +335,19 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
+        if name.contains("::") {
+            let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+            let type_name = segments.last()?;
+            let identity =
+                self.qualified_source_identity(type_name, &segments, current_module, uses);
+            return self.unique_qualified_descriptor_for_identity(
+                &identity,
+                Some(args_len),
+                &segments,
+                current_module,
+                uses,
+            );
+        }
         let descriptor = self.descriptor_for_type_path(name, args_len, current_module, uses)?;
         let indices = self.descriptors_by_type_name.get(&descriptor.type_name)?;
         let selected_index = indices
@@ -414,15 +439,14 @@ impl AdtRegistry {
     ) -> Option<&AdtDescriptor> {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
-        let qualified_source_identity =
-            self.qualified_source_identity(type_name, &segments, current_module, uses);
-        let candidates = self.descriptors_named(type_name).filter(|descriptor| {
-            qualified_source_identity.as_ref().map_or_else(
-                || descriptor.module_name.is_none(),
-                |identity| descriptor_identity(descriptor) == *identity,
-            ) && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
-        });
-        Self::unique_candidate(candidates).flatten()
+        let identity = self.qualified_source_identity(type_name, &segments, current_module, uses);
+        self.unique_qualified_descriptor_for_identity(
+            &identity,
+            None,
+            &segments,
+            current_module,
+            uses,
+        )
     }
 
     fn qualified_source_identity(
@@ -431,20 +455,63 @@ impl AdtRegistry {
         segments: &[String],
         current_module: Option<&str>,
         uses: &[UseDecl],
-    ) -> Option<(Option<String>, String)> {
-        self.descriptors_named(type_name)
-            .find(|descriptor| {
-                self.descriptor_matches_qualified_source_identity(
-                    descriptor,
-                    segments,
-                    current_module,
-                    uses,
-                )
-            })
-            .map(descriptor_identity)
-            .or_else(|| {
+    ) -> QualifiedSourceIdentity {
+        self.exact_qualified_source_identity(type_name, segments, current_module, uses)
+            .unwrap_or_else(|| {
                 self.recovered_qualified_source_identity(type_name, segments, current_module, uses)
+                    .unwrap_or_else(|| {
+                        QualifiedSourceIdentity::CompilerKnown(type_name.to_string())
+                    })
             })
+    }
+
+    fn exact_qualified_source_identity(
+        &self,
+        type_name: &str,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<QualifiedSourceIdentity> {
+        let module_path = segments[..segments.len().saturating_sub(1)].join("::");
+        if current_module == Some(module_path.as_str()) {
+            return Some(QualifiedSourceIdentity::Source((
+                current_module.map(str::to_string),
+                type_name.to_string(),
+            )));
+        }
+        let indexed = self
+            .qualified_import_modules
+            .get(&(current_module.map(str::to_string), module_path.clone()));
+        let fallback;
+        let modules = if let Some(indexed) = indexed {
+            indexed
+        } else if self.qualified_import_modules.is_empty() {
+            fallback = uses
+                .iter()
+                .filter_map(|use_decl| {
+                    record_import_path_comparison();
+                    (crate::name_recovery::use_decl_matches_import_path(
+                        use_decl,
+                        &module_path,
+                        current_module,
+                    ) && use_decl.module_name.as_deref() == current_module)
+                        .then(|| use_decl.name.clone())
+                })
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>();
+            &fallback
+        } else {
+            return None;
+        };
+        match modules.as_slice() {
+            [module] => Some(QualifiedSourceIdentity::Source((
+                Some(module.clone()),
+                type_name.to_string(),
+            ))),
+            [] => None,
+            _ => Some(QualifiedSourceIdentity::Ambiguous),
+        }
     }
 
     fn recovered_qualified_source_identity(
@@ -453,7 +520,7 @@ impl AdtRegistry {
         segments: &[String],
         current_module: Option<&str>,
         uses: &[UseDecl],
-    ) -> Option<(Option<String>, String)> {
+    ) -> Option<QualifiedSourceIdentity> {
         let mut recovered = segments.to_vec();
         let mut selected = None;
         for index in 0..segments.len().saturating_sub(1) {
@@ -464,23 +531,15 @@ impl AdtRegistry {
                 continue;
             }
             recovered[index].replace_range(..1, &(first as char).to_ascii_lowercase().to_string());
-            for identity in self
-                .descriptors_named(type_name)
-                .filter(|descriptor| {
-                    self.descriptor_matches_qualified_source_identity(
-                        descriptor,
-                        &recovered,
-                        current_module,
-                        uses,
-                    )
-                })
-                .map(descriptor_identity)
+            if let Some(identity) =
+                self.exact_qualified_source_identity(type_name, &recovered, current_module, uses)
             {
-                if selected
-                    .as_ref()
-                    .is_some_and(|selected| selected != &identity)
+                if identity == QualifiedSourceIdentity::Ambiguous
+                    || selected
+                        .as_ref()
+                        .is_some_and(|selected| selected != &identity)
                 {
-                    return None;
+                    return Some(QualifiedSourceIdentity::Ambiguous);
                 }
                 selected = Some(identity);
             }
@@ -489,20 +548,76 @@ impl AdtRegistry {
         selected
     }
 
-    fn descriptor_matches_qualified_source_identity(
+    fn unique_qualified_descriptor_for_identity(
+        &self,
+        identity: &QualifiedSourceIdentity,
+        args_len: Option<usize>,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let candidates = self
+            .qualified_descriptor_candidates(identity)
+            .filter(|descriptor| {
+                Self::descriptor_matches_arity(descriptor, args_len)
+                    && self.qualified_descriptor_visible(
+                        descriptor,
+                        identity,
+                        segments,
+                        current_module,
+                        uses,
+                    )
+            });
+        Self::unique_candidate(candidates).flatten()
+    }
+
+    fn qualified_descriptor_candidates<'a>(
+        &'a self,
+        identity: &QualifiedSourceIdentity,
+    ) -> impl DoubleEndedIterator<Item = &'a AdtDescriptor> {
+        let indices = match identity {
+            QualifiedSourceIdentity::Source(identity) => self
+                .descriptors_by_source_identity
+                .get(identity)
+                .map(Vec::as_slice)
+                .unwrap_or_default(),
+            QualifiedSourceIdentity::CompilerKnown(type_name) => self
+                .descriptors_by_source_identity
+                .get(&(None, type_name.clone()))
+                .map(Vec::as_slice)
+                .unwrap_or_default(),
+            QualifiedSourceIdentity::Ambiguous => &[],
+        };
+        indices
+            .iter()
+            .copied()
+            .map(|index| self.descriptor_lookup_candidate(index))
+    }
+
+    fn qualified_descriptor_visible(
         &self,
         descriptor: &AdtDescriptor,
+        identity: &QualifiedSourceIdentity,
         segments: &[String],
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> bool {
-        let Some(module_name) = descriptor.module_name.as_deref() else {
-            return false;
-        };
-        let module_segments = &segments[..segments.len() - 1];
-        (descriptor.module_name.as_deref() == current_module
-            && module_segments.join("::") == module_name)
-            || imported_module_path_matches(descriptor, module_segments, uses, current_module)
+        match identity {
+            QualifiedSourceIdentity::Source((module_name, _)) => {
+                if module_name.as_deref() == current_module {
+                    return true;
+                }
+                descriptor.visibility == Visibility::Public
+                    || self.companion_private_access_allowed(
+                        descriptor,
+                        segments,
+                        current_module,
+                        uses,
+                    )
+            }
+            QualifiedSourceIdentity::CompilerKnown(_) => descriptor.module_name.is_none(),
+            QualifiedSourceIdentity::Ambiguous => false,
+        }
     }
 
     fn unique_candidate<'a>(
@@ -544,15 +659,19 @@ impl AdtRegistry {
         }
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
-        let qualified_source_identity =
-            self.qualified_source_identity(type_name, &segments, current_module, uses);
-        self.descriptors_named(type_name).rev().find(|descriptor| {
-            qualified_source_identity.as_ref().map_or_else(
-                || descriptor.module_name.is_none(),
-                |identity| descriptor_identity(descriptor) == *identity,
-            ) && Self::descriptor_matches_arity(descriptor, args_len)
-                && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
-        })
+        let identity = self.qualified_source_identity(type_name, &segments, current_module, uses);
+        self.qualified_descriptor_candidates(&identity)
+            .rev()
+            .find(|descriptor| {
+                Self::descriptor_matches_arity(descriptor, args_len)
+                    && self.qualified_descriptor_visible(
+                        descriptor,
+                        &identity,
+                        &segments,
+                        current_module,
+                        uses,
+                    )
+            })
     }
 
     pub(crate) fn descriptor_for_core_type(&self, ty: &CoreType) -> Option<&AdtDescriptor> {
@@ -738,10 +857,12 @@ pub(crate) mod descriptor_lookup_counters {
 
     thread_local! {
         static CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
+        static IMPORT_PATH_COMPARISONS: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(crate) fn reset() {
         CANDIDATE_SCANS.set(0);
+        IMPORT_PATH_COMPARISONS.set(0);
     }
 
     pub(super) fn record_candidate_scan() {
@@ -751,4 +872,20 @@ pub(crate) mod descriptor_lookup_counters {
     pub(crate) fn candidate_scans() -> usize {
         CANDIDATE_SCANS.get()
     }
+
+    pub(super) fn record_import_path_comparison() {
+        IMPORT_PATH_COMPARISONS.set(IMPORT_PATH_COMPARISONS.get() + 1);
+    }
+
+    pub(crate) fn import_path_comparisons() -> usize {
+        IMPORT_PATH_COMPARISONS.get()
+    }
 }
+
+#[cfg(test)]
+pub(super) fn record_import_path_comparison() {
+    descriptor_lookup_counters::record_import_path_comparison();
+}
+
+#[cfg(not(test))]
+pub(super) fn record_import_path_comparison() {}
