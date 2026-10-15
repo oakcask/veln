@@ -4,3 +4,7 @@ main.veln:11:30: error[type.invalid_annotation]: invalid type annotation `Vec<In
 main.veln:15:12: error[type.invalid_annotation]: invalid type annotation `Box<Vec<Int, String>>::Boxed`: `Vec` expects 1 type argument(s), found 2
 main.veln:19:29: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:4:1: Type `Empty` is declared here without finite ADT variants.
+main.veln:23:32: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+  note: main.veln:4:1: Type `Empty` is declared here without finite ADT variants.
+main.veln:23:57: error[type.invalid_annotation]: invalid type annotation `Vec<Int, Int>`: `Vec` expects 1 type argument(s), found 2
+main.veln:27:19: error[type.invalid_annotation]: invalid type annotation `{ sibling : Vec<Int, Int> }`: `Vec` expects 1 type argument(s), found 2

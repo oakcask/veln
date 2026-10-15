@@ -12,6 +12,7 @@ use crate::types::{TypeEnvironment, VariantRefinementBaseFailure};
 pub(crate) struct VariantRefinementBaseDiagnostic {
     pub(crate) diagnostic: Diagnostic,
     pub(crate) ordering_scope: SourceSpan,
+    pub(crate) union_scope: Option<SourceSpan>,
 }
 
 pub(crate) fn check_variant_refinement_bases(
@@ -246,7 +247,41 @@ pub(crate) fn independent_annotation_errors(
         &mut errors,
         &mut visited_paths,
     );
+    collect_independent_structural_arity_errors(
+        paths,
+        current_module,
+        environment,
+        &mut errors,
+        &mut visited_paths,
+    );
     errors
+}
+
+fn collect_independent_structural_arity_errors(
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    errors: &mut Vec<(String, String, SourceSpan)>,
+    visited_paths: &mut HashMap<PathOccurrence, bool>,
+) {
+    for path in paths {
+        crate::pipeline::record_variant_refinement_recovery_work(1);
+        let path_span = joined_span(&path.segment_spans).resolved_or_generated();
+        let occurrence = (
+            path_span.file.clone(),
+            path_span.start.offset,
+            path_span.end.offset,
+        );
+        if visited_paths.get(&occurrence).copied() == Some(true) {
+            continue;
+        }
+        let name = path.segments.join("::");
+        if let Some(error) =
+            environment.type_path_arity_error(&name, path.type_argument_count, current_module)
+        {
+            errors.push((path.written.clone(), error, path.application_span.clone()));
+        }
+    }
 }
 
 type PathOccurrence = (veln_source::SourcePath, usize, usize);
@@ -451,6 +486,7 @@ fn collect_annotation(
                 written_type,
                 span,
                 joined_span(&path.segment_spans),
+                None,
                 failure,
             ));
         }
@@ -492,6 +528,7 @@ fn collect_declaration_annotation(
         diagnostics.push(VariantRefinementBaseDiagnostic {
             diagnostic,
             ordering_scope: span,
+            union_scope: None,
         });
     }
 }
@@ -516,6 +553,7 @@ fn collect_refinements(
                     written_refinement_base(alternative),
                     joined_span(&alternative.base.segment_spans),
                     alternative.span.clone(),
+                    Some(refinement.span.clone()),
                     failure,
                 ));
             }
@@ -602,6 +640,7 @@ fn base_diagnostic(
     written_type: String,
     span: SourceSpan,
     ordering_scope: SourceSpan,
+    union_scope: Option<SourceSpan>,
     failure: VariantRefinementBaseFailure,
 ) -> VariantRefinementBaseDiagnostic {
     let message = match failure.reason {
@@ -640,6 +679,7 @@ fn base_diagnostic(
     VariantRefinementBaseDiagnostic {
         diagnostic,
         ordering_scope,
+        union_scope,
     }
 }
 

@@ -27,8 +27,10 @@ fn parses_variant_refinements_across_nested_type_forms() {
     assert_eq!(ok.base.segments, ["protocol", "Result"]);
     assert_eq!(ok.type_arguments.len(), 2);
     assert_eq!(ok.type_arguments[0].ty_fragments, ["List<domain::Item>"]);
+    assert_eq!(ok.type_arguments[0].ty_paths[0].segments, ["List"]);
+    assert_eq!(ok.type_arguments[0].ty_paths[0].type_argument_count, 1);
     assert_eq!(
-        ok.type_arguments[0].ty_paths[0].segments,
+        ok.type_arguments[0].ty_paths[1].segments,
         ["domain", "Item"]
     );
     assert_eq!(ok.type_arguments[1].ty_fragments, ["Wrapper<", ">"]);
@@ -187,7 +189,14 @@ fn preserves_nested_effectful_function_types_in_return_refinements() {
         result.type_arguments[0].ty_fragments,
         ["fn(Int) -> Int effects [io::Read]"]
     );
-    assert!(result.type_arguments[0].ty_paths.is_empty());
+    assert_eq!(
+        result.type_arguments[0]
+            .ty_paths
+            .iter()
+            .map(|path| path.segments.as_slice())
+            .collect::<Vec<_>>(),
+        [&["Int"][..], &["Int"][..]]
+    );
 
     let formatted = format_tree(&output.tree);
     assert!(formatted.contains(
@@ -798,7 +807,13 @@ fn parses_variant_refinements_in_explicit_call_type_arguments() {
     assert_eq!(type_arg_refinements.len(), 2);
     assert_eq!(type_arg_paths.len(), 2);
     assert_eq!(type_arg_paths[0][0].segments, ["State", "Ready"]);
-    assert!(type_arg_paths[1].is_empty());
+    assert_eq!(
+        type_arg_paths[1]
+            .iter()
+            .map(|path| path.segments.as_slice())
+            .collect::<Vec<_>>(),
+        [&["Int"][..], &["Error"][..]]
+    );
     assert_eq!(type_arg_refinements[0][0].alternatives.len(), 2);
     assert_eq!(type_arg_refinements[1][0].alternatives[0].variant, "Ok");
     assert!(

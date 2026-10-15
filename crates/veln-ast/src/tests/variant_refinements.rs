@@ -142,8 +142,9 @@ fn assert_result_refinement(decoded: &SurfaceModule) {
         result.type_arguments[0].ty_fragments,
         ["List<domain::Item>"]
     );
+    assert_eq!(result.type_arguments[0].ty_paths[0].segments, ["List"]);
     assert_eq!(
-        result.type_arguments[0].ty_paths[0].segments,
+        result.type_arguments[0].ty_paths[1].segments,
         ["domain", "Item"]
     );
     assert_eq!(result.type_arguments[1].ty_fragments, ["Wrapper<", ">"]);

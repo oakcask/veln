@@ -429,6 +429,23 @@ fn materialize_refinement_candidate(
     let (segments, segment_spans) =
         refinement_base_path(source, tokens, candidate.start_index, shape.base_end);
     let span = source.span(tokens[candidate.start_index].range.cover(variant.range));
+    let application_end = if shape.generic_open.is_some() {
+        shape.variant_index - 1
+    } else {
+        shape.base_end + 1
+    };
+    let application_span = source.span(
+        tokens[candidate.start_index]
+            .range
+            .cover(tokens[application_end - 1].range),
+    );
+    let type_argument_count = type_arguments.len();
+    let written = super::type_paths::bounded_type_application_text(
+        tokens,
+        candidate.start_index,
+        application_end,
+        &segments.join("::"),
+    );
     RefinementCandidate {
         start_index: candidate.start_index,
         end_index: shape.variant_index,
@@ -436,6 +453,9 @@ fn materialize_refinement_candidate(
             base: TypePathSegments {
                 segments,
                 segment_spans,
+                type_argument_count,
+                application_span,
+                written,
             },
             type_arguments,
             variant: variant.text.clone(),

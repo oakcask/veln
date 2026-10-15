@@ -258,6 +258,7 @@ fn merge_existing_base_diagnostics(
                 &existing_diagnostic,
             ) && !future_existing_precedes_base(
                 bases[*index].as_ref().expect("pending base diagnostic"),
+                &existing_diagnostic,
                 existing_index,
                 future_min_end[existing_index],
                 &last_same_span,
@@ -306,6 +307,7 @@ fn index_existing_diagnostic_order(
 
 fn future_existing_precedes_base(
     base: &VariantRefinementBaseDiagnostic,
+    existing: &Diagnostic,
     existing_index: usize,
     future_min_end: Option<usize>,
     last_same_span: &DiagnosticSpansByFile,
@@ -313,7 +315,16 @@ fn future_existing_precedes_base(
     let Some(span) = base.diagnostic.span.as_ref() else {
         return false;
     };
-    future_min_end.is_some_and(|end| end <= span.start.offset)
+    let later_alternative_casing = existing.id == "name.invalid_case"
+        && existing.span.as_ref().is_some_and(|existing_span| {
+            base.union_scope.as_ref().is_some_and(|union_scope| {
+                existing_span.file == union_scope.file
+                    && existing_span.start.offset >= base.ordering_scope.end.offset
+                    && existing_span.start.offset >= union_scope.start.offset
+                    && existing_span.end.offset <= union_scope.end.offset
+            })
+        });
+    (future_min_end.is_some_and(|end| end <= span.start.offset) && !later_alternative_casing)
         || last_same_span
             .get(&span.file)
             .and_then(|positions| positions.get(&(span.start.offset, span.end.offset)))

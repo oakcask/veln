@@ -155,6 +155,9 @@ impl<'a> Reader<'a> {
         Ok(TypePathSegments {
             segments: self.vec(Self::string)?,
             segment_spans: self.vec(Self::span)?,
+            type_argument_count: self.usize()?,
+            application_span: self.span()?,
+            written: self.string()?,
         })
     }
 

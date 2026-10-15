@@ -428,6 +428,50 @@ fn base_failures_preserve_independent_sibling_and_nested_annotation_errors() {
 }
 
 #[test]
+fn base_recovery_traverses_record_field_siblings() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "fn failed(value: {bad: Empty::Missing, sibling: Vec<Int, Int>}) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn control(value: {sibling: Vec<Int, Int>}) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.variant_refinement_base",
+            "type.invalid_annotation",
+            "type.invalid_annotation",
+        ],
+        "{diagnostics:#?}"
+    );
+    for diagnostic in diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+    {
+        assert!(
+            diagnostic
+                .message
+                .contains("`Vec` expects 1 type argument(s), found 2"),
+            "{diagnostics:#?}"
+        );
+    }
+    assert!(diagnostics[1].message.contains("`Vec<Int, Int>`"));
+    let recovered_span = diagnostics[1].span.as_ref().expect("recovered arity span");
+    assert_eq!(
+        recovered_span.end.column - recovered_span.start.column,
+        "Vec<Int, Int>".len()
+    );
+}
+
+#[test]
 fn nested_base_recovery_preserves_independent_errors_without_derivative_parents() {
     let diagnostics = diagnostics_for(concat!(
         "type GenericEmpty<A>\n",

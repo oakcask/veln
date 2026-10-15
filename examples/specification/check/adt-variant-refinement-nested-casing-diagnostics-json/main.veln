@@ -5,6 +5,10 @@ type State
 	Ready
 end
 
-fn check(value: GenericEmpty<main::state>::Missing) -> ()
+pub fn before()
+	()
+end
+
+fn combined(value: GenericEmpty<Int>::Missing | GenericEmpty<main::state>::Missing) -> ()
 	()
 end

@@ -36,6 +36,14 @@ fn source_less(value: Int::Missing) -> ()
 	()
 end
 
+fn source_less_recovered_arity(value: int<Int>::Missing) -> ()
+	()
+end
+
+fn source_less_exact_arity(value: Int<Int>::Missing) -> ()
+	()
+end
+
 fn opaque(value: NetStream::Missing) -> ()
 	()
 end

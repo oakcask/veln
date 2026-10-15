@@ -749,40 +749,58 @@ impl TypeEnvironment {
             .rsplit_once("::")
             .map(|(base, _)| base)
             .or_else(|| matches!(ty, Type::VariantRefinement { .. }).then_some(name.as_str()))?;
+        self.type_path_arity_error(base, args.len(), current_module)
+    }
+
+    pub(crate) fn type_path_arity_error(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+    ) -> Option<String> {
+        let expected = self.resolved_type_path_arity(name, current_module)?;
+        if expected == args_len {
+            return None;
+        }
+        Some(format!(
+            "`{name}` expects {expected} type argument(s), found {args_len}"
+        ))
+    }
+
+    fn resolved_type_path_arity(&self, name: &str, current_module: Option<&str>) -> Option<usize> {
+        if let Some(descriptor) =
+            self.adts
+                .unique_descriptor_for_type_path_any_arity(name, current_module, &self.uses)
+        {
+            return Some(descriptor.type_parameters.len());
+        }
         if self
             .adts
-            .descriptor_for_type_path(base, args.len(), current_module, &self.uses)
+            .descriptor_for_type_path_any_arity(name, current_module, &self.uses)
             .is_some()
         {
             return None;
         }
-        let descriptor = self
+        if let Some(arity) = crate::type_syntax::builtin_type_syntax_arity(name) {
+            return Some(arity);
+        }
+
+        let recovered = recover_type_case(name)?;
+        if let Some(descriptor) = self.adts.unique_descriptor_for_type_path_any_arity(
+            &recovered,
+            current_module,
+            &self.uses,
+        ) {
+            return Some(descriptor.type_parameters.len());
+        }
+        if self
             .adts
-            .unique_descriptor_for_type_path_any_arity(base, current_module, &self.uses)
-            .or_else(|| {
-                if self
-                    .adts
-                    .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
-                    .is_some()
-                {
-                    return None;
-                }
-                recover_type_case(base).and_then(|recovered| {
-                    self.adts.unique_descriptor_for_type_path_any_arity(
-                        &recovered,
-                        current_module,
-                        &self.uses,
-                    )
-                })
-            })?;
-        if descriptor.type_parameters.len() == args.len() {
+            .descriptor_for_type_path_any_arity(&recovered, current_module, &self.uses)
+            .is_some()
+        {
             return None;
         }
-        Some(format!(
-            "`{base}` expects {} type argument(s), found {}",
-            descriptor.type_parameters.len(),
-            args.len()
-        ))
+        crate::type_syntax::builtin_type_syntax_arity(&recovered)
     }
 
     fn is_variant_refinement_candidate(&self, ty: &Type, current_module: Option<&str>) -> bool {

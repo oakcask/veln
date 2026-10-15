@@ -1,6 +1,7 @@
 main.veln:15:25: error[name.invalid_case]: type name `empty` must start with an ASCII uppercase letter
 main.veln:19:33: error[name.invalid_case]: type name `genericEmpty` must start with an ASCII uppercase letter
-main.veln:51:34: error[name.invalid_case]: type name `empty` must start with an ASCII uppercase letter
+main.veln:39:39: error[name.invalid_case]: type name `int` must start with an ASCII uppercase letter
+main.veln:59:34: error[name.invalid_case]: type name `empty` must start with an ASCII uppercase letter
 main.veln:11:1: error[type.public_signature_missing]: public function has no return type annotation
 main.veln:15:25: error[type.variant_refinement_base]: variant-refinement base `empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
@@ -13,18 +14,20 @@ main.veln:31:24: error[type.variant_refinement_base]: variant-refinement base `E
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
 main.veln:35:23: error[type.variant_refinement_base]: variant-refinement base `Int` is not a finite ADT
   note: Type `Int` resolves through the `type_syntax` provider without finite ADT variants.
-main.veln:39:18: error[type.variant_refinement_base]: variant-refinement base `NetStream` is opaque at this annotation
+main.veln:39:32: error[type.invalid_annotation]: invalid type annotation `int<Int>::Missing`: `int` expects 0 type argument(s), found 1
+main.veln:43:28: error[type.invalid_annotation]: invalid type annotation `Int<Int>::Missing`: `Int` expects 0 type argument(s), found 1
+main.veln:47:18: error[type.variant_refinement_base]: variant-refinement base `NetStream` is opaque at this annotation
   note: Type `NetStream` is provided as opaque and does not expose variant identities.
-main.veln:43:21: error[type.invalid_annotation]: invalid type annotation `GenericEmpty<Int, String>::Missing`: `GenericEmpty` expects 1 type argument(s), found 2
-main.veln:47:27: error[type.invalid_annotation]: invalid type annotation `GenericEmpty<Int, String>::Missing`: `GenericEmpty` expects 1 type argument(s), found 2
-main.veln:47:64: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+main.veln:51:21: error[type.invalid_annotation]: invalid type annotation `GenericEmpty<Int, String>::Missing`: `GenericEmpty` expects 1 type argument(s), found 2
+main.veln:55:27: error[type.invalid_annotation]: invalid type annotation `GenericEmpty<Int, String>::Missing`: `GenericEmpty` expects 1 type argument(s), found 2
+main.veln:55:64: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:51:34: error[type.variant_refinement_base]: variant-refinement base `empty` is not a finite ADT
+main.veln:59:34: error[type.variant_refinement_base]: variant-refinement base `empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:59:29: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+main.veln:67:29: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:63:24: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+main.veln:71:24: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:68:30: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+main.veln:76:30: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:72:1: error[type.public_signature_missing]: public function has no return type annotation
+main.veln:80:1: error[type.public_signature_missing]: public function has no return type annotation

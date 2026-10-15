@@ -19,3 +19,11 @@ end
 fn invalid_child(value: Box<Empty::Missing>::Boxed) -> ()
 	()
 end
+
+fn record_sibling(value: {bad: Empty::Missing, sibling: Vec<Int, Int>}) -> ()
+	()
+end
+
+fn record_control(value: {sibling: Vec<Int, Int>}) -> ()
+	()
+end

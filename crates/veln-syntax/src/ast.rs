@@ -311,6 +311,9 @@ pub enum BodyLine {
 pub struct TypePathSegments {
     pub segments: Vec<String>,
     pub segment_spans: Vec<SourceSpan>,
+    pub type_argument_count: usize,
+    pub application_span: SourceSpan,
+    pub written: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
