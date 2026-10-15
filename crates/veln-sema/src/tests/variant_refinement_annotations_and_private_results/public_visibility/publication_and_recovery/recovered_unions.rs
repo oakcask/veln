@@ -304,9 +304,7 @@ fn generic_lowercase_final_recovery_keeps_complete_identity_and_quarantines_publ
     let long_argument = format!("Argument{}", "Component".repeat(32));
     let written_type = format!("State<Result<{long_argument},  String>>::hidden");
     assert!(written_type.len() > 256);
-    let source_text = format!(
-        "mod main\npub type {long_argument}\n  pub Value\nend\npub type State<A>\n  Hidden(A)\n  pub Visible(A)\nend\npub fn exposed_parameter(value: {written_type}) -> ()\n  ()\nend\npub fn exposed_result() -> {written_type}\n  Hidden(Ok(Value))\nend\npub fn parameter_alias = exposed_parameter\npub fn parameter_alias_chain = parameter_alias\npub fn result_alias = exposed_result\npub fn result_alias_chain = result_alias\npub fn accepted(value: State<Result<{long_argument},  String>>::Visible) -> State<Result<{long_argument},  String>>::Visible\n  value\nend\nfn private_parameter(value: State<Result<{long_argument},  String>>::Hidden) -> ()\n  ()\nend\nfn private_result() -> State<Result<{long_argument},  String>>::Hidden\n  Hidden(Ok(Value))\nend\n"
-    );
+    let source_text = generic_lowercase_final_recovery_source(&long_argument, &written_type);
     let source = SourceFile::new("main.veln", source_text.clone());
     let parsed = parse(&source);
     assert_eq!(
@@ -323,7 +321,23 @@ fn generic_lowercase_final_recovery_keeps_complete_identity_and_quarantines_publ
         parsed.diagnostics
     );
     let module = lower_surface_ast(&parsed.tree);
-    let diagnostics = analyze_surface_module(&module);
+
+    assert_generic_lowercase_final_recovery_diagnostics(&module, &source_text, &written_type);
+    assert_generic_lowercase_final_recovery_publication(&module);
+}
+
+fn generic_lowercase_final_recovery_source(long_argument: &str, written_type: &str) -> String {
+    format!(
+        "mod main\npub type {long_argument}\n  pub Value\nend\npub type State<A>\n  Hidden(A)\n  pub Visible(A)\nend\npub fn exposed_parameter(value: {written_type}) -> ()\n  ()\nend\npub fn exposed_result() -> {written_type}\n  Hidden(Ok(Value))\nend\npub fn parameter_alias = exposed_parameter\npub fn parameter_alias_chain = parameter_alias\npub fn result_alias = exposed_result\npub fn result_alias_chain = result_alias\npub fn accepted(value: State<Result<{long_argument},  String>>::Visible) -> State<Result<{long_argument},  String>>::Visible\n  value\nend\nfn private_parameter(value: State<Result<{long_argument},  String>>::Hidden) -> ()\n  ()\nend\nfn private_result() -> State<Result<{long_argument},  String>>::Hidden\n  Hidden(Ok(Value))\nend\n"
+    )
+}
+
+fn assert_generic_lowercase_final_recovery_diagnostics(
+    module: &SurfaceModule,
+    source_text: &str,
+    written_type: &str,
+) {
+    let diagnostics = analyze_surface_module(module);
     let relevant = diagnostics
         .iter()
         .filter(|diagnostic| {
@@ -372,8 +386,10 @@ fn generic_lowercase_final_recovery_keeps_complete_identity_and_quarantines_publ
         let span = diagnostic.span.as_ref().expect("privacy primary span");
         assert_eq!(&source_text[span.start.offset..span.end.offset], "hidden");
     }
+}
 
-    let environment = TypeEnvironment::from_module(&module);
+fn assert_generic_lowercase_final_recovery_publication(module: &SurfaceModule) {
+    let environment = TypeEnvironment::from_module(module);
     for name in ["exposed_parameter", "exposed_result"] {
         assert!(!environment.function_is_published_for_test(name), "{name}");
     }
@@ -388,10 +404,14 @@ fn generic_lowercase_final_recovery_keeps_complete_identity_and_quarantines_publ
     for name in ["accepted", "private_parameter", "private_result"] {
         assert!(environment.function(name).is_some(), "{name}");
     }
-    let lowered = lower_checked_surface_module(&module);
+    let lowered = lower_checked_surface_module(module);
     assert!(lowered.core.is_none());
     assert!(lowered.ir.is_none());
 
+    assert_generic_lowercase_final_recovery_is_not_inherited(&environment);
+}
+
+fn assert_generic_lowercase_final_recovery_is_not_inherited(environment: &TypeEnvironment) {
     let consumer = lower_surface_ast(
         &parse(&SourceFile::new(
             "consumer.veln",
@@ -400,7 +420,7 @@ fn generic_lowercase_final_recovery_keeps_complete_identity_and_quarantines_publ
         .tree,
     );
     let consumer_environment =
-        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+        TypeEnvironment::from_module_with_base_for_test(&consumer, environment);
     for name in [
         "exposed_parameter",
         "exposed_result",
