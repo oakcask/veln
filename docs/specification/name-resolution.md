@@ -183,6 +183,13 @@ available through each supported alias chain. This publication rule does not
 change invalid-name function recovery, whose callable-signature behavior is
 defined by the [type-checking contract](types.md#compatibility-and-limits).
 
+When a public alias uses a bare target name, a same-module function shadows an
+imported function with that name before publication eligibility is checked. If
+the local function is unpublished because its direct refinement visibility
+check failed, the alias is also unpublished; resolution does not fall back to
+the imported namesake. The imported function remains available through its
+qualified module path.
+
 A qualified function declared by a resolved source import takes precedence
 over a compiler-known qualified fallback with the same spelling. For example,
 after `use net from "std"`, `net::connect` selects the exported `std::net`

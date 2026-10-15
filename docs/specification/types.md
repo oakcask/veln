@@ -762,8 +762,10 @@ base resolution, including when resolution uses a reusable base environment.
 
 A refinement that is the complete parameter or result annotation of a public
 function and whose written base directly names its ADT can expose only a public
-ADT and public selected variants. A private base ADT fails at the written
-base-type segment. A public base with a private selected variant fails at the
+ADT and public selected variants. A private base ADT fails at the final
+identifier of the written base type, excluding any preceding module
+qualifiers. For example, `main::Secret::One` selects `Secret`, not
+`main::Secret`. A public base with a private selected variant fails at the
 final variant segment. A same-ADT union reports each distinct inaccessible
 base-and-variant path in written order and does not repeat a diagnostic for a
 duplicate alternative. Public refinements remain valid when the base and
