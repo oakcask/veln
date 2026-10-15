@@ -425,45 +425,70 @@ fn public_result_structural_visibility_work_has_bounded_growth() {
 }
 
 #[test]
-fn recovered_and_exact_root_union_exercises_candidate_work_accounting() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "pub type State\n",
-            "  Hidden\n",
-            "  Private\n",
-            "end\n",
-            "pub fn expose(value: State::hidden | State::Private) -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    assert!(
-        parsed
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
-        "{:#?}",
-        parsed.diagnostics
-    );
-    let module = lower_surface_ast(&parsed.tree);
-    crate::analysis::reset_visibility_work();
-    let diagnostics = analyze_surface_module(&module);
-    let candidate_work = crate::analysis::take_visibility_candidate_work();
+fn recovered_root_union_candidate_membership_work_is_linear() {
+    let measurements = [16, 32, 64].map(|count| {
+        let mut source = String::from("pub type State\n");
+        for index in 0..count {
+            source.push_str(&format!("  Hidden{index}\n"));
+        }
+        source.push_str("end\npub fn expose(value: ");
+        for index in 0..count {
+            if index > 0 {
+                source.push_str(" | ");
+            }
+            if index % 2 == 0 {
+                source.push_str(&format!("State::hidden{index}"));
+            } else {
+                source.push_str(&format!("State::Hidden{index}"));
+            }
+        }
+        source.push_str(") -> ()\n  ()\nend\n");
+
+        let source = SourceFile::new("main.veln", source);
+        let parsed = parse(&source);
+        assert!(
+            parsed
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+            "count={count} diagnostics={:#?}",
+            parsed.diagnostics
+        );
+        let module = lower_surface_ast(&parsed.tree);
+        crate::analysis::reset_visibility_work();
+        let diagnostics = analyze_surface_module(&module);
+        let candidate_work = crate::analysis::take_visibility_candidate_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            count,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert!(
+            candidate_work.candidate_construction >= count,
+            "count={count} candidate_work={candidate_work:?}"
+        );
+        assert!(
+            candidate_work.occurrence_lookup >= count,
+            "count={count} candidate_work={candidate_work:?}"
+        );
+        let measured = candidate_work.candidate_construction + candidate_work.occurrence_lookup;
+        eprintln!(
+            "recovered refinement visibility membership: alternatives={count} \
+             candidate_work={candidate_work:?} measured={measured}"
+        );
+        measured
+    });
+
+    let first_growth = measurements[1] - measurements[0];
+    let second_growth = measurements[2] - measurements[1];
     assert_eq!(
-        diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-            .count(),
-        2,
-        "{diagnostics:#?}"
+        second_growth,
+        first_growth * 2,
+        "recovered membership work must have exact affine growth: {measurements:?}"
     );
-    assert!(
-        candidate_work.candidate_construction > 0,
-        "{candidate_work:?}"
-    );
-    assert!(candidate_work.occurrence_lookup > 0, "{candidate_work:?}");
 }
 
 #[test]

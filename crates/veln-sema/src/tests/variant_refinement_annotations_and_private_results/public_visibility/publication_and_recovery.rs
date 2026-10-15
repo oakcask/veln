@@ -370,6 +370,149 @@ fn recovered_union_visibility_failure_quarantines_all_publication_outputs() {
 }
 
 #[test]
+fn recovered_root_unions_ignore_source_trivia_at_each_public_boundary() {
+    let cases = [
+        (
+            "compact_parameter",
+            "pub fn exposed(value: State::hidden|State::Private) -> ()\n  ()\nend\n",
+            "public_parameter",
+        ),
+        (
+            "spaced_parameter",
+            "pub fn exposed(value: State::hidden    |      State::Private) -> ()\n  ()\nend\n",
+            "public_parameter",
+        ),
+        (
+            "multiline_parameter",
+            "pub fn exposed(value: State::hidden |\n    State::Private) -> ()\n  ()\nend\n",
+            "public_parameter",
+        ),
+        (
+            "compact_result",
+            "pub fn exposed() -> State::hidden|State::Private\n  Hidden\nend\n",
+            "public_result",
+        ),
+        (
+            "spaced_result",
+            "pub fn exposed() -> State::hidden    |      State::Private\n  Hidden\nend\n",
+            "public_result",
+        ),
+    ];
+
+    for (case, signature, boundary) in cases {
+        let source_text = format!(
+            "mod main\npub type State\n  Hidden\n  Private\nend\n{signature}pub fn exposed_alias = exposed\n"
+        );
+        let source = SourceFile::new("main.veln", source_text.clone());
+        let parsed = parse(&source);
+        assert!(
+            parsed
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+            "case={case} diagnostics={:#?}",
+            parsed.diagnostics
+        );
+        let module = lower_surface_ast(&parsed.tree);
+        let diagnostics = analyze_surface_module(&module)
+            .into_iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .collect::<Vec<_>>();
+        assert_eq!(
+            diagnostics.len(),
+            2,
+            "case={case} diagnostics={diagnostics:#?}"
+        );
+        let observed = diagnostics
+            .iter()
+            .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+            .collect::<Vec<_>>();
+        assert!(
+            observed[0].contains(&format!(
+                "\"written_type\":\"State::hidden\",\"base_type\":\"main::State\",\"variant\":\"Hidden\",\"boundary\":\"{boundary}\""
+            )),
+            "case={case} diagnostic={}",
+            observed[0]
+        );
+        assert!(
+            observed[1].contains(&format!(
+                "\"written_type\":\"State::Private\",\"base_type\":\"main::State\",\"variant\":\"Private\",\"boundary\":\"{boundary}\""
+            )),
+            "case={case} diagnostic={}",
+            observed[1]
+        );
+        let recovered_offset = source_text
+            .find("State::hidden")
+            .expect("recovered alternative");
+        let exact_offset = source_text
+            .find("State::Private")
+            .expect("exact alternative");
+        assert_eq!(
+            diagnostics[0]
+                .span
+                .as_ref()
+                .expect("primary span")
+                .start
+                .offset,
+            recovered_offset + "State::".len(),
+            "case={case}"
+        );
+        assert_eq!(
+            diagnostics[1]
+                .span
+                .as_ref()
+                .expect("primary span")
+                .start
+                .offset,
+            exact_offset + "State::".len(),
+            "case={case}"
+        );
+
+        let environment = TypeEnvironment::from_module(&module);
+        let signature = environment.function("exposed").expect("recovery signature");
+        assert!(
+            signature.params.iter().all(|ty| *ty == Type::Unknown),
+            "case={case}"
+        );
+        assert_eq!(signature.return_type, Type::Unknown, "case={case}");
+        assert!(
+            !environment.function_is_published_for_test("exposed"),
+            "case={case}"
+        );
+        assert!(
+            environment.function("exposed_alias").is_none(),
+            "case={case}"
+        );
+        let consumer = lower_surface_ast(
+            &parse(&SourceFile::new(
+                "consumer.veln",
+                "mod consumer\nuse main\n",
+            ))
+            .tree,
+        );
+        let consumer_environment =
+            TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+        for name in ["exposed", "exposed_alias"] {
+            assert!(
+                consumer_environment
+                    .function_path(&["main".to_string(), name.to_string()], Some("consumer"))
+                    .is_none(),
+                "case={case} name={name}"
+            );
+            assert!(
+                consumer_environment
+                    .unqualified_function_import_candidates(name, Some("consumer"))
+                    .is_empty(),
+                "case={case} name={name}"
+            );
+        }
+        let lowered = lower_checked_surface_module(&module);
+        assert!(lowered.core.is_none(), "case={case}");
+        assert!(lowered.ir.is_none(), "case={case}");
+    }
+}
+
+#[test]
 fn mixed_visibility_failure_quarantines_callable_facts_aliases_and_lowering() {
     let source = SourceFile::new(
         "main.veln",

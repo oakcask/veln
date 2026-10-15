@@ -171,6 +171,15 @@ fn root_exposure_candidates(
     ) {
         return Vec::new();
     }
+    recovered_root_exposure_candidates(annotation_span, annotation_text, refinements, paths)
+}
+
+fn recovered_root_exposure_candidates(
+    annotation_span: &SourceSpan,
+    annotation_text: &str,
+    refinements: &[VariantRefinementType],
+    paths: &[TypePathSegments],
+) -> Vec<RefinementExposureCandidate> {
     record_visibility_candidate_construction(
         refinements
             .iter()
@@ -182,17 +191,34 @@ fn root_exposure_candidates(
         .flat_map(|refinement| refinement.alternatives.iter())
         .map(refinement_candidate)
         .collect::<Vec<_>>();
+    merge_recovered_type_paths(annotation_span, paths, &mut candidates);
+    candidates.sort_by_key(|candidate| candidate.occurrence_span.start.offset);
+    if direct_root_sequence(annotation_text, &candidates) {
+        candidates
+    } else {
+        Vec::new()
+    }
+}
+
+fn merge_recovered_type_paths(
+    annotation_span: &SourceSpan,
+    paths: &[TypePathSegments],
+    candidates: &mut Vec<RefinementExposureCandidate>,
+) {
+    let mut candidate_occurrences = candidates
+        .iter()
+        .map(|candidate| occurrence_key(&candidate.occurrence_span))
+        .collect::<HashSet<_>>();
     for path in paths {
-        if path.segments.len() < 2
-            || !span_within(&path.application_span, annotation_span)
-            || candidates.iter().any(|candidate| {
-                record_visibility_occurrence_lookup(1);
-                candidate.occurrence_span == path.application_span
-            })
-        {
+        if path.segments.len() < 2 || !span_within(&path.application_span, annotation_span) {
+            continue;
+        }
+        record_visibility_occurrence_lookup(1);
+        if !candidate_occurrences.insert(occurrence_key(&path.application_span)) {
             continue;
         }
         let variant_index = path.segments.len() - 1;
+        record_visibility_candidate_construction(1);
         candidates.push(RefinementExposureCandidate {
             written_base: path.segments[..variant_index].join("::"),
             type_argument_count: path.type_argument_count,
@@ -202,12 +228,6 @@ fn root_exposure_candidates(
             variant_span: path.segment_spans[variant_index].clone(),
             occurrence_span: path.application_span.clone(),
         });
-    }
-    candidates.sort_by_key(|candidate| candidate.occurrence_span.start.offset);
-    if direct_root_sequence(annotation_span, annotation_text, &candidates) {
-        candidates
-    } else {
-        Vec::new()
     }
 }
 
@@ -236,48 +256,26 @@ fn span_within(candidate: &SourceSpan, enclosing: &SourceSpan) -> bool {
         && candidate.end.offset <= enclosing.end.offset
 }
 
-fn direct_root_sequence(
-    annotation_span: &SourceSpan,
-    annotation_text: &str,
-    candidates: &[RefinementExposureCandidate],
-) -> bool {
-    let Some(first) = candidates.first() else {
+fn occurrence_key(span: &SourceSpan) -> (veln_source::SourcePath, usize, usize) {
+    (span.file.clone(), span.start.offset, span.end.offset)
+}
+
+fn direct_root_sequence(annotation_text: &str, candidates: &[RefinementExposureCandidate]) -> bool {
+    if candidates.is_empty() {
         return false;
-    };
-    let mut cursor = 0;
-    for (index, candidate) in candidates.iter().enumerate() {
-        let Some(start) = candidate
-            .occurrence_span
-            .start
-            .offset
-            .checked_sub(annotation_span.start.offset)
-        else {
-            return false;
-        };
-        let Some(end) = candidate
-            .occurrence_span
-            .end
-            .offset
-            .checked_sub(annotation_span.start.offset)
-        else {
-            return false;
-        };
-        if start < cursor || end > annotation_text.len() {
-            return false;
-        }
-        let separator = &annotation_text[cursor..start];
-        let valid_separator = if index == 0 {
-            separator.trim().is_empty()
-        } else {
-            separator.trim() == "|"
-        };
-        if !valid_separator {
-            return false;
-        }
-        cursor = end;
     }
-    first.occurrence_span.start.offset >= annotation_span.start.offset
-        && annotation_text[cursor..].trim().is_empty()
+    let expected = candidates
+        .iter()
+        .map(|candidate| compact_type_text(&candidate.written_type))
+        .collect::<Vec<_>>()
+        .join("|");
+    compact_type_text(annotation_text) == expected
+}
+
+fn compact_type_text(text: &str) -> String {
+    text.chars()
+        .filter(|character| !character.is_whitespace())
+        .collect()
 }
 
 struct RefinementExposureCandidate {
