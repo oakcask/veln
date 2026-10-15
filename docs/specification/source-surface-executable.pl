@@ -120,7 +120,7 @@ grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" Par
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
-grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
+grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant* \"end\" NL?").
 grammar_line(101, "EffectDecl    ::= \"pub\"? \"effect\" Name NL EffectOperation+ \"end\" NL?").
 grammar_line(101, "EffectOperation ::= Name \"(\" EffectParamList? \")\" \"->\" TypeText NL").
 grammar_line(101, "EffectParamList ::= Name \":\" TypeText (\",\" Name \":\" TypeText)*").
@@ -603,6 +603,7 @@ ident_tail --> tok(comma), ident, !, ident_tail.
 ident_tail --> [].
 
 type_variants --> type_variant, !, type_variants_tail.
+type_variants --> [].
 type_variants_tail --> type_variant, !, type_variants_tail.
 type_variants_tail --> [].
 type_variant --> visibility, upper_name, type_variant_fields_opt, nl.

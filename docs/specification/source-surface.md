@@ -353,7 +353,7 @@ Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effe
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
-TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
+TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant* "end" NL?
 EffectDecl    ::= "pub"? "effect" Name NL EffectOperation+ "end" NL?
 EffectOperation ::= Name "(" EffectParamList? ")" "->" TypeText NL
 EffectParamList ::= Name ":" TypeText ("," Name ":" TypeText)*
