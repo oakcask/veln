@@ -149,11 +149,14 @@ details contain exactly `written_type`,
 
 Related entries identify the `private_type_declaration` or
 `private_variant_declaration` and the `public_parameter_boundary` or
-`public_result_boundary`. A union reports distinct inaccessible alternatives
-in written order. It removes paths with the same resolved base, canonical
-generic arguments, and variant, and retains the first written path. Canonical
-generic arguments recursively use resolved type identities, so an alias and
-its resolved target do not create separate privacy diagnostics. Canonical
+`public_result_boundary`. A private declaration entry uses the declaration span
+from the selected ADT descriptor, including its generic arity. Another
+same-module ADT with the same type and variant names but a different arity does
+not supply that span. A union reports distinct inaccessible alternatives in
+written order. It removes paths with the same resolved base, canonical generic
+arguments, and variant, and retains the first written path. Canonical generic
+arguments recursively use resolved type identities, so an alias and its
+resolved target do not create separate privacy diagnostics. Canonical
 identity is used only when every nested type component resolves. Otherwise,
 deduplication uses the complete written alternative, so distinct unresolved
 arguments remain distinct while an exact written repeat retains its first

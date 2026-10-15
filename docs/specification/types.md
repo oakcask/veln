@@ -807,6 +807,11 @@ casing recovery preserves the same qualified source identity. The
 [name-resolution contract](name-resolution.md#namespaces-and-use-roles) defines
 the matching and fallback rules.
 
+When a privacy diagnostic reports a related type or variant declaration, that
+location belongs to the selected ADT descriptor, including its generic arity.
+A same-module declaration with the same type and variant names but a different
+arity cannot replace that related location.
+
 This visibility check applies only when the refinement is the root annotation
 and its written base directly names the ADT. It does not resolve through a type
 alias or traverse a record, named type argument, function type, ADT payload, or
