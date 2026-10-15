@@ -25,7 +25,7 @@ pub(crate) struct AdtRegistry {
     descriptors_by_source_identity: HashMap<(Option<String>, String), Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
-    variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, usize>>,
+    variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, Option<usize>>>,
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<(Option<String>, String)>,
@@ -110,6 +110,13 @@ impl VariantDeclarationOrder {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ConstructorLookup<'a> {
     Found(AdtConstructor<'a>),
+    Ambiguous,
+    Missing,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum VariantLookup<'a> {
+    Found(&'a AdtVariantDescriptor),
     Ambiguous,
     Missing,
 }
@@ -234,12 +241,21 @@ impl AdtRegistry {
         &'a self,
         descriptor: &'a AdtDescriptor,
         name: &str,
-    ) -> Option<&'a AdtVariantDescriptor> {
-        let variant_index = self
+    ) -> VariantLookup<'a> {
+        let Some(variant_index) = self
             .variants_by_descriptor
-            .get(&DescriptorKey::new(descriptor))?
-            .get(name)?;
-        descriptor.variants.get(*variant_index)
+            .get(&DescriptorKey::new(descriptor))
+            .and_then(|variants| variants.get(name))
+        else {
+            return VariantLookup::Missing;
+        };
+        let Some(variant_index) = variant_index else {
+            return VariantLookup::Ambiguous;
+        };
+        descriptor
+            .variants
+            .get(*variant_index)
+            .map_or(VariantLookup::Missing, VariantLookup::Found)
     }
 
     pub(crate) fn variant_declaration_span(

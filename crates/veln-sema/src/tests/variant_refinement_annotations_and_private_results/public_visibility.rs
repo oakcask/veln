@@ -128,6 +128,82 @@ fn unique_casing_recovery_retains_direct_visibility_identity() {
 }
 
 #[test]
+fn exact_duplicate_variants_do_not_create_visibility_identity_or_quarantine() {
+    for public_duplicate_first in [true, false] {
+        let variants = if public_duplicate_first {
+            "  pub Hidden\n  Hidden\n"
+        } else {
+            "  Hidden\n  pub Hidden\n"
+        };
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "pub type State\n{variants}end\n\
+                 pub fn expose_parameter(value: State::Hidden) -> ()\n  ()\nend\n\
+                 pub fn expose_result() -> State::Hidden\n  Hidden\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        let environment = TypeEnvironment::from_module(&module);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id.as_str())
+                .collect::<Vec<_>>(),
+            ["name.duplicate"],
+            "order public-first={public_duplicate_first}: {diagnostics:#?}"
+        );
+        for function in ["expose_parameter", "expose_result"] {
+            assert!(
+                environment.function_is_published_for_test(function),
+                "{function} must keep the same recovery publication state when public-first={public_duplicate_first}"
+            );
+        }
+    }
+}
+
+#[test]
+fn duplicate_union_alternative_preserves_independent_visibility_failure() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Hidden\n",
+            "  Hidden\n",
+            "  Private\n",
+            "end\n",
+            "pub fn expose(value: State::Hidden | State::Private) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.duplicate", "type.variant_refinement_private"],
+        "{diagnostics:#?}"
+    );
+    let visibility = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
+    assert!(
+        visibility.contains("\"variant\":\"Private\""),
+        "{visibility}"
+    );
+    assert!(!environment.function_is_published_for_test("expose"));
+}
+
+#[test]
 fn recovered_final_variant_retains_visibility_identity() {
     let source = SourceFile::new(
         "main.veln",

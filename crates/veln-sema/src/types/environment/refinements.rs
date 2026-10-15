@@ -104,9 +104,10 @@ impl TypeEnvironment {
         descriptor: &'a crate::adt::descriptors::AdtDescriptor,
         variant: &str,
     ) -> Option<&'a crate::adt::descriptors::AdtVariantDescriptor> {
-        self.adts
-            .variant_for_descriptor(descriptor, variant)
-            .or_else(|| {
+        match self.adts.variant_for_descriptor(descriptor, variant) {
+            crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
+            crate::adt::registry::VariantLookup::Ambiguous => None,
+            crate::adt::registry::VariantLookup::Missing => {
                 let recovered = recover_type_case(variant)?;
                 let mut variants = descriptor
                     .variants
@@ -114,7 +115,8 @@ impl TypeEnvironment {
                     .filter(|candidate| candidate.name == recovered);
                 let variant = variants.next()?;
                 variants.next().is_none().then_some(variant)
-            })
+            }
+        }
     }
 
     fn variant_refinement_descriptor_failure(

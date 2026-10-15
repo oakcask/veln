@@ -24,7 +24,7 @@ struct RegistryIndexes {
     descriptors_by_source_identity: HashMap<(Option<String>, String), Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
-    variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, usize>>,
+    variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, Option<usize>>>,
 }
 
 impl RegistryIndexes {
@@ -65,7 +65,9 @@ impl RegistryIndexes {
             self.variants_by_descriptor
                 .entry(DescriptorKey::new(descriptor))
                 .or_default()
-                .insert(variant.name.clone(), variant_index);
+                .entry(variant.name.clone())
+                .and_modify(|unique_index| *unique_index = None)
+                .or_insert(Some(variant_index));
         }
     }
 
