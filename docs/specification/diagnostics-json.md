@@ -132,14 +132,16 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
-A root variant refinement in a public function parameter or result reports
-`type.variant_refinement_private` when its base ADT is private or a selected
-variant is private. The primary span selects the written base-type segment for
-a private base. It selects the final variant segment for a private variant of a
-public base. The closed details contain exactly `written_type`, `base_type`,
-`variant`, `boundary`, and `exposure_path`. `boundary` is `public_parameter` or
-`public_result`. `exposure_path` is an array with one object. A parameter path
-contains `kind: "parameter"` and its `name`; a result path contains only
+A root variant refinement whose written base directly names an ADT in a public
+function parameter or result reports `type.variant_refinement_private` when
+that ADT is private or a selected variant is private. Alias-qualified roots and
+refinements in structural positions remain outside this check. The primary span
+selects the written base-type segment for a private base. It selects the final
+variant segment for a private variant of a public base. The closed details
+contain exactly `written_type`, `base_type`, `variant`, `boundary`, and
+`exposure_path`. `boundary` is `public_parameter` or `public_result`.
+`exposure_path` is an array with one object. A parameter path contains
+`kind: "parameter"` and its `name`; a result path contains only
 `kind: "result"`.
 
 Related entries identify the `private_type_declaration` or

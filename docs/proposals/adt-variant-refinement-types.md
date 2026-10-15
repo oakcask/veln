@@ -58,9 +58,9 @@ the unimplemented semantic and tooling behavior below.
 
 The current [type specification](../specification/types.md#compatibility-and-limits)
 owns alias-qualified refinement identity, assignability, presentation, and
-direct root-refinement visibility on public function parameters and results.
-The remaining work covers public package signatures and visibility failures
-hidden behind aliases or structural type positions.
+direct ADT-root refinement visibility on public function parameters and
+results. The remaining work covers public package signatures and visibility
+failures hidden behind aliases or structural type positions.
 
 A refinement is valid only when the selected constructor is visible at the
 annotation. The remaining traversal prevents a public declaration from
@@ -192,7 +192,7 @@ repair guidance belong in `related` notes rather than the primary message.
 | --- | --- | --- | --- |
 | `type.variant_refinement_base` | The ADT identity is known, but its selected production provider has no public finite variant descriptor. | `written_type`, `reason` | The selected provider and its provenance. |
 | `type.variant_refinement_unknown` | The final segment does not name a variant owned by the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
-| `type.variant_refinement_private` | An indirect refinement exposure reaches a private base type or inaccessible variant. Direct public-function root refinements are current behavior. | `written_type`, `base_type`, `variant`, `boundary`, `exposure_path` | The alias declarations on the exposure path, the final private declaration, and the public-signature boundary. |
+| `type.variant_refinement_private` | An indirect refinement exposure reaches a private base type or inaccessible variant. Direct public-function root refinements whose written base names the ADT are current behavior. | `written_type`, `base_type`, `variant`, `boundary`, `exposure_path` | The alias declarations on the exposure path, the final private declaration, and the public-signature boundary. |
 | `type.variant_union_base` | A union alternative resolves to a different ADT identity or generic arguments. | `expected_base_type`, `actual_base_type` | The first alternative that established the required union base. |
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
