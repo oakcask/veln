@@ -102,17 +102,19 @@ fn root_exposures<'a>(
     {
         exposures.extend(refinement.alternatives.iter().filter_map(|alternative| {
             private_exposure(
-                &alternative.base.segments.join("::"),
-                alternative.type_arguments.len(),
-                &alternative.variant,
-                format!("{}::{}", alternative.base.written, alternative.variant),
-                alternative
-                    .base
-                    .segment_spans
-                    .last()
-                    .expect("type path has a segment")
-                    .clone(),
-                alternative.variant_span.clone(),
+                RefinementExposureCandidate {
+                    written_base: alternative.base.segments.join("::"),
+                    type_argument_count: alternative.type_arguments.len(),
+                    written_variant: alternative.variant.clone(),
+                    written_type: format!("{}::{}", alternative.base.written, alternative.variant),
+                    base_span: alternative
+                        .base
+                        .segment_spans
+                        .last()
+                        .expect("type path has a segment")
+                        .clone(),
+                    variant_span: alternative.variant_span.clone(),
+                },
                 current_module,
                 environment,
             )
@@ -123,12 +125,14 @@ fn root_exposures<'a>(
     {
         let variant_index = path.segments.len() - 1;
         exposures.extend(private_exposure(
-            &path.segments[..variant_index].join("::"),
-            path.type_argument_count,
-            &path.segments[variant_index],
-            path.written.clone(),
-            path.segment_spans[variant_index - 1].clone(),
-            path.segment_spans[variant_index].clone(),
+            RefinementExposureCandidate {
+                written_base: path.segments[..variant_index].join("::"),
+                type_argument_count: path.type_argument_count,
+                written_variant: path.segments[variant_index].clone(),
+                written_type: path.written.clone(),
+                base_span: path.segment_spans[variant_index - 1].clone(),
+                variant_span: path.segment_spans[variant_index].clone(),
+            },
             current_module,
             environment,
         ));
@@ -145,36 +149,41 @@ fn root_exposures<'a>(
     exposures.into_iter()
 }
 
-fn private_exposure<'a>(
-    written_base: &str,
+struct RefinementExposureCandidate {
+    written_base: String,
     type_argument_count: usize,
-    written_variant: &str,
+    written_variant: String,
     written_type: String,
     base_span: SourceSpan,
     variant_span: SourceSpan,
+}
+
+fn private_exposure<'a>(
+    candidate: RefinementExposureCandidate,
     current_module: Option<&'a str>,
     environment: &'a TypeEnvironment,
 ) -> Option<PrivateExposure<'a>> {
     record_visibility_work(1);
     let descriptor = environment.variant_refinement_descriptor_identity(
-        written_base,
-        type_argument_count,
+        &candidate.written_base,
+        candidate.type_argument_count,
         current_module,
     )?;
     if environment.adts.descriptor_is_type_alias(descriptor) {
         return None;
     }
     record_visibility_work(1);
-    let variant = environment.variant_refinement_variant_identity(descriptor, written_variant)?;
+    let variant =
+        environment.variant_refinement_variant_identity(descriptor, &candidate.written_variant)?;
     let private_base = descriptor.visibility == Visibility::Private;
     if !private_base && variant.visibility == Visibility::Public {
         return None;
     }
     record_visibility_work(1);
     Some(PrivateExposure {
-        written_type,
-        base_span,
-        variant_span,
+        written_type: candidate.written_type,
+        base_span: candidate.base_span,
+        variant_span: candidate.variant_span,
         descriptor,
         variant,
         declaration_span: private_declaration_span(environment, descriptor, variant, private_base),
