@@ -122,40 +122,47 @@ fn root_exposures<'a>(
             .alternatives
             .iter()
             .filter_map(move |alternative| {
-                let written_base = alternative.base.segments.join("::");
-                let descriptor = environment.adts.descriptor_for_type_path(
-                    &written_base,
-                    alternative.type_arguments.len(),
-                    current_module,
-                    &environment.uses,
-                )?;
-                if environment.adts.descriptor_is_type_alias(descriptor) {
-                    return None;
-                }
-                let variant = descriptor
-                    .variants
-                    .iter()
-                    .find(|variant| variant.name == alternative.variant)?;
-                let private_base = descriptor.visibility == Visibility::Private;
-                if !private_base && variant.visibility == Visibility::Public {
-                    return None;
-                }
-                if !seen.insert((descriptor.identity(), variant.name.clone())) {
-                    return None;
-                }
-                Some(PrivateExposure {
-                    alternative,
-                    descriptor,
-                    variant,
-                    declaration_span: private_declaration_span(
-                        module,
-                        descriptor,
-                        variant,
-                        private_base,
-                    ),
-                    private_base,
-                })
+                private_exposure(alternative, module, current_module, environment)
             })
+            .filter(move |exposure| {
+                seen.insert((
+                    exposure.descriptor.identity(),
+                    exposure.variant.name.clone(),
+                ))
+            })
+    })
+}
+
+fn private_exposure<'a>(
+    alternative: &'a veln_ast::VariantRefinementAlternative,
+    module: &'a SurfaceModule,
+    current_module: Option<&'a str>,
+    environment: &'a TypeEnvironment,
+) -> Option<PrivateExposure<'a>> {
+    let written_base = alternative.base.segments.join("::");
+    let descriptor = environment.adts.descriptor_for_type_path(
+        &written_base,
+        alternative.type_arguments.len(),
+        current_module,
+        &environment.uses,
+    )?;
+    if environment.adts.descriptor_is_type_alias(descriptor) {
+        return None;
+    }
+    let variant = descriptor
+        .variants
+        .iter()
+        .find(|variant| variant.name == alternative.variant)?;
+    let private_base = descriptor.visibility == Visibility::Private;
+    if !private_base && variant.visibility == Visibility::Public {
+        return None;
+    }
+    Some(PrivateExposure {
+        alternative,
+        descriptor,
+        variant,
+        declaration_span: private_declaration_span(module, descriptor, variant, private_base),
+        private_base,
     })
 }
 
@@ -194,27 +201,7 @@ impl PrivateExposure<'_> {
             "{}::{}",
             self.alternative.base.written, self.alternative.variant
         );
-        let (span, message, declaration_kind, declaration_message) = if self.private_base {
-            (
-                joined_span(&self.alternative.base.segment_spans),
-                format!("public refinement exposes private type `{base_type}`"),
-                "private_type_declaration",
-                format!("Private type `{base_type}` is declared here."),
-            )
-        } else {
-            (
-                self.alternative.variant_span.clone(),
-                format!(
-                    "public refinement exposes private variant `{}::{}`",
-                    base_type, self.variant.name
-                ),
-                "private_variant_declaration",
-                format!(
-                    "Private variant `{}::{}` is declared here.",
-                    base_type, self.variant.name
-                ),
-            )
-        };
+        let (span, message, declaration_kind, declaration_message) = self.primary_context();
         let mut diagnostic = Diagnostic::new(
             "type.variant_refinement_private",
             Severity::Error,
@@ -245,6 +232,31 @@ impl PrivateExposure<'_> {
             ("span", span_json(boundary.span(function))),
         ]));
         diagnostic
+    }
+
+    fn primary_context(&self) -> (SourceSpan, String, &'static str, String) {
+        let base_type = self.descriptor.identity();
+        if self.private_base {
+            (
+                joined_span(&self.alternative.base.segment_spans),
+                format!("public refinement exposes private type `{base_type}`"),
+                "private_type_declaration",
+                format!("Private type `{base_type}` is declared here."),
+            )
+        } else {
+            (
+                self.alternative.variant_span.clone(),
+                format!(
+                    "public refinement exposes private variant `{}::{}`",
+                    base_type, self.variant.name
+                ),
+                "private_variant_declaration",
+                format!(
+                    "Private variant `{}::{}` is declared here.",
+                    base_type, self.variant.name
+                ),
+            )
+        }
     }
 }
 
