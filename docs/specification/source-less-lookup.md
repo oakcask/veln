@@ -86,6 +86,10 @@ type-syntax identity without an ADT descriptor likewise exposes no finite
 variant set. The resulting annotation failures are specified by
 [Types](types.md#compatibility-and-limits) and
 [Diagnostic JSON](diagnostics-json.md#diagnostic-families).
+When a qualified variant-refinement base identifies a source declaration, that
+source identity takes precedence over a same-spelled built-in type-syntax or
+ADT descriptor. Source-less lookup supplies a fallback; it does not replace or
+make ambiguous an exact qualified source identity.
 
 Private compiler adapters, including the `net_system_*` operations used by
 `std::net::system()`, publish only their qualified

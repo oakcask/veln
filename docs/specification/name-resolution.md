@@ -63,6 +63,13 @@ resolve to a type reports `name.unresolved`. The
 [type compatibility rules](types.md#compatibility-and-limits) define how a
 resolved chain qualifies variant refinements and preserves display provenance.
 
+A qualified variant-refinement base first selects a matching source module
+identity. When that source type has the same leaf spelling as a compiler-known
+type, the source declaration wins. The compiler-known identity remains the
+fallback only when the qualified path does not identify a source declaration.
+This precedence applies to finite ADTs and to source declarations without
+variants; it does not turn the latter into an opaque compiler-known type.
+
 Each public type-alias declaration resolves its own target, including when
 another declaration in the same module has the same alias name. The later
 declaration reports `name.duplicate`. An unresolved or wrong-kind target also

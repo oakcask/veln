@@ -138,6 +138,11 @@ invalid refinement selectable by language-service protocols. A source-less
 failed base likewise retains semantic identity without a manufactured source
 target. The failed occurrence does not emit variant, union,
 visibility, or assignability diagnostics that require a refinable base.
+When a qualified source type and a compiler-known type have the same leaf
+name, the source module identity selects the source declaration. The base
+diagnostic then uses that source identity and its declaration-related context;
+the compiler-known descriptor does not make the qualified source path opaque
+or ambiguous.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
 provable without treating the failed base as refinable.
@@ -152,6 +157,10 @@ When a nested type argument is invalid, the checker still reports an enclosing
 base-eligibility failure that can be proved from the enclosing base identity
 alone. It suppresses an enclosing annotation or final-segment failure that
 would require the invalid child to form a valid type.
+The checker visits each written type-path occurrence once during recovery.
+Repeated traversal of one source span does not duplicate its diagnostic, while
+equal path text at distinct spans remains distinct and can report once at each
+span.
 When separate union alternatives independently produce failures, their
 diagnostic groups follow the alternatives' written order. Within each
 alternative, the checker reports casing before base resolution, generic arity,
@@ -223,7 +232,15 @@ The checked nested-recovery
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-nested-recovery-json/)
 cases cover independent enclosing base failures, nested generic-arity failures,
-and suppression of failures derived from an invalid child type.
+suppression of failures derived from an invalid child type, one diagnostic per
+written path occurrence, and independent diagnostics for equal paths at
+distinct spans.
+The qualified source-collision
+[`human`](../../examples/specification/check/adt-variant-refinement-qualified-source-collision-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-source-collision-json/)
+cases verify that qualified source declarations win over same-spelled
+compiler-known type identities and retain source declaration provenance.
 The checked nested-casing
 [`human`](../../examples/specification/check/adt-variant-refinement-nested-casing-diagnostics-human/)
 and

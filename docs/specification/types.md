@@ -683,8 +683,10 @@ finite ADT variant set, the checker rejects the annotation with
 `type.variant_refinement_base`. The reason is `not_adt` for a source declaration
 without variants or a source-less non-ADT type published by the type-syntax
 provider. The reason is `opaque` for a compiler-known type that intentionally
-hides its variants. A base with invalid generic arity retains the existing
-`type.invalid_annotation` failure instead. The
+hides its variants. A qualified source type takes precedence over a
+same-spelled compiler-known type, so the source declaration determines
+eligibility and diagnostic provenance. A base with invalid generic arity
+retains the existing `type.invalid_annotation` failure instead. The
 same eligibility rule applies recursively to parameters, results, locals, ADT
 payloads, effect and handler annotations, schema fields, and explicit call type
 arguments. A uniquely recovered invalid-cased base retains its identity and is
@@ -704,7 +706,9 @@ a partially typed helper. A resolved base identity remains
 available internally for suppression and later semantic analysis, but this
 recovery does not make the invalid refinement selectable by language-service
 protocols. A source-less base retains the same semantic identity without
-acquiring a source target. The
+acquiring a source target. The checker processes each written type-path
+occurrence once during nested recovery. Equal paths at different source spans
+remain independent occurrences. The
 early quarantine uses the same source-backed declarations as the analyzed
 module, including declarations selected from the reusable standard
 environment. Private return inference therefore cannot publish a result that
@@ -726,6 +730,16 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-overlap-json/)
 cases verify source-backed standard provenance, omitted-result recovery, and
 written-order comparison around a failed union alternative.
+The qualified source-collision
+[`human`](../../examples/specification/check/adt-variant-refinement-qualified-source-collision-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-source-collision-json/)
+cases verify source precedence over colliding compiler-known identities. The
+nested-recovery
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-recovery-json/)
+cases verify occurrence-scoped recovery.
 The declaration-quarantine
 [`human`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-human/)
 and
