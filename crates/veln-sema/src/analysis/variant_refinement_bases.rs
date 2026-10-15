@@ -20,6 +20,20 @@ pub(crate) fn check_variant_refinement_bases(
 ) -> Vec<VariantRefinementBaseDiagnostic> {
     let mut diagnostics = Vec::new();
 
+    collect_type_annotations(module, environment, &mut diagnostics);
+    collect_effect_annotations(module, environment, &mut diagnostics);
+    collect_schema_annotations(module, environment, &mut diagnostics);
+    collect_function_annotations(module, environment, &mut diagnostics);
+    collect_handler_annotations(module, environment, &mut diagnostics);
+
+    diagnostics
+}
+
+fn collect_type_annotations(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
     for decl in &module.types {
         for variant in &decl.variants {
             for field in &variant.fields {
@@ -34,11 +48,18 @@ pub(crate) fn check_variant_refinement_bases(
                         variant.node_id.display("variant"),
                         field.node_id.display("field"),
                     ],
-                    &mut diagnostics,
+                    diagnostics,
                 );
             }
         }
     }
+}
+
+fn collect_effect_annotations(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
     for effect in &module.effects {
         for operation in &effect.operations {
             for param in &operation.params {
@@ -53,7 +74,7 @@ pub(crate) fn check_variant_refinement_bases(
                         operation.node_id.display("operation"),
                         param.node_id.display("param"),
                     ],
-                    &mut diagnostics,
+                    diagnostics,
                 );
             }
             collect_declaration_annotation(
@@ -66,10 +87,17 @@ pub(crate) fn check_variant_refinement_bases(
                     effect.node_id.display("effect"),
                     operation.node_id.display("operation"),
                 ],
-                &mut diagnostics,
+                diagnostics,
             );
         }
     }
+}
+
+fn collect_schema_annotations(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
     for schema in &module.schemas {
         for field in &schema.fields {
             collect_declaration_annotation(
@@ -82,10 +110,17 @@ pub(crate) fn check_variant_refinement_bases(
                     schema.node_id.display("schema"),
                     field.node_id.display("schema-field"),
                 ],
-                &mut diagnostics,
+                diagnostics,
             );
         }
     }
+}
+
+fn collect_function_annotations(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
     for function in &module.functions {
         crate::pipeline::record_variant_refinement_annotation_work(1);
         for param in &function.params {
@@ -95,7 +130,7 @@ pub(crate) fn check_variant_refinement_bases(
                 &param.ty_paths,
                 function.module_name.as_deref(),
                 environment,
-                &mut diagnostics,
+                diagnostics,
             );
         }
         collect_annotation(
@@ -103,7 +138,7 @@ pub(crate) fn check_variant_refinement_bases(
             &function.return_type_paths,
             function.module_name.as_deref(),
             environment,
-            &mut diagnostics,
+            diagnostics,
         );
         for line in &function.body {
             crate::pipeline::record_variant_refinement_annotation_work(1);
@@ -111,10 +146,17 @@ pub(crate) fn check_variant_refinement_bases(
                 line,
                 function.module_name.as_deref(),
                 environment,
-                &mut diagnostics,
+                diagnostics,
             );
         }
     }
+}
+
+fn collect_handler_annotations(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
     for handler in &module.handlers {
         for param in &handler.params {
             collect_declaration_annotation(
@@ -127,7 +169,7 @@ pub(crate) fn check_variant_refinement_bases(
                     handler.node_id.display("handler"),
                     param.node_id.display("param"),
                 ],
-                &mut diagnostics,
+                diagnostics,
             );
         }
         for clause in &handler.operation_clauses {
@@ -143,19 +185,17 @@ pub(crate) fn check_variant_refinement_bases(
                         clause.node_id.display("clause"),
                         param.node_id.display("param"),
                     ],
-                    &mut diagnostics,
+                    diagnostics,
                 );
             }
             collect_expr(
                 &clause.body,
                 handler.module_name.as_deref(),
                 environment,
-                &mut diagnostics,
+                diagnostics,
             );
         }
     }
-
-    diagnostics
 }
 
 pub(crate) fn annotation_has_base_failure(
