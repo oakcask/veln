@@ -770,9 +770,7 @@ base resolution, including when resolution uses a reusable base environment.
 For `N` independent invalid bases, visibility analysis grows linearly with the
 source occurrences it examines. This includes invalid-cased bases, unrelated
 diagnostics interleaved around the base failures, and structurally separate
-sibling type positions. For one recovered union with `N` alternatives,
-successful-base comparison, source-order preservation, and diagnostic merging
-also grow linearly with the alternatives examined.
+sibling type positions.
 
 A refinement that is the complete parameter or result annotation of a public
 function and whose written base directly names its ADT can expose only a public
@@ -787,26 +785,20 @@ generic arguments, and variant, and keeps the first written occurrence. Public
 refinements remain valid when the base and selected variants are public. The
 same private refinements remain valid on private functions.
 
-The direct check uses identities selected by unique exact lookup or
-initial-only casing recovery. Final-constructor lookup must select exactly one
-declaration. When the selected ADT contains multiple declarations with the
+The direct check selects the base identity by unique exact lookup or
+initial-only casing recovery. The written uppercase final constructor must
+resolve exactly to one declaration. When the selected ADT contains multiple declarations with the
 exact written variant name, that alternative has no visibility identity. It
 does not produce a privacy diagnostic or by itself quarantine the public
 function; the duplicate declaration keeps its independent `name.duplicate`
 diagnostic. Other union alternatives retain their independent visibility
 checks and can still quarantine the function. Casing recovery must select
-exactly one base ADT and exactly one final constructor. A recovered base or
-final constructor keeps its written spelling in diagnostic details. Its
-`name.invalid_case` diagnostic precedes the independently provable visibility
-failure. Ambiguous or unresolved casing recovery does not manufacture a
-visibility identity or a privacy diagnostic.
-When recovery retains a root union containing both invalid-cased and exact
-alternatives, the direct check visits every uniquely resolved alternative in
-written order. An earlier recovered alternative neither replaces nor hides a
-later exact alternative. The check treats the alternatives as direct roots
-only when they occupy the complete annotation and are separated only by `|`;
-paths nested inside another type shape do not become direct roots through this
-recovery.
+exactly one base ADT. A recovered base keeps its written spelling in diagnostic
+details. Its `name.invalid_case` diagnostic precedes the independently provable
+visibility failure. Ambiguous or unresolved base recovery does not manufacture
+a visibility identity or a privacy diagnostic. The check treats alternatives
+as direct roots only when they occupy the complete annotation; paths nested
+inside another type shape do not become direct roots through recovery.
 Exact qualified lookup binds the base to the written module or import identity
 before it checks arity and uniqueness. An imported `State` therefore remains
 the base of `imported::State<Int>::Hidden` when the current module also declares
@@ -849,29 +841,12 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-long-visibility-json/)
 cases verify that lookup-oriented bounded path displays do not shorten the
 written alternative used for presentation or identity.
-The recovered-and-generic visibility
-[`human`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-human/)
-and
-[`JSON`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-json/)
-cases verify that a lowercase final segment after a generic base remains a
-syntax error while its unique constructor identity reaches casing and direct
-visibility checks. They also verify complete written presentation, including
-internal type-argument trivia, beyond the bounded lookup display.
-Project checking retains that recovered source for the visibility check only
-when its parse failures are limited to the lowercase-final refinement failure
-and an incomplete-union failure at the separator immediately following the
-same recovered occurrence. The parser diagnostics remain errors. An
-incomplete union at another occurrence, or any other unrelated parse failure,
-prevents semantic analysis of the source.
-
 Visibility diagnostics retain the private declaration span when the ADT comes
 from a reusable or dependency environment. Direct visibility analysis grows
 linearly with the relevant source occurrences for wide refinement unions, many
-public declarations, recovered boundaries, and qualified imports. This bound
-includes casing recovery, same-named imported ADTs, and unrelated declarations.
-A recovered direct union retains written-order diagnostics without avoidable
-superlinear visibility-analysis work, including when recovered and exact
-generic alternatives alternate.
+public declarations, parse-clean recovered bases, and qualified imports. This
+bound includes casing recovery, same-named imported ADTs, and unrelated
+declarations.
 
 For one direct refinement whose qualified base requires initial-only casing
 recovery, increasing the qualifier depth adds linear path-normalization and
@@ -883,14 +858,8 @@ timing noise does not affect the bound.
 
 Wide record annotations on public function parameters and results remain
 outside the direct visibility boundary. The checker rejects those structural
-roots without constructing or ordering direct-refinement candidates. Nested
-generic paths likewise remain excluded when a malformed annotation requires
-fallback root recovery.
-
-Spaces and line breaks around a recovered direct union's `|` separators do not
-change whether the visibility check runs. The checker still excludes refinements
-nested in structural annotations and reports each inaccessible alternative of a
-recovered root union in the same written order described above.
+roots without constructing direct-refinement candidates. Nested generic paths
+remain excluded from the direct-root check.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies

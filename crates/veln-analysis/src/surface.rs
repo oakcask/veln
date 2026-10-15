@@ -14,7 +14,7 @@ use veln_project::{
     classify_companion_source, read_manifest,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
-use veln_syntax::{ParseDiagnostic, parse};
+use veln_syntax::parse;
 
 use crate::diagnostics::parse_diagnostic_to_envelope;
 

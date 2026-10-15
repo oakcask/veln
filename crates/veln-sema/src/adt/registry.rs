@@ -28,7 +28,7 @@ pub(crate) struct AdtRegistry {
     variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, Option<usize>>>,
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
-    type_alias_identities: BTreeSet<(Option<String>, String)>,
+    type_alias_identities: BTreeSet<DescriptorKey>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<String, SourceSpan>,
     variant_declaration_spans: HashMap<String, HashMap<String, SourceSpan>>,
@@ -74,7 +74,7 @@ struct TypeAliasDeclarationIdentity {
     end: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct DescriptorKey {
     module_name: Option<String>,
     type_name: String,
@@ -422,7 +422,7 @@ impl AdtRegistry {
 
     pub(crate) fn descriptor_is_type_alias(&self, descriptor: &AdtDescriptor) -> bool {
         self.type_alias_identities
-            .contains(&(descriptor.module_name.clone(), descriptor.type_name.clone()))
+            .contains(&DescriptorKey::new(descriptor))
     }
 
     pub(crate) fn descriptor_for_type_path_any_arity(

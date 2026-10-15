@@ -25,16 +25,9 @@ doctest creation when requested, parse diagnostics, module loading, semantic
 diagnostics, checked-core readiness, and selected-entry typed-IR readiness.
 Selection, output, execution, and write policy remain command specific.
 
-A source with parse diagnostics is normally excluded from semantic analysis.
-The pipeline retains the recovered tree only when the complete parse-diagnostic
-set contains a lowercase-final `parse.variant_refinement_type` failure and
-every other failure is either another lowercase-final failure or an
-incomplete-union failure at the separator immediately following the same
-recovered lowercase-final occurrence, apart from source trivia. Those parse
-diagnostics remain errors, and the retained tree exists only to produce
-independently provable semantic diagnostics. An incomplete union at another
-occurrence, or any other unrelated parse failure, excludes the source from
-semantic analysis.
+A source with parse diagnostics is excluded from semantic analysis. Other
+parse-clean sources in the same project can still proceed to semantic
+analysis.
 
 `doc` consumes the same project semantic diagnostics for its selected production
 sources, but retains its own source exclusion, parse recovery, schema-reference,

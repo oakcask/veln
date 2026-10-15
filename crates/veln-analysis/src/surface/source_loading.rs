@@ -28,9 +28,7 @@ pub(super) fn load_project_sources(
         {
             checked_export_source_paths.insert(source.path().as_str().to_string());
         }
-        if !parsed.diagnostics.is_empty()
-            && !retains_lowercase_final_refinement_recovery(&parsed.tree, &parsed.diagnostics)
-        {
+        if !parsed.diagnostics.is_empty() {
             derive_source_module(source, diagnostics, is_exported_source);
             record_rejected_source_module(source, parts, package);
             continue;
@@ -51,67 +49,6 @@ pub(super) fn load_project_sources(
             derived_module,
         );
     }
-}
-
-fn retains_lowercase_final_refinement_recovery(
-    tree: &veln_syntax::SyntaxTree,
-    diagnostics: &[ParseDiagnostic],
-) -> bool {
-    let lowercase_final_ranges = diagnostics
-        .iter()
-        .filter(|diagnostic| is_lowercase_final_refinement_failure(diagnostic))
-        .filter_map(|diagnostic| diagnostic.span.as_ref())
-        .map(|span| (span.start.offset, span.end.offset))
-        .collect::<std::collections::HashSet<_>>();
-    let adjacent_pipe_ranges = adjacent_recovery_pipe_ranges(tree, &lowercase_final_ranges);
-    let retains_only_refinement_recovery = diagnostics.iter().all(|diagnostic| {
-        if diagnostic.id != "parse.variant_refinement_type" {
-            return false;
-        }
-        match diagnostic.message.as_str() {
-            "variant refinement final segment must start with an ASCII uppercase letter" => true,
-            "`|` must join complete ADT variant refinement alternatives" => {
-                diagnostic.span.as_ref().is_some_and(|span| {
-                    adjacent_pipe_ranges.contains(&(span.start.offset, span.end.offset))
-                })
-            }
-            _ => false,
-        }
-    });
-    !lowercase_final_ranges.is_empty() && retains_only_refinement_recovery
-}
-
-fn adjacent_recovery_pipe_ranges(
-    tree: &veln_syntax::SyntaxTree,
-    lowercase_final_ranges: &std::collections::HashSet<(usize, usize)>,
-) -> std::collections::HashSet<(usize, usize)> {
-    let mut adjacent_pipes = std::collections::HashSet::new();
-    let mut preceding_non_trivia = None;
-    for token in tree.lossless_tokens() {
-        if matches!(
-            token.kind,
-            veln_syntax::TokenKind::Whitespace
-                | veln_syntax::TokenKind::Comment
-                | veln_syntax::TokenKind::Newline
-        ) {
-            continue;
-        }
-        if token.kind == veln_syntax::TokenKind::Pipe
-            && preceding_non_trivia.is_some_and(|range: veln_source::TextRange| {
-                lowercase_final_ranges.contains(&(range.start, range.end))
-            })
-        {
-            adjacent_pipes.insert((token.range.start, token.range.end));
-        }
-        preceding_non_trivia = Some(token.range);
-    }
-    adjacent_pipes
-}
-
-fn is_lowercase_final_refinement_failure(diagnostic: &ParseDiagnostic) -> bool {
-    diagnostic.id == "parse.variant_refinement_type"
-        && diagnostic.message
-            == "variant refinement final segment must start with an ASCII uppercase letter"
 }
 
 fn process_parsed_source(
@@ -301,84 +238,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_lowercase_final_refinement_recovery_is_lowered_after_parse_errors() {
-        let recovered = parse(&SourceFile::new(
-            "main.veln",
-            "fn expose(value: State::hidden | State<Arg>::Private) -> ()\n  ()\nend\n",
-        ));
-        assert!(
-            retains_lowercase_final_refinement_recovery(&recovered.tree, &recovered.diagnostics),
-            "{:#?}",
-            recovered.diagnostics
-        );
-
-        let recovered_generic = parse(&SourceFile::new(
-            "main.veln",
-            "fn expose(value: State<Result<Int,  Error>>::hidden) -> ()\n  ()\nend\n",
-        ));
-        assert!(
-            retains_lowercase_final_refinement_recovery(
-                &recovered_generic.tree,
-                &recovered_generic.diagnostics,
-            ),
-            "{:#?}",
-            recovered_generic.diagnostics
-        );
-
-        for text in [
-            "fn broken() -> ()\n  @\nend\n",
-            "fn broken(value: State::Hidden |) -> ()\n  ()\nend\n",
-            "fn broken(value: State::hidden) -> ()\n  @\nend\n",
-        ] {
-            let rejected = parse(&SourceFile::new("main.veln", text));
-            assert!(
-                !retains_lowercase_final_refinement_recovery(&rejected.tree, &rejected.diagnostics),
-                "{:#?}",
-                rejected.diagnostics
-            );
-        }
-    }
-
-    #[test]
-    fn unrelated_incomplete_union_does_not_share_lowercase_recovery_permission() {
-        let parsed = parse(&SourceFile::new(
-            "main.veln",
-            concat!(
-                "fn recovered(value: State<Int>::hidden | State<Int>::Visible) -> ()\n",
-                "  ()\n",
-                "end\n",
-                "fn broken(value: State::Hidden |) -> ()\n",
-                "  ()\n",
-                "end\n",
-            ),
-        ));
-
-        assert!(
-            !retains_lowercase_final_refinement_recovery(&parsed.tree, &parsed.diagnostics),
-            "{:#?}",
-            parsed.diagnostics
-        );
-    }
-
-    #[test]
-    fn project_loading_retains_only_the_scoped_refinement_recovery_tree() {
+    fn lowercase_final_parse_failure_excludes_the_source_from_semantic_loading() {
         let project = Project {
             root: ".".into(),
-            files: vec![
-                SourceFile::new(
-                    "recovered.veln",
-                    concat!(
-                        "type State<A>\n",
-                        "  Hidden(A)\n",
-                        "  Private(A)\n",
-                        "end\n",
-                        "pub fn expose(value: State::hidden | State<Int>::Private) -> ()\n",
-                        "  ()\n",
-                        "end\n",
-                    ),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Hidden\n",
+                    "end\n",
+                    "pub fn exposed(value: State::hidden) -> ()\n",
+                    "  ()\n",
+                    "end\n",
                 ),
-                SourceFile::new("rejected.veln", "fn discarded() -> ()\n  @\nend\n"),
-            ],
+            )],
             manifest: None,
         };
         let mut diagnostics = Vec::new();
@@ -387,136 +260,16 @@ mod tests {
         load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
 
         assert!(
-            parts
-                .module
-                .functions
+            diagnostics
                 .iter()
-                .any(|function| function.name.as_deref() == Some("expose")),
+                .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+            "{diagnostics:#?}"
+        );
+        assert!(parts.module.types.is_empty(), "{:#?}", parts.module.types);
+        assert!(
+            parts.module.functions.is_empty(),
             "{:#?}",
             parts.module.functions
-        );
-        assert!(
-            parts
-                .module
-                .functions
-                .iter()
-                .all(|function| function.name.as_deref() != Some("discarded")),
-            "{:#?}",
-            parts.module.functions
-        );
-        assert!(
-            diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.id == "parse.invalid_token"),
-            "{diagnostics:#?}"
-        );
-    }
-
-    #[test]
-    fn scoped_lowercase_recovery_reaches_casing_and_visibility_checks() {
-        let project = Project {
-            root: ".".into(),
-            files: vec![SourceFile::new(
-                "main.veln",
-                concat!(
-                    "pub type State\n",
-                    "  Hidden\n",
-                    "  pub Visible\n",
-                    "end\n",
-                    "pub fn expose(value: State::hidden | State::Visible) -> ()\n",
-                    "  ()\n",
-                    "end\n",
-                ),
-            )],
-            manifest: None,
-        };
-
-        let analysis =
-            crate::analysis::analyze_project(project, crate::analysis::DoctestMode::Exclude);
-        let diagnostics = analysis.checked_diagnostics();
-
-        assert!(
-            diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.id == "name.invalid_case"),
-            "{diagnostics:#?}"
-        );
-        assert!(
-            diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.id == "type.variant_refinement_private"),
-            "{diagnostics:#?}"
-        );
-        assert!(
-            analysis
-                .module
-                .functions
-                .iter()
-                .any(|decl| decl.name.as_deref() == Some("expose")),
-            "{:#?}",
-            analysis.module.functions
-        );
-    }
-
-    #[test]
-    fn unrelated_incomplete_union_excludes_source_from_importing_project() {
-        let project = Project {
-            root: ".".into(),
-            files: vec![
-                SourceFile::new(
-                    "invalid.veln",
-                    concat!(
-                        "pub type State\n",
-                        "  Hidden\n",
-                        "  pub Visible\n",
-                        "end\n",
-                        "pub fn expose(value: State::hidden | State::Visible) -> ()\n",
-                        "  ()\n",
-                        "end\n",
-                        "fn unrelated(value: State::Hidden |) -> ()\n",
-                        "  ()\n",
-                        "end\n",
-                        "pub fn okay() -> Int\n",
-                        "  1\n",
-                        "end\n",
-                    ),
-                ),
-                SourceFile::new(
-                    "consumer.veln",
-                    "use invalid\n\npub fn consume() -> Int\n  invalid::okay()\nend\n",
-                ),
-            ],
-            manifest: None,
-        };
-
-        let analysis =
-            crate::analysis::analyze_project(project, crate::analysis::DoctestMode::Exclude);
-        let diagnostics = analysis.checked_diagnostics();
-
-        assert!(
-            diagnostics.iter().any(|diagnostic| {
-                diagnostic.id == "name.unresolved"
-                    && diagnostic.message == "unresolved call_target `invalid::okay`"
-            }),
-            "{diagnostics:#?}"
-        );
-        assert!(
-            analysis
-                .module
-                .types
-                .iter()
-                .all(|decl| { decl.module_name.as_deref() != Some("invalid") }),
-            "{:#?}",
-            analysis.module.types
-        );
-        assert!(
-            analysis
-                .module
-                .functions
-                .iter()
-                .all(|decl| { decl.module_name.as_deref() != Some("invalid") }),
-            "{:#?}",
-            analysis.module.functions
         );
     }
 }

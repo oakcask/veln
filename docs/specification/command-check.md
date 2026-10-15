@@ -45,12 +45,8 @@ boundary.
 
 ## Analysis gates
 
-Parse diagnostics normally suppress semantic diagnostics for that file, but
-other parse-clean files may still report semantic errors. The scoped
-lowercase-final variant-refinement recovery in
-[Shared Command Analysis](command-analysis.md#shared-command-analysis) retains
-an otherwise rejected source for independently provable semantic diagnostics;
-its parse failures remain errors and still fail `check`. Cross-file imports and
+Parse diagnostics suppress semantic diagnostics for that file, but other
+parse-clean files may still report semantic errors. Cross-file imports and
 qualified calls from analyzed files participate in the same analysis path as
 `run` and `test`. Lowering reports checked-core blockers such as missing
 expressions and call or constructor arity mismatches. Parse-clean, semantically

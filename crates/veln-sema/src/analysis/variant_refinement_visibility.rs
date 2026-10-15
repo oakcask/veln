@@ -199,7 +199,9 @@ fn recovered_root_exposure_candidates(
         &nested_path_occurrences,
         &structured_candidates,
     );
-    let candidates = merge_candidates_in_source_order(structured_candidates, recovered_candidates);
+    let mut candidates = structured_candidates;
+    candidates.extend(recovered_candidates);
+    candidates.sort_by_key(|candidate| candidate.occurrence_span.start.offset);
     if direct_root_sequence(annotation_text, &candidates) {
         candidates
     } else {
@@ -220,7 +222,15 @@ fn recovered_type_path_candidates(
         .collect::<HashSet<_>>();
     let mut candidates = Vec::new();
     for path in paths {
-        if path.segments.len() < 2 || !span_within(&path.application_span, annotation_span) {
+        if path.segments.len() < 2
+            || !span_within(&path.application_span, annotation_span)
+            || !path.segments.last().is_some_and(|segment| {
+                segment
+                    .as_bytes()
+                    .first()
+                    .is_some_and(u8::is_ascii_uppercase)
+            })
+        {
             continue;
         }
         record_visibility_occurrence_lookup(1);
@@ -245,32 +255,6 @@ fn recovered_type_path_candidates(
             variant_span: path.segment_spans[variant_index].clone(),
             occurrence_span: path.application_span.clone(),
         });
-    }
-    candidates
-}
-
-fn merge_candidates_in_source_order(
-    structured: Vec<RefinementExposureCandidate>,
-    recovered: Vec<RefinementExposureCandidate>,
-) -> Vec<RefinementExposureCandidate> {
-    let mut structured = structured.into_iter().peekable();
-    let mut recovered = recovered.into_iter().peekable();
-    let mut candidates = Vec::with_capacity(structured.len() + recovered.len());
-    while structured.peek().is_some() || recovered.peek().is_some() {
-        record_visibility_candidate_ordering(1);
-        let take_structured = match (structured.peek(), recovered.peek()) {
-            (Some(structured), Some(recovered)) => {
-                structured.occurrence_span.start.offset <= recovered.occurrence_span.start.offset
-            }
-            (Some(_), None) => true,
-            (None, Some(_)) => false,
-            (None, None) => unreachable!("candidate merge must have a remaining stream"),
-        };
-        if take_structured {
-            candidates.push(structured.next().expect("structured candidate"));
-        } else {
-            candidates.push(recovered.next().expect("recovered candidate"));
-        }
     }
     candidates
 }
@@ -594,7 +578,6 @@ pub(crate) struct VisibilityCandidateWork {
     pub(crate) root_classification: usize,
     pub(crate) candidate_construction: usize,
     pub(crate) occurrence_lookup: usize,
-    pub(crate) candidate_ordering: usize,
 }
 
 #[cfg(test)]
@@ -604,7 +587,6 @@ impl VisibilityCandidateWork {
             root_classification: 0,
             candidate_construction: 0,
             occurrence_lookup: 0,
-            candidate_ordering: 0,
         }
     }
 }
@@ -649,18 +631,6 @@ fn record_visibility_occurrence_lookup(amount: usize) {
 
 #[cfg(not(test))]
 fn record_visibility_occurrence_lookup(_amount: usize) {}
-
-#[cfg(test)]
-fn record_visibility_candidate_ordering(amount: usize) {
-    VISIBILITY_CANDIDATE_WORK.with(|work| {
-        let mut next = work.get();
-        next.candidate_ordering += amount;
-        work.set(next);
-    });
-}
-
-#[cfg(not(test))]
-fn record_visibility_candidate_ordering(_amount: usize) {}
 
 #[cfg(not(test))]
 fn record_visibility_work(_amount: usize) {}

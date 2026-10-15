@@ -213,6 +213,99 @@ fn nested_and_alias_refinements_remain_out_of_scope() {
 }
 
 #[test]
+fn alias_collisions_classify_the_descriptor_selected_by_arity() {
+    for (declaration, expected_detail) in [
+        (
+            concat!("type State<A>\n", "  pub Hidden(A)\n", "end\n",),
+            "\"base_type\":\"main::State\"",
+        ),
+        (
+            concat!("pub type State<A>\n", "  Hidden(A)\n", "end\n",),
+            "\"variant\":\"Hidden\"",
+        ),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "mod main\n\
+                 pub type Public\n  pub Hidden\nend\n\
+                 pub type State = Public\n\
+                 {declaration}\
+                 pub fn exposed(value: State<Int>::Hidden) -> ()\n  ()\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        let diagnostics = analyze_surface_module(&module);
+        let visibility = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .collect::<Vec<_>>();
+        assert_eq!(visibility.len(), 1, "{diagnostics:#?}");
+        let json = veln_diagnostics::diagnostic_to_json(visibility[0]).to_json();
+        assert!(json.contains(expected_detail), "{json}");
+
+        let environment = TypeEnvironment::from_module(&module);
+        assert!(!environment.function_is_published_for_test("exposed"));
+        let consumer = lower_surface_ast(
+            &parse(&SourceFile::new(
+                "consumer.veln",
+                "mod consumer\nuse main\n",
+            ))
+            .tree,
+        );
+        let consumer_environment =
+            TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+        assert!(
+            consumer_environment
+                .function_path(
+                    &["main".to_string(), "exposed".to_string()],
+                    Some("consumer"),
+                )
+                .is_none()
+        );
+        assert!(
+            consumer_environment
+                .unqualified_function_import_candidates("exposed", Some("consumer"))
+                .is_empty()
+        );
+
+        let lowered = lower_checked_surface_module(&module);
+        assert!(lowered.core.is_none());
+        assert!(lowered.ir.is_none());
+    }
+
+    let control = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "pub type Public\n",
+            "  Open\n",
+            "end\n",
+            "pub type State = Public\n",
+            "pub type State<A>\n",
+            "  Hidden(A)\n",
+            "end\n",
+            "pub fn accepted(value: State::Open) -> State::Open\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&control);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+        "{diagnostics:#?}"
+    );
+    assert!(TypeEnvironment::from_module(&module).function_is_published_for_test("accepted"));
+}
+
+#[test]
 fn visibility_failure_quarantines_the_signature_and_blocks_lowering() {
     let source = SourceFile::new(
         "main.veln",
@@ -305,7 +398,6 @@ fn recovered_visibility_failure_quarantines_aliases_and_checked_output() {
     );
 }
 
-mod recovered_unions;
 #[test]
 fn mixed_visibility_failure_quarantines_callable_facts_aliases_and_lowering() {
     let source = SourceFile::new(

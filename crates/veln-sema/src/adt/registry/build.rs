@@ -202,7 +202,7 @@ impl AdtRegistry {
         alias_targets.extend(source_descriptors.clone());
         let (aliases, resolved_alias_declarations) = type_alias_descriptors(module, &alias_targets);
         let mut type_alias_identities = base.type_alias_identities.clone();
-        type_alias_identities.extend(aliases.iter().map(descriptor_identity));
+        type_alias_identities.extend(aliases.iter().map(DescriptorKey::new));
         let mut resolved_type_alias_declarations = base.resolved_type_alias_declarations.clone();
         resolved_type_alias_declarations.extend(resolved_alias_declarations);
         extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
@@ -235,7 +235,7 @@ impl AdtRegistry {
         module: &SurfaceModule,
         local_descriptor_start: usize,
         source_descriptor_start: usize,
-        type_alias_identities: BTreeSet<(Option<String>, String)>,
+        type_alias_identities: BTreeSet<DescriptorKey>,
         resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     ) {
         self.type_alias_identities = type_alias_identities;
@@ -437,12 +437,13 @@ fn retained_companion_access_targets(
 fn retained_type_alias_identities(
     registry: &AdtRegistry,
     module_names: &BTreeSet<String>,
-) -> BTreeSet<(Option<String>, String)> {
+) -> BTreeSet<DescriptorKey> {
     registry
         .type_alias_identities
         .iter()
-        .filter(|(module_name, _)| {
-            module_name
+        .filter(|identity| {
+            identity
+                .module_name
                 .as_ref()
                 .is_none_or(|module_name| module_names.contains(module_name))
         })

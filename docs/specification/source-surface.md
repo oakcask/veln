@@ -163,16 +163,10 @@ The parser reports `parse.variant_refinement_type` for these malformed forms:
 - adjacent type text outside the completed structural position; or
 - `|>` between alternatives.
 
-A project check keeps the recovered tree for semantic diagnostics only when
-every parse failure in that source is either the lowercase-final diagnostic or
-an incomplete-union diagnostic at the separator immediately following that
-same recovered lowercase-final occurrence, apart from source trivia. The
-lowercase spelling remains rejected source syntax. This recovery also applies
-when the base has type arguments. The recovered structural occurrence retains
-the complete base, type arguments and their internal trivia, final spelling,
-and source spans for casing and type diagnostics. An incomplete union at
-another occurrence, or any other parse failure, keeps the source out of
-semantic analysis.
+The parser preserves a lossless tree for diagnostics and formatting recovery,
+but any parse diagnostic keeps that source out of semantic analysis. A
+lowercase final segment remains rejected syntax, including when the base has
+type arguments.
 
 Nesting beyond 256 containing generic-argument boundaries reports the same
 diagnostic and does not prevent lossless-tree construction.

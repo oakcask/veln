@@ -160,16 +160,11 @@ arguments remain distinct while an exact written repeat retains its first
 occurrence. The complete written alternative is reconstructed independently
 of any bounded path display used for lookup. The declaration entry remains
 present when the ADT comes from a reusable or base environment.
-If initial-only casing recovery uniquely selects the base ADT and final
-constructor, `name.invalid_case` precedes the independent privacy diagnostic,
-whose `written_type` retains the source spelling. An ambiguous or unresolved
-base or final-constructor recovery does not produce a privacy diagnostic.
-When one root union contains both invalid-cased and exact alternatives,
-recovery preserves every uniquely resolved direct alternative for this
-diagnostic in written order. This rule applies only when those alternatives
-occupy the complete annotation and are separated by `|`. Spaces and line
-breaks around the separator do not change the diagnostic set, order, spans, or
-declaration quarantine. A type path nested in a root alternative's generic
+If initial-only casing recovery uniquely selects the base ADT and the written
+uppercase final segment resolves exactly, `name.invalid_case` precedes the
+independent privacy diagnostic. The diagnostic's `written_type` retains the
+source spelling. Ambiguous or unresolved base recovery does not produce a
+privacy diagnostic. A type path nested in a root alternative's generic
 arguments or in another structural type shape does not become an additional
 direct root.
 An exact final name shared by multiple variant declarations in the selected
@@ -202,21 +197,6 @@ The long-alternative
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-long-visibility-json/)
 cases verify complete presentation beyond the bounded lookup display.
-The recovered-and-generic visibility
-[`human`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-human/)
-and
-[`JSON`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-json/)
-cases verify parse-before-casing-before-privacy ordering for generic bases with
-lowercase final segments in public parameters and results. Their JSON output
-fixes the complete `written_type`, including internal type-argument trivia
-beyond the bounded lookup display, the remaining closed detail fields, and the
-related declaration and boundary locations. The CLI retains the recovered
-source for semantic analysis only when each accompanying incomplete-union
-failure selects the separator immediately following the same recovered
-lowercase-final occurrence, apart from source trivia, and no unrelated parse
-failure occurs. This diagnostic recovery does not make the lowercase final
-segment valid syntax.
-
 A failed base retains its resolved identity as semantic analysis state for
 suppression and later analysis. This diagnostic recovery does not make the
 invalid refinement selectable by language-service protocols. A source-less

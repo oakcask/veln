@@ -398,10 +398,6 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
         candidate_work.occurrence_lookup == 0,
         "structural roots must be rejected before occurrence lookup: {candidate_work:?}"
     );
-    assert!(
-        candidate_work.candidate_ordering == 0,
-        "structural roots must be rejected before candidate ordering: {candidate_work:?}"
-    );
     eprintln!(
         "wide structural refinement visibility: boundary={boundary} fields={count} \
          candidate_work={candidate_work:?} visibility_work={visibility_work}"
@@ -409,7 +405,6 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
     candidate_work.root_classification
         + candidate_work.candidate_construction
         + candidate_work.occurrence_lookup
-        + candidate_work.candidate_ordering
         + visibility_work
 }
 
@@ -427,97 +422,6 @@ fn public_result_structural_visibility_work_has_bounded_growth() {
     let first_growth = work[1] - work[0];
     let second_growth = work[2] - work[1];
     assert!(second_growth <= first_growth * 3, "work={work:?}");
-}
-
-#[test]
-fn recovered_root_union_candidate_ordering_work_is_linear() {
-    let measurements = [16, 32, 64].map(|count| {
-        let mut source =
-            String::from("mod main\npub type Arg\n  pub Value\nend\npub type State<A>\n");
-        for index in 0..count {
-            source.push_str(&format!("  Hidden{index}\n"));
-        }
-        source.push_str("end\npub fn expose(value: ");
-        for index in 0..count {
-            if index > 0 {
-                source.push_str(" | ");
-            }
-            if index % 2 == 0 {
-                source.push_str(&format!("State::hidden{index}"));
-            } else {
-                source.push_str(&format!("State<main::Arg>::Hidden{index}"));
-            }
-        }
-        source.push_str(") -> ()\n  ()\nend\n");
-
-        let source = SourceFile::new("main.veln", source);
-        let parsed = parse(&source);
-        assert!(
-            parsed
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
-            "count={count} diagnostics={:#?}",
-            parsed.diagnostics
-        );
-        let module = lower_surface_ast(&parsed.tree);
-        crate::analysis::reset_visibility_work();
-        let diagnostics = analyze_surface_module(&module);
-        let candidate_work = crate::analysis::take_visibility_candidate_work();
-        let visibility = diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-            .collect::<Vec<_>>();
-        assert_eq!(visibility.len(), count, "count={count} diagnostics={diagnostics:#?}");
-        let diagnostic_variants = visibility
-            .iter()
-            .map(|diagnostic| {
-                let span = diagnostic.span.as_ref().expect("visibility span");
-                source.text()[span.start.offset..span.end.offset].to_string()
-            })
-            .collect::<Vec<_>>();
-        let expected_variants = (0..count)
-            .map(|index| {
-                if index % 2 == 0 {
-                    format!("hidden{index}")
-                } else {
-                    format!("Hidden{index}")
-                }
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(
-            diagnostic_variants, expected_variants,
-            "privacy diagnostics must retain the recovered union's written order"
-        );
-        assert!(
-            candidate_work.candidate_construction >= count,
-            "count={count} candidate_work={candidate_work:?}"
-        );
-        assert!(
-            candidate_work.occurrence_lookup >= count,
-            "count={count} candidate_work={candidate_work:?}"
-        );
-        assert!(
-            candidate_work.candidate_ordering >= count,
-            "every direct alternative must pass through source ordering: count={count} candidate_work={candidate_work:?}"
-        );
-        let measured = candidate_work.candidate_construction
-            + candidate_work.occurrence_lookup
-            + candidate_work.candidate_ordering;
-        eprintln!(
-            "recovered refinement visibility ordering: alternatives={count} \
-             candidate_work={candidate_work:?} measured={measured}"
-        );
-        measured
-    });
-
-    let first_growth = measurements[1] - measurements[0];
-    let second_growth = measurements[2] - measurements[1];
-    assert_eq!(
-        second_growth,
-        first_growth * 2,
-        "recovered candidate ordering work must have exact affine growth: {measurements:?}"
-    );
 }
 
 #[test]
@@ -549,69 +453,6 @@ fn public_visibility_work_is_linear_for_many_declarations() {
         );
         eprintln!(
             "variant refinement visibility declarations: declarations={count} \
-             visibility_work={visibility_work} descriptor_work={descriptor_work} \
-             variant_work={variant_work} work={work}"
-        );
-        work
-    });
-
-    let first_growth = work[1] - work[0];
-    let second_growth = work[2] - work[1];
-    assert_eq!(second_growth, first_growth * 2, "work={work:?}");
-}
-
-#[test]
-fn recovered_final_variant_visibility_work_is_linear_for_one_widening_adt() {
-    let work = [16, 32, 64].map(|count| {
-        let mut source = String::from("pub type State\n");
-        for index in 0..count {
-            source.push_str(&format!("  Hidden{index}\n"));
-        }
-        source.push_str("end\n");
-        for index in 0..count {
-            source.push_str(&format!(
-                "pub fn expose_{index}(value: State::hidden{index}) -> ()\n  ()\nend\n"
-            ));
-        }
-
-        let source = SourceFile::new("main.veln", source);
-        let parsed = parse(&source);
-        assert_eq!(
-            parsed.diagnostics.len(),
-            count,
-            "count={count} parse diagnostics={:#?}",
-            parsed.diagnostics
-        );
-        assert!(
-            parsed
-                .diagnostics
-                .iter()
-                .all(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
-            "count={count} parse diagnostics={:#?}",
-            parsed.diagnostics
-        );
-        crate::analysis::reset_visibility_work();
-        crate::adt::registry::descriptor_lookup_counters::reset();
-        crate::adt::registry::variant_lookup_counters::reset();
-        let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
-        let visibility_work = crate::analysis::take_visibility_work();
-        let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
-        let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
-        let work = visibility_work + descriptor_work + variant_work;
-        assert_eq!(
-            diagnostics
-                .iter()
-                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-                .count(),
-            count,
-            "count={count} diagnostics={diagnostics:#?}"
-        );
-        assert!(
-            variant_work >= count * 2,
-            "exact misses and recovered index lookups must both be counted: count={count} variant_work={variant_work}"
-        );
-        eprintln!(
-            "recovered variant refinement visibility: variants={count} declarations={count} \
              visibility_work={visibility_work} descriptor_work={descriptor_work} \
              variant_work={variant_work} work={work}"
         );

@@ -106,15 +106,8 @@ impl TypeEnvironment {
     ) -> Option<&'a crate::adt::descriptors::AdtVariantDescriptor> {
         match self.adts.variant_for_descriptor(descriptor, variant) {
             crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
-            crate::adt::registry::VariantLookup::Ambiguous => None,
-            crate::adt::registry::VariantLookup::Missing => {
-                let recovered = recover_type_case(variant)?;
-                match self.adts.variant_for_descriptor(descriptor, &recovered) {
-                    crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
-                    crate::adt::registry::VariantLookup::Ambiguous
-                    | crate::adt::registry::VariantLookup::Missing => None,
-                }
-            }
+            crate::adt::registry::VariantLookup::Ambiguous
+            | crate::adt::registry::VariantLookup::Missing => None,
         }
     }
 
@@ -366,31 +359,6 @@ impl TypeEnvironment {
             return false;
         };
         self.variant_refinement_base_name_resolves(&recovered, current_module)
-    }
-
-    pub(crate) fn recovered_variant_refinement_path_resolves(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-    ) -> bool {
-        if segments.len() < 2 {
-            return false;
-        }
-        if matches!(
-            self.adts.constructor(segments, current_module, &self.uses),
-            crate::adt::registry::ConstructorLookup::Found(_)
-        ) {
-            return false;
-        }
-        let variant_index = segments.len() - 1;
-        let base = segments[..variant_index].join("::");
-        let Some(descriptor) =
-            self.variant_refinement_descriptor_identity(&base, 0, current_module)
-        else {
-            return false;
-        };
-        self.variant_refinement_variant_identity(descriptor, &segments[variant_index])
-            .is_some()
     }
 
     pub(crate) fn recovered_variant_refinement_base_resolves(

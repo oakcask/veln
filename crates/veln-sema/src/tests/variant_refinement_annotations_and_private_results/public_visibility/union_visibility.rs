@@ -194,41 +194,6 @@ fn long_generic_visibility_uses_complete_structured_alternative_identity() {
 }
 
 #[test]
-fn recovered_long_generic_root_keeps_complete_written_alternatives() {
-    let long_argument = format!("{}Int{}", "Wrap<".repeat(48), ">".repeat(48));
-    let recovered = "State::hidden";
-    let exact = format!("State<{long_argument}>::Private");
-    assert!(exact.len() > 256, "{exact}");
-    let source = format!(
-        "pub type Wrap<A>\n  pub Wrapped(A)\nend\n\
-         pub type State<A>\n  Hidden(A)\n  Private(A)\nend\n\
-         pub fn expose(value: {recovered} | {exact}) -> ()\n  ()\nend\n"
-    );
-    let parsed = parse(&SourceFile::new("main.veln", source.clone()));
-    assert!(
-        parsed
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
-        "{:#?}",
-        parsed.diagnostics
-    );
-    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
-    let visibility = diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-        .collect::<Vec<_>>();
-    assert_eq!(visibility.len(), 2, "{diagnostics:#?}");
-    for (diagnostic, written_type) in visibility.iter().zip([recovered, exact.as_str()]) {
-        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
-        assert!(
-            json.contains(&format!("\"written_type\":\"{written_type}\"")),
-            "{json}"
-        );
-    }
-}
-
-#[test]
 fn public_refinements_and_private_function_refinements_remain_valid() {
     let diagnostics = diagnostics_for(concat!(
         "type Secret\n",
