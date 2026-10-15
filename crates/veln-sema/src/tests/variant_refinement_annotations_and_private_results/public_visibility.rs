@@ -675,36 +675,61 @@ fn union_visibility_keeps_distinct_generic_arguments_and_removes_exact_repeats()
         assert!(json.contains("\"variant\":\"Hidden\""), "{json}");
     }
 
-    let union_base = diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
-        .collect::<Vec<_>>();
-    assert_eq!(union_base.len(), 1, "{diagnostics:#?}");
-    let union_json = veln_diagnostics::diagnostic_to_json(union_base[0]).to_json();
-    assert!(
-        union_json.contains("\"expected_base_type\":\"State<Arg>\"")
-            || union_json.contains("\"expected_base_type\":\"State<Alias>\""),
-        "{union_json}"
-    );
-    assert!(
-        union_json.contains("\"actual_base_type\":\"State<String>\""),
-        "{union_json}"
-    );
-    assert_eq!(
-        union_base[0]
-            .span
-            .as_ref()
-            .expect("union base span")
-            .start
-            .offset,
-        source
-            .find("State<String>::Hidden")
-            .expect("second alternative")
-    );
     assert!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id != "type.invalid_annotation"),
+            .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn union_visibility_preserves_distinct_unresolved_generic_arguments() {
+    let source = concat!(
+        "pub type Box<A>\n",
+        "  pub Boxed(A)\n",
+        "end\n",
+        "pub type State<A>\n",
+        "  Hidden(A)\n",
+        "end\n",
+        "pub fn expose(value: State<missing::A>::Hidden | State<other::B>::Hidden | State<missing::A>::Hidden | State<Box<missing::C>>::Hidden | State<Box<other::D>>::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let diagnostics = diagnostics_for(source);
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), 4, "{diagnostics:#?}");
+    let expected = [
+        "State<missing::A>::Hidden",
+        "State<other::B>::Hidden",
+        "State<Box<missing::C>>::Hidden",
+        "State<Box<other::D>>::Hidden",
+    ];
+    for (diagnostic, written_type) in visibility.iter().zip(expected) {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"written_type\":\"{written_type}\"")),
+            "{json}"
+        );
+    }
+    assert_eq!(
+        visibility
+            .iter()
+            .map(|diagnostic| diagnostic
+                .span
+                .as_ref()
+                .expect("visibility span")
+                .start
+                .offset)
+            .collect::<Vec<_>>(),
+        expected
+            .iter()
+            .map(|alternative| source.find(alternative).expect("written alternative"))
+            .map(|offset| offset + source[offset..].find("Hidden").expect("variant segment"))
+            .collect::<Vec<_>>(),
         "{diagnostics:#?}"
     );
 }
@@ -759,7 +784,6 @@ fn invalid_generic_arity_retains_independent_visibility_failures() {
         .filter(|diagnostic| {
             diagnostic.id == "type.invalid_annotation"
                 || diagnostic.id == "type.variant_refinement_private"
-                || diagnostic.id == "type.variant_union_base"
                 || diagnostic.id == "type.variant_mismatch"
         })
         .map(|diagnostic| diagnostic.id.as_str())

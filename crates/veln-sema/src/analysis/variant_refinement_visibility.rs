@@ -318,68 +318,74 @@ fn refinement_alternative_identity(
 ) -> RefinementAlternativeIdentity {
     if let Ok(Type::VariantRefinement { args, variants, .. }) = parse_type_annotation(written_type)
     {
-        return RefinementAlternativeIdentity::Resolved {
-            args: args
-                .into_iter()
-                .map(|argument| {
-                    canonical_type_identity(
-                        environment.canonicalize_type_annotation(argument, current_module),
-                    )
-                })
-                .collect(),
-            variants: variants.to_vec(),
-        };
+        let args = args
+            .into_iter()
+            .map(|argument| {
+                canonical_type_identity(
+                    environment.canonicalize_type_annotation(argument, current_module),
+                )
+            })
+            .collect::<Option<Vec<_>>>();
+        if let Some(args) = args {
+            return RefinementAlternativeIdentity::Resolved {
+                args,
+                variants: variants.to_vec(),
+            };
+        }
     }
     RefinementAlternativeIdentity::Written(written_type.to_string())
 }
 
-fn canonical_type_identity(ty: Type) -> Type {
+fn canonical_type_identity(ty: Type) -> Option<Type> {
     match ty {
-        Type::Named { identity, args, .. } => Type::resolved_named(
+        Type::Named { identity, args, .. } => Some(Type::resolved_named(
             identity.clone(),
             identity,
-            args.into_iter().map(canonical_type_identity).collect(),
-        ),
+            args.into_iter()
+                .map(canonical_type_identity)
+                .collect::<Option<Vec<_>>>()?,
+        )),
         Type::VariantRefinement {
             identity,
             args,
             variants,
             unresolved_alternatives,
             ..
-        } => Type::VariantRefinement {
+        } if unresolved_alternatives.is_empty() => Some(Type::VariantRefinement {
             name: identity.clone(),
             identity,
-            args: args.into_iter().map(canonical_type_identity).collect(),
-            variants,
-            unresolved_alternatives: unresolved_alternatives
+            args: args
                 .into_iter()
-                .map(|(name, args, variant)| {
-                    (
-                        name,
-                        args.into_iter().map(canonical_type_identity).collect(),
-                        variant,
-                    )
-                })
-                .collect(),
-        },
-        Type::Record(fields) => Type::Record(
+                .map(canonical_type_identity)
+                .collect::<Option<Vec<_>>>()?,
+            variants,
+            unresolved_alternatives: Vec::new(),
+        }),
+        Type::VariantRefinement { .. } => None,
+        Type::Record(fields) => Some(Type::Record(
             fields
                 .into_iter()
-                .map(|(name, ty)| (name, canonical_type_identity(ty)))
-                .collect(),
-        ),
+                .map(|(name, ty)| Some((name, canonical_type_identity(ty)?)))
+                .collect::<Option<Vec<_>>>()?,
+        )),
         Type::Function {
             params,
             variadic,
             return_type,
             effects,
-        } => Type::Function {
-            params: params.into_iter().map(canonical_type_identity).collect(),
-            variadic: variadic.map(|ty| Box::new(canonical_type_identity(*ty))),
-            return_type: Box::new(canonical_type_identity(*return_type)),
+        } => Some(Type::Function {
+            params: params
+                .into_iter()
+                .map(canonical_type_identity)
+                .collect::<Option<Vec<_>>>()?,
+            variadic: match variadic {
+                Some(ty) => Some(Box::new(canonical_type_identity(*ty)?)),
+                None => None,
+            },
+            return_type: Box::new(canonical_type_identity(*return_type)?),
             effects,
-        },
-        Type::Unknown => Type::Unknown,
+        }),
+        Type::Unknown => None,
     }
 }
 

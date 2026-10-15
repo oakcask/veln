@@ -206,20 +206,6 @@ fn merge_variant_refinement_base_diagnostics(
             diagnostics.push(base.diagnostic);
         }
     }
-    let union_base_spans = diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
-        .filter_map(|diagnostic| diagnostic.span.as_ref())
-        .map(|span| (span.file.clone(), span.start.offset, span.end.offset))
-        .collect::<Vec<_>>();
-    diagnostics.retain(|diagnostic| {
-        diagnostic.id != "type.invalid_annotation"
-            || diagnostic.span.as_ref().is_none_or(|span| {
-                !union_base_spans.iter().any(|(file, start, end)| {
-                    file == &span.file && span.start.offset <= *start && *end <= span.end.offset
-                })
-            })
-    });
 }
 
 type BaseDiagnosticsByFile = HashMap<SourcePath, (Vec<usize>, usize)>;

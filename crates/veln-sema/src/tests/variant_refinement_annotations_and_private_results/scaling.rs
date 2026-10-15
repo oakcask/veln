@@ -179,7 +179,7 @@ fn failed_union_alternatives_keep_linear_recovery_and_merge_work() {
         assert_eq!(
             diagnostics
                 .iter()
-                .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+                .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
                 .count(),
             count / 2,
             "count={count} diagnostics={diagnostics:#?}"

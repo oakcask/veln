@@ -152,8 +152,12 @@ Related entries identify the `private_type_declaration` or
 in written order. It removes paths with the same resolved base, canonical
 generic arguments, and variant, and retains the first written path. Canonical
 generic arguments recursively use resolved type identities, so an alias and
-its resolved target do not create separate privacy diagnostics. The declaration
-entry remains present when the ADT comes from a reusable or base environment.
+its resolved target do not create separate privacy diagnostics. Canonical
+identity is used only when every nested type component resolves. Otherwise,
+deduplication uses the complete written alternative, so distinct unresolved
+arguments remain distinct while an exact written repeat retains its first
+occurrence. The declaration entry remains present when the ADT comes from a
+reusable or base environment.
 If initial-only casing recovery uniquely selects the base ADT and final
 constructor, `name.invalid_case` precedes the independent privacy diagnostic,
 whose `written_type` retains the source spelling. An ambiguous or unresolved
@@ -186,8 +190,8 @@ The generic-union visibility
 [`human`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-json/)
-cases verify complete alternative identity, exact duplicate removal, and the
-independent union-base diagnostic.
+cases verify complete alternative identity, exact duplicate removal, distinct
+unresolved arguments, and nested unresolved arguments.
 
 A failed base retains its resolved identity as semantic analysis state for
 suppression and later analysis. This diagnostic recovery does not make the
@@ -210,12 +214,9 @@ Within one refinement union, a failed alternative does not establish or clear
 the expected base. The earliest successfully instantiated alternative
 establishes that base. Each later successfully instantiated alternative is
 compared with it in written order. A different ADT identity or different
-canonical generic arguments report `type.variant_union_base` at the later
-alternative, even when a failed alternative occurs before or between the
-successful alternatives. Its closed details contain `expected_base_type` and
-`actual_base_type`. A related `expected_variant_union_base` entry identifies
-the first successfully instantiated alternative. The rejected union does not
-also report `type.invalid_annotation` for the same mismatch.
+canonical generic arguments report the existing `type.invalid_annotation` at
+the later alternative, even when a failed alternative occurs before or between
+the successful alternatives.
 When a nested type argument is invalid, the checker still reports an enclosing
 base-eligibility failure that can be proved from the enclosing base identity
 alone. It suppresses an enclosing annotation or final-segment failure that

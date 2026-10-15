@@ -835,8 +835,8 @@ The generic-union visibility
 [`human`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-json/)
-cases verify complete alternative identity, exact duplicate removal, and the
-independent union-base mismatch.
+cases verify complete alternative identity, exact duplicate removal, distinct
+unresolved arguments, and nested unresolved arguments.
 
 Visibility diagnostics retain the private declaration span when the ADT comes
 from a reusable or dependency environment. Deterministic work counters compare
