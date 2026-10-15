@@ -27,11 +27,14 @@ Selection, output, execution, and write policy remain command specific.
 
 A source with parse diagnostics is normally excluded from semantic analysis.
 The pipeline retains the recovered tree only when the complete parse-diagnostic
-set contains a lowercase-final `parse.variant_refinement_type` failure and no
-failure other than lowercase-final or incomplete-union variant-refinement
-failures. Those parse diagnostics remain errors, and the retained tree exists
-only to produce independently provable semantic diagnostics. Any unrelated
-parse failure excludes the source from semantic analysis.
+set contains a lowercase-final `parse.variant_refinement_type` failure and
+every other failure is either another lowercase-final failure or an
+incomplete-union failure at the separator immediately following the same
+recovered lowercase-final occurrence, apart from source trivia. Those parse
+diagnostics remain errors, and the retained tree exists only to produce
+independently provable semantic diagnostics. An incomplete union at another
+occurrence, or any other unrelated parse failure, excludes the source from
+semantic analysis.
 
 `doc` consumes the same project semantic diagnostics for its selected production
 sources, but retains its own source exclusion, parse recovery, schema-reference,

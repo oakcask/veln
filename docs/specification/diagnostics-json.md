@@ -211,8 +211,10 @@ alternative followed by an exact generic alternative, unqualified parameters,
 results, complete detail fields, and related declaration and boundary
 locations. The CLI reports the lowercase-final parse failures before these
 semantic diagnostics. It retains the recovered source for semantic analysis
-only when no unrelated parse failure occurs; this diagnostic recovery does not
-make the lowercase final segment valid syntax.
+only when each accompanying incomplete-union failure selects the separator
+immediately following the same recovered lowercase-final occurrence, apart
+from source trivia, and no unrelated parse failure occurs. This diagnostic
+recovery does not make the lowercase final segment valid syntax.
 
 A failed base retains its resolved identity as semantic analysis state for
 suppression and later analysis. This diagnostic recovery does not make the
