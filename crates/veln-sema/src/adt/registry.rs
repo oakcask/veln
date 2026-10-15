@@ -473,7 +473,9 @@ impl AdtRegistry {
         uses: &[UseDecl],
     ) -> Option<QualifiedSourceIdentity> {
         let module_path = segments[..segments.len().saturating_sub(1)].join("::");
-        if current_module == Some(module_path.as_str()) {
+        if current_module == Some(module_path.as_str())
+            && self.source_identity_exists(current_module, type_name)
+        {
             return Some(QualifiedSourceIdentity::Source((
                 current_module.map(str::to_string),
                 type_name.to_string(),
@@ -514,14 +516,22 @@ impl AdtRegistry {
         } else {
             return None;
         };
-        match modules.as_slice() {
-            [module] => Some(QualifiedSourceIdentity::Source((
-                Some(module.clone()),
-                type_name.to_string(),
-            ))),
-            [] => None,
-            _ => Some(QualifiedSourceIdentity::Ambiguous),
+        let mut candidates = modules
+            .iter()
+            .filter(|module| self.source_identity_exists(Some(module), type_name));
+        let module = candidates.next()?;
+        if candidates.next().is_some() {
+            return Some(QualifiedSourceIdentity::Ambiguous);
         }
+        Some(QualifiedSourceIdentity::Source((
+            Some(module.clone()),
+            type_name.to_string(),
+        )))
+    }
+
+    fn source_identity_exists(&self, module_name: Option<&str>, type_name: &str) -> bool {
+        self.descriptors_by_source_identity
+            .contains_key(&(module_name.map(str::to_string), type_name.to_string()))
     }
 
     fn recovered_qualified_source_identity(
