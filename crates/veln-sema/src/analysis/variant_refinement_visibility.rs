@@ -310,8 +310,12 @@ fn private_exposure<'a>(
         return None;
     }
     record_visibility_work(1);
-    let alternative_identity =
-        refinement_alternative_identity(&candidate.written_type, current_module, environment);
+    let alternative_identity = refinement_alternative_identity(
+        &candidate.written_type,
+        &variant.name,
+        current_module,
+        environment,
+    );
     Some(PrivateExposure {
         written_type: candidate.written_type,
         base_span: candidate.base_span,
@@ -326,11 +330,11 @@ fn private_exposure<'a>(
 
 fn refinement_alternative_identity(
     written_type: &str,
+    resolved_variant: &str,
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> RefinementAlternativeIdentity {
-    if let Ok(Type::VariantRefinement { args, variants, .. }) = parse_type_annotation(written_type)
-    {
+    if let Ok(Type::VariantRefinement { args, .. }) = parse_type_annotation(written_type) {
         let args = args
             .into_iter()
             .map(|argument| {
@@ -342,7 +346,7 @@ fn refinement_alternative_identity(
         if let Some(args) = args {
             return RefinementAlternativeIdentity::Resolved {
                 args,
-                variants: variants.to_vec(),
+                variants: vec![resolved_variant.to_string()],
             };
         }
     }

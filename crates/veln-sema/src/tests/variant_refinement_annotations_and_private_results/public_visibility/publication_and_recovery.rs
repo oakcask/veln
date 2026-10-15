@@ -307,25 +307,21 @@ fn recovered_union_visibility_failure_quarantines_all_publication_outputs() {
         "main.veln",
         concat!(
             "mod main\n",
-            "pub type State\n",
-            "  Hidden\n",
-            "  Private\n",
+            "pub type Arg\n",
+            "  pub Value\n",
             "end\n",
-            "pub fn exposed(value: State::hidden | State::Private) -> State::hidden | State::Private\n",
-            "  Hidden\n",
+            "pub type State<A>\n",
+            "  Hidden(A)\n",
+            "  Private(A)\n",
+            "end\n",
+            "pub fn exposed(value: State<Arg>::hidden | State<Arg>::Private) -> main::State<Arg>::hidden | main::State<Arg>::Private\n",
+            "  Hidden(Value)\n",
             "end\n",
             "pub fn exposed_alias = exposed\n",
         ),
     );
     let parsed = parse(&source);
-    assert!(
-        parsed
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
-        "{:#?}",
-        parsed.diagnostics
-    );
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let environment = TypeEnvironment::from_module(&module);
     let signature = environment.function("exposed").expect("recovery signature");

@@ -596,13 +596,10 @@ fn documentation_canonicalizes_complete_types_around_structured_refinements() {
 }
 
 #[test]
-fn rejects_lowercase_final_variants_after_generic_adt_bases() {
+fn rejects_lowercase_final_variants_after_nongeneric_adt_bases() {
     let cases = [
         "fn invalid(value: State::ready) -> ()\n  ()\nend\n",
         "fn invalid(value: protocol::State::ready) -> ()\n  ()\nend\n",
-        "fn invalid(value: Result<Int, Error>::ok) -> ()\n  ()\nend\n",
-        "fn invalid(value: protocol::Result<Int, Error>::error) -> ()\n  ()\nend\n",
-        "fn invalid(value: State) -> ()\n  sink<Result<Int, Error>::ok>(value)\nend\n",
     ];
 
     for text in cases {
@@ -629,10 +626,47 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
             .expect("diagnostic should have a span");
         let written_name = &source.text()[span.start.offset..span.end.offset];
         assert!(
-            matches!(written_name, "ready" | "ok" | "error"),
+            written_name == "ready",
             "diagnostic should point at the lowercase final segment, got `{written_name}`"
         );
     }
+}
+
+#[test]
+fn preserves_generic_refinements_with_lowercase_final_variants_for_semantic_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn invalid(value: State<Arg>::hidden | domain::State<Arg>::Private) -> domain::State<Arg>::closed\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let function = first_function(&output);
+    let parameter = &function.params[0].ty_refinements[0];
+    assert_eq!(parameter.alternatives.len(), 2);
+    assert_eq!(parameter.alternatives[0].base.segments, ["State"]);
+    assert_eq!(parameter.alternatives[0].type_arguments.len(), 1);
+    assert_eq!(parameter.alternatives[0].variant, "hidden");
+    assert_eq!(
+        &source.text()[parameter.alternatives[0].span.start.offset
+            ..parameter.alternatives[0].span.end.offset],
+        "State<Arg>::hidden"
+    );
+    assert_eq!(parameter.alternatives[1].base.segments, ["domain", "State"]);
+    assert_eq!(parameter.alternatives[1].variant, "Private");
+
+    let result = &function.return_type_refinements[0].alternatives[0];
+    assert_eq!(result.base.segments, ["domain", "State"]);
+    assert_eq!(result.type_arguments.len(), 1);
+    assert_eq!(result.variant, "closed");
+    assert_eq!(
+        &source.text()[result.span.start.offset..result.span.end.offset],
+        "domain::State<Arg>::closed"
+    );
 }
 
 #[test]
@@ -865,14 +899,10 @@ fn explicit_call_type_argument_finalization_preserves_spans_and_diagnostics() {
         .iter()
         .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
         .collect::<Vec<_>>();
-    assert_eq!(refinement_diagnostics.len(), 2, "{:#?}", output.diagnostics);
+    assert_eq!(refinement_diagnostics.len(), 1, "{:#?}", output.diagnostics);
     assert_eq!(
         refinement_diagnostics[0].message,
         "`|` must join complete ADT variant refinement alternatives"
-    );
-    assert_eq!(
-        refinement_diagnostics[1].message,
-        "variant refinement final segment must start with an ASCII uppercase letter"
     );
 }
 

@@ -105,13 +105,13 @@ limits.
 ### Variant-refinement-shaped type text
 
 Type positions recognize a structural variant alternative as a named ADT base,
-optional type arguments, and an `::` plus an ASCII-uppercase final segment.
-Without type arguments, the base leaf must start with an ASCII uppercase
+optional type arguments, and an `::` plus a final segment. Without type
+arguments, the base leaf and final segment must start with an ASCII uppercase
 letter. Type arguments make the refinement shape explicit, so a generic base
-leaf with other casing is preserved for semantic casing recovery instead of
-being discarded as ordinary named-type text. Qualifier segments before the
-base leaf do not have a structural casing restriction. A `|` joins complete
-alternatives into one structural union:
+leaf or final segment with other casing is preserved for semantic casing
+recovery instead of being discarded as ordinary named-type text. Qualifier
+segments before the base leaf do not have a structural casing restriction. A
+`|` joins complete alternatives into one structural union:
 
 ```veln
 fn transition(
@@ -155,7 +155,7 @@ The parser reports `parse.variant_refinement_type` for these malformed forms:
 
 - an incomplete union alternative;
 - a missing base or final segment;
-- a lowercase final segment;
+- a lowercase final segment after a non-generic base;
 - an empty or misplaced type argument;
 - a missing generic closer;
 - a surplus generic closer before or after the final variant;

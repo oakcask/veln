@@ -1,0 +1,16 @@
+pub type Arg
+	pub Value
+end
+
+pub type State<A>
+	Hidden(A)
+	Private(A)
+end
+
+pub fn exposed_parameter(value: State<Arg>::hidden | State<Arg>::Private) -> ()
+	()
+end
+
+pub fn exposed_result() -> main::State<Arg>::hidden | main::State<Arg>::Private
+	Hidden(Value)
+end

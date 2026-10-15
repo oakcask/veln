@@ -515,8 +515,8 @@ fn refinement_alternative_shape(
         };
     let base_leaf = tokens.get(base_end)?;
     let variant = tokens.get(variant_index)?;
-    if (generic_open.is_none() && !starts_uppercase(&base_leaf.text))
-        || !starts_uppercase(&variant.text)
+    if generic_open.is_none()
+        && (!starts_uppercase(&base_leaf.text) || !starts_uppercase(&variant.text))
     {
         return None;
     }
