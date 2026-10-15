@@ -837,6 +837,12 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-json/)
 cases verify complete alternative identity, exact duplicate removal, distinct
 unresolved arguments, and nested unresolved arguments.
+The recovered-generic visibility
+[`human`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-json/)
+cases verify that unique casing recovery retains the complete generic base and
+final-variant identities used by the direct visibility check.
 
 Visibility diagnostics retain the private declaration span when the ADT comes
 from a reusable or dependency environment. Spaces and line breaks around a
