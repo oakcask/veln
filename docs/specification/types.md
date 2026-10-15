@@ -811,9 +811,10 @@ boundaries, and structured details.
 
 Visibility diagnostics retain the private declaration span when the ADT comes
 from a reusable or dependency environment. Deterministic work counters compare
-adjacent widths for both one wide refinement union and many public declarations;
-each workload grows linearly in the number of direct alternatives or
-declarations. The measured work combines visibility-checker steps with every
+adjacent widths for one wide refinement union, many public declarations, and
+many same-leaf ADTs selected through distinct qualified imports. Each workload
+grows linearly in the number of direct alternatives, declarations, or qualified
+imports. The measured work combines visibility-checker steps with every
 qualified import/path comparison and every ADT descriptor candidate visited
 while resolving the refinement identity, so same-named imported ADTs and
 unrelated declarations cannot be hidden outside the checked bound. The counters,
