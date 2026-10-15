@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use veln_ast::{Function, Param, TypePathSegments, VariantRefinementType, Visibility};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -338,54 +338,81 @@ fn refinement_alternative_identity(
 
 fn canonical_type_identity(ty: Type) -> Option<Type> {
     match ty {
-        Type::Named { identity, args, .. } => Some(Type::resolved_named(
-            identity.clone(),
-            identity,
-            args.into_iter()
-                .map(canonical_type_identity)
-                .collect::<Option<Vec<_>>>()?,
-        )),
+        Type::Named { identity, args, .. } => canonical_named_identity(identity, args),
         Type::VariantRefinement {
             identity,
             args,
             variants,
             unresolved_alternatives,
             ..
-        } if unresolved_alternatives.is_empty() => Some(Type::VariantRefinement {
-            name: identity.clone(),
-            identity,
-            args: args
-                .into_iter()
-                .map(canonical_type_identity)
-                .collect::<Option<Vec<_>>>()?,
-            variants,
-            unresolved_alternatives: Vec::new(),
-        }),
+        } if unresolved_alternatives.is_empty() => {
+            canonical_refinement_identity(identity, args, variants)
+        }
         Type::VariantRefinement { .. } => None,
-        Type::Record(fields) => Some(Type::Record(
-            fields
-                .into_iter()
-                .map(|(name, ty)| Some((name, canonical_type_identity(ty)?)))
-                .collect::<Option<Vec<_>>>()?,
-        )),
+        Type::Record(fields) => canonical_record_identity(fields),
         Type::Function {
             params,
             variadic,
             return_type,
             effects,
-        } => Some(Type::Function {
-            params: params
-                .into_iter()
-                .map(canonical_type_identity)
-                .collect::<Option<Vec<_>>>()?,
-            variadic: match variadic {
-                Some(ty) => Some(Box::new(canonical_type_identity(*ty)?)),
-                None => None,
-            },
-            return_type: Box::new(canonical_type_identity(*return_type)?),
-            effects,
-        }),
+        } => canonical_function_identity(params, variadic, return_type, effects),
         Type::Unknown => None,
+    }
+}
+
+fn canonical_named_identity(identity: String, args: Vec<Type>) -> Option<Type> {
+    Some(Type::resolved_named(
+        identity.clone(),
+        identity,
+        canonical_type_identities(args)?,
+    ))
+}
+
+fn canonical_refinement_identity(
+    identity: String,
+    args: Vec<Type>,
+    variants: Arc<[String]>,
+) -> Option<Type> {
+    Some(Type::VariantRefinement {
+        name: identity.clone(),
+        identity,
+        args: canonical_type_identities(args)?,
+        variants,
+        unresolved_alternatives: Vec::new(),
+    })
+}
+
+fn canonical_record_identity(fields: Vec<(String, Type)>) -> Option<Type> {
+    Some(Type::Record(
+        fields
+            .into_iter()
+            .map(|(name, ty)| Some((name, canonical_type_identity(ty)?)))
+            .collect::<Option<Vec<_>>>()?,
+    ))
+}
+
+fn canonical_function_identity(
+    params: Vec<Type>,
+    variadic: Option<Box<Type>>,
+    return_type: Box<Type>,
+    effects: Vec<String>,
+) -> Option<Type> {
+    Some(Type::Function {
+        params: canonical_type_identities(params)?,
+        variadic: canonical_optional_type(variadic)?,
+        return_type: Box::new(canonical_type_identity(*return_type)?),
+        effects,
+    })
+}
+
+fn canonical_type_identities(types: Vec<Type>) -> Option<Vec<Type>> {
+    types.into_iter().map(canonical_type_identity).collect()
+}
+
+fn canonical_optional_type(ty: Option<Box<Type>>) -> Option<Option<Box<Type>>> {
+    match ty {
+        Some(ty) => Some(Some(Box::new(canonical_type_identity(*ty)?))),
+        None => Some(None),
     }
 }
 

@@ -381,6 +381,16 @@ impl AdtRegistry {
                 uses,
             );
         }
+        self.unique_unqualified_descriptor_for_type_path(name, args_len, current_module, uses)
+    }
+
+    fn unique_unqualified_descriptor_for_type_path(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
         let descriptor = self.descriptor_for_type_path(name, args_len, current_module, uses)?;
         let indices = self
             .descriptors_by_source_identity

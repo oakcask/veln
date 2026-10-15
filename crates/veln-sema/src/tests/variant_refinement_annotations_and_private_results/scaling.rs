@@ -527,6 +527,24 @@ fn public_visibility_work_is_linear_for_same_leaf_qualified_imports() {
 }
 
 fn same_leaf_unqualified_import_project(count: usize) -> veln_ast::SurfaceModule {
+    let mut sources = same_leaf_unqualified_import_sources(count);
+    let consumer = same_leaf_unqualified_import_consumer(count);
+    let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&consumer).tree,
+        "consumer".to_string(),
+        consumer.span(veln_source::TextRange::new(0, 0)),
+    );
+    sources.push(("consumer".to_string(), consumer));
+    let source_refs = sources
+        .iter()
+        .map(|(name, source)| (name.as_str(), source.clone()))
+        .collect();
+    let mut project = merged_modules_with_identities(source_refs);
+    project.module = consumer_identity.module;
+    project
+}
+
+fn same_leaf_unqualified_import_sources(count: usize) -> Vec<(String, SourceFile)> {
     let mut sources = Vec::new();
     for index in 0..count {
         let dependency = format!("dependency{index}");
@@ -546,6 +564,10 @@ fn same_leaf_unqualified_import_project(count: usize) -> veln_ast::SurfaceModule
             ),
         ));
     }
+    sources
+}
+
+fn same_leaf_unqualified_import_consumer(count: usize) -> SourceFile {
     let mut consumer_source = String::from("mod consumer\nuse dependency0\n");
     for index in 0..count {
         consumer_source.push_str(&format!(
@@ -553,141 +575,76 @@ fn same_leaf_unqualified_import_project(count: usize) -> veln_ast::SurfaceModule
              pub fn any_{index}(value: State::Hidden) -> ()\n  ()\nend\n"
         ));
     }
-    let consumer = SourceFile::new("consumer.veln", consumer_source);
-    let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
-        &parse(&consumer).tree,
-        "consumer".to_string(),
-        consumer.span(veln_source::TextRange::new(0, 0)),
-    );
-    sources.push(("consumer".to_string(), consumer));
-    let source_refs = sources
+    SourceFile::new("consumer.veln", consumer_source)
+}
+
+fn same_leaf_unqualified_import_work(count: usize) -> usize {
+    let project = same_leaf_unqualified_import_project(count);
+    crate::analysis::reset_visibility_work();
+    crate::adt::registry::descriptor_lookup_counters::reset();
+    crate::adt::registry::variant_lookup_counters::reset();
+    crate::adt::reset_import_path_comparisons();
+    let environment = TypeEnvironment::from_module(&project);
+    crate::analysis::reset_visibility_work();
+    crate::adt::registry::descriptor_lookup_counters::reset();
+    crate::adt::registry::variant_lookup_counters::reset();
+    let diagnostics = project
+        .functions
         .iter()
-        .map(|(name, source)| (name.as_str(), source.clone()))
-        .collect();
-    let mut project = merged_modules_with_identities(source_refs);
-    project.module = consumer_identity.module;
-    project
+        .flat_map(|function| {
+            crate::analysis::check_public_variant_refinement_visibility(function, &environment)
+        })
+        .collect::<Vec<_>>();
+    let visibility_work = crate::analysis::take_visibility_work();
+    let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+    let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
+    let import_work = crate::adt::import_path_comparisons();
+    let work = visibility_work + descriptor_work + variant_work + import_work;
+    assert_unqualified_import_diagnostics(&diagnostics, count, import_work);
+    eprintln!(
+        "unqualified same-leaf refinement visibility: width={count} \
+         visibility_work={visibility_work} descriptor_work={descriptor_work} \
+         variant_work={variant_work} import_work={import_work} work={work}"
+    );
+    work
+}
+
+fn assert_unqualified_import_diagnostics(
+    diagnostics: &[Diagnostic],
+    count: usize,
+    import_work: usize,
+) {
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), count * 2, "{diagnostics:#?}");
+    let written = visibility
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    for written_type in ["State<Int>::Hidden", "State::Hidden"] {
+        assert_eq!(
+            written
+                .iter()
+                .filter(|json| json.contains(&format!("\"written_type\":\"{written_type}\"")))
+                .count(),
+            count
+        );
+    }
+    assert!(
+        import_work >= count * 4,
+        "index construction and exact/any lookup must be counted: count={count} import_work={import_work}"
+    );
 }
 
 #[test]
 fn public_visibility_unqualified_import_work_is_linear_for_exact_and_any_arity() {
-    let work = [16, 32, 64].map(|count| {
-        let project = same_leaf_unqualified_import_project(count);
-        crate::analysis::reset_visibility_work();
-        crate::adt::registry::descriptor_lookup_counters::reset();
-        crate::adt::registry::variant_lookup_counters::reset();
-        crate::adt::reset_import_path_comparisons();
-        let environment = TypeEnvironment::from_module(&project);
-        crate::analysis::reset_visibility_work();
-        crate::adt::registry::descriptor_lookup_counters::reset();
-        crate::adt::registry::variant_lookup_counters::reset();
-        let diagnostics = project
-            .functions
-            .iter()
-            .flat_map(|function| {
-                crate::analysis::check_public_variant_refinement_visibility(
-                    function,
-                    &environment,
-                )
-            })
-            .collect::<Vec<_>>();
-        let visibility_work = crate::analysis::take_visibility_work();
-        let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
-        let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
-        let import_work = crate::adt::import_path_comparisons();
-        let work = visibility_work + descriptor_work + variant_work + import_work;
-        assert_eq!(
-            diagnostics
-                .iter()
-                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-                .count(),
-            count * 2,
-            "count={count} diagnostics={diagnostics:#?}"
-        );
-        let written = diagnostics
-            .iter()
-            .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            written
-                .iter()
-                .filter(|json| json.contains("\"written_type\":\"State<Int>::Hidden\""))
-                .count(),
-            count
-        );
-        assert_eq!(
-            written
-                .iter()
-                .filter(|json| json.contains("\"written_type\":\"State::Hidden\""))
-                .count(),
-            count
-        );
-        assert!(
-            import_work >= count * 4,
-            "index construction and exact/any lookup must be counted: count={count} import_work={import_work}"
-        );
-        eprintln!(
-            "unqualified same-leaf refinement visibility: width={count} \
-             visibility_work={visibility_work} descriptor_work={descriptor_work} \
-             variant_work={variant_work} import_work={import_work} work={work}"
-        );
-        work
-    });
+    let work = [16, 32, 64].map(same_leaf_unqualified_import_work);
 
     let first_growth = work[1] - work[0];
     let second_growth = work[2] - work[1];
     assert_eq!(second_growth, first_growth * 2, "work={work:?}");
 }
 
-#[test]
-fn nested_refinement_canonicalization_handles_increasing_depths() {
-    fn canonicalization_work(depth: usize) -> usize {
-        let mut annotation = "Int".to_string();
-        for _ in 0..depth {
-            annotation = format!("Choice<{annotation}>::Present");
-        }
-        let source = format!(
-            "type Choice<A>\n  Present(A)\n  Absent\nend\nfn keep(value: {annotation}) -> {annotation}\n  value\nend\n"
-        );
-        crate::types::reset_type_canonicalization_visits();
-        let diagnostics = diagnostics_for(&source);
-        assert!(diagnostics.is_empty(), "depth {depth}: {diagnostics:#?}");
-        crate::types::take_type_canonicalization_visits()
-    }
-
-    let work = [16, 32, 64].map(canonicalization_work);
-    eprintln!("type canonicalization visits at depths 16, 32, and 64: {work:?}");
-    assert!(work[0] > 0, "the metric must observe canonicalization work");
-    assert!(
-        work[1] <= work[0] * 2 + 32 && work[2] <= work[1] * 2 + 32,
-        "doubling refinement depth must add only linear canonicalization work: {work:?}"
-    );
-}
-
-#[test]
-fn unresolved_nested_annotations_do_not_repeat_canonicalization() {
-    fn canonicalization_work(depth: usize) -> usize {
-        let mut annotation = "Int".to_string();
-        for _ in 0..depth {
-            annotation = format!("missing::Outer<{annotation}>");
-        }
-        let source = format!("fn keep(value: {annotation}) -> ()\n  ()\nend\n");
-        crate::types::reset_type_canonicalization_visits();
-        let diagnostics = diagnostics_for(&source);
-        assert!(
-            diagnostics
-                .iter()
-                .all(|diagnostic| diagnostic.id != "type.variant_mismatch"),
-            "depth {depth}: {diagnostics:#?}"
-        );
-        crate::types::take_type_canonicalization_visits()
-    }
-
-    let work = [16, 32, 64].map(canonicalization_work);
-    eprintln!("invalid annotation canonicalization visits at depths 16, 32, and 64: {work:?}");
-    assert!(work[0] > 0, "the metric must observe canonicalization work");
-    assert!(
-        work[0] == work[1] && work[1] == work[2],
-        "an invalid outer annotation must stop validation before child recanonicalization: {work:?}"
-    );
-}
+mod canonicalization;
