@@ -209,11 +209,17 @@ repair guidance belong in `related` notes rather than the primary message.
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
 Parser failures that cannot form a base type, `::`, and final constructor name
-remain syntax diagnostics. Once that structure exists, semantic failures use
-the table above. Existing generic arity, name ambiguity, duplicate, and
-invalid-casing diagnostics remain independently reportable. Diagnostic order
-must be deterministic, and failure must not publish a partially typed
-declaration.
+remain syntax diagnostics. A lowercase final segment is also invalid syntax,
+including after a generic base. Project checking retains its recovered tree for
+semantic diagnostics only when the complete parse-failure set includes that
+failure and otherwise contains only another lowercase-final or incomplete-union
+variant-refinement failure. The syntax failures remain errors and precede
+independently provable casing and visibility diagnostics; an unrelated parse
+failure prevents semantic analysis of the source. Once a valid or narrowly
+recovered structure exists, semantic failures use the table above. Existing
+generic arity, name ambiguity, duplicate, and invalid-casing diagnostics remain
+independently reportable. Diagnostic order must be deterministic, and failure
+must not publish a partially typed declaration.
 
 The casing overlap below applies only to carriers that the current
 [name-resolution contract](../specification/name-resolution.md#resolution-rules)
@@ -270,14 +276,14 @@ analysis; it does not by itself publish protocol-visible navigation.
 
 | Condition | Emitted diagnostics | Suppressed diagnostics | Retained identity |
 | --- | --- | --- | --- |
-| The refinement syntax is incomplete. | The responsible syntax diagnostic. | All semantic refinement diagnostics for that type occurrence. | None from the incomplete refinement. |
+| The refinement syntax is incomplete without the scoped lowercase-final recovery described above. | The responsible syntax diagnostic. | All semantic refinement diagnostics for that type occurrence. | None from the incomplete refinement. |
 | The base is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
 | The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
 | A provider-backed ADT identity has no public finite variant descriptor. | `type.variant_refinement_base` with `reason: "variant_descriptor_unavailable"`. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base identity only. |
 | Generic arity is invalid in a remaining indirect exposure after the base type resolves exactly or through unique casing recovery. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or indirect visibility diagnostic. Direct public-function root overlap is current behavior in the [type](../specification/types.md#compatibility-and-limits) and [diagnostic](../specification/diagnostics-json.md#diagnostic-families) specifications. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The source declaration or source-less type identity and, when resolved, the constructor declaration; no instantiated refinement type. |
 | The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
-| The final segment has invalid casing and one existing recovery identity. | `name.invalid_case`, plus independent visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | The uniquely recovered constructor declaration. |
-| An invalid-cased final segment has no unique recovery and is independently missing, ambiguous, private, or wrong-kind. | `name.invalid_case` when the segment role is known, plus the applicable existing lookup or visibility diagnostic. | Downstream failures that require a selected constructor identity. | Only identities selected independently of the failed final segment. |
+| A lowercase final segment reaches semantic analysis through scoped parser recovery and has one existing recovery identity. | `parse.variant_refinement_type` and any accompanying incomplete-union failure, followed by `name.invalid_case` and independent visibility failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | The uniquely recovered constructor declaration. |
+| A lowercase final segment reaches semantic analysis through scoped parser recovery but has no unique recovery and is independently missing, ambiguous, private, or wrong-kind. | `parse.variant_refinement_type` and any accompanying incomplete-union failure, followed by `name.invalid_case` when the segment role is known and the applicable existing lookup or visibility diagnostic. | Downstream failures that require a selected constructor identity. | Only identities selected independently of the failed final segment. |
 | An indirect exposure reaches an inaccessible base or selected constructor. | `type.variant_refinement_private` for each remaining transitive exposure path, plus independent casing or arity failures. | Publication and assignability diagnostics that require a valid public type. | Every uniquely resolved alias, base, and constructor declaration for source navigation. |
 | Two successfully instantiated alternatives have different base identities or generic arguments. | `type.variant_union_base`. | Assignability diagnostics that require the rejected union type. | All successfully resolved alternative identities; no union type identity. |
 

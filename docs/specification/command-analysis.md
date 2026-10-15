@@ -21,10 +21,17 @@ inside a nested package, or reached through a disallowed path fail ownership
 validation.
 
 `check`, `run`, `test`, and `repair` share source discovery, generated
-doctest creation when requested, parse diagnostics, parse-clean module loading,
-semantic diagnostics, checked-core readiness, and selected-entry typed-IR
-readiness. Selection, output, execution, and write policy remain command
-specific.
+doctest creation when requested, parse diagnostics, module loading, semantic
+diagnostics, checked-core readiness, and selected-entry typed-IR readiness.
+Selection, output, execution, and write policy remain command specific.
+
+A source with parse diagnostics is normally excluded from semantic analysis.
+The pipeline retains the recovered tree only when the complete parse-diagnostic
+set contains a lowercase-final `parse.variant_refinement_type` failure and no
+failure other than lowercase-final or incomplete-union variant-refinement
+failures. Those parse diagnostics remain errors, and the retained tree exists
+only to produce independently provable semantic diagnostics. Any unrelated
+parse failure excludes the source from semantic analysis.
 
 `doc` consumes the same project semantic diagnostics for its selected production
 sources, but retains its own source exclusion, parse recovery, schema-reference,
