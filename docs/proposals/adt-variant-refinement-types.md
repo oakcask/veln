@@ -14,9 +14,9 @@ direct assignability and widening, aggregate retention and joins, control-flow
 result joins, contextual aggregate construction, refined calls and results,
 stable mismatch diagnostics, and runtime erasure.
 
-This proposal retains only the unfinished work: transitive alias and structural
-visibility, qualified-value match refinement, schema boundaries, package
-documentation catalog signatures, remaining LSP diagnostics and
+This proposal retains only the unfinished work: transitive type-alias and
+structural visibility, qualified-value match refinement, schema boundaries,
+package documentation catalog signatures, remaining LSP diagnostics and
 invalid-refinement recovery, and MCP invalid-refinement recovery,
 package-signature, and saved-state behavior. Qualified
 immutable-value refinement depends
@@ -54,13 +54,15 @@ proposal. The current
 specifications own those contracts and their limits. This proposal owns only
 the unimplemented semantic and tooling behavior below.
 
-## Transitive Alias And Structural Visibility
+## Transitive Type-Alias And Structural Visibility
 
 The current [type specification](../specification/types.md#compatibility-and-limits)
 owns alias-qualified refinement identity, assignability, presentation, and
 direct ADT-root refinement visibility on public function parameters and
-results. The remaining work covers public package signatures and visibility
-failures hidden behind aliases or structural type positions.
+results, including suppression of public function aliases derived from a
+function that fails that direct visibility check. The remaining work covers
+public package signatures and visibility failures hidden behind type aliases or
+structural type positions.
 
 A refinement is valid only when the selected constructor is visible at the
 annotation. The remaining traversal prevents a public declaration from
@@ -393,7 +395,7 @@ current behavior:
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
-| Transitive alias and structural visibility | Imported, private, opaque, ambiguous, and exact-companion exposure paths follow the visibility contract. Public-signature checking traverses record fields, generic arguments, function positions, public source ADT payloads, refinement unions, and alias chains without leaking a private base or variant or looping on recursion. Alias-hidden leaks select the outermost written alias and report the structural exposure path. Public package signatures preserve written annotations. Failed visibility retains unambiguous source navigation identities under existing recovery rules but publishes no declaration or package signature. | Table-driven package-signature cases covering every structural position, multi-alias leaks, multiple paths, recursive cycles, exact companions, deterministic diagnostic order, exact primary and related spans, retained source identities, and absent public identities. |
+| Transitive type-alias and structural visibility | Imported, private, opaque, ambiguous, and exact-companion exposure paths follow the visibility contract. Public-signature checking traverses record fields, generic arguments, function positions, public source ADT payloads, refinement unions, and type-alias chains without leaking a private base or variant or looping on recursion. Alias-hidden leaks select the outermost written type alias and report the structural exposure path. Public package signatures preserve written annotations. Failed visibility retains unambiguous source navigation identities under existing recovery rules but publishes no declaration or package signature. | Table-driven package-signature cases covering every structural position, multi-alias leaks, multiple paths, recursive cycles, exact companions, deterministic diagnostic order, exact primary and related spans, retained source identities, and absent public identities. |
 | Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |

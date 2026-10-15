@@ -169,9 +169,19 @@ Bare names resolve to local bindings. Function calls resolve to:
   form
 - source path derived local imports through their full written module path in
   `module::path::function` form
-- public function aliases through the declaring module path
+- public function aliases whose target has a published callable signature,
+  through the declaring module path
 - implicit standard prelude helper imports by bare name or `prelude::function`
   form
+
+A public function whose direct variant-refinement visibility check fails can
+retain an all-`unknown` signature for same-module recovery without publishing a
+callable signature. A public alias of that function is not a qualified call
+target or an unqualified import candidate, and another module cannot republish
+it through a further alias. An alias of a valid public function remains
+available through each supported alias chain. This publication rule does not
+change invalid-name function recovery, whose callable-signature behavior is
+defined by the [type-checking contract](types.md#compatibility-and-limits).
 
 A qualified function declared by a resolved source import takes precedence
 over a compiler-known qualified fallback with the same spelling. For example,
