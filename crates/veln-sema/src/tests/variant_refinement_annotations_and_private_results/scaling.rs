@@ -322,8 +322,11 @@ fn public_visibility_work_is_linear_for_wide_unions() {
         source.push_str(") -> ()\n  ()\nend\n");
 
         crate::analysis::reset_visibility_work();
+        crate::adt::registry::descriptor_lookup_counters::reset();
         let diagnostics = diagnostics_for(&source);
-        let work = crate::analysis::take_visibility_work();
+        let visibility_work = crate::analysis::take_visibility_work();
+        let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+        let work = visibility_work + descriptor_work;
         assert_eq!(
             diagnostics
                 .iter()
@@ -332,7 +335,10 @@ fn public_visibility_work_is_linear_for_wide_unions() {
             count,
             "count={count} diagnostics={diagnostics:#?}"
         );
-        eprintln!("variant refinement visibility union: alternatives={count} work={work}");
+        eprintln!(
+            "variant refinement visibility union: alternatives={count} \
+             visibility_work={visibility_work} descriptor_work={descriptor_work} work={work}"
+        );
         work
     });
 
@@ -353,8 +359,11 @@ fn public_visibility_work_is_linear_for_many_declarations() {
         }
 
         crate::analysis::reset_visibility_work();
+        crate::adt::registry::descriptor_lookup_counters::reset();
         let diagnostics = diagnostics_for(&source);
-        let work = crate::analysis::take_visibility_work();
+        let visibility_work = crate::analysis::take_visibility_work();
+        let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+        let work = visibility_work + descriptor_work;
         assert_eq!(
             diagnostics
                 .iter()
@@ -363,7 +372,10 @@ fn public_visibility_work_is_linear_for_many_declarations() {
             count,
             "count={count} diagnostics={diagnostics:#?}"
         );
-        eprintln!("variant refinement visibility declarations: declarations={count} work={work}");
+        eprintln!(
+            "variant refinement visibility declarations: declarations={count} \
+             visibility_work={visibility_work} descriptor_work={descriptor_work} work={work}"
+        );
         work
     });
 

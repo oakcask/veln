@@ -246,6 +246,89 @@ fn qualified_private_base_selects_only_the_final_base_segment() {
 }
 
 #[test]
+fn imported_refinements_preserve_qualified_and_unqualified_visibility_identity() {
+    let dependency = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "imported.veln",
+            concat!("mod imported\n", "pub type State\n", "  Hidden\n", "end\n",),
+        ))
+        .tree,
+    );
+    let base = TypeEnvironment::from_module(&dependency);
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            concat!(
+                "mod consumer\n",
+                "use imported\n",
+                "pub fn unqualified(value: State::Hidden) -> ()\n",
+                "  ()\n",
+                "end\n",
+                "pub fn qualified(value: imported::State::Hidden) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+
+    let diagnostics = analyze_surface_module_with_base_for_test(&consumer, &base)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let written_types = diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(written_types[0].contains("\"written_type\":\"State::Hidden\""));
+    assert!(written_types[1].contains("\"written_type\":\"imported::State::Hidden\""));
+}
+
+#[test]
+fn local_refinement_descriptor_shadows_imported_namesake() {
+    let dependency = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "imported.veln",
+            concat!(
+                "mod imported\n",
+                "pub type State\n",
+                "  pub Hidden\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let base = TypeEnvironment::from_module(&dependency);
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            concat!(
+                "mod consumer\n",
+                "use imported\n",
+                "type State\n",
+                "  pub Hidden\n",
+                "end\n",
+                "pub fn local(value: State::Hidden) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+
+    let diagnostics = analyze_surface_module_with_base_for_test(&consumer, &base)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert!(observed.contains("\"written_type\":\"State::Hidden\""));
+    assert!(observed.contains("\"kind\":\"private_type_declaration\""));
+    assert!(observed.contains("\"file\":\"consumer.veln\""));
+}
+
+#[test]
 fn union_visibility_reports_distinct_paths_in_written_order() {
     let diagnostics = visibility_diagnostics(concat!(
         "pub type State\n",

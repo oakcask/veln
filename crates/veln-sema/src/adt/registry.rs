@@ -172,7 +172,13 @@ impl AdtRegistry {
             .get(name)
             .into_iter()
             .flatten()
-            .map(|index| &self.descriptors[*index])
+            .map(|index| self.descriptor_lookup_candidate(*index))
+    }
+
+    fn descriptor_lookup_candidate(&self, index: usize) -> &AdtDescriptor {
+        #[cfg(test)]
+        descriptor_lookup_counters::record_candidate_scan();
+        &self.descriptors[index]
     }
 
     fn variants_named(
@@ -318,22 +324,20 @@ impl AdtRegistry {
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
         let descriptor = self.descriptor_for_type_path(name, args_len, current_module, uses)?;
-        let selected_index = self
-            .descriptors
+        let indices = self.descriptors_by_type_name.get(&descriptor.type_name)?;
+        let selected_index = indices
             .iter()
-            .position(|candidate| std::ptr::eq(candidate, descriptor))?;
+            .copied()
+            .find(|index| std::ptr::eq(self.descriptor_lookup_candidate(*index), descriptor))?;
         let selected_is_local = selected_index >= self.local_descriptor_start;
-        let mut matches = self
-            .descriptors
-            .iter()
-            .enumerate()
-            .filter(|(index, candidate)| {
-                (*index >= self.local_descriptor_start) == selected_is_local
-                    && candidate.type_name == descriptor.type_name
-                    && candidate.module_name == descriptor.module_name
-                    && candidate.type_parameters.len() == args_len
-            })
-            .map(|(_, candidate)| candidate);
+        let mut matches = indices.iter().copied().filter_map(|index| {
+            let candidate = self.descriptor_lookup_candidate(index);
+            ((index >= self.local_descriptor_start) == selected_is_local
+                && candidate.type_name == descriptor.type_name
+                && candidate.module_name == descriptor.module_name
+                && candidate.type_parameters.len() == args_len)
+                .then_some(candidate)
+        });
         let unique = matches.next()?;
         matches.next().is_none().then_some(unique)
     }
@@ -381,14 +385,14 @@ impl AdtRegistry {
                 .iter()
                 .copied()
                 .filter(move |index| (*index >= self.local_descriptor_start) == local)
-                .map(|index| &self.descriptors[index])
+                .map(|index| self.descriptor_lookup_candidate(index))
         };
         let local = descriptors(true)
             .filter(|descriptor| descriptor.module_name.as_deref() == current_module);
         let builtin = descriptors(false).filter(|descriptor| descriptor.module_name.is_none());
         let imported = indices
             .iter()
-            .map(|index| &self.descriptors[*index])
+            .map(|index| self.descriptor_lookup_candidate(*index))
             .filter(|descriptor| {
                 descriptor.visibility == Visibility::Public
                     && descriptor
@@ -669,14 +673,14 @@ pub(super) mod constructor_lookup_counters {
 }
 
 #[cfg(test)]
-pub(super) mod descriptor_lookup_counters {
+pub(crate) mod descriptor_lookup_counters {
     use std::cell::Cell;
 
     thread_local! {
         static CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
     }
 
-    pub(in crate::adt) fn reset() {
+    pub(crate) fn reset() {
         CANDIDATE_SCANS.set(0);
     }
 
@@ -684,7 +688,7 @@ pub(super) mod descriptor_lookup_counters {
         CANDIDATE_SCANS.set(CANDIDATE_SCANS.get() + 1);
     }
 
-    pub(in crate::adt) fn candidate_scans() -> usize {
+    pub(crate) fn candidate_scans() -> usize {
         CANDIDATE_SCANS.get()
     }
 }
