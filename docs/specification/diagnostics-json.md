@@ -166,8 +166,10 @@ base or final-constructor recovery does not produce a privacy diagnostic.
 When one root union contains both invalid-cased and exact alternatives,
 recovery preserves every uniquely resolved direct alternative for this
 diagnostic in written order. This rule applies only when those alternatives
-occupy the complete annotation and are separated only by `|`; it does not
-promote a refinement nested in another type shape to a direct root.
+occupy the complete annotation and are separated by `|`. Spaces and line
+breaks around the separator do not change the diagnostic set, order, spans, or
+declaration quarantine. The rule does not promote a refinement nested in
+another type shape to a direct root.
 An exact final name shared by multiple variant declarations in the selected
 ADT is also ambiguous for this privacy check. That alternative produces no
 privacy diagnostic and does not by itself quarantine the public function; the

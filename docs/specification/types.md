@@ -839,11 +839,11 @@ cases verify complete alternative identity, exact duplicate removal, distinct
 unresolved arguments, and nested unresolved arguments.
 
 Visibility diagnostics retain the private declaration span when the ADT comes
-from a reusable or dependency environment. Source whitespace and line breaks do
-not change whether a recovered direct union receives the visibility check. The
-checker still excludes refinements nested in structural annotations and reports
-each inaccessible alternative of a recovered root union in the same written
-order described above.
+from a reusable or dependency environment. Spaces and line breaks around a
+recovered direct union's `|` separators do not change whether the visibility
+check runs. The checker still excludes refinements nested in structural
+annotations and reports each inaccessible alternative of a recovered root union
+in the same written order described above.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies
