@@ -9,7 +9,7 @@ use crate::type_syntax::parse_type_or_unknown;
 mod quarantine;
 
 use quarantine::{
-    function_has_base_failure, quarantine_invalid_variant_refinement_declaration_types,
+    quarantine_invalid_variant_refinement_declaration_types,
     quarantine_invalid_variant_refinement_function_types,
     quarantine_invalid_variant_refinement_handler_types,
     quarantine_invalid_variant_refinement_signatures,
@@ -206,7 +206,7 @@ fn invalid_function_recovery_signature(
         node_id: function.node_id,
         span: function.span.clone(),
     };
-    if function_has_base_failure(function, environment) {
+    if quarantine::function_has_invalid_variant_refinement(module, function, environment) {
         signature.params.fill(Type::Unknown);
         if let Some(variadic) = &mut signature.variadic {
             *variadic = Type::Unknown;

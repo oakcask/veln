@@ -60,6 +60,7 @@ pub(crate) mod boundary;
 mod handlers;
 mod repair_reasoning;
 mod variant_refinement_bases;
+mod variant_refinement_visibility;
 
 pub(in crate::analysis) use body::FunctionChecker;
 #[cfg(test)]
@@ -83,6 +84,9 @@ pub(crate) use handlers::check_handler_declarations;
 pub(crate) use variant_refinement_bases::{
     VariantRefinementBaseDiagnostic, annotation_has_base_failure, check_variant_refinement_bases,
     independent_annotation_errors,
+};
+pub(crate) use variant_refinement_visibility::{
+    check_public_variant_refinement_visibility, function_has_private_variant_refinement_exposure,
 };
 
 fn private_companion_effect_target_diagnostic(

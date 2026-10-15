@@ -755,6 +755,27 @@ and transitive-alias constructor views. An invalid-cased ordinary function's
 recovered function value exposes the same declaration-wide unknown parameters
 and result. A function alias copies that quarantined signature after qualified
 base resolution, including when resolution uses a reusable base environment.
+
+A refinement written as the complete parameter or result annotation of a
+public function can expose only a public ADT and public selected variants. A
+private base ADT fails at the written base-type segment. A public base with a
+private selected variant fails at the final variant segment. A same-ADT union
+reports each distinct inaccessible base-and-variant path in written order and
+does not repeat a diagnostic for a duplicate alternative. Public refinements
+remain valid when the base and selected variants are public. The same private
+refinements remain valid on private functions.
+
+This visibility check applies only when the refinement is the root annotation.
+It does not traverse a type alias, record, named type argument, function type,
+ADT payload, or another structural position. A visibility failure quarantines
+every parameter and the result of the public function. It also prevents checked
+core or IR output. The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
+cases verify source order, primary spans, related declarations and public
+boundaries, and structured details.
+
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
 instrumented work. This bound includes invalid-cased bases and unrelated

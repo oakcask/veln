@@ -266,6 +266,11 @@ impl AdtRegistry {
         self.descriptor_for_type_path_with_arity(name, Some(args_len), current_module, uses)
     }
 
+    pub(crate) fn descriptor_is_type_alias(&self, descriptor: &AdtDescriptor) -> bool {
+        self.type_alias_identities
+            .contains(&(descriptor.module_name.clone(), descriptor.type_name.clone()))
+    }
+
     pub(crate) fn descriptor_for_type_path_any_arity(
         &self,
         name: &str,

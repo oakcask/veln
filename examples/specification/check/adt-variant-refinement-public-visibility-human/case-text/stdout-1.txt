@@ -1,0 +1,18 @@
+main.veln:12:38: error[type.variant_refinement_private]: public refinement exposes private type `main::Secret`
+  note: main.veln:1:1: Private type `main::Secret` is declared here.
+  note: main.veln:12:31: Public parameter `value` of function `private_base_parameter` exposes this refinement.
+main.veln:16:33: error[type.variant_refinement_private]: public refinement exposes private type `main::Secret`
+  note: main.veln:1:1: Private type `main::Secret` is declared here.
+  note: main.veln:16:33: Public result of function `private_base_result` exposes this refinement.
+main.veln:20:48: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:8:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:20:34: Public parameter `value` of function `private_variant_parameter` exposes this refinement.
+main.veln:24:43: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Closed`
+  note: main.veln:9:2: Private variant `main::State::Closed` is declared here.
+  note: main.veln:24:36: Public result of function `private_variant_result` exposes this refinement.
+main.veln:28:36: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Closed`
+  note: main.veln:9:2: Private variant `main::State::Closed` is declared here.
+  note: main.veln:28:22: Public parameter `value` of function `private_union` exposes this refinement.
+main.veln:28:52: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:8:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:28:22: Public parameter `value` of function `private_union` exposes this refinement.

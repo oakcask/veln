@@ -170,6 +170,7 @@ fn analyze_surface_module_with_environment(
             continue;
         }
         diagnostics.extend(check_function_declaration_and_body(
+            module,
             function,
             environment,
             &mut variant_diagnostics,
@@ -514,6 +515,7 @@ fn check_module_declarations(
 }
 
 fn check_function_declaration_and_body(
+    module: &SurfaceModule,
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
@@ -522,7 +524,11 @@ fn check_function_declaration_and_body(
 
     diagnostics.extend(check_declared_effect_labels(function, environment));
     if function.visibility == Visibility::Public {
-        diagnostics.extend(check_public_function_boundary(function));
+        diagnostics.extend(check_public_function_boundary(
+            function,
+            module,
+            environment,
+        ));
     }
     if function.kind == FunctionKind::Test {
         diagnostics.extend(check_test_declaration_boundary(function));

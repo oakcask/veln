@@ -87,7 +87,11 @@ use schema_repeat_resolution::*;
 use schema_type_references::*;
 use schema_validation::*;
 
-pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
+pub(crate) fn check_public_function_boundary(
+    function: &Function,
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for param in &function.params {
@@ -129,6 +133,12 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
             ),
         ));
     }
+
+    diagnostics.extend(check_public_variant_refinement_visibility(
+        function,
+        module,
+        environment,
+    ));
 
     diagnostics
 }

@@ -132,6 +132,26 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
+A root variant refinement in a public function parameter or result reports
+`type.variant_refinement_private` when its base ADT is private or a selected
+variant is private. The primary span selects the written base-type segment for
+a private base. It selects the final variant segment for a private variant of a
+public base. The closed details contain exactly `written_type`, `base_type`,
+`variant`, `boundary`, and `exposure_path`. `boundary` is `public_parameter` or
+`public_result`. `exposure_path` is an array with one object. A parameter path
+contains `kind: "parameter"` and its `name`; a result path contains only
+`kind: "result"`.
+
+Related entries identify the `private_type_declaration` or
+`private_variant_declaration` and the `public_parameter_boundary` or
+`public_result_boundary`. A union reports distinct inaccessible alternatives
+in written order and removes duplicate base-and-variant paths. The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
+cases fix the human messages, half-open spans, details, related context, and
+ordering.
+
 A failed base retains its resolved identity as semantic analysis state for
 suppression and later analysis. This diagnostic recovery does not make the
 invalid refinement selectable by language-service protocols. A source-less

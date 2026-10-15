@@ -84,7 +84,7 @@ pub(super) fn quarantine_invalid_variant_refinement_function_types(
         crate::pipeline::record_variant_refinement_base_work(1);
         debug_assert_eq!(signature.node_id, function.node_id);
         debug_assert_eq!(signature.span, function.span);
-        if !function_has_base_failure(function, environment) {
+        if !function_has_invalid_variant_refinement(module, function, environment) {
             continue;
         }
         signature.params.fill(Type::Unknown);
@@ -109,6 +109,19 @@ pub(super) fn function_has_base_failure(
         function.module_name.as_deref(),
         environment,
     )
+}
+
+pub(super) fn function_has_invalid_variant_refinement(
+    module: &SurfaceModule,
+    function: &Function,
+    environment: &TypeEnvironment,
+) -> bool {
+    function_has_base_failure(function, environment)
+        || crate::analysis::function_has_private_variant_refinement_exposure(
+            function,
+            module,
+            environment,
+        )
 }
 
 fn quarantine_invalid_variant_refinement_effect_types(

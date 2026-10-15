@@ -23,8 +23,8 @@ also states it.
 - Legacy compiler-known network compatibility removal after checked sources
   migrate to the exported standard module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
-- Remaining ADT variant-refinement support for alias visibility, qualified
-  immutable values after a separate source-surface
+- Remaining ADT variant-refinement support for transitive alias and structural
+  visibility, qualified immutable values after a separate source-surface
   prerequisite, schema boundaries,
   package-documentation catalog signatures,
   remaining LSP diagnostics and invalid-refinement recovery, and MCP

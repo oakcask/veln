@@ -1,0 +1,30 @@
+type Secret
+	pub One
+	pub Two
+end
+
+pub type State
+	pub Open
+	Hidden
+	Closed
+end
+
+pub fn private_base_parameter(value: Secret::One) -> ()
+	()
+end
+
+pub fn private_base_result() -> Secret::Two
+	Two
+end
+
+pub fn private_variant_parameter(value: State::Hidden) -> ()
+	()
+end
+
+pub fn private_variant_result() -> State::Closed
+	Closed
+end
+
+pub fn private_union(value: State::Closed | State::Hidden | State::Closed) -> ()
+	()
+end
