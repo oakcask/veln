@@ -163,6 +163,11 @@ The parser reports `parse.variant_refinement_type` for these malformed forms:
 - adjacent type text outside the completed structural position; or
 - `|>` between alternatives.
 
+The parser preserves a lossless tree for diagnostics and formatting recovery,
+but any parse diagnostic keeps that source out of semantic analysis. A
+lowercase final segment remains rejected syntax, including when the base has
+type arguments.
+
 Nesting beyond 256 containing generic-argument boundaries reports the same
 diagnostic and does not prevent lossless-tree construction.
 

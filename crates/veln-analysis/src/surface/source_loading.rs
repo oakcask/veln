@@ -232,3 +232,44 @@ pub(super) fn internal_module_name(package: Option<&str>, module_name: &str) -> 
 pub(super) fn external_module_key(package: &str, module_name: &str) -> String {
     format!("{package}::{module_name}")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lowercase_final_parse_failure_excludes_the_source_from_semantic_loading() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Hidden\n",
+                    "end\n",
+                    "pub fn exposed(value: State::hidden) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+
+        load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+            "{diagnostics:#?}"
+        );
+        assert!(parts.module.types.is_empty(), "{:#?}", parts.module.types);
+        assert!(
+            parts.module.functions.is_empty(),
+            "{:#?}",
+            parts.module.functions
+        );
+    }
+}

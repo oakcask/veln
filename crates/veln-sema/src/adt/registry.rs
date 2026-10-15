@@ -15,20 +15,55 @@ use super::lookup_validation::{
 mod aliases;
 mod build;
 mod constructors;
+mod lookup_helpers;
 
 #[derive(Clone, Debug)]
 pub(crate) struct AdtRegistry {
     descriptors: Vec<AdtDescriptor>,
     variant_declaration_orders: Vec<Arc<VariantDeclarationOrder>>,
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
+    descriptors_by_source_identity: HashMap<(Option<String>, String), Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
+    variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, Option<usize>>>,
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
-    type_alias_identities: BTreeSet<(Option<String>, String)>,
+    type_alias_identities: BTreeSet<DescriptorKey>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
-    declaration_spans: HashMap<String, SourceSpan>,
+    declaration_spans: HashMap<DescriptorKey, SourceSpan>,
+    variant_declaration_spans: HashMap<VariantDescriptorKey, SourceSpan>,
+    qualified_import_modules: HashMap<(Option<String>, String), QualifiedImportModules>,
+    qualified_import_recovery_modules:
+        HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>>,
+    imported_descriptors_by_type: HashMap<(Option<String>, String), Option<usize>>,
+    imported_descriptors_by_type_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
+    source_import_indexes_ready: bool,
     local_descriptor_start: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum QualifiedSourceIdentity {
+    Source((Option<String>, String)),
+    Ambiguous,
+    CompilerKnown(String),
+}
+
+#[derive(Clone, Debug, Default)]
+struct QualifiedImportModules {
+    exact: BTreeSet<String>,
+    implicit: BTreeSet<String>,
+}
+
+#[derive(Clone, Debug)]
+struct QualifiedRecoveryModules {
+    module_path: String,
+    modules: QualifiedImportModules,
+}
+
+#[derive(Debug, Default)]
+struct ImportedDescriptorCandidates {
+    any_arity: HashMap<(Option<String>, String), Option<usize>>,
+    exact_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -37,6 +72,40 @@ struct TypeAliasDeclarationIdentity {
     file: SourcePath,
     start: usize,
     end: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct DescriptorKey {
+    module_name: Option<String>,
+    type_name: String,
+    nominal_identity: Option<String>,
+    arity: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct VariantDescriptorKey {
+    descriptor: DescriptorKey,
+    variant_name: String,
+}
+
+impl DescriptorKey {
+    fn new(descriptor: &AdtDescriptor) -> Self {
+        Self {
+            module_name: descriptor.module_name.clone(),
+            type_name: descriptor.type_name.clone(),
+            nominal_identity: descriptor.nominal_identity.clone(),
+            arity: descriptor.type_parameters.len(),
+        }
+    }
+}
+
+impl VariantDescriptorKey {
+    fn new(descriptor: &AdtDescriptor, variant: &AdtVariantDescriptor) -> Self {
+        Self {
+            descriptor: DescriptorKey::new(descriptor),
+            variant_name: variant.name.clone(),
+        }
+    }
 }
 
 impl TypeAliasDeclarationIdentity {
@@ -79,6 +148,13 @@ impl VariantDeclarationOrder {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ConstructorLookup<'a> {
     Found(AdtConstructor<'a>),
+    Ambiguous,
+    Missing,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum VariantLookup<'a> {
+    Found(&'a AdtVariantDescriptor),
     Ambiguous,
     Missing,
 }
@@ -150,7 +226,13 @@ impl AdtRegistry {
             .get(name)
             .into_iter()
             .flatten()
-            .map(|index| &self.descriptors[*index])
+            .map(|index| self.descriptor_lookup_candidate(*index))
+    }
+
+    fn descriptor_lookup_candidate(&self, index: usize) -> &AdtDescriptor {
+        #[cfg(test)]
+        descriptor_lookup_counters::record_candidate_scan();
+        &self.descriptors[index]
     }
 
     fn variants_named(
@@ -186,11 +268,43 @@ impl AdtRegistry {
 
     pub(crate) fn declaration_span_for_type(&self, ty: &Type) -> Option<&SourceSpan> {
         let descriptor = self.descriptor_for_type(ty)?;
-        self.declaration_spans.get(&descriptor.identity())
+        self.declaration_spans.get(&DescriptorKey::new(descriptor))
     }
 
     pub(crate) fn declaration_span(&self, descriptor: &AdtDescriptor) -> Option<&SourceSpan> {
-        self.declaration_spans.get(&descriptor.identity())
+        self.declaration_spans.get(&DescriptorKey::new(descriptor))
+    }
+
+    pub(crate) fn variant_for_descriptor<'a>(
+        &'a self,
+        descriptor: &'a AdtDescriptor,
+        name: &str,
+    ) -> VariantLookup<'a> {
+        #[cfg(test)]
+        variant_lookup_counters::record_index_lookup();
+        let Some(variant_index) = self
+            .variants_by_descriptor
+            .get(&DescriptorKey::new(descriptor))
+            .and_then(|variants| variants.get(name))
+        else {
+            return VariantLookup::Missing;
+        };
+        let Some(variant_index) = variant_index else {
+            return VariantLookup::Ambiguous;
+        };
+        descriptor
+            .variants
+            .get(*variant_index)
+            .map_or(VariantLookup::Missing, VariantLookup::Found)
+    }
+
+    pub(crate) fn variant_declaration_span(
+        &self,
+        descriptor: &AdtDescriptor,
+        variant: &AdtVariantDescriptor,
+    ) -> Option<&SourceSpan> {
+        self.variant_declaration_spans
+            .get(&VariantDescriptorKey::new(descriptor, variant))
     }
 
     pub(crate) fn variant_declaration_order_for_type(
@@ -241,10 +355,13 @@ impl AdtRegistry {
         if name.contains("::") {
             return None;
         }
-        self.descriptors_named(name).rev().find(|descriptor| {
-            descriptor.module_name.as_deref() == module_name
-                && descriptor.type_parameters.len() == args.len()
-        })
+        self.descriptors_by_source_identity
+            .get(&(module_name.map(str::to_string), name.clone()))
+            .into_iter()
+            .flatten()
+            .rev()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+            .find(|descriptor| descriptor.type_parameters.len() == args.len())
     }
 
     pub(crate) fn descriptor_for_type_prefer_module(
@@ -266,6 +383,62 @@ impl AdtRegistry {
         self.descriptor_for_type_path_with_arity(name, Some(args_len), current_module, uses)
     }
 
+    pub(crate) fn unique_descriptor_for_type_path(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        if name.contains("::") {
+            let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+            let type_name = segments.last()?;
+            let identity =
+                self.qualified_source_identity(type_name, &segments, current_module, uses);
+            return self.unique_qualified_descriptor_for_identity(
+                &identity,
+                Some(args_len),
+                &segments,
+                current_module,
+                uses,
+            );
+        }
+        self.unique_unqualified_descriptor_for_type_path(name, args_len, current_module, uses)
+    }
+
+    fn unique_unqualified_descriptor_for_type_path(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let descriptor = self.descriptor_for_type_path(name, args_len, current_module, uses)?;
+        let indices = self
+            .descriptors_by_source_identity
+            .get(&(descriptor.module_name.clone(), descriptor.type_name.clone()))?;
+        let selected_index = indices
+            .iter()
+            .copied()
+            .find(|index| std::ptr::eq(self.descriptor_lookup_candidate(*index), descriptor))?;
+        let selected_is_local = selected_index >= self.local_descriptor_start;
+        let mut matches = indices.iter().copied().filter_map(|index| {
+            let candidate = self.descriptor_lookup_candidate(index);
+            ((index >= self.local_descriptor_start) == selected_is_local
+                && candidate.type_name == descriptor.type_name
+                && candidate.module_name == descriptor.module_name
+                && candidate.type_parameters.len() == args_len)
+                .then_some(candidate)
+        });
+        let unique = matches.next()?;
+        matches.next().is_none().then_some(unique)
+    }
+
+    pub(crate) fn descriptor_is_type_alias(&self, descriptor: &AdtDescriptor) -> bool {
+        self.type_alias_identities
+            .contains(&DescriptorKey::new(descriptor))
+    }
+
     pub(crate) fn descriptor_for_type_path_any_arity(
         &self,
         name: &str,
@@ -274,279 +447,9 @@ impl AdtRegistry {
     ) -> Option<&AdtDescriptor> {
         self.descriptor_for_type_path_with_arity(name, None, current_module, uses)
     }
-
-    pub(crate) fn unique_descriptor_for_type_path_any_arity(
-        &self,
-        name: &str,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> Option<&AdtDescriptor> {
-        if name.contains("::") {
-            self.unique_qualified_descriptor_any_arity(name, current_module, uses)
-        } else {
-            self.unique_unqualified_descriptor_any_arity(name, current_module, uses)
-        }
-    }
-
-    fn unique_unqualified_descriptor_any_arity(
-        &self,
-        name: &str,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> Option<&AdtDescriptor> {
-        let indices = self
-            .descriptors_by_type_name
-            .get(name)
-            .map(Vec::as_slice)
-            .unwrap_or_default();
-        let descriptors = |local| {
-            indices
-                .iter()
-                .copied()
-                .filter(move |index| (*index >= self.local_descriptor_start) == local)
-                .map(|index| &self.descriptors[index])
-        };
-        let local = descriptors(true)
-            .filter(|descriptor| descriptor.module_name.as_deref() == current_module);
-        let builtin = descriptors(false).filter(|descriptor| descriptor.module_name.is_none());
-        let imported = indices
-            .iter()
-            .map(|index| &self.descriptors[*index])
-            .filter(|descriptor| {
-                descriptor.visibility == Visibility::Public
-                    && descriptor
-                        .module_name
-                        .as_ref()
-                        .is_some_and(|module| uses.iter().any(|use_decl| &use_decl.name == module))
-            });
-        Self::unique_candidate(local)
-            .or_else(|| Self::unique_candidate(builtin))
-            .or_else(|| Self::unique_candidate(imported))
-            .flatten()
-    }
-
-    fn unique_qualified_descriptor_any_arity(
-        &self,
-        name: &str,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> Option<&AdtDescriptor> {
-        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
-        let type_name = segments.last()?;
-        let qualified_source_identity = self
-            .descriptors_named(type_name)
-            .find(|descriptor| {
-                self.descriptor_matches_qualified_source_identity(
-                    descriptor,
-                    &segments,
-                    current_module,
-                    uses,
-                )
-            })
-            .map(descriptor_identity);
-        let candidates = self.descriptors_named(type_name).filter(|descriptor| {
-            qualified_source_identity.as_ref().map_or_else(
-                || descriptor.module_name.is_none(),
-                |identity| descriptor_identity(descriptor) == *identity,
-            ) && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
-        });
-        Self::unique_candidate(candidates).flatten()
-    }
-
-    fn descriptor_matches_qualified_source_identity(
-        &self,
-        descriptor: &AdtDescriptor,
-        segments: &[String],
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> bool {
-        let Some(module_name) = descriptor.module_name.as_deref() else {
-            return false;
-        };
-        let module_segments = &segments[..segments.len() - 1];
-        (descriptor.module_name.as_deref() == current_module
-            && module_segments.join("::") == module_name)
-            || imported_module_path_matches(descriptor, module_segments, uses, current_module)
-    }
-
-    fn unique_candidate<'a>(
-        mut candidates: impl Iterator<Item = &'a AdtDescriptor>,
-    ) -> Option<Option<&'a AdtDescriptor>> {
-        let candidate = candidates.next()?;
-        Some(candidates.next().is_none().then_some(candidate))
-    }
-
-    pub(crate) fn canonical_descriptor_for<'a>(
-        &'a self,
-        descriptor: &'a AdtDescriptor,
-    ) -> &'a AdtDescriptor {
-        self.descriptors_by_identity
-            .get(&descriptor.identity())
-            .into_iter()
-            .flatten()
-            .map(|index| &self.descriptors[*index])
-            .find(|candidate| {
-                candidate.nominal_identity.is_none()
-                    && candidate.type_parameters.len() == descriptor.type_parameters.len()
-            })
-            .unwrap_or(descriptor)
-    }
-
-    pub(crate) fn canonical_type_name_for_descriptor(&self, descriptor: &AdtDescriptor) -> String {
-        self.canonical_descriptor_for(descriptor).type_name.clone()
-    }
-
-    fn descriptor_for_type_path_with_arity(
-        &self,
-        name: &str,
-        args_len: Option<usize>,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> Option<&AdtDescriptor> {
-        let arity_matches = |descriptor: &&AdtDescriptor| {
-            args_len.is_none_or(|args_len| descriptor.type_parameters.len() == args_len)
-        };
-        if !name.contains("::") {
-            return self
-                .descriptors_named(name)
-                .rev()
-                .find(|descriptor| {
-                    descriptor.module_name.as_deref() == current_module && arity_matches(descriptor)
-                })
-                .or_else(|| {
-                    self.descriptors_named(name).find(|descriptor| {
-                        descriptor.module_name.is_none() && arity_matches(descriptor)
-                    })
-                })
-                .or_else(|| {
-                    let mut imported = self.descriptors_named(name).filter(|descriptor| {
-                        arity_matches(descriptor)
-                            && descriptor.visibility == Visibility::Public
-                            && descriptor.module_name.as_ref().is_some_and(|module| {
-                                uses.iter().any(|use_decl| &use_decl.name == module)
-                            })
-                    });
-                    let descriptor = imported.next()?;
-                    imported.next().is_none().then_some(descriptor)
-                });
-        }
-        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
-        let type_name = segments.last()?;
-        self.descriptors_named(type_name).rev().find(|descriptor| {
-            arity_matches(descriptor)
-                && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
-        })
-    }
-
-    pub(crate) fn descriptor_for_core_type(&self, ty: &CoreType) -> Option<&AdtDescriptor> {
-        let CoreType::Named { name, args } = ty else {
-            return None;
-        };
-        self.descriptors_named(name).find(|descriptor| {
-            descriptor.type_name == *name && descriptor.type_parameters.len() == args.len()
-        })
-    }
-
-    fn descriptor_visible(
-        &self,
-        descriptor: &AdtDescriptor,
-        segments: &[String],
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-        include_imports: bool,
-    ) -> bool {
-        if descriptor.module_name.is_none() {
-            return true;
-        }
-        let same_module = descriptor.module_name.as_deref() == current_module;
-        if same_module {
-            return true;
-        }
-        if !include_imports {
-            return false;
-        }
-        if descriptor.visibility != Visibility::Public {
-            return self.companion_private_access_allowed(
-                descriptor,
-                segments,
-                current_module,
-                uses,
-            );
-        }
-        let Some(first) = segments.first() else {
-            return false;
-        };
-        if let Some(module_name) = uses
-            .iter()
-            .find(|use_decl| {
-                use_decl.module_name.as_deref() == current_module && use_decl.alias == *first
-            })
-            .map(|use_decl| use_decl.name.as_str())
-        {
-            return descriptor.module_name.as_deref() == Some(module_name);
-        }
-        if imported_descriptor_path_matches(descriptor, segments, current_module, uses) {
-            return true;
-        }
-        segments.len() <= 2
-            && uses.iter().any(|use_decl| {
-                use_decl.module_name.as_deref() == current_module
-                    && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
-            })
-    }
-
-    fn variant_visible(
-        &self,
-        descriptor: &AdtDescriptor,
-        variant: &AdtVariantDescriptor,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-        segments: &[String],
-    ) -> bool {
-        if descriptor.module_name.is_none() || descriptor.module_name.as_deref() == current_module {
-            return true;
-        }
-        if self.companion_private_access_allowed(descriptor, segments, current_module, uses) {
-            return true;
-        }
-        if segments.len() > 2 {
-            return variant.visibility == Visibility::Public
-                && descriptor.visibility == Visibility::Public;
-        }
-        variant.visibility == Visibility::Public
-    }
-
-    fn companion_private_access_allowed(
-        &self,
-        descriptor: &AdtDescriptor,
-        segments: &[String],
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> bool {
-        let Some(current_module) = current_module else {
-            return false;
-        };
-        let Some(target_module) = descriptor.module_name.as_deref() else {
-            return false;
-        };
-        if !self
-            .companion_access_targets
-            .get(current_module)
-            .is_some_and(|allowed| allowed == target_module)
-        {
-            return false;
-        }
-        let Some(first) = segments.first() else {
-            return false;
-        };
-        uses.iter().any(|use_decl| {
-            use_decl.package.is_none()
-                && use_decl.module_name.as_deref() == Some(current_module)
-                && use_decl.alias == *first
-                && use_decl.name == target_module
-        })
-    }
 }
+
+mod qualified_lookup;
 
 fn imported_descriptor_path_matches(
     descriptor: &AdtDescriptor,
@@ -616,14 +519,14 @@ pub(super) mod constructor_lookup_counters {
 }
 
 #[cfg(test)]
-pub(super) mod descriptor_lookup_counters {
+pub(crate) mod descriptor_lookup_counters {
     use std::cell::Cell;
 
     thread_local! {
         static CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
     }
 
-    pub(in crate::adt) fn reset() {
+    pub(crate) fn reset() {
         CANDIDATE_SCANS.set(0);
     }
 
@@ -631,7 +534,28 @@ pub(super) mod descriptor_lookup_counters {
         CANDIDATE_SCANS.set(CANDIDATE_SCANS.get() + 1);
     }
 
-    pub(in crate::adt) fn candidate_scans() -> usize {
+    pub(crate) fn candidate_scans() -> usize {
         CANDIDATE_SCANS.get()
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod variant_lookup_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static INDEX_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(crate) fn reset() {
+        INDEX_LOOKUPS.set(0);
+    }
+
+    pub(super) fn record_index_lookup() {
+        INDEX_LOOKUPS.set(INDEX_LOOKUPS.get() + 1);
+    }
+
+    pub(crate) fn index_lookups() -> usize {
+        INDEX_LOOKUPS.get()
     }
 }

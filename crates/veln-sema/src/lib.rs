@@ -42,8 +42,6 @@ pub(crate) use navigation::{
     reset_schema_alias_chain_resolution_work, reset_schema_alias_target_import_work,
     schema_alias_chain_resolution_work, schema_alias_target_import_work,
 };
-#[cfg(test)]
-pub(crate) use pipeline::analyze_surface_module_with_base_for_test;
 pub use pipeline::{
     CanonicalTypeAnnotationIdentity, CanonicalTypeAnnotationWork, LoweredSurfaceModule,
     VariantRefinementClassificationWork, analyze_surface_module,
@@ -62,6 +60,10 @@ pub use pipeline::{
     prepare_reusable_standard_surface_module_environment,
     try_prepare_current_reusable_standard_surface_module_environment,
     validate_standard_symbol_registry_diagnostic,
+};
+#[cfg(test)]
+pub(crate) use pipeline::{
+    analyze_surface_module_with_base_for_test, check_project_surface_module_with_base_for_test,
 };
 pub use type_syntax::{type_annotation_reference_names, type_annotation_reference_paths};
 pub use types::ReusableStandardEnvironment;

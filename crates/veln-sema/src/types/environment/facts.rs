@@ -9,7 +9,7 @@ use crate::type_syntax::parse_type_or_unknown;
 mod quarantine;
 
 use quarantine::{
-    function_has_base_failure, quarantine_invalid_variant_refinement_declaration_types,
+    quarantine_invalid_variant_refinement_declaration_types,
     quarantine_invalid_variant_refinement_function_types,
     quarantine_invalid_variant_refinement_handler_types,
     quarantine_invalid_variant_refinement_signatures,
@@ -120,6 +120,9 @@ fn finish_environment(
     let mut environment = TypeEnvironment {
         functions: callables.functions,
         functions_by_name: HashMap::new(),
+        unpublished_functions: base
+            .map(|base| base.unpublished_functions.clone())
+            .unwrap_or_default(),
         function_recovery_signatures: Vec::new(),
         function_recoveries: BTreeMap::new(),
         constructor_recoveries: BTreeMap::new(),
@@ -137,7 +140,24 @@ fn finish_environment(
         companion_effect_access_targets: declarations.companion_effect_access_targets,
     };
     quarantine_invalid_variant_refinement_signatures(module, &mut environment);
-    let aliases = function_alias_signatures(module, &environment.functions);
+    let unpublished = module
+        .functions
+        .iter()
+        .filter(|function| {
+            crate::analysis::function_has_private_variant_refinement_exposure(
+                function,
+                &environment,
+            )
+        })
+        .map(source_function_publication_key)
+        .collect::<Vec<_>>();
+    environment.unpublished_functions.extend(unpublished);
+    let aliases =
+        function_alias_signatures_with_target_filter(module, &environment.functions, |target| {
+            !environment
+                .unpublished_functions
+                .contains(&function_publication_key(target))
+        });
     environment.functions.extend(aliases);
     environment.functions_by_name = function_name_index(&environment.functions);
     let recovery = recovery_facts(module, &environment);
@@ -206,7 +226,7 @@ fn invalid_function_recovery_signature(
         node_id: function.node_id,
         span: function.span.clone(),
     };
-    if function_has_base_failure(function, environment) {
+    if quarantine::function_has_invalid_variant_refinement(module, function, environment) {
         signature.params.fill(Type::Unknown);
         if let Some(variadic) = &mut signature.variadic {
             *variadic = Type::Unknown;
@@ -389,7 +409,9 @@ fn declared_callable_facts(
         &declarations.adts,
         &declarations.companion_effect_access_targets,
     );
-    extend_with_base_facts(&mut functions, base.map(|base| &base.functions));
+    if let Some(base) = base {
+        functions.extend(base.published_functions().cloned());
+    }
     CallableFacts {
         functions,
         handlers,

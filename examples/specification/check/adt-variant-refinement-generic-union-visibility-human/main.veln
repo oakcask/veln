@@ -1,0 +1,21 @@
+pub type Arg
+	pub Value
+end
+
+pub type Alias = Arg
+
+pub type Box<A>
+	pub Boxed(A)
+end
+
+pub type State<A>
+	Hidden(A)
+end
+
+pub fn expose(value: State<Alias>::Hidden | State<Arg>::Hidden | State<String>::Hidden | State<Alias>::Hidden) -> ()
+	()
+end
+
+pub fn expose_unresolved(value: State<missing::A>::Hidden | State<other::B>::Hidden | State<missing::A>::Hidden | State<Box<missing::C>>::Hidden | State<Box<other::D>>::Hidden) -> ()
+	()
+end

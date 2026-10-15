@@ -9,8 +9,8 @@ use crate::standard_symbols::{
 use super::descriptors::{AdtDescriptor, AdtVariantDescriptor, AdtVariantKind};
 use super::lookup_validation::validate_adt_lookup_descriptors;
 use super::registry::{
-    AdtRegistry, ConstructorLookup, constructor_lookup_counters, descriptor_lookup_counters,
-    type_alias_resolution_counters,
+    AdtRegistry, ConstructorLookup, VariantLookup, constructor_lookup_counters,
+    descriptor_lookup_counters, type_alias_resolution_counters,
 };
 use super::runtime_base_variants::runtime_base_variants;
 use super::runtime_connection_variants::runtime_connection_variants;
@@ -55,6 +55,37 @@ fn empty_module() -> SurfaceModule {
     }
 }
 
+fn lookup_descriptor(module: &str, arity: usize) -> AdtDescriptor {
+    AdtDescriptor {
+        type_name: "State".to_string(),
+        name_class: SourceLessNameClass::Type,
+        module_name: Some(module.to_string()),
+        nominal_identity: None,
+        type_parameters: (0..arity).map(|index| format!("T{index}")).collect(),
+        variants: vec![AdtVariantDescriptor {
+            name: "Hidden".to_string(),
+            name_class: SourceLessNameClass::Constructor,
+            kind: AdtVariantKind::Source,
+            payload_fields: Vec::new(),
+            coverage_case: "Hidden".to_string(),
+            visibility: Visibility::Public,
+        }],
+        diagnostic_name: "state".to_string(),
+        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
+        propagation: None,
+        visibility: Visibility::Public,
+    }
+}
+
+#[path = "tests/variant_lookup.rs"]
+mod variant_lookup;
+
+fn lookup_uses(source: &str) -> Vec<veln_ast::UseDecl> {
+    let parsed = veln_syntax::parse(&veln_source::SourceFile::new("consumer.veln", source));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    veln_ast::lower_surface_ast(&parsed.tree).uses
+}
+
 #[test]
 fn type_alias_reverse_chain_resolution_work_is_linear() {
     let mut measurements = Vec::new();
@@ -97,60 +128,67 @@ fn type_alias_reverse_chain_resolution_work_is_linear() {
 #[test]
 fn type_alias_shared_suffix_cycle_and_unresolved_work_stays_bounded() {
     for count in [64usize, 128, 256] {
-        let mut source = String::from("mod facade\n\npub type Packet\nend\n\n");
-        for index in (0..count).rev() {
-            let target = if index == 0 {
-                "Packet".to_string()
-            } else {
-                format!("Shared{}", index - 1)
-            };
-            source.push_str(&format!("pub type Shared{index} = {target}\n"));
-        }
-        for index in 0..count {
-            source.push_str(&format!("pub type Left{index} = Shared{}\n", count - 1));
-            source.push_str(&format!("pub type Right{index} = Shared{}\n", count - 1));
-        }
-        source.push_str("pub type CycleA = CycleB\n");
-        source.push_str("pub type CycleB = CycleA\n");
-        source.push_str("pub type Unresolved = Missing\n");
+        let source = shared_suffix_alias_source(count);
         let parsed = veln_syntax::parse(&veln_source::SourceFile::new("facade.veln", &source));
         assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
         let module = veln_ast::lower_surface_ast(&parsed.tree);
         type_alias_resolution_counters::reset();
         let registry = AdtRegistry::from_module_with_base(&module, &registry());
-        let descriptors = registry.descriptors();
-        let packet = descriptors
-            .iter()
-            .find(|descriptor| {
-                descriptor.module_name.as_deref() == Some("facade")
-                    && descriptor.type_name == "Packet"
-            })
-            .expect("source Packet descriptor");
-        let resolved = descriptors
-            .iter()
-            .filter(|descriptor| {
-                descriptor.module_name.as_deref() == Some("facade")
-                    && (descriptor.type_name.starts_with("Shared")
-                        || descriptor.type_name.starts_with("Left")
-                        || descriptor.type_name.starts_with("Right"))
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(resolved.len(), count * 3);
-        assert!(
-            resolved
-                .iter()
-                .all(|descriptor| descriptor.identity() == packet.identity())
-        );
-        assert!(!descriptors.iter().any(|descriptor| {
-            descriptor.module_name.as_deref() == Some("facade")
-                && matches!(
-                    descriptor.type_name.as_str(),
-                    "CycleA" | "CycleB" | "Unresolved"
-                )
-        }));
+        assert_shared_suffix_aliases(&registry, count);
         let work = type_alias_resolution_counters::work();
         assert!(work <= count * 9 + 16, "work={work} count={count}");
     }
+}
+
+fn shared_suffix_alias_source(count: usize) -> String {
+    let mut source = String::from("mod facade\n\npub type Packet\nend\n\n");
+    for index in (0..count).rev() {
+        let target = if index == 0 {
+            "Packet".to_string()
+        } else {
+            format!("Shared{}", index - 1)
+        };
+        source.push_str(&format!("pub type Shared{index} = {target}\n"));
+    }
+    for index in 0..count {
+        source.push_str(&format!("pub type Left{index} = Shared{}\n", count - 1));
+        source.push_str(&format!("pub type Right{index} = Shared{}\n", count - 1));
+    }
+    source.push_str("pub type CycleA = CycleB\npub type CycleB = CycleA\n");
+    source.push_str("pub type Unresolved = Missing\n");
+    source
+}
+
+fn assert_shared_suffix_aliases(registry: &AdtRegistry, count: usize) {
+    let descriptors = registry.descriptors();
+    let packet = descriptors
+        .iter()
+        .find(|descriptor| {
+            descriptor.module_name.as_deref() == Some("facade") && descriptor.type_name == "Packet"
+        })
+        .expect("source Packet descriptor");
+    let resolved = descriptors
+        .iter()
+        .filter(|descriptor| {
+            descriptor.module_name.as_deref() == Some("facade")
+                && (descriptor.type_name.starts_with("Shared")
+                    || descriptor.type_name.starts_with("Left")
+                    || descriptor.type_name.starts_with("Right"))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(resolved.len(), count * 3);
+    assert!(
+        resolved
+            .iter()
+            .all(|descriptor| descriptor.identity() == packet.identity())
+    );
+    assert!(!descriptors.iter().any(|descriptor| {
+        descriptor.module_name.as_deref() == Some("facade")
+            && matches!(
+                descriptor.type_name.as_str(),
+                "CycleA" | "CycleB" | "Unresolved"
+            )
+    }));
 }
 
 #[test]
@@ -543,5 +581,102 @@ fn descriptor_lookup_work_grows_with_lookups_not_unrelated_descriptors() {
         larger,
         smaller * 2,
         "descriptor lookup work must grow linearly across adjacent input sizes"
+    );
+}
+
+#[test]
+fn exact_qualified_descriptor_lookup_binds_the_written_source_identity() {
+    let imported = lookup_descriptor("imported", 1);
+    let local = lookup_descriptor("consumer", 1);
+    let uses = lookup_uses("mod consumer\nuse imported\n");
+
+    for descriptors in [
+        vec![imported.clone(), local.clone()],
+        vec![local.clone(), imported.clone()],
+    ] {
+        let registry = AdtRegistry::from_parts(descriptors, std::collections::BTreeMap::new());
+
+        let imported_match = registry
+            .unique_descriptor_for_type_path("imported::State", 1, Some("consumer"), &uses)
+            .expect("import alias must select the imported descriptor");
+        assert_eq!(imported_match.module_name.as_deref(), Some("imported"));
+
+        let recovered_import_match = registry
+            .unique_descriptor_for_type_path("Imported::State", 1, Some("consumer"), &uses)
+            .expect("initial-only casing recovery must keep the imported descriptor identity");
+        assert_eq!(
+            recovered_import_match.module_name.as_deref(),
+            Some("imported")
+        );
+
+        let local_match = registry
+            .unique_descriptor_for_type_path("consumer::State", 1, Some("consumer"), &uses)
+            .expect("the exact current-module qualifier must select the local descriptor");
+        assert_eq!(local_match.module_name.as_deref(), Some("consumer"));
+
+        assert!(
+            registry
+                .descriptor_for_type_path("missing::State", 1, Some("consumer"), &uses)
+                .is_none(),
+            "an unrelated local descriptor must not satisfy a written qualifier"
+        );
+        assert!(
+            registry
+                .descriptor_for_type_path("imported::State", 0, Some("consumer"), &uses)
+                .is_none(),
+            "an imported arity mismatch must not fall through to a local namesake"
+        );
+        assert!(
+            registry
+                .descriptor_for_type_path("Imported::State", 0, Some("consumer"), &uses)
+                .is_none(),
+            "a recovered import arity mismatch must not fall through to a local namesake"
+        );
+    }
+}
+
+#[test]
+fn exact_qualified_descriptor_lookup_preserves_duplicate_identity_ambiguity() {
+    let imported = lookup_descriptor("imported", 0);
+    let local = lookup_descriptor("consumer", 0);
+    let uses = lookup_uses("mod consumer\nuse imported\n");
+    let registry = AdtRegistry::from_parts(
+        vec![imported.clone(), local, imported],
+        std::collections::BTreeMap::new(),
+    );
+
+    assert!(
+        registry
+            .unique_descriptor_for_type_path("imported::State", 0, Some("consumer"), &uses)
+            .is_none(),
+        "duplicate descriptors for the selected source identity must remain ambiguous"
+    );
+}
+
+#[test]
+fn exact_qualified_descriptor_lookup_skips_unrelated_type_name_buckets() {
+    fn candidate_scans(unrelated_count: usize) -> usize {
+        let target = lookup_descriptor("imported", 0);
+        let mut descriptors = vec![target];
+        for index in 0..unrelated_count {
+            let mut descriptor = lookup_descriptor("unrelated", 0);
+            descriptor.type_name = format!("Unrelated{index}");
+            descriptors.push(descriptor);
+        }
+        let uses = lookup_uses("mod consumer\nuse imported\n");
+        let registry = AdtRegistry::from_parts(descriptors, std::collections::BTreeMap::new());
+        descriptor_lookup_counters::reset();
+        assert!(
+            registry
+                .unique_descriptor_for_type_path("imported::State", 0, Some("consumer"), &uses)
+                .is_some()
+        );
+        descriptor_lookup_counters::candidate_scans()
+    }
+
+    assert_eq!(
+        candidate_scans(0),
+        candidate_scans(128),
+        "qualified exact lookup must stay bounded by the type-name candidate index"
     );
 }

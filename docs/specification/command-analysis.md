@@ -21,10 +21,13 @@ inside a nested package, or reached through a disallowed path fail ownership
 validation.
 
 `check`, `run`, `test`, and `repair` share source discovery, generated
-doctest creation when requested, parse diagnostics, parse-clean module loading,
-semantic diagnostics, checked-core readiness, and selected-entry typed-IR
-readiness. Selection, output, execution, and write policy remain command
-specific.
+doctest creation when requested, parse diagnostics, module loading, semantic
+diagnostics, checked-core readiness, and selected-entry typed-IR readiness.
+Selection, output, execution, and write policy remain command specific.
+
+A source with parse diagnostics is excluded from semantic analysis. Other
+parse-clean sources in the same project can still proceed to semantic
+analysis.
 
 `doc` consumes the same project semantic diagnostics for its selected production
 sources, but retains its own source exclusion, parse recovery, schema-reference,

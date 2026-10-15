@@ -47,7 +47,7 @@ boundary.
 
 Parse diagnostics suppress semantic diagnostics for that file, but other
 parse-clean files may still report semantic errors. Cross-file imports and
-qualified calls from parse-clean files participate in the same analysis path as
+qualified calls from analyzed files participate in the same analysis path as
 `run` and `test`. Lowering reports checked-core blockers such as missing
 expressions and call or constructor arity mismatches. Parse-clean, semantically
 valid `begin` and `defer` forms pass checked-core readiness.

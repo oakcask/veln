@@ -132,6 +132,74 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
+A root variant refinement whose written base directly names an ADT in a public
+function parameter or result reports `type.variant_refinement_private` when
+that ADT is private or a selected variant is private. Type-alias-qualified
+roots and refinements in structural positions remain outside this check. The
+primary span selects the final identifier of the written base type for a private
+base and excludes preceding module qualifiers. For example,
+`main::Secret::One` selects `Secret`, not `main::Secret`. For a private variant
+of a public base, the primary span selects the final variant segment. The closed
+details contain exactly `written_type`,
+`base_type`, `variant`, `boundary`, and `exposure_path`. `boundary` is
+`public_parameter` or `public_result`.
+`exposure_path` is an array with one object. A parameter path contains
+`kind: "parameter"` and its `name`; a result path contains only
+`kind: "result"`.
+
+Related entries identify the `private_type_declaration` or
+`private_variant_declaration` and the `public_parameter_boundary` or
+`public_result_boundary`. A private declaration entry uses the declaration span
+from the selected ADT descriptor, including its generic arity. Another
+same-module ADT with the same type and variant names but a different arity does
+not supply that span. A union reports distinct inaccessible alternatives in
+written order. It removes paths with the same resolved base, canonical generic
+arguments, and variant, and retains the first written path. Canonical generic
+arguments recursively use resolved type identities, so an alias and its
+resolved target do not create separate privacy diagnostics. Canonical
+identity is used only when every nested type component resolves. Otherwise,
+deduplication uses the complete written alternative, so distinct unresolved
+arguments remain distinct while an exact written repeat retains its first
+occurrence. The complete written alternative is reconstructed independently
+of any bounded path display used for lookup. The declaration entry remains
+present when the ADT comes from a reusable or base environment.
+If initial-only casing recovery uniquely selects the base ADT and the written
+uppercase final segment resolves exactly, `name.invalid_case` precedes the
+independent privacy diagnostic. The diagnostic's `written_type` retains the
+source spelling. Ambiguous or unresolved base recovery does not produce a
+privacy diagnostic. A type path nested in a root alternative's generic
+arguments or in another structural type shape does not become an additional
+direct root.
+An exact final name shared by multiple variant declarations in the selected
+ADT is also ambiguous for this privacy check. That alternative produces no
+privacy diagnostic and does not by itself quarantine the public function; the
+duplicate declaration retains its independent `name.duplicate` diagnostic.
+Another union alternative with a unique private identity still produces its
+privacy diagnostic and quarantines the function.
+If the base has invalid generic arity but its ADT and final constructor
+identities are unique, the existing arity diagnostic precedes the independent
+privacy diagnostic. Union comparison and assignability diagnostics that
+require an instantiated base remain suppressed.
+An invalid annotation in a nested type argument or sibling alternative of the
+same root union also precedes but does not suppress an independently provable
+privacy diagnostic. This recovery does not extend visibility checking into
+aliases or structural type positions. The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
+cases fix the human messages, half-open spans, details, related context, and
+ordering.
+The generic-union visibility
+[`human`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-json/)
+cases verify complete alternative identity, exact duplicate removal, distinct
+unresolved arguments, and nested unresolved arguments.
+The long-alternative
+[`human`](../../examples/specification/check/adt-variant-refinement-long-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-long-visibility-json/)
+cases verify complete presentation beyond the bounded lookup display.
 A failed base retains its resolved identity as semantic analysis state for
 suppression and later analysis. This diagnostic recovery does not make the
 invalid refinement selectable by language-service protocols. A source-less

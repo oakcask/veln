@@ -41,7 +41,7 @@ use crate::schema::*;
 
 #[cfg(test)]
 use std::cell::Cell;
-use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 #[cfg(test)]
@@ -53,7 +53,7 @@ use veln_ast::{
     Visibility,
 };
 use veln_project::{classify_companion_source, companion_access_target};
-use veln_source::SourceSpan;
+use veln_source::{SourcePath, SourceSpan};
 
 use crate::semantic_model::{Binding, FunctionKey, Type};
 

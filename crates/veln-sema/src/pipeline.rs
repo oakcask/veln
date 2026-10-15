@@ -62,6 +62,15 @@ pub(crate) fn analyze_surface_module_with_base_for_test(
     analyze_surface_module_with_environment(module, &environment, true)
 }
 
+#[cfg(test)]
+pub(crate) fn check_project_surface_module_with_base_for_test(
+    module: &SurfaceModule,
+    base: &TypeEnvironment,
+) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    let environment = TypeEnvironment::from_module_with_base_for_test(module, base);
+    check_project_surface_module_with_environment(module, environment)
+}
+
 pub fn check_project_surface_module(
     module: &SurfaceModule,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
@@ -521,8 +530,14 @@ fn check_function_declaration_and_body(
     let mut diagnostics = Vec::new();
 
     diagnostics.extend(check_declared_effect_labels(function, environment));
+    let mut visibility_diagnostics = Vec::new();
     if function.visibility == Visibility::Public {
-        diagnostics.extend(check_public_function_boundary(function));
+        let (visibility, boundary): (Vec<_>, Vec<_>) =
+            check_public_function_boundary(function, environment)
+                .into_iter()
+                .partition(|diagnostic| diagnostic.id == "type.variant_refinement_private");
+        diagnostics.extend(boundary);
+        visibility_diagnostics = visibility;
     }
     if function.kind == FunctionKind::Test {
         diagnostics.extend(check_test_declaration_boundary(function));
@@ -532,6 +547,7 @@ fn check_function_declaration_and_body(
         environment,
         variant_diagnostics,
     ));
+    diagnostics.extend(visibility_diagnostics);
 
     diagnostics
 }
@@ -598,14 +614,8 @@ fn lower_project_reachable_surface_module_with_environment(
     )
 }
 
-fn should_validate_standard_bodies(module: &SurfaceModule) -> bool {
-    !module.functions.iter().any(|function| {
-        !function
-            .module_name
-            .as_deref()
-            .is_some_and(|module| module.starts_with("std::"))
-    })
-}
+mod helpers;
+use helpers::should_validate_standard_bodies;
 
 pub fn lower_analyzed_surface_module(
     module: &SurfaceModule,

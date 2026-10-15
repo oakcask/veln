@@ -11,6 +11,7 @@ impl TypeEnvironment {
         Self {
             functions,
             functions_by_name,
+            unpublished_functions: self.unpublished_functions.clone(),
             function_recovery_signatures: recoveries.function_signatures,
             function_recoveries: recoveries.functions,
             constructor_recoveries: recoveries.constructors,

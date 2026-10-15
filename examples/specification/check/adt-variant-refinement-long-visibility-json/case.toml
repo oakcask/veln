@@ -1,0 +1,9 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"written_type\":\"State<LongArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgument>::Hidden\"", "\"written_type\":\"State<String>::Private\""]
+
+[stderr]
+format = "empty"

@@ -70,6 +70,22 @@ fallback only when the qualified path does not identify a source declaration.
 This precedence applies to finite ADTs and to source declarations without
 variants; it does not turn the latter into an opaque compiler-known type.
 
+Source identity selection precedes generic-arity and descriptor-uniqueness
+checks. A current-module ADT or another imported ADT with the same type leaf
+cannot satisfy a different written module or import qualifier, regardless of
+descriptor registration order. An exact written import path takes precedence
+over a same-spelled implicit leaf qualifier. Without an exact match, colliding
+implicit leaf qualifiers remain unresolved even when only one imported module
+declares the requested type leaf. If the selected identity has the wrong arity
+or has duplicate matching descriptors, lookup fails instead of falling through
+to the namesake. An unqualified type leaf continues to prefer the current-module
+ADT over imported namesakes. A public ADT from another module participates in
+unqualified type lookup only when a `use` declared in the current module names
+its module. Imports declared in other modules neither supply a candidate nor
+make the current lookup ambiguous. This module-local import boundary applies
+both when lookup checks an exact generic arity and when recovery accepts any
+arity.
+
 Each public type-alias declaration resolves its own target, including when
 another declaration in the same module has the same alias name. The later
 declaration reports `name.duplicate`. An unresolved or wrong-kind target also
@@ -169,9 +185,26 @@ Bare names resolve to local bindings. Function calls resolve to:
   form
 - source path derived local imports through their full written module path in
   `module::path::function` form
-- public function aliases through the declaring module path
+- public function aliases whose target has a published callable signature,
+  through the declaring module path
 - implicit standard prelude helper imports by bare name or `prelude::function`
   form
+
+A public function whose direct variant-refinement visibility check fails can
+retain an all-`unknown` signature for same-module recovery without publishing a
+callable signature. A public alias of that function is not a qualified call
+target or an unqualified import candidate, and another module cannot republish
+it through a further alias. An alias of a valid public function remains
+available through each supported alias chain. This publication rule does not
+change invalid-name function recovery, whose callable-signature behavior is
+defined by the [type-checking contract](types.md#compatibility-and-limits).
+
+When a public alias uses a bare target name, a same-module function shadows an
+imported function with that name before publication eligibility is checked. If
+the local function is unpublished because its direct refinement visibility
+check failed, the alias is also unpublished; resolution does not fall back to
+the imported namesake. The imported function remains available through its
+qualified module path.
 
 A qualified function declared by a resolved source import takes precedence
 over a compiler-known qualified fallback with the same spelling. For example,
@@ -316,11 +349,20 @@ segment as a constructor. Each classification retains the written segment,
 span, and segment index. If changing only an invalid-cased base leaf selects
 exactly one type, casing analysis retains that type classification. It reports
 `name.invalid_case` and still checks the recovered base's independent
-variant-refinement eligibility. This includes a source-less base published by
-the type-syntax provider: an invalid-cased generic spelling reports casing and
-keeps an independently provable generic-arity failure. Qualified type arguments
-nested in the base retain their own type-path records. A uniquely recovered
-invalid-cased type in such an argument reports `name.invalid_case` without
+variant-refinement eligibility. For a refinement used as the complete
+annotation of a public function parameter or result, that unique recovered ADT
+identity also participates in the direct visibility check when the written
+final segment starts with an ASCII uppercase letter and resolves exactly to one
+constructor of the recovered ADT. A lowercase final segment is a parse failure
+and does not reach casing or direct visibility analysis. The privacy diagnostic
+retains the written base casing. Ambiguous or unresolved base recovery, or an
+ambiguous or missing exact final segment, does not manufacture a privacy
+diagnostic. This includes a source-less base
+published by the type-syntax provider: an invalid-cased generic spelling
+reports casing and keeps an independently provable generic-arity failure.
+Qualified type arguments nested in the base retain their own type-path
+records. A uniquely recovered invalid-cased type in such an argument reports
+`name.invalid_case` without
 suppressing an independently provable eligibility failure for the enclosing
 refinement base. An ambiguous or unresolved recovery does not assign a type
 role or manufacture an eligibility failure. The
@@ -502,6 +544,8 @@ not become fallback targets.
 
 - Name and import analysis: `crates/veln-analysis/src/surface/` and
   `crates/veln-sema/src/name_recovery.rs`.
+- Unqualified ADT import lookup:
+  `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.
 - Casing and source-path diagnostics: `crates/veln-sema/src/pipeline/identifier_casing/`.

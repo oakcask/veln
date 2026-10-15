@@ -1,0 +1,19 @@
+main.veln:15:15: error[type.invalid_annotation]: invalid type annotation `State<Alias>::Hidden | State<Arg>::Hidden | State<String>::Hidden | State<Alias>::Hidden`: variant refinement alternatives must resolve to declared variants of one ADT
+main.veln:15:36: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:12:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:15:15: Public parameter `value` of function `expose` exposes this refinement.
+main.veln:15:81: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:12:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:15:15: Public parameter `value` of function `expose` exposes this refinement.
+main.veln:19:52: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:12:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:19:26: Public parameter `value` of function `expose_unresolved` exposes this refinement.
+main.veln:19:78: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:12:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:19:26: Public parameter `value` of function `expose_unresolved` exposes this refinement.
+main.veln:19:139: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:12:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:19:26: Public parameter `value` of function `expose_unresolved` exposes this refinement.
+main.veln:19:170: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:12:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:19:26: Public parameter `value` of function `expose_unresolved` exposes this refinement.

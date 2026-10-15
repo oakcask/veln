@@ -1,0 +1,53 @@
+main.veln:65:48: error[name.invalid_case]: type name `secret` must start with an ASCII uppercase letter
+main.veln:69:43: error[name.invalid_case]: type name `secret` must start with an ASCII uppercase letter
+main.veln:73:51: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
+main.veln:77:46: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
+main.veln:20:38: error[type.variant_refinement_private]: public refinement exposes private type `main::Secret`
+  note: main.veln:1:1: Private type `main::Secret` is declared here.
+  note: main.veln:20:31: Public parameter `value` of function `private_base_parameter` exposes this refinement.
+main.veln:24:33: error[type.variant_refinement_private]: public refinement exposes private type `main::Secret`
+  note: main.veln:1:1: Private type `main::Secret` is declared here.
+  note: main.veln:24:33: Public result of function `private_base_result` exposes this refinement.
+main.veln:28:54: error[type.variant_refinement_private]: public refinement exposes private type `main::Secret`
+  note: main.veln:1:1: Private type `main::Secret` is declared here.
+  note: main.veln:28:41: Public parameter `value` of function `qualified_private_base_parameter` exposes this refinement.
+main.veln:32:48: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:8:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:32:34: Public parameter `value` of function `private_variant_parameter` exposes this refinement.
+main.veln:36:43: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Closed`
+  note: main.veln:9:2: Private variant `main::State::Closed` is declared here.
+  note: main.veln:36:36: Public result of function `private_variant_result` exposes this refinement.
+main.veln:40:36: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Closed`
+  note: main.veln:9:2: Private variant `main::State::Closed` is declared here.
+  note: main.veln:40:22: Public parameter `value` of function `private_union` exposes this refinement.
+main.veln:40:52: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:8:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:40:22: Public parameter `value` of function `private_union` exposes this refinement.
+main.veln:44:35: error[type.invalid_annotation]: invalid type annotation `GenericSecret::Hidden`: `GenericSecret` expects 1 type argument(s), found 0
+main.veln:44:42: error[type.variant_refinement_private]: public refinement exposes private type `main::GenericSecret`
+  note: main.veln:12:1: Private type `main::GenericSecret` is declared here.
+  note: main.veln:44:35: Public parameter `value` of function `invalid_arity_private_base` exposes this refinement.
+main.veln:48:38: error[type.invalid_annotation]: invalid type annotation `GenericState::Hidden`: `GenericState` expects 1 type argument(s), found 0
+main.veln:48:59: error[type.variant_refinement_private]: public refinement exposes private variant `main::GenericState::Hidden`
+  note: main.veln:17:2: Private variant `main::GenericState::Hidden` is declared here.
+  note: main.veln:48:38: Public parameter `value` of function `invalid_arity_private_variant` exposes this refinement.
+main.veln:57:32: error[type.invalid_annotation]: invalid type annotation `RecoveryState<Int>::Hidden | RecoveryState<Option>::Ready`: `Option` expects 1 type argument(s), found 0
+main.veln:57:59: error[type.variant_refinement_private]: public refinement exposes private variant `main::RecoveryState::Hidden`
+  note: main.veln:53:2: Private variant `main::RecoveryState::Hidden` is declared here.
+  note: main.veln:57:32: Public parameter `value` of function `mixed_private_parameter` exposes this refinement.
+main.veln:61:1: error[type.invalid_annotation]: invalid type annotation `RecoveryState<Option>::Ready | RecoveryState<Int>::Hidden`: `Option` expects 1 type argument(s), found 0
+main.veln:61:85: error[type.variant_refinement_private]: public refinement exposes private variant `main::RecoveryState::Hidden`
+  note: main.veln:53:2: Private variant `main::RecoveryState::Hidden` is declared here.
+  note: main.veln:61:34: Public result of function `mixed_private_result` exposes this refinement.
+main.veln:65:48: error[type.variant_refinement_private]: public refinement exposes private type `main::Secret`
+  note: main.veln:1:1: Private type `main::Secret` is declared here.
+  note: main.veln:65:41: Public parameter `value` of function `recovered_private_base_parameter` exposes this refinement.
+main.veln:69:43: error[type.variant_refinement_private]: public refinement exposes private type `main::Secret`
+  note: main.veln:1:1: Private type `main::Secret` is declared here.
+  note: main.veln:69:43: Public result of function `recovered_private_base_result` exposes this refinement.
+main.veln:73:58: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:8:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:73:44: Public parameter `value` of function `recovered_private_variant_parameter` exposes this refinement.
+main.veln:77:53: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Closed`
+  note: main.veln:9:2: Private variant `main::State::Closed` is declared here.
+  note: main.veln:77:46: Public result of function `recovered_private_variant_result` exposes this refinement.

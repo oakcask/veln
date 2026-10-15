@@ -306,54 +306,444 @@ fn declaration_quarantine_work_is_linear_across_consumers() {
 }
 
 #[test]
-fn nested_refinement_canonicalization_handles_increasing_depths() {
-    fn canonicalization_work(depth: usize) -> usize {
-        let mut annotation = "Int".to_string();
-        for _ in 0..depth {
-            annotation = format!("Choice<{annotation}>::Present");
+fn public_visibility_work_is_linear_for_wide_unions() {
+    let work = [16, 32, 64].map(|count| {
+        let mut source = String::from("pub type State\n");
+        for index in 0..count {
+            source.push_str(&format!("  Hidden{index}\n"));
         }
-        let source = format!(
-            "type Choice<A>\n  Present(A)\n  Absent\nend\nfn keep(value: {annotation}) -> {annotation}\n  value\nend\n"
-        );
-        crate::types::reset_type_canonicalization_visits();
-        let diagnostics = diagnostics_for(&source);
-        assert!(diagnostics.is_empty(), "depth {depth}: {diagnostics:#?}");
-        crate::types::take_type_canonicalization_visits()
-    }
+        source.push_str("end\npub fn expose(value: ");
+        for index in 0..count {
+            if index > 0 {
+                source.push_str(" | ");
+            }
+            source.push_str(&format!("State::Hidden{index}"));
+        }
+        source.push_str(") -> ()\n  ()\nend\n");
 
-    let work = [16, 32, 64].map(canonicalization_work);
-    eprintln!("type canonicalization visits at depths 16, 32, and 64: {work:?}");
-    assert!(work[0] > 0, "the metric must observe canonicalization work");
+        crate::analysis::reset_visibility_work();
+        crate::adt::registry::descriptor_lookup_counters::reset();
+        crate::adt::registry::variant_lookup_counters::reset();
+        let diagnostics = diagnostics_for(&source);
+        let visibility_work = crate::analysis::take_visibility_work();
+        let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+        let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
+        let work = visibility_work + descriptor_work + variant_work;
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            count,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        eprintln!(
+            "variant refinement visibility union: alternatives={count} \
+             visibility_work={visibility_work} descriptor_work={descriptor_work} \
+             variant_work={variant_work} work={work}"
+        );
+        work
+    });
+
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert_eq!(second_growth, first_growth * 2, "work={work:?}");
+}
+
+fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
+    let mut fields = String::new();
+    for index in 0..count {
+        if index > 0 {
+            fields.push_str(", ");
+        }
+        fields.push_str(&format!("field{index}: State::Hidden"));
+    }
+    let signature = match boundary {
+        "parameter" => format!("pub fn expose(value: {{{fields}}}) -> ()\n  ()\nend\n"),
+        "result" => format!("pub fn expose() -> {{{fields}}}\n  panic(\"unused\")\nend\n"),
+        _ => unreachable!("known test boundary"),
+    };
+    let source = SourceFile::new(
+        "main.veln",
+        format!("pub type State\n  Hidden\nend\n{signature}"),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    crate::analysis::reset_visibility_work();
+    let environment = TypeEnvironment::from_module(&module);
     assert!(
-        work[1] <= work[0] * 2 + 32 && work[2] <= work[1] * 2 + 32,
-        "doubling refinement depth must add only linear canonicalization work: {work:?}"
+        environment.function_is_published_for_test("expose"),
+        "boundary={boundary} count={count}"
+    );
+    let diagnostics = analyze_surface_module(&module);
+    let candidate_work = crate::analysis::take_visibility_candidate_work();
+    let visibility_work = crate::analysis::take_visibility_work();
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+        "boundary={boundary} count={count} diagnostics={diagnostics:#?}"
+    );
+    assert!(
+        candidate_work.root_classification > 0,
+        "an empty exposure result must still account for root classification: {candidate_work:?}"
+    );
+    assert!(
+        candidate_work.candidate_construction == 0,
+        "structural roots must be rejected before candidate construction: {candidate_work:?}"
+    );
+    assert!(
+        candidate_work.occurrence_lookup == 0,
+        "structural roots must be rejected before occurrence lookup: {candidate_work:?}"
+    );
+    eprintln!(
+        "wide structural refinement visibility: boundary={boundary} fields={count} \
+         candidate_work={candidate_work:?} visibility_work={visibility_work}"
+    );
+    candidate_work.root_classification
+        + candidate_work.candidate_construction
+        + candidate_work.occurrence_lookup
+        + visibility_work
+}
+
+#[test]
+fn public_parameter_structural_visibility_work_has_bounded_growth() {
+    let work = [256, 512, 1024].map(|count| wide_structural_visibility_work(count, "parameter"));
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert!(second_growth <= first_growth * 3, "work={work:?}");
+}
+
+#[test]
+fn public_result_structural_visibility_work_has_bounded_growth() {
+    let work = [256, 512, 1024].map(|count| wide_structural_visibility_work(count, "result"));
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert!(second_growth <= first_growth * 3, "work={work:?}");
+}
+
+#[test]
+fn public_visibility_work_is_linear_for_many_declarations() {
+    let work = [16, 32, 64].map(|count| {
+        let mut source = String::new();
+        for index in 0..count {
+            source.push_str(&format!(
+                "pub type State{index}\n  Hidden\nend\n\
+                 pub fn expose_{index}(value: State{index}::Hidden) -> ()\n  ()\nend\n"
+            ));
+        }
+
+        crate::analysis::reset_visibility_work();
+        crate::adt::registry::descriptor_lookup_counters::reset();
+        crate::adt::registry::variant_lookup_counters::reset();
+        let diagnostics = diagnostics_for(&source);
+        let visibility_work = crate::analysis::take_visibility_work();
+        let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+        let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
+        let work = visibility_work + descriptor_work + variant_work;
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            count,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        eprintln!(
+            "variant refinement visibility declarations: declarations={count} \
+             visibility_work={visibility_work} descriptor_work={descriptor_work} \
+             variant_work={variant_work} work={work}"
+        );
+        work
+    });
+
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert_eq!(second_growth, first_growth * 2, "work={work:?}");
+}
+
+fn same_leaf_qualified_import_project(count: usize) -> veln_ast::SurfaceModule {
+    let mut modules = Vec::new();
+    let mut consumer_source = String::new();
+    for index in 0..count {
+        let module_name = format!("dependency{index}");
+        modules.push((
+            module_name.clone(),
+            SourceFile::new(
+                format!("{module_name}.veln"),
+                "pub type State\n  Hidden\nend\n",
+            ),
+        ));
+        consumer_source.push_str(&format!("use {module_name}\n"));
+    }
+    for index in 0..count {
+        consumer_source.push_str(&format!(
+            "pub fn expose_{index}(value: dependency{index}::State::Hidden) -> ()\n  ()\nend\n"
+        ));
+    }
+    let consumer = SourceFile::new("consumer.veln", consumer_source);
+    let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&consumer).tree,
+        "consumer".to_string(),
+        consumer.span(veln_source::TextRange::new(0, 0)),
+    );
+    modules.push(("consumer".to_string(), consumer));
+    let sources = modules
+        .iter()
+        .map(|(name, source)| (name.as_str(), source.clone()))
+        .collect();
+    let mut project = merged_modules_with_identities(sources);
+    project.module = consumer_identity.module;
+    project
+}
+
+fn same_leaf_qualified_import_work(count: usize) -> usize {
+    let project = same_leaf_qualified_import_project(count);
+    crate::analysis::reset_visibility_work();
+    crate::adt::registry::descriptor_lookup_counters::reset();
+    crate::adt::registry::variant_lookup_counters::reset();
+    crate::adt::reset_import_path_comparisons();
+    let diagnostics = analyze_surface_module(&project);
+    let visibility_work = crate::analysis::take_visibility_work();
+    let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+    let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
+    let import_path_work = crate::adt::import_path_comparisons();
+    let work = visibility_work + descriptor_work + variant_work + import_path_work;
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        count,
+        "count={count} diagnostics={diagnostics:#?}"
+    );
+    assert!(import_path_work > 0, "the metric must observe import paths");
+    eprintln!(
+        "qualified same-leaf refinement visibility: declarations={count} \
+         visibility_work={visibility_work} descriptor_work={descriptor_work} \
+         variant_work={variant_work} import_path_work={import_path_work} work={work}"
+    );
+    work
+}
+
+#[test]
+fn public_visibility_work_is_linear_for_same_leaf_qualified_imports() {
+    let work = [16, 32, 64].map(same_leaf_qualified_import_work);
+
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert_eq!(second_growth, first_growth * 2, "work={work:?}");
+}
+
+#[derive(Clone, Copy, Debug)]
+struct QualifiedPathDepthWork {
+    publication: usize,
+    diagnostics: usize,
+    checked_lowering: usize,
+}
+
+fn recovered_qualified_path_depth_work(depth: usize) -> QualifiedPathDepthWork {
+    let module = recovered_qualified_path_module(depth);
+    let work = QualifiedPathDepthWork {
+        publication: recovered_qualified_publication_work(&module, depth),
+        diagnostics: recovered_qualified_diagnostic_work(&module, depth),
+        checked_lowering: recovered_qualified_lowering_work(&module, depth),
+    };
+    eprintln!("recovered qualified refinement: depth={depth} work={work:?}");
+    work
+}
+
+fn recovered_qualified_path_module(depth: usize) -> veln_ast::SurfaceModule {
+    let written_segments = std::iter::repeat_n("Q", depth).collect::<Vec<_>>();
+    let mut module_segments = written_segments.clone();
+    module_segments[depth / 2] = "q";
+    let qualifiers = written_segments.join("::");
+    let module_name = module_segments.join("::");
+    let source = SourceFile::new(
+        "consumer.veln",
+        format!(
+            "pub type State\n  Hidden\nend\n\
+             pub fn expose(value: {qualifiers}::State::Hidden) -> ()\n  ()\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    veln_ast::lower_surface_ast_with_module_identity(
+        &parsed.tree,
+        module_name,
+        source.span(veln_source::TextRange::new(0, 0)),
+    )
+}
+
+fn recovered_qualified_publication_work(module: &veln_ast::SurfaceModule, depth: usize) -> usize {
+    crate::adt::reset_qualified_path_work();
+    let environment = TypeEnvironment::from_module(module);
+    assert!(
+        !environment.function_is_published_for_test("expose"),
+        "depth={depth}"
+    );
+    crate::adt::qualified_path_work()
+}
+
+fn recovered_qualified_diagnostic_work(module: &veln_ast::SurfaceModule, depth: usize) -> usize {
+    crate::adt::reset_qualified_path_work();
+    let diagnostics = analyze_surface_module(module);
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.variant_refinement_private"),
+        "depth={depth} diagnostics={diagnostics:#?}"
+    );
+    crate::adt::qualified_path_work()
+}
+
+fn recovered_qualified_lowering_work(module: &veln_ast::SurfaceModule, depth: usize) -> usize {
+    crate::adt::reset_qualified_path_work();
+    let lowered = lower_checked_surface_module(module);
+    assert!(lowered.core.is_none(), "depth={depth}");
+    assert!(lowered.ir.is_none(), "depth={depth}");
+    crate::adt::qualified_path_work()
+}
+
+#[test]
+fn qualified_path_recovery_work_is_linear_across_visibility_consumers() {
+    let measurements = [64, 128, 256].map(recovered_qualified_path_depth_work);
+    for stage in [
+        |work: QualifiedPathDepthWork| work.publication,
+        |work: QualifiedPathDepthWork| work.diagnostics,
+        |work: QualifiedPathDepthWork| work.checked_lowering,
+    ] {
+        let first_growth = stage(measurements[1]) - stage(measurements[0]);
+        let second_growth = stage(measurements[2]) - stage(measurements[1]);
+        assert_eq!(
+            second_growth,
+            first_growth * 2,
+            "qualified path work must have exact affine growth: {measurements:?}"
+        );
+    }
+}
+
+fn same_leaf_unqualified_import_project(count: usize) -> veln_ast::SurfaceModule {
+    let mut sources = same_leaf_unqualified_import_sources(count);
+    let consumer = same_leaf_unqualified_import_consumer(count);
+    let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&consumer).tree,
+        "consumer".to_string(),
+        consumer.span(veln_source::TextRange::new(0, 0)),
+    );
+    sources.push(("consumer".to_string(), consumer));
+    let source_refs = sources
+        .iter()
+        .map(|(name, source)| (name.as_str(), source.clone()))
+        .collect();
+    let mut project = merged_modules_with_identities(source_refs);
+    project.module = consumer_identity.module;
+    project
+}
+
+fn same_leaf_unqualified_import_sources(count: usize) -> Vec<(String, SourceFile)> {
+    let mut sources = Vec::new();
+    for index in 0..count {
+        let dependency = format!("dependency{index}");
+        sources.push((
+            dependency.clone(),
+            SourceFile::new(
+                format!("{dependency}.veln"),
+                "pub type State<A>\n  Hidden\nend\n",
+            ),
+        ));
+        let unrelated = format!("unrelated{index}");
+        sources.push((
+            unrelated.clone(),
+            SourceFile::new(
+                format!("{unrelated}.veln"),
+                format!("mod {unrelated}\nuse {dependency}\n"),
+            ),
+        ));
+    }
+    sources
+}
+
+fn same_leaf_unqualified_import_consumer(count: usize) -> SourceFile {
+    let mut consumer_source = String::from("mod consumer\nuse dependency0\n");
+    for index in 0..count {
+        consumer_source.push_str(&format!(
+            "pub fn exact_{index}(value: State<Int>::Hidden) -> ()\n  ()\nend\n\
+             pub fn any_{index}(value: State::Hidden) -> ()\n  ()\nend\n"
+        ));
+    }
+    SourceFile::new("consumer.veln", consumer_source)
+}
+
+fn same_leaf_unqualified_import_work(count: usize) -> usize {
+    let project = same_leaf_unqualified_import_project(count);
+    crate::analysis::reset_visibility_work();
+    crate::adt::registry::descriptor_lookup_counters::reset();
+    crate::adt::registry::variant_lookup_counters::reset();
+    crate::adt::reset_import_path_comparisons();
+    let environment = TypeEnvironment::from_module(&project);
+    crate::analysis::reset_visibility_work();
+    crate::adt::registry::descriptor_lookup_counters::reset();
+    crate::adt::registry::variant_lookup_counters::reset();
+    let diagnostics = project
+        .functions
+        .iter()
+        .flat_map(|function| {
+            crate::analysis::check_public_variant_refinement_visibility(function, &environment)
+        })
+        .collect::<Vec<_>>();
+    let visibility_work = crate::analysis::take_visibility_work();
+    let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+    let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
+    let import_work = crate::adt::import_path_comparisons();
+    let work = visibility_work + descriptor_work + variant_work + import_work;
+    assert_unqualified_import_diagnostics(&diagnostics, count, import_work);
+    eprintln!(
+        "unqualified same-leaf refinement visibility: width={count} \
+         visibility_work={visibility_work} descriptor_work={descriptor_work} \
+         variant_work={variant_work} import_work={import_work} work={work}"
+    );
+    work
+}
+
+fn assert_unqualified_import_diagnostics(
+    diagnostics: &[Diagnostic],
+    count: usize,
+    import_work: usize,
+) {
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), count * 2, "{diagnostics:#?}");
+    let written = visibility
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    for written_type in ["State<Int>::Hidden", "State::Hidden"] {
+        assert_eq!(
+            written
+                .iter()
+                .filter(|json| json.contains(&format!("\"written_type\":\"{written_type}\"")))
+                .count(),
+            count
+        );
+    }
+    assert!(
+        import_work >= count * 4,
+        "index construction and exact/any lookup must be counted: count={count} import_work={import_work}"
     );
 }
 
 #[test]
-fn unresolved_nested_annotations_do_not_repeat_canonicalization() {
-    fn canonicalization_work(depth: usize) -> usize {
-        let mut annotation = "Int".to_string();
-        for _ in 0..depth {
-            annotation = format!("missing::Outer<{annotation}>");
-        }
-        let source = format!("fn keep(value: {annotation}) -> ()\n  ()\nend\n");
-        crate::types::reset_type_canonicalization_visits();
-        let diagnostics = diagnostics_for(&source);
-        assert!(
-            diagnostics
-                .iter()
-                .all(|diagnostic| diagnostic.id != "type.variant_mismatch"),
-            "depth {depth}: {diagnostics:#?}"
-        );
-        crate::types::take_type_canonicalization_visits()
-    }
+fn public_visibility_unqualified_import_work_is_linear_for_exact_and_any_arity() {
+    let work = [16, 32, 64].map(same_leaf_unqualified_import_work);
 
-    let work = [16, 32, 64].map(canonicalization_work);
-    eprintln!("invalid annotation canonicalization visits at depths 16, 32, and 64: {work:?}");
-    assert!(work[0] > 0, "the metric must observe canonicalization work");
-    assert!(
-        work[0] == work[1] && work[1] == work[2],
-        "an invalid outer annotation must stop validation before child recanonicalization: {work:?}"
-    );
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert_eq!(second_growth, first_growth * 2, "work={work:?}");
 }
+
+mod canonicalization;

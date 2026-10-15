@@ -9,7 +9,9 @@ specification-coverage: usage=#metrics-command; behavior=#selection-and-partial-
 
 Use `veln metrics [PATH ...]` for advisory dependency, ABC-size, and
 experimental exact whole-body similarity measurements. It shares package-root
-selection and parse-clean module loading with the other analysis commands.
+selection and [module loading](command-analysis.md#shared-command-analysis)
+with the other analysis commands. A source with parse errors does not qualify
+for the partial metrics report described below.
 Without `--check`, cycles, large ABC values, and duplicate bodies are
 reported but do not make a completed analysis fail.
 
