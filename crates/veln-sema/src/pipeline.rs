@@ -614,14 +614,8 @@ fn lower_project_reachable_surface_module_with_environment(
     )
 }
 
-fn should_validate_standard_bodies(module: &SurfaceModule) -> bool {
-    !module.functions.iter().any(|function| {
-        !function
-            .module_name
-            .as_deref()
-            .is_some_and(|module| module.starts_with("std::"))
-    })
-}
+mod helpers;
+use helpers::should_validate_standard_bodies;
 
 pub fn lower_analyzed_surface_module(
     module: &SurfaceModule,

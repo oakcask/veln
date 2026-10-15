@@ -77,33 +77,8 @@ fn lookup_descriptor(module: &str, arity: usize) -> AdtDescriptor {
     }
 }
 
-#[test]
-fn exact_variant_lookup_requires_a_unique_declaration() {
-    let mut descriptor = lookup_descriptor("sample", 0);
-    let unique = descriptor.variants[0].clone();
-    descriptor.variants.push(unique.clone());
-    let registry = AdtRegistry::from_parts(vec![descriptor], std::collections::BTreeMap::new());
-    let descriptor = &registry.descriptors()[0];
-
-    assert_eq!(
-        registry.variant_for_descriptor(descriptor, "Hidden"),
-        VariantLookup::Ambiguous
-    );
-    assert_eq!(
-        registry.variant_for_descriptor(descriptor, "Missing"),
-        VariantLookup::Missing
-    );
-
-    let registry = AdtRegistry::from_parts(
-        vec![lookup_descriptor("sample", 0)],
-        std::collections::BTreeMap::new(),
-    );
-    let descriptor = &registry.descriptors()[0];
-    assert_eq!(
-        registry.variant_for_descriptor(descriptor, "Hidden"),
-        VariantLookup::Found(&unique)
-    );
-}
+#[path = "tests/variant_lookup.rs"]
+mod variant_lookup;
 
 fn lookup_uses(source: &str) -> Vec<veln_ast::UseDecl> {
     let parsed = veln_syntax::parse(&veln_source::SourceFile::new("consumer.veln", source));
@@ -153,60 +128,67 @@ fn type_alias_reverse_chain_resolution_work_is_linear() {
 #[test]
 fn type_alias_shared_suffix_cycle_and_unresolved_work_stays_bounded() {
     for count in [64usize, 128, 256] {
-        let mut source = String::from("mod facade\n\npub type Packet\nend\n\n");
-        for index in (0..count).rev() {
-            let target = if index == 0 {
-                "Packet".to_string()
-            } else {
-                format!("Shared{}", index - 1)
-            };
-            source.push_str(&format!("pub type Shared{index} = {target}\n"));
-        }
-        for index in 0..count {
-            source.push_str(&format!("pub type Left{index} = Shared{}\n", count - 1));
-            source.push_str(&format!("pub type Right{index} = Shared{}\n", count - 1));
-        }
-        source.push_str("pub type CycleA = CycleB\n");
-        source.push_str("pub type CycleB = CycleA\n");
-        source.push_str("pub type Unresolved = Missing\n");
+        let source = shared_suffix_alias_source(count);
         let parsed = veln_syntax::parse(&veln_source::SourceFile::new("facade.veln", &source));
         assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
         let module = veln_ast::lower_surface_ast(&parsed.tree);
         type_alias_resolution_counters::reset();
         let registry = AdtRegistry::from_module_with_base(&module, &registry());
-        let descriptors = registry.descriptors();
-        let packet = descriptors
-            .iter()
-            .find(|descriptor| {
-                descriptor.module_name.as_deref() == Some("facade")
-                    && descriptor.type_name == "Packet"
-            })
-            .expect("source Packet descriptor");
-        let resolved = descriptors
-            .iter()
-            .filter(|descriptor| {
-                descriptor.module_name.as_deref() == Some("facade")
-                    && (descriptor.type_name.starts_with("Shared")
-                        || descriptor.type_name.starts_with("Left")
-                        || descriptor.type_name.starts_with("Right"))
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(resolved.len(), count * 3);
-        assert!(
-            resolved
-                .iter()
-                .all(|descriptor| descriptor.identity() == packet.identity())
-        );
-        assert!(!descriptors.iter().any(|descriptor| {
-            descriptor.module_name.as_deref() == Some("facade")
-                && matches!(
-                    descriptor.type_name.as_str(),
-                    "CycleA" | "CycleB" | "Unresolved"
-                )
-        }));
+        assert_shared_suffix_aliases(&registry, count);
         let work = type_alias_resolution_counters::work();
         assert!(work <= count * 9 + 16, "work={work} count={count}");
     }
+}
+
+fn shared_suffix_alias_source(count: usize) -> String {
+    let mut source = String::from("mod facade\n\npub type Packet\nend\n\n");
+    for index in (0..count).rev() {
+        let target = if index == 0 {
+            "Packet".to_string()
+        } else {
+            format!("Shared{}", index - 1)
+        };
+        source.push_str(&format!("pub type Shared{index} = {target}\n"));
+    }
+    for index in 0..count {
+        source.push_str(&format!("pub type Left{index} = Shared{}\n", count - 1));
+        source.push_str(&format!("pub type Right{index} = Shared{}\n", count - 1));
+    }
+    source.push_str("pub type CycleA = CycleB\npub type CycleB = CycleA\n");
+    source.push_str("pub type Unresolved = Missing\n");
+    source
+}
+
+fn assert_shared_suffix_aliases(registry: &AdtRegistry, count: usize) {
+    let descriptors = registry.descriptors();
+    let packet = descriptors
+        .iter()
+        .find(|descriptor| {
+            descriptor.module_name.as_deref() == Some("facade") && descriptor.type_name == "Packet"
+        })
+        .expect("source Packet descriptor");
+    let resolved = descriptors
+        .iter()
+        .filter(|descriptor| {
+            descriptor.module_name.as_deref() == Some("facade")
+                && (descriptor.type_name.starts_with("Shared")
+                    || descriptor.type_name.starts_with("Left")
+                    || descriptor.type_name.starts_with("Right"))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(resolved.len(), count * 3);
+    assert!(
+        resolved
+            .iter()
+            .all(|descriptor| descriptor.identity() == packet.identity())
+    );
+    assert!(!descriptors.iter().any(|descriptor| {
+        descriptor.module_name.as_deref() == Some("facade")
+            && matches!(
+                descriptor.type_name.as_str(),
+                "CycleA" | "CycleB" | "Unresolved"
+            )
+    }));
 }
 
 #[test]

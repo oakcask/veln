@@ -95,49 +95,10 @@ fn root_exposures<'a>(
     let Some(annotation_span) = annotation_span else {
         return Vec::new().into_iter();
     };
-    let mut exposures = Vec::new();
-    if let Some(refinement) = refinements
-        .iter()
-        .find(|refinement| refinement.span == *annotation_span)
-    {
-        exposures.extend(refinement.alternatives.iter().filter_map(|alternative| {
-            private_exposure(
-                RefinementExposureCandidate {
-                    written_base: alternative.base.segments.join("::"),
-                    type_argument_count: alternative.type_arguments.len(),
-                    written_variant: alternative.variant.clone(),
-                    written_type: format!("{}::{}", alternative.base.written, alternative.variant),
-                    base_span: alternative
-                        .base
-                        .segment_spans
-                        .last()
-                        .expect("type path has a segment")
-                        .clone(),
-                    variant_span: alternative.variant_span.clone(),
-                },
-                current_module,
-                environment,
-            )
-        }));
-    } else if let Some(path) = paths
-        .iter()
-        .find(|path| path.application_span == *annotation_span && path.segments.len() >= 2)
-    {
-        let variant_index = path.segments.len() - 1;
-        exposures.extend(private_exposure(
-            RefinementExposureCandidate {
-                written_base: path.segments[..variant_index].join("::"),
-                type_argument_count: path.type_argument_count,
-                written_variant: path.segments[variant_index].clone(),
-                written_type: path.written.clone(),
-                base_span: path.segment_spans[variant_index - 1].clone(),
-                variant_span: path.segment_spans[variant_index].clone(),
-            },
-            current_module,
-            environment,
-        ));
-    }
-
+    let mut exposures = root_exposure_candidates(annotation_span, refinements, paths)
+        .into_iter()
+        .filter_map(|candidate| private_exposure(candidate, current_module, environment))
+        .collect::<Vec<_>>();
     let mut seen = HashSet::new();
     exposures.retain(|exposure| {
         record_visibility_work(1);
@@ -147,6 +108,50 @@ fn root_exposures<'a>(
         ))
     });
     exposures.into_iter()
+}
+
+fn root_exposure_candidates(
+    annotation_span: &SourceSpan,
+    refinements: &[VariantRefinementType],
+    paths: &[TypePathSegments],
+) -> Vec<RefinementExposureCandidate> {
+    if let Some(refinement) = refinements
+        .iter()
+        .find(|refinement| refinement.span == *annotation_span)
+    {
+        return refinement
+            .alternatives
+            .iter()
+            .map(|alternative| RefinementExposureCandidate {
+                written_base: alternative.base.segments.join("::"),
+                type_argument_count: alternative.type_arguments.len(),
+                written_variant: alternative.variant.clone(),
+                written_type: format!("{}::{}", alternative.base.written, alternative.variant),
+                base_span: alternative
+                    .base
+                    .segment_spans
+                    .last()
+                    .expect("type path has a segment")
+                    .clone(),
+                variant_span: alternative.variant_span.clone(),
+            })
+            .collect();
+    }
+    let Some(path) = paths
+        .iter()
+        .find(|path| path.application_span == *annotation_span && path.segments.len() >= 2)
+    else {
+        return Vec::new();
+    };
+    let variant_index = path.segments.len() - 1;
+    vec![RefinementExposureCandidate {
+        written_base: path.segments[..variant_index].join("::"),
+        type_argument_count: path.type_argument_count,
+        written_variant: path.segments[variant_index].clone(),
+        written_type: path.written.clone(),
+        base_span: path.segment_spans[variant_index - 1].clone(),
+        variant_span: path.segment_spans[variant_index].clone(),
+    }]
 }
 
 struct RefinementExposureCandidate {
