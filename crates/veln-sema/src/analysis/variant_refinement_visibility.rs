@@ -355,7 +355,7 @@ fn canonical_type_identity(ty: Type) -> Option<Type> {
             variadic,
             return_type,
             effects,
-        } => canonical_function_identity(params, variadic, return_type, effects),
+        } => canonical_function_identity(params, variadic, *return_type, effects),
         Type::Unknown => None,
     }
 }
@@ -394,13 +394,13 @@ fn canonical_record_identity(fields: Vec<(String, Type)>) -> Option<Type> {
 fn canonical_function_identity(
     params: Vec<Type>,
     variadic: Option<Box<Type>>,
-    return_type: Box<Type>,
+    return_type: Type,
     effects: Vec<String>,
 ) -> Option<Type> {
     Some(Type::Function {
         params: canonical_type_identities(params)?,
         variadic: canonical_optional_type(variadic)?,
-        return_type: Box::new(canonical_type_identity(*return_type)?),
+        return_type: Box::new(canonical_type_identity(return_type)?),
         effects,
     })
 }
