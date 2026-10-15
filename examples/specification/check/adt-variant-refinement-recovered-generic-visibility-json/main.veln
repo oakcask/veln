@@ -1,16 +1,20 @@
-pub type Arg
+pub type ArgumentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponent
 	pub Value
+end
+
+pub type Pair<A, B>
+	pub PairValue(A, B)
 end
 
 pub type State<A>
 	Hidden(A)
-	Private(A)
+	pub Visible(A)
 end
 
-pub fn exposed_parameter(value: State::hidden | State<main::Arg>::Private) -> ()
+pub fn exposed_parameter(value: State<Pair<ArgumentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponent,  String>>::hidden) -> ()
 	()
 end
 
-pub fn exposed_result() -> State::hidden | State<main::Arg>::Private
-	Hidden(Value)
+pub fn exposed_result() -> State<Pair<ArgumentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponentComponent,  String>>::hidden
+	Hidden(PairValue(Value, ""))
 end

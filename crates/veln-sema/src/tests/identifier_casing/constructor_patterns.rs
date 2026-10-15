@@ -1,6 +1,44 @@
 use super::*;
 
 #[test]
+fn generic_refinement_lowercase_final_reports_constructor_casing_from_recovered_occurrence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State<A>\n",
+            "  Hidden(A)\n",
+            "end\n",
+            "fn inspect(value: State<Result<Int,  String>>::hidden) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.invalid_case")
+        .expect("recovered constructor casing diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "constructor name `hidden` must start with an ASCII uppercase letter"
+    );
+    let span = diagnostic.span.as_ref().expect("constructor casing span");
+    assert_eq!(&source.text()[span.start.offset..span.end.offset], "hidden");
+    let details = diagnostic.details.to_json();
+    assert!(
+        details.contains("\"occurrence\":\"path_segment\""),
+        "{details}"
+    );
+    assert!(
+        details.contains("\"name_class\":\"constructor\""),
+        "{details}"
+    );
+    assert!(details.contains("\"segment_index\":1"), "{details}");
+}
+
+#[test]
 fn qualified_lowercase_constructor_pattern_reports_leaf_path_segment() {
     let source = SourceFile::new(
         "main.veln",

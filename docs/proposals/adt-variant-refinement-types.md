@@ -209,16 +209,13 @@ repair guidance belong in `related` notes rather than the primary message.
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
 Parser failures that cannot form a base type, `::`, and final constructor name
-remain syntax diagnostics. A lowercase final segment is also invalid syntax,
-including after a generic base. Project checking retains its recovered tree for
-semantic diagnostics only when the complete parse-failure set includes that
-failure and otherwise contains only another lowercase-final failure or an
-incomplete-union failure at the separator immediately following the same
-recovered lowercase-final occurrence, apart from source trivia. The syntax
-failures remain errors and precede independently provable casing and visibility
-diagnostics; an incomplete union at another occurrence or any other unrelated
-parse failure prevents semantic analysis of the source. Once a valid or
-narrowly recovered structure exists, semantic failures use the table above.
+remain syntax diagnostics. The current [source](../specification/source-surface.md#malformed-variant-refinement-forms),
+[type](../specification/types.md#compatibility-and-limits), and
+[diagnostic](../specification/diagnostics-json.md#diagnostic-families)
+specifications own scoped lowercase-final recovery, including generic bases,
+and its direct public-function visibility diagnostics. The syntax failures
+remain errors. Once a valid or narrowly recovered structure exists, remaining
+indirect semantic failures use the table above.
 Existing generic arity, name ambiguity, duplicate, and invalid-casing
 diagnostics remain independently reportable. Diagnostic order must be
 deterministic, and failure must not publish a partially typed declaration.

@@ -853,9 +853,10 @@ The recovered-and-generic visibility
 [`human`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-json/)
-cases verify that unique casing recovery for a nongeneric alternative and the
-complete identity of a later exact generic alternative both reach the direct
-visibility check in written order.
+cases verify that a lowercase final segment after a generic base remains a
+syntax error while its unique constructor identity reaches casing and direct
+visibility checks. They also verify complete written presentation, including
+internal type-argument trivia, beyond the bounded lookup display.
 Project checking retains that recovered source for the visibility check only
 when its parse failures are limited to the lowercase-final refinement failure
 and an incomplete-union failure at the separator immediately following the
@@ -869,8 +870,8 @@ linearly with the relevant source occurrences for wide refinement unions, many
 public declarations, recovered boundaries, and qualified imports. This bound
 includes casing recovery, same-named imported ADTs, and unrelated declarations.
 A recovered direct union retains written-order diagnostics without avoidable
-superlinear visibility-analysis work, including when recovered nongeneric and
-exact generic alternatives alternate.
+superlinear visibility-analysis work, including when recovered and exact
+generic alternatives alternate.
 
 Wide record annotations on public function parameters and results remain
 outside the direct visibility boundary. The checker rejects those structural

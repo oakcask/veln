@@ -636,6 +636,53 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
 }
 
 #[test]
+fn preserves_lowercase_final_variants_after_generic_bases_for_semantic_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid(value: State<Result<Int,  Error>>::hidden) -> ()\n  ()\nend\n",
+    );
+    let output = parse(&source);
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+            .count(),
+        1,
+        "{:#?}",
+        output.diagnostics
+    );
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+        .expect("lowercase final syntax diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "variant refinement final segment must start with an ASCII uppercase letter"
+    );
+    let diagnostic_span = diagnostic.span.as_ref().expect("syntax diagnostic span");
+    assert_eq!(
+        &source.text()[diagnostic_span.start.offset..diagnostic_span.end.offset],
+        "hidden"
+    );
+
+    let refinement = &first_function(&output).params[0].ty_refinements[0];
+    let alternative = &refinement.alternatives[0];
+    assert_eq!(alternative.base.segments, ["State"]);
+    assert_eq!(alternative.type_arguments.len(), 1);
+    assert_eq!(
+        alternative.type_arguments[0].ty_fragments,
+        ["Result<Int,  Error>"]
+    );
+    assert_eq!(alternative.variant, "hidden");
+    assert_eq!(
+        &source.text()[alternative.span.start.offset..alternative.span.end.offset],
+        "State<Result<Int,  Error>>::hidden"
+    );
+}
+
+#[test]
 fn preserves_generic_refinements_with_lowercase_base_leaves_for_semantic_recovery() {
     let source = SourceFile::new(
         "main.veln",

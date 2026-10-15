@@ -312,6 +312,19 @@ mod tests {
             recovered.diagnostics
         );
 
+        let recovered_generic = parse(&SourceFile::new(
+            "main.veln",
+            "fn expose(value: State<Result<Int,  Error>>::hidden) -> ()\n  ()\nend\n",
+        ));
+        assert!(
+            retains_lowercase_final_refinement_recovery(
+                &recovered_generic.tree,
+                &recovered_generic.diagnostics,
+            ),
+            "{:#?}",
+            recovered_generic.diagnostics
+        );
+
         for text in [
             "fn broken() -> ()\n  @\nend\n",
             "fn broken(value: State::Hidden |) -> ()\n  ()\nend\n",
@@ -331,7 +344,7 @@ mod tests {
         let parsed = parse(&SourceFile::new(
             "main.veln",
             concat!(
-                "fn recovered(value: State::hidden | State::Visible) -> ()\n",
+                "fn recovered(value: State<Int>::hidden | State<Int>::Visible) -> ()\n",
                 "  ()\n",
                 "end\n",
                 "fn broken(value: State::Hidden |) -> ()\n",

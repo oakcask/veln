@@ -206,15 +206,16 @@ The recovered-and-generic visibility
 [`human`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-json/)
-cases verify casing-before-privacy ordering for a recovered nongeneric
-alternative followed by an exact generic alternative, unqualified parameters,
-results, complete detail fields, and related declaration and boundary
-locations. The CLI reports the lowercase-final parse failures before these
-semantic diagnostics. It retains the recovered source for semantic analysis
-only when each accompanying incomplete-union failure selects the separator
-immediately following the same recovered lowercase-final occurrence, apart
-from source trivia, and no unrelated parse failure occurs. This diagnostic
-recovery does not make the lowercase final segment valid syntax.
+cases verify parse-before-casing-before-privacy ordering for generic bases with
+lowercase final segments in public parameters and results. Their JSON output
+fixes the complete `written_type`, including internal type-argument trivia
+beyond the bounded lookup display, the remaining closed detail fields, and the
+related declaration and boundary locations. The CLI retains the recovered
+source for semantic analysis only when each accompanying incomplete-union
+failure selects the separator immediately following the same recovered
+lowercase-final occurrence, apart from source trivia, and no unrelated parse
+failure occurs. This diagnostic recovery does not make the lowercase final
+segment valid syntax.
 
 A failed base retains its resolved identity as semantic analysis state for
 suppression and later analysis. This diagnostic recovery does not make the

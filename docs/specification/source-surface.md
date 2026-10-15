@@ -167,7 +167,10 @@ A project check keeps the recovered tree for semantic diagnostics only when
 every parse failure in that source is either the lowercase-final diagnostic or
 an incomplete-union diagnostic at the separator immediately following that
 same recovered lowercase-final occurrence, apart from source trivia. The
-lowercase spelling remains rejected source syntax. An incomplete union at
+lowercase spelling remains rejected source syntax. This recovery also applies
+when the base has type arguments. The recovered structural occurrence retains
+the complete base, type arguments and their internal trivia, final spelling,
+and source spans for casing and type diagnostics. An incomplete union at
 another occurrence, or any other parse failure, keeps the source out of
 semantic analysis.
 
